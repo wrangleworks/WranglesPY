@@ -1,12 +1,12 @@
 """
 Configuration Settings
 """
-
+import os
 
 
 api_host = 'https://clbqu0wyx6.execute-api.us-east-2.amazonaws.com'
-api_user = None
-api_password = None
+api_user = os.environ.get('WRANGLES_USER')
+api_password = os.environ.get('WRANGLES_PASSWORD')
 
 def authenticate(user, password):
     """
@@ -23,9 +23,4 @@ class keycloak():
     """
     host = 'https://sso.wrangle.works'
     realm = 'wrwx'
-
-    class client():
-        """
-        Settings for keycloak client to authenticate against.
-        """
-        id = 'services'
+    client_id = 'services'

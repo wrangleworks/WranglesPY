@@ -22,7 +22,7 @@ pip install git+https://<token>@github.com/wrangleworks/WranglesPy.git
 
 ```python
 >>> import wrangles
->>> wrangles.authenticate('<user>', '<password>')
+>>> wrangles.authenticate('<user>', '<password>') # Alternatively, can be passed as the enviroment variables WRANGLES_USER and WRANGLES_PASSWORD
 >>> wrangles.extract.attributes('test 15mmx25mm test')
 {'length': ['15mm', '25mm']}
 ```
