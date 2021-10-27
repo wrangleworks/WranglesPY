@@ -2,9 +2,9 @@
 Functions to extract information from unstructured text.
 """
 
-import requests
+import requests as _requests
 from . import config as _config
-from . import auth
+from . import auth as _auth
 from typing import Union
 
     
@@ -20,7 +20,7 @@ def attributes(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = requests.post(f'{_config.api_host}/wrangles/extract/attributes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/attributes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
     
     if isinstance(input, str): results = results[0]
@@ -43,7 +43,7 @@ def geography(input: Union[str, list], dataType: str) -> list:
     else:
         json_data = input
 
-    response = requests.post(f'{_config.api_host}/wrangles/extract/geography', params={'responseFormat':'array', 'dataType':dataType }, headers={'Authorization': f'Bearer {auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/geography', params={'responseFormat':'array', 'dataType':dataType }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
 
     if isinstance(input, str): results = results[0]
@@ -63,7 +63,7 @@ def codes(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = requests.post(f'{_config.api_host}/wrangles/extract/codes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/codes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
 
     if isinstance(input, str): results = results[0]
@@ -83,7 +83,7 @@ def properties(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = requests.post(f'{_config.api_host}/wrangles/extract/properties', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/properties', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
 
     if isinstance(input, str): results = results[0]
