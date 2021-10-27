@@ -48,6 +48,27 @@ def codes(input: Union[str, list]) -> list:
     return results
 
 
+def custom(input: Union[str, list], model_id: str) -> list:
+    """
+    Extract entities using a custom model.
+
+    :param input: A string or list of strings to search for information.
+    :param model_id: The model to be used to search for information.
+    :return: A list of entities found.
+    """
+    if isinstance(input, str): 
+        json_data = [input]
+    else:
+        json_data = input
+
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/custom', params={'responseFormat':'array', 'model_id': model_id }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
+    results = response.json()
+
+    if isinstance(input, str): results = results[0]
+    
+    return results
+
+
 def geography(input: Union[str, list], dataType: str) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
@@ -70,7 +91,7 @@ def geography(input: Union[str, list], dataType: str) -> list:
     
     return results
 
-    
+
 def properties(input: Union[str, list]) -> list:
     """
     Extract categorical properties from unstructured text such as colours or materials.
