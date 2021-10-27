@@ -1,6 +1,16 @@
 import wrangles
 
 
+# Classify
+def test_classify():
+    result = wrangles.classify('ball bearing', 'b7c34bf9-84fe-4fc3')
+    assert result == 'MechPT'
+
+def test_classify_list():
+    result = wrangles.classify(['ball bearing'], 'b7c34bf9-84fe-4fc3')
+    assert result[0] == 'MechPT'
+
+
 # Data
 def test_user_models():
     result = wrangles.data.user.models('extract')
@@ -13,6 +23,7 @@ def test_user_models_extract():
 def test_user_models_classify():
     result = wrangles.data.user.models('classify')
     assert result[0]['purpose'] == 'classify'
+
 
 # Extract
 def test_attributes():
@@ -30,6 +41,14 @@ def test_codes():
 def test_codes_list():
     result = wrangles.extract.codes(['something ABC123ZZ something'])
     assert result[0][0] == 'ABC123ZZ'
+
+def test_custom():
+    result = wrangles.extract.custom('test skf test', '0616f784-ac11-4f8a')
+    assert result[0] == 'SKF'
+
+def test_custom_list():
+    result = wrangles.extract.custom(['test skf test'], '0616f784-ac11-4f8a')
+    assert result[0][0] == 'SKF'
 
 def test_geography():
     result = wrangles.extract.geography('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
