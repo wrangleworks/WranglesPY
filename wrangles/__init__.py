@@ -10,6 +10,7 @@ Wrangle your data into shape with machine learning.
    ['ABC123ZZ']
 """
 
-from . import extract
 from .config import authenticate 
+from . import data
+from . import extract
 from .translate import translate
