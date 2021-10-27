@@ -1,6 +1,18 @@
 import wrangles
 
-wrangles.authenticate('user', 'password')
+
+# Data
+def test_user_models():
+    result = wrangles.data.user.models('extract')
+    assert len(result) > 0
+
+def test_user_models_extract():
+    result = wrangles.data.user.models('extract')
+    assert result[0]['purpose'] == 'extract'
+
+def test_user_models_classify():
+    result = wrangles.data.user.models('classify')
+    assert result[0]['purpose'] == 'classify'
 
 # Extract
 def test_attributes():
@@ -18,6 +30,14 @@ def test_codes():
 def test_codes_list():
     result = wrangles.extract.codes(['something ABC123ZZ something'])
     assert result[0][0] == 'ABC123ZZ'
+
+def test_geography():
+    result = wrangles.extract.geography('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
+    assert result[0] == '1100 Congress Ave'
+
+def test_geography_list():
+    result = wrangles.extract.geography(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
+    assert result[0][0] == '1100 Congress Ave'
 
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
