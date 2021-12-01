@@ -8,7 +8,7 @@ from . import auth as _auth
 from typing import Union
 
 
-def classify(input: Union[str, list[str]], model_id: str) -> Union[str, list]:
+def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
     """
     Predict which category an input belongs to.
 
