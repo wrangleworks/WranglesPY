@@ -23,7 +23,7 @@ def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
     else:
         raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
 
-    response = _requests.post(f'{_config.api_host}/classify', params={'responseFormat':'array', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/classify', params={'responseFormat':'array', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
 
     if isinstance(input, str): results = results[0]
