@@ -4,7 +4,7 @@ Configuration Settings
 import os
 
 
-api_host = 'https://clbqu0wyx6.execute-api.us-east-2.amazonaws.com'
+api_host = 'https://api.wrangle.works'
 api_user = os.environ.get('WRANGLES_USER')
 api_password = os.environ.get('WRANGLES_PASSWORD')
 
