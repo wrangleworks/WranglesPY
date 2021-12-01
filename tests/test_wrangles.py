@@ -3,11 +3,11 @@ import wrangles
 
 # Classify
 def test_classify():
-    result = wrangles.classify('ball bearing', 'b7c34bf9-84fe-4fc3')
+    result = wrangles.classify('ball bearing', '03f918c1-7d64-42fb')
     assert result == 'MechPT'
 
 def test_classify_list():
-    result = wrangles.classify(['ball bearing'], 'b7c34bf9-84fe-4fc3')
+    result = wrangles.classify(['ball bearing'], '03f918c1-7d64-42fb')
     assert result[0] == 'MechPT'
 
 
@@ -43,11 +43,11 @@ def test_codes_list():
     assert result[0][0] == 'ABC123ZZ'
 
 def test_custom():
-    result = wrangles.extract.custom('test skf test', '0616f784-ac11-4f8a')
+    result = wrangles.extract.custom('test skf test', 'fce592c9-26f5-4fd7')
     assert result[0] == 'SKF'
 
 def test_custom_list():
-    result = wrangles.extract.custom(['test skf test'], '0616f784-ac11-4f8a')
+    result = wrangles.extract.custom(['test skf test'], 'fce592c9-26f5-4fd7')
     assert result[0][0] == 'SKF'
 
 def test_geography():
