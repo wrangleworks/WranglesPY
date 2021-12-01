@@ -8,7 +8,7 @@ from . import auth as _auth
 from typing import Union
 
     
-def attributes(input: Union[str, list]) -> list:
+def attributes(input: Union[str, list], responseContent: str = 'span') -> list:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
 
@@ -20,7 +20,7 @@ def attributes(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/attributes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/attributes', params={'responseFormat':'array', 'responseContent': responseContent}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
     results = response.json()
     
     if isinstance(input, str): results = results[0]
