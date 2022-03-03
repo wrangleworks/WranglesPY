@@ -26,7 +26,7 @@ pip install git+https://<token>@github.com/wrangleworks/WranglesPy.git
 >>> wrangles.extract.attributes('it is 15mm long')
 {'length': ['15mm']}
 ```
-**Alternatively, credentials can be passed as the enviroment variables WRANGLES_USER and WRANGLES_PASSWORD**
+Alternatively, credentials can be passed as the enviroment variables **WRANGLES_USER** and **WRANGLES_PASSWORD**
 
 ## Wrangles
 
