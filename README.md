@@ -7,7 +7,7 @@ Wrangles python package.
 ### Personal Access Token
 Since this is a private repo, to install the package you must generate a personal access token.
 
- - In Github go to *User Settings -> Develop Settings -> Personal access tokens -> Generate new token*
+ - In Github go to *Settings -> <>Developer Settings -> Personal access tokens -> Generate new token*
  - Add *repo scope* and *Generate token*
 
 ### Pip
@@ -22,10 +22,11 @@ pip install git+https://<token>@github.com/wrangleworks/WranglesPy.git
 
 ```python
 >>> import wrangles
->>> wrangles.authenticate('<user>', '<password>') # Alternatively, can be passed as the enviroment variables WRANGLES_USER and WRANGLES_PASSWORD
+>>> wrangles.authenticate('<user>', '<password>')
 >>> wrangles.extract.attributes('it is 15mm long')
 {'length': ['15mm']}
 ```
+**Alternatively, credentials can be passed as the enviroment variables WRANGLES_USER and WRANGLES_PASSWORD**
 
 ## Wrangles
 
