@@ -7,6 +7,29 @@ from . import config as _config
 from . import auth as _auth
 from typing import Union
 
+
+def address(input: Union[str, list], dataType: str) -> list:
+    """
+    Extract geographical information from unstructured text such as streets, cities or countries.
+
+    e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
+
+    :param input: A string or list of strings with addresses to search for information.
+    :param dataType: The type of information to return. 'streets', 'cities', 'regions' or 'countries'
+    :return: A list of any results found.
+    """
+    if isinstance(input, str): 
+        json_data = [input]
+    else:
+        json_data = input
+
+    response = _requests.post(f'{_config.api_host}/wrangles/extract/address', params={'responseFormat':'array', 'dataType':dataType }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
+    results = response.json()
+
+    if isinstance(input, str): results = results[0]
+    
+    return results
+
     
 def attributes(input: Union[str, list], responseContent: str = 'span') -> list:
     """
