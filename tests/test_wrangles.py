@@ -3,12 +3,12 @@ import wrangles
 
 # Classify
 def test_classify():
-    result = wrangles.classify('ball bearing', '03f918c1-7d64-42fb')
-    assert result == 'MechPT'
+    result = wrangles.classify('ball bearing', '24ac9037-ecab-4030')
+    assert result.split(' || ')[0] == 'Bearings'
 
 def test_classify_list():
-    result = wrangles.classify(['ball bearing'], '03f918c1-7d64-42fb')
-    assert result[0] == 'MechPT'
+    result = wrangles.classify(['ball bearing'], '24ac9037-ecab-4030')
+    assert result[0].split(' || ')[0] == 'Bearings'
 
 
 # Data
@@ -26,6 +26,14 @@ def test_user_models_classify():
 
 
 # Extract
+def test_address():
+    result = wrangles.extract.address('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
+    assert result[0] == '1100 Congress Ave'
+
+def test_address_list():
+    result = wrangles.extract.address(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
+    assert result[0][0] == '1100 Congress Ave'
+
 def test_attributes():
     result = wrangles.extract.attributes('something 15V something')
     assert result['electric potential'][0] == '15V'
