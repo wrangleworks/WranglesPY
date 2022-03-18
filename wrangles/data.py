@@ -23,3 +23,15 @@ class user():
         response = _requests.get(f'{_config.api_host}/data/user/models', params=params, headers={'Authorization': f'Bearer {_auth.get_access_token()}'})
         results = response.json()
         return results
+
+
+def model(id: str):
+    """
+    Get a model definition
+    :param id: model ID
+    :returns: Dict of model properties
+    """
+    params = {'id': id}
+    response = _requests.get(f'{_config.api_host}/data/model', params=params, headers={'Authorization': f'Bearer {_auth.get_access_token()}'})
+    results = response.json()
+    return results

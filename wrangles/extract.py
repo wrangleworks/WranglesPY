@@ -2,9 +2,9 @@
 Functions to extract information from unstructured text.
 """
 
-import requests as _requests
 from . import config as _config
-from . import auth as _auth
+from . import data as _data
+from . import batching as _batching
 from typing import Union
 
 
@@ -23,8 +23,11 @@ def address(input: Union[str, list], dataType: str) -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/address', params={'responseFormat':'array', 'dataType':dataType }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/address'
+    params = {'responseFormat':'array', 'dataType':dataType }
+    batch_size = 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
     
@@ -43,8 +46,11 @@ def attributes(input: Union[str, list], responseContent: str = 'span') -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/attributes', params={'responseFormat':'array', 'responseContent': responseContent}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/attributes'
+    params = {'responseFormat':'array', 'responseContent': responseContent}
+    batch_size = 1000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
     
     if isinstance(input, str): results = results[0]
 
@@ -63,8 +69,11 @@ def codes(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/codes', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/codes'
+    params = {'responseFormat': 'array'}
+    batch_size = 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
     
@@ -81,11 +90,17 @@ def custom(input: Union[str, list], model_id: str) -> list:
     """
     if isinstance(input, str): 
         json_data = [input]
-    else:
+    elif isinstance(input, list):
         json_data = input
+    else:
+        raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/custom', params={'responseFormat':'array', 'model_id': model_id }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/custom'
+    params = {'responseFormat': 'array', 'model_id': model_id}
+    model_properties = _data.model(model_id)
+    batch_size = model_properties['batch_size'] or 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
     
@@ -107,8 +122,11 @@ def geography(input: Union[str, list], dataType: str) -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/geography', params={'responseFormat':'array', 'dataType':dataType }, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/geography'
+    params = {'responseFormat': 'array', 'dataType': dataType}
+    batch_size = 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
     
@@ -127,8 +145,11 @@ def properties(input: Union[str, list]) -> list:
     else:
         json_data = input
 
-    response = _requests.post(f'{_config.api_host}/wrangles/extract/properties', params={'responseFormat':'array'}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/extract/properties'
+    params = {'responseFormat':'array'}
+    batch_size = 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
     

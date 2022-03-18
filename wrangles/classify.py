@@ -2,9 +2,9 @@
 Functions to classify information.
 """
 
-import requests as _requests
 from . import config as _config
-from . import auth as _auth
+from . import data as _data
+from . import batching as _batching
 from typing import Union
 
 
@@ -23,8 +23,12 @@ def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
     else:
         raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
 
-    response = _requests.post(f'{_config.api_host}/wrangles/classify', params={'responseFormat':'array', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=json_data)
-    results = response.json()
+    url = f'{_config.api_host}/wrangles/classify'
+    params = {'responseFormat': 'array', 'model_id': model_id}
+    model_properties = _data.model(model_id)
+    batch_size = model_properties['batch_size'] or 5000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
 
