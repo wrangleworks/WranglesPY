@@ -1,0 +1,81 @@
+import:
+  type: file
+  name: "{{inputFile}}"
+  sheet: 'Inventory tbl'
+
+wrangles:
+  - rename:
+      input: Manufacturer Name
+      output: Manufacturer
+
+  - extract.custom:
+      input: Manufacturer 
+      output: Brands Primary
+      parameters:
+        model_id: 4786921f-342f-4a0c
+  - join:
+      input: Brands Primary
+      output: Brands Primary
+      parameters:
+        char: ','
+
+  - concatenate:
+      input:
+        - LongText
+        - Purchase Order Text
+      output:
+        OtherBrands
+      parameters:
+        char: ','
+  - extract.custom:
+      input: OtherBrands
+      output: Brands Secondary
+      parameters:
+        model_id: 4786921f-342f-4a0c
+  - join:
+      input: Brands Secondary
+      output: Brands Secondary
+      parameters:
+        char: ','
+
+  - rename:
+      input: Manufacturer Part Number
+      output: MPN
+
+  - extract.codes:
+      input: MPN
+      output: Parts Primary
+  - join:
+      input: Parts Primary
+      output: Parts Primary
+      parameters:
+        char: ','
+
+  - concatenate:
+      input:
+        - LongText
+        - Purchase Order Text
+      output:
+        OtherParts
+      parameters:
+        char: ' || placeholder || '
+  - extract.codes:
+      input: OtherParts
+      output: Parts Secondary
+  - join:
+      input: Parts Secondary
+      output: Parts Secondary
+      parameters:
+        char: ','
+
+export:
+  type: file
+  name: '{{outputFile}}'
+  fields:
+    - ID
+    - Manufacturer
+    - Brands Primary
+    - Brands Secondary
+    - MPN
+    - Parts Primary
+    - Parts Secondary
