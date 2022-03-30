@@ -42,6 +42,6 @@ def get_access_token():
         else:
             raise RuntimeError('Unexpected error when authenticating')
 
-        _access_token_expiry = datetime.now() + timedelta(0, response.json()['expires_in'])
+        _access_token_expiry = datetime.now() + timedelta(0, response.json()['expires_in'] - 30)
 
     return _access_token
