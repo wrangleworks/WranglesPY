@@ -1,0 +1,51 @@
+import:
+  type: file
+  name: "{{inputFile}}"
+  sheet: 'Purchase Tbl'
+
+wrangles:
+  - convert.case:
+      input: LongText
+      output: LongText (lower)
+      parameters:
+        case: lower
+
+  - extract.custom:
+      input: LongText
+      output: Brands Raw
+      parameters:
+        model_id: 3c91ea92-207f-414b
+  - join:
+      input: Brands Raw
+      output: Brands Raw
+      parameters:
+        char: ','
+  - convert.case:
+      input: Brands Raw
+      output: Brands Raw
+      parameters:
+        case: lower
+
+  - convert.case:
+      input: Manufacturer Name
+      output: Manfucturer Name (lower)
+      parameters:
+        case: lower
+
+  - placeholder.common_words:
+      input: LongText (lower)
+      output: PLACEHOLDER
+      parameters:
+        subtract:
+          - Brands Raw
+          - Manfucturer Name (lower)
+
+export:
+  type: file
+  name: '{{outputFile}}'
+  fields:
+    - ID
+    - Client Part Number
+    - Short Description
+    - LongText
+    - LongText (lower) core words
