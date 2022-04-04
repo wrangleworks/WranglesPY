@@ -33,11 +33,9 @@ def _import_file(file_name, sheet_name):
     df = None
 
     if file_name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
-        df = pandas.read_excel(file_name, dtype='object', sheet_name=sheet_name)
-        df = df.fillna('')
+        df = pandas.read_excel(file_name, dtype='object', sheet_name=sheet_name).fillna('')
     elif file_name.split('.')[-1] in ['csv', 'txt']:
-        df = pandas.read_csv(file_name)
-        df = df.fillna('')
+        df = pandas.read_csv(file_name).fillna('')
 
     return df
 
