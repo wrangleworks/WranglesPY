@@ -61,72 +61,71 @@ def _execute_wrangles(wrangles_config, df):
         for wrangle, params in step.items():
             logging.info(f": Wrangling :: {wrangle} :: {params['input']} >> {params['output']}")
 
-            match wrangle:
-                case 'rename':
-                    # Rename a column
+            if wrangle == 'rename':
+                # Rename a column
+                df[params['output']] = df[params['input']].tolist()
+
+            elif wrangle == 'join':
+                # Join a list to a string e.g. ['ele1', 'ele2', 'ele3'] -> 'ele1,ele2,ele3'
+                df[params['output']] = _format.join_list(df[params['input']].tolist(), params['parameters']['char'])
+
+            elif wrangle == 'concatenate':
+                # Concatenate multiple inputs into one
+                df[params['output']] = _format.concatenate(df[params['input']].astype(str).values.tolist(), params['parameters']['char'])
+
+            elif wrangle == 'split':
+                df[params['output']] = _format.split(df[params['input']].astype(str).tolist(), params['parameters']['char'])
+
+            elif wrangle == 'convert.data_type':
+                if params['parameters']['dataType'] == 'float':
+                    df[params['output']] = df[params['input']].astype(float).tolist()
+                else:
                     df[params['output']] = df[params['input']].tolist()
+            
+            elif wrangle == 'convert.case':
+                if params['parameters']['case'].lower() == 'lower':
+                    df[params['output']] = df[params['input']].str.lower()
+                elif params['parameters']['case'].lower() == 'upper':
+                    df[params['output']] = df[params['input']].str.lower()
+                elif params['parameters']['case'].lower() == 'title':
+                    df[params['output']] = df[params['input']].str.title()
+                elif params['parameters']['case'].lower() == 'sentence':
+                    df[params['output']] = df[params['input']].str.capitalize()
 
-                case 'join':
-                    # Join a list to a string e.g. ['ele1', 'ele2', 'ele3'] -> 'ele1,ele2,ele3'
-                    df[params['output']] = _format.join_list(df[params['input']].tolist(), params['parameters']['char'])
+            elif wrangle == 'select.list_element':
+                # Select a numbered element of a list (zero indexed)
+                df[params['output']] = _select.list_element(df[params['input']].tolist(), params['parameters']['element'])
 
-                case 'concatenate':
-                    # Concatenate multiple inputs into one
-                    df[params['output']] = _format.concatenate(df[params['input']].astype(str).values.tolist(), params['parameters']['char'])
+            # elif wrangle == 'select.dict_element': placeholder
 
-                case 'split':
-                    df[params['output']] = _format.split(df[params['input']].astype(str).tolist(), params['parameters']['char'])
+            elif wrangle == 'select.highest_confidence':
+                # Select the option with the highest confidence. Inputs are expected to be of the form [<<value>>, <<confidence_score>>]
+                df[params['output']] = _select.highest_confidence(df[params['input']].values.tolist())
 
-                case 'convert.data_type':
-                    if params['parameters']['dataType'] == 'float':
-                        df[params['output']] = df[params['input']].astype(float).tolist()
-                    else:
-                        df[params['output']] = df[params['input']].tolist()
-                
-                case 'convert.case':
-                    if params['parameters']['case'].lower() == 'lower':
-                        df[params['output']] = df[params['input']].str.lower()
-                    elif params['parameters']['case'].lower() == 'upper':
-                        df[params['output']] = df[params['input']].str.lower()
-                    elif params['parameters']['case'].lower() == 'title':
-                        df[params['output']] = df[params['input']].str.title()
-                    elif params['parameters']['case'].lower() == 'sentence':
-                        df[params['output']] = df[params['input']].str.capitalize()
+            elif wrangle == 'select.threshold':
+                # Select the first option if it exceeds a given threshold, else the second option
+                df[params['output']] = _select.confidence_threshold(df[params['input'][0]].tolist(), df[params['input'][1]].tolist(), params['parameters']['threshold'])
 
-                case 'select.list_element':
-                    # Select a numbered element of a list (zero indexed)
-                    df[params['output']] = _select.list_element(df[params['input']].tolist(), params['parameters']['element'])
+            elif wrangle == 'classify':
+                df[params['output']] = _classify(df[params['input']].astype(str).tolist(), **params['parameters'])
 
-                # case 'select.dict_element': placeholder
+            elif wrangle == 'extract.attributes':
+                df[params['output']] = _extract.attributes(df[params['input']].astype(str).tolist())
 
-                case 'select.highest_confidence':
-                    # Select the option with the highest confidence. Inputs are expected to be of the form [<<value>>, <<confidence_score>>]
-                    df[params['output']] = _select.highest_confidence(df[params['input']].values.tolist())
+            elif wrangle == 'extract.properties':
+                df[params['output']] = _extract.properties(df[params['input']].astype(str).tolist())
+            
+            elif wrangle == 'extract.custom':
+                df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
+            
+            elif wrangle == 'extract.codes':
+                df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
 
-                case 'select.threshold':
-                    # Select the first option if it exceeds a given threshold, else the second option
-                    df[params['output']] = _select.confidence_threshold(df[params['input'][0]].tolist(), df[params['input'][1]].tolist(), params['parameters']['threshold'])
+            elif wrangle == 'placeholder.common_words':
+                df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
 
-                case 'classify':
-                    df[params['output']] = _classify(df[params['input']].astype(str).tolist(), **params['parameters'])
-
-                case 'extract.attributes':
-                    df[params['output']] = _extract.attributes(df[params['input']].astype(str).tolist())
-
-                case 'extract.properties':
-                    df[params['output']] = _extract.properties(df[params['input']].astype(str).tolist())
-                
-                case 'extract.custom':
-                    df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
-                
-                case 'extract.codes':
-                    df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
-
-                case 'placeholder.common_words':
-                    df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
-
-                case _:
-                    logging.info(f"UNKNOWN WRANGLE :: {wrangle} ::")
+            else:
+                logging.info(f"UNKNOWN WRANGLE :: {wrangle} ::")
 
     return df
 
