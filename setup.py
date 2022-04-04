@@ -9,5 +9,5 @@ setup(
     author='Wrangleworks',
     author_email='chris@wrangleworks.com',
     keywords=['data','wrangling'],
-    install_requires=['requests', 'pyyaml', 'pandas', 'openpyxl']
+    install_requires=['requests', 'pyyaml', 'pandas', 'openpyxl', 'pandas_flavor', 'boltons']
 )
