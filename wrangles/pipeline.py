@@ -10,6 +10,7 @@ from . import classify as _classify
 from . import extract as _extract
 from . import ww_pd
 
+
 logging.getLogger().setLevel(logging.INFO)
 
 
@@ -18,11 +19,17 @@ def _load_config_file(config_file, params):
     Load yaml config file + replace any placeholder variables
     """
     config = None
-    with open(config_file, "r") as f:
-        conf_file = f.read()
+    if "\n" in config_file:
+        conf_file = config_file
         for key, val in params.items():
             conf_file = conf_file.replace(r"{{" + key + r"}}", val)
         config = yaml.safe_load(conf_file)
+    else:
+        with open(config_file, "r") as f:
+            conf_file = f.read()
+            for key, val in params.items():
+                conf_file = conf_file.replace(r"{{" + key + r"}}", val)
+            config = yaml.safe_load(conf_file)
     return config
 
 
@@ -59,7 +66,7 @@ def _export_file(conf_export, df):
 def _execute_wrangles(wrangles_config, df):
     for step in wrangles_config:
         for wrangle, params in step.items():
-            logging.info(f": Wrangling :: {wrangle} :: {params['input']} >> {params['output']}")
+            logging.info(f": Wrangling :: {wrangle} :: {params['input']} >> {params.get('output', 'Dynamic')}")
 
             if wrangle == 'rename':
                 # Rename a column
@@ -96,7 +103,9 @@ def _execute_wrangles(wrangles_config, df):
                 # Select a numbered element of a list (zero indexed)
                 df[params['output']] = _select.list_element(df[params['input']].tolist(), params['parameters']['element'])
 
-            # elif wrangle == 'select.dict_element': placeholder
+            elif wrangle == 'select.dictionary_element':
+                # Select a named element of a dictionary
+                df[params['output']] = _select.dict_element(df[params['input']].tolist(), params['parameters']['element'])
 
             elif wrangle == 'select.highest_confidence':
                 # Select the option with the highest confidence. Inputs are expected to be of the form [<<value>>, <<confidence_score>>]
@@ -105,6 +114,9 @@ def _execute_wrangles(wrangles_config, df):
             elif wrangle == 'select.threshold':
                 # Select the first option if it exceeds a given threshold, else the second option
                 df[params['output']] = _select.confidence_threshold(df[params['input'][0]].tolist(), df[params['input'][1]].tolist(), params['parameters']['threshold'])
+
+            elif wrangle == 'format.price_breaks':
+                df = pandas.concat([df, _format.price_breaks(df[params['input']], params['parameters']['categoryLabel'], params['parameters']['valueLabel'])], axis=1)
 
             elif wrangle == 'classify':
                 df[params['output']] = _classify(df[params['input']].astype(str).tolist(), **params['parameters'])
@@ -146,7 +158,8 @@ def run(config_file, params={}):
     logging.info(": Running Wrangles ::")
     df = _execute_wrangles(config['wrangles'], df)
 
-    logging.info(": Exporting Data ::")
-    df = _export_file(config['export'], df)
+    if 'export' in config.keys():
+        logging.info(": Exporting Data ::")
+        df = _export_file(config['export'], df)
 
     return df

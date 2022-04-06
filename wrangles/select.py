@@ -28,3 +28,6 @@ def confidence_threshold(list_1, list_2, threshold):
 
 def list_element(input, n):
     return [row[n] for row in input]
+
+def dict_element(input, key):
+    return [row.get(key, '') for row in input]
