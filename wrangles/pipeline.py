@@ -9,6 +9,7 @@ from . import format as _format
 from . import classify as _classify
 from . import extract as _extract
 from . import ww_pd
+from . import match
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -135,6 +136,9 @@ def _execute_wrangles(wrangles_config, df):
 
             elif wrangle == 'placeholder.common_words':
                 df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
+
+            elif wrangle == 'match':
+                df = pandas.concat([df, match.run(df[params['input']])], axis=1)
 
             else:
                 logging.info(f"UNKNOWN WRANGLE :: {wrangle} ::")
