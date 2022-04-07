@@ -50,5 +50,5 @@ def run(df_source):
     df = pd.concat([df_source, df_exact, df_rs, df_alpha, df_patterns, df_predictBrand], axis=1)
     df_results = merge.process(df, output_name)
 
-    return df_results
     print('Finished')
+    return df_results

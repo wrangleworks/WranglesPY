@@ -1233,6 +1233,20 @@ def count_space(string):
     return count
 
 
+def convertPartcodeToPattern(partcode):
+    pattern = str(partcode).upper()
+    pattern = re.sub('[^A-Z0-9]', '', pattern)
+    pattern = re.sub('[A-Z]', 'A', pattern)
+    pattern = re.sub('[0-9]', '#', pattern)
+    return pattern
+
+def convertPartcodeToPatternAlpha(partcode):
+    pattern = str(partcode).upper()
+    pattern = re.sub('[^A-Z0-9]', '', pattern)
+    pattern = re.sub('[0-9]', '#', pattern)
+    return pattern
+
+
 def process(df, siteCode, verbose=False):
     # df = pd.read_excel(filename, engine='openpyxl', sheet_name=sheetname)
     df = df.fillna('')
@@ -1243,19 +1257,19 @@ def process(df, siteCode, verbose=False):
         result = {}
 
         part_match = {}
-        if row['match_brand']: part_match = {'brand': row['match_brand'], 'part': row['match_part'], 'type': 'MATCH'}
+        if row['match_brand']: part_match = {'brand': row['match_brand'], 'part': row['match_part'], 'pattern': row['match_part'], 'type': 'MATCH'}
         
         part_rs = {}
-        if row['match_rs_brand']: part_rs = {'brand': row['match_rs_brand'], 'part': row['match_rs_part'], 'type': 'MATCH'}
+        if row['match_rs_brand']: part_rs = {'brand': row['match_rs_brand'], 'part': row['match_rs_part'], 'pattern': row['match_rs_part'], 'type': 'MATCH'}
 
         part_patterns_alpha = {}
-        if row['pattern_alpha_brand']: part_patterns_alpha = {'brand': row['pattern_alpha_brand'], 'part': row['pattern_alpha_part'], 'type': 'SIMILAR'}
+        if row['pattern_alpha_brand']: part_patterns_alpha = {'brand': row['pattern_alpha_brand'], 'part': row['pattern_alpha_part'], 'pattern': convertPartcodeToPatternAlpha(row['pattern_alpha_part']), 'type': 'SIMILAR'}
 
         part_patterns = {}
-        if row['patterns_brand']: part_patterns = {'brand': row['patterns_brand'], 'part': row['patterns_part'], 'type': 'SIMILAR'}
+        if row['patterns_brand']: part_patterns = {'brand': row['patterns_brand'], 'part': row['patterns_part'], 'pattern': convertPartcodeToPattern(row['patterns_part']), 'type': 'SIMILAR'}
 
         part_predict = {}
-        if row['predict_brand']: part_predict = {'brand': row['predict_brand'], 'part': row['predict_part'], 'type': 'SIMILAR'}
+        if row['predict_brand']: part_predict = {'brand': row['predict_brand'], 'part': row['predict_part'], 'pattern': convertPartcodeToPatternAlpha(row['predict_part']), 'type': 'SIMILAR'}
 
         if part_match:
             result = part_match
@@ -1388,10 +1402,11 @@ def process(df, siteCode, verbose=False):
         
         if verbose: print(idx, ' | ', result)
 
-        results.append([row['ID'], result.get('brand',''), result.get('part',''), result.get('type', 'NONE')])
+        results.append([row['ID'], result.get('brand',''), result.get('part',''), result.get('pattern', ''), result.get('type', 'NONE')])
 
-    df_results = pd.DataFrame(results, columns=['ID', 'Brand', 'Part Number', 'Type'])
-    df_results = df_results[['Brand', 'Part Number', 'Type']]
+    df_results = pd.DataFrame(results, columns=['ID', 'Brand', 'Part Number', 'Pattern', 'Type'])
+    df_results = df_results[['Brand', 'Part Number', 'Pattern', 'Type']]
     # df_results.to_excel('output/' + siteCode + '-merge.xlsx', engine='openpyxl', index=False)
-    return df_results
+    
     print('Total: ', i)
+    return df_results
