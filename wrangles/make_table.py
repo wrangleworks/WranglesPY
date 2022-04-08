@@ -12,7 +12,7 @@ def make_table(df, file, sheet_name):
     # file = 'data/output/bosch wrangled.xlsx'
     writer_args = {
         'path': file,
-        'mode': 'a',
+        'mode': 'w',
         'engine': 'openpyxl'}
         
     # https://openpyxl.readthedocs.io/en/stable/formatting.html#colorscale
