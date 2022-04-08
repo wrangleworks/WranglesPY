@@ -1,8 +1,14 @@
 import os
+import platform
 
 server = 'sql.wrangle.works'
 database = 'Wrangleworks'
 username = os.environ["USER"]
 password = os.environ["PASSWORD"]
 
-connection_string = 'DRIVER={SQL Server};SERVER=' + server + ';DATABASE=' + database + ';UID=' + username + ';PWD=' + password
+if platform.system() == 'Windows':
+    driver = "SQL Server"
+elif platform.system() == 'Linux':
+    driver = "ODBC Driver 18 for SQL Server"
+    
+connection_string = 'DRIVER={' + driver + '};SERVER=' + server + ';DATABASE=' + database + ';UID=' + username + ';PWD=' + password
