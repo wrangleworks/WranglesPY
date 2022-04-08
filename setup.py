@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='Wrangles',
-    packages=['wrangles'],
+    packages=['wrangles', 'wrangles.match'],
     description='Wrangle your data into shape with machine learning',
     version='0.2',
     url='https://github.com/wrangleworks/WranglesPy',
