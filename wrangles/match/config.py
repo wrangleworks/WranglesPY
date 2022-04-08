@@ -9,6 +9,6 @@ password = os.environ["PASSWORD"]
 if platform.system() == 'Windows':
     driver = "SQL Server"
 elif platform.system() == 'Linux':
-    driver = "ODBC Driver 18 for SQL Server"
-    
+    driver = "ODBC Driver 17 for SQL Server"
+
 connection_string = 'DRIVER={' + driver + '};SERVER=' + server + ';DATABASE=' + database + ';UID=' + username + ';PWD=' + password
