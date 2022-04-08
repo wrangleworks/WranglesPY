@@ -3,6 +3,7 @@ Create and execute Wrangling pipelines
 """
 import yaml
 import pandas
+import numpy as np
 import logging
 from . import select as _select
 from . import format as _format
@@ -10,6 +11,7 @@ from . import classify as _classify
 from . import extract as _extract
 from . import ww_pd
 from . import match
+from .make_table import make_table
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -67,11 +69,16 @@ def _export_file(conf_export, df):
 def _execute_wrangles(wrangles_config, df):
     for step in wrangles_config:
         for wrangle, params in step.items():
-            logging.info(f": Wrangling :: {wrangle} :: {params['input']} >> {params.get('output', 'Dynamic')}")
+            logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
             if wrangle == 'rename':
                 # Rename a column
                 df[params['output']] = df[params['input']].tolist()
+
+            elif wrangle == 'create_column.own_index':
+                # Create new counter colm that starts where we want
+                start = params['parameters']['start']
+                df[params['output']] = np.arange(start, len(df)+start)
 
             elif wrangle == 'join':
                 # Join a list to a string e.g. ['ele1', 'ele2', 'ele3'] -> 'ele1,ele2,ele3'
@@ -140,6 +147,12 @@ def _execute_wrangles(wrangles_config, df):
             elif wrangle == 'match':
                 df = pandas.concat([df, match.run(df[params['input']])], axis=1)
 
+            elif wrangle == 'create_column.empty':
+                df[params['output']] = None
+
+            elif wrangle == 'create_column.constant':
+                df[params['output']] = params['parameters']['value']
+
             else:
                 logging.info(f"UNKNOWN WRANGLE :: {wrangle} ::")
 
@@ -164,6 +177,9 @@ def run(config_file, params={}):
 
     if 'export' in config.keys():
         logging.info(": Exporting Data ::")
-        df = _export_file(config['export'], df)
+        if config['export'].get('format', '') == 'table':
+            make_table(df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
+        else:
+            df = _export_file(config['export'], df)
 
     return df

@@ -19,3 +19,4 @@ from .translate import translate
 from . import pipeline
 from . import select
 from . import format
+from . import make_table
