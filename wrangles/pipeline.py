@@ -178,8 +178,13 @@ def run(config_file, params={}):
     if 'export' in config.keys():
         logging.info(": Exporting Data ::")
         if config['export'].get('format', '') == 'table':
-            make_table(df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
+            output_df = pandas.DataFrame(dtype='object')
+            for field in config['export']['fields']:
+                output_df[field] = df[field]
+            make_table(output_df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
         else:
-            df = _export_file(config['export'], df)
+            output_df = _export_file(config['export'], df)
+    else:
+        output_df = df
 
     return df
