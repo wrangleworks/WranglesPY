@@ -11,6 +11,7 @@ from . import classify as _classify
 from . import extract as _extract
 from . import ww_pd
 from . import match
+from .standardize import standardize as _standardize
 from .make_table import make_table
 
 
@@ -140,6 +141,9 @@ def _execute_wrangles(wrangles_config, df):
             
             elif wrangle == 'extract.codes':
                 df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
+            
+            elif wrangle == 'standardize':
+                df[params['output']] = _standardize(df[params['input']].astype(str).tolist(), **params['parameters'])
 
             elif wrangle == 'placeholder.common_words':
                 df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
@@ -162,7 +166,7 @@ def _execute_wrangles(wrangles_config, df):
 def run(config_file, params={}):
     """
     Execute a YAML defined Wrangling pipeline
-
+    
     :param config_file: path to a YAML config file
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file 
     """
