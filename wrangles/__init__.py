@@ -16,3 +16,4 @@ from . import data
 from . import extract
 from .train import train
 from .translate import translate
+from .standardize import standardize

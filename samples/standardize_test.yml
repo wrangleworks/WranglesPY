@@ -1,0 +1,19 @@
+import:
+  type: file
+  name: "{{inputFile}}"
+  sheet: 'Purchase'
+
+wrangles:
+  - standardize:
+      input: Desc - Refined
+      output: Standard Description
+      parameters:
+        model_id: 4786921f-342f-4a0c
+        
+export:
+  type: file
+  name: '{{outputFile}}'
+  fields:
+    - Original Row
+    - Desc - Refined
+    - Standard Description

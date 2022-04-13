@@ -1,0 +1,68 @@
+import:
+  type: file
+  name: '{{inputFile}}'
+
+wrangles:
+  - rename:
+      input: Original Row
+      output: ID
+
+  - rename:
+      input: Manufacturer Name
+      output: Manufacturer
+
+  - extract.custom:
+      input: Manufacturer 
+      output: Brands Primary
+      parameters:
+        model_id: 4786921f-342f-4a0c
+  - join:
+      input: Brands Primary
+      output: Brands Primary
+      parameters:
+        char: ','
+
+  - extract.custom:
+      input: Short Description
+      output: Brands (Desc)
+      parameters:
+        model_id: 4786921f-342f-4a0c
+  - join:
+      input: Brands (Desc)
+      output: Brands Secondary
+      parameters:
+        char: ','
+
+  - rename:
+      input: Manufacturer Part Number
+      output: MPN
+
+  - extract.codes:
+      input: MPN
+      output: Parts Primary
+  - join:
+      input: Parts Primary
+      output: Parts Primary
+      parameters:
+        char: ','
+
+  - extract.codes:
+      input: Short Description
+      output: Parts (Desc)
+  - join:
+      input: Parts (Desc)
+      output: Parts Secondary
+      parameters:
+        char: ','
+
+export:
+  type: file
+  name: '{{outputFile}}'
+  fields:
+    - ID
+    - Manufacturer
+    - Brands Primary
+    - Brands Secondary
+    - MPN
+    - Parts Primary
+    - Parts Secondary
