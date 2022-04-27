@@ -3,8 +3,8 @@ import platform
 
 server = 'sql.wrangle.works'
 database = 'Wrangleworks'
-username = os.environ["USER"]
-password = os.environ["PASSWORD"]
+username = os.environ.get("USER", '')
+password = os.environ.get("PASSWORD", '')
 
 if platform.system() == 'Windows':
     driver = "SQL Server"
