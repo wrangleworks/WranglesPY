@@ -1,85 +1,83 @@
 """
 Create and execute Wrangling pipelines
 """
-import yaml
-import pandas
-import numpy as np
-import logging
+
+import pandas as _pandas
+import numpy as _np
+import yaml as _yaml
+import logging as _logging
+import re as _re
 from . import select as _select
 from . import format as _format
 from . import classify as _classify
 from . import extract as _extract
-from . import ww_pd
-from . import match
+from . import connectors as _connectors
 from .standardize import standardize as _standardize
+
+# Temporary imports, used for Eric Demo Assets - replace these with long term solutions
+from . import match
 from .make_table import make_table
+from . import ww_pd
 
 
-logging.getLogger().setLevel(logging.INFO)
+_logging.getLogger().setLevel(_logging.INFO)
 
 
-def _load_config_file(config_file, params):
+def _load_config(config: str, params: dict = {}) -> dict:
     """
     Load yaml config file + replace any placeholder variables
+
+    :param config: Dictionary of parameters to define import
+    :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     """
-    config = None
-    if "\n" in config_file:
-        conf_file = config_file
-        for key, val in params.items():
-            conf_file = conf_file.replace(r"{{" + key + r"}}", val)
-        config = yaml.safe_load(conf_file)
+    # config = None
+    if "\n" in config:
+        config_string = config
     else:
-        with open(config_file, "r") as f:
-            conf_file = f.read()
-            for key, val in params.items():
-                conf_file = conf_file.replace(r"{{" + key + r"}}", val)
-            config = yaml.safe_load(conf_file)
-    return config
+        with open(config, "r") as f:
+            config_string = f.read()
+    
+    # Replace templated values
+    for key, val in params.items():
+        config_string = config_string.replace(r"{{" + key + r"}}", val)
+
+    config_object = _yaml.safe_load(config_string)
+
+    return config_object
 
 
-def _import_file(file_name, sheet_name):
+def _execute_wrangles(df, wrangles_config):
     """
-    Import data
+    Execute a list of Wrangles on a dataframe
+
+    :param df: Dateframe that the Wrangles will be run against
+    :param wrangles_config: List of Wrangles + their definitions to be executed
+    :return: Pandas Dataframe of the Wrangled data
     """
-    df = None
-
-    if file_name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
-        df = pandas.read_excel(file_name, dtype='object', sheet_name=sheet_name).fillna('')
-    elif file_name.split('.')[-1] in ['csv', 'txt']:
-        df = pandas.read_csv(file_name).fillna('')
-
-    return df
-
-
-def _export_file(conf_export, df):
-    """
-    Export file
-    """
-    output_df = pandas.DataFrame(dtype='object')
-    for field in conf_export['fields']:
-        output_df[field] = df[field]
-
-    if conf_export['name'].split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
-        output_df.to_excel(conf_export['name'], index=False)
-    elif conf_export['name'].split('.')[-1] in ['csv', 'txt']:
-        output_df.to_csv(conf_export['name'], index=False)
-
-    return output_df
-
-
-def _execute_wrangles(wrangles_config, df):
     for step in wrangles_config:
         for wrangle, params in step.items():
-            logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+            _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
             if wrangle == 'rename':
                 # Rename a column
-                df[params['output']] = df[params['input']].tolist()
+                df = df.rename(columns=params)
+                # df[params['output']] = df[params['input']].tolist()
+
+            elif wrangle.split('.')[0] == 'pandas':
+                # Execute a pandas method
+                # TODO: disallow any hidden methods
+                df = getattr(df, wrangle.split('.')[1])(**params)
 
             elif wrangle == 'create_column.own_index':
                 # Create new counter colm that starts where we want
                 start = params['parameters']['start']
-                df[params['output']] = np.arange(start, len(df)+start)
+                df[params['output']] = _np.arange(start, len(df)+start)
+
+            elif wrangle == 'create_column.empty':
+                df[params['output']] = None
+
+            elif wrangle == 'create_column.constant':
+                df[params['output']] = params['parameters']['value']
 
             elif wrangle == 'join':
                 # Join a list to a string e.g. ['ele1', 'ele2', 'ele3'] -> 'ele1,ele2,ele3'
@@ -93,16 +91,14 @@ def _execute_wrangles(wrangles_config, df):
                 df[params['output']] = _format.split(df[params['input']].astype(str).tolist(), params['parameters']['char'])
 
             elif wrangle == 'convert.data_type':
-                if params['parameters']['dataType'] == 'float':
-                    df[params['output']] = df[params['input']].astype(float).tolist()
-                else:
-                    df[params['output']] = df[params['input']].tolist()
+                # 'int', 'float', 'str'
+                df[params['output']] = df[params['input']].astype(params['parameters']['dataType'])
             
             elif wrangle == 'convert.case':
                 if params['parameters']['case'].lower() == 'lower':
                     df[params['output']] = df[params['input']].str.lower()
                 elif params['parameters']['case'].lower() == 'upper':
-                    df[params['output']] = df[params['input']].str.lower()
+                    df[params['output']] = df[params['input']].str.upper()
                 elif params['parameters']['case'].lower() == 'title':
                     df[params['output']] = df[params['input']].str.title()
                 elif params['parameters']['case'].lower() == 'sentence':
@@ -125,7 +121,7 @@ def _execute_wrangles(wrangles_config, df):
                 df[params['output']] = _select.confidence_threshold(df[params['input'][0]].tolist(), df[params['input'][1]].tolist(), params['parameters']['threshold'])
 
             elif wrangle == 'format.price_breaks':
-                df = pandas.concat([df, _format.price_breaks(df[params['input']], params['parameters']['categoryLabel'], params['parameters']['valueLabel'])], axis=1)
+                df = _pandas.concat([df, _format.price_breaks(df[params['input']], params['parameters']['categoryLabel'], params['parameters']['valueLabel'])], axis=1)
 
             elif wrangle == 'classify':
                 df[params['output']] = _classify(df[params['input']].astype(str).tolist(), **params['parameters'])
@@ -133,14 +129,14 @@ def _execute_wrangles(wrangles_config, df):
             elif wrangle == 'extract.attributes':
                 df[params['output']] = _extract.attributes(df[params['input']].astype(str).tolist())
 
-            elif wrangle == 'extract.properties':
-                df[params['output']] = _extract.properties(df[params['input']].astype(str).tolist())
-            
-            elif wrangle == 'extract.custom':
-                df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
-            
             elif wrangle == 'extract.codes':
                 df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
+
+            elif wrangle == 'extract.custom':
+                df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
+
+            elif wrangle == 'extract.properties':
+                df[params['output']] = _extract.properties(df[params['input']].astype(str).tolist())
             
             elif wrangle == 'standardize':
                 df[params['output']] = _standardize(df[params['input']].astype(str).tolist(), **params['parameters'])
@@ -149,46 +145,53 @@ def _execute_wrangles(wrangles_config, df):
                 df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
 
             elif wrangle == 'match':
-                df = pandas.concat([df, match.run(df[params['input']])], axis=1)
-
-            elif wrangle == 'create_column.empty':
-                df[params['output']] = None
-
-            elif wrangle == 'create_column.constant':
-                df[params['output']] = params['parameters']['value']
+                df = _pandas.concat([df, match.run(df[params['input']])], axis=1)
 
             else:
-                logging.info(f"UNKNOWN WRANGLE :: {wrangle} ::")
+                _logging.error(f"UNKNOWN WRANGLE :: {wrangle} ::")
 
     return df
 
 
-def run(config_file, params={}):
+def run(recipe: str, params: dict = {}):
     """
     Execute a YAML defined Wrangling pipeline
     
-    :param config_file: path to a YAML config file
-    :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file 
+    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     """
-    logging.info(": Loading Config ::")
-    config = _load_config_file(config_file, params)
+    # Parse recipe
+    _logging.info(": Loading Config ::")
+    config = _load_config(recipe, params)
 
-    logging.info(": Importing Data ::")
-    df = _import_file(config['import']['name'], config['import'].get('sheet', 0))
+    _logging.info(": Importing Data ::")
+    for import_type, params in config['import'].items():
+        if import_type == 'file':
+            _logging.info(f": Importing File :: {params['name']}")
+            df = _connectors.file.read(params)
+        elif import_type == 'sql':
+            _logging.info(f": Importing from SQL DB :: {params['host']}")
+            df = _connectors.sql.read(params)
 
-    logging.info(": Running Wrangles ::")
-    df = _execute_wrangles(config['wrangles'], df)
+    if 'wrangles' in config.keys():
+        _logging.info(": Running Wrangles ::")
+        df = _execute_wrangles(df, config['wrangles'])
 
     if 'export' in config.keys():
-        logging.info(": Exporting Data ::")
-        if config['export'].get('format', '') == 'table':
-            output_df = pandas.DataFrame(dtype='object')
-            for field in config['export']['fields']:
-                output_df[field] = df[field]
-            make_table(output_df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
-        else:
-            output_df = _export_file(config['export'], df)
-    else:
-        output_df = df
+        _logging.info(": Exporting Data ::")
+        # Loop through all exports, get type and execute appropriate export
+        for export in config['export']:
+            for export_type, params in export.items():
+                if export_type == 'file':
+                    _logging.info(f": Exporting File :: {params['name']}")
+                    _connectors.file.write(df, params)
+                elif export_type == 'sql':
+                    pass
+                elif export_type == 'table':
+                    if 'fields' in params.keys():
+                        output_df = df[params['fields']]
+                    else:
+                        output_df = df
+                    make_table(output_df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
 
     return df
