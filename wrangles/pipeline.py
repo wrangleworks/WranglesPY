@@ -61,7 +61,6 @@ def _execute_wrangles(df, wrangles_config):
             if wrangle == 'rename':
                 # Rename a column
                 df = df.rename(columns=params)
-                # df[params['output']] = df[params['input']].tolist()
 
             elif wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
