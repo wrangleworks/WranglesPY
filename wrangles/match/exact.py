@@ -3,9 +3,6 @@ import pyodbc
 import pandas as pd
 from . import config
 
-cnxn = pyodbc.connect(config.connection_string)
-cursor = cnxn.cursor()
-
 
 def cleanPartcode(value):
     value = str(value).upper()
@@ -25,6 +22,9 @@ def calculateComplexity(value):
 
 
 def run(df, verbose=False):
+    cnxn = pyodbc.connect(config.connection_string)
+    cursor = cnxn.cursor()
+
     # Generate a list of all possible brand + part pattern combinations
     brand_part_all = []
     for idx, row in df.iterrows():

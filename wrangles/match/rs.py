@@ -4,10 +4,6 @@ import pandas as pd
 from . import config
 
 
-cnxn = pyodbc.connect(config.connection_string)
-cursor = cnxn.cursor()
-
-
 def cleanPartcode(value):
     value = str(value).upper()
     value = re.sub('[^A-Z0-9]', '', value)
@@ -15,6 +11,9 @@ def cleanPartcode(value):
 
 
 def run(df, verbose=False):
+    cnxn = pyodbc.connect(config.connection_string)
+    cursor = cnxn.cursor()
+
     results = []
     i = 0
     for idx, row in df.iterrows():

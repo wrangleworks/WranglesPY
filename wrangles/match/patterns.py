@@ -4,10 +4,6 @@ import pandas as pd
 from . import config
 
 
-cnxn = pyodbc.connect(config.connection_string)
-cursor = cnxn.cursor()
-
-
 def convertPartcodeToPattern(partcode):
     pattern = str(partcode).upper()
     pattern = re.sub('[^A-Z0-9]', '', pattern)
@@ -17,6 +13,9 @@ def convertPartcodeToPattern(partcode):
 
 
 def run(df, verbose=False):
+    cnxn = pyodbc.connect(config.connection_string)
+    cursor = cnxn.cursor()
+
     # Generate a list of all possible brand + part pattern combinations
     brand_part_all = []
     for idx, row in df.iterrows():
