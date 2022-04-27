@@ -4,29 +4,22 @@ Wrangles python package.
 
 ## Installation
 
-### Personal Access Token
-Since this is a private repo, to install the package you must generate a personal access token.
-
- - In Github go to *Settings -> <>Developer Settings -> Personal access tokens -> Generate new token*
- - Add *repo scope* and *Generate token*
-
 ### Pip
 
-Using the token generated in the first step, install with the following pip command.
-
 ```shell
-pip install git+https://<token>@github.com/wrangleworks/WranglesPy.git
+pip install wrangles
 ```
 
 ## Usage
 
 ```python
 >>> import wrangles
+>>> # Credentials can be also by set as the env variables
+>>> # WRANGLES_USER and WRANGLES_PASSWORD
 >>> wrangles.authenticate('<user>', '<password>')
 >>> wrangles.extract.attributes('it is 15mm long')
 {'length': ['15mm']}
 ```
-Alternatively, credentials can be passed as the enviroment variables **WRANGLES_USER** and **WRANGLES_PASSWORD**
 
 ## Wrangles
 
@@ -42,14 +35,20 @@ MechPT
 ['MechPT', 'Tools']
 ```
 
-### Data
+### Extract
+
+#### Address
 ```python
-# Get a list of the user's models
->>> wrangles.data.user.models()
-[{'id': '0000f784-ac11-4f8a', 'name': 'Demo Model', 'purpose': 'extract', 'status': 'Ready', 'type': 'user'}, ...]
+# Extract features from addresses such as streets or countries
+>>> wrangles.extract.address('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
+['1100 Congress Ave']
 ```
 
-### Extract
+```python
+# Extract features from addresses such as streets or countries
+>>> wrangles.extract.address(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
+[['1100 Congress Ave']]
+```
 
 #### Attributes
 ```python
@@ -80,12 +79,6 @@ MechPT
 >>> wrangles.extract.custom(['test skf test', 'festo is hidden in here'], '0616f784-ac11-4f8a')
 [['SKF'], ['FESTO']]
 ```
-#### Geography
-```python
-# Extract geographical features such as streets or countries
->>> wrangles.extract.geography('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
-['1100 Congress Ave']
-```
 
 #### Properties
 ```python
@@ -95,6 +88,23 @@ MechPT
 
 >>> wrangles.extract.properties(['yellow submarine', 'the green mile'])
 [{'Colours': ['Yellow']}, {'Colours': ['Green']}]
+```
+
+### Translate
+```python
+# Translate the input into a different language
+>>> wrangles.translate('My name is Chris', 'ES')
+Mi nombre es Chris
+
+>>> wrangles.translate(['My name is Chris', 'I live in Austin'], 'DE')
+['Mein Name ist Chris', 'Ich wohne in Austin']
+```
+
+### Data
+```python
+# Get a list of the user's models
+>>> wrangles.data.user.models()
+[{'id': '0000f784-ac11-4f8a', 'name': 'Demo Model', 'purpose': 'extract', 'status': 'Ready', 'type': 'user'}, ...]
 ```
 
 ### Train
@@ -109,20 +119,12 @@ MechPT
 >>> 
 >>> name = 'demo model'
 >>> 
->>> model_id = wrangles.train.classify(training_data, name)
->>> 
->>> wrangles.classify(['cellphone', 'banana'], model_id)
+>>> wrangles.train.classify(training_data, name)
+
+>>> wrangles.classify(['cellphone', 'banana'], <model_id>)
 ['electronics', 'food']
 ```
 
 
 
-### Translate
-```python
-# Translate the input into a different language
->>> wrangles.translate('My name is Chris', 'ES')
-Mi nombre es Chris
 
->>> wrangles.translate(['My name is Chris', 'I live in Austin'], 'DE')
-['Mein Name ist Chris', 'Ich wohne in Austin']
-```
