@@ -4,7 +4,7 @@ setup(
     name = 'wrangles',
     packages = ['wrangles', 'wrangles.match', 'wrangles.connectors'],
     description = 'Wrangle your data into shape with machine learning',
-    version = '0.2.2',
+    version = '0.2.3',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'Wrangleworks',
     author_email = 'chris@wrangleworks.com',
