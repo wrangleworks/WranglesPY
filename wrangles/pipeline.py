@@ -15,8 +15,8 @@ from . import connectors as _connectors
 from .standardize import standardize as _standardize
 
 # Temporary imports, used for Eric Demo Assets - replace these with long term solutions
-from . import match
-from .make_table import make_table
+from . import match as _match
+from .make_table import make_table as _make_table
 from . import ww_pd
 
 
@@ -39,7 +39,7 @@ def _load_config(config: str, params: dict = {}) -> dict:
     
     # Replace templated values
     for key, val in params.items():
-        config_string = config_string.replace(r"{{" + key + r"}}", val)
+        config_string = config_string.replace("${" + key + "}", val)
 
     config_object = _yaml.safe_load(config_string)
 
@@ -65,7 +65,7 @@ def _execute_wrangles(df, wrangles_config):
             elif wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
-                df = getattr(df, wrangle.split('.')[1])(**params)
+                df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
             elif wrangle == 'create_column.own_index':
                 # Create new counter colm that starts where we want
@@ -144,7 +144,7 @@ def _execute_wrangles(df, wrangles_config):
                 df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
 
             elif wrangle == 'match':
-                df = _pandas.concat([df, match.run(df[params['input']])], axis=1)
+                df = _pandas.concat([df, _match.run(df[params['input']])], axis=1)
 
             else:
                 _logging.error(f"UNKNOWN WRANGLE :: {wrangle} ::")
@@ -152,45 +152,69 @@ def _execute_wrangles(df, wrangles_config):
     return df
 
 
-def run(recipe: str, params: dict = {}):
+def run(recipe: str, params: dict = {}, dataframe = None):
     """
     Execute a YAML defined Wrangling pipeline
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining an import within the YAML
     """
     # Parse recipe
     _logging.info(": Loading Config ::")
     config = _load_config(recipe, params)
 
-    _logging.info(": Importing Data ::")
-    for import_type, params in config['import'].items():
-        if import_type == 'file':
-            _logging.info(f": Importing File :: {params['name']}")
-            df = _connectors.file.read(params)
-        elif import_type == 'sql':
-            _logging.info(f": Importing from SQL DB :: {params['host']}")
-            df = _connectors.sql.read(params)
+    if 'import' in config.keys():
+        # Load appropriate data
+        for import_type, params in config['import'].items():
+            if import_type == 'file':
+                _logging.info(f": Importing File :: {params['name']}")
+                df = _connectors.file.read(params)
+            elif import_type == 'sql':
+                _logging.info(f": Importing from SQL DB :: {params['host']}")
+                df = _connectors.sql.read(params)
+    elif dataframe is not None:
+        df = dataframe
 
+    # Execute any Wrangles required
     if 'wrangles' in config.keys():
         _logging.info(": Running Wrangles ::")
         df = _execute_wrangles(df, config['wrangles'])
 
+    # Set initial dateframe to be as Wrangled
+    df_return = df
+
     if 'export' in config.keys():
         _logging.info(": Exporting Data ::")
+
+        # If user has entered a dictionary, add to a list
+        # Used by following code
+        if isinstance(config['export'], dict):
+            exports = [config['export']]
+        else:
+            exports = config['export']
+
         # Loop through all exports, get type and execute appropriate export
-        for export in config['export']:
+        for export in exports:
             for export_type, params in export.items():
                 if export_type == 'file':
                     _logging.info(f": Exporting File :: {params['name']}")
                     _connectors.file.write(df, params)
+
                 elif export_type == 'sql':
+                    # TODO: Not yet implemented
                     pass
+
+                elif export_type == 'dataframe':
+                    # Define the dataframe that is returned
+                    df_return = df[params['fields']]
+
                 elif export_type == 'table':
+                    # Eric's custom code for demo
                     if 'fields' in params.keys():
                         output_df = df[params['fields']]
                     else:
                         output_df = df
-                    make_table(output_df, config['export']['name'], config['export'].get('sheet', 'Sheet1'))
+                    _make_table(output_df, export['name'], export.get('sheet', 'Sheet1'))
 
-    return df
+    return df_return
