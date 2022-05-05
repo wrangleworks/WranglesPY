@@ -11,6 +11,7 @@ from . import select as _select
 from . import format as _format
 from . import classify as _classify
 from . import extract as _extract
+from . import translate as _translate
 from . import connectors as _connectors
 from .standardize import standardize as _standardize
 
@@ -139,6 +140,9 @@ def _execute_wrangles(df, wrangles_config):
             
             elif wrangle == 'standardize':
                 df[params['output']] = _standardize(df[params['input']].astype(str).tolist(), **params['parameters'])
+
+            elif wrangle == 'translate':
+                df[params['output']] = _translate(df[params['input']].astype(str).tolist(), **params['parameters'])
 
             elif wrangle == 'placeholder.common_words':
                 df = df.ww_pd.common_words(params['input'], params['parameters']['subtract'], WordsOnly=True)
