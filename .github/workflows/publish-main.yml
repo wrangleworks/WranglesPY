@@ -12,6 +12,7 @@ on:
     branches: [ main ]
 
 
+
 jobs:
   test_3_8:
     runs-on: ubuntu-latest
@@ -26,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8.13
+          python-version: 3.8.12
 
       - name: Install Dependencies
         run: |
@@ -36,6 +37,9 @@ jobs:
           
       - name: Run Tests
         run: pytest
+        env:
+          WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+          WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
 
   test_3_9:
     runs-on: ubuntu-latest
@@ -60,3 +64,6 @@ jobs:
           
       - name: Run Tests
         run: pytest
+        env:
+          WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+          WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
