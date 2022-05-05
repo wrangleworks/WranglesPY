@@ -13,7 +13,7 @@ on:
 
 
 jobs:
-  test3.8:
+  test_3_8:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +37,7 @@ jobs:
       - name: Run Tests
         run: pytest
 
-  test3.9:
+  test_3_9:
     runs-on: ubuntu-latest
     permissions:
       contents: read
