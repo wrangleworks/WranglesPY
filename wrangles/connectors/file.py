@@ -19,19 +19,26 @@ export:
 ~~~
 """
 import pandas as _pd
-from typing import Union
+import logging as _logging
+from typing import Union as _Union
 
 
-def input(name: str, fields: Union[str, list] = None, parameters = {}):
+def input(name: str, fields: _Union[str, list] = None, parameters: dict = {}) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
     Supports Excel (.xlsx, .xlsx, .xlsm), CSV (.csv, .txt) and JSON (.json) files.
     JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be decompressed.
 
-    :param params: Dictionary of parameters to define import
+    >>> df = wrangles.connectors.file.input('myfile.csv')
+
+    :param name: Name of the file to import
+    :param fields: (Optional) Subset of the fields to be read. If not provided, all fields will be included
+    :param parameters: (Optional) Dictionary of custom parameters to pass to the respective pandas function
     :return: A Pandas dataframe of the imported data.
     """
+    _logging.info(f": Importing Data :: {name}")
+
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
         if 'dtype' not in parameters.keys(): parameters['dtype'] = 'object'
@@ -53,7 +60,7 @@ def input(name: str, fields: Union[str, list] = None, parameters = {}):
     return df
 
 
-def output(df, name: str, fields: Union[str, list] = None, parameters = {}):
+def output(df, name: str, fields: _Union[str, list] = None, parameters = {}):
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -65,8 +72,7 @@ def output(df, name: str, fields: Union[str, list] = None, parameters = {}):
     :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
     :param parameters: Dictionary of parameters to pass to the respective pandas function
     """
-    # Add empty parameters dict if user hasn't entered any
-    # if 'parameters' not in params: params['parameters'] = {}
+    _logging.info(f": Exporting Data :: {name}")
 
     # Select only specific fields if user requests them
     if fields is not None: df = df[fields]
