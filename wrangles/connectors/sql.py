@@ -35,7 +35,7 @@ def input(type: str, host: str, user: str, password: str, command: str, port = N
 
 def output(df, type: str, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 0, fields: Union[str, list] = None):
     """
-    Export data to a SQL database
+    Export data to a SQL database.
 
     :param df: Dataframe to be exported
     :param type: Type of SQL database - mssql or postgres
