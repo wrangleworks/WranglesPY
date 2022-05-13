@@ -2,9 +2,10 @@
 Connector to read/write from SQL Database.
 """
 import pandas as _pd
+from typing import Union
 
 
-def input(type: str, host: str, user: str, password: str, command: str, port = None, database: str = '', fields = None):
+def input(type: str, host: str, user: str, password: str, command: str, port = None, database: str = '', fields: Union[str, list] = None):
     """
     Import data from a SQL database.
 
@@ -32,7 +33,7 @@ def input(type: str, host: str, user: str, password: str, command: str, port = N
     return df
 
 
-def output(df, type: str, host: str, database: str, table: str, user: str, password: str, port = 0, action = 'INSERT', fields = None):
+def output(df, type: str, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 0, fields: Union[str, list] = None):
     """
     Export data to a SQL database
 
@@ -43,7 +44,8 @@ def output(df, type: str, host: str, database: str, table: str, user: str, passw
     :param table: Table to be exported to
     :param user: User with access to the database
     :param password: Password of user
-    :param action: Only INSERT is supported at this time
+    :param action: Only INSERT is supported at this time, defaults to INSERT
+    :param port: (Optional) If not provided, the default port for the respective SQL type will be used
     :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
     """
     # Create appropriate connection string
