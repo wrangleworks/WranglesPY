@@ -19,9 +19,10 @@ export:
 ~~~
 """
 import pandas as _pd
+from typing import Union
 
 
-def input(name: str, fields = None, parameters = {}):
+def input(name: str, fields: Union[str, list] = None, parameters = {}):
     """
     Import a file as defined by user parameters.
 
@@ -52,7 +53,7 @@ def input(name: str, fields = None, parameters = {}):
     return df
 
 
-def output(df, name: str, fields = None, parameters = {}):
+def output(df, name: str, fields: Union[str, list] = None, parameters = {}):
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -76,14 +77,17 @@ def output(df, name: str, fields = None, parameters = {}):
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in parameters.keys(): parameters['index'] = False
         df.to_excel(name, **parameters)
+
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in parameters.keys(): parameters['index'] = False
         df.to_csv(name, **parameters)
+
     elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
         # Write a JSON file
         df.to_json(name, **parameters)
+        
     elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
         # Write a line delimited JSONL file
         # Set lines to true 
