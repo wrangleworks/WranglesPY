@@ -14,6 +14,7 @@ from . import extract as _extract
 from . import translate as _translate
 from . import connectors as _connectors
 from .standardize import standardize as _standardize
+import os as _os
 
 # Temporary imports, used for Eric Demo Assets - replace these with long term solutions
 from . import match as _match
@@ -31,13 +32,20 @@ def _load_config(config: str, params: dict = {}) -> dict:
     :param config: Dictionary of parameters to define import
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     """
-    # config = None
+    # If config is a single line, it's probably a file path
+    # Otherwise it's a recipe
     if "\n" in config:
         config_string = config
     else:
         with open(config, "r") as f:
             config_string = f.read()
     
+    # Also add environment variables to list of placeholder variables
+    # Q: Should we exclude some?
+    for env_key, env_val in _os.environ.items():
+        if env_key not in params.keys():
+            params[env_key] = env_val
+
     # Replace templated values
     for key, val in params.items():
         config_string = config_string.replace("${" + key + "}", val)
@@ -171,14 +179,11 @@ def run(recipe: str, params: dict = {}, dataframe = None):
     if 'import' in config.keys():
         # Load appropriate data
         for import_type, params in config['import'].items():
-            if import_type == 'file':
-                _logging.info(f": Importing File :: {params['name']}")
-                df = _connectors.file.read(params)
-            elif import_type == 'sql':
-                _logging.info(f": Importing from SQL DB :: {params['host']}")
-                df = _connectors.sql.read(params)
+            df = getattr(getattr(_connectors, import_type), 'input')(**params)
     elif dataframe is not None:
         df = dataframe
+    else:
+        raise ValueError('No input was provided. Either an import section must be added to the provided recipe, or a dataframe passed in as an argument.')
 
     # Execute any Wrangles required
     if 'wrangles' in config.keys():
@@ -201,15 +206,7 @@ def run(recipe: str, params: dict = {}, dataframe = None):
         # Loop through all exports, get type and execute appropriate export
         for export in exports:
             for export_type, params in export.items():
-                if export_type == 'file':
-                    _logging.info(f": Exporting File :: {params['name']}")
-                    _connectors.file.write(df, params)
-
-                elif export_type == 'sql':
-                    # TODO: Not yet implemented
-                    pass
-
-                elif export_type == 'dataframe':
+                if export_type == 'dataframe':
                     # Define the dataframe that is returned
                     df_return = df[params['fields']]
 
@@ -220,5 +217,9 @@ def run(recipe: str, params: dict = {}, dataframe = None):
                     else:
                         output_df = df
                     _make_table(output_df, export['name'], export.get('sheet', 'Sheet1'))
+                
+                else:
+                    # Get export function of requested connector and pass dataframe + user defined params
+                    getattr(getattr(_connectors, export_type), 'output')(df, **params)
 
     return df_return
