@@ -24,20 +24,22 @@ from . import ww_pd
 _logging.getLogger().setLevel(_logging.INFO)
 
 
-def _load_config(config: str, params: dict = {}) -> dict:
+def _load_recipe(recipe: str, params: dict = {}) -> dict:
     """
-    Load yaml config file + replace any placeholder variables
+    Load yaml recipe file + replace any placeholder variables
 
-    :param config: Dictionary of parameters to define import
+    :param recipe: YAML recipe or name of a YAML file to be parsed
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     """
-    # If config is a single line, it's probably a file path
+    _logging.info(": Reading Recipe ::")
+
+    # If recipe is a single line, it's probably a file path
     # Otherwise it's a recipe
-    if "\n" in config:
-        config_string = config
+    if "\n" in recipe:
+        recipe_string = recipe
     else:
-        with open(config, "r") as f:
-            config_string = f.read()
+        with open(recipe, "r") as f:
+            recipe_string = f.read()
     
     # Also add environment variables to list of placeholder variables
     # Q: Should we exclude some?
@@ -47,22 +49,22 @@ def _load_config(config: str, params: dict = {}) -> dict:
 
     # Replace templated values
     for key, val in params.items():
-        config_string = config_string.replace("${" + key + "}", val)
+        recipe_string = recipe_string.replace("${" + key + "}", val)
 
-    config_object = _yaml.safe_load(config_string)
+    recipe_object = _yaml.safe_load(recipe_string)
 
-    return config_object
+    return recipe_object
 
 
-def _execute_wrangles(df, wrangles_config):
+def _execute_wrangles(df, wrangles_list):
     """
     Execute a list of Wrangles on a dataframe
 
     :param df: Dateframe that the Wrangles will be run against
-    :param wrangles_config: List of Wrangles + their definitions to be executed
+    :param wrangles_list: List of Wrangles + their definitions to be executed
     :return: Pandas Dataframe of the Wrangled data
     """
-    for step in wrangles_config:
+    for step in wrangles_list:
         for wrangle, params in step.items():
             _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
@@ -172,32 +174,34 @@ def run(recipe: str, params: dict = {}, dataframe = None):
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining an import within the YAML
     """
     # Parse recipe
-    _logging.info(": Loading Config ::")
-    config = _load_config(recipe, params)
+    recipe = _load_recipe(recipe, params)
 
-    if 'import' in config.keys():
+    # Get requested data
+    if 'import' in recipe.keys():
         # Load appropriate data
-        for import_type, params in config['import'].items():
+        for import_type, params in recipe['import'].items():
             df = getattr(getattr(_connectors, import_type), 'input')(**params)
     elif dataframe is not None:
+        # User has passed in a pre-created dataframe
         df = dataframe
     else:
+        # User hasn't provided anything
         raise ValueError('No input was provided. Either an import section must be added to the provided recipe, or a dataframe passed in as an argument.')
 
     # Execute any Wrangles required
-    if 'wrangles' in config.keys():
+    if 'wrangles' in recipe.keys():
         _logging.info(": Running Wrangles ::")
-        df = _execute_wrangles(df, config['wrangles'])
+        df = _execute_wrangles(df, recipe['wrangles'])
 
     # Set initial dateframe to be as Wrangled
     df_return = df
 
-    if 'export' in config.keys():
+    if 'export' in recipe.keys():
         # If user has entered a dictionary, add to a list
-        if isinstance(config['export'], dict):
-            exports = [config['export']]
+        if isinstance(recipe['export'], dict):
+            exports = [recipe['export']]
         else:
-            exports = config['export']
+            exports = recipe['export']
 
         # Loop through all exports, get type and execute appropriate export
         for export in exports:
