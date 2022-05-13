@@ -6,7 +6,6 @@ import pandas as _pandas
 import numpy as _np
 import yaml as _yaml
 import logging as _logging
-import re as _re
 from . import select as _select
 from . import format as _format
 from . import classify as _classify
@@ -194,10 +193,7 @@ def run(recipe: str, params: dict = {}, dataframe = None):
     df_return = df
 
     if 'export' in config.keys():
-        _logging.info(": Exporting Data ::")
-
         # If user has entered a dictionary, add to a list
-        # Used by following code
         if isinstance(config['export'], dict):
             exports = [config['export']]
         else:
@@ -219,7 +215,7 @@ def run(recipe: str, params: dict = {}, dataframe = None):
                     _make_table(output_df, export['name'], export.get('sheet', 'Sheet1'))
                 
                 else:
-                    # Get export function of requested connector and pass dataframe + user defined params
+                    # Get output function of requested connector and pass dataframe + user defined params
                     getattr(getattr(_connectors, export_type), 'output')(df, **params)
 
     return df_return
