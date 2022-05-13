@@ -21,3 +21,4 @@ from . import select
 from . import format
 from . import make_table
 from .standardize import standardize
+from . import connectors
