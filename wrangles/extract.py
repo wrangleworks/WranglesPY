@@ -133,12 +133,16 @@ def geography(input: Union[str, list], dataType: str) -> list:
     return results
 
 
-def properties(input: Union[str, list]) -> list:
+def properties(input: Union[str, list], type: str = None) -> Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
 
-    e.g. 'The Green Mile' -> 'Green'
+    >>> wrangles.extract.properties('The Green Mile')
+    {'Colours': ['Green']}
 
+    :param input: A string or list of strings to be searched for properties
+    :param type: (Optional) The specific type of property to search for. If omitted an objected with all results will be returned.
+    :return: A single or list with the extracted properties. Each extracted property may be a dict or list depending on settings.
     """
     if isinstance(input, str): 
         json_data = [input]
@@ -147,6 +151,7 @@ def properties(input: Union[str, list]) -> list:
 
     url = f'{_config.api_host}/wrangles/extract/properties'
     params = {'responseFormat':'array'}
+    if type is not None: params['dataType'] = type
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
