@@ -1,5 +1,5 @@
 """
-Connector to read/write from PostgreSQL Database.
+Connector to read/write from a PostgreSQL Database.
 """
 import pandas as _pd
 from typing import Union as _Union
