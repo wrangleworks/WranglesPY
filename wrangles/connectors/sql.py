@@ -2,7 +2,7 @@
 Connector to read/write from SQL Database.
 """
 import pandas as _pd
-from typing import _Union
+from typing import Union as _Union
 import logging as _logging
 
 
