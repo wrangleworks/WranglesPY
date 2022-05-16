@@ -23,14 +23,14 @@ import logging as _logging
 from typing import Union as _Union
 
 
-def input(name: str, fields: _Union[str, list] = None, parameters: dict = {}) -> _pd.DataFrame:
+def read(name: str, fields: _Union[str, list] = None, parameters: dict = {}) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
     Supports Excel (.xlsx, .xlsx, .xlsm), CSV (.csv, .txt) and JSON (.json) files.
     JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be decompressed.
 
-    >>> df = wrangles.connectors.file.input('myfile.csv')
+    >>> df = wrangles.connectors.file.read('myfile.csv')
 
     :param name: Name of the file to import
     :param fields: (Optional) Subset of the fields to be read. If not provided, all fields will be included
@@ -60,7 +60,7 @@ def input(name: str, fields: _Union[str, list] = None, parameters: dict = {}) ->
     return df
 
 
-def output(df, name: str, fields: _Union[str, list] = None, parameters = {}):
+def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, parameters = {}) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
