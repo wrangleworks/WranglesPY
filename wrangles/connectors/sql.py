@@ -2,10 +2,11 @@
 Connector to read/write from SQL Database.
 """
 import pandas as _pd
-from typing import Union
+from typing import _Union
+import logging as _logging
 
 
-def input(type: str, host: str, user: str, password: str, command: str, port = None, database: str = '', fields: Union[str, list] = None):
+def input(type: str, host: str, user: str, password: str, command: str, port = None, database: str = '', fields: _Union[str, list] = None):
     """
     Import data from a SQL database.
 
@@ -18,6 +19,8 @@ def input(type: str, host: str, user: str, password: str, command: str, port = N
     :param port: (Optional) If not provided, the default port for the respective SQL type will be used
     :return: Pandas Dataframe of the imported data
     """
+    _logging.info(f": Importing Data :: {host}")
+
     if type == 'mssql':
         conn = f"mssql+pymssql://{user}:{password}@{host}:{port or 1433}/{database}?charset=utf8"
     elif type == 'postgres':
@@ -33,7 +36,7 @@ def input(type: str, host: str, user: str, password: str, command: str, port = N
     return df
 
 
-def output(df, type: str, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 0, fields: Union[str, list] = None):
+def output(df, type: str, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 0, fields: _Union[str, list] = None):
     """
     Export data to a SQL database.
 
@@ -48,6 +51,8 @@ def output(df, type: str, host: str, database: str, table: str, user: str, passw
     :param port: (Optional) If not provided, the default port for the respective SQL type will be used
     :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
     """
+    _logging.info(f": Exporting Data :: {host}/{table}")
+
     # Create appropriate connection string
     if type == 'mssql':
         conn = f"mssql+pymssql://{user}:{password}@{host}:{port or 1433}/{database}?charset=utf8"
