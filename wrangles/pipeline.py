@@ -178,9 +178,27 @@ def run(recipe: str, params: dict = {}, dataframe = None):
 
     # Get requested data
     if 'import' in recipe.keys():
-        # Load appropriate data
-        for import_type, params in recipe['import'].items():
-            df = getattr(getattr(_connectors, import_type), 'input')(**params)
+        # Allow blended imports
+        if list(recipe['import'])[0] in ['concatenate', 'merge']:
+            # Get data from sources
+            dfs = []
+            for source in recipe['import'][list(recipe['import'])[0]]['sources']:
+                import_type = list(source)[0]
+                params = source[import_type]
+                dfs.append(getattr(getattr(_connectors, import_type), 'input')(**params))
+
+            if list(recipe['import'])[0] == 'concatenate':
+                # Blend as a concatenation - stack data depending on axis (e.g. union)
+                df = _pandas.concat(dfs, **recipe['import']['concatenate'].get('parameters', {}))
+            elif list(recipe['import'])[0] == 'merge':
+                # Blend as a merge - equivalent to database join
+                df = _pandas.merge(dfs[0], dfs[1], **recipe['import']['merge'].get('parameters', {}))
+            # Clear from memory in case this is a large object
+            del dfs
+        else:
+            # Load appropriate data
+            for import_type, params in recipe['import'].items():
+                df = getattr(getattr(_connectors, import_type), 'input')(**params)
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
