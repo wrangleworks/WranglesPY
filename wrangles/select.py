@@ -4,6 +4,7 @@ def highest_confidence(data_list):
         highest_confidence = 0
         highest_result = None
         for cell in row:
+            if isinstance(cell, str): cell = cell.split(' || ')
             if float(cell[1]) > highest_confidence:
                 highest_result = cell
                 highest_confidence = float(cell[1])
