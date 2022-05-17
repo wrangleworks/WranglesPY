@@ -49,7 +49,7 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param port: (Optional) If not provided, the default port will be used
     :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
     """
-    _logging.info(f": Exporting Data :: {host}/{table}")
+    _logging.info(f": Exporting Data :: {host}/{database}/{table}")
 
     # Create appropriate connection string
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
