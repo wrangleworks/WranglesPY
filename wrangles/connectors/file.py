@@ -92,6 +92,8 @@ def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, parame
 
     elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
         # Write a JSON file
+        # If user doesn't explicitly set orient, assume records - this seems a better default
+        if 'orient' not in parameters.keys(): parameters['orient'] = 'records'
         df.to_json(name, **parameters)
         
     elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
