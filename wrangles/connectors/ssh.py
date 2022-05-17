@@ -4,7 +4,7 @@ Connector for SSH
 from fabric import Connection
 
 
-def write(_, host: str, user: str, password: str, command: str) -> None:
+def execute(host: str, user: str, password: str, command: str) -> None:
     """
     Execute a command over ssh
     """

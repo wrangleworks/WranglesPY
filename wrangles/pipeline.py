@@ -46,6 +46,22 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     return recipe_object
 
 
+def _execute_actions(recipe: _Union[dict, list], connections: dict = {}) -> None:
+    # If user has entered a dictionary, convert to list
+    if isinstance(recipe, dict):
+        recipe = [recipe]
+
+    for action in recipe:
+        for action_type, params in action.items():
+            # Use shared connection details if set
+            if 'connection' in params.keys():
+                params.update(connections[params['connection']])
+                params.pop('connection')
+
+            # Get execute function of requested connector and pass user defined params
+            getattr(getattr(_connectors, action_type), 'execute')(**params)
+
+
 def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
@@ -175,6 +191,10 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     # Parse recipe
     recipe = _load_recipe(recipe, params)
 
+    if 'execute' in recipe.keys():
+        # Execute any actions required before the pipeline runs
+        _execute_actions(recipe['execute'], recipe.get('connections', {}))
+
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
@@ -183,8 +203,8 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
         # User has passed in a pre-created dataframe
         df = dataframe
     else:
-        # User hasn't provided anything
-        raise ValueError('No input was provided. Either an read section must be added to the provided recipe, or a dataframe passed in as an argument.')
+        # User hasn't provided anything - initialize empty dataframe
+        df = _pandas.DataFrame()
 
     # Execute any Wrangles required
     if 'wrangles' in recipe.keys():
