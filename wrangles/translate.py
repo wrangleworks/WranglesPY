@@ -4,10 +4,10 @@ Functions to translate text
 
 from . import config as _config
 from . import batching as _batching
-from typing import Union
+from typing import Union as _Union
 
 
-def translate(input: Union[str, list], target_language: str, source_language: str = 'AUTO') -> list:
+def translate(input: _Union[str, list], target_language: str, source_language: str = 'AUTO') -> _Union[str, list]:
     """
     Translate text
 
