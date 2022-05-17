@@ -139,7 +139,7 @@ def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
                     obj = getattr(obj, element)
 
                 # Execute the requested function and return the value
-                df = obj(df, params)
+                df = obj(df, **params)
 
     return df
 

@@ -11,13 +11,20 @@ Wrangle your data into shape with machine learning.
 """
 
 from .config import authenticate
-from .classify import classify
-from . import data
-from . import extract
-from .train import train
-from .translate import translate
-from . import pipeline
-from . import select
-from . import format
-from .standardize import standardize
+
 from . import connectors
+from . import pipeline
+
+from .classify import classify
+from . import extract
+from .translate import translate
+from .standardize import standardize
+from . import format
+
+from . import data
+from .train import train
+from . import select
+
+
+
+
