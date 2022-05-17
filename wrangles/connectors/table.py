@@ -7,6 +7,7 @@ from openpyxl.formatting.rule import ColorScaleRule, CellIsRule, FormulaRule
 from openpyxl.styles import Alignment, Font, NamedStyle, Color, PatternFill
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
+from typing import Union as _Union
 
 def make_table(df, file, sheet_name):
     # file = 'data/output/bosch wrangled.xlsx'
@@ -88,3 +89,17 @@ def make_table(df, file, sheet_name):
             ws.conditional_formatting.add(value_cells, match_rule_SIMILAR)
 
 
+
+def write(df: pd.DataFrame, name: str, sheet: str = 'Sheet1', fields: _Union[str, list] = None):
+    """
+    Write a table formatted for Eric's demo
+
+    :param df: Dataframe to export
+    :param name: Name of file to create
+    :param sheet: (Optional) Name of sheet to create, default Sheet1
+    :param fields: (Optional) Fields to export. If omitted, all will be exported
+    """
+    # Select only specific fields if user requests them
+    if fields is not None: df = df[fields]
+
+    make_table(df, name, sheet)
