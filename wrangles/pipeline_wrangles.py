@@ -102,11 +102,30 @@ class extract():
         return df
 
     def codes(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
-        df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
+        """
+        
+        """
+        if isinstance(params['input'], str):
+            df[params['output']] = _extract.codes(df[params['input']].astype(str).tolist())
+        elif isinstance(params['input'], list):
+            # If a list of inputs is provided, ensure the list of outputs is the same length
+            if len(params['input']) != len(params.get('output')):
+                raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
+            for input, output in zip(params['input'], params['output']):
+                df[output] = _extract.codes(df[input].astype(str).tolist())
+
         return df
 
     def custom(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
-        df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
+        if isinstance(params['input'], str):
+            df[params['output']] = _extract.custom(df[params['input']].astype(str).tolist(), **params['parameters'])
+        elif isinstance(params['input'], list):
+            # If a list of inputs is provided, ensure the list of outputs is the same length
+            if len(params['input']) != len(params.get('output')):
+                raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
+            for input, output in zip(params['input'], params['output']):
+                df[output] = _extract.custom(df[input].astype(str).tolist(), **params['parameters'])
+                
         return df
 
     def properties(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
