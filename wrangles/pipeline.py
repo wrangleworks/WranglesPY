@@ -1,16 +1,14 @@
 """
 Create and execute Wrangling pipelines
 """
-
 import pandas as _pandas
 import yaml as _yaml
 import logging as _logging
-from . import connectors as _connectors
+from typing import Union as _Union
 import os as _os
-from . import pipeline_wrangles as _pipeline_wrangles
 
-# Temporary imports, used for Eric Demo Assets - replace these with long term solutions
-from .make_table import make_table as _make_table
+from . import pipeline_wrangles as _pipeline_wrangles
+from . import connectors as _connectors
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -48,7 +46,47 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     return recipe_object
 
 
-def _execute_wrangles(df, wrangles_list):
+def _read_data_sources(recipe: _Union[dict, list]) -> _pandas.DataFrame:
+    """
+    Import data from requested datasources as defined by the recipe
+
+    :param recipe: Read section of a recipe
+    :return: Dataframe of imported data
+    """
+    # Allow blended imports
+    if list(recipe)[0] in ['concatenate', 'merge']:
+        # Get data from sources
+        dfs = []
+        for source in recipe[list(recipe)[0]]['sources']:
+            import_type = list(source)[0]
+            params = source[import_type]
+            dfs.append(getattr(getattr(_connectors, import_type), 'read')(**params))
+
+        if list(recipe)[0] == 'concatenate':
+            # Blend as a concatenation - stack data depending on axis (e.g. union)
+            df = _pandas.concat(dfs, **recipe['concatenate'].get('parameters', {}))
+        elif list(recipe)[0] == 'merge':
+            # Blend as a merge - equivalent to database join
+            df = _pandas.merge(dfs[0], dfs[1], **recipe['merge'].get('parameters', {}))
+        # Clear from memory in case this is a large object
+        del dfs
+    else:
+        # Single source import
+        if isinstance(recipe, dict):
+            # If user has entered a dict, get first key and value
+            import_type = list(recipe)[0]
+            params = recipe[import_type]
+        elif isinstance(recipe, list):
+            # If they've entered a list, get the first key and value from the first element
+            import_type = list(recipe[0])[0]
+            params = recipe[0][import_type]
+        # Load appropriate data
+        df = getattr(getattr(_connectors, import_type), 'read')(**params)
+    
+    return df
+
+
+def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
 
@@ -77,78 +115,57 @@ def _execute_wrangles(df, wrangles_list):
     return df
 
 
-def run(recipe: str, params: dict = {}, dataframe = None):
+def _write_data(df: _pandas.DataFrame, recipe: dict):
+    # Initialize returned df as df to start
+    df_return = df
+
+    # If user has entered a dictionary, convert to list
+    if isinstance(recipe, dict):
+        recipe = [recipe]
+
+    # Loop through all exports, get type and execute appropriate export
+    for export in recipe:
+        for export_type, params in export.items():
+            if export_type == 'dataframe':
+                # Define the dataframe that is returned
+                df_return = df[params['fields']]
+            else:
+                # Get output function of requested connector and pass dataframe + user defined params
+                getattr(getattr(_connectors, export_type), 'write')(df, **params)
+
+    return df_return
+
+
+def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     """
     Execute a YAML defined Wrangling pipeline
+
+    >>> wrangles.pipeline.run(recipe)
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
-    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining an import within the YAML
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     """
     # Parse recipe
     recipe = _load_recipe(recipe, params)
 
     # Get requested data
-    if 'import' in recipe.keys():
-        # Allow blended imports
-        if list(recipe['import'])[0] in ['concatenate', 'merge']:
-            # Get data from sources
-            dfs = []
-            for source in recipe['import'][list(recipe['import'])[0]]['sources']:
-                import_type = list(source)[0]
-                params = source[import_type]
-                dfs.append(getattr(getattr(_connectors, import_type), 'read')(**params))
-
-            if list(recipe['import'])[0] == 'concatenate':
-                # Blend as a concatenation - stack data depending on axis (e.g. union)
-                df = _pandas.concat(dfs, **recipe['import']['concatenate'].get('parameters', {}))
-            elif list(recipe['import'])[0] == 'merge':
-                # Blend as a merge - equivalent to database join
-                df = _pandas.merge(dfs[0], dfs[1], **recipe['import']['merge'].get('parameters', {}))
-            # Clear from memory in case this is a large object
-            del dfs
-        else:
-            # Load appropriate data
-            for import_type, params in recipe['import'].items():
-                df = getattr(getattr(_connectors, import_type), 'read')(**params)
+    if 'read' in recipe.keys():
+        # Execute requested data imports
+        df = _read_data_sources(recipe['read'])
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
     else:
         # User hasn't provided anything
-        raise ValueError('No input was provided. Either an import section must be added to the provided recipe, or a dataframe passed in as an argument.')
+        raise ValueError('No input was provided. Either an read section must be added to the provided recipe, or a dataframe passed in as an argument.')
 
     # Execute any Wrangles required
     if 'wrangles' in recipe.keys():
         df = _execute_wrangles(df, recipe['wrangles'])
 
-    # Set initial dateframe to be as Wrangled
-    df_return = df
+    # Execute requested data exports
+    if 'write' in recipe.keys():
+        df = _write_data(df, recipe['write'])
 
-    if 'export' in recipe.keys():
-        # If user has entered a dictionary, add to a list
-        if isinstance(recipe['export'], dict):
-            exports = [recipe['export']]
-        else:
-            exports = recipe['export']
-
-        # Loop through all exports, get type and execute appropriate export
-        for export in exports:
-            for export_type, params in export.items():
-                if export_type == 'dataframe':
-                    # Define the dataframe that is returned
-                    df_return = df[params['fields']]
-
-                elif export_type == 'table':
-                    # Eric's custom code for demo
-                    if 'fields' in params.keys():
-                        output_df = df[params['fields']]
-                    else:
-                        output_df = df
-                    _make_table(output_df, export['name'], export.get('sheet', 'Sheet1'))
-                
-                else:
-                    # Get output function of requested connector and pass dataframe + user defined params
-                    getattr(getattr(_connectors, export_type), 'write')(df, **params)
-
-    return df_return
+    return df
