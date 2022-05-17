@@ -46,20 +46,27 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     return recipe_object
 
 
-def _read_data_sources(recipe: _Union[dict, list]) -> _pandas.DataFrame:
+def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
 
     :param recipe: Read section of a recipe
+    :param connections: shared connections
     :return: Dataframe of imported data
     """
     # Allow blended imports
     if list(recipe)[0] in ['concatenate', 'merge']:
-        # Get data from sources
+        # Get data from list of sources
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
             import_type = list(source)[0]
             params = source[import_type]
+            
+            # Use shared connection details if set
+            if 'connection' in params.keys():
+                params.update(connections[params['connection']])
+                params.pop('connection')
+
             dfs.append(getattr(getattr(_connectors, import_type), 'read')(**params))
 
         if list(recipe)[0] == 'concatenate':
@@ -80,6 +87,12 @@ def _read_data_sources(recipe: _Union[dict, list]) -> _pandas.DataFrame:
             # If they've entered a list, get the first key and value from the first element
             import_type = list(recipe[0])[0]
             params = recipe[0][import_type]
+
+        # Use shared connection details if set
+        if 'connection' in params.keys():
+            params.update(connections[params['connection']])
+            params.pop('connection')
+
         # Load appropriate data
         df = getattr(getattr(_connectors, import_type), 'read')(**params)
     
@@ -115,7 +128,15 @@ def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict):
+def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> _pandas.DataFrame:
+    """
+    Export data to the requested targets as defined by the recipe
+
+    :param df: Dataframe to be exported
+    :param recipe: write section of a recipe
+    :param connections: shared connections
+    :return: Dataframe, a subset if the 'dataframe' write type is set with specific fields
+    """
     # Initialize returned df as df to start
     df_return = df
 
@@ -130,6 +151,11 @@ def _write_data(df: _pandas.DataFrame, recipe: dict):
                 # Define the dataframe that is returned
                 df_return = df[params['fields']]
             else:
+                # Use shared connection details if set
+                if 'connection' in params.keys():
+                    params.update(connections[params['connection']])
+                    params.pop('connection')
+
                 # Get output function of requested connector and pass dataframe + user defined params
                 getattr(getattr(_connectors, export_type), 'write')(df, **params)
 
@@ -152,7 +178,7 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
-        df = _read_data_sources(recipe['read'])
+        df = _read_data_sources(recipe['read'], recipe.get('connections', {}))
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
@@ -166,6 +192,6 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
 
     # Execute requested data exports
     if 'write' in recipe.keys():
-        df = _write_data(df, recipe['write'])
+        df = _write_data(df, recipe['write'], recipe.get('connections', {}))
 
     return df
