@@ -19,16 +19,10 @@ def run(df, verbose=False):
     brand_part_all = []
     for idx, row in df.iterrows():
         # Create a list of all brands
-        manufacturer = [str(row['Manufacturer'])]
-        brands_primary = str(row['Brands Primary']).replace(', ', ',').split(',')
-        brands_secondary = str(row['Brands Secondary']).replace(', ', ',').split(',')
-        brands_all = manufacturer + brands_primary + brands_secondary
+        brands_all = [str(row.get('Manufacturer', ''))] + row.get('Brands Primary', []) + row.get('Brands Secondary', [])
 
         # Create a list of all parts + convert to patterns
-        mpn = [str(row['MPN'])]
-        parts_primary = str(row['Parts Primary']).replace(', ', ',').split(',')
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
-        parts_all = mpn + parts_primary + parts_secondary
+        parts_all = [str(row.get('MPN', ''))] + row.get('Parts Primary', []) + row.get('Parts Secondary', [])
         part_patterns_all = [convertPartcodeToPattern(part) for part in parts_all]
 
         # Loop through combinations and add to main list
@@ -44,7 +38,12 @@ def run(df, verbose=False):
     for i in range(0, len(brand_part_all), 1000):
         placeholders = ', '.join('?' for _ in brand_part_all[i:i + 1000])
         if len(placeholders):
-            sql = 'SELECT ID, ScoreAdjusted FROM Partcode_Patterns_Alpha WHERE ID IN (%s) ORDER BY ScoreAdjusted DESC' % placeholders
+            sql = """
+                SELECT ID, ScoreAdjusted
+                FROM Partcode_Patterns_Alpha
+                WHERE ID IN (%s)
+                ORDER BY ScoreAdjusted DESC
+            """ % placeholders
             cursor.execute(sql, brand_part_all[i:i + 1000])
 
             for row in cursor.fetchall():
@@ -60,35 +59,25 @@ def run(df, verbose=False):
         brand_part_primary = []
         brand_part_all = []
         
-        # Create a list of all brands
-        manufacturer = [str(row['Manufacturer'])]
-        brands_primary = list(set(str(row['Brands Primary']).replace(', ', ',').split(',')))
-        try:
-            brands_primary.remove('')
-        except:
-            pass
-        brands_secondary = str(row['Brands Secondary']).replace(', ', ',').split(',')
+        # Create a list of primary and all brands
+        manufacturer = [str(row.get('Manufacturer', ''))]
+        brands_primary = list(set(row.get('Brands Primary',[])))
+        if '' in brands_primary: brands_primary.remove('')
+
+        brands_secondary = list(set(row.get('Brands Secondary',[])))
         brands_all = manufacturer + brands_primary + brands_secondary
         brands_all = list(set(brands_all))
-        try:
-            brands_all.remove('')
-        except:
-            pass
+        if '' in brands_all: brands_all.remove('')
 
-        # Create a list of all parts + convert to patterns
-        mpn = [str(row['MPN'])]
-        parts_primary = list(set(str(row['Parts Primary']).replace(', ', ',').split(',')))
-        try:
-            parts_primary.remove('')
-        except:
-            pass
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
+        # Create a list of primary and all parts
+        mpn = [str(row.get('MPN', ''))]
+        parts_primary = list(set(row.get('Parts Primary',[])))
+        if '' in parts_primary: parts_primary.remove('')
+
+        parts_secondary = list(set(row.get('Parts Secondary',[])))
         parts_all = mpn + parts_primary + parts_secondary
         parts_all = list(set(parts_all))
-        try:
-            parts_all.remove('')
-        except:
-            pass
+        if '' in parts_all: parts_all.remove('')
 
         pattern2part_primary = {}
         # Loop through combinations and add to primary list

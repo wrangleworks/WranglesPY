@@ -29,36 +29,28 @@ def run(df, verbose=False):
     brand_part_all = []
     for idx, row in df.iterrows():
         # Create a list of all brands
-        manufacturer = [str(row['Manufacturer'])]
-        brands_primary = str(row['Brands Primary']).replace(', ', ',').split(',')
-        brands_secondary = str(row['Brands Secondary']).replace(', ', ',').split(',')
-        brands_all = manufacturer + brands_primary + brands_secondary
+        brands_all = [str(row.get('Manufacturer', ''))] + row.get('Brands Primary', []) + row.get('Brands Secondary', [])
 
-        # Create a list of all parts + convert to patterns
-        mpn = [str(row['MPN'])]
-        parts_primary = str(row['Parts Primary']).replace(', ', ',').split(',')
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
-        parts_all = mpn + parts_primary + parts_secondary
+        # Create a list of all parts
+        parts_all = [str(row.get('MPN', ''))] + row.get('Parts Primary', []) + row.get('Parts Secondary', [])
+
+        # Remove special chars
+        parts_all = [cleanPartcode(part) for part in parts_all]
 
         brands_all = list(set(brands_all))
-        try:
-            brands_all.remove('')
-        except:
-            pass
+        if '' in brands_all: brands_all.remove('')
         
         parts_all = list(set(parts_all))
-        try:
-            parts_all.remove('')
-        except:
-            pass
+        if '' in parts_all: parts_all.remove('')
 
-        # Loop through combinations and add to main list
+        # Loop through combinations and add with brand
         for brand in brands_all:
             for part in parts_all:
-                brand_part_all.append(brand + ':' + cleanPartcode(part))
+                brand_part_all.append(brand + ':' + part)
 
+        # Loop through combinations and add without brand
         for part in parts_all:
-            brand_part_all.append('NULL:' + cleanPartcode(part))
+            brand_part_all.append('NULL:' + part)
 
     # Compress to unique values
     brand_part_all = list(set(brand_part_all))
@@ -68,7 +60,12 @@ def run(df, verbose=False):
     for i in range(0, len(brand_part_all), 1000):
         placeholders = ', '.join('?' for _ in brand_part_all[i:i + 1000])
         if len(placeholders):
-            sql = 'SELECT SearchKey, Brand, ManufacturerID, MatchScore, PartLength FROM ProductsLinks PL INNER JOIN ProductsManu PM ON PL.ProductID = PM.ID WHERE SearchKey IN (%s)' % placeholders
+            sql = """
+                SELECT SearchKey, Brand, ManufacturerID, MatchScore, PartLength
+                FROM ProductsLinks PL
+                INNER JOIN ProductsManu PM ON PL.ProductID = PM.ID
+                WHERE SearchKey IN (%s)
+            """ % placeholders
             cursor.execute(sql, brand_part_all[i:i + 1000])
 
             for row in cursor.fetchall():
@@ -82,34 +79,24 @@ def run(df, verbose=False):
     i = 0
     for idx, row in df.iterrows():
         # Create a list of primary and all brands
-        manufacturer = [str(row['Manufacturer'])]
-        brands_primary = list(set(str(row['Brands Primary']).replace(', ', ',').split(',')))
-        try:
-            brands_primary.remove('')
-        except:
-            pass
-        brands_secondary = str(row['Brands Secondary']).replace(', ', ',').split(',')
+        manufacturer = [str(row.get('Manufacturer', ''))]
+        brands_primary = list(set(row.get('Brands Primary',[])))
+        if '' in brands_primary: brands_primary.remove('')
+
+        brands_secondary = list(set(row.get('Brands Secondary',[])))
         brands_all = manufacturer + brands_primary + brands_secondary
         brands_all = list(set(brands_all))
-        try:
-            brands_all.remove('')
-        except:
-            pass
+        if '' in brands_all: brands_all.remove('')
 
         # Create a list of primary and all parts
-        mpn = [str(row['MPN'])]
-        parts_primary = list(set(str(row['Parts Primary']).replace(', ', ',').split(',')))
-        try:
-            parts_primary.remove('')
-        except:
-            pass
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
+        mpn = [str(row.get('MPN', ''))]
+        parts_primary = list(set(row.get('Parts Primary',[])))
+        if '' in parts_primary: parts_primary.remove('')
+
+        parts_secondary = list(set(row.get('Parts Secondary',[])))
         parts_all = mpn + parts_primary + parts_secondary
         parts_all = list(set(parts_all))
-        try:
-            parts_all.remove('')
-        except:
-            pass
+        if '' in parts_all: parts_all.remove('')
         
         # Loop through combinations and add to primary list
         brand_part_primary = []

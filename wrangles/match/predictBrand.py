@@ -30,10 +30,7 @@ def run(df, verbose=False):
     part_patterns_all = []
     for idx, row in df.iterrows():
         # Create a list of all parts + convert to patterns
-        mpn = [str(row['MPN'])]
-        parts_primary = str(row['Parts Primary']).replace(', ', ',').split(',')
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
-        parts_all = mpn + parts_primary + parts_secondary
+        parts_all = [str(row.get('MPN', ''))] + row.get('Parts Primary', []) + row.get('Parts Secondary', [])
         part_patterns_all = part_patterns_all + [convertPartcodeToPattern(part) for part in parts_all]
 
     # Compress to unique values
@@ -44,7 +41,11 @@ def run(df, verbose=False):
     for i in range(0, len(part_patterns_all), 1000):
         placeholders = ', '.join('?' for _ in part_patterns_all[i:i + 1000])
         if len(placeholders):
-            sql = 'SELECT Pattern, Brand FROM Partcode_Patterns_Predict_Brand WHERE Pattern IN (%s)' % placeholders
+            sql = """
+                SELECT Pattern, Brand
+                FROM Partcode_Patterns_Predict_Brand
+                WHERE Pattern IN (%s)
+            """ % placeholders
             cursor.execute(sql, part_patterns_all[i:i + 1000])
 
             for row in cursor.fetchall():
@@ -57,23 +58,15 @@ def run(df, verbose=False):
     results = []
     i = 0
     for idx, row in df.iterrows():
-        parts_primary = []
-        parts_all = []
-
         # Create a list of all parts + convert to patterns
-        mpn = [str(row['MPN'])]
-        parts_primary = list(set(str(row['Parts Primary']).replace(', ', ',').split(',')))
-        try:
-            parts_primary.remove('')
-        except:
-            pass
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
+        mpn = [str(row.get('MPN', ''))]
+        parts_primary = list(set(row.get('Parts Primary',[])))
+        if '' in parts_primary: parts_primary.remove('')
+
+        parts_secondary = list(set(row.get('Parts Secondary',[])))
         parts_all = mpn + parts_primary + parts_secondary
         parts_all = list(set(parts_all))
-        try:
-            parts_all.remove('')
-        except:
-            pass
+        if '' in parts_all: parts_all.remove('')
 
         part_patterns_primary = []
         pattern2part_primary = {}
