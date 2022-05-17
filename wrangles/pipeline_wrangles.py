@@ -19,10 +19,6 @@ from . import match as _match
 from . import ww_pd
 
 
-def rename(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
-    return df.rename(columns=params)
-
-
 def classify(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
     """
     Run classify wrangles on the specified columns
@@ -125,6 +121,11 @@ class format():
         df = _pd.concat([df, _format.price_breaks(df[params['input']], params['parameters']['categoryLabel'], params['parameters']['valueLabel'])], axis=1)
         return df
 
+
+def rename(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
+    return df.rename(columns=params)
+
+
 class select():
     """
     Functions to select data from within columns
@@ -165,6 +166,7 @@ def standardize(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
     """
     df[params['output']] = _standardize(df[params['input']].astype(str).tolist(), **params['parameters'])
     return df
+
 
 def translate(df: _pd.DataFrame, params: dict = {}) -> _pd.DataFrame:
     """
