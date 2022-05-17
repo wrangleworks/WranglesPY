@@ -21,22 +21,15 @@ def run(df, verbose=False):
         poss_parts_primary = set()
         poss_parts_all = set()
 
-        parts_primary = str(row['Parts Primary']).replace(', ', ',').split(',')
-        parts_primary.append(row['MPN'])
-        try:
-            parts_primary.remove('')
-            parts_primary.remove('')
-        except:
-            pass
+        parts_primary = list(set(row.get('Parts Primary',[])))
+        parts_primary.append(row.get('MPN',''))
+        if '' in parts_primary: parts_primary.remove('')
+        if '' in parts_primary: parts_primary.remove('')
 
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
+        parts_secondary = list(set(row.get('Parts Secondary',[])))
 
-        parts_all = parts_primary + parts_secondary #+ parts_tertiary
-        try:
-            parts_all.remove('')
-            parts_all.remove('')
-        except:
-            pass
+        parts_all = parts_primary + parts_secondary
+        if '' in parts_all: parts_all.remove('')
         
         parts_rs = set()
         for part in parts_all:
@@ -45,7 +38,12 @@ def run(df, verbose=False):
 
         placeholders= ', '.join('?' for _ in parts_rs)
         if len(placeholders):
-            query= 'SELECT * FROM ProductsLinks PL INNER JOIN ProductsManu PM ON PL.ProductID = PM.ID WHERE SearchKey IN (%s) ORDER BY MatchScore DESC, PartLength DESC' % placeholders
+            query= """
+                SELECT * FROM ProductsLinks PL
+                INNER JOIN ProductsManu PM ON PL.ProductID = PM.ID
+                WHERE SearchKey IN (%s)
+                ORDER BY MatchScore DESC, PartLength DESC
+            """ % placeholders
             cursor.execute(query, list(parts_rs))
 
         result = {}

@@ -1282,34 +1282,28 @@ def process(df, siteCode, verbose=False):
         elif part_predict:
             result = part_predict
 
-        brands_primary = str(row['Brands Primary']).replace(', ', ',').split(',')
-        try:
-            brands_primary.remove('')
-        except:
-            pass
-        brands_secondary = str(row['Brands Secondary']).replace(', ', ',').split(',')
-        try:
-            brands_secondary.remove('')
-        except:
-            pass
+        brands_primary = row.get('Brands Primary', [])
+        if '' in brands_primary: brands_primary.remove('')
+
+        brands_secondary = row.get('Brands Secondary', [])
+        if '' in brands_secondary: brands_secondary.remove('')
+
         brands_all = brands_primary + brands_secondary
         brands_primary = set(brands_primary)
         brands_all = set(brands_all)
 
-        parts_primary = str(row['Parts Primary']).replace(', ', ',').split(',')
+        parts_primary = row.get('Parts Primary', [])
+        if '' in parts_primary: parts_primary.remove('')
 
-        if re.search('[0-9]', str(row['MPN'])) and str(row['Parts Primary']) == '' and count_space(str(row['MPN'])) < 2 and len(str(row['MPN'])) < 15:
+        # If nothing from parts primary, but MPN has something sensible - add that
+        if re.search('[0-9]', str(row.get('MPN', ''))) and len(parts_primary) == 0 and count_space(str(row.get('MPN', ''))) < 2 and len(str(row.get('MPN', ''))) < 15:
             parts_primary.append(str(row['MPN']))
 
-        try:
-            parts_primary.remove('')
-        except:
-            pass
-        parts_secondary = str(row['Parts Secondary']).replace(', ', ',').split(',')
-        try:
-            parts_secondary.remove('')
-        except:
-            pass
+        if '' in parts_primary: parts_primary.remove('')
+        
+        parts_secondary = row.get('Parts Secondary', [])
+        if '' in parts_secondary: parts_secondary.remove('')
+
         parts_all = parts_primary + parts_secondary
         parts_primary = set(parts_primary)
         parts_all = set(parts_all)
