@@ -4,7 +4,6 @@ Functions to run extraction wrangles
 import pandas as _pd
 from typing import Union as _Union
 from .. import extract as _extract
-
 from .. import format as _format
 
 
