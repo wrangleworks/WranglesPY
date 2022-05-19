@@ -18,4 +18,5 @@ from . import convert
 from . import create
 from . import extract
 from . import format
+from . import merge
 from . import select
