@@ -1,10 +1,9 @@
 """
 Functions to merge data from one or more columns into a single column
 """
-from multiprocessing.sharedctypes import Value
-from numpy import isin
 import pandas as _pd
 from .. import format as _format
+from typing import Union as _Union
 
 
 def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
@@ -20,10 +19,11 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     return df
 
 
-def concatenate(df: _pd.DataFrame, input: str, output: str, parameters: dict = {}) -> _pd.DataFrame:
+def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, parameters: dict = {}) -> _pd.DataFrame:
     """
-    If input is a list of columns, concatenate multiple columns into one as a delimited string
-    If input is a single column, concatenate a list contained within that column into a delimited string
+    If input is a list of columns, concatenate multiple columns into one as a delimited string.
+
+    If input is a single column, concatenate a list contained within that column into a delimited string.
     
     :param input: Either a single column name or list of columns
     :param output: Column to output the results to
@@ -38,6 +38,31 @@ def concatenate(df: _pd.DataFrame, input: str, output: str, parameters: dict = {
     return df
 
 
+def lists(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
+    """
+    Take multiple columns of lists and merge to a single output list
+
+    >>> [a,b,c], [d,e,f]  ->  [a,b,c,d,e,f]
+
+    :param input: List of input columns
+    :param output: Column to output the results to
+    :return: Updated Dataframe
+    """
+    remove_duplicates = parameters.get('remove_duplicates', False)
+
+    output_list = []
+    for row in df[input].values.tolist():
+        output_row = []
+        for col in row:
+            if not isinstance(col, list): col = [str(col)]
+            output_row += col
+        # Use dict.fromkeys over set to preserve input order
+        if remove_duplicates: output_row = list(dict.fromkeys(output_row))
+        output_list.append(output_row)
+    df[output] = output_list
+    return df
+
+
 def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
     """
     Take multiple columns and merge them to a list
@@ -46,9 +71,8 @@ def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) 
 
     :param input: List of input columns
     :param output: Column to output the results to
-    :return: Updated Dateframe
+    :return: Updated Dataframe
     """
-    # TODO: enable include/exclude empty
     include_empty = parameters.get('include_empty', False)
 
     output_list = []
