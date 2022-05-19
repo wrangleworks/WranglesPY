@@ -17,7 +17,7 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     """
     Run classify wrangles on the specified columns
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     if isinstance(input, str):
         df[output] = _classify(df[input].astype(str).tolist(), **parameters)
@@ -35,7 +35,7 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     """
     Rename a column or list of columns
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     # If short form of paired names is provided, use that
     if input is None:
@@ -54,7 +54,7 @@ def standardize(df: _pd.DataFrame, input: str, output: str, parameters: dict = {
     """
     Run a standardize wrangle
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     df[output] = _standardize(df[input].astype(str).tolist(), **parameters)
     return df
@@ -64,33 +64,17 @@ def translate(df: _pd.DataFrame, input: str, output: str, parameters: dict = {})
     """
     Translate the input
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     df[output] = _translate(df[input].astype(str).tolist(), **parameters)
     return df
 
 
-def join(df: _pd.DataFrame, input: str, output: str, parameters: dict = {}) -> _pd.DataFrame:
-    """
-    Join a list to a string e.g. ['ele1', 'ele2', 'ele3'] -> 'ele1,ele2,ele3'
-    """
-    df[output] = _format.join_list(df[input].tolist(), parameters['char'])
-    return df
-
-def concatenate(df: _pd.DataFrame, input: str, output: str, parameters: dict = {}) -> _pd.DataFrame:
-    """
-    Concatenate multiple columns into one
-
-    :return: Update Dateframe
-    """
-    df[output] = _format.concatenate(df[input].astype(str).values.tolist(), parameters['char'])
-    return df
-
 def split(df: _pd.DataFrame, input: str, output: str, parameters: dict = {}) -> _pd.DataFrame:
     """
     Split to a string to multiple columns
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     df[output] = _format.split(df[input].astype(str).tolist(), parameters['char'])
     return df
@@ -99,7 +83,7 @@ def expand(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     Expand an object to multiple columns
 
-    :return: Update Dateframe
+    :return: Updated Dateframe
     """
     df[output] = [x for x in df[input].tolist()]
     return df

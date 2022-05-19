@@ -3,7 +3,7 @@ import pandas
 
 def join_list(input_list, join_char):
     """
-    Join a python list using 
+    Join a python list with a specified char
     """
     results = [join_char.join(x) for x in input_list]
     return results
@@ -19,6 +19,23 @@ def concatenate(data_list, concat_char):
 def split(input_list, split_char):
     results = [x.split(split_char) for x in input_list]
     return results
+
+
+def coalesce(input_list: list) -> list:
+    """
+    Return the first not empty result for each row
+    where each row has a list of possibilities
+    """
+    output_list = []
+    for row in input_list:
+        output_row = ''
+        for value in row:
+            if value:
+                output_row = value
+                break
+
+        output_list.append(output_row)
+    return output_list
 
 
 def price_breaks(df_input, header_cat, header_val):
