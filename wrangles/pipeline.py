@@ -6,6 +6,7 @@ import yaml as _yaml
 import logging as _logging
 from typing import Union as _Union
 import os as _os
+import fnmatch
 
 from . import pipeline_wrangles as _pipeline_wrangles
 from . import connectors as _connectors
@@ -133,6 +134,10 @@ def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
                 df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
             else:
+                # Allow user to specify a wildcard (? or *) for the input columns
+                if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
+                    params['input'] = fnmatch.filter(df.columns, params['input'])
+
                 # Get the requested function from the pipeline_wrangles module
                 obj = _pipeline_wrangles
                 for element in wrangle.split('.'):
@@ -206,9 +211,11 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
         # User hasn't provided anything - initialize empty dataframe
         df = _pandas.DataFrame()
 
-    # Execute any Wrangles required
+    # Execute any Wrangles required (allow single or plural)
     if 'wrangles' in recipe.keys():
         df = _execute_wrangles(df, recipe['wrangles'])
+    elif 'wrangle' in recipe.keys():
+        df = _execute_wrangles(df, recipe['wrangle'])
 
     # Execute requested data exports
     if 'write' in recipe.keys():
