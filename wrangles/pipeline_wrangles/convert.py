@@ -2,6 +2,7 @@
 Functions to convert data formats and representations
 """
 import pandas as _pd
+import json as _json
 
 
 def case(df: _pd.DataFrame, input: str, output: str = None, parameters: dict = {}) -> _pd.DataFrame:
@@ -68,3 +69,23 @@ def data_type(df: _pd.DataFrame, input: str, output: str = None, parameters: dic
 
     df[output] = df[input].astype(parameters['dataType'])
     return df
+
+
+def to_json(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
+    """
+    Convert an object to a JSON representation
+
+    :param input: Name of the input column.
+    :param output: (Optional) Name of output column. If omitted, the input column will be replaced.
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+
+    output_list = []
+    for row in df[input].values.tolist():
+        output_list.append(_json.dumps(row))
+
+    df[output] = output_list
+    return df
+
+
