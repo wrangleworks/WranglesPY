@@ -17,7 +17,7 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFra
     output_list = []
     for row in df[input].values.tolist():
         if isinstance(row, list):
-            output_list.append(list(set(row)))
+            output_list.append(list(dict.fromkeys(row)))
         else:
             output_list.append(row)
     df[output] = output_list
