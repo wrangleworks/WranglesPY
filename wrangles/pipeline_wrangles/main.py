@@ -70,15 +70,6 @@ def translate(df: _pd.DataFrame, input: str, output: str, parameters: dict = {})
     return df
 
 
-def split(df: _pd.DataFrame, input: str, output: str, parameters: dict = {}) -> _pd.DataFrame:
-    """
-    Split to a string to multiple columns
-
-    :return: Updated Dateframe
-    """
-    df[output] = _format.split(df[input].astype(str).tolist(), parameters['char'])
-    return df
-
 def expand(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     Expand an object to multiple columns

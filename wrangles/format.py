@@ -16,9 +16,13 @@ def concatenate(data_list, concat_char):
     return results
 
 
-def split(input_list, split_char):
-    results = [x.split(split_char) for x in input_list]
-    return results
+def split(input_list, split_char, pad=False):
+    if pad:
+        # Pad to be as long as the longest result
+        max_len = max([len(x.split(split_char)) for x in input_list])
+        results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
+    else:
+        results = [x.split(split_char) for x in input_list]
 
 
 def coalesce(input_list: list) -> list:
