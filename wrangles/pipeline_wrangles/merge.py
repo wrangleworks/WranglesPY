@@ -13,7 +13,7 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     :param input: List of input columns
     :param output: Column to output the results to
     """
-    # NOTE: cleaner implementations that I've found implemented directly pandas do not work with empty strings
+    # NOTE: cleaner implementations that I've found implemented directly in pandas do not work with empty strings
     # If a better solution found, replace but ensure it works with all falsy values in python
     df[output] = _format.coalesce(df[input].fillna('').values.tolist())
     return df
@@ -84,6 +84,7 @@ def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) 
     df[output] = output_list
     return df
     
+
 def to_dict(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
     """
     Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys
