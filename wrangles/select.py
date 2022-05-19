@@ -17,6 +17,8 @@ def confidence_threshold(list_1, list_2, threshold):
     results = []
     
     for cell_1, cell_2 in zip(list_1, list_2):
+        if isinstance(cell_1, str): cell_1 = cell_1.split(' || ')
+        
         if cell_1 == None:
             if isinstance(cell_2, list):
                 results.append(cell_2[0])

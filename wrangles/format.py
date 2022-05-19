@@ -48,3 +48,30 @@ def price_breaks(df_input, header_cat, header_val):
     
     df_output = pandas.DataFrame(output_padded, columns=headers)
     return df_output
+    
+
+# Super Mario function
+def extend_list(input_lists):
+    """
+    Extend list of lists to one list
+    Ex: [['Hello', 'my'], ['name is', 'Fey']] -> ['Hello', 'my', 'name is', 'Fey']
+    Starts with the first list
+    """
+    results = []
+    for x in range(len(input_lists)):
+        temp = [item for sublist in input_lists[x] for item in sublist]
+        results.append(temp)
+    
+    return results
+
+def tokenize_list_space(input_list):
+    """
+    Tokenizes everything in a list that has spaces
+    Ex: ['Cookie Monster'] -> ['Cookie', 'Monster']
+    """
+    results = []
+    for item in input_list:
+        temp1 = [x.split() for x in item]
+        temp2 = [item for sublist in temp1 for item in sublist]
+        results.append(temp2)
+    return results

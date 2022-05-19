@@ -165,3 +165,24 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
     if isinstance(input, str): results = results[0]
     
     return results
+
+
+
+# SUPER MARIO
+from boltons.setutils import IndexedSet
+def diff(input):
+    """
+    input is going to be list of lists, where each list contains tokens
+    diff subtracts the tokens in 2nd list from the first using set ops
+    All inputs are "lowered" before difference operation
+    """
+    results = []
+    for row in input:
+        # target = row[0].lower()
+        target = [x.lower() for x in row[0]]
+        # remove = row[1].lower()
+        remove = [x.lower() for x in row[1]]
+        result = list(IndexedSet(target).difference(remove))
+        results.append([x.lower() for x in result])
+    
+    return results
