@@ -3,11 +3,11 @@ Standalone functions
 
 These will be called directly, without belonging to a parent module
 """
-from .. import classify as _classify
+from ..classify import classify as _classify
 from .. import format as _format
 from .. import match as _match
 from ..standardize import standardize as _standardize
-from .. import translate as _translate
+from ..translate import translate as _translate
 
 import pandas as _pd
 from typing import Union as _Union
@@ -109,4 +109,20 @@ def match(df: _pd.DataFrame, input: list) -> _pd.DataFrame:
     """
     """
     df = _pd.concat([df, _match.run(df[input])], axis=1)
+    return df
+    
+
+
+#  SUPER MARIO
+def extend_list(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+    """
+    Convert a lists of lists into one list (flatten a list)
+    """
+    df[output] = _format.extend_list(df[input].values.tolist())
+    return df
+
+def tokenize_list_space(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    """
+    df[output] = _format.tokenize_list_space(df[input].values.tolist())
     return df
