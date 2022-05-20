@@ -131,6 +131,7 @@ def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
+                # TODO: remove parameters, allow selecting in/out columns
                 df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
             else:

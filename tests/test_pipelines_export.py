@@ -66,16 +66,14 @@ def test_export_json():
       write:
         file:
           name: temp.json
-          parameters:
-            orient: records
+          orient: records
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
           name: temp.json
-          parameters:
-            orient: records
+          orient: records
     """
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
