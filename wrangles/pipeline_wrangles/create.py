@@ -7,7 +7,7 @@ import numpy as _np
 from typing import Union as _Union
 
 
-def column(df: _pd.DataFrame, output: _Union[str, list], parameters: dict = {}) -> _pd.DataFrame:
+def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
     """
     Create column(s) with a user defined value. Defaults to None (empty).
 
@@ -27,7 +27,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], parameters: dict = {}) 
 
     # Loop through and create new columns
     for output_column in output:
-        df[output_column] = parameters.get('value', None)
+        df[output_column] = value
 
     return df
 
@@ -48,7 +48,7 @@ def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     return uuid(df, output)
 
 
-def index(df: _pd.DataFrame, output: _Union[str, list], parameters: dict = {}) -> _pd.DataFrame:
+def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: int = 1) -> _pd.DataFrame:
     """
     Create column(s) with an incremental index.
 
@@ -65,15 +65,12 @@ def index(df: _pd.DataFrame, output: _Union[str, list], parameters: dict = {}) -
     :param step: (Optional; default 1) Step between successive rows
     ```
     """
-    # Get start number if provided, default 1
-    start = parameters.get('start', 1)
-
     # If a string provided, convert to list
     if isinstance(output, str): output = [output]
 
     # Loop through and create incremental index
     for output_column in output:
-        df[output_column] = _np.arange(start, len(df) * parameters.get('step', 1) + start, step=parameters.get('step', 1))
+        df[output_column] = _np.arange(start, len(df) * step + start, step=step)
 
     return df
 

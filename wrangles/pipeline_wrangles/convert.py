@@ -6,7 +6,7 @@ import json as _json
 from typing import Union as _Union
 
 
-def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, parameters: dict = {}) -> _pd.DataFrame:
+def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
     Change the case of the input.
 
@@ -26,7 +26,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     if output is None: output = input
 
     # Get the requested case, default lower
-    desired_case = parameters.get('case', 'lower').lower()
+    desired_case = case.lower()
 
     # If a string provided, convert to list
     if isinstance(input, str):
@@ -47,7 +47,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, parameters: dict = {}) -> _pd.DataFrame:
+def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
     """
     Change the data type of the input.
 
@@ -55,14 +55,13 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     wrangles:
       - convert.data_type:
           input: column
-          output: new column
-          parameters:
-            dataType: str
+          output: new column      # Optional
+          data_type: str          # Optional
     ```
     :param df: Input Dataframe
     :param input: Input column or list of columns to be operated on
     :param output: (Optional) Output column or list of columns to save results to. Default - input columns will be replaced
-    :param type: Desired data type
+    :param data_type: (Optional) Desired data type. Default str (string)
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -74,7 +73,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(parameters['dataType'])
+        df[output_column] = df[input_column].astype(data_type)
 
     return df
 
