@@ -57,8 +57,7 @@ def test_case_lower():
     wrangles:
       - convert.case:
           input: Data1
-          parameters:
-            case: lower
+          case: lower
     """
     df = wrangles.pipeline.run(recipe, dataframe=test_df)
     assert df.iloc[0]['Data1'] == 'a string'
@@ -68,8 +67,7 @@ def test_case_upper():
     wrangles:
       - convert.case:
           input: Data1
-          parameters:
-            case: upper
+          case: upper
     """
     df = wrangles.pipeline.run(recipe, dataframe=test_df)
     assert df.iloc[0]['Data1'] == 'A STRING'
@@ -79,8 +77,7 @@ def test_case_title():
     wrangles:
       - convert.case:
           input: Data1
-          parameters:
-            case: title
+          case: title
     """
     df = wrangles.pipeline.run(recipe, dataframe=test_df)
     assert df.iloc[0]['Data1'] == 'A String'
@@ -90,8 +87,7 @@ def test_case_sentence():
     wrangles:
       - convert.case:
           input: Data1
-          parameters:
-            case: sentence
+          case: sentence
     """
     df = wrangles.pipeline.run(recipe, dataframe=test_df)
     assert df.iloc[0]['Data1'] == 'A string'
@@ -106,8 +102,7 @@ def test_data_type_str():
     wrangles:
       - convert.data_type:
           input: Data1
-          parameters:
-            dataType: str
+          data_type: str
     """
     df = wrangles.pipeline.run(recipe, dataframe=test_data_type_df)
     assert isinstance(df.iloc[0]['Data1'], str)
