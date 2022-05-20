@@ -1,7 +1,7 @@
 import wrangles
 
 recipe = """
-import:
+read:
   file:
     name: tests/samples/data.csv
 """
