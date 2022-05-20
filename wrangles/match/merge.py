@@ -1329,7 +1329,7 @@ def process(df, siteCode, verbose=False):
                 result['brand'] = list(brands_primary)[0]
             elif brands_all:
                 result['brand'] = list(brands_all)[0]
-            elif len(row["Manufacturer"]) > 0:
+            elif len(str(row["Manufacturer"])) > 0:
                 result['brand'] = row["Manufacturer"]
 
         part_found = ''
