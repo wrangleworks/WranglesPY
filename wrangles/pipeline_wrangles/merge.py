@@ -19,7 +19,7 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     return df
 
 
-def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, parameters: dict = {}) -> _pd.DataFrame:
+def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: str = ',') -> _pd.DataFrame:
     """
     If input is a list of columns, concatenate multiple columns into one as a delimited string.
 
@@ -30,15 +30,15 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, parame
     :return: Updated Dateframe
     """
     if isinstance(input, str):
-        df[output] = _format.join_list(df[input].tolist(), parameters.get('char',','))
+        df[output] = _format.join_list(df[input].tolist(), char)
     elif isinstance(input, list):
-        df[output] = _format.concatenate(df[input].astype(str).values.tolist(), parameters.get('char',','))
+        df[output] = _format.concatenate(df[input].astype(str).values.tolist(), char)
     else:
         raise ValueError('Unexpected data type for merge.concatenate / input')
     return df
 
 
-def lists(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
+def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False) -> _pd.DataFrame:
     """
     Take multiple columns of lists and merge to a single output list
 
@@ -48,8 +48,6 @@ def lists(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) ->
     :param output: Column to output the results to
     :return: Updated Dataframe
     """
-    remove_duplicates = parameters.get('remove_duplicates', False)
-
     output_list = []
     for row in df[input].values.tolist():
         output_row = []
@@ -63,7 +61,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) ->
     return df
 
 
-def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
+def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
     Take multiple columns and merge them to a list
 
@@ -73,8 +71,6 @@ def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) 
     :param output: Column to output the results to
     :return: Updated Dataframe
     """
-    include_empty = parameters.get('include_empty', False)
-
     output_list = []
     for row in df[input].values.tolist():
         output_row = []
@@ -85,7 +81,7 @@ def to_list(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) 
     return df
     
 
-def to_dict(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) -> _pd.DataFrame:
+def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
     Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys
 
@@ -96,8 +92,6 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, parameters: dict = {}) 
     :param output: Column to output the results to
     :return: Updated Dataframe
     """
-    include_empty = parameters.get('include_empty', False)
-
     output_list = []
     column_headers = df[input].columns
     for row in df[input].values.tolist():
