@@ -8,7 +8,7 @@ def test_import_csv():
     Test a basic .csv import
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.csv
     """
@@ -20,7 +20,7 @@ def test_import_txt():
     Test a basic .txt import
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.txt
     """
@@ -32,7 +32,7 @@ def test_import_csv_fields():
     Test a csv import where user has selected only a subset of the fields
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.csv
           fields:
@@ -48,7 +48,7 @@ def test_import_json():
     Test a basic .json import
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.json
     """
@@ -60,7 +60,7 @@ def test_import_json_fields():
     Test a json import where user has selected a subset of fields
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.json
           fields:
@@ -76,7 +76,7 @@ def test_import_excel():
     Test a basic .xlsx import
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.xlsx
     """
@@ -88,7 +88,7 @@ def test_import_excel_fields():
     Test a basic .xlsx import
     """
     recipe = """
-      import:
+      read:
         file:
           name: tests/samples/data.xlsx
           fields:

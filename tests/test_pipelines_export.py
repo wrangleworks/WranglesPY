@@ -1,7 +1,7 @@
 import wrangles
 
 recipe = """
-import:
+read:
   file:
     name: tests/samples/data.csv
 """
@@ -13,7 +13,7 @@ def test_export_df_fields():
     Test returning a dateframe where user has defined the fields
     """
     recipe = """
-      export:
+      write:
         dataframe:
           fields:
             - Find
@@ -27,13 +27,13 @@ def test_export_csv():
     Test exporting a .csv
     """
     recipe = """
-      export:
+      write:
         file:
           name: temp.csv
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
-      import:
+      read:
         file:
           name: temp.csv
     """
@@ -45,13 +45,13 @@ def test_export_txt():
     Test exporting a .txt
     """
     recipe = """
-      export:
+      write:
         file:
           name: temp.txt
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
-      import:
+      read:
         file:
           name: temp.txt
     """
@@ -63,7 +63,7 @@ def test_export_json():
     Test exporting a .json
     """
     recipe = """
-      export:
+      write:
         file:
           name: temp.json
           parameters:
@@ -71,7 +71,7 @@ def test_export_json():
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
-      import:
+      read:
         file:
           name: temp.json
           parameters:
@@ -85,15 +85,15 @@ def test_export_csv_fields():
     Test exporting a .json
     """
     recipe = """
-      export:
+      write:
         file:
-          name: temp.json
-          parameters:
-            orient: records
+          name: temp.csv
+          fields:
+            - Find
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
-      import:
+      read:
         file:
           name: temp.csv
           fields:
@@ -107,7 +107,7 @@ def test_export_multiple():
     Test exporting a .txt
     """
     recipe = """
-      export:
+      write:
         - file:
             name: temp.txt
         - file:
@@ -115,13 +115,13 @@ def test_export_multiple():
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
     recipe = """
-      import:
+      read:
         file:
           name: temp.txt
     """
     df1 = wrangles.pipeline.run(recipe)
     recipe = """
-      import:
+      read:
         file:
           name: temp.csv
     """
