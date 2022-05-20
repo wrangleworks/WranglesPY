@@ -23,7 +23,7 @@ def split(input_list, split_char, pad=False):
         results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
     else:
         results = [x.split(split_char) for x in input_list]
-
+    return results
 
 def coalesce(input_list: list) -> list:
     """
