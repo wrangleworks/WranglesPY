@@ -6,6 +6,9 @@ from .. import format as _format
 from typing import Union as _Union
 
 
+_schema = {}
+
+
 def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     """
     Return the first non-empty value from a list of columns
@@ -17,6 +20,22 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     # If a better solution found, replace but ensure it works with all falsy values in python
     df[output] = _format.coalesce(df[input].fillna('').values.tolist())
     return df
+
+_schema['coalesce'] = """
+type: object
+description: Take the first non-empty value from a series of columns
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output columns
+"""
 
 
 def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: str = ',') -> _pd.DataFrame:
@@ -37,10 +56,32 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
         raise ValueError('Unexpected data type for merge.concatenate / input')
     return df
 
+_schema['concatenate'] = """
+type: object
+description: Concatenate a list of columns or a list within a single column
+additionalProperties: false
+required:
+  - input
+  - output
+  - char
+properties:
+  input:
+    type: 
+      - array
+      - string
+    description: Either a single column name or list of columns
+  output:
+    type: string
+    description: Name of the output column
+  char:
+    type: string
+    description: (Optional) Character to add between successive values
+"""
+
 
 def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False) -> _pd.DataFrame:
     """
-    Take multiple columns of lists and merge to a single output list
+    Take lists in multiple columns and merge them to a single list
 
     >>> [a,b,c], [d,e,f]  ->  [a,b,c,d,e,f]
 
@@ -59,6 +100,25 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         output_list.append(output_row)
     df[output] = output_list
     return df
+
+_schema['lists'] = """
+type: object
+description: Take lists in multiple columns and merge them to a single list
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  remove_duplicates:
+    type: boolean
+    description: Whether to remove duplicates from the created list
+"""
 
 
 def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
@@ -79,7 +139,26 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         output_list.append(output_row)
     df[output] = output_list
     return df
-    
+
+_schema['to_list'] = """
+type: object
+description: Take multiple columns and merge them to a list
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  include_empty:
+    type: boolean
+    description: Whether to include empty columns in the created list
+"""
+
 
 def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
@@ -101,3 +180,22 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         output_list.append(output_dict)
     df[output] = output_list
     return df
+
+_schema['to_dict'] = """
+type: object
+description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  include_empty:
+    type: boolean
+    description: Whether to include empty columns in the created dictionary
+"""

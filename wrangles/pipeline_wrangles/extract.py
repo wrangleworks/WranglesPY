@@ -7,11 +7,30 @@ from .. import extract as _extract
 from .. import format as _format
 
 
+_schema = {}
+
+
 def address(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     """
     df[output] = _extract.address(df[input].astype(str).tolist())
     return df
+
+_schema['address'] = """
+type: object
+description: Extract parts of addresses
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the input column.
+  output:
+    type: string
+    description: Name of the output column.
+"""
 
 
 def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', type: str = None) -> _pd.DataFrame:
@@ -25,6 +44,28 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     """
     df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, type)
     return df
+
+_schema['attributes'] = """
+type: object
+description: Extract numeric attributes from the input such as weights or lengths
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the input column.
+  output:
+    type: string
+    description: Name of the output column.
+  attribute_type:
+    type: string
+    description: Request only a specific type of attribute
+  responseContent:
+    type: string
+    description: span - returns the text found. object returns an object with the value and unit
+"""
 
 
 def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
@@ -50,6 +91,22 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 
     return df
 
+_schema['codes'] = """
+type: object
+description: Extract alphanumeric codes from the input
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name or list of input columns.
+  output:
+    type: string
+    description: Name or list of output columns
+"""
+
 
 def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
@@ -74,6 +131,30 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
             
     return df
 
+_schema['custom'] = """
+type: object
+description: Extract data from the input using a DIY or bespoke extraction wrangle
+additionalProperties: false
+required:
+  - input
+  - output
+  - model_id
+properties:
+  input:
+    type:
+      - string
+      - array
+    description: Name or list of input columns.
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output columns
+  model_id:
+    type: string
+    description: The ID of the wrangle to use
+"""
+
 
 def properties(df: _pd.DataFrame, input: str, output: str, type: str = None) -> _pd.DataFrame:
     """
@@ -88,7 +169,25 @@ def properties(df: _pd.DataFrame, input: str, output: str, type: str = None) -> 
     """
     df[output] = _extract.properties(df[input].astype(str).tolist(), type=type)
     return df
-    
+
+_schema['properties'] = """
+type: object
+description: Extract text properties from the input
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the input column
+  output:
+    type: string
+    description: Name of the output columns
+  property_type:
+    type: string
+    description: The specific type of properties to extract
+"""
     
     
 # SUPER MARIO

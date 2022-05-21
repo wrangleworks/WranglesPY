@@ -6,6 +6,9 @@ import json as _json
 from typing import Union as _Union
 
 
+_schema = {}
+
+
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
     Change the case of the input.
@@ -46,6 +49,29 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
 
     return df
 
+_schema['case'] = """
+type: object
+description: Change the case of the input
+additionalProperties: false
+required:
+  - input
+  - case
+properties:
+  input:
+    type:
+      - string
+      - array
+    description: Name or list of input columns
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output columns
+  case:
+    type: string
+    description: The case to convert to. lower, upper, title or sentence
+"""
+
 
 def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
     """
@@ -77,6 +103,25 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
 
     return df
 
+_schema['data_type'] = """
+type: object
+description: Change the data type of the input
+additionalProperties: false
+required:
+  - input
+  - data_type
+properties:
+  input:
+    type: array
+    description: Name or list of input columns
+  output:
+    type: string
+    description: Name or list of output columns
+  data_type:
+    type: string
+    description: The new data type
+"""
+
 
 def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
@@ -96,3 +141,18 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     df[output] = [_json.dumps(row) for row in df[input].values.tolist()]
     return df
+
+_schema['to_json'] = """
+type: object
+description: Convert an object to a JSON representation
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type: string
+    description: Name of the input column.
+  output:
+    type: string
+    description: Name of the output column. If omitted, the input column will be overwritten
+"""
