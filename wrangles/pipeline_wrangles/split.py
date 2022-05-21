@@ -6,6 +6,9 @@ from .. import format as _format
 from typing import Union as _Union
 
 
+_schema = {}
+
+
 def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False) -> _pd.DataFrame:
     """
     Split a string to multiple columns or a list.
@@ -42,6 +45,30 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
 
     return df
 
+_schema['from_text'] = """
+type: object
+description: Split a string to multiple columns or a list.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the column to be split
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column
+  char:
+    type: string
+    description: (Optional) Set the character(s) to split on. Default comma (,)
+  pad:
+    type: boolean
+    description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
+"""
+
 
 def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     """
@@ -74,6 +101,24 @@ def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
 
     return df
 
+_schema['from_list'] = """
+type: object
+description: Split a list in a single column to multiple columns
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the column to be split
+  output:
+    type:
+      - string
+      - array
+    description: Name of column(s) for the results. If providing a single column, use a wildcard (*) to indicate a incrementing integer
+"""
+
 
 def from_dict(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     """
@@ -87,3 +132,15 @@ def from_dict(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
     df[exploded_df.columns] = exploded_df
     return df
+
+_schema['from_dict'] = """
+type: object
+description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type: string
+    description: Name of the column to be split
+"""

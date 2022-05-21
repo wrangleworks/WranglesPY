@@ -23,6 +23,9 @@ import logging as _logging
 from typing import Union as _Union
 
 
+_schema = {}
+
+
 def read(name: str, fields: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
@@ -58,6 +61,27 @@ def read(name: str, fields: _Union[str, list] = None, **kwargs) -> _pd.DataFrame
     if fields is not None: df = df[fields]
 
     return df
+
+_schema['read'] = """
+type: object
+description: Import a file
+required:
+  - name
+properties:
+  name:
+    type: string
+    description: The name of the file to import
+  fields:
+    type: array
+    description: Columns to select
+  nrows:
+    type: integer
+    description: Number of rows to read
+    minimum: 1
+  orient:
+    type: string
+    description: Used for JSON files. Specifies the input arrangement
+"""
 
 
 def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, **kwargs) -> None:
@@ -103,3 +127,20 @@ def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, **kwar
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
         df.to_json(name, **kwargs)
+
+_schema['write'] = """
+type: object
+description: Export data to a file
+required:
+  - name
+properties:
+  name:
+    type: string
+    description: The name of the file to write.
+  fields:
+    type: array
+    description: A list of the fields to write. If omitted, all fields will be written.
+  orient:
+    type: string
+    description: Used for JSON files. Specifies the output arrangement
+"""

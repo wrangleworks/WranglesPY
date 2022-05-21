@@ -6,6 +6,9 @@ from typing import Union as _Union
 import logging as _logging
 
 
+_schema = {}
+
+
 def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', fields: _Union[str, list] = None) -> _pd.DataFrame:
     """
     Import data from a PostgreSQL database.
@@ -30,6 +33,38 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     if fields is not None: df = df[fields]
     
     return df
+
+_schema['read'] = """
+type: object
+description: Import data from a PostgreSQL Server
+required:
+  - host
+  - user
+  - password
+  - command
+properties:
+  host:
+    type: string
+    description: Hostname or IP address of the server
+  user:
+    type: string
+    description: The user to connect to the database with
+  password:
+    type: string
+    description: Password for the specified user
+  command:
+    type: string
+    description: Table name or SQL command to select data
+  database:
+    type: string
+    description: The database to connect to
+  port:
+    type: integer
+    description: The Port to connect to. Defaults to 5432.
+  fields:
+    type: array
+    description: A list with a subset of the fields to import. This is less efficient than specifying in the command.
+"""
 
 
 def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, fields: _Union[str, list] = None) -> None:
@@ -62,3 +97,36 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     else:
         # TODO: Add UPDATE AND UPSERT
         raise ValueError('UPDATE and UPSERT are not implemented yet.')
+
+_schema['write'] = """
+type: object
+description: Write data to a PostgreSQL Server
+required:
+  - host
+  - user
+  - password
+  - database
+  - table
+properties:
+  host:
+    type: string
+    description: Hostname or IP address of the server
+  user:
+    type: string
+    description: The user to connect to the database with
+  password:
+    type: string
+    description: Password for the specified user
+  database:
+    type: string
+    description: The database to connect to
+  table:
+    type: string
+    description: The name of the table to insert the data into
+  port:
+    type: integer
+    description: The Port to connect to. Defaults to 5432.
+  fields:
+    type: array
+    description: A list with a subset of the fields to import. This is less efficient than specifying in the command.
+"""

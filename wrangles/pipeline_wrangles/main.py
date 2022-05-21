@@ -13,6 +13,9 @@ import pandas as _pd
 from typing import Union as _Union
 
 
+_schema = {}
+
+
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     Run classify wrangles on the specified columns
@@ -29,6 +32,30 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
             df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
         
     return df
+
+_schema['classify'] = """
+type: object
+description: Run classify wrangles on the specified columns
+additionalProperties: false
+required:
+  - input
+  - output
+  - model_id
+properties:
+  input:
+    type:
+      - string
+      - array
+    description: Name of the input column.
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column.
+  model_id:
+    type: string
+    description: ID of the classification model to be used
+"""
 
 
 def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
@@ -49,6 +76,22 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
 
     return df.rename(columns=rename_dict)
 
+_schema['rename'] = """
+type: object
+description: Rename a column or list of columns
+properties:
+  input:
+    type:
+      - array
+      - string
+    description: Name or list of input columns.
+  output:
+    type:
+      - array
+      - string
+    description: Name or list of output columns.
+"""
+
 
 def standardize(df: _pd.DataFrame, input: str, output: str, model_id: str) -> _pd.DataFrame:
     """
@@ -59,6 +102,30 @@ def standardize(df: _pd.DataFrame, input: str, output: str, model_id: str) -> _p
     df[output] = _standardize(df[input].astype(str).tolist(), model_id)
     return df
 
+_schema['standardize'] = """
+type: object
+description: Standardize data using a DIY or bespoke standardization wrangle
+additionalProperties: false
+required:
+  - input
+  - output
+  - model_id
+properties:
+  input:
+    type:
+      - string
+      - array
+    description: Name or list of input columns.
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output columns
+  model_id:
+    type: string
+    description: The ID of the wrangle to use
+"""
+
 
 def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
     """
@@ -68,6 +135,29 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     """
     df[output] = _translate(df[input].astype(str).tolist(), target_language, source_language, case)
     return df
+
+_schema['translate'] = """
+type: object
+description: Translate the input to a different language
+additionalProperties: false
+required:
+  - input
+  - output
+  - target_language
+properties:
+  input:
+    type: string
+    description: Name of the column to translate
+  output:
+    type: string
+    description: Name of the output column
+  target_language:
+    type: string
+    description: Code of the language to translate to
+  source_language:
+    type: string
+    description: Code of the language to translate from. If omitted, automatically detects the input language
+"""
 
 
 def expand(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
