@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Wrangles Pipeline Recipes",
+    "description": "Recipes for executing automated Wrangling pipelines",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "read": {
+        "type": "object",
+        "description": "Define import sources",
+        "oneOf": []
+      },
+      "wrangles": {
+        "type": "array",
+        "description": "A list of wrangles to apply",
+        "items": {
+          "anyOf": []
+        }
+      },
+      "write": {
+        "type": "array",
+        "description": "Write data out",
+        "items": {
+          "anyOf": []
+        }
+      }
+    }
+  }
