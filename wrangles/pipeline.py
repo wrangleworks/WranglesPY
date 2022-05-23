@@ -72,28 +72,19 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _p
     :return: Dataframe of imported data
     """
     # Allow blended imports
-    if list(recipe)[0] in ['concatenate', 'merge']:
-        # Get data from list of sources
+    if list(recipe)[0] in ['join', 'concatenate']:
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
-            import_type = list(source)[0]
-            params = source[import_type]
-            
-            # Use shared connection details if set
-            if 'connection' in params.keys():
-                params.update(connections[params['connection']])
-                params.pop('connection')
+            dfs.append(_read_data_sources(source, connections))
+        
+        recipe_temp = recipe[list(recipe)[0]]
+        recipe_temp.pop('sources')
 
-            dfs.append(getattr(getattr(_connectors, import_type), 'read')(**params))
+        if list(recipe)[0] == 'join':
+            df = _pandas.merge(dfs[0], dfs[1], **recipe['join'])
+        else:
+            df = _pandas.concat(dfs, **recipe['concatenate'])
 
-        if list(recipe)[0] == 'concatenate':
-            # Blend as a concatenation - stack data depending on axis (e.g. union)
-            df = _pandas.concat(dfs, **recipe['concatenate'].get('parameters', {}))
-        elif list(recipe)[0] == 'merge':
-            # Blend as a merge - equivalent to database join
-            df = _pandas.merge(dfs[0], dfs[1], **recipe['merge'].get('parameters', {}))
-        # Clear from memory in case this is a large object
-        del dfs
     else:
         # Single source import
         if isinstance(recipe, dict):
@@ -204,7 +195,10 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
-        df = _read_data_sources(recipe['read'], recipe.get('connections', {}))
+        if isinstance(recipe['read'], list):
+            df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}))
+        else:
+            df = _read_data_sources(recipe['read'], recipe.get('connections', {}))
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
