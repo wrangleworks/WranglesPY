@@ -64,7 +64,10 @@ properties:
     description: Request only a specific type of attribute
   responseContent:
     type: string
-    description: span - returns the text found. object returns an object with the value and unit
+    description: span - returns the text found. object - returns an object with the value and unit
+    enum:
+      - span
+      - object
 """
 
 
@@ -100,10 +103,14 @@ required:
   - output
 properties:
   input:
-    type: string
+    type:
+      - string
+      - array
     description: Name or list of input columns.
   output:
-    type: string
+    type:
+      - string
+      - array
     description: Name or list of output columns
 """
 
