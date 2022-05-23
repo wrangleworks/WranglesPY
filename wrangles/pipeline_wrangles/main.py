@@ -177,6 +177,28 @@ def match(df: _pd.DataFrame, input: list) -> _pd.DataFrame:
     return df
     
 
+def filter(df: _pd.DataFrame, input: str, equal: _Union[str, list]) -> _pd.DataFrame:
+    if isinstance(equal, str): equal = [equal]
+    df = df.loc[df[input].isin(equal)]
+    return df
+
+_schema['filter'] = """
+type: object
+description: Filter the dataframe based on the contents
+additionalProperties: false
+required:
+  - input
+  - equal
+properties:
+  input:
+    type: string
+    description: Name of the column to filter on
+  equal:
+    type:
+      - string
+      - array
+    description: Value or list of values to filter to
+"""
 
 #  SUPER MARIO
 def extend_list(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
