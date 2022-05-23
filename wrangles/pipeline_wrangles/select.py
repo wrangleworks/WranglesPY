@@ -83,8 +83,10 @@ properties:
     type: array
     description: List of the input columns to select from
   output:
-    type: string
-    description: Name of the output column
+    type:
+      - array
+      - string
+    description: If two columns; the result and confidence. If one column; [result, confidence]
 """
 
 

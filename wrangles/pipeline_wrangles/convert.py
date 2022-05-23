@@ -70,6 +70,11 @@ properties:
   case:
     type: string
     description: The case to convert to. lower, upper, title or sentence
+    enum:
+      - lower
+      - upper
+      - title
+      - sentence
 """
 
 
@@ -112,14 +117,23 @@ required:
   - data_type
 properties:
   input:
-    type: array
+    type: 
+      - string
+      - array
     description: Name or list of input columns
   output:
-    type: string
+    type:
+      - string
+      - array
     description: Name or list of output columns
   data_type:
     type: string
     description: The new data type
+    enum:
+      - str
+      - float
+      - int
+      - bool
 """
 
 
