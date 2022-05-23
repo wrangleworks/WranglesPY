@@ -3,6 +3,7 @@ import json
 import yaml
 
 schema = {
+    'execute': {},
     'read': {},
     'wrangles': {},
     'write': {}
@@ -22,6 +23,9 @@ for name in connectors:
 
         if 'write' in connector._schema.keys():
             schema['write'][name] = yaml.safe_load(connector._schema['write'])
+
+        if 'execute' in connector._schema.keys():
+            schema['execute'][name] = yaml.safe_load(connector._schema['execute'])
 
 join = """
 type: object
@@ -82,6 +86,7 @@ schema['read']['concatenate'] = yaml.safe_load(concatenate)
 
 recipe_schema['$defs']['sources']['read']['properties'] = schema['read']
 recipe_schema['properties']['write']['items']['properties'] = schema['write']
+recipe_schema['$defs']['actions']['properties'] = schema['execute']
 
 
 

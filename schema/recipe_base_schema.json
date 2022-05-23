@@ -5,6 +5,37 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+      "execute": {
+        "type": "object",
+        "description": "Run actions before or after wrangling, or on failure",
+        "minProperties": 1,
+        "properties": {
+          "on_start": {
+            "type": "array",
+            "description": "Execute actions before the pipeline starts",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/actions"
+            }
+          },
+          "on_success": {
+            "type": "array",
+            "description": "Execute actions if the pipeline succeeds",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/actions"
+            }
+          },
+          "on_failure": {
+            "type": "array",
+            "description": "Execute actions if the pipeline fails",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/actions"
+            }
+          }
+        }
+      },
       "read": {
         "type": "array",
         "description": "Read data from a variety of sources",
@@ -43,6 +74,13 @@
           "properties": {}
         },
         "write": {}
+      },
+      "actions": {
+        "type": "object",
+        "description": "Execute actions",
+        "maxProperties": 1,
+        "additionProperties": false,
+        "properties": {}
       }
     }
   }
