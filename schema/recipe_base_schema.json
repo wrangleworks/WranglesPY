@@ -6,23 +6,43 @@
     "additionalProperties": false,
     "properties": {
       "read": {
-        "type": "object",
-        "description": "Define import sources",
-        "oneOf": []
+        "type": "array",
+        "description": "Read data from a variety of sources",
+        "minItems": 1,
+        "maxItems": 1,
+        "items": {
+          "$ref": "#/$defs/sources/read"
+        }
       },
       "wrangles": {
         "type": "array",
         "description": "A list of wrangles to apply",
+        "minItems": 1,
         "items": {
-          "anyOf": []
+          "type": "object",
+          "properties": {}
         }
       },
       "write": {
         "type": "array",
-        "description": "Write data out",
+        "description": "Export your wrangled data",
+        "minItems": 1,
         "items": {
-          "anyOf": []
+          "type": "object",
+          "properties": {}
         }
+      }
+    },
+    "$defs": {
+      "sources": {
+        "read": {
+          "type": "object",
+          "description": "Define import sources",
+          "maxProperties": 1,
+          "additionProperties": false,
+          "properties": {}
+        },
+        "write": {}
       }
     }
   }
