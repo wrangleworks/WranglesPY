@@ -33,7 +33,7 @@ properties:
 """
 
 
-def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', type: str = None) -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None) -> _pd.DataFrame:
     """
 
     :param df:
@@ -42,7 +42,7 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     :param responseContent:
     :param type:
     """
-    df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, type)
+    df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, attribute_type)
     return df
 
 _schema['attributes'] = """
@@ -156,7 +156,7 @@ properties:
 """
 
 
-def properties(df: _pd.DataFrame, input: str, output: str, type: str = None) -> _pd.DataFrame:
+def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None) -> _pd.DataFrame:
     """
     Run the extract - properties wrangle on the requested columns
 
@@ -167,7 +167,7 @@ def properties(df: _pd.DataFrame, input: str, output: str, type: str = None) -> 
     :param output: 
     :param type: (Optional) Request only a specific type of properties
     """
-    df[output] = _extract.properties(df[input].astype(str).tolist(), type=type)
+    df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type)
     return df
 
 _schema['properties'] = """
