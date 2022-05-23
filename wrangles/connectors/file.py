@@ -71,6 +71,7 @@ properties:
   name:
     type: string
     description: The name of the file to import
+    pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
   fields:
     type: array
     description: Columns to select
@@ -78,9 +79,22 @@ properties:
     type: integer
     description: Number of rows to read
     minimum: 1
+  header:
+    type: integer
+    description: Set the header row number.
+    minimum: 0
+  sheet_name:
+    type: string
+    description: Used for Excel files. Specify the sheet to read.
   orient:
     type: string
     description: Used for JSON files. Specifies the input arrangement
+    enum:
+      - split
+      - records
+      - index
+      - columns
+      - values
 """
 
 
@@ -137,10 +151,17 @@ properties:
   name:
     type: string
     description: The name of the file to write.
+    pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
   fields:
     type: array
     description: A list of the fields to write. If omitted, all fields will be written.
   orient:
     type: string
     description: Used for JSON files. Specifies the output arrangement
+    enum:
+      - split
+      - records
+      - index
+      - columns
+      - values
 """
