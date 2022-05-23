@@ -188,9 +188,9 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     # Parse recipe
     recipe = _load_recipe(recipe, params)
 
-    if 'execute' in recipe.keys():
-        # Execute any actions required before the pipeline runs
-        _execute_actions(recipe['execute'], recipe.get('connections', {}))
+    # Execute any actions required before the pipeline runs
+    if 'on_start' in recipe.get('execute', {}).keys():
+        _execute_actions(recipe['execute']['on_start'], recipe.get('connections', {}))
 
     # Get requested data
     if 'read' in recipe.keys():
@@ -215,5 +215,9 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     # Execute requested data exports
     if 'write' in recipe.keys():
         df = _write_data(df, recipe['write'], recipe.get('connections', {}))
+
+    # Execute any actions required after the pipeline finishes
+    if 'on_success' in recipe.get('execute', {}).keys():
+        _execute_actions(recipe['execute']['on_success'], recipe.get('connections', {}))
 
     return df
