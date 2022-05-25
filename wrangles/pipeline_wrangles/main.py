@@ -93,13 +93,27 @@ properties:
 """
 
 
-def standardize(df: _pd.DataFrame, input: str, output: str, model_id: str) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     Run a standardize wrangle
 
-    :return: Updated Dateframe
+    :param df: The input dataframe
+    :param input: The input column(s) to be standardized
+    :param output: (Optional) The output columns. Default - overwrite input.
+    :param model_id: The ID or list of IDs of models to run
     """
-    df[output] = _standardize(df[input].astype(str).tolist(), model_id)
+    # If user hasn't specified an output column, overwrite the input
+    if output is None: output = input
+
+    # If user provides a single string, convert all the arguments to lists for consistency
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+    if isinstance(model_id, str): model_id = [model_id]
+
+    for model in model_id:
+      for input_column, output_column in zip(input, output):
+        df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
+
     return df
 
 _schema['standardize'] = """
@@ -122,7 +136,9 @@ properties:
       - array
     description: Name or list of output columns
   model_id:
-    type: string
+    type:
+      - string
+      - array
     description: The ID of the wrangle to use
 """
 
