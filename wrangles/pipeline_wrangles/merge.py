@@ -249,7 +249,7 @@ required:
   - output
 properties:
   input:
-    type: dict
+    type: object
     description: Matched pairs of key and value columns
   output:
     type: string
