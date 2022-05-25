@@ -200,6 +200,30 @@ properties:
     description: Value or list of values to filter to
 """
 
+def log(df: _pd.DataFrame, columns: list = None):
+  """
+  Log the current status of the dataframe
+  """
+  if columns is not None:
+    print(df[columns])
+  else:
+    print(df)
+
+  return df
+
+_schema['log'] = """
+type: object
+description: Log the current status of the dataframe
+additionalProperties: false
+required:
+  - columns
+properties:
+  columns:
+    type: array
+    description: (Optional, default all columns) List of specific columns to log.
+""" 
+
+
 #  SUPER MARIO
 def extend_list(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     """
