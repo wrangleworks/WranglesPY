@@ -83,6 +83,21 @@ properties:
 """
 schema['read']['concatenate'] = yaml.safe_load(concatenate)
 
+write_dataframe = """
+type: object
+description: Define the dataframe that is returned from the pipeline.run() function
+required:
+  - fields
+properties:
+  fields:
+    type: array
+    description: List of columns to include in the returned dataframe
+  excluded_columns:
+    type: array
+    description: List of columns to exclude from the returned dataframe
+"""
+schema['write']['dataframe'] = yaml.safe_load(write_dataframe)
+
 
 recipe_schema['$defs']['sources']['read']['properties'] = schema['read']
 recipe_schema['properties']['write']['items']['properties'] = schema['write']
