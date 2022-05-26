@@ -105,17 +105,26 @@ recipe_schema['$defs']['actions']['properties'] = schema['execute']
 
 
 
+def getMethodDocs(schema_wrangles, obj, path):
+    """
+    Recursively loop through all non-hidden function and
+    look for appropriately formatted docstrings
+    """
+    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
 
-pipeline_wrangles = [conn for conn in dir(wrangles.pipeline._pipeline_wrangles) if not conn.startswith('_')]
-for name in pipeline_wrangles:
-    pipeline_wrangle = getattr(wrangles.pipeline._pipeline_wrangles, name)
-    if '_schema' in dir(pipeline_wrangle):
-        for key, val in pipeline_wrangle._schema.items():
-            if name == 'main':
-                schema['wrangles'][key] = yaml.safe_load(val)
-            else:
-                schema['wrangles'][f'{name}.{key}'] = yaml.safe_load(val)
+    if len(non_hidden_methods) > 0:
+        for method in non_hidden_methods:
+            if method != 'main':
+                getMethodDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
+    else:
+        try:
+            schema_wrangle = yaml.safe_load(obj.__doc__)
+            if 'type' in schema_wrangle.keys():
+                schema_wrangles[path[1:]] = schema_wrangle
+        except:
+            pass
 
+getMethodDocs(schema['wrangles'], wrangles.pipeline._pipeline_wrangles, '')
 
 recipe_schema['properties']['wrangles']['items']['properties'] = schema['wrangles']
 
