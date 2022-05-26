@@ -9,3 +9,4 @@ sqlalchemy
 pymssql
 psycopg2-binary
 fabric
+apprise

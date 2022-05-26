@@ -4,6 +4,7 @@ Functions to merge data from one or more columns into a single column
 import pandas as _pd
 from .. import format as _format
 from typing import Union as _Union
+import fnmatch
 
 
 _schema = {}
@@ -198,4 +199,59 @@ properties:
   include_empty:
     type: boolean
     description: Whether to include empty columns in the created dictionary
+"""
+
+
+def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFrame:
+  """
+  type: object
+  description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
+  additionalProperties: false
+  required:
+    - input
+    - output
+  properties:
+    input:
+      type: dict
+      description: Matched pairs of key and value columns
+    output:
+      type: string
+      description: Name of the output column
+  """
+  pairs = {}
+
+  # If user has used wildcards, expand out
+  for key, val in input.items():
+    if '*' in key and '*' in val:
+      key_columns = fnmatch.filter(df.columns, key)
+      val_columns = fnmatch.filter(df.columns, val)
+      for key_col, val_col in zip(key_columns, val_columns):
+        pairs[key_col] = val_col
+    else:
+      pairs[key] = val
+  
+  results = [{} for _ in range(len(df))]
+  for key, val in pairs.items():
+    for idx, row in df[[key, val]].iterrows():
+      if row[key] and row[val]:
+        results[idx][row[key]] = row[val]
+
+  df[output] = results
+
+  return df
+
+_schema['key_value_pairs'] = """
+type: object
+description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: object
+    description: Matched pairs of key and value columns
+  output:
+    type: string
+    description: Name of the output column
 """

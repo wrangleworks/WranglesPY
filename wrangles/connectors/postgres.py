@@ -128,5 +128,5 @@ properties:
     description: The Port to connect to. Defaults to 5432.
   fields:
     type: array
-    description: A list with a subset of the fields to import. This is less efficient than specifying in the command.
+    description: A list of the columns to write to the table. If omitted, all columns will be written.
 """
