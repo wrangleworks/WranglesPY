@@ -3,11 +3,13 @@ Connector for PriceFx
 """
 import pandas as _pd
 import requests as _requests
+import logging as _logging
 
 # TODO: batch large data sets?
 # read data?
 # execute stuff?
 # DataSources - need a 'flush'?
+# JWT auth rather than basic
 
 
 _schema = {}
@@ -27,11 +29,22 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     
     """
     # Select only specific fields if user requests them
+    _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
+
     if columns is not None: df = df[columns]
+
+    field_map = {}
+    url = f"https://{host}/pricefx/{partition}/fetch/{_target_types.get(target.lower(), target)}AM"
+    field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
+    for row in field_map_list:
+      field_map[row['label']] = row['fieldName']
+
+    header_list = df.columns.tolist()
+    header_list = [field_map.get(header, header) for header in header_list]
 
     payload = {
         "data": {
-            "header": df.columns.tolist(),
+            "header": header_list,
             "options": {
                 "direct2ds": False,
                 "detectJoinFields": True,
