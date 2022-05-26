@@ -1,5 +1,7 @@
 """
-These are internal wrangles expected to be called as part of a pipeline.
+These are internal wrangles to be called as part of a pipeline.
+
+They are not expected to be called directly by a user.
 
 Many call the respective wrangles, but deal with the interactions with the dataframe used by the pipeline.
 

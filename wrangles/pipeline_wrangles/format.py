@@ -5,9 +5,6 @@ import pandas as _pd
 from .. import format as _format
 
 
-_schema = {}
-
-
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame:
     """
     Rearrange price breaks
@@ -29,7 +26,22 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFra
 
 def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     """
-    Remove excess whitespace at the start and end of text
+    type: object
+    description: Remove excess whitespace at the start and end of text
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - array
+          - string
+        description: Name of the input column
+      output:
+        type:
+          - array
+          - string
+        description: Name of the output column
     """
     if output is None: output = input
 
@@ -41,22 +53,3 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
         df[output_column] = df[input_column].str.strip()
 
     return df
-
-_schema['trim'] = """
-type: object
-description: Remove excess whitespace at the start and end of text
-additionalProperties: false
-required:
-  - input
-properties:
-  input:
-    type:
-      - array
-      - string
-    description: Name of the input column
-  output:
-    type:
-      - array
-      - string
-    description: Name of the output column
-"""
