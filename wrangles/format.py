@@ -1,4 +1,5 @@
 import pandas
+import re
 
 
 def join_list(input_list, join_char):
@@ -14,8 +15,16 @@ def concatenate(data_list, concat_char):
     for row in data_list:
         results.append(concat_char.join(row))            
     return results
-
-
+    
+# Super Mario Function
+def split_re(input_list, split_char):
+    # split char is a list of characters -> Joining them
+    if isinstance(split_char, list):
+        split_char = '|'.join(split_char)
+    
+    results = [re.split(split_char, x) for x in input_list]
+    return results
+    
 def split(input_list, split_char, pad=False):
     if pad:
         # Pad to be as long as the longest result
@@ -24,6 +33,7 @@ def split(input_list, split_char, pad=False):
     else:
         results = [x.split(split_char) for x in input_list]
     return results
+    
 
 def coalesce(input_list: list) -> list:
     """

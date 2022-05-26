@@ -44,7 +44,7 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
         df[output] = _format.split(df[input].astype(str).tolist(), char, pad=True)
 
     return df
-
+    
 _schema['from_text'] = """
 type: object
 description: Split a string to multiple columns or a list.
@@ -68,7 +68,33 @@ properties:
     type: boolean
     description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
 """
-
+def re_from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',') -> _pd.DataFrame:
+    df[output] = _format.split_re(df[input].astype(str).tolist(), char)
+    return df
+    
+_schema['re_from_text'] = """
+type: object
+description: Split a string to multiple columns or a list.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: string
+    description: Name of the column to be split
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column
+  char:
+    type: string
+    description: (Optional) Set the characters to split on e.g. ',|\.|- . Default comma (,).
+  pad:
+    type: boolean
+    description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
+"""
 
 def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     """
