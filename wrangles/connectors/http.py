@@ -1,14 +1,14 @@
 """
 Connector to make http(s) requests
 """
-import requests
+import requests as _requests
 
 
 _schema = {}
 
 
-def execute(url: str, method:str = "GET", headers: dict = None) -> None:
-    requests.request(method=method, url=url, headers=headers)
+def execute(url: str, method: str = "GET", headers: dict = None) -> None:
+    _requests.request(method=method, url=url, headers=headers)
 
 _schema['execute'] = """
 type: object
