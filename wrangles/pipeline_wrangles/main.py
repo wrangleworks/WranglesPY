@@ -8,6 +8,7 @@ from .. import format as _format
 from .. import match as _match
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
+from .. import extract as _extract
 
 import pandas as _pd
 from typing import Union as _Union
@@ -201,4 +202,30 @@ def tokenize_list_space(df: _pd.DataFrame, input: str, output: str) -> _pd.DataF
     """
     """
     df[output] = _format.tokenize_list_space(df[input].values.tolist())
+    return df
+
+# SUPER MARIO
+def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove all the elements that occur in one list from another
+    additionalProperties: false
+    required:
+      - input
+      - to_remove
+      - output
+    properties:
+      input:
+        type: string
+        description: Name of column to remove words from
+      input:
+        type: 
+          - array
+          - string
+        description: Column or list of columns with a list of words to be removed
+      output:
+        type: string
+        description: Name of the output columns
+    """
+    df[output] = _extract.diff(df[input].values.tolist())
     return df
