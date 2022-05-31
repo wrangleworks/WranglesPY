@@ -25,6 +25,7 @@ setup(
         'sqlalchemy',
         'pymssql',
         'psycopg2-binary',
+        'pymysql',
         'fabric',
         'apprise'
     ]
