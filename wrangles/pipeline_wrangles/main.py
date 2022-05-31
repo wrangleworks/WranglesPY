@@ -197,13 +197,6 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
 
 
 #  SUPER MARIO
-def extend_list(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
-    """
-    Convert a lists of lists into one list (flatten a list)
-    """
-    df[output] = _format.extend_list(df[input].values.tolist())
-    return df
-
 def tokenize_list_space(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     """
