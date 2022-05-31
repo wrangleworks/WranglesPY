@@ -209,12 +209,3 @@ def tokenize_list_space(df: _pd.DataFrame, input: str, output: str) -> _pd.DataF
     """
     df[output] = _format.tokenize_list_space(df[input].values.tolist())
     return df
-
-def expand(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    Expand an object to multiple columns
-
-    :return: Updated Dateframe
-    """
-    df[output] = [x for x in df[input].tolist()]
-    return df
