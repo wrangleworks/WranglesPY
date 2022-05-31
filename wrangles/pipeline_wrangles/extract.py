@@ -154,27 +154,3 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
     df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type)
     return df
     
-    
-# SUPER MARIO
-def diff(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove all the elements that occur in one list from another
-    additionalProperties: false
-    required:
-      - input1
-      - input2
-      - output
-    properties:
-      input1:
-        type: string
-        description: Name of list to remove items from
-      input2:
-        type: string
-        description: Name of the list that contains elements to subtract
-      output:
-        type: string
-        description: Name of the output columns
-    """
-    df[output] = _extract.diff(df[input].values.tolist())
-    return df
