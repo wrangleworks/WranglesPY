@@ -7,7 +7,7 @@ from .. import extract as _extract
 from .. import format as _format
 
 
-def address(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses
@@ -23,7 +23,7 @@ def address(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: Name of the output column.
     """
-    df[output] = _extract.address(df[input].astype(str).tolist())
+    df[output] = _extract.address(df[input].astype(str).tolist(), dataType)
     return df
 
 

@@ -227,5 +227,5 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> 
         type: string
         description: Name of the output columns
     """
-    df[output] = _extract.diff(df[input].values.tolist())
+    df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist())
     return df
