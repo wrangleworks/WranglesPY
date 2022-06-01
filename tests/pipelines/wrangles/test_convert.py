@@ -114,5 +114,10 @@ df_test_to_json = pd.DataFrame([['val1', 'val2']], columns=['header1', 'header2'
 
 def test_to_json_array():
     recipe = """
-    
+    wrangles:
+        - convert.to_json:
+            input: header1
+            output: header_json
     """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_to_json)
+    assert df.iloc[0]['header_json'] == "val1"
