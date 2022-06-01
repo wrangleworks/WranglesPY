@@ -169,20 +169,30 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 
 
 # SUPER MARIO
-from boltons.setutils import IndexedSet
-def diff(input):
+def remove_words(input, to_remove):
     """
-    input is going to be list of lists, where each list contains tokens
-    diff subtracts the tokens in 2nd list from the first using set ops
-    All inputs are "lowered" before difference operation
+    Remove all the elements that occur in one list from another.
+    
+    :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
+    :param output: a string of remaining words
     """
-    results = []
-    for row in input:
-        # target = row[0].lower()
-        target = [x.lower() for x in row[0]]
-        # remove = row[1].lower()
-        remove = [x.lower() for x in row[1]]
-        result = list(IndexedSet(target).difference(remove))
-        results.append([x.lower() for x in result])
+    # Check the type of input and convert accordingly
+    if isinstance(input[0], str): input = input[0].split(', ')
+    if isinstance(input[0], list): input = input[0]  
+    input_flat = [x.lower() for x in input]
+    
+    # Check the type of to_remove and convert accordinlgy
+    temp = []
+    for x in to_remove[0]:
+        if isinstance(x, str):
+            temp.append(x.split(', '))
+        else:
+            temp.append(x)
+    
+    to_remove_flat = [item.lower() for sublist in temp for item in sublist]
+    # Remove words that are in to_remove
+    results = ' '.join([x.title() for x in input_flat if x not in to_remove_flat])
     
     return results
+    
+    
