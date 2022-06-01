@@ -107,16 +107,18 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _p
     return df
 
 
-def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
+def _execute_wrangles(df, wrangles_list, custom_wrangles: dict = {}) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
 
     :param df: Dateframe that the Wrangles will be run against
     :param wrangles_list: List of Wrangles + their definitions to be executed
+    :param custom_wrangles: (Optional) A dictionary of user defined custom_wrangles
     :return: Pandas Dataframe of the Wrangled data
     """
     for step in wrangles_list:
         for wrangle, params in step.items():
+            if params is None: params = {}
             _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
             if wrangle.split('.')[0] == 'pandas':
@@ -124,6 +126,10 @@ def _execute_wrangles(df, wrangles_list) -> _pandas.DataFrame:
                 # TODO: disallow any hidden methods
                 # TODO: remove parameters, allow selecting in/out columns
                 df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+
+            elif wrangle.split('.')[0] == 'custom':
+                # Allow user to pass in custom wrangles
+                df = custom_wrangles[wrangle.replace('custom.', '')](df, **params)
 
             else:
                 # Allow user to specify a wildcard (? or *) for the input columns
@@ -175,7 +181,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> 
     return df_return
 
 
-def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
+def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list = []) -> _pandas.DataFrame:
     """
     Execute a YAML defined Wrangling pipeline
 
@@ -184,6 +190,8 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
+    :param custom_wrangles: (Optional) A list of custom functions to call as wrangles
+    :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Parse recipe
     recipe = _load_recipe(recipe, params)
@@ -206,11 +214,14 @@ def run(recipe: str, params: dict = {}, dataframe = None) -> _pandas.DataFrame:
         # User hasn't provided anything - initialize empty dataframe
         df = _pandas.DataFrame()
 
+    # Convert custom wrangles from a list to a dict using the name as a key
+    custom_wrangles = {custom_wrangle.__name__: custom_wrangle for custom_wrangle in custom_wrangles}
+
     # Execute any Wrangles required (allow single or plural)
     if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'])
+        df = _execute_wrangles(df, recipe['wrangles'], custom_wrangles)
     elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'])
+        df = _execute_wrangles(df, recipe['wrangle'], custom_wrangles)
 
     # Execute requested data exports
     if 'write' in recipe.keys():
