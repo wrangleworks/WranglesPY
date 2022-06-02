@@ -51,6 +51,17 @@
       "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
+        "patternProperties": {
+          "^custom\\..*": {
+            "type": "object",
+            "description": "Use custom wrangles"
+          },
+          "^pandas\\..*": {
+            "type": "object",
+            "description": "Use pandas dataframe functions"
+          }
+        },
         "properties": {}
       }
     },
@@ -60,6 +71,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {}
       }
     }
