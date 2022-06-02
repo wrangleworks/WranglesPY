@@ -6,13 +6,13 @@ from fabric import Connection
 
 _schema = {}
 
-def execute(host: str, user: str, password: str, command: str) -> None:
+def run(host: str, user: str, password: str, command: str) -> None:
     """
     Execute a command over ssh
     """
     Connection(host, user=user, connect_kwargs={'password': password}).run(command)
 
-_schema['execute'] = """
+_schema['run'] = """
 type: object
 description: Issue commands over SSH
 required:

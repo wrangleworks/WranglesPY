@@ -1,86 +1,86 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Wrangles Pipeline Recipes",
-    "description": "Recipes for executing automated Wrangling pipelines",
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {
-      "execute": {
-        "type": "object",
-        "description": "Run actions before or after wrangling, or on failure",
-        "minProperties": 1,
-        "properties": {
-          "on_start": {
-            "type": "array",
-            "description": "Execute actions before the pipeline starts",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/$defs/actions"
-            }
-          },
-          "on_success": {
-            "type": "array",
-            "description": "Execute actions if the pipeline succeeds",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/$defs/actions"
-            }
-          },
-          "on_failure": {
-            "type": "array",
-            "description": "Execute actions if the pipeline fails",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/$defs/actions"
-            }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Wrangles Pipeline Recipes",
+  "description": "Recipes for executing automated Wrangling pipelines",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "type": "object",
+      "description": "Run actions before or after wrangling, or on failure",
+      "minProperties": 1,
+      "properties": {
+        "on_start": {
+          "type": "array",
+          "description": "Run actions before the pipeline starts",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/actions"
           }
-        }
-      },
-      "read": {
-        "type": "array",
-        "description": "Read data from a variety of sources",
-        "minItems": 1,
-        "maxItems": 1,
-        "items": {
-          "$ref": "#/$defs/sources/read"
-        }
-      },
-      "wrangles": {
-        "type": "array",
-        "description": "A list of wrangles to apply",
-        "minItems": 1,
-        "items": {
-          "type": "object",
-          "properties": {}
-        }
-      },
-      "write": {
-        "type": "array",
-        "description": "Export your wrangled data",
-        "minItems": 1,
-        "items": {
-          "type": "object",
-          "properties": {}
+        },
+        "on_success": {
+          "type": "array",
+          "description": "Run actions if the pipeline succeeds",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/actions"
+          }
+        },
+        "on_failure": {
+          "type": "array",
+          "description": "Run actions if the pipeline fails",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/actions"
+          }
         }
       }
     },
-    "$defs": {
-      "sources": {
-        "read": {
-          "type": "object",
-          "description": "Define import sources",
-          "maxProperties": 1,
-          "additionProperties": false,
-          "properties": {}
-        },
-        "write": {}
-      },
-      "actions": {
+    "read": {
+      "type": "array",
+      "description": "Read data from a variety of sources",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "$ref": "#/$defs/sources/read"
+      }
+    },
+    "wrangles": {
+      "type": "array",
+      "description": "A list of wrangles to apply",
+      "minItems": 1,
+      "items": {
         "type": "object",
-        "description": "Execute actions",
-        "maxProperties": 1,
-        "additionProperties": false,
+        "properties": {}
+      }
+    },
+    "write": {
+      "type": "array",
+      "description": "Export your wrangled data",
+      "minItems": 1,
+      "items": {
+        "type": "object",
         "properties": {}
       }
     }
+  },
+  "$defs": {
+    "sources": {
+      "read": {
+        "type": "object",
+        "description": "Define import sources",
+        "maxProperties": 1,
+        "additionProperties": false,
+        "properties": {}
+      },
+      "write": {}
+    },
+    "actions": {
+      "type": "object",
+      "description": "Run actions",
+      "maxProperties": 1,
+      "additionProperties": false,
+      "properties": {}
+    }
   }
+}
