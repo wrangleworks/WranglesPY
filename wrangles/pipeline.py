@@ -47,7 +47,7 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     return recipe_object
 
 
-def _execute_actions(recipe: _Union[dict, list], connections: dict = {}) -> None:
+def _run_actions(recipe: _Union[dict, list], connections: dict = {}) -> None:
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
@@ -59,8 +59,8 @@ def _execute_actions(recipe: _Union[dict, list], connections: dict = {}) -> None
                 params.update(connections[params['connection']])
                 params.pop('connection')
 
-            # Get execute function of requested connector and pass user defined params
-            getattr(getattr(_connectors, action_type), 'execute')(**params)
+            # Get run function of requested connector and pass user defined params
+            getattr(getattr(_connectors, action_type), 'run')(**params)
 
 
 def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _pandas.DataFrame:
@@ -196,9 +196,9 @@ def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list 
     # Parse recipe
     recipe = _load_recipe(recipe, params)
 
-    # Execute any actions required before the pipeline runs
-    if 'on_start' in recipe.get('execute', {}).keys():
-        _execute_actions(recipe['execute']['on_start'], recipe.get('connections', {}))
+    # Run any actions required before the pipeline runs
+    if 'on_start' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_start'], recipe.get('connections', {}))
 
     # Get requested data
     if 'read' in recipe.keys():
@@ -227,8 +227,8 @@ def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list 
     if 'write' in recipe.keys():
         df = _write_data(df, recipe['write'], recipe.get('connections', {}))
 
-    # Execute any actions required after the pipeline finishes
-    if 'on_success' in recipe.get('execute', {}).keys():
-        _execute_actions(recipe['execute']['on_success'], recipe.get('connections', {}))
+    # Run any actions required after the pipeline finishes
+    if 'on_success' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_success'], recipe.get('connections', {}))
 
     return df

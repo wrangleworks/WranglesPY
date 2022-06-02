@@ -4,12 +4,12 @@ import apprise
 _schema = {}
 
 
-def execute(url: str, title: str, body: str):
+def run(url: str, title: str, body: str):
     app_object = apprise.Apprise()
     app_object.add(url)
     app_object.notify(body, title)
 
-_schema['execute'] = """
+_schema['run'] = """
 type: object
 description: Send a notification
 required:

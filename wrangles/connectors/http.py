@@ -8,10 +8,10 @@ import pandas as _pd
 _schema = {}
 
 
-def execute(url: str, method: str = "GET", headers: dict = None) -> None:
+def run(url: str, method: str = "GET", headers: dict = None) -> None:
     _requests.request(method=method, url=url, headers=headers)
 
-_schema['execute'] = """
+_schema['run'] = """
 type: object
 description: Issue a HTTP(S) request e.g. issue a request to a webhook on success or failure.
 required:
