@@ -10,7 +10,7 @@ df_base = wrangles.pipeline.run(recipe)
 
 def test_pandas_head():
     """
-    Test returning a dateframe where user has defined which fields
+    Test using pandas head function
     """
     recipe = """
       wrangles:
@@ -23,7 +23,7 @@ def test_pandas_head():
 
 def test_pandas_tail():
     """
-    Test returning a dateframe where user has defined which fields
+    Test using pandas tail function
     """
     recipe = """
       wrangles:

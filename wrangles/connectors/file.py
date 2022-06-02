@@ -26,7 +26,7 @@ from typing import Union as _Union
 _schema = {}
 
 
-def read(name: str, fields: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def read(name: str, columns: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
@@ -36,7 +36,7 @@ def read(name: str, fields: _Union[str, list] = None, **kwargs) -> _pd.DataFrame
     >>> df = wrangles.connectors.file.read('myfile.csv')
 
     :param name: Name of the file to import
-    :param fields: (Optional) Subset of the fields to be read. If not provided, all fields will be included
+    :param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
@@ -57,8 +57,8 @@ def read(name: str, fields: _Union[str, list] = None, **kwargs) -> _pd.DataFrame
         kwargs['orient'] = 'records'
         df = _pd.read_json(name, **kwargs).fillna('')
 
-    # If the user specifies only certain fields, only include those
-    if fields is not None: df = df[fields]
+    # If the user specifies only certain columns, only include those
+    if columns is not None: df = df[columns]
 
     return df
 
@@ -72,7 +72,7 @@ properties:
     type: string
     description: The name of the file to import
     pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
-  fields:
+  columns:
     type: array
     description: Columns to select
   nrows:
@@ -98,7 +98,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, **kwargs) -> None:
+def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -107,13 +107,13 @@ def write(df: _pd.DataFrame, name: str, fields: _Union[str, list] = None, **kwar
 
     :param df: Dataframe to be written to a file
     :param name: Name of the output file
-    :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
+    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
     _logging.info(f": Exporting Data :: {name}")
 
-    # Select only specific fields if user requests them
-    if fields is not None: df = df[fields]
+    # Select only specific columns if user requests them
+    if columns is not None: df = df[columns]
 
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
@@ -152,9 +152,9 @@ properties:
     type: string
     description: The name of the file to write.
     pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
-  fields:
+  columns:
     type: array
-    description: A list of the fields to write. If omitted, all fields will be written.
+    description: A list of the columns to write. If omitted, all columns will be written.
   orient:
     type: string
     description: Used for JSON files. Specifies the output arrangement

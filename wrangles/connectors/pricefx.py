@@ -28,7 +28,6 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     """
     
     """
-    # Select only specific fields if user requests them
     _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
 
     if columns is not None: df = df[columns]

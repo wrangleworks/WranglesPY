@@ -154,7 +154,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
     :param connections: shared connections
-    :return: Dataframe, a subset if the 'dataframe' write type is set with specific fields
+    :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
     # Initialize returned df as df to start
     df_return = df
@@ -168,7 +168,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> 
         for export_type, params in export.items():
             if export_type == 'dataframe':
                 # Define the dataframe that is returned
-                df_return = df[params['fields']]
+                df_return = df[params['columns']]
             else:
                 # Use shared connection details if set
                 if 'connection' in params.keys():

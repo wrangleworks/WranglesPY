@@ -8,14 +8,14 @@ read:
 df_base = wrangles.pipeline.run(recipe)
 
 
-def test_export_df_fields():
+def test_export_df_columns():
     """
-    Test returning a dateframe where user has defined the fields
+    Test returning a dateframe where user has defined the columns
     """
     recipe = """
       write:
         dataframe:
-          fields:
+          columns:
             - Find
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_base)
@@ -78,7 +78,7 @@ def test_export_json():
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
 
-def test_export_csv_fields():
+def test_export_csv_columns():
     """
     Test exporting a .json
     """
@@ -86,7 +86,7 @@ def test_export_csv_fields():
       write:
         file:
           name: temp.csv
-          fields:
+          columns:
             - Find
     """
     wrangles.pipeline.run(recipe, dataframe=df_base)
@@ -94,7 +94,7 @@ def test_export_csv_fields():
       read:
         file:
           name: temp.csv
-          fields:
+          columns:
             - Find
     """
     df = wrangles.pipeline.run(recipe)

@@ -110,7 +110,7 @@ def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
         df[output_headers] = results
 
     else:
-        # Else they should have provided a list for all the output fields
+        # Else they should have provided a list for all the output columns
         df[output] = results
 
     return df
