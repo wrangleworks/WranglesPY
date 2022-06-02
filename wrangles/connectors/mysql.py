@@ -9,7 +9,7 @@ import logging as _logging
 _schema = {}
 
 
-def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', fields: _Union[str, list] = None) -> _pd.DataFrame:
+def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
     """
     Import data from a MySQL database.
 
@@ -22,7 +22,7 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     :param command: SQL command or table name
     :param port: (Optional) If not provided, the default port will be used
     :param database: (Optional) Database to be queried
-    :param fields: (Optional) Subset of fields to be returned. This is less efficient than specifying in the SQL command.
+    :param columns: (Optional) Subset of columns to be returned. This is less efficient than specifying in the SQL command.
     :return: Pandas Dataframe of the imported data
     """
     _logging.info(f": Importing Data :: {host}")
@@ -30,7 +30,7 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     conn = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
     df = _pd.read_sql(command, conn)
 
-    if fields is not None: df = df[fields]
+    if columns is not None: df = df[columns]
     
     return df
 
@@ -61,13 +61,13 @@ properties:
   port:
     type: integer
     description: The Port to connect to. Defaults to 5432.
-  fields:
+  columns:
     type: array
-    description: A list with a subset of the fields to import. This is less efficient than specifying in the command.
+    description: A list with a subset of the columns to import. This is less efficient than specifying in the command.
 """
 
 
-def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, fields: _Union[str, list] = None) -> None:
+def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, columns: _Union[str, list] = None) -> None:
     """
     Export data to a MySQL database.
 
@@ -82,15 +82,15 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param password: Password of user
     :param action: Only INSERT is supported at this time, defaults to INSERT
     :param port: (Optional) If not provided, the default port will be used
-    :param fields: (Optional) Subset of the fields to be written. If not provided, all fields will be output
+    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     """
     _logging.info(f": Exporting Data :: {host}/{table}")
 
     # Create appropriate connection string
     conn = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
 
-    # Select only specific fields if user requests them
-    if fields is not None: df = df[fields]
+    # Select only specific columns if user requests them
+    if columns is not None: df = df[columns]
 
     if action.upper() == 'INSERT':
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
@@ -126,7 +126,7 @@ properties:
   port:
     type: integer
     description: The Port to connect to. Defaults to 5432.
-  fields:
+  columns:
     type: array
     description: A list of the columns to write to the table. If omitted, all columns will be written.
 """

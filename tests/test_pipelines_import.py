@@ -27,15 +27,15 @@ def test_import_txt():
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
-def test_import_csv_fields():
+def test_import_csv_columns():
     """
-    Test a csv import where user has selected only a subset of the fields
+    Test a csv import where user has selected only a subset of the columns
     """
     recipe = """
       read:
         file:
           name: tests/samples/data.csv
-          fields:
+          columns:
             - Find
     """
     df = wrangles.pipeline.run(recipe)
@@ -55,15 +55,15 @@ def test_import_json():
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
-def test_import_json_fields():
+def test_import_json_columns():
     """
-    Test a json import where user has selected a subset of fields
+    Test a json import where user has selected a subset of columns
     """
     recipe = """
       read:
         file:
           name: tests/samples/data.json
-          fields:
+          columns:
             - Find
     """
     df = wrangles.pipeline.run(recipe)
@@ -83,7 +83,7 @@ def test_import_excel():
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
-def test_import_excel_fields():
+def test_import_excel_columns():
     """
     Test a basic .xlsx import
     """
@@ -91,7 +91,7 @@ def test_import_excel_fields():
       read:
         file:
           name: tests/samples/data.xlsx
-          fields:
+          columns:
             - Find
     """
     df = wrangles.pipeline.run(recipe)

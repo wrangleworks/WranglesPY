@@ -90,16 +90,16 @@ def make_table(df, file, sheet_name):
 
 
 
-def write(df: pd.DataFrame, name: str, sheet: str = 'Sheet1', fields: _Union[str, list] = None):
+def write(df: pd.DataFrame, name: str, sheet: str = 'Sheet1', columns: _Union[str, list] = None):
     """
     Write a table formatted for Eric's demo
 
     :param df: Dataframe to export
     :param name: Name of file to create
     :param sheet: (Optional) Name of sheet to create, default Sheet1
-    :param fields: (Optional) Fields to export. If omitted, all will be exported
+    :param columns: (Optional) columns to export. If omitted, all will be exported
     """
-    # Select only specific fields if user requests them
-    if fields is not None: df = df[fields]
+    # Select only specific columns if user requests them
+    if columns is not None: df = df[columns]
 
     make_table(df, name, sheet)

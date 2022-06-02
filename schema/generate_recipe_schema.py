@@ -87,9 +87,9 @@ write_dataframe = """
 type: object
 description: Define the dataframe that is returned from the pipeline.run() function
 required:
-  - fields
+  - columns
 properties:
-  fields:
+  columns:
     type: array
     description: List of columns to include in the returned dataframe
   excluded_columns:
