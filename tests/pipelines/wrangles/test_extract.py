@@ -23,7 +23,7 @@ def test_address_cities():
         - extract.address:
             input: location
             output: cities
-            dataType: citites
+            dataType: cities
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['cities'] == ['London']
@@ -42,10 +42,10 @@ def test_address_countries():
 def test_address_regions():
     recipe = """
     wrangles:
-            - extract.address:
-                input: location
-                output: regions
-                dataType: regions
+        - extract.address:
+            input: location
+            output: regions
+            dataType: regions
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['regions'] == ['England']
@@ -58,11 +58,11 @@ df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret
 def test_extract_codes():
     recipe = """
     wrangles:
-            - extract.codes:
-                input: secret
-                output: code
+      - extract.codes:
+          input: secret
+          output: code
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes)
     assert df.iloc[0]['code'] == ['Z1ON0101']
     
 #
@@ -73,10 +73,10 @@ df_test_custom = pd.DataFrame([['My favorite pokemon is charizard!']], columns=[
 def test_extract_custom():
     recipe = """
     wrangles:
-    - extract.custom:
-        input: Fact
-        output: Fact Output
-        model_id: 1eddb7e8-1b2b-4a52
+      - extract.custom:
+          input: Fact
+          output: Fact Output
+          model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_custom)
     assert df.iloc[0]['Fact Output'] == ['Charizard']
