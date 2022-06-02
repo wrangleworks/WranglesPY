@@ -6,7 +6,7 @@ import yaml as _yaml
 import logging as _logging
 from typing import Union as _Union
 import os as _os
-import fnmatch
+import fnmatch as _fnmatch
 
 from . import pipeline_wrangles as _pipeline_wrangles
 from . import connectors as _connectors
@@ -134,7 +134,7 @@ def _execute_wrangles(df, wrangles_list, custom_wrangles: dict = {}) -> _pandas.
             else:
                 # Allow user to specify a wildcard (? or *) for the input columns
                 if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
-                    params['input'] = fnmatch.filter(df.columns, params['input'])
+                    params['input'] = _fnmatch.filter(df.columns, params['input'])
 
                 # Get the requested function from the pipeline_wrangles module
                 obj = _pipeline_wrangles
