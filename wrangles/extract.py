@@ -139,6 +139,30 @@ def geography(input: _Union[str, list], dataType: str) -> list:
     return results
 
 
+def html(input: _Union[str, list], dataType: str) -> list:
+    """
+    Extract specific html elements from strings containing html.
+
+    :param input: A string or list of strings with addresses to search for information.
+    :param dataType: The type of information to return. 'text' or 'links'
+    :return: A list of any results found.
+    """
+    if isinstance(input, str): 
+        json_data = [input]
+    else:
+        json_data = input
+
+    url = f'{_config.api_host}/wrangles/extract/html'
+    params = {'responseFormat': 'array', 'dataType': dataType}
+    batch_size = 10000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if isinstance(input, str): results = results[0]
+    
+    return results
+
+    
 def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
