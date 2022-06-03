@@ -176,23 +176,29 @@ def remove_words(input, to_remove):
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words
     """
-    # Check the type of input and convert accordingly
-    if isinstance(input[0], str): input = input[0].split(', ')
-    if isinstance(input[0], list): input = input[0]  
-    input_flat = [x.lower() for x in input]
+        
+    # Input is string
+    if isinstance(input[0], str):
+        input = [[x.split()] for x in input]
+        results = []
+        for item in range(len(input)):
+            temp = []
+            to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
+            temp = filter(None, [x for x in input[item][0] if x not in to_remove_lower])
+            results.append(' '.join(temp))
+        
+        return results
+        
     
-    # Check the type of to_remove and convert accordinlgy
-    temp = []
-    for x in to_remove[0]:
-        if isinstance(x, str):
-            temp.append(x.split(', '))
-        else:
-            temp.append(x)
-    
-    to_remove_flat = [item.lower() for sublist in temp for item in sublist]
-    # Remove words that are in to_remove
-    results = ' '.join([x.title() for x in input_flat if x not in to_remove_flat])
-    
+    # Input is list
+    results = []
+    for item in range(len(input)):
+        temp = []
+        to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
+        temp = filter(None, [x for x in input[item] if x not in to_remove_lower])
+        results.append(' '.join(temp))
+
+        
     return results
     
     
