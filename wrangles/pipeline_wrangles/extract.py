@@ -132,6 +132,42 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
     return df
 
 
+def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract elements from strings containing html
+    additionalProperties: false
+    required:
+      - input
+      - output
+      - data_type
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      data_type:
+        type: string
+        description: The type of data to extract
+        enum:
+          - text
+          - links
+    """
+    if isinstance(input, str): input = [input]
+    if output is None: output = input
+
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
+            
+    return df
+
+
 def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None) -> _pd.DataFrame:
     """
     type: object
