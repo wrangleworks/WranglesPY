@@ -19,8 +19,6 @@ setup(
         'pyyaml',
         'pandas',
         'openpyxl',
-        'pandas_flavor',
-        'boltons',
         'pyodbc',
         'sqlalchemy',
         'pymssql',
