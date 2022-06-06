@@ -127,5 +127,5 @@ def test_to_dict():
             output: Dict Col
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_to_dict)
-    assert df.iloc[0]['Dict Col'] == {'Col1': 'A', 'Col2': 'B'}
+    assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
 

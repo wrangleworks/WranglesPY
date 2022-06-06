@@ -53,6 +53,8 @@ def test_address_regions():
 #
 # Codes
 #
+
+# Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
 
 def test_extract_codes():
@@ -65,9 +67,24 @@ def test_extract_codes():
     df = wrangles.pipeline.run(recipe, dataframe=df_test_codes)
     assert df.iloc[0]['code'] == ['Z1ON0101']
     
+# Input is list
+df_test_codes_list = pd.DataFrame([[['to', 'gain', 'access', 'use', 'Z1ON0101']]], columns=['secret'])
+
+def test_extract_codes_list():
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: secret
+          output: code
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes_list)
+    assert df.iloc[0]['code'] == ['Z1ON0101']
+    
 #
 # Custom Extraction
 #
+
+# Input is String
 df_test_custom = pd.DataFrame([['My favorite pokemon is charizard!']], columns=['Fact'])
 
 def test_extract_custom():
@@ -80,7 +97,21 @@ def test_extract_custom():
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_custom)
     assert df.iloc[0]['Fact Output'] == ['Charizard']
-    
+
+# Output is list
+df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])
+
+def test_extract_custom_list():
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: Fact
+          output: Fact Output
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_custom_list)
+    assert df.iloc[0]['Fact Output'] == ['Pikachu', 'Mew', 'Charizard']
+
 #
 # Properties
 #
@@ -130,3 +161,35 @@ def test_extract_standards():
     df = wrangles.pipeline.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['OSHA']
     
+    
+#
+# HTML
+#
+
+# text
+df_test_html = pd.DataFrame([r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>'], columns=['HTML'])
+
+def test_extract_html_text():
+    recipe = """
+    wrangles:
+      - extract.html:
+          input: HTML
+          output: 
+            - Text
+          data_type: text
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_html)
+    assert df.iloc[0]['Text'] == 'Wrangle Works!'
+    
+# Links
+def test_extract_html_links():
+    recipe = """
+    wrangles:
+      - extract.html:
+          input: HTML
+          output: 
+            - Links
+          data_type: links
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_html)
+    assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
