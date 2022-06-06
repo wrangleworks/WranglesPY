@@ -110,5 +110,22 @@ def test_to_lists():
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_to_lists)
     assert df.iloc[0]['Combined Col'] == ['A', 'B', 'C']
+    
 
+df_test_to_dict = pd.DataFrame({
+    'Col1':[{'A'}],
+    'Col2':[{'B'}]
+})
+
+def test_to_dict():
+    recipe = """
+    wrangles:
+        - merge.to_dict:
+            input: 
+                - Col1
+                - Col2
+            output: Dict Col
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_to_dict)
+    assert df.iloc[0]['Dict Col'] == {'Col1': 'A', 'Col2': 'B'}
 
