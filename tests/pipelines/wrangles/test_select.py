@@ -22,7 +22,7 @@ def test_dictionary_element():
 #
 # List Element
 #
-test_list_element = pd.DataFrame({
+df_test_list_element = pd.DataFrame({
     'Col1': [['A', 'B', 'C']]
 })
 def test_list_element():
@@ -35,7 +35,7 @@ def test_list_element():
             element: 1
     """
 
-    df = wrangles.pipeline.run(recipe, dataframe=test_list_element)
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_list_element)
     assert df.iloc[0]['Second Element'] == 'B'
     
 #
