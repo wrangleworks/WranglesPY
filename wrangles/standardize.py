@@ -1,9 +1,9 @@
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from typing import Union
+from typing import Union as _Union
 
-def standardize(input: Union[str, list], model_id: str) -> list:
+def standardize(input: _Union[str, list], model_id: str) -> list:
     """
     Standardize text - Standardize Wrangles can replace words with alternatives,
     in addition to using regex patterns for more complex replacements.
