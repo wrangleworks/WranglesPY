@@ -203,12 +203,13 @@ def remove_words(input, to_remove):
         
     # Input is string
     if isinstance(input[0], str):
-        input = [[x.split()] for x in input]
+        input_lower = [x.lower() for x in input]
+        input = [[x.split()] for x in input_lower]
         results = []
         for item in range(len(input)):
             temp = []
             to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-            temp = filter(None, [x for x in input[item][0] if x not in to_remove_lower])
+            temp = filter(None, [x.title() for x in input[item][0] if x not in to_remove_lower])
             results.append(' '.join(temp))
         
         return results
@@ -219,7 +220,8 @@ def remove_words(input, to_remove):
     for item in range(len(input)):
         temp = []
         to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-        temp = filter(None, [x for x in input[item] if x not in to_remove_lower])
+        input_lower = [x.lower() for x  in input[item]]
+        temp = filter(None, [x.title() for x in input_lower if x not in to_remove_lower])
         results.append(' '.join(temp))
 
         
