@@ -37,13 +37,16 @@ properties:
 """
 
 
-def read(url: str, method: str = "GET", headers: dict = None, json_key: str = None) -> None:
+def read(url: str, method: str = "GET", headers: dict = None, json_key: str = None, columns: list = None) -> None:
     response = _requests.request(method=method, url=url, headers=headers)
     response_json = response.json()
     if json_key:
       for element in json_key.split('.'):
         response_json = response_json[element]
     df = _pd.json_normalize(response_json, max_level=0)
+
+    if columns is not None: df = df[columns]
+
     return df
 
 _schema['read'] = """
@@ -72,6 +75,9 @@ properties:
   json_key:
     type: string
     description: Select sub-elements from the response JSON. Multiple levels can be specified with e.g. key1.key2.key3
+  columns:
+    type: array
+    description: :param columns: Subset of columns to be returned.
 """
 
 
