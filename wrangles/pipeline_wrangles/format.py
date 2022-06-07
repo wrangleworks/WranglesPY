@@ -13,7 +13,24 @@ def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel:
     return df
 
 
-def remove_duplicates(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove duplicates from a list. Preserves input order.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: string
+        description: Name of the input column
+      output:
+        type: string
+        description: Name of the output column
+    """
+    # If user hasn't provided an output, overwrite input
+    if output is None: output = input
+
     output_list = []
     for row in df[input].values.tolist():
         if isinstance(row, list):
