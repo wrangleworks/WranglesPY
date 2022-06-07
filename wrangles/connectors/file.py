@@ -2,21 +2,6 @@
 Connector to read & write from the local filesystem
 
 Supports Excel, CSV, JSON and JSONL files.
-
-### Sample Recipes
-~~~
-
-import:
-  file:
-    name: myfile.xlsx
-
-~~~
-
-export:
-  file:
-    name: myfile.csv
-
-~~~
 """
 import pandas as _pd
 import logging as _logging
