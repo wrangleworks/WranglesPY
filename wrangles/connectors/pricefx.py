@@ -66,7 +66,7 @@ def read(host: str, partition: str, source: str, user: str, password: str, colum
 
     return df
 
-_schema['Read'] = """
+_schema['read'] = """
 type: object
 description: Import data from a PriceFx instance.
 required:
@@ -99,7 +99,7 @@ properties:
       - Data Source
   columns:
     type: array
-    description: A list of the columns to write to the table.
+    description: Specify which columns to include
   data_source:
     type: string
     description: If the source is a Data Source, set the specific table.
