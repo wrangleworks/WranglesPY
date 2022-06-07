@@ -8,6 +8,7 @@ import pandas as pd
 df_classify = pd.DataFrame({
     'Col1': ['Ball Bearing']
 })
+# Input is one column
 def test_classify():
     recipe = """
     wrangles:
@@ -19,6 +20,51 @@ def test_classify():
     # Using IESA Commodity Wrangle
     df = wrangles.pipeline.run(recipe, dataframe=df_classify)
     assert df.iloc[0]['Class'] == 'Ball Bearing'
+    
+# Input is mulit column
+df_classify_milti_input = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Bearing']
+})
+def test_classify_milti_input():
+    recipe = """
+    wrangles:
+        - classify:
+            input:
+              - Col1
+              - Col2
+            output:
+              - Output 1
+              - Output 2
+            model_id: c77839db-237a-476b
+    """
+    # Using IESA Commodity Wrangle
+    df = wrangles.pipeline.run(recipe, dataframe=df_classify_milti_input)
+    assert df.iloc[0]['Output 1'] == 'Ball Bearing'
+    
+#
+# Filter
+#
+df_filter = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Color': ['red','green', 'orange', 'red']
+})
+
+def test_filter():
+    recipe = """
+    wrangles:
+        - filter:
+            input: Color
+            equal:
+              - red
+    """
+    # Using IESA Commodity Wrangle
+    df = wrangles.pipeline.run(recipe, dataframe=df_filter)
+    assert df.iloc[1]['Fruit'] == 'Strawberry'
+    
+#
+# Log
+#
     
 #
 # Remove Words
@@ -71,7 +117,7 @@ df_rename = pd.DataFrame({
     'Manufacturer Name': ['Delos'],
     'Part Number': ['CH465517080'],
 })
-
+# Multi Column
 def test_rename():
     recipe = """
     wrangles:
@@ -82,7 +128,20 @@ def test_rename():
     # Using IESA Commodity
     df = wrangles.pipeline.run(recipe, dataframe=df_rename)
     assert df.iloc[0]['MPN'] == 'CH465517080'
-    
+
+# One column using input and output
+def test_rename_one_col():
+    recipe = """
+    wrangles:
+        - rename:
+            input: Manufacturer Name
+            output: Company
+            
+    """
+    # Using IESA Commodity
+    df = wrangles.pipeline.run(recipe, dataframe=df_rename)
+    assert df.iloc[0]['Company'] == 'Delos'
+
 #
 # Standardize
 #
