@@ -9,8 +9,8 @@ setup(
         'wrangles.pipeline_wrangles'
     ],
     description = 'Wrangle your data into shape with machine learning',
-    version = '0.3',
-    url = 'https://github.com/wrangleworks/WranglesPy',
+    version = '0.4',
+    url = 'https://wrangles.io',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
     keywords = ['data','wrangling'],
