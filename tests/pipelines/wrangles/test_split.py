@@ -24,6 +24,10 @@ def test_split_from_text_to_list():
     assert df.iloc[0]['Col2'] == ['Hello', 'Wrangles!']
     
 # Text to Columns
+
+test_split_from_text_wildcard = pd.DataFrame({
+    'Col': ['Hello, Wrangles!']
+})
 def test_split_from_text_to_cols():
     recipe = """
     wrangles:
@@ -33,8 +37,50 @@ def test_split_from_text_to_cols():
             char: ', '
     """
 
-    df = wrangles.pipeline.run(recipe, dataframe=test_split_from_text)
+    df = wrangles.pipeline.run(recipe, dataframe=test_split_from_text_wildcard)
     assert df.iloc[0]['Col2'] == 'Wrangles!'
+    
+test_split_from_text_cols_list = pd.DataFrame({
+    
+    'Col': ['Hello Wrangles! Other']
+})
+
+def test_split_from_text_to_cols_list():
+    recipe = """
+    wrangles:
+        - split.from_text:
+            input: Col
+            output:
+              - Col 1
+              - Col 2
+              - Col 3
+            char: ' '
+    """
+
+    df = wrangles.pipeline.run(recipe, dataframe=test_split_from_text_cols_list)
+    assert df.iloc[0]['Col 2'] == 'Wrangles!'
+    
+#
+# Re Split
+#
+df_test_re_split = pd.DataFrame({
+    'Col': ['Wrangles@are&very$cool']
+})
+
+def test_re_split():
+    recipe = """
+    wrangles:
+        - split.re_from_text:
+            input: Col
+            output: Split
+            char:
+              - '@'
+              - '&'
+              - '\$'
+    """
+
+    df = wrangles.pipeline.run(recipe, dataframe=df_test_re_split)
+    assert df.iloc[0]['Split'] == ['Wrangles', 'are', 'very', 'cool']
     
 #
 # Split from List

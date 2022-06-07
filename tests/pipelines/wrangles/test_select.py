@@ -65,6 +65,7 @@ def test_highest_confidence():
 # Threshold
 #
 
+
 df_threshold = pd.DataFrame({
     'Col1': [['A', .60]],
     'Col2': [['B', .79]]
@@ -83,4 +84,24 @@ def test_threshold():
 
     df = wrangles.pipeline.run(recipe, dataframe=df_threshold)
     assert df.iloc[0]['Top Words'] == 'B'
+    
+# Noun (Token) return empty
+df_threshold_None = pd.DataFrame({
+    'Col1': [None],
+    'Col2': ['B || .90']
+})
+
+def test_threshold_str():
+    recipe = """
+    wrangles:
+        - select.threshold:
+            input:
+                - Col1
+                - Col2
+            output: Top Words
+            threshold: .77
+    """
+
+    df = wrangles.pipeline.run(recipe, dataframe=df_threshold_None)
+    print(df.iloc[0]['Top Words'] == 'B || .90')
     
