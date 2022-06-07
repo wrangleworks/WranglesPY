@@ -4,6 +4,7 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
+import pymssql as _pymssql
 
 
 _schema = {}
@@ -129,4 +130,52 @@ properties:
   columns:
     type: array
     description: A list of the columns to write to the table. If omitted, all columns will be written.
+"""
+
+
+def run(host: str, user: str, password: str, command: str, **kwargs) -> None:
+  """
+  Run a command on a Microsoft SQL Server
+
+  >>> from wrangles.connectors import mssql
+  >>> df = mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
+
+  :param host: Hostname or IP of the database
+  :param user: User with access to the database
+  :param password: Password of user
+  :param command: SQL command to execute
+  """
+  conn = _pymssql.connect(server=host, user=user, password=password, **kwargs)
+  cursor = conn.cursor()
+  cursor.execute(command)
+  conn.commit()
+  conn.close()
+
+_schema['run'] = """
+type: object
+description: Run a command against a Microsoft SQL Server such as triggering a query or stored procedure before or after your wrangling pipeline
+required:
+  - host
+  - user
+  - password
+  - command
+properties:
+  host:
+    type: string
+    description: Hostname or IP address of the server
+  user:
+    type: string
+    description: The user to connect to the server with
+  password:
+    type: string
+    description: Password for the specified user
+  command:
+    type: string
+    description: SQL command to execute
+  database:
+    type: string
+    description: The database to connect to
+  port:
+    type: integer
+    description: The Port to connect to. Defaults to 1433.
 """
