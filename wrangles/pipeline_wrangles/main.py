@@ -210,12 +210,12 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> 
       - output
     properties:
       input:
-        type: string
-        description: Name of column to remove words from
-      input:
         type: 
-          - array
           - string
+          - array
+        description: Name of column to remove words from
+      to_remove:
+        type: array
         description: Column or list of columns with a list of words to be removed
       output:
         type: string
