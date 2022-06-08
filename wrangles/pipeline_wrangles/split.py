@@ -53,7 +53,7 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
 def re_from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',') -> _pd.DataFrame:
     """
     type: object
-    description: Split a string to multiple columns or a list.
+    description: Split a string on multiple characters.
     additionalProperties: false
     required:
       - input

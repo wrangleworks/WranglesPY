@@ -96,14 +96,23 @@ def extend_list(input_lists):
     
     return results
 
-def tokenize_list_space(input_list):
+def tokenize(input):
     """
     Tokenizes everything in a list that has spaces
-    Ex: ['Cookie Monster'] -> ['Cookie', 'Monster']
+    Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
+    Ex: 'Cookie Monster -> ['Cookie', 'Monster']
     """
+    
     results = []
-    for item in input_list:
-        temp1 = [x.split() for x in item]
-        temp2 = [item for sublist in temp1 for item in sublist]
-        results.append(temp2)
+    for item in input:
+        if isinstance(item, list):
+            temp1 = [x.split() for x in item]
+            temp2 = [item for sublist in temp1 for item in sublist]
+            results.append(temp2)
+            
+        elif isinstance(item, str):
+            temp = list(filter(None, item.split()))
+            results.append(temp)
+            
+    
     return results
