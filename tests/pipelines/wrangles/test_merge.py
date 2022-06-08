@@ -4,54 +4,49 @@ import pandas as pd
 #
 # Coalesce
 #
-df_test_coalesce = pd.DataFrame(
-    {
+def test_coalesce_1():
+    data = pd.DataFrame({
         'Col1': ['A', '', ''],
         'Col2': ['', 'B', ''],
         'Col3': ['', '', 'C']
-    }
-)
-def test_coalesce():
+    })
     recipe = """
     wrangles:
-    - merge.coalesce:
-        input: 
-        - Col1
-        - Col2
-        - Col3
-        output: Output Col
+      - merge.coalesce:
+          input: 
+            - Col1
+            - Col2
+            - Col3
+          output: Output Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_coalesce)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df['Output Col'].values.tolist() == ['A', 'B', 'C']
 
 #
 # Concatenate
 #
-df_test_concatenate_one_col = pd.DataFrame(
-    {
+# One column concat
+def test_concatenate_1():
+    data = pd.DataFrame({
         'Col1': [['A', 'B', 'C']]
-    }
-)
-def test_concatenate_one_col():
+    })
     recipe = """
     wrangles:
-        - merge.concatenate:
-            input: Col1
-            output: Join List
-            char: ' '
+      - merge.concatenate:
+          input: Col1
+          output: Join List
+          char: ' '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_concatenate_one_col)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Join List'] == 'A B C'
     
-
-df_test_coalesce_multi_cols = pd.DataFrame(
-    {
+# Multi column concat
+def test_concatenate_2():
+    data = pd.DataFrame({
         'Col1': ['A'],
         'Col2': ['B'],
         'Col3': ['C']
-    }
-)
-def test_coalesce_multi_cols():
+    })
     recipe = """
     wrangles:
         - merge.concatenate:
@@ -62,19 +57,18 @@ def test_coalesce_multi_cols():
             output: Join Col
             char: ', '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_coalesce_multi_cols)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Join Col'] == 'A, B, C'
     
 #
 # Lists
 #
-df_test_join_lists = pd.DataFrame(
-    {
+# Joining lists together
+def test_lists_1():
+    data = pd.DataFrame({
         'Col1': [['A', 'B']],
         'Col2': [['D', 'E']]
-    }
-)
-def test_join_lists():
+    })
     recipe = """
     wrangles:
         - merge.lists:
@@ -83,22 +77,20 @@ def test_join_lists():
                 - Col2
             output: Combined Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_join_lists)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     print(df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'E'])
 
 
 #
 # to_list
 #
-df_test_to_lists = pd.DataFrame(
-    {
+
+def test_to_lists_1():
+    data = pd.DataFrame({
         'Col1': ['A'],
         'Col2': ['B'],
         'Col3': ['C']
-    }
-)
-
-def test_to_lists():
+    })
     recipe = """
     wrangles:
         - merge.to_list:
@@ -108,21 +100,18 @@ def test_to_lists():
                 - Col3
             output: Combined Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_to_lists)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Combined Col'] == ['A', 'B', 'C']
     
-
-df_test_to_dict = pd.DataFrame({
-    'Col1':[{'A'}],
-    'Col2':[{'B'}]
-})
 
 #
 # To Dict
 #
-
-
-def test_to_dict():
+def test_to_dict_1():
+    data = pd.DataFrame({
+    'Col1':[{'A'}],
+    'Col2':[{'B'}]
+})
     recipe = """
     wrangles:
         - merge.to_dict:
@@ -131,39 +120,36 @@ def test_to_dict():
                 - Col2
             output: Dict Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_to_dict)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
     
 
 #
 # Key Value Pairs
 #
-df_key_value_pairs = pd.DataFrame({
+def test_key_value_pairs_1():
+    data = pd.DataFrame({
     'Letter': ['A', 'B', 'C'],
     'Number': [1, 2, 3],
-})
-
-def test_key_value_pairs():
+    })
     recipe = """
     wrangles:
         - merge.key_value_pairs:
             input:
               Letter: Number
             output: Pairs
-            
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_key_value_pairs)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[2]['Pairs'] == {'C': 3}
 
-# Wildcard
-df_key_value_pairs_wildcard = pd.DataFrame({
+# Using a Wildcard
+def test_key_value_pairs_2():
+    data = pd.DataFrame({
     'key 1': ['A', 'B', 'C'],
     'key 2': ['One', 'Two', 'three'],
     'value 1': ['a', 'b', 'c'],
     'value 2': ['First', 'Second', 'Third']
-})
-
-def test_key_value_pairs_wildcard():
+    })
     recipe = """
     wrangles:
         - merge.key_value_pairs:
@@ -171,7 +157,6 @@ def test_key_value_pairs_wildcard():
               key*: value*
             output: Object
     """
-    
-    df = wrangles.pipeline.run(recipe, dataframe=df_key_value_pairs_wildcard)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     print(df.iloc[2]['Object'] == {'C': 'c', 'three': 'Third'})
 

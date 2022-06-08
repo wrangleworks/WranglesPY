@@ -5,24 +5,21 @@ import pandas as pd
 #
 # Column
 #
-df_test_create_column = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
-
-def test_create_column():
+def test_create_column_1():
+    data = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
     recipe = """
     wrangles:
         - create.column:
             output: column3
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_create_column)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert len(df.columns) == 3
 
 #
 # Index
 #
-    
-df_test_create_index = pd.DataFrame([['one', 'two'], ['une', 'deux'], ['uno', 'dos']], columns=['column1', 'column2'])
-
-def test_create_index():
+def test_create_index_1():
+    data = pd.DataFrame([['one', 'two'], ['une', 'deux'], ['uno', 'dos']], columns=['column1', 'column2'])
     recipe = """
         wrangles:
             - create.index:
@@ -30,35 +27,35 @@ def test_create_index():
                 start: 1
                 
         """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_create_index)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[-1]['index_col'] == 3
 
 #
 # GUID
 #
-df_guid = pd.DataFrame({
+def test_guid_1():
+    data = pd.DataFrame({
     'Product': ['A', 'B'],
-})
-
-def test_guid():
+    })
     recipe = """
     wrangles:
         - create.guid:
             output: GUID Col
     """
-    # Using IESA Commodity
-    df = wrangles.pipeline.run(recipe, dataframe=df_guid)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert 'GUID Col' in list(df.columns)
     
 #
 # UUID
 #
-def test_uuid():
+def test_uuid_1():
+    data = pd.DataFrame({
+    'Product': ['A', 'B'],
+    })
     recipe = """
     wrangles:
         - create.uuid:
             output: UUID Col
     """
-    # Using IESA Commodity
-    df = wrangles.pipeline.run(recipe, dataframe=df_guid)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert 'UUID Col' in list(df.columns)

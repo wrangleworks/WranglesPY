@@ -161,7 +161,7 @@ def test_attributes_power():
     df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13hp', '13W']
 
-# Testing Power
+# Testing Pressure
 def test_attributes_pressure():
     recipe = """
     wrangles:
