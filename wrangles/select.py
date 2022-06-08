@@ -35,7 +35,14 @@ def confidence_threshold(list_1, list_2, threshold):
     return results
 
 def list_element(input, n):
-    return [row[n] for row in input]
+    def check_if_possible(a, element):
+        try:
+            a[element]
+            return a[element]
+        except IndexError:
+            return ''
+            
+    return [check_if_possible(row, n) for row in input]
 
 def dict_element(input, key):
     return [row.get(key, '') for row in input]
