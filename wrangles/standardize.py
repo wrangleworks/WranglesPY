@@ -20,8 +20,12 @@ def standardize(input: _Union[str, list], model_id: str) -> list:
         raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
         
     # If the Model Id is not appropriate, raise error (Maybe more specific?)
-    if len(model_id.split('-')) != 3:
+    if isinstance(model_id, dict) or len(model_id.split('-')) != 3:
         raise ValueError('Incorrect model_id. May be missing "${ }" around value')
+        
+    # Checking to see if GUID format is correct
+    if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
+        raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/standardize'
     params = {'responseFormat': 'array', 'model_id': model_id}
