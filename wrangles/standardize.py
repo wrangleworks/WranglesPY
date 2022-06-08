@@ -18,6 +18,10 @@ def standardize(input: _Union[str, list], model_id: str) -> list:
         json_data = input
     else:
         raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
+        
+    # If the Model Id is not appropriate, raise error (Maybe more specific?)
+    if len(model_id.split('-')) != 3:
+        raise ValueError('Incorrect model_id. May be missing "${ }" around value')
 
     url = f'{_config.api_host}/wrangles/standardize'
     params = {'responseFormat': 'array', 'model_id': model_id}
