@@ -1,43 +1,40 @@
 import wrangles
 import pandas as pd
 
-
 #
 # Remove Duplicates
 #
-
 # Input column is a list
-df_test_remove_duplicates = pd.DataFrame([[['Agent Smith', 'Agent Smith', 'Agent Smith']]], columns=['Agents'])
-def test_remove_duplicates():
+def test_remove_duplicates_1():
+    data = pd.DataFrame([[['Agent Smith', 'Agent Smith', 'Agent Smith']]], columns=['Agents'])
     recipe = """
     wrangles:
     - format.remove_duplicates:
         input: Agents
         output: Remove
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_remove_duplicates)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Remove'] == ['Agent Smith']
     
 # Input column is a str
-df_test_remove_duplicates_str_input = pd.DataFrame({
-  'Agents': ['Agent Smith Agent Smith Agent Smith']
-  })
-def test_remove_duplicates_str_input():
+def test_remove_duplicates_2():
+    data = pd.DataFrame({
+    'Agents': ['Agent Smith Agent Smith Agent Smith']
+    })
     recipe = """
     wrangles:
     - format.remove_duplicates:
         input: Agents
         output: Remove
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_remove_duplicates_str_input)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     print(df.iloc[0]['Remove'] == 'Agent Smith Agent Smith Agent Smith')
 
 #
 # Trim
 #
-df_test_trim = pd.DataFrame([['         Wilson!         ']], columns=['Alone'])
-
-def test_trim():
+def test_trim_1():
+    data = pd.DataFrame([['         Wilson!         ']], columns=['Alone'])
     recipe = """
     wrangles:
     - format.trim:
@@ -45,5 +42,5 @@ def test_trim():
         - Alone
         output: Trim
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_trim)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Trim'] == 'Wilson!'

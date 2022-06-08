@@ -5,18 +5,20 @@ import pandas as pd
 #
 # CASE
 #
-df_test_case = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-
-def test_case_default():
+# Default value -> no case specified
+def test_case_1():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string'
 
-def test_case_input_list():
+# Input is a list
+def test_case_2():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
@@ -24,20 +26,24 @@ def test_case_input_list():
             - Data1
             - Data2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string' and df.iloc[0]['Data2'] == 'another string'
 
-def test_case_output():
+# Specifying output column
+def test_case_3():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
           output: Column
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Column'] == 'a string'
 
-def test_case_output_list():
+# Output and input are a multi columns
+def test_case_4():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
@@ -48,71 +54,74 @@ def test_case_output_list():
             - Column1
             - Column2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Column1'] == 'a string' and df.iloc[0]['Column2'] == 'another string'
 
+# Testing Lower case
 def test_case_lower():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
           case: lower
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string'
 
 def test_case_upper():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
           case: upper
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A STRING'
     
 def test_case_title():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
           case: title
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A String'
 
 def test_case_sentence():
+    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.case:
           input: Data1
           case: sentence
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_case)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A string'
 
 #
 # Data Type
 #
-df_test_data_type = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
-
 def test_data_type_str():
+    data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
     recipe = """
     wrangles:
       - convert.data_type:
           input: Data1
           data_type: str
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_data_type)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert isinstance(df.iloc[0]['Data1'], str)
 
 
 #
 # To JSON
 #
-df_test_to_json = pd.DataFrame([['val1', 'val2']], columns=['header1', 'header2'])
-
 def test_to_json_array():
+    data = pd.DataFrame([['val1', 'val2']], columns=['header1', 'header2'])
     recipe = """
     wrangles:
         - merge.to_list:
@@ -124,5 +133,5 @@ def test_to_json_array():
             input: headers
             output: headers_json
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_to_json)
+    df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['headers_json'] == '["val1", "val2"]'
