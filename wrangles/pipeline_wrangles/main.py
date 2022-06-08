@@ -197,25 +197,6 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     return df
 
 
-#  SUPER MARIO
-def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Tokenize elements in a list into individual tokens.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: list in column to split
-      output:
-        type: string
-        description: Name of the output column
-    """
-    df[output] = _format.tokenize(df[input].values.tolist())
-    return df
 
 # SUPER MARIO
 def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> _pd.DataFrame:

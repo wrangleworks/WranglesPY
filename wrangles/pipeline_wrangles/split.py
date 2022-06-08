@@ -131,3 +131,23 @@ def from_dict(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
     df[exploded_df.columns] = exploded_df
     return df
+
+#  SUPER MARIO
+def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Tokenize elements in a list into individual tokens.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: array
+        description: list in column to split
+      output:
+        type: string
+        description: Name of the output column
+    """
+    df[output] = _format.tokenize(df[input].values.tolist())
+    return df
