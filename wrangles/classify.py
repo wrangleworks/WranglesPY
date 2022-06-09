@@ -34,7 +34,15 @@ def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
     url = f'{_config.api_host}/wrangles/classify'
     params = {'responseFormat': 'array', 'model_id': model_id}
     model_properties = _data.model(model_id)
+    # If model_id format is correct but no mode_id exists
+    if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
     batch_size = model_properties['batch_size'] or 5000
+    
+    
+    # Using model_id in wrong function
+    purpose = model_properties['purpose']
+    if purpose != 'classify':
+        raise ValueError(f'Using {purpose} model_id in a classify function.')
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
