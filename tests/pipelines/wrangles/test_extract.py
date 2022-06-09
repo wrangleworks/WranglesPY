@@ -1,3 +1,4 @@
+import pytest
 import wrangles
 import pandas as pd
 
@@ -217,10 +218,29 @@ def test_attributes_mass():
 # Codes
 #
 
+# Len input != len output
+def test_extract_codes_1():
+    data = pd.DataFrame({
+        'col1': ['to gain access use Z1ON0101'],
+        'col2': ['to gain access use Z1ON0101']
+    })
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input:
+            - col1
+            - col2
+          output: 
+            - code
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
+
 # Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
 
-def test_extract_codes():
+def test_extract_codes_2():
     recipe = """
     wrangles:
       - extract.codes:
@@ -287,7 +307,7 @@ def test_extract_codes_milti_input_output():
 # Input is String
 df_test_custom = pd.DataFrame([['My favorite pokemon is charizard!']], columns=['Fact'])
 
-def test_extract_custom():
+def test_extract_custom_1():
     recipe = """
     wrangles:
       - extract.custom:
@@ -297,6 +317,51 @@ def test_extract_custom():
     """
     df = wrangles.pipeline.run(recipe, dataframe=df_test_custom)
     assert df.iloc[0]['Fact Output'] == ['Charizard']
+
+# Input is String
+df_test_custom = pd.DataFrame([['My favorite pokemon is charizard!']], columns=['Fact'])
+
+# Len input != Len output
+def test_extract_custom_2():
+    data = pd.DataFrame({
+        'col1': ['My favorite pokemon is charizard!'],
+        'col2': ['My favorite pokemon is charizard2!']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input:
+            - col1
+            - col2
+          output:
+            - Fact Out
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
+
+# Incorrect model_id missing "${ }" around value
+def test_extract_custom_3():
+    data = pd.DataFrame({
+        'col1': ['My favorite pokemon is charizard!'],
+        'col2': ['My favorite pokemon is charizard2!']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input:
+            - col1
+            - col2
+          output:
+            - Fact Out
+            - Fact Out 2
+          model_id: noWork
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id. May be missing "${ }" around value'
+
 
 # Input column is list
 df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])

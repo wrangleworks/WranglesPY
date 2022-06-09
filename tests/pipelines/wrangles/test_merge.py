@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 #
 # Coalesce
@@ -59,7 +60,26 @@ def test_concatenate_2():
     """
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Join Col'] == 'A, B, C'
-    
+
+# Wrong input type
+def test_concatenate_3():
+    data = pd.DataFrame({
+        'Col1': ['A'],
+        'Col2': ['B'],
+        'Col3': ['C']
+    })
+    recipe = """
+    wrangles:
+        - merge.concatenate:
+            input: 
+                Col1 : Col2
+            output: Join Col
+            char: ', '
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Unexpected data type for merge.concatenate / input'
+
 #
 # Lists
 #
