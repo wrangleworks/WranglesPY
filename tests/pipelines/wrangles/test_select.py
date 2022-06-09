@@ -35,6 +35,21 @@ def test_list_element_1():
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == 'B'
     
+# Empty values and out of index lengths
+def test_list_element_2():
+    data = pd.DataFrame({
+    'Col1': ['A One', '', 'C'],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Second Element
+          element: 1
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Second Element'] == 'B'
+    
 #
 # Highest confidence
 #
@@ -92,5 +107,57 @@ def test_threshold_2():
             threshold: .77
     """
     df = wrangles.pipeline.run(recipe, dataframe=data)
-    print(df.iloc[0]['Top Words'] == 'B || .90')
+    assert df.iloc[0]['Top Words'] == 'B || .90'
     
+# Noun (Token) return empty aka None and cell 2 is a list
+def test_threshold_3():
+    data = pd.DataFrame({
+    'Col1': [None],
+    'Col2': [['B || .90']]
+    })
+    recipe = """
+    wrangles:
+        - select.threshold:
+            input:
+                - Col1
+                - Col2
+            output: Top Words
+            threshold: .77
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Top Words'] == 'B || .90'
+    
+# Cell_1[0] is above the threshold
+def test_threshold_4():
+    data = pd.DataFrame({
+    'Col1': [['A', .90]],
+    'Col2': [['B', .79]]
+    })
+    recipe = """
+    wrangles:
+      - select.threshold:
+          input:
+            - Col1
+            - Col2
+          output: Top Words
+          threshold: .77
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Top Words'] == 'A'
+    
+def test_threshold_5():
+    data = pd.DataFrame({
+    'Col1': ['A || .50'],
+    'Col2': ['B || .90']
+    })
+    recipe = """
+    wrangles:
+        - select.threshold:
+            input:
+                - Col1
+                - Col2
+            output: Top Words
+            threshold: .77
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Top Words'] == 'B || .90'
