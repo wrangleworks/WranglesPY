@@ -24,12 +24,32 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
           - array
         description: Name of the output column
       char:
-        type: string
+        type: 
+          - string
+          - array
         description: (Optional) Set the character(s) to split on. Default comma (,)
       pad:
         type: boolean
         description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
     """
+    # If char is a list -> split on multiple chars using regex
+    if isinstance(char, list) and '*' not in output:
+      df[output] = _format.split_re(df[input].astype(str).tolist(), char)
+      return df
+      
+    # Wilcard with multiple split and multiple char
+    if isinstance(output, str) and '*' in output and isinstance(char, list):
+        # If user has entered a wildcard in the output column name
+        # then add results to that with an incrementing index for each column
+        # column * -> column 1, column 2, column 3...
+        results = _format.split_re(df[input].astype(str).tolist(), char)
+        output_headers = []
+        for i in range(1, len(results[0]) + 1):
+            output_headers.append(output.replace('*', str(i)))
+        df[output_headers] = results
+        return df
+        
+    # Wildcard with multiple splits 
     if isinstance(output, str) and '*' in output:
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
@@ -46,38 +66,10 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
 
     elif isinstance(output, list) or pad:
         df[output] = _format.split(df[input].astype(str).tolist(), char, pad=True)
-
+        
     return df
     
-
-def re_from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',') -> _pd.DataFrame:
-    """
-    type: object
-    description: Split a string on multiple characters.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: Name of the column to be split
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column
-      char:
-        type: string
-        description: (Optional) Set the characters to split on e.g. ',|\.|- . Default comma (,).
-      pad:
-        type: boolean
-        description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
-    """
-    df[output] = _format.split_re(df[input].astype(str).tolist(), char)
-    return df
-
-
+    
 def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     """
     type: object
