@@ -77,7 +77,7 @@ properties:
     description: Select sub-elements from the response JSON. Multiple levels can be specified with e.g. key1.key2.key3
   columns:
     type: array
-    description: :param columns: Subset of columns to be returned.
+    description: Subset of columns to be returned.
 """
 
 
