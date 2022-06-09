@@ -1,3 +1,4 @@
+import pytest
 import wrangles
 import pandas as pd
 
@@ -40,6 +41,47 @@ def test_classify_2():
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Output 1'] == 'Ball Bearing'
     
+# Len input != len output
+def test_classify_3():
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Ball Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+              - Col2
+            output: 
+              - Class
+            model_id: c77839db-237a-476b
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
+    
+# Incorrect model_id missing "${ }" around value
+def test_classify_4():
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Ball Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+              - Col2
+            output: 
+              - Class
+              - Class2
+            model_id: noWord
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id. May be missing "${ }" around value'
+    
 #
 # Filter
 #
@@ -61,7 +103,51 @@ def test_filter_1():
 #
 # Log
 #
-    
+# Specify log columns
+def test_log_1():
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input:
+              - Col1
+              - Col2
+            output:
+              - Output 1
+              - Output 2
+            model_id: c77839db-237a-476b
+        - log:
+            columns:
+              - Col1
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Output 1'] == 'Ball Bearing'
+
+# no log columns specified
+def test_log_2():
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input:
+              - Col1
+              - Col2
+            output:
+              - Output 1
+              - Output 2
+            model_id: c77839db-237a-476b
+        - log:
+            columns:
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Output 1'] == 'Ball Bearing'
+
 #
 # Remove Words
 #

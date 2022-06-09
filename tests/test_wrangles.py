@@ -1,3 +1,4 @@
+import pytest
 import wrangles
 
 
@@ -14,6 +15,25 @@ def test_classify_large_list():
     input = ['ball bearing' for _ in range(25000)]
     results = wrangles.classify(input, '24ac9037-ecab-4030')
     assert len(results) == 25000 and results[0].split(' || ')[0] == 'Bearings'
+  
+##  Classify Raise Errors
+# Invalid input data provided
+def test_classify_error_1():
+    with pytest.raises(TypeError) as info:
+        raise wrangles.classify({'ball bearing'}, '24ac9037-ecab-4030')
+    assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
+    
+# Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
+def test_classify_error_2():
+    with pytest.raises(ValueError) as info:
+        raise wrangles.classify('ball bearing', '24ac9037-ecab-403')
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+
+# Wrong Model id on wrong function name
+def test_classify_error_3():
+    with pytest.raises(ValueError) as info:
+        raise wrangles.classify('ball bearing', 'fce592c9-26f5-4fd7')
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using extract model_id in a classify function.'
 
 # Data
 def test_user_models():
@@ -82,8 +102,29 @@ def test_properties():
 def test_properties_list():
     result = wrangles.extract.properties(['something yellow something'])
     assert result[0]['Colours'][0] == 'Yellow'
+    
+##  Extract Raise Errors
+# Invalid input data provided
+def test_extract_error_1():
+    with pytest.raises(TypeError) as info:
+        raise wrangles.extract.custom({'ball bearing'}, 'fce592c9-26f5-4fd7')
+    assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
+    
+# Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
+def test_extract_error_2():
+    with pytest.raises(ValueError) as info:
+        raise wrangles.extract.custom('ball bearing', 'fce592c9-26f5-4fd')
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
 
+# Wrong Model id on wrong function name
+def test_extract_error_3():
+    with pytest.raises(ValueError) as info:
+        raise wrangles.extract.custom('ball bearing', '24ac9037-ecab-4030')
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id in an extract function.'
 
+def test_extract_html_str():
+    result = wrangles.extract.html('<a href="https://www.wrangleworks.com/">Wrangle Works!</a>', dataType='text')
+    assert result == 'Wrangle Works!'
 # Translate
 def test_translate():
     result = wrangles.translate('My name is Chris', 'DE')

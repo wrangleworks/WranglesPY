@@ -54,16 +54,14 @@ def test_split_from_text_3():
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Col 2'] == 'Wrangles!'
     
-#
-# Re Split
-#
-def test_re_split_1():
+# Multiple character split
+def test_split_from_text_4():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
     recipe = """
     wrangles:
-        - split.re_from_text:
+        - split.from_text:
             input: col1
             output: out1
             char:
@@ -73,6 +71,24 @@ def test_re_split_1():
     """
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
+    
+# Multiple character split using wildcard (*)
+def test_split_from_text_5():
+    data = pd.DataFrame({
+    'col1': ['Wrangles@are&very$cool']
+    })
+    recipe = """
+    wrangles:
+        - split.from_text:
+            input: col1
+            output: out*
+            char:
+              - '@'
+              - '&'
+              - '\$'
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['out4'] == 'cool'
     
 #
 # Split from List
