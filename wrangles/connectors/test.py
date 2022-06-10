@@ -37,6 +37,6 @@ properties:
     type: integer
     description: Number of rows to include in the generated dataframe
   values:
-    type: string
+    type: object
     description: Dictionary of columns and values
 """
