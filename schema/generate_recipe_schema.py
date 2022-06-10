@@ -130,5 +130,5 @@ recipe_schema['properties']['wrangles']['items']['properties'] = schema['wrangle
 
 
 # Write final schema
-with open('recipes_schema.json', 'w') as f:
+with open('schema_dev.json', 'w') as f:
     json.dump(recipe_schema, f)
