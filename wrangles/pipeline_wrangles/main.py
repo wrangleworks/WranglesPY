@@ -136,7 +136,6 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     additionalProperties: false
     required:
       - input
-      - output
       - model_id
     properties:
       input:
