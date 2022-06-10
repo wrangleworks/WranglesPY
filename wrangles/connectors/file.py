@@ -56,7 +56,6 @@ properties:
   name:
     type: string
     description: The name of the file to import
-    pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
   columns:
     type: array
     description: Columns to select
@@ -136,7 +135,6 @@ properties:
   name:
     type: string
     description: The name of the file to write.
-    pattern: ^.*(\.json|\.jsonl|\.csv|\.txt|\.xlsx|\.xlsm|\.xls)(\.gz)?$
   columns:
     type: array
     description: A list of the columns to write. If omitted, all columns will be written.
