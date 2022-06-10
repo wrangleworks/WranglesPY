@@ -135,7 +135,9 @@ def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: array
+        type:
+          - string
+          - array
         description: list in column to split
       output:
         type: string
