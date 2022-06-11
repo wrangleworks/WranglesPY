@@ -4,11 +4,45 @@ Connector to read/write from a PostgreSQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
+import csv as _csv
+from io import StringIO as _StringIO
 
 
 _schema = {}
 
 
+# Internal methods - custom sql callbacks 
+def _psql_insert_copy(table, conn, keys, data_iter):
+    """
+    Execute SQL statement inserting data
+
+    Parameters
+    ----------
+    table : pandas.io.sql.SQLTable
+    conn : sqlalchemy.engine.Engine or sqlalchemy.engine.Connection
+    keys : list of str
+        Column names
+    data_iter : Iterable that iterates the values to be inserted
+    """
+    # gets a DBAPI connection that can provide a cursor
+    dbapi_conn = conn.connection
+    with dbapi_conn.cursor() as cur:
+        s_buf = _StringIO()
+        writer = _csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
+
+        columns = ', '.join(['"{}"'.format(k) for k in keys])
+        if table.schema:
+            table_name = '{}.{}'.format(table.schema, table.name)
+        else:
+            table_name = table.name
+
+        sql = 'COPY {} ({}) FROM STDIN WITH CSV'.format(table_name, columns)
+        cur.copy_expert(sql=sql, file=s_buf)
+
+
+# Public methods
 def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
     """
     Import data from a PostgreSQL database.
@@ -92,7 +126,13 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
 
-    if action.upper() == 'INSERT':
+    if action.upper() == 'FAIL':
+        df.to_sql(table, conn, if_exists='fail', index=False, method=_psql_insert_copy)
+    elif action.upper() == 'REPLACE':
+        df.to_sql(table, conn, if_exists='replace', index=False, method=_psql_insert_copy)
+    elif action.upper() == 'EXPERIMENTAL':
+        df.to_sql(table, conn, if_exists='append', index=False, method=_psql_insert_copy)
+    elif action.upper() == 'INSERT':
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
     else:
         # TODO: Add UPDATE AND UPSERT
