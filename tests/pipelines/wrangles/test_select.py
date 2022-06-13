@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 #
 # Dictionary Element
@@ -35,10 +36,10 @@ def test_list_element_1():
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == 'B'
     
-# Empty values and out of index lengths
+# Empty values
 def test_list_element_2():
     data = pd.DataFrame({
-    'Col1': ['A One', '', 'C'],
+    'Col1': [['A One', '', 'C']],
     })
     recipe = """
     wrangles:
@@ -48,7 +49,22 @@ def test_list_element_2():
           element: 1
     """
     df = wrangles.pipeline.run(recipe, dataframe=data)
-    assert df.iloc[0]['Second Element'] == 'B'
+    assert df.iloc[0]['Second Element'] == ''
+    
+# Out of Index values
+def test_list_element_3():
+    data = pd.DataFrame({
+    'Col1': [['A One']],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Second Element
+          element: 5
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Second Element'] == ''
     
 #
 # Highest confidence

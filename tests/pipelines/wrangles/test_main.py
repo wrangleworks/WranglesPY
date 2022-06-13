@@ -239,6 +239,70 @@ def test_standardize_1():
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible'
     
+# Missing ${ } in model_id
+def test_standardize_2():
+    data = pd.DataFrame({
+    'Abbrev': ['ASAP'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: wrong_model
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id. May be missing "${ }" around value'
+
+# Missing a character in model_id format
+def test_standardize_3():
+    data = pd.DataFrame({
+    'Abbrev': ['ASAP'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: 6c4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+
+# using an extract model with standardize function
+def test_standardize_4():
+    data = pd.DataFrame({
+    'Abbrev': ['ASAP'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id in a standardize function.'
+    
+# Using classify model with standardize function
+def test_steandardize_4():
+    data = pd.DataFrame({
+    'Abbrev': ['ASAP'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: f7958bd2-af22-43b1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.pipeline.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
+    
 
 #
 # Translate
