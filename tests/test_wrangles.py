@@ -1,3 +1,4 @@
+from unittest import result
 import pytest
 import wrangles
 
@@ -133,3 +134,35 @@ def test_translate():
 def test_translate_list():
     result = wrangles.translate(['My name is Chris'], 'DE')
     assert result[0] == 'Mein Name ist Chris'
+    
+# Invalid input type (dict)
+def test_translate_typeError():
+    with pytest.raises(TypeError) as info:
+        raise wrangles.translate({'No Funciona'}, 'ES')
+    assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
+    
+def test_translate_list_lower_case():
+    result = wrangles.translate(['PRUEBA UNO'], 'EN-GB', case= 'lower')
+    assert result[0] == 'test one'
+    
+def test_translate_list_upper_case():
+    result = wrangles.translate(['prueba dos'], 'EN-GB', case= 'upper')
+    assert result[0] == 'TEST TWO'
+
+def test_translate_list_title_case():
+    result = wrangles.translate(['PRueBa TrEs'], 'EN-GB', case= 'title')
+    assert result[0] == 'Test Three'    
+
+# Standardize
+
+# Str as input
+def test_standardize_1():
+    result = wrangles.standardize('ASAP', '6ca4ab44-8c66-40e8')
+    assert result == 'As Soon As Possible'
+    
+# invalid input
+def test_standardize_2():
+    with pytest.raises(TypeError) as info:
+        raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
+    assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
+    
