@@ -180,10 +180,13 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
             pairs[key] = val
 
     results = [{} for _ in range(len(df))]
-    for key, val in pairs.items():
-        for idx, row in df[[key, val]].iterrows():
+
+    idx = 0
+    for row in df.to_dict('records'):
+      for key, val in pairs.items():
             if row[key] and row[val]:
                 results[idx][row[key]] = row[val]
+      idx+=1
 
     df[output] = results
 
