@@ -177,3 +177,121 @@ def test_threshold_5():
     """
     df = wrangles.pipeline.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B || .90'
+    
+#    
+# Left
+#
+# Multi Columns input and output
+def test_left_1():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input:
+                - Col1
+                - Col2
+            output:
+                - Out1
+                - Out2
+            length: 5
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out1'] == 'One T'
+    
+# Input is none
+def test_left_2():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input: Col1
+            length: 5
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'One T'
+    
+#
+# Right
+#
+# Multi column
+def test_right_1():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input:
+                - Col1
+                - Col2
+            output:
+                - Out1
+                - Out2
+            length: 4
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out1'] == 'Four'
+    
+# Input is none
+def test_right_2():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input: Col1
+            length: 4
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'Four'
+    
+    
+#
+# Substring
+#
+
+# Multi column input
+def test_substring_1():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input:
+                - Col1
+                - Col2
+            output:
+                - Out1
+                - Out2
+            start: 4
+            length: 4
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out1'] == ' Two'
+    
+# Input is none
+def test_substring_2():
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            start: 4
+            length: 4
+    """
+    df = wrangles.pipeline.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == ' Two'

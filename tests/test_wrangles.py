@@ -166,3 +166,26 @@ def test_standardize_2():
         raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
+    
+# Test Training Data
+def test_classify_train():
+    training_data = [
+        ['tomato', 'food'],
+        ['potato', 'food'],
+        ['computer', 'electronics'],
+        ['television', 'electronics']
+    ]
+
+    name = 'demo_model'
+    wrangles.train.classify(training_data, name)
+
+def test_extract_train():
+    training_data = [
+        ['Pikachu'],
+        ['Mew'],
+        ['Charizard'],
+        ['Bulbasaur']
+    ]
+
+    name = 'demo_model'
+    wrangles.train.extract(training_data, name)
