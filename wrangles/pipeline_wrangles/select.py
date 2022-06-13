@@ -3,6 +3,7 @@ Functions to select data from within columns
 """
 from .. import select as _select
 import pandas as _pd
+from typing import Union as _Union
 
 
 def list_element(df: _pd.DataFrame, input: str, output: str, element: int = 0) -> _pd.DataFrame:
@@ -98,4 +99,123 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
         maximum: 1
     """
     df[output] = _select.confidence_threshold(df[input[0]].tolist(), df[input[1]].tolist(), threshold)
+    return df
+
+
+def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return characters from the left of text. Strings shorter than the length defined will be unaffected.
+    additionalProperties: false
+    required:
+      - input
+      - length
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to edit
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      length:
+        type: integer
+        description: Number of characters to include
+        minimum: 1
+    """
+    # If user hasn't provided an output, replace input
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+
+    # Loop through and get left characters of the length requested for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].str[:length]
+
+    return df
+
+
+def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return characters from the right of text. Strings shorter than the length defined will be unaffected.
+    additionalProperties: false
+    required:
+      - input
+      - length
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to edit
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      length:
+        type: integer
+        description: Number of characters to include
+        minimum: 1
+    """
+    # If user hasn't provided an output, replace input
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+
+    # Loop through and get the right characters of the length requested for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].str[-length:]
+
+    return df
+
+
+def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return characters from the middle of text.
+    additionalProperties: false
+    required:
+      - input
+      - start
+      - length
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to edit
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      start:
+        type: integer
+        description: The position of the first character to select
+        minimum: 1
+      length:
+        type: integer
+        description: The length of the string to select
+        minimum: 1
+    """
+    # If user hasn't provided an output, replace input
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+
+    # Loop through and get the substring requested for all requested columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].str[start-1:start+length-1]
+
     return df

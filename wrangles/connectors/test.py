@@ -2,6 +2,7 @@
 Create a test dataframe
 """
 import pandas as _pd
+import logging as _logging
 
 
 _schema = {}
@@ -18,6 +19,8 @@ def read(rows: int, values: dict) -> _pd.DataFrame:
     :param values: Dictionary of header and fixed values
     :return: Pandas Dataframe of the created data
     """
+    _logging.info(f": Generating test data :: {rows} row{'s' if rows > 1 else ''}")
+
     data = {}
     for key, val in values.items():
         data[key] = [val for _ in range(rows)]
@@ -36,7 +39,8 @@ properties:
   rows:
     type: integer
     description: Number of rows to include in the generated dataframe
+    minimum: 1
   values:
-    type: string
+    type: object
     description: Dictionary of columns and values
 """
