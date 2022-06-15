@@ -25,6 +25,7 @@ setup(
         'psycopg2-binary',
         'pymysql',
         'fabric',
-        'apprise'
+        'apprise',
+        'lorem'
     ]
 )
