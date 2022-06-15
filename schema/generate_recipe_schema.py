@@ -10,7 +10,7 @@ schema = {
 }
 
 # Load base recipe
-with open('recipe_base_schema.json', 'r') as f:
+with open('schema/recipe_base_schema.json', 'r') as f:
   recipe_schema = json.load(f)
 
 # Get all connector schema
