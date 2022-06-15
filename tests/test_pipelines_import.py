@@ -1,4 +1,5 @@
 import wrangles
+import openpyxl
 
 
 # Files
@@ -95,4 +96,67 @@ def test_import_excel_columns():
             - Find
     """
     df = wrangles.pipeline.run(recipe)
-    assert df.columns.tolist() == ['Find']
+    assert df.columns.tolist() == ['Find']   
+    
+## JSON Lines
+def test_read_jsonl_file():
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.jsonl
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+
+# Write using index
+def test_write_file_indexed():
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            case: lower
+    write:
+        file:
+          name: tests/samples/write_data.xlsx
+          index: true
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+    
+# Write using index
+def test_write_file_indexed():
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            case: lower
+    write:
+        file:
+          name: tests/samples/write_data.xlsx
+          index: true
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+    
+# Write a json lines file
+def test_write_file_jsonl():
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            case: lower
+    write:
+        file:
+          name: tests/samples/write_data.jsonl
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
