@@ -7,6 +7,7 @@ import logging as _logging
 from typing import Union as _Union
 import os as _os
 import fnmatch as _fnmatch
+import inspect as _inspect
 
 from . import pipeline_wrangles as _pipeline_wrangles
 from . import connectors as _connectors
@@ -47,7 +48,7 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     return recipe_object
 
 
-def _run_actions(recipe: _Union[dict, list], connections: dict = {}) -> None:
+def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> None:
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
@@ -59,16 +60,22 @@ def _run_actions(recipe: _Union[dict, list], connections: dict = {}) -> None:
                 params.update(connections[params['connection']])
                 params.pop('connection')
 
-            # Get run function of requested connector and pass user defined params
-            getattr(getattr(_connectors, action_type), 'run')(**params)
+            if action_type.split('.')[0] == 'custom':
+                # Execute a user's custom function
+                functions[action_type[7:]](**params)
+
+            else:
+                # Get run function of requested connector and pass user defined params
+                getattr(getattr(_connectors, action_type), 'run')(**params)
 
 
-def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _pandas.DataFrame:
+def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
 
     :param recipe: Read section of a recipe
     :param connections: shared connections
+    :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
     # Allow blended imports
@@ -84,6 +91,12 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _p
             df = _pandas.merge(dfs[0], dfs[1], **recipe['join'])
         else:
             df = _pandas.concat(dfs, **recipe['concatenate'])
+
+    elif list(recipe)[0].split('.')[0] == 'custom':
+        # Execute a user's custom function
+        read_name = list(recipe)[0]
+        params = recipe[read_name]
+        df = functions[read_name[7:]](**params)
 
     else:
         # Single source import
@@ -107,13 +120,13 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}) -> _p
     return df
 
 
-def _execute_wrangles(df, wrangles_list, custom_wrangles: dict = {}) -> _pandas.DataFrame:
+def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
 
     :param df: Dateframe that the Wrangles will be run against
     :param wrangles_list: List of Wrangles + their definitions to be executed
-    :param custom_wrangles: (Optional) A dictionary of user defined custom_wrangles
+    :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Pandas Dataframe of the Wrangled data
     """
     for step in wrangles_list:
@@ -128,8 +141,29 @@ def _execute_wrangles(df, wrangles_list, custom_wrangles: dict = {}) -> _pandas.
                 df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
             elif wrangle.split('.')[0] == 'custom':
-                # Allow user to pass in custom wrangles
-                df = custom_wrangles[wrangle.replace('custom.', '')](df, **params)
+                # Execute a user's custom function
+                custom_function = functions[wrangle[7:]]
+
+                # Get user's function arguments
+                function_args = _inspect.getfullargspec(custom_function).args
+
+                if function_args[0] == 'df':
+                    # If user's first argument is df, pass them the whole dataframe
+                    df = functions[wrangle[7:]](df, **params)
+                elif function_args[0] == 'cell':
+                    # If user's first function is cell, pass them the cells defined by the parameter input individually
+                    input_column = params['input']
+                    params.pop('input')
+                    if params.get('output') is None:
+                        output_column = input_column
+                    else:
+                        output_column = params['output']
+                        params.pop('output')
+                    df[output_column] = [custom_function(cell, **params) for cell in df[input_column].to_list()]
+
+                else:
+                    pass
+                    # shouldn't get here
 
             else:
                 # Allow user to specify a wildcard (? or *) for the input columns
@@ -147,13 +181,14 @@ def _execute_wrangles(df, wrangles_list, custom_wrangles: dict = {}) -> _pandas.
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> _pandas.DataFrame:
+def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
     :param connections: shared connections
+    :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
     # Initialize returned df as df to start
@@ -169,6 +204,11 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> 
             if export_type == 'dataframe':
                 # Define the dataframe that is returned
                 df_return = df[params['columns']]
+            
+            # Execute a user's custom function
+            elif export_type.split('.')[0] == 'custom':
+                df = functions[export_type[7:]](df, **params)
+
             else:
                 # Use shared connection details if set
                 if 'connection' in params.keys():
@@ -181,7 +221,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}) -> 
     return df_return
 
 
-def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list = []) -> _pandas.DataFrame:
+def run(recipe: str, params: dict = {}, dataframe = None, functions: _Union[str, list] = []) -> _pandas.DataFrame:
     """
     Execute a YAML defined Wrangling pipeline
 
@@ -190,23 +230,28 @@ def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list 
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
-    :param custom_wrangles: (Optional) A list of custom functions to call as wrangles
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Parse recipe
     recipe = _load_recipe(recipe, params)
 
+    # If user has passed in a single function, convert to a list
+    if not isinstance(functions, list): functions = [functions]
+    # Convert custom functions from a list to a dict using the name as a key
+    functions = {custom_function.__name__: custom_function for custom_function in functions}
+
     # Run any actions required before the pipeline runs
     if 'on_start' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_start'], recipe.get('connections', {}))
+        _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
 
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
         if isinstance(recipe['read'], list):
-            df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}))
+            df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}), functions)
         else:
-            df = _read_data_sources(recipe['read'], recipe.get('connections', {}))
+            df = _read_data_sources(recipe['read'], recipe.get('connections', {}), functions)
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
@@ -214,21 +259,18 @@ def run(recipe: str, params: dict = {}, dataframe = None, custom_wrangles: list 
         # User hasn't provided anything - initialize empty dataframe
         df = _pandas.DataFrame()
 
-    # Convert custom wrangles from a list to a dict using the name as a key
-    custom_wrangles = {custom_wrangle.__name__: custom_wrangle for custom_wrangle in custom_wrangles}
-
     # Execute any Wrangles required (allow single or plural)
     if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'], custom_wrangles)
+        df = _execute_wrangles(df, recipe['wrangles'], functions)
     elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'], custom_wrangles)
+        df = _execute_wrangles(df, recipe['wrangle'], functions)
 
     # Execute requested data exports
     if 'write' in recipe.keys():
-        df = _write_data(df, recipe['write'], recipe.get('connections', {}))
+        df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
 
     # Run any actions required after the pipeline finishes
     if 'on_success' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_success'], recipe.get('connections', {}))
+        _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
 
     return df

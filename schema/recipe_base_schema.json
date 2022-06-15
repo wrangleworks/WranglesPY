@@ -55,7 +55,7 @@
         "patternProperties": {
           "^custom\\..*": {
             "type": "object",
-            "description": "Use custom wrangles"
+            "description": "Use custom functions"
           },
           "^pandas\\..*": {
             "type": "object",
@@ -72,6 +72,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "patternProperties": {
+          "^custom\\..*": {
+            "type": "object",
+            "description": "Use custom functions."
+          }
+        },
         "properties": {}
       }
     }
@@ -83,6 +89,12 @@
         "description": "Define import sources",
         "maxProperties": 1,
         "additionProperties": false,
+        "patternProperties": {
+          "^custom\\..*": {
+            "type": "object",
+            "description": "Use custom functions."
+          }
+        },
         "properties": {}
       },
       "write": {}
@@ -92,6 +104,12 @@
       "description": "Run actions",
       "maxProperties": 1,
       "additionProperties": false,
+      "patternProperties": {
+        "^custom\\..*": {
+          "type": "object",
+          "description": "Use custom functions."
+        }
+      },
       "properties": {}
     }
   }
