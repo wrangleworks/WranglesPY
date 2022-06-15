@@ -1,9 +1,7 @@
 import pandas as pd
 
-
-# Testing mssql read - "read_sql" function
-from wrangles.connectors.mssql import read, write, run
-
+# Testing mysql connectors
+from wrangles.connectors.mysql import read, write
 
 def test_read_sql(mocker):
     data = pd.DataFrame({'Col1': ['Data1, Data2']})
@@ -19,7 +17,6 @@ def test_read_sql(mocker):
     df = read(**config)
     assert df.equals(data)
     
-
 # The function does not have a return
 # Have a way to test with sqllite?
 def test_write_sql(mocker):
@@ -35,18 +32,3 @@ def test_write_sql(mocker):
     }
     df = write(**config)
     assert df == None
-    
-def test_run(mocker):
-    m = mocker.patch("pymssql.connect")
-    m2 = mocker.patch("pymssql.connect.cursor")
-    m2.return_value = None
-    config = {
-        'host': 'host_mock',
-        'user': 'user_mock',
-        'password': 'password_mock',
-        'command': 'mock command'
-    }
-    df = run(**config)
-    assert df == None
-    
-    
