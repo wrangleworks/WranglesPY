@@ -4,6 +4,8 @@ Connector for PriceFx
 import pandas as _pd
 import requests as _requests
 import logging as _logging
+import json as _json
+
 
 # TODO: JWT auth rather than basic auth
 
@@ -141,7 +143,10 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
       url = f"https://{host}/pricefx/{partition}/fetch/{target_code}AM"
       field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
       for row in field_map_list:
+        # Add labels and labelTranslations to map for alternative lookups
         field_map[row['label']] = row['fieldName']
+        for _, val in _json.loads(row["labelTranslations"]).items():
+          field_map[val] = row['fieldName']
       
       header_list = [field_map.get(header, header) for header in header_list]
 
