@@ -65,21 +65,33 @@ properties:
 """
 schema['read']['join'] = yaml.safe_load(join)
 
-concatenate = """
+union = """
 type: object
-description: Concatenate two data sets together. Analogous to a union in SQL.
+description: Combine two or more data sets together, stacked vertically. Equivalent to a union in SQL.
 required:
   - sources
 properties:
   sources:
     type: array
-    description: Two data sources to be joined
+    description: Two data sources to be combined
     minItems: 2
     items:
       "$ref": "#/$defs/sources/read"
-  axis:
-    type: integer
-    description: 0 to stack vertically (default). 1 to stack horizontally.
+"""
+schema['read']['union'] = yaml.safe_load(union)
+
+concatenate = """
+type: object
+description: Combine two or more data sets together, stacked horizontally.
+required:
+  - sources
+properties:
+  sources:
+    type: array
+    description: Two data sources to be combined
+    minItems: 2
+    items:
+      "$ref": "#/$defs/sources/read"
 """
 schema['read']['concatenate'] = yaml.safe_load(concatenate)
 
