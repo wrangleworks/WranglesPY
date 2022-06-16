@@ -93,7 +93,7 @@ def log(df: _pd.DataFrame, columns: list = None):
     return df
 
 
-def match(df: _pd.DataFrame, input: list) -> _pd.DataFrame:
+def match(df: _pd.DataFrame, input: list) -> _pd.DataFrame: # pragma: no cover
     """
     """
     df = _pd.concat([df, _match.run(df[input])], axis=1)
