@@ -1,5 +1,5 @@
 import wrangles
-import openpyxl
+import pandas as pd
 
 
 # Files
@@ -160,3 +160,147 @@ def test_write_file_jsonl():
     """
     df = wrangles.pipeline.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
+    
+# Testing recipe file input
+def test_recipe_file_input():
+  recipe = "tests/samples/recipe_sample.wrgl.yaml"
+  config = {
+    "inputFile": 'tests/samples/data.csv',
+    "outputFile": 'tests/samples/write_data.xlsx'
+  }
+  df = wrangles.pipeline.run(recipe, config)
+  assert df.columns.tolist() == ['ID', 'Find2']
+  
+  
+# Testing Union of multiple sources
+def test_union_files():
+    recipe = """
+    read:
+        - union:
+            sources:
+                - file:
+                    name: tests/samples/data.xlsx
+                - file:
+                    name: tests/samples/data.csv
+    write:
+        - dataframe:
+            columns:
+                - Find
+                - Replace
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert len(df) == 6
+    
+# Testing Concatenate of multiple sources
+def test_concatenate_files():
+    recipe = """
+    read:
+        - concatenate:
+            sources:
+                - file:
+                    name: tests/samples/data.xlsx
+                - file:
+                    name: tests/samples/data.csv
+    write:
+        - dataframe:
+            columns:
+                - Find
+                - Replace
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert len(df.columns.to_list()) == 4
+
+# Testing join of multiple sources
+def test_join_files():
+    recipe = """
+    read:
+        - join:
+            how: inner
+            left_on: Find
+            right_on: Find2
+            sources:
+                - file:
+                    name: tests/samples/data.xlsx
+                - file:
+                    name: tests/samples/data2.xlsx
+    """
+    df = wrangles.pipeline.run(recipe)
+    assert len(df.columns.to_list()) == 4
+    
+# Custom Function
+def test_custom_function_1():
+    data = pd.DataFrame({
+        'Col1': ['Hello One', 'Hello Two'],
+    })
+    def custom_func(df, input, output):
+        second_token = []
+        for x in range(len(df)):
+            second_token.append(df[input][x].split()[1])
+        df[output] = second_token
+        return df
+    recipe = """
+    wrangle:
+        - custom.custom_func:
+            input: Col1
+            output: Col2
+            
+        - convert.case:
+            input: Col2
+            output: Col3
+    write:
+        dataframe:
+            columns:
+                - Col1
+                - Col2
+    """
+    df = wrangles.pipeline.run(recipe, functions=[custom_func], dataframe=data)
+    assert df.iloc[1]['Col2'] == 'Two'
+
+# Custom Function no output specified
+def test_custom_function_2():
+    data = pd.DataFrame({
+        'Col1': ['Hello One', 'Hello Two'],
+    })
+    def custom_func(df, input):
+        second_token = []
+        for x in range(len(df)):
+            second_token.append(df[input][x].split()[1])
+        df[input] = second_token
+        return df
+    recipe = """
+    wrangles:
+        - custom.custom_func:
+            input: Col1
+    write:
+        dataframe:
+            columns:
+                - Col1
+    """
+    df = wrangles.pipeline.run(recipe, functions=[custom_func], dataframe=data)
+    assert df.iloc[1]['Col1'] == 'Two'
+    
+
+# Custom Function before wrangles
+def test_custom_function_2():
+    
+    def custom_func():
+        df = pd.DataFrame({
+            'Col1': ['Hello One', 'Hello Two'],
+        })
+        return df
+        
+    recipe = """
+    read:
+        - custom.custom_func: {}
+        
+    wrangles:
+        - convert.case:
+            input: Col1
+            case: upper
+    write:
+        dataframe:
+            columns:
+                - Col1
+    """
+    df = wrangles.pipeline.run(recipe, functions=[custom_func])
+    assert df.iloc[0]['Col1'] == 'HELLO ONE'
