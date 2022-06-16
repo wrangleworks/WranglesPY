@@ -5,7 +5,7 @@ import pandas as _pd
 from .. import format as _format
 
 
-def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame:
+def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
     """
     Rearrange price breaks
     """

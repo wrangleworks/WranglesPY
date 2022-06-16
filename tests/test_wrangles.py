@@ -1,6 +1,6 @@
-from unittest import result
 import pytest
 import wrangles
+import pandas as pd
 
 
 # Classify
@@ -167,25 +167,45 @@ def test_standardize_2():
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
     
-# Test Training Data
-def test_classify_train():
-    training_data = [
-        ['tomato', 'food'],
-        ['potato', 'food'],
-        ['computer', 'electronics'],
-        ['television', 'electronics']
-    ]
+from wrangles.train import train
 
-    name = 'demo_model'
-    wrangles.train.classify(training_data, name)
+class temp_classify():
+    status_code = 202
+    content = b'{"access_token":"abc"}'
+    
+def test_classify_train(mocker):
+    data = pd.DataFrame({
+        'Example': ['Rice', 'Wheat'],
+        'Category': ['Grain', 'Grain']
+    })
+    m = mocker.patch("requests.post")
+    m.return_value = temp_classify
+    m2 = mocker.patch("wrangles.auth.get_access_token")
+    m2.return_value = 'None'
+    config = {
+        'training_data': data,
+        'name': 'test_classify'
+    }
+    test = train.classify(**config)
+    test.status_code == 202
 
-def test_extract_train():
-    training_data = [
-        ['Pikachu'],
-        ['Mew'],
-        ['Charizard'],
-        ['Bulbasaur']
-    ]
 
-    name = 'demo_model'
-    wrangles.train.extract(training_data, name)
+class temp_extract():
+    status_code = 202
+    content = b'{"access_token":"abc"}'
+    
+def test_extract_train(mocker):
+    data = pd.DataFrame({
+        'Example': ['Rice', 'Wheat'],
+        'Category': ['Grain', 'Grain']
+    })
+    m = mocker.patch("requests.post")
+    m.return_value = temp_classify
+    m2 = mocker.patch("wrangles.auth.get_access_token")
+    m2.return_value = 'None'
+    config = {
+        'training_data': data,
+        'name': 'test_extract'
+    }
+    test = train.extract(**config)
+    test.status_code == 202

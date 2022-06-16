@@ -53,7 +53,7 @@ def coalesce(input_list: list) -> list:
     return output_list
 
 
-def price_breaks(df_input, header_cat, header_val):
+def price_breaks(df_input, header_cat, header_val): # pragma: no cover
     output = []
     headers = []
     i = 1
