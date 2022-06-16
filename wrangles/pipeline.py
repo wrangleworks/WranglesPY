@@ -79,7 +79,7 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
     :return: Dataframe of imported data
     """
     # Allow blended imports
-    if list(recipe)[0] in ['join', 'concatenate']:
+    if list(recipe)[0] in ['join', 'concatenate', 'union']:
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
             dfs.append(_read_data_sources(source, connections))
@@ -89,7 +89,10 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
 
         if list(recipe)[0] == 'join':
             df = _pandas.merge(dfs[0], dfs[1], **recipe['join'])
-        else:
+        elif list(recipe)[0] == 'union':
+            df = _pandas.concat(dfs, **recipe['union'])
+        elif list(recipe)[0] == 'concatenate':
+            recipe['concatenate']['axis'] = 1
             df = _pandas.concat(dfs, **recipe['concatenate'])
 
     elif list(recipe)[0].split('.')[0] == 'custom':
