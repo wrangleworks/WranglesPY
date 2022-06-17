@@ -4,7 +4,7 @@ import logging as _logging
 
 _schema = {}
 
-def read(user: str, password: str, database: str, collection: str, cluster: str, query: dict, projection: dict = {}) -> _pd.DataFrame:
+def read(user: str, password: str, database: str, collection: str, host: str, query: dict, projection: dict = {}) -> _pd.DataFrame:
     """
     Import data from a MongoDB database
     
@@ -20,9 +20,9 @@ def read(user: str, password: str, database: str, collection: str, cluster: str,
     :param projection: (Optional) Select which fields to include
     """
     
-    _logging.info(f": Importing Data :: {cluster}")
+    _logging.info(f": Importing Data :: {database}.{collection}")
     
-    conn = f"mongodb+srv://{user}:{password}@{cluster}/?retryWrites=true&w=majority"
+    conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
@@ -35,6 +35,32 @@ def read(user: str, password: str, database: str, collection: str, cluster: str,
     return df
 
 _schema['read'] = """
-
-
+type: object
+description: Import data from a mongoDB Server
+required:
+  - user
+  - password
+  - database
+  - collection
+  - host
+  - query
+properties:
+  user:
+    type: string
+    description:  User with access to the database
+  password:
+    type: string
+    description: Password of user
+  database:
+    type: string
+    description: Database to be queried
+  host:
+    type: string
+    description: cluster-url
+  query:
+    type: string
+    description: mongoDB query
+  projection:
+    type: string
+    description: Select which fields to include
 """

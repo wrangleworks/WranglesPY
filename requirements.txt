@@ -10,3 +10,4 @@ pymysql
 fabric
 apprise
 lorem
+pymongo[srv]
