@@ -1,0 +1,30 @@
+read:
+  - mongodb:
+      user: ${user}
+      password: ${password}
+      database: ${database}
+      collection: ${collection}
+      host: ${host}
+      query: ${query}
+      projection:
+        _id: ${projection}
+
+wrangles:
+  - convert.case:
+      input: name
+      output: name
+      case: upper
+      
+  - split.from_dict:
+      input: surfaceTemperatureC
+      
+write:
+  - dataframe:
+      columns:
+        - name
+        - orderFromSun
+        - hasRings
+        - mainAtmosphere
+        - min
+        - max
+        - mean
