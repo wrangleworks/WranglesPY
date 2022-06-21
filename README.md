@@ -57,12 +57,17 @@ Wrangles can be used as functions, directly incorporated into python code.
 Wrangles broadly accept a single input string, or a list of strings. If a list is provided, the results will be returned in an equivalent list in the same order and length as the original.
 
 ```python
+# Extract alphanumeric codes from a free text strings - e.g. find all part numbers in a set of product description
 >>> import wrangles
->>> # Credentials can be set as the env variables
->>> # WRANGLES_USER and WRANGLES_PASSWORD
->>> # or with wrangles.authenticate('<user>', '<password>')
->>> wrangles.extract.attributes('it is 15mm long')
-{'length': ['15mm']}
+
+>>> wrangles.extract.codes('replacement part ABCD1234ZZ')
+['ABCD1234ZZ']
+
+>>> wrangles.extract.codes(['replacement part ABCD1234ZZ', 'NNN555BBB this one has two XYZ789'])
+[
+    ['ABCD1234ZZ'],
+    ['NNN555BBB', 'XYZ789']
+]
 ```
 
 ### Recipes
@@ -89,8 +94,7 @@ read:
 
 wrangles:
   - convert.case:
-      input: column
-      output: UPPER COLUMN
+      input: my column
       case: upper
 
 write:
