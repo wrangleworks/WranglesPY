@@ -1,130 +1,100 @@
 # WranglesPy
 
-Wrangles python package.
+Full documentation available at [wrangles.io](https://wrangles.io/python).
+
+## What are Wrangles?
+
+Wrangles are a set of modular transformations for data cleaning and enrichment. Each Wrangle is optimized for a particular job, many of which are backed by sophisticated machine learning models.
+
+With Wrangles, you can:
+- Extract information from a set of messy descriptions.
+- Predict which category items belong to.
+- Standardize text data to a desired format.
+- Move data from one system to another.
+- Much more...
+
+Wrangles are system independent, and allow you to pull data from one system, transform it and push it to another. By using the Wrangles python package, Wrangles can be incorporated directly into python code, or an automated sequence of wrangles can be run as a recipe.
 
 ## Installation
 
-### Pip
+The python package can be installed using [pip](https://pip.pypa.io/en/stable/getting-started/).
 
 ```shell
 pip install wrangles
 ```
 
-## Usage
-
+Once installed, import the package into your code.
 ```python
->>> import wrangles
->>> # Credentials can be also by set as the env variables
->>> # WRANGLES_USER and WRANGLES_PASSWORD
->>> wrangles.authenticate('<user>', '<password>')
->>> wrangles.extract.attributes('it is 15mm long')
-{'length': ['15mm']}
+import wrangles
 ```
 
-## Wrangles
+## Authentication
+Some Wrangles use cloud based machine learning models. To use them a WrangleWorks account is required.
+
+> Create a WrangleWorks account: [Register](https://sso.wrangle.works/auth/realms/wrwx/protocol/openid-connect/registrations?client_id=account&response_type=code&scope=openid%20email&redirect_uri=https://sso.wrangle.works/auth/realms/wrwx/account/#/)
+
+There are two ways to provide the credentials:
+
+### Environment Variables
+The credentials can be saved as the environment variables:
+
+- `WRANGLES_USER`
+- `WRANGLES_PASSWORD`
+
+### Method
+The credentials can be provided within the python code using the authenticate method, prior to calling other functions.
+```python
+wrangles.authenticate('<user>', '<password>')
+```
+
+## Usage
+
+### Functions
+*[Full Docs](https://wrangles.io/en/python/functions)*
+
+Wrangles can be used as functions, directly incorporated into python code.
 
 Wrangles broadly accept a single input string, or a list of strings. If a list is provided, the results will be returned in an equivalent list in the same order and length as the original.
 
-### Classify
 ```python
-# Predict which category an input belongs to
->>> wrangles.classify('ball bearing', 'b7c34bf9-84fe-4fc3')
-MechPT
-
->>> wrangles.classify(['ball bearing', 'spanner'], 'b7c34bf9-84fe-4fc3')
-['MechPT', 'Tools']
-```
-
-### Extract
-
-#### Address
-```python
-# Extract features from addresses such as streets or countries
->>> wrangles.extract.address('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
-['1100 Congress Ave']
-```
-
-```python
-# Extract features from addresses such as streets or countries
->>> wrangles.extract.address(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
-[['1100 Congress Ave']]
-```
-
-#### Attributes
-```python
-# Extract numeric attributes such as lengths or voltages
+>>> import wrangles
+>>> # Credentials can be set as the env variables
+>>> # WRANGLES_USER and WRANGLES_PASSWORD
+>>> # or with wrangles.authenticate('<user>', '<password>')
 >>> wrangles.extract.attributes('it is 15mm long')
 {'length': ['15mm']}
-
->>> wrangles.extract.attributes(['it is 15mm long', 'the voltage is 15V'])
-[{'length': ['15mm']}, {'electric potential': ['15V']}]
 ```
 
-#### Codes
+### Recipes
+*[Full Docs](https://wrangles.io/python/pipelines/recipes)*
+
+Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.
+
 ```python
-# Extract alphanumeric codes
->>> wrangles.extract.codes('test ABCD1234ZZ test')
-['ABCD1234ZZ']
-
->>> wrangles.extract.codes(['test ABCD1234ZZ test', 'NNN555BBB this one has two XYZ789'])
-[['ABCD1234ZZ'], ['NNN555BBB', 'XYZ789']]
+"""
+PYTHON
+"""
+import wrangles
+wrangles.pipeline.run('recipe.wrgl.yml')
 ```
 
-#### Custom
-```python
-# Extract entities using a custom model
->>> wrangles.extract.custom('test skf test', '0616f784-ac11-4f8a')
-['SKF']
+```yaml
+# file: recipe.wrgl.yml
+# ---
+# Convert a CSV file to an Excel file
+# and change the case of a column.
+read:
+  - file:
+      name: file.csv
 
->>> wrangles.extract.custom(['test skf test', 'festo is hidden in here'], '0616f784-ac11-4f8a')
-[['SKF'], ['FESTO']]
+wrangles:
+  - convert.case:
+      input: column
+      output: UPPER COLUMN
+      case: upper
+
+write:
+  - file:
+      name: file.xlsx
 ```
-
-#### Properties
-```python
-# Extract categorical properties such as colours or materials
->>> wrangles.extract.properties('yellow submarine')
-{'Colours': ['Yellow']}
-
->>> wrangles.extract.properties(['yellow submarine', 'the green mile'])
-[{'Colours': ['Yellow']}, {'Colours': ['Green']}]
-```
-
-### Translate
-```python
-# Translate the input into a different language
->>> wrangles.translate('My name is Chris', 'ES')
-Mi nombre es Chris
-
->>> wrangles.translate(['My name is Chris', 'I live in Austin'], 'DE')
-['Mein Name ist Chris', 'Ich wohne in Austin']
-```
-
-### Data
-```python
-# Get a list of the user's models
->>> wrangles.data.user.models()
-[{'id': '0000f784-ac11-4f8a', 'name': 'Demo Model', 'purpose': 'extract', 'status': 'Ready', 'type': 'user'}, ...]
-```
-
-### Train
-```python
-# Train a custom classification model
->>> training_data = [
->>>     ['tomato', 'food'],
->>>     ['potato', 'food'],
->>>     ['computer', 'electronics'],
->>>     ['television', 'electronics']
->>> ]
->>> 
->>> name = 'demo model'
->>> 
->>> wrangles.train.classify(training_data, name)
-
->>> wrangles.classify(['cellphone', 'banana'], <model_id>)
-['electronics', 'food']
-```
-
-
-
 
