@@ -1,6 +1,7 @@
 import pandas as _pd
 import pymongo
 import logging as _logging
+from typing import Union as _Union
 
 _schema = {}
 
@@ -68,20 +69,20 @@ properties:
 
 _schema = {}
 
-def write(user: str, password: str, database: str, collection: str, host: str, action: str, data: list = None, query: dict = None, update: dict=None) -> _pd.DataFrame:
+def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
     """
     Write data into a monfoDB database
     
     >>> from wrangles.connectors import mongodb
     >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT, data = [{"name": "Mario"}, {"name": "Luigi"}])
     
+    :param df: Dataframe to be exported
     :param user: User with access to the database
     :param password: Password of user
     :param database: Database to be queried
     :param collection: Collection to be queried
     :param host: mongobd cluster-url
-    :param action: actions supported INSERT, DELETE, UPDATE
-    :param data: data to insert, only valid when using INSERT
+    :param action: actions supported INSERT, UPDATE
     :pram query: mongoDB query to search for value to update or delete, only valid when using UPDATE, DELETE
     :param update: mongoDB query value to update, only valid when using UPDATE
     
@@ -91,10 +92,11 @@ def write(user: str, password: str, database: str, collection: str, host: str, a
     db = client[database]
     col = db[collection]
     
+    # Select only specific columns if user requests them
+    if columns is not None: df = df[columns]
+    
     if action.upper() == 'INSERT':
-        col.insert_many(data)
-    elif action.upper() == 'DELETE':
-        col.delete_many(query)
+        col.insert_many(df.to_dict(orient='records'))
     elif action.upper() == 'UPDATE':
         col.update_many(query, update)
     
@@ -125,10 +127,7 @@ properties:
         description: mongoDB cluster-url
     action:
         type: string
-        description: action to perform, actions supported INSERT, DELETE, UPDATE
-    data:
-        type: list
-        description: data to insert, only valid when using INSERT
+        description: action to perform, actions supported INSERT UPDATE
     query:
         type: dict
         description: mongoDB query to search for value to update or delete, only valid when using UPDATE, DELETE

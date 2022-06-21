@@ -26,6 +26,7 @@ setup(
         'pymysql',
         'fabric',
         'apprise',
-        'lorem'
+        'lorem',
+        'pymongo[srv]'
     ]
 )
