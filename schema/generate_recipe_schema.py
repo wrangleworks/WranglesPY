@@ -29,7 +29,7 @@ for name in connectors:
 
 join = """
 type: object
-description: Join two data sources on key(s). Analogous to a join in SQL.
+description: Join two data sources on key(s). Equivalent to a join in SQL.
 required:
   - how
   - left_on
