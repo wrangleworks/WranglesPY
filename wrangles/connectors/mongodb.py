@@ -1,5 +1,5 @@
 import pandas as _pd
-import pymongo
+import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
 
@@ -24,7 +24,7 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     _logging.info(f": Importing Data :: {database}.{collection}")
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = pymongo.MongoClient(conn)
+    client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
     
@@ -88,7 +88,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     
     """
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = pymongo.MongoClient(conn)
+    client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
     
