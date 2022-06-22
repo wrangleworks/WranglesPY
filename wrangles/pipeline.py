@@ -16,12 +16,14 @@ from . import connectors as _connectors
 _logging.getLogger().setLevel(_logging.INFO)
 
 
-def _load_recipe(recipe: str, params: dict = {}) -> dict:
+def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
-    :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
+    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
+
+    :return: YAML Recipe converted to a dictionary
     """
     _logging.info(": Reading Recipe ::")
 
@@ -36,11 +38,11 @@ def _load_recipe(recipe: str, params: dict = {}) -> dict:
     # Also add environment variables to list of placeholder variables
     # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
-        if env_key not in params.keys():
-            params[env_key] = env_val
+        if env_key not in variables.keys():
+            variables[env_key] = env_val
 
     # Replace templated values
-    for key, val in params.items():
+    for key, val in variables.items():
         recipe_string = recipe_string.replace("${" + key + "}", val)
 
     recipe_object = _yaml.safe_load(recipe_string)
@@ -224,20 +226,21 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
     return df_return
 
 
-def run(recipe: str, params: dict = {}, dataframe = None, functions: _Union[str, list] = []) -> _pandas.DataFrame:
+def run(recipe: str, variables: dict = {}, dataframe = None, functions: _Union[str, list] = []) -> _pandas.DataFrame:
     """
     Execute a YAML defined Wrangling pipeline
 
     >>> wrangles.pipeline.run(recipe)
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
-    :param params: (Optional) dictionary of custom parameters to override placeholders in the YAML file
+    :param variables: (Optional) dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe
+
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Parse recipe
-    recipe = _load_recipe(recipe, params)
+    recipe = _load_recipe(recipe, variables)
 
     # If user has passed in a single function, convert to a list
     if not isinstance(functions, list): functions = [functions]
