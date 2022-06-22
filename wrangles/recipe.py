@@ -229,9 +229,9 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
 
 def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
     """
-    Execute a Wrangles Recipe. Recipes are written in YAML allow a set of steps to be run in an automated sequence. Read, wrangle then write your data.
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
 
-    >>> wrangles.recipe.run(recipe)
+    >>> wrangles.recipe.run('recipe.wrgl.yml')
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
