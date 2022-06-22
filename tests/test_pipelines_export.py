@@ -1,4 +1,5 @@
 import wrangles
+import pandas as pd
 
 recipe = """
 read:
@@ -125,3 +126,27 @@ def test_export_multiple():
     """
     df2 = wrangles.recipe.run(recipe)
     assert df1.columns.tolist() == ['Find', 'Replace'] and len(df1) == 3 and df2.columns.tolist() == ['Find', 'Replace'] and len(df2)
+    
+    
+# Testing custom function with write
+def custom_funct_write(df, end_str):
+    df['out1'] = df['out1'].apply(lambda x: x + end_str)
+    return df
+    
+def test_custom_function_write():
+    data = pd.DataFrame({
+        'col1': ['Hello', 'Wrangles']
+    })
+    recipe = """
+    wrangles:
+      - convert.case:
+          input: col1
+          output: out1
+          case: upper
+    write:
+        custom.custom_funct_write:
+          end_str: ' Ending'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[custom_funct_write])
+    assert df.iloc[0]['out1'] == 'HELLO Ending'
+    

@@ -136,7 +136,7 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
     else:
         # TODO: Add UPDATE AND UPSERT
-        raise ValueError('UPDATE and UPSERT are not implemented yet.')
+        raise ValueError('UPDATE and UPSERT are not implemented yet.') # pragma: no cover
 
 _schema['write'] = """
 type: object
