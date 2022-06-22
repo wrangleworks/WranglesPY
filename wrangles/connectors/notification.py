@@ -1,11 +1,11 @@
-import apprise
+import apprise as _apprise
 
 
 _schema = {}
 
 
 def run(url: str, title: str, body: str):
-    app_object = apprise.Apprise()
+    app_object = _apprise.Apprise()
     app_object.add(url)
     app_object.notify(body, title)
 
