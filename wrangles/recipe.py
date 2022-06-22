@@ -106,14 +106,8 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
 
     else:
         # Single source import
-        if isinstance(recipe, dict):
-            # If user has entered a dict, get first key and value
-            import_type = list(recipe)[0]
-            params = recipe[import_type]
-        elif isinstance(recipe, list):
-            # If they've entered a list, get the first key and value from the first element
-            import_type = list(recipe[0])[0]
-            params = recipe[0][import_type]
+        import_type = list(recipe)[0]
+        params = recipe[import_type]
 
         # Use shared connection details if set
         if 'connection' in params.keys():
