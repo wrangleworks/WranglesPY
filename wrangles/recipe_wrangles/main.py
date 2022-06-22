@@ -4,13 +4,13 @@ Standalone functions
 These will be called directly, without belonging to a parent module
 """
 from ..classify import classify as _classify
-from .. import format as _format
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from .. import extract as _extract
 
 import pandas as _pd
 from typing import Union as _Union
+import sqlite3 as _sqlite3
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -188,8 +188,6 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     return df
 
 
-
-# SUPER MARIO
 def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> _pd.DataFrame:
     """
     type: object
@@ -213,4 +211,29 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> 
         description: Name of the output columns
     """
     df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist())
+    return df
+
+
+def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
+    additionalProperties: false
+    required:
+      - command
+    properties:
+      command:
+        type: string
+        description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+    """
+    if command.strip().split()[0].upper() != 'SELECT':
+      raise ValueError('Only SELECT statements are supported for sql wrangles')
+
+    # Create an in-memory db with the contents of the current dataframe
+    db = _sqlite3.connect(':memory:')
+    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
+
+    # Execute the user's query against the database and return the results
+    df = _pd.read_sql(command, db)
+    db.close()
     return df
