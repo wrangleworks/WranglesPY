@@ -1,5 +1,3 @@
 [run]
 omit = 
-    *\WranglesPy\wrangles\match*
     *\WranglesPy\tests*
-    *\WranglesPy\wrangles\connectors\table.py
