@@ -5,6 +5,7 @@ import pandas as _pandas
 import yaml as _yaml
 import logging as _logging
 from typing import Union as _Union
+import types as _types
 import os as _os
 import fnmatch as _fnmatch
 import inspect as _inspect
@@ -226,16 +227,16 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
     return df_return
 
 
-def run(recipe: str, variables: dict = {}, dataframe = None, functions: _Union[str, list] = []) -> _pandas.DataFrame:
+def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
     """
     Execute a YAML defined Wrangling pipeline
 
     >>> wrangles.pipeline.run(recipe)
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
-    :param variables: (Optional) dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
-    :param functions: (Optional) A function or list of functions that can be called as part of the recipe
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
@@ -243,9 +244,10 @@ def run(recipe: str, variables: dict = {}, dataframe = None, functions: _Union[s
     recipe = _load_recipe(recipe, variables)
 
     # If user has passed in a single function, convert to a list
-    if not isinstance(functions, list): functions = [functions]
+    if callable(functions): functions = [functions]
     # Convert custom functions from a list to a dict using the name as a key
-    functions = {custom_function.__name__: custom_function for custom_function in functions}
+    if isinstance(functions, list):
+        functions = {custom_function.__name__: custom_function for custom_function in functions}
 
     # Run any actions required before the pipeline runs
     if 'on_start' in recipe.get('run', {}).keys():
