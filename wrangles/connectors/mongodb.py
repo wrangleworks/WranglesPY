@@ -33,7 +33,11 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
         result.append(x)
     
     df = _pd.DataFrame(result)
-    client.close()
+    
+    try:
+      client.close()
+    except:
+      pass
     return df
 
 _schema['read'] = """
