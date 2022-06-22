@@ -5,7 +5,6 @@ setup(
     packages = [
         'wrangles',
         'wrangles.connectors',
-        'wrangles.match',
         'wrangles.recipe_wrangles'
     ],
     description = 'Wrangle your data into shape with machine learning',
@@ -19,7 +18,6 @@ setup(
         'pyyaml',
         'pandas',
         'openpyxl',
-        'pyodbc',
         'sqlalchemy',
         'pymssql',
         'psycopg2-binary',

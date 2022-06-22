@@ -2,7 +2,6 @@ requests
 pyyaml
 pandas
 openpyxl
-pyodbc
 sqlalchemy
 pymssql
 psycopg2-binary

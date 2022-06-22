@@ -5,7 +5,6 @@ These will be called directly, without belonging to a parent module
 """
 from ..classify import classify as _classify
 from .. import format as _format
-from .. import match as _match
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from .. import extract as _extract
@@ -90,13 +89,6 @@ def log(df: _pd.DataFrame, columns: list = None):
     else:
         print(df)
 
-    return df
-
-
-def match(df: _pd.DataFrame, input: list) -> _pd.DataFrame: # pragma: no cover
-    """
-    """
-    df = _pd.concat([df, _match.run(df[input])], axis=1)
     return df
 
 
