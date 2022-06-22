@@ -1,5 +1,9 @@
 from setuptools import setup
 
+# read the contents of the README file
+from pathlib import Path
+long_description = (Path(__file__).parent / "README.md").read_text()
+
 setup(
     name = 'wrangles',
     packages = [
@@ -8,6 +12,8 @@ setup(
         'wrangles.recipe_wrangles'
     ],
     description = 'Wrangle your data into shape with machine learning',
+    long_description = long_description,
+    long_description_content_type = 'text/markdown',
     version = '0.4',
     url = 'https://wrangles.io',
     author = 'WrangleWorks',
