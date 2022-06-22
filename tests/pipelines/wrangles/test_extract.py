@@ -15,7 +15,7 @@ def test_address_street():
             output: streets
             dataType: streets
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['streets'] == ['221 B Baker St.']
     
 def test_address_cities():
@@ -26,7 +26,7 @@ def test_address_cities():
             output: cities
             dataType: cities
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['cities'] == ['London']
     
 def test_address_countries():
@@ -37,7 +37,7 @@ def test_address_countries():
                 output: country
                 dataType: countries
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_address)
     print(df.iloc[0]['country'] == ['United Kingdom'])
     
 def test_address_regions():
@@ -48,7 +48,7 @@ def test_address_regions():
             output: regions
             dataType: regions
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_address)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['regions'] == ['England']
     
 #
@@ -66,7 +66,7 @@ def test_attributes_span():
             output: Attributes
             responseContent: span
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
     assert df.iloc[0]['Attributes'] == {'length': ['0.5m'], 'mass': ['5kg']}
 
 # Testing Object
@@ -78,7 +78,7 @@ def test_attributes_object():
             output: Attributes
             responseContent: object
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
     print(df.iloc[0]['Attributes'] == {'length': [{'unit': 'metre', 'value': 0.5}], 'mass': [{'unit': 'kilogram', 'value': 5.0}]})
     
 
@@ -94,7 +94,7 @@ def test_attributes_angle():
             responseContent: span
             attribute_type: angle
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13deg']
 
 # Testing area 
@@ -107,7 +107,7 @@ def test_attributes_area():
             responseContent: span
             attribute_type: area
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13m^2']
 
 # Testing Current
@@ -120,7 +120,7 @@ def test_attributes_current():
             responseContent: span
             attribute_type: current
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13A']
 
 # Testing Force
@@ -133,7 +133,7 @@ def test_attributes_force():
             responseContent: span
             attribute_type: force
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13N']
 
 # Testing Length
@@ -146,7 +146,7 @@ def test_attributes_length():
             responseContent: span
             attribute_type: length
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13m']
 
 # Testing Power
@@ -159,7 +159,7 @@ def test_attributes_power():
             responseContent: span
             attribute_type: power
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13hp', '13W']
 
 # Testing Pressure
@@ -172,7 +172,7 @@ def test_attributes_pressure():
             responseContent: span
             attribute_type: pressure
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13psi']
 
 # Testing electric potential
@@ -185,7 +185,7 @@ def test_attributes_voltage():
             responseContent: span
             attribute_type: electric potential
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13V']
 
 # Testing volume
@@ -198,7 +198,7 @@ def test_attributes_volume():
             responseContent: span
             attribute_type: volume
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13m^3']
 
 # Testing mass
@@ -211,7 +211,7 @@ def test_attributes_mass():
             responseContent: span
             attribute_type: mass
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_attributes_all)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13kg']
 
 #
@@ -234,7 +234,7 @@ def test_extract_codes_1():
             - code
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.pipeline.run(recipe, dataframe=data)
+        raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
 
 # Input is string
@@ -247,7 +247,7 @@ def test_extract_codes_2():
           input: secret
           output: code
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_codes)
     assert df.iloc[0]['code'] == ['Z1ON0101']
     
 # column is a list
@@ -260,7 +260,7 @@ def test_extract_codes_list():
           input: secret
           output: code
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes_list)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_codes_list)
     assert df.iloc[0]['code'] == ['Z1ON0101']
     
 
@@ -281,7 +281,7 @@ def test_extract_codes_milti_input():
             - code2
           output: Codes
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes_multi_input)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
     assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101-2']
 
 # Multiple outputs and Inputs
@@ -296,7 +296,7 @@ def test_extract_codes_milti_input_output():
             - out1
             - out2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_codes_multi_input)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
     assert df.iloc[0]['out2'] == ['Z1ON0101-2']
 
     
@@ -315,7 +315,7 @@ def test_extract_custom_1():
           output: Fact Output
           model_id: 1eddb7e8-1b2b-4a52
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_custom)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_custom)
     assert df.iloc[0]['Fact Output'] == ['Charizard']
 
 # Input is String
@@ -338,7 +338,7 @@ def test_extract_custom_2():
           model_id: 1eddb7e8-1b2b-4a52
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.pipeline.run(recipe, dataframe=data)
+        raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
 
 # Incorrect model_id missing "${ }" around value
@@ -359,7 +359,7 @@ def test_extract_custom_3():
           model_id: noWork
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.pipeline.run(recipe, dataframe=data)
+        raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id. May be missing "${ }" around value'
 
 
@@ -374,7 +374,7 @@ def test_extract_custom_list():
           output: Fact Output
           model_id: 1eddb7e8-1b2b-4a52
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_custom_list)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_custom_list)
     assert df.iloc[0]['Fact Output'] == ['Pikachu', 'Mew', 'Charizard']
 
 # Testing Multi column input
@@ -395,7 +395,7 @@ def test_extract_custom_mulit_input():
           output: Fact Output
           model_id: 1eddb7e8-1b2b-4a52
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_custom_multi_input)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
     assert df.iloc[0]['Fact Output'] == ['Charizard', 'Pikachu']
 
 # Multiple output and inputs
@@ -411,7 +411,7 @@ def test_extract_custom_mulit_input_output():
             - Fact2
           model_id: 1eddb7e8-1b2b-4a52
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_custom_multi_input)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
     assert df.iloc[0]['Fact2'] == ['Charizard']
 
 
@@ -428,7 +428,7 @@ def test_extract_colours():
         output: prop
         property_type: colours
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_properties)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Blue', 'Red', 'White']
     
 def test_extract_materials():
@@ -439,7 +439,7 @@ def test_extract_materials():
         output: prop
         property_type: materials
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_properties)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Titanium']
     
 def test_extract_shapes():
@@ -450,7 +450,7 @@ def test_extract_shapes():
         output: prop
         property_type: shapes
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_properties)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Round']
     
 def test_extract_standards():
@@ -461,7 +461,7 @@ def test_extract_standards():
         output: prop
         property_type: standards
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_properties)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['OSHA']
     
     
@@ -481,7 +481,7 @@ def test_extract_html_text():
             - Text
           data_type: text
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_html)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Text'] == 'Wrangle Works!'
     
 # Links
@@ -494,5 +494,5 @@ def test_extract_html_links():
             - Links
           data_type: links
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_test_html)
+    df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']

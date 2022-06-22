@@ -13,7 +13,7 @@ def test_case_1():
       - convert.case:
           input: Data1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string'
 
 # Input is a list
@@ -26,7 +26,7 @@ def test_case_2():
             - Data1
             - Data2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string' and df.iloc[0]['Data2'] == 'another string'
 
 # Specifying output column
@@ -38,7 +38,7 @@ def test_case_3():
           input: Data1
           output: Column
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Column'] == 'a string'
 
 # Output and input are a multi columns
@@ -54,7 +54,7 @@ def test_case_4():
             - Column1
             - Column2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Column1'] == 'a string' and df.iloc[0]['Column2'] == 'another string'
 
 # Testing Lower case
@@ -66,7 +66,7 @@ def test_case_lower():
           input: Data1
           case: lower
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'a string'
 
 def test_case_upper():
@@ -77,7 +77,7 @@ def test_case_upper():
           input: Data1
           case: upper
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A STRING'
     
 def test_case_title():
@@ -88,7 +88,7 @@ def test_case_title():
           input: Data1
           case: title
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A String'
 
 def test_case_sentence():
@@ -99,7 +99,7 @@ def test_case_sentence():
           input: Data1
           case: sentence
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A string'
 
 #
@@ -113,7 +113,7 @@ def test_data_type_str():
           input: Data1
           data_type: str
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert isinstance(df.iloc[0]['Data1'], str)
 
 
@@ -133,5 +133,5 @@ def test_to_json_array():
             input: headers
             output: headers_json
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['headers_json'] == '["val1", "val2"]'

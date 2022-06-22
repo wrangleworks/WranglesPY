@@ -97,7 +97,7 @@ schema['read']['concatenate'] = yaml.safe_load(concatenate)
 
 write_dataframe = """
 type: object
-description: Define the dataframe that is returned from the pipeline.run() function
+description: Define the dataframe that is returned from the recipe.run() function
 required:
   - columns
 properties:
@@ -136,7 +136,7 @@ def getMethodDocs(schema_wrangles, obj, path):
         except:
             pass
 
-getMethodDocs(schema['wrangles'], wrangles.pipeline._pipeline_wrangles, '')
+getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
 recipe_schema['properties']['wrangles']['items']['properties'] = schema['wrangles']
 

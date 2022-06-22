@@ -1,5 +1,5 @@
 """
-Create and execute Wrangling pipelines
+Create and execute Wrangling recipes
 """
 import pandas as _pandas
 import yaml as _yaml
@@ -10,7 +10,7 @@ import os as _os
 import fnmatch as _fnmatch
 import inspect as _inspect
 
-from . import pipeline_wrangles as _pipeline_wrangles
+from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 
 
@@ -176,8 +176,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
                     params['input'] = _fnmatch.filter(df.columns, params['input'])
 
-                # Get the requested function from the pipeline_wrangles module
-                obj = _pipeline_wrangles
+                # Get the requested function from the recipe_wrangles module
+                obj = _recipe_wrangles
                 for element in wrangle.split('.'):
                     obj = getattr(obj, element)
 
@@ -229,9 +229,9 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
 
 def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
     """
-    Execute a YAML defined Wrangling pipeline
+    Execute a Wrangles Recipe. Recipes are written in YAML and data to be read, wrangled and written in an automated sequence.
 
-    >>> wrangles.pipeline.run(recipe)
+    >>> wrangles.recipe.run(recipe)
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
@@ -243,13 +243,14 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     # Parse recipe
     recipe = _load_recipe(recipe, variables)
 
+    # Format custom functions
     # If user has passed in a single function, convert to a list
     if callable(functions): functions = [functions]
     # Convert custom functions from a list to a dict using the name as a key
     if isinstance(functions, list):
         functions = {custom_function.__name__: custom_function for custom_function in functions}
 
-    # Run any actions required before the pipeline runs
+    # Run any actions required before the main recipe runs
     if 'on_start' in recipe.get('run', {}).keys():
         _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
 
@@ -277,7 +278,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     if 'write' in recipe.keys():
         df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
 
-    # Run any actions required after the pipeline finishes
+    # Run any actions required after the main recipe finishes
     if 'on_success' in recipe.get('run', {}).keys():
         _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
 

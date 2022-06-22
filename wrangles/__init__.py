@@ -13,7 +13,7 @@ Wrangle your data into shape with machine learning.
 from .config import authenticate
 
 from . import connectors
-from . import pipeline
+from . import recipe
 
 from .classify import classify
 from . import extract

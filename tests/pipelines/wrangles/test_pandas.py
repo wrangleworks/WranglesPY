@@ -5,7 +5,7 @@ read:
   file:
     name: tests/samples/data.csv
 """
-df_base = wrangles.pipeline.run(recipe)
+df_base = wrangles.recipe.run(recipe)
 
 
 def test_pandas_head():
@@ -18,7 +18,7 @@ def test_pandas_head():
             parameters:
               n: 1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_base)
+    df = wrangles.recipe.run(recipe, dataframe=df_base)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 1
 
 def test_pandas_tail():
@@ -31,5 +31,5 @@ def test_pandas_tail():
             parameters:
               n: 1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_base)
+    df = wrangles.recipe.run(recipe, dataframe=df_base)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 1

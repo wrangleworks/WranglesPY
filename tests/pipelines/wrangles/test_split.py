@@ -18,7 +18,7 @@ def test_split_text_1():
             output: Col2
             char: ', '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == ['Hello', 'Wrangles!']
     
 # using a wild card - text to columns
@@ -33,7 +33,7 @@ def test_split_text_2():
             output: Col*
             char: ', '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'Wrangles!'
     
 # Multiple named columns as outputs - text to columns
@@ -51,7 +51,7 @@ def test_split_text_3():
             - Col 3
           char: ' '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col 2'] == 'Wrangles!'
     
 # Multiple character split
@@ -69,7 +69,7 @@ def test_split_text_4():
               - '&'
               - '\$'
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
     
 # Multiple character split using wildcard (*)
@@ -87,7 +87,7 @@ def test_split_text_5():
               - '&'
               - '\$'
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
     
 #
@@ -104,7 +104,7 @@ def test_split_list_1():
             input: Col
             output: Col*
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'Wrangles!'
     
 # Multiple column named outputs
@@ -120,7 +120,7 @@ def test_split_list_2():
             - out1
             - out2
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out2'] == 'Wrangles!'
     
     
@@ -137,7 +137,7 @@ def test_split_dictionary_1():
           input: col1
     """
 
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'B'
     
     
@@ -155,7 +155,7 @@ def test_tokenize_1():
           input: col1
           output: out1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'][2] == 'Oak'
     
 # Input is a str
@@ -169,6 +169,6 @@ def test_tokenize_2():
           input: col1
           output: out1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'][1] == 'Steel'
     

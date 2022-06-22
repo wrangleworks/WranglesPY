@@ -80,7 +80,7 @@ Recipes are written in YAML and allow a series of Wrangles to be run as an autom
 PYTHON
 """
 import wrangles
-wrangles.pipeline.run('recipe.wrgl.yml')
+wrangles.recipe.run('recipe.wrgl.yml')
 ```
 
 ```yaml

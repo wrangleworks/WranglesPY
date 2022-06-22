@@ -16,7 +16,7 @@ def test_dictionary_element_1():
           output: Shapes
           element: shapes
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes'] == 'round'
     
 #
@@ -33,7 +33,7 @@ def test_list_element_1():
           output: Second Element
           element: 1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == 'B'
     
 # Empty values
@@ -48,7 +48,7 @@ def test_list_element_2():
           output: Second Element
           element: 1
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == ''
     
 # Out of Index values
@@ -63,7 +63,7 @@ def test_list_element_3():
           output: Second Element
           element: 5
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == ''
     
 #
@@ -84,7 +84,7 @@ def test_highest_confidence_1():
             - Col3
           output: Winner
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Winner'] == ['C', 0.99]
     
 #
@@ -104,7 +104,7 @@ def test_threshold_1():
           output: Top Words
           threshold: .77
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B'
     
 # Noun (Token) return empty aka None
@@ -122,7 +122,7 @@ def test_threshold_2():
             output: Top Words
             threshold: .77
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B || .90'
     
 # Noun (Token) return empty aka None and cell 2 is a list
@@ -140,7 +140,7 @@ def test_threshold_3():
             output: Top Words
             threshold: .77
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B || .90'
     
 # Cell_1[0] is above the threshold
@@ -158,7 +158,7 @@ def test_threshold_4():
           output: Top Words
           threshold: .77
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'A'
     
 def test_threshold_5():
@@ -175,7 +175,7 @@ def test_threshold_5():
             output: Top Words
             threshold: .77
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B || .90'
     
 #    
@@ -198,7 +198,7 @@ def test_left_1():
                 - Out2
             length: 5
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'One T'
     
 # Input is none
@@ -213,7 +213,7 @@ def test_left_2():
             input: Col1
             length: 5
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'One T'
     
 #
@@ -236,7 +236,7 @@ def test_right_1():
                 - Out2
             length: 4
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'Four'
     
 # Input is none
@@ -251,7 +251,7 @@ def test_right_2():
             input: Col1
             length: 4
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Four'
     
     
@@ -277,7 +277,7 @@ def test_substring_1():
             start: 4
             length: 4
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == ' Two'
     
 # Input is none
@@ -293,5 +293,5 @@ def test_substring_2():
             start: 4
             length: 4
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == ' Two'

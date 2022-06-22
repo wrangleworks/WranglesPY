@@ -20,7 +20,7 @@ def test_coalesce_1():
             - Col3
           output: Output Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Output Col'].values.tolist() == ['A', 'B', 'C']
 
 #
@@ -38,7 +38,7 @@ def test_concatenate_1():
           output: Join List
           char: ' '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Join List'] == 'A B C'
     
 # Multi column concat
@@ -58,7 +58,7 @@ def test_concatenate_2():
             output: Join Col
             char: ', '
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Join Col'] == 'A, B, C'
 
 # Wrong input type
@@ -77,7 +77,7 @@ def test_concatenate_3():
             char: ', '
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.pipeline.run(recipe, dataframe=data)
+        raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Unexpected data type for merge.concatenate / input'
 
 #
@@ -97,7 +97,7 @@ def test_lists_1():
                 - Col2
             output: Combined Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     print(df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'E'])
 
 
@@ -120,7 +120,7 @@ def test_to_lists_1():
                 - Col3
             output: Combined Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Combined Col'] == ['A', 'B', 'C']
     
 
@@ -140,7 +140,7 @@ def test_to_dict_1():
                 - Col2
             output: Dict Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
     
 
@@ -159,7 +159,7 @@ def test_key_value_pairs_1():
               Letter: Number
             output: Pairs
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Pairs'] == {'C': 3}
 
 # Using a Wildcard
@@ -177,6 +177,6 @@ def test_key_value_pairs_2():
               key*: value*
             output: Object
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     print(df.iloc[2]['Object'] == {'C': 'c', 'three': 'Third'})
 
