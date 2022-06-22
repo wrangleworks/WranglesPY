@@ -103,37 +103,35 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     client.close()
 _schema['write'] = """
 type: object
-
 description: insert, delete, or update data to a mongoDB Server
 required:
-    - user
-    - password
-    - database
-    - collection
-    - host
-    - action
+  - user
+  - password
+  - database
+  - collection
+  - host
+  - action
 properties:
-    user:
+  user:
     type: string
-    description:  User with access to the database
-    password:
-        type: string
-        description: Password of user
-    database:
-        type: string
-        description: Database to be queried
-    host:
-        type: string
-        description: mongoDB cluster-url
-    action:
-        type: string
-        description: action to perform, actions supported INSERT UPDATE
-    query:
-        type: dict
-        description: mongoDB query to search for value to update or delete, only valid when using UPDATE, DELETE
-    update:
-        type: dict
-        description: mongoDB query value to update, only valid when using UPDATE
-
+    description: User with access to the database
+  password:
+    type: string
+    description: Password of user
+  database:
+    type: string
+    description: Database to be queried
+  host:
+    type: string
+    description: mongoDB cluster-url
+  action:
+    type: string
+    description: action to perform, actions supported INSERT UPDATE
+  query:
+    type: object
+    description: mongoDB query to search for value to update or delete, only valid when using UPDATE, DELETE
+  update:
+    type: object
+    description: mongoDB query value to update, only valid when using UPDATE
 """
 
