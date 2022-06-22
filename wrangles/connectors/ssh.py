@@ -1,7 +1,7 @@
 """
 Connector for SSH
 """
-from fabric import Connection
+from fabric import Connection as _Connection
 
 
 _schema = {}
@@ -10,7 +10,7 @@ def run(host: str, user: str, password: str, command: str) -> None:
     """
     Execute a command over ssh
     """
-    Connection(host, user=user, connect_kwargs={'password': password}).run(command)
+    _Connection(host, user=user, connect_kwargs={'password': password}).run(command)
 
 _schema['run'] = """
 type: object
