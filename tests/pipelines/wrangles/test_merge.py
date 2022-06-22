@@ -142,7 +142,21 @@ def test_to_dict_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
-    
+
+# input is a wildcard
+def test_to_dict_2():
+    data = pd.DataFrame({
+    'Col1':[{'A'}],
+    'Col2':[{'B'}]
+})
+    recipe = """
+    wrangles:
+        - merge.to_dict:
+            input: Col*
+            output: Dict Col
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
 
 #
 # Key Value Pairs
