@@ -6,7 +6,7 @@ setup(
         'wrangles',
         'wrangles.connectors',
         'wrangles.match',
-        'wrangles.pipeline_wrangles'
+        'wrangles.recipe_wrangles'
     ],
     description = 'Wrangle your data into shape with machine learning',
     version = '0.4',

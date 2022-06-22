@@ -16,4 +16,4 @@ if os.environ.get("WRANGLES_CUSTOM_FUNCTIONS"):
     functions = [getattr(module, method) for method in dir(module) if not method.startswith('_')]
 
 
-wrangles.pipeline.run(os.environ["WRANGLES_RECIPE"], functions=functions)
+wrangles.recipe.run(os.environ["WRANGLES_RECIPE"], functions=functions)

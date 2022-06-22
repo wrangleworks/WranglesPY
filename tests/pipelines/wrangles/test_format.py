@@ -13,7 +13,7 @@ def test_remove_duplicates_1():
         input: Agents
         output: Remove
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Remove'] == ['Agent Smith']
     
 # Input column is a str
@@ -27,7 +27,7 @@ def test_remove_duplicates_2():
         input: Agents
         output: Remove
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     print(df.iloc[0]['Remove'] == 'Agent Smith Agent Smith Agent Smith')
 
 #
@@ -42,5 +42,5 @@ def test_trim_1():
         - Alone
         output: Trim
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Trim'] == 'Wilson!'

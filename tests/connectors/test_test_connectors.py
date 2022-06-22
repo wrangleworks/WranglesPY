@@ -21,7 +21,7 @@ def test_data_generation1():
                     - pear
                     - banana
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['fixed value', 'code', 'boolean', 'number', 'int', 'char', 'word', 'sentence', 'list']
     
 # Not valid int values
@@ -45,7 +45,7 @@ def test_data_generation_2():
                     - pear
                     - banana
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['int', 'char', 'word', 'sentence', 'number', 'code', 'dict', 'list']
     
   

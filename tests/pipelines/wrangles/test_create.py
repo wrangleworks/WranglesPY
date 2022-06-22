@@ -12,7 +12,7 @@ def test_create_column_1():
         - create.column:
             output: column3
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df.columns) == 3
 
 #
@@ -27,7 +27,7 @@ def test_create_index_1():
                 start: 1
                 
         """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[-1]['index_col'] == 3
 
 #
@@ -42,7 +42,7 @@ def test_guid_1():
         - create.guid:
             output: GUID Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'GUID Col' in list(df.columns)
     
 #
@@ -57,5 +57,5 @@ def test_uuid_1():
         - create.uuid:
             output: UUID Col
     """
-    df = wrangles.pipeline.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'UUID Col' in list(df.columns)

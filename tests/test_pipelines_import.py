@@ -13,7 +13,7 @@ def test_import_csv():
         file:
           name: tests/samples/data.csv
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
 def test_import_txt():
@@ -25,7 +25,7 @@ def test_import_txt():
         file:
           name: tests/samples/data.txt
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
 def test_import_csv_columns():
@@ -39,7 +39,7 @@ def test_import_csv_columns():
           columns:
             - Find
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find']
 
 
@@ -53,7 +53,7 @@ def test_import_json():
         file:
           name: tests/samples/data.json
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
 def test_import_json_columns():
@@ -67,7 +67,7 @@ def test_import_json_columns():
           columns:
             - Find
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find']
 
 
@@ -81,7 +81,7 @@ def test_import_excel():
         file:
           name: tests/samples/data.xlsx
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
 def test_import_excel_columns():
@@ -95,7 +95,7 @@ def test_import_excel_columns():
           columns:
             - Find
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find']   
     
 ## JSON Lines
@@ -105,7 +105,7 @@ def test_read_jsonl_file():
       file:
         name: tests/samples/data.jsonl
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
 # Write using index
@@ -123,7 +123,7 @@ def test_write_file_indexed():
           name: tests/samples/write_data.xlsx
           index: true
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
     
 # Write using index
@@ -141,7 +141,7 @@ def test_write_file_indexed():
           name: tests/samples/write_data.xlsx
           index: true
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
     
 # Write a json lines file
@@ -158,7 +158,7 @@ def test_write_file_jsonl():
         file:
           name: tests/samples/write_data.jsonl
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
     
 # Testing recipe file input
@@ -168,7 +168,7 @@ def test_recipe_file_input():
     "inputFile": 'tests/samples/data.csv',
     "outputFile": 'tests/samples/write_data.xlsx'
   }
-  df = wrangles.pipeline.run(recipe, config)
+  df = wrangles.recipe.run(recipe, config)
   assert df.columns.tolist() == ['ID', 'Find2']
   
   
@@ -188,7 +188,7 @@ def test_union_files():
                 - Find
                 - Replace
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert len(df) == 6
     
 # Testing Concatenate of multiple sources
@@ -207,7 +207,7 @@ def test_concatenate_files():
                 - Find
                 - Replace
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 4
 
 # Testing join of multiple sources
@@ -224,7 +224,7 @@ def test_join_files():
                 - file:
                     name: tests/samples/data2.xlsx
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 4
     
 # Custom Function
@@ -253,7 +253,7 @@ def test_custom_function_1():
                 - Col1
                 - Col2
     """
-    df = wrangles.pipeline.run(recipe, functions=[custom_func], dataframe=data)
+    df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
     assert df.iloc[1]['Col2'] == 'Two'
 
 # Custom Function no output specified
@@ -276,7 +276,7 @@ def test_custom_function_2():
             columns:
                 - Col1
     """
-    df = wrangles.pipeline.run(recipe, functions=[custom_func], dataframe=data)
+    df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
     assert df.iloc[1]['Col1'] == 'Two'
     
 
@@ -302,5 +302,5 @@ def test_custom_function_2():
             columns:
                 - Col1
     """
-    df = wrangles.pipeline.run(recipe, functions=[custom_func])
+    df = wrangles.recipe.run(recipe, functions=[custom_func])
     assert df.iloc[0]['Col1'] == 'HELLO ONE'

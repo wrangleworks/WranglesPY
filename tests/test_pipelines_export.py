@@ -5,7 +5,7 @@ read:
   file:
     name: tests/samples/data.csv
 """
-df_base = wrangles.pipeline.run(recipe)
+df_base = wrangles.recipe.run(recipe)
 
 
 def test_export_df_columns():
@@ -18,7 +18,7 @@ def test_export_df_columns():
           columns:
             - Find
     """
-    df = wrangles.pipeline.run(recipe, dataframe=df_base)
+    df = wrangles.recipe.run(recipe, dataframe=df_base)
     assert df.columns.tolist() == ['Find']
 
 
@@ -31,13 +31,13 @@ def test_export_csv():
         file:
           name: temp.csv
     """
-    wrangles.pipeline.run(recipe, dataframe=df_base)
+    wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
           name: temp.csv
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
 
 def test_export_txt():
@@ -49,13 +49,13 @@ def test_export_txt():
         file:
           name: temp.txt
     """
-    wrangles.pipeline.run(recipe, dataframe=df_base)
+    wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
           name: temp.txt
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
 
 def test_export_json():
@@ -68,14 +68,14 @@ def test_export_json():
           name: temp.json
           orient: records
     """
-    wrangles.pipeline.run(recipe, dataframe=df_base)
+    wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
           name: temp.json
           orient: records
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
 
 def test_export_csv_columns():
@@ -89,7 +89,7 @@ def test_export_csv_columns():
           columns:
             - Find
     """
-    wrangles.pipeline.run(recipe, dataframe=df_base)
+    wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
@@ -97,7 +97,7 @@ def test_export_csv_columns():
           columns:
             - Find
     """
-    df = wrangles.pipeline.run(recipe)
+    df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find'] and len(df) == 3
 
 def test_export_multiple():
@@ -111,17 +111,17 @@ def test_export_multiple():
         - file:
             name: temp.csv
     """
-    wrangles.pipeline.run(recipe, dataframe=df_base)
+    wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
           name: temp.txt
     """
-    df1 = wrangles.pipeline.run(recipe)
+    df1 = wrangles.recipe.run(recipe)
     recipe = """
       read:
         file:
           name: temp.csv
     """
-    df2 = wrangles.pipeline.run(recipe)
+    df2 = wrangles.recipe.run(recipe)
     assert df1.columns.tolist() == ['Find', 'Replace'] and len(df1) == 3 and df2.columns.tolist() == ['Find', 'Replace'] and len(df2)

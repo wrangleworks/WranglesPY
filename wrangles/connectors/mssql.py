@@ -153,7 +153,7 @@ def run(host: str, user: str, password: str, command: str, **kwargs) -> None:
 
 _schema['run'] = """
 type: object
-description: Run a command against a Microsoft SQL Server such as triggering a query or stored procedure before or after your wrangling pipeline
+description: Run a command against a Microsoft SQL Server such as triggering a query or stored procedure
 required:
   - host
   - user
