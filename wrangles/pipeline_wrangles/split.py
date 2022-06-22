@@ -4,9 +4,10 @@ Split a single column to multiple columns
 import pandas as _pd
 from .. import format as _format
 from typing import Union as _Union
+from typing import List as _list       # Rename List to _list to be able to use function name list without clashing
 
 
-def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False) -> _pd.DataFrame:
+def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
@@ -33,12 +34,12 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
         description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
     """
     # If char is a list -> split on multiple chars using regex
-    if isinstance(char, list) and '*' not in output:
+    if isinstance(char, _list) and '*' not in output:
       df[output] = _format.split_re(df[input].astype(str).tolist(), char)
       return df
       
     # Wilcard with multiple split and multiple char
-    if isinstance(output, str) and '*' in output and isinstance(char, list):
+    if isinstance(output, str) and '*' in output and isinstance(char, _list):
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
         # column * -> column 1, column 2, column 3...
@@ -64,13 +65,13 @@ def from_text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: st
         # User has given a single column - return as a list within that column
         df[output] = _format.split(df[input].astype(str).tolist(), char)
 
-    elif isinstance(output, list) or pad:
+    elif isinstance(output, _list) or pad:
         df[output] = _format.split(df[input].astype(str).tolist(), char, pad=True)
         
     return df
     
     
-def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
+def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns
@@ -108,7 +109,7 @@ def from_list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     return df
 
 
-def from_dict(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
+def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -124,7 +125,7 @@ def from_dict(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     df[exploded_df.columns] = exploded_df
     return df
 
-#  SUPER MARIO
+
 def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object

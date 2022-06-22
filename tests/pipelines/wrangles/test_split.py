@@ -7,13 +7,13 @@ import pandas as pd
 #
 
 # Text Split - text to a list separated by char
-def test_split_from_text_1():
+def test_split_text_1():
     data = pd.DataFrame({
     'Col1': ['Hello, Wrangles!']
     })
     recipe = """
     wrangles:
-        - split.from_text:
+        - split.text:
             input: Col1
             output: Col2
             char: ', '
@@ -22,13 +22,13 @@ def test_split_from_text_1():
     assert df.iloc[0]['Col2'] == ['Hello', 'Wrangles!']
     
 # using a wild card - text to columns
-def test_split_from_text_2():
+def test_split_text_2():
     data = pd.DataFrame({
     'Col': ['Hello, Wrangles!']
     })
     recipe = """
     wrangles:
-        - split.from_text:
+        - split.text:
             input: Col
             output: Col*
             char: ', '
@@ -37,13 +37,13 @@ def test_split_from_text_2():
     assert df.iloc[0]['Col2'] == 'Wrangles!'
     
 # Multiple named columns as outputs - text to columns
-def test_split_from_text_3():
+def test_split_text_3():
     data = pd.DataFrame({
     'Col': ['Hello Wrangles! Other']
     })
     recipe = """
     wrangles:
-      - split.from_text:
+      - split.text:
           input: Col
           output:
             - Col 1
@@ -55,13 +55,13 @@ def test_split_from_text_3():
     assert df.iloc[0]['Col 2'] == 'Wrangles!'
     
 # Multiple character split
-def test_split_from_text_4():
+def test_split_text_4():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
     recipe = """
     wrangles:
-        - split.from_text:
+        - split.text:
             input: col1
             output: out1
             char:
@@ -73,13 +73,13 @@ def test_split_from_text_4():
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
     
 # Multiple character split using wildcard (*)
-def test_split_from_text_5():
+def test_split_text_5():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
     recipe = """
     wrangles:
-        - split.from_text:
+        - split.text:
             input: col1
             output: out*
             char:
@@ -94,13 +94,13 @@ def test_split_from_text_5():
 # Split from List
 #
 # Using Wild Card
-def test_split_from_list_1():
+def test_split_list_1():
     data = pd.DataFrame({
     'Col': [['Hello', 'Wrangles!']]
     })
     recipe = """
     wrangles:
-        - split.from_list:
+        - split.list:
             input: Col
             output: Col*
     """
@@ -108,13 +108,13 @@ def test_split_from_list_1():
     assert df.iloc[0]['Col2'] == 'Wrangles!'
     
 # Multiple column named outputs
-def test_split_from_list_2():
+def test_split_list_2():
     data = pd.DataFrame({
     'col1': [['Hello', 'Wrangles!']]
     })
     recipe = """
     wrangles:
-      - split.from_list:
+      - split.list:
           input: col1
           output:
             - out1
@@ -127,13 +127,13 @@ def test_split_from_list_2():
 #
 # Split from Dict
 #
-def test_split_from_dict_1():
+def test_split_dictionary_1():
     data = pd.DataFrame({
     'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
     })
     recipe = """
     wrangles:
-      - split.from_dict:
+      - split.dictionary:
           input: col1
     """
 
