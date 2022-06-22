@@ -9,7 +9,6 @@ from . import mysql
 from . import notification
 from . import postgres
 from . import pricefx
-from . import table
 from . import test
 from . import ssh
 from . import sftp
