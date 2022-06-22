@@ -229,7 +229,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
 
 def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
     """
-    Execute a Wrangles Recipe. Recipes are written in YAML and data to be read, wrangled and written in an automated sequence.
+    Execute a Wrangles Recipe. Recipes are written in YAML allow a set of steps to be run in an automated sequence. Read, wrangle then write your data.
 
     >>> wrangles.recipe.run(recipe)
     
