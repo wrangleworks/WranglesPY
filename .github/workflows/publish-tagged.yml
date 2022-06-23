@@ -22,6 +22,24 @@ jobs:
 
       - name: Get release tag
         run: echo "RELEASE_VERSION=$(echo ${GITHUB_REF:11})" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.4
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest lorem
+          pip install pytest-mock
+          pip install -r requirements.txt
+          
+      - name: Run Tests
+        run: pytest
+        env:
+          WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+          WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
           
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
