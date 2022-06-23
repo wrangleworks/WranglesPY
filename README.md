@@ -1,4 +1,4 @@
-# WranglesPy
+# Wrangles
 
 Full documentation available at [wrangles.io](https://wrangles.io/python).
 
@@ -13,7 +13,7 @@ With Wrangles, you can:
 - Move data from one system to another.
 - Much more...
 
-Wrangles are system independent, and allow you to pull data from one system, transform it and push it to another. By using the Wrangles python package, Wrangles can be incorporated directly into python code, or an automated sequence of wrangles can be run as a recipe.
+Wrangles are system independent, and allow you to pull data from one system, transform it and push it to another. Wrangles can be incorporated directly into python code, or an automated sequence of wrangles can be run as a recipe.
 
 ## Installation
 
@@ -50,7 +50,6 @@ wrangles.authenticate('<user>', '<password>')
 ## Usage
 
 ### Functions
-*[Full Docs](https://wrangles.io/en/python/functions)*
 
 Wrangles can be used as functions, directly incorporated into python code.
 
@@ -71,7 +70,6 @@ Wrangles broadly accept a single input string, or a list of strings. If a list i
 ```
 
 ### Recipes
-*[Full Docs](https://wrangles.io/python/pipelines/recipes)*
 
 Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.
 
