@@ -101,9 +101,9 @@ def custom(input: _Union[str, list], model_id: str) -> list:
     else:
         raise TypeError('Invalid input data provided. The input must be either a string or a list of strings.')
         
-    # If the Model Id is not appropriate, raise error (Maybe more specific?)
-    if isinstance(model_id, dict) or len(model_id.split('-')) != 3:
-        raise ValueError('Incorrect model_id. May be missing "${ }" around value')
+    # If the Model Id is not appropriate, raise error (Only for Recipes)
+    if isinstance(model_id, dict):
+        raise ValueError('Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value')
         
     # Checking to see if GUID format is correct
     if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
