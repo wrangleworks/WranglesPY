@@ -18,7 +18,7 @@ def batch_api_calls(url, params, input_list, batch_size):
         
         # Checking status code
         if str(response.status_code)[0] != '2':
-            raise ValueError(f"Status Code: {response.status_code} - {response.reason}. \n")
+            raise ValueError(f"Status Code: {response.status_code} - {response.reason}. {response.text} \n")
         
         results = results + response.json()
 
