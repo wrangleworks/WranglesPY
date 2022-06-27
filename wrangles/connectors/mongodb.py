@@ -28,6 +28,11 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     db = client[database]
     col = db[collection]
     
+    # checkiing if database and collections are in mongoDB
+    if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
+    if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
+    
+    
     result = []
     for x in col.find(query, projection):
         result.append(x)
