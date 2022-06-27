@@ -429,7 +429,8 @@ def test_extract_colours():
         property_type: colours
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
-    assert df.iloc[0]['prop'] == ['Blue', 'Red', 'White']
+    check_list = ['Blue', 'Red', 'White']
+    assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
     
 def test_extract_materials():
     recipe = """
