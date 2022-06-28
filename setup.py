@@ -31,6 +31,7 @@ setup(
         'fabric',
         'apprise',
         'lorem',
-        'pymongo[srv]'
+        'pymongo[srv]',
+        'simple-salesforce'
     ]
 )
