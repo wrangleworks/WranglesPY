@@ -10,3 +10,4 @@ fabric
 apprise
 lorem
 pymongo[srv]
+simple-salesforce
