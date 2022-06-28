@@ -124,7 +124,7 @@ def write(df: _pd.DataFrame, instance: str, object: str, id: str, user: str, pas
 
 _schema['write'] = """
 type: object
-description: Import data from Salesforce
+description: Write data from Salesforce
 required:
   - instance
   - user
