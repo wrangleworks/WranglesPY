@@ -176,11 +176,17 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
           "sourceName": f"DMF.{data_source}"
         }
       }
-      _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+      response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+       # If the response is not 2XX then raise an error
+      if str(response.status_code)[0] != '2':
+        raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
 
     else:
       url = f"https://{host}/pricefx/{partition}/loaddata/{target_code}"
-      _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+      response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+      # If the response is not 2XX then raise an error
+      if str(response.status_code)[0] != '2':
+        raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
     
 
 _schema['write'] = """
