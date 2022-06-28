@@ -112,7 +112,7 @@ def write(df: _pd.DataFrame, instance: str, object: str, id: str, user: str, pas
     :param user: User with write permission
     :param password: Password for the user
     :param token: Security token for the user
-    :param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
+    :param columns: (Optional) A subset of the columns to be written 
     """
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
@@ -124,17 +124,18 @@ def write(df: _pd.DataFrame, instance: str, object: str, id: str, user: str, pas
 
 _schema['write'] = """
 type: object
-description: Write data from Salesforce
+description: Write data to Salesforce
 required:
   - instance
   - user
   - password
   - token
   - object
+  - id
 properties:
   instance:
     type: string
-    description: The salesforce instance to write to. e.g. <custom>.my.salesforce.com
+    description: The salesforce instance to write to e.g. <custom>.my.salesforce.com
   user:
     type: string
     description: User with write permission
@@ -146,8 +147,11 @@ properties:
     description: Security token for the user
   object:
     type: string
-    description: Object to write data to e.g. Contact
+    description: Object to write the data to e.g. Contact
+  id:
+    type: string
+    description: Indicate the Id field. If the Id exists and is provided, the record will be updated, otherwise inserted.
   columns:
     type: array
-    description: Subset of the columns to select
+    description: (Optional) A subset of the columns to be written 
 """
