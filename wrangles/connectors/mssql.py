@@ -145,10 +145,9 @@ def run(host: str, user: str, password: str, command: str, **kwargs) -> None:
   :param password: Password of user
   :param command: SQL command to execute
   """
-  conn = _pymssql.connect(server=host, user=user, password=password, **kwargs)
+  conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
   cursor = conn.cursor()
   cursor.execute(command)
-  conn.commit()
   conn.close()
 
 _schema['run'] = """
