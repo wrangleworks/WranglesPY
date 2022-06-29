@@ -133,7 +133,7 @@ properties:
 """
 
 
-def run(host: str, user: str, password: str, command: str, **kwargs) -> None:
+def run(host: str, user: str, password: str, command: _Union[str, list], **kwargs) -> None:
   """
   Run a command on a Microsoft SQL Server
 
@@ -143,11 +143,18 @@ def run(host: str, user: str, password: str, command: str, **kwargs) -> None:
   :param host: Hostname or IP of the database
   :param user: User with access to the database
   :param password: Password of user
-  :param command: SQL command to execute
+  :param command: SQL command or a list of SQL commands to execute
   """
+  # If user has provided a single command, convert to a list of one.
+  if isinstance(command, str): command = [command]
+
+  # Establish connection
   conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
   cursor = conn.cursor()
-  cursor.execute(command)
+
+  for sql in command:
+    cursor.execute(sql)
+
   conn.close()
 
 _schema['run'] = """
@@ -169,8 +176,10 @@ properties:
     type: string
     description: Password for the specified user
   command:
-    type: string
-    description: SQL command to execute
+    type:
+      - string
+      - array
+    description: SQL command or a list of SQL commands to execute
   database:
     type: string
     description: The database to connect to
