@@ -14,7 +14,7 @@ def run(host: str, user: str, command: str, password: str = None, key_filename: 
     :param user: User to connect as
     :param password: Password for the user
     :param key_filename: File that contains the private key
-    :param command: Command or list of commands to execute
+    :param command: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands.  
     """
     # If user has passed a single command, convert to a list of one
     if isinstance(command, str): command = [command]
@@ -53,5 +53,5 @@ properties:
     type:
       - string
       - array
-    description: Command or list of commands to execute
+    description: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands.
 """
