@@ -145,6 +145,8 @@ def run(host: str, user: str, password: str, command: _Union[str, list], **kwarg
   :param password: Password of user
   :param command: SQL command or a list of SQL commands to execute
   """
+  _logging.info(f": Executing Command :: {host}")
+
   # If user has provided a single command, convert to a list of one.
   if isinstance(command, str): command = [command]
 
