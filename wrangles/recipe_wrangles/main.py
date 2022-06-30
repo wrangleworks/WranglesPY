@@ -8,6 +8,7 @@ from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from .. import extract as _extract
 
+import numexpr as _ne
 import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
@@ -236,4 +237,44 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     # Execute the user's query against the database and return the results
     df = _pd.read_sql(command, db)
     db.close()
+    return df
+
+
+def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a mathematical calculation
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+      output:
+        type: string
+        description: The column to output the results to
+    """
+    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    return df
+
+
+def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a mathematical calculation
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+      output:
+        type: string
+        description: The column to output the results to
+    """
+    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
     return df

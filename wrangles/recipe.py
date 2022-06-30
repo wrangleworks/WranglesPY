@@ -166,9 +166,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     # shouldn't get here
 
             else:
-                # Allow user to specify a wildcard (? or *) for the input columns
-                if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
-                    params['input'] = _fnmatch.filter(df.columns, params['input'])
+                # Blacklist of Wrangles not to allow wildcards for
+                if wrangle not in ['math', 'maths']:
+                    # Allow user to specify a wildcard (? or *) for the input columns
+                    if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
+                        params['input'] = _fnmatch.filter(df.columns, params['input'])
 
                 # Get the requested function from the recipe_wrangles module
                 obj = _recipe_wrangles
