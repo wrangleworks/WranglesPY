@@ -14,3 +14,4 @@ from . import ssh
 from . import sftp
 from . import mongodb
 from . import salesforce
+from . import recipe
