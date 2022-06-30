@@ -69,7 +69,11 @@ def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: 
 
             else:
                 # Get run function of requested connector and pass user defined params
-                getattr(getattr(_connectors, action_type), 'run')(**params)
+                obj = _connectors
+                for element in action_type.split('.'):
+                    obj = getattr(obj, element)
+
+                getattr(obj, 'run')(**params)
 
 
 def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
