@@ -11,3 +11,4 @@ apprise
 lorem
 pymongo[srv]
 simple-salesforce
+numexpr

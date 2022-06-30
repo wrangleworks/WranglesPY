@@ -32,6 +32,7 @@ setup(
         'apprise',
         'lorem',
         'pymongo[srv]',
-        'simple-salesforce'
+        'simple-salesforce',
+        'numexpr'
     ]
 )
