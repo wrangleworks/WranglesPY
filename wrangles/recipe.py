@@ -239,43 +239,54 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     # Parse recipe
     recipe = _load_recipe(recipe, variables)
 
-    # Format custom functions
-    # If user has passed in a single function, convert to a list
-    if callable(functions): functions = [functions]
-    # Convert custom functions from a list to a dict using the name as a key
-    if isinstance(functions, list):
-        functions = {custom_function.__name__: custom_function for custom_function in functions}
+    try:
+        # Format custom functions
+        # If user has passed in a single function, convert to a list
+        if callable(functions): functions = [functions]
+        # Convert custom functions from a list to a dict using the name as a key
+        if isinstance(functions, list):
+            functions = {custom_function.__name__: custom_function for custom_function in functions}
 
-    # Run any actions required before the main recipe runs
-    if 'on_start' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
+        # Run any actions required before the main recipe runs
+        if 'on_start' in recipe.get('run', {}).keys():
+            _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
 
-    # Get requested data
-    if 'read' in recipe.keys():
-        # Execute requested data imports
-        if isinstance(recipe['read'], list):
-            df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}), functions)
+        # Get requested data
+        if 'read' in recipe.keys():
+            # Execute requested data imports
+            if isinstance(recipe['read'], list):
+                df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}), functions)
+            else:
+                df = _read_data_sources(recipe['read'], recipe.get('connections', {}), functions)
+        elif dataframe is not None:
+            # User has passed in a pre-created dataframe
+            df = dataframe
         else:
-            df = _read_data_sources(recipe['read'], recipe.get('connections', {}), functions)
-    elif dataframe is not None:
-        # User has passed in a pre-created dataframe
-        df = dataframe
-    else:
-        # User hasn't provided anything - initialize empty dataframe
-        df = _pandas.DataFrame()
+            # User hasn't provided anything - initialize empty dataframe
+            df = _pandas.DataFrame()
 
-    # Execute any Wrangles required (allow single or plural)
-    if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'], functions)
-    elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'], functions)
+        # Execute any Wrangles required (allow single or plural)
+        if 'wrangles' in recipe.keys():
+            df = _execute_wrangles(df, recipe['wrangles'], functions)
+        elif 'wrangle' in recipe.keys():
+            df = _execute_wrangles(df, recipe['wrangle'], functions)
 
-    # Execute requested data exports
-    if 'write' in recipe.keys():
-        df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
+        # Execute requested data exports
+        if 'write' in recipe.keys():
+            df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
 
-    # Run any actions required after the main recipe finishes
-    if 'on_success' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
+        # Run any actions required after the main recipe finishes
+        if 'on_success' in recipe.get('run', {}).keys():
+            _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
 
-    return df
+        return df
+
+    except Exception as e:
+        try:
+            # Run any actions requested if the recipe fails
+            if 'on_failure' in recipe.get('run', {}).keys():
+                _run_actions(recipe['run']['on_failure'], functions=functions)
+        except:
+            pass
+
+        raise e
