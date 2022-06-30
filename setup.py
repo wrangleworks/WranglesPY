@@ -4,6 +4,10 @@ from setuptools import setup
 from pathlib import Path
 long_description = (Path(__file__).parent / "README.md").read_text()
 
+# Get the contents of the requirements file
+with open('requirements.txt') as f:
+    requirements = f.readlines()
+
 setup(
     name = 'wrangles',
     packages = [
@@ -19,20 +23,8 @@ setup(
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
     keywords = ['data','wrangling'],
-    install_requires = [
-        'requests',
-        'pyyaml',
-        'pandas',
-        'openpyxl',
-        'sqlalchemy',
-        'pymssql',
-        'psycopg2-binary',
-        'pymysql',
-        'fabric',
-        'apprise',
-        'lorem',
-        'pymongo[srv]',
-        'simple-salesforce',
-        'numexpr'
-    ]
+    install_requires = requirements,
+    entry_points ={
+        'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
+    },
 )
