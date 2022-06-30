@@ -13,20 +13,30 @@ schema = {
 with open('schema/recipe_base_schema.json', 'r') as f:
   recipe_schema = json.load(f)
 
-# Get all connector schema
-connectors = [conn for conn in dir(wrangles.connectors) if not conn.startswith('_')]
-for name in connectors:
-    connector = getattr(wrangles.connectors, name)
-    if '_schema' in dir(connector):
-        if 'read' in connector._schema.keys():
-            schema['read'][name] = yaml.safe_load(connector._schema['read'])
+# Get all Connector Docs
+def getConnectorDocs(schema_wrangles, obj, path):
+    """
+    Recursively loop through all connector code looking for docs
+    """
+    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
 
-        if 'write' in connector._schema.keys():
-            schema['write'][name] = yaml.safe_load(connector._schema['write'])
+    if len(non_hidden_methods) > 0:
+        for method in non_hidden_methods:
+            getConnectorDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
 
-        if 'run' in connector._schema.keys():
-            schema['run'][name] = yaml.safe_load(connector._schema['run'])
+    if '_schema' in dir(obj):
+        if 'read' in obj._schema.keys():
+            schema['read'][path[1:]] = yaml.safe_load(obj._schema['read'])
 
+        if 'write' in obj._schema.keys():
+            schema['write'][path[1:]] = yaml.safe_load(obj._schema['write'])
+
+        if 'run' in obj._schema.keys():
+            schema['run'][path[1:]] = yaml.safe_load(obj._schema['run'])
+
+getConnectorDocs(schema, wrangles.connectors, '')
+
+# Add special read functions - join, union, concatenate
 join = """
 type: object
 description: Join two data sources on key(s). Equivalent to a join in SQL.
@@ -95,6 +105,8 @@ properties:
 """
 schema['read']['concatenate'] = yaml.safe_load(concatenate)
 
+
+# Add special write function for dataframe
 write_dataframe = """
 type: object
 description: Define the dataframe that is returned from the recipe.run() function
@@ -111,12 +123,7 @@ properties:
 schema['write']['dataframe'] = yaml.safe_load(write_dataframe)
 
 
-recipe_schema['$defs']['sources']['read']['properties'] = schema['read']
-recipe_schema['properties']['write']['items']['properties'] = schema['write']
-recipe_schema['$defs']['actions']['properties'] = schema['run']
-
-
-
+# Get all Wrangle element docs
 def getMethodDocs(schema_wrangles, obj, path):
     """
     Recursively loop through all non-hidden function and
@@ -138,6 +145,11 @@ def getMethodDocs(schema_wrangles, obj, path):
 
 getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
+
+# Construct final schema
+recipe_schema['$defs']['sources']['read']['properties'] = schema['read']
+recipe_schema['properties']['write']['items']['properties'] = schema['write']
+recipe_schema['$defs']['actions']['properties'] = schema['run']
 recipe_schema['properties']['wrangles']['items']['properties'] = schema['wrangles']
 
 
