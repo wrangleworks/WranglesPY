@@ -304,3 +304,17 @@ def test_custom_function_2():
     """
     df = wrangles.recipe.run(recipe, functions=[custom_func])
     assert df.iloc[0]['Col1'] == 'HELLO ONE'
+
+
+# If they've entered a list, get the first key and value from the first element
+def test_input_is_list():
+    recipe = """
+    read:
+        - file:
+            name: tests/samples/data.xlsx
+        
+    """
+    df = wrangles.recipe.run(recipe)
+    assert len(df.columns.to_list()) == 2
+    
+
