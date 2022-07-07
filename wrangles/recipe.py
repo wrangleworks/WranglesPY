@@ -9,12 +9,20 @@ import types as _types
 import os as _os
 import fnmatch as _fnmatch
 import inspect as _inspect
+import warnings as _warnings
 
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 
 
 _logging.getLogger().setLevel(_logging.INFO)
+
+
+# Suppress pandas performance warnings
+# this appears in some instances during the recipe execution when generating new columns.
+# There does not appear to be low performance, despite the warning,
+# but will also investigate if there is a better long term solution
+_warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
