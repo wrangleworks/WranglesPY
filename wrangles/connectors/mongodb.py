@@ -76,7 +76,6 @@ properties:
     description: Select which fields to include
 """
 
-_schema = {}
 
 def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
     """
