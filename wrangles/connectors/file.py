@@ -6,12 +6,13 @@ Supports Excel, CSV, JSON and JSONL files.
 import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
+from io import BytesIO as _BytesIO
 
 
 _schema = {}
 
 
-def read(name: str, columns: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwargs) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
@@ -26,21 +27,25 @@ def read(name: str, columns: _Union[str, list] = None, **kwargs) -> _pd.DataFram
     :return: A Pandas dataframe of the imported data.
     """
     _logging.info(f": Importing Data :: {name}")
-
+    
+    # If user does not pass a file object then use name
+    if file_object is None:
+        file_object = name
+    
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
         if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
-        df = _pd.read_excel(name, **kwargs).fillna('')
+        df = _pd.read_excel(file_object, **kwargs).fillna('')
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
-        df = _pd.read_csv(name, **kwargs).fillna('')
+        df = _pd.read_csv(file_object, **kwargs).fillna('')
     elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
-        df = _pd.read_json(name, **kwargs).fillna('')
+        df = _pd.read_json(file_object, **kwargs).fillna('')
     elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
         # Set lines to true 
         kwargs['lines'] = True
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
-        df = _pd.read_json(name, **kwargs).fillna('')
+        df = _pd.read_json(file_object, **kwargs).fillna('')
 
     # If the user specifies only certain columns, only include those
     if columns is not None: df = df[columns]
@@ -82,7 +87,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, **kwargs) -> None:
+def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -92,31 +97,35 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, **kwa
     :param df: Dataframe to be written to a file
     :param name: Name of the output file
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
+    :param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
     _logging.info(f": Exporting Data :: {name}")
 
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
-
+   
+    if file_object is None:
+        file_object = name
+    
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
         # Write an Excel file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_excel(name, **kwargs)
+        df.to_excel(file_object, **kwargs)
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_csv(name, **kwargs)
+        df.to_csv(file_object, **kwargs)
 
     elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
         # Write a JSON file
         # If user doesn't explicitly set orient, assume records - this seems a better default
         if 'orient' not in kwargs.keys(): kwargs['orient'] = 'records'
-        df.to_json(name, **kwargs)
+        df.to_json(file_object, **kwargs)
         
     elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
         # Write a line delimited JSONL file
@@ -124,7 +133,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, **kwa
         kwargs['lines'] = True
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
-        df.to_json(name, **kwargs)
+        df.to_json(file_object, **kwargs)
 
 _schema['write'] = """
 type: object

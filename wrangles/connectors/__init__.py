@@ -15,3 +15,4 @@ from . import sftp
 from . import mongodb
 from . import salesforce
 from . import recipe
+from . import s3
