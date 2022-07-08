@@ -2,11 +2,11 @@
 Connector for SSH
 """
 from fabric import Connection as _Connection
-
+from typing import Union as _Union
 
 _schema = {}
 
-def run(host: str, user: str, command: str, password: str = None, key_filename: str = None) -> None:
+def run(host: str, user: str, command: _Union[str, list], password: str = None, key_filename: str = None) -> None:
     """
     Execute a command over ssh
 
