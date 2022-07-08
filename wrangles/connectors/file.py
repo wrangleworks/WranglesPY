@@ -23,6 +23,7 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
 
     :param name: Name of the file to import
     :param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
+    :param file_object: (Optional) File object to read. If provided, this will be read instead of from the file system. A name is still required to infer the file type.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
@@ -84,6 +85,18 @@ properties:
       - index
       - columns
       - values
+  sep:
+    type: string
+    description: Used for CSV files. Set the separation character. Default , (comma)
+  encoding:
+    type: string
+    description: Used for CSV files. Set the encoding used for the file. Default utf-8
+  decimal:
+    type: string
+    description: "Used for CSV files. Character to recognize as the decimal point (e.g. ',' for European data)."
+  thousands:
+    type: string
+    description: Used for CSV files. Character to recognize as the thousands separator
 """
 
 
@@ -156,4 +169,27 @@ properties:
       - index
       - columns
       - values
+  sheet_name:
+    type: string
+    description: Used for Excel files. Specify the sheet to write.
+  sep:
+    type: string
+    description: Used for CSV files. Set the separation character. Default , (comma)
+  encoding:
+    type: string
+    description: Used for CSV files. Set the encoding used for the file. Default utf-8
+  mode:
+    type: string
+    description: Used for CSV files. Set whether to append to (a) or overwrite (w) the file if it already exists. Default w - overwrite
+    enum:
+      - w
+      - a
+  decimal:
+    type: string
+    description: "Used for CSV files. Character to use as the decimal point (e.g. ',' for European data)."
+  header:
+    type:
+      - boolean
+      - array
+    description: Used for CSV files. Whether to write the column headers. Default true. Alternatively, provide a list to overwrite the headings.
 """
