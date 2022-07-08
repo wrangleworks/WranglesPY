@@ -375,7 +375,7 @@ def test_extract_custom_list():
           model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_list)
-    assert df.iloc[0]['Fact Output'] == ['Pikachu', 'Mew', 'Charizard']
+    assert df.iloc[0]['Fact Output'][0] in ['Pikachu', 'Mew', 'Charizard']
 
 # Testing Multi column input
 df_test_custom_multi_input = pd.DataFrame(
@@ -396,7 +396,7 @@ def test_extract_custom_mulit_input():
           model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
-    assert df.iloc[0]['Fact Output'] == ['Charizard', 'Pikachu']
+    assert df.iloc[0]['Fact Output'][0] in ['Charizard', 'Pikachu']
 
 # Multiple output and inputs
 def test_extract_custom_mulit_input_output():
