@@ -158,7 +158,7 @@ properties:
     description: Password for the specified user
   data_type:
     type: string
-    description: Type of Data. Products, Customers, Data Source, etc.
+    description: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
     enum:
       - Products
       - Product Extensions
