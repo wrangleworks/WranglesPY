@@ -228,7 +228,7 @@ def test_extract_train_1():
     }
     with pytest.raises(ValueError) as info:
         raise train.extract(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Entinty to Find"\nSecond Element is "Variation", If no variation, use \'\'\n'"Example:[['Television', 'TV]]"
+    assert info.typename == 'ValueError' and info.value.args[0] == "Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use ''\nExample:[['Television', 'TV']]"
     
 # Input of lists of lists
 # Headers not included ['Entity to Find', 'Variation (Optional)']
