@@ -8,6 +8,8 @@ import json as _json
 
 
 # TODO: JWT auth rather than basic auth
+# TODO: Is batching required for large data sets?
+# TODO: enable use of labels for read criteria as well as column Ids
 
 
 _schema = {}
@@ -23,46 +25,110 @@ _target_types = {
 }
 
 
-def read(host: str, partition: str, source: str, user: str, password: str, columns: list = None, data_source: str = None) -> _pd.DataFrame:
+def _get_field_map(host: str, partition: str, target_code: str, user: str, password: str, to_label: bool = True) -> dict:
+    """
+    Generate a mapping of pricefx field labels to ids for master tables
+
+    :param host: The host
+    :param partition: The partition
+    :param target_code: The code corresponding to the data type e.g. Products = P
+    :param user: The user to connect as
+    :param password: Password for the user
+    :param to_label: If true, return id -> label, else label -> id
+    :returns: A dictionary of the field mappings
+    """
+    field_map = {}
+    url = f"https://{host}/pricefx/{partition}/fetch/{target_code}AM"
+    field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
+    for row in field_map_list:
+        # Add labels and labelTranslations to map for alternative lookups
+        if to_label:
+            field_map[row['fieldName']] = row['label'] 
+        else:
+            field_map[row['label']] = row['fieldName']
+        for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+            if to_label:
+                field_map[row['fieldName']] = val 
+            else:
+                field_map[val] = row['fieldName']
+    
+    return field_map
+
+
+
+def read(host: str, partition: str, data_type: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None) -> _pd.DataFrame:
     """
     Import data from a PriceFx instance.
 
     >>> from wrangles.connectors import pricefx
-    >>> df = pricefx.read(host='node.pricefx.eu', partition='partition', source='Products', user='user', password='password')
+    >>> df = pricefx.read(host='node.pricefx.eu', partition='partition', data_type='Products', user='user', password='password')
 
     :param host: Hostname of the instance
     :param partition: Partition to write to
-    :param source: Source of the data. Products, Customers, Data Source, etc.
+    :param data_type: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
     :param user: User with access to write
     :param password: Password of user
-    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
-    :param data_source: If the source is a Data Source, set the specific table.
+    :param columns: (Optional) Specify which columns to include
+    :param source: If the data type is a Data Source or Extension, set the specific table
+    :param criteria: (Optional) Filter the returned data set
     """
-    # TODO: read master tables
-    # TODO: Batch calls for larger tables
-    _logging.info(f": Importing Data :: {host} / {partition} / {source}")
+    _logging.info(f": Importing Data :: {host} / {partition} / {data_type}")
+    
+    # Convert target name to code
+    source_code = _target_types.get(data_type.lower(), data_type)
 
-    url = f"https://{host}/pricefx/{partition}/datamart.getfcs/DMDS"
-    payload = {
-        "data": {
-            "_constructor": "AdvancedCriteria",
-            "operator": "and",
-            "criteria": [
-                {
-                    "fieldName": "uniqueName",
-                    "operator": "equals",
-                    "value": data_source
-                }
-            ]
+    # Generate the appropriate API call info for the requested data
+    if source_code == 'DS':
+        url = f"https://{host}/pricefx/{partition}/datamart.getfcs/DMDS"
+        payload = {
+            "data": {
+                "_constructor": "AdvancedCriteria",
+                "operator": "and",
+                "criteria": [
+                    {
+                        "fieldName": "uniqueName",
+                        "operator": "equals",
+                        "value": source
+                    }
+                ]
+            }
         }
-    }
-    response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
-    typed_id = response.json()["response"]["data"][0]['typedId']
+        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+        typed_id = response.json()["response"]["data"][0]['typedId']
 
-    url = f"https://{host}/pricefx/{partition}/datamart.fetchnocount/{typed_id}"
-    response = _requests.post(url, auth=(f'{partition}/{user}', password))
+        url = f"https://{host}/pricefx/{partition}/datamart.fetchnocount/{typed_id}"
+
+    elif source_code == 'PX':
+        url = f"https://{host}/pricefx/{partition}/productmanager.fetch/*/PX/{source}"
+
+    elif source_code == 'P':
+        url = f"https://{host}/pricefx/{partition}/productmanager.fetchformulafilteredproducts"
+
+    elif source_code == 'C':
+        url = f"https://{host}/pricefx/{partition}/customermanager.fetchformulafilteredcustomers"
+        
+    elif source_code == 'CX':
+        url = f"https://{host}/pricefx/{partition}/customermanager.fetch/*/CX/{source}"
+
+    payload = {}
+    params = {}
+
+    # If user has specified a set of filters, apply those
+    if criteria:
+        payload = {
+            "data": {
+                "_constructor": "AdvancedCriteria",
+                "operator": "and",
+                "criteria": criteria
+            }
+        }
+
+    response = _requests.post(url, auth=(f'{partition}/{user}', password), params=params, json=payload)
     df = _pd.json_normalize(response.json()["response"]["data"]).fillna("")
     
+    if source_code != 'DS':
+        df.rename(columns=_get_field_map(host, partition, source_code, user, password), inplace=True)
+
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
 
@@ -74,7 +140,7 @@ description: Import data from a PriceFx instance.
 required:
   - host
   - partition
-  - source
+  - data_type
   - user
   - password
 properties:
@@ -90,9 +156,9 @@ properties:
   password:
     type: string
     description: Password for the specified user
-  source:
+  data_type:
     type: string
-    description: Source of the data. Products, Customers, Data Source, etc.
+    description: Type of Data. Products, Customers, Data Source, etc.
     enum:
       - Products
       - Product Extensions
@@ -102,9 +168,12 @@ properties:
   columns:
     type: array
     description: Specify which columns to include
-  data_source:
+  source:
     type: string
-    description: If the source is a Data Source, set the specific table.
+    description: If the data type is a Data Source or Extension, set the specific table.
+  critera:
+    type: array
+    description: Filter the returned data set.
 """
 
 
@@ -124,8 +193,6 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
     :param data_source: If the target is a Data Source, set the specific table.
     """
-    # TODO: batch large data sets?
-
     _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
 
     # Convert target name to code
