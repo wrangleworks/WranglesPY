@@ -78,8 +78,6 @@ def log(df: _pd.DataFrame, columns: list = None):
     type: object
     description: Log the current status of the dataframe
     additionalProperties: false
-    required:
-      - columns
     properties:
       columns:
         type: array
