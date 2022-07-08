@@ -39,6 +39,7 @@ headers = {'Authorization': f'Bearer 3141'}
 class temp_response_batch_calls():
     status_code = 500
     reason = 'Internal Server Error.'
+    text = 'An internal error has occured.'
     
 def test_batch_api_calls_errors(mocker):
     m = mocker.patch("wrangles.auth.get_access_token")
@@ -53,7 +54,7 @@ def test_batch_api_calls_errors(mocker):
     }
     with pytest.raises(ValueError) as info:
         raise batch_api_calls(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Status Code: 500 - Internal Server Error.. \n'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Status Code: 500 - Internal Server Error.. An internal error has occured. \n'
     
     
 # ssh connection
