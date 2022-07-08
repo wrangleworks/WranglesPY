@@ -56,26 +56,26 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
 
 
 
-def read(host: str, partition: str, data_type: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None) -> _pd.DataFrame:
+def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None) -> _pd.DataFrame:
     """
     Import data from a PriceFx instance.
 
     >>> from wrangles.connectors import pricefx
-    >>> df = pricefx.read(host='node.pricefx.eu', partition='partition', data_type='Products', user='user', password='password')
+    >>> df = pricefx.read(host='node.pricefx.eu', partition='partition', target='Products', user='user', password='password')
 
     :param host: Hostname of the instance
     :param partition: Partition to write to
-    :param data_type: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
+    :param target: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
     :param user: User with access to write
     :param password: Password of user
     :param columns: (Optional) Specify which columns to include
     :param source: If the data type is a Data Source or Extension, set the specific table
     :param criteria: (Optional) Filter the returned data set
     """
-    _logging.info(f": Importing Data :: {host} / {partition} / {data_type}")
+    _logging.info(f": Importing Data :: {host} / {partition} / {target}")
     
     # Convert target name to code
-    source_code = _target_types.get(data_type.lower(), data_type)
+    source_code = _target_types.get(target.lower(), target)
 
     # Generate the appropriate API call info for the requested data
     if source_code == 'DS':
@@ -140,7 +140,7 @@ description: Import data from a PriceFx instance.
 required:
   - host
   - partition
-  - data_type
+  - target
   - user
   - password
 properties:
@@ -156,7 +156,7 @@ properties:
   password:
     type: string
     description: Password for the specified user
-  data_type:
+  target:
     type: string
     description: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
     enum:
