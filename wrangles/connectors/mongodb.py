@@ -28,7 +28,7 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     db = client[database]
     col = db[collection]
     
-    # checkiing if database and collections are in mongoDB
+    # checking if database and collections are in mongoDB
     if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
     if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
     
@@ -108,7 +108,10 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     elif action.upper() == 'UPDATE':
         col.update_many(query, update)
     
-    client.close()
+    try:
+      client.close()
+    except:
+      pass
 _schema['write'] = """
 type: object
 description: insert, delete, or update data to a mongoDB Server
