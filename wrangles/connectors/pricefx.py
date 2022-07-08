@@ -265,7 +265,6 @@ required:
   - target
   - user
   - password
-  - columns
 properties:
   host:
     type: string
