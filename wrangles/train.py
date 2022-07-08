@@ -39,10 +39,11 @@ class train():
         :param name: The name of the new model.
         """
         # If input is a list, check to make sure that all sublists are lenght of 2
+        # Must have both values filled ('' counts as filled, None does not count)
         if isinstance(training_data, list):
             check_index = [training_data.index(x) for x in training_data if len(x) != 2]
-            if len(check_index) != 0:
-                raise ValueError(f'Training_data list must contain a list of two elements. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is "Entity to Find"\nSecond Element is "Variation", If no variation, use \'\'\n'
+            if len(check_index) != 0: # If an index does not have len() of 2 then raise error
+                raise ValueError(f"Training_data list must contain a list of two elements. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use \'\'\n"
                 "Example:[['Television', 'TV']]")
             # checking the first element in training list
             if training_data[0] != ['Entity to Find', 'Variation (Optional)']:
