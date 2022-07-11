@@ -1,7 +1,6 @@
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
-    Stock Wrangle
     """
     results = []
     for row in data_list:
@@ -20,7 +19,6 @@ def highest_confidence(data_list):
 def confidence_threshold(list_1, list_2, threshold):
     """
     Select the first option if it exceeds a given threshold, else the second option.
-    Stock Wrangle
     """
     results = []
     
@@ -45,7 +43,6 @@ def confidence_threshold(list_1, list_2, threshold):
 def list_element(input, n):
     """
     Select a numbered element of a list (zero indexed).
-    Stock Wrangle
     """
     def check_if_possible(a, element):
         try:
@@ -59,6 +56,5 @@ def list_element(input, n):
 def dict_element(input, key):
     """
     Select a named element of a dictionary
-    Stock Wrangle
     """
     return [row.get(key, '') for row in input]
