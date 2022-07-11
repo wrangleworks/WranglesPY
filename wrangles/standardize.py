@@ -7,7 +7,7 @@ def standardize(input: _Union[str, list], model_id: str) -> list:
     """
     Standardize text - Standardize Wrangles can replace words with alternatives,
     in addition to using regex patterns for more complex replacements.
-    DIY Wrangle. Requires a WrangleWorks Account.
+    Requires WrangleWorks Account and Subscription.
 
     :param input: A string or list of strings to be standardized.
     :param model_id: The model to be used.

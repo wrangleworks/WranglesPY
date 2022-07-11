@@ -11,7 +11,7 @@ from typing import Union as _Union
 def address(input: _Union[str, list], dataType: str) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
-    Stock Account Wrangle.
+    Requires WrangleWorks Account.
 
     e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
 
@@ -38,7 +38,7 @@ def address(input: _Union[str, list], dataType: str) -> list:
 def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None) -> _Union[dict, list]:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
-    Stock Account Wrangle
+    Requires WrangleWorks Account.
 
     >>> wrangles.extract.attributes('tape 25m')
     {'length': ['25m']}
@@ -68,7 +68,7 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
 def codes(input: _Union[str, list]) -> list:
     """
     Extract alphanumeric codes from unstructured text.
-    Stock Account Wrangle
+    Requires WrangleWorks Account.
 
     e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'
 
@@ -92,7 +92,7 @@ def codes(input: _Union[str, list]) -> list:
 def custom(input: _Union[str, list], model_id: str) -> list:
     """
     Extract entities using a custom model.
-    Requires WrangleWorks Account. DIY or Bespoke Wrangle
+    Requires WrangleWorks Account and Subscription.
 
     :param input: A string or list of strings to searched for information.
     :param model_id: The model to be used to search for information.
@@ -135,6 +135,7 @@ def custom(input: _Union[str, list], model_id: str) -> list:
 def geography(input: _Union[str, list], dataType: str) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
+    Requires WrangleWorks Account.
 
     e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
 
@@ -161,7 +162,7 @@ def geography(input: _Union[str, list], dataType: str) -> list:
 def html(input: _Union[str, list], dataType: str) -> list:
     """
     Extract specific html elements from strings containing html.
-    Stock Account Wrangle
+    Requires WrangleWorks Account.
 
     :param input: A string or list of strings with addresses to search for information.
     :param dataType: The type of information to return. 'text' or 'links'
@@ -186,7 +187,7 @@ def html(input: _Union[str, list], dataType: str) -> list:
 def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
-    Stock Account Wrangle
+    Requires WrangleWorks Account.
 
     >>> wrangles.extract.properties('The Green Mile')
     {'Colours': ['Green']}
@@ -217,7 +218,6 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 def remove_words(input, to_remove):
     """
     Remove all the elements that occur in one list from another.
-    Stock Account Wrangle
     
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words

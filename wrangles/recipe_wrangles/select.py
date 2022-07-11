@@ -9,7 +9,7 @@ from typing import Union as _Union
 def list_element(df: _pd.DataFrame, input: str, output: str, element: int = 0) -> _pd.DataFrame:
     """
     type: object
-    description: Select a numbered element of a list (zero indexed). Stock Wrangle
+    description: Select a numbered element of a list (zero indexed).
     additionalProperties: false
     required:
       - input
@@ -33,7 +33,7 @@ def list_element(df: _pd.DataFrame, input: str, output: str, element: int = 0) -
 def dictionary_element(df: _pd.DataFrame, input: str, output: str, element: str) -> _pd.DataFrame:
     """
     type: object
-    description: Select a named element of a dictionary. Stock Wrangle
+    description: Select a named element of a dictionary.
     additionalProperties: false
     required:
       - input
@@ -57,7 +57,7 @@ def dictionary_element(df: _pd.DataFrame, input: str, output: str, element: str)
 def highest_confidence(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>]. Stock Wrangle
+    description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
     additionalProperties: false
     required:
       - input
@@ -79,7 +79,7 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: str) -> _pd.DataF
 def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> _pd.DataFrame:
     """
     type: object
-    description: Select the first option if it exceeds a given threshold, else the second option. Stock Wrangle
+    description: Select the first option if it exceeds a given threshold, else the second option.
     additionalProperties: false
     required:
       - input
@@ -105,7 +105,7 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
 def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the left of text. Strings shorter than the length defined will be unaffected. Stock Wrangle
+    description: Return characters from the left of text. Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -143,7 +143,7 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
 def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the right of text. Strings shorter than the length defined will be unaffected. Stock Wrangle
+    description: Return characters from the right of text. Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -181,7 +181,7 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
 def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the middle of text. Stock Wrangle
+    description: Return characters from the middle of text.
     additionalProperties: false
     required:
       - input

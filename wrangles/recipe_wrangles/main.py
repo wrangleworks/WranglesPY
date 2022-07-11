@@ -17,7 +17,7 @@ import sqlite3 as _sqlite3
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     type: object
-    description: Run classify wrangles on the specified columns. DIY Account Wrangle
+    description: Run classify wrangles on the specified columns. Requires WrangleWorks Account and Subscription.
     additionalProperties: false
     required:
       - input
@@ -53,7 +53,7 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
 def filter(df: _pd.DataFrame, input: str, equal: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
-    description: Filter the dataframe based on the contents. Stock Wrangle
+    description: Filter the dataframe based on the contents.
     additionalProperties: false
     required:
       - input
@@ -76,7 +76,7 @@ def filter(df: _pd.DataFrame, input: str, equal: _Union[str, list]) -> _pd.DataF
 def log(df: _pd.DataFrame, columns: list = None):
     """
     type: object
-    description: Log the current status of the dataframe. Stock Wrangle
+    description: Log the current status of the dataframe.
     additionalProperties: false
     properties:
       columns:
@@ -94,7 +94,7 @@ def log(df: _pd.DataFrame, columns: list = None):
 def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
     type: object
-    description: Rename a column or list of columns. Stock Wrangle
+    description: Rename a column or list of columns.
     properties:
       input:
         type:
@@ -123,7 +123,7 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
 def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Standardize data using a DIY or bespoke standardization wrangle. DIY Account Wrangle
+    description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
     additionalProperties: false
     required:
       - input
@@ -163,7 +163,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
 def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
     """
     type: object
-    description: Translate the input to a different language. Account Wrangle
+    description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
     additionalProperties: false
     required:
       - input
@@ -190,7 +190,7 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
 def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Remove all the elements that occur in one list from another. Stock Wrangle
+    description: Remove all the elements that occur in one list from another.
     additionalProperties: false
     required:
       - input
@@ -216,7 +216,7 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str) -> 
 def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     """
     type: object
-    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output. Stock Wrangle
+    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
     additionalProperties: false
     required:
       - command
@@ -241,7 +241,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
 def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Apply a mathematical calculation. Stock Wrangle
+    description: Apply a mathematical calculation.
     additionalProperties: false
     required:
       - input
@@ -261,7 +261,7 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Apply a mathematical calculation. Stock Wrangle
+    description: Apply a mathematical calculation.
     additionalProperties: false
     required:
       - input
