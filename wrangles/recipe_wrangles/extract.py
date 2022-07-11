@@ -10,7 +10,7 @@ from .. import format as _format
 def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
     """
     type: object
-    description: Extract parts of addresses
+    description: Extract parts of addresses. Stock Account Wrangle
     additionalProperties: false
     required:
       - input
@@ -30,7 +30,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
 def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None) -> _pd.DataFrame:
     """
     type: object
-    description: Extract numeric attributes from the input such as weights or lengths
+    description: Extract numeric attributes from the input such as weights or lengths. Stock Account Wrangle
     additionalProperties: false
     required:
       - input
@@ -59,7 +59,7 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
 def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
-    description: Extract alphanumeric codes from the input
+    description: Extract alphanumeric codes from the input. Stock Account Wrangle
     additionalProperties: false
     required:
       - input
@@ -95,7 +95,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     type: object
-    description: Extract data from the input using a DIY or bespoke extraction wrangle
+    description: Extract data from the input using a DIY or bespoke extraction wrangle. DIY Wrangle
     additionalProperties: false
     required:
       - input
@@ -135,7 +135,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
 def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Extract elements from strings containing html
+    description: Extract elements from strings containing html. Stock Accont Wrangle
     additionalProperties: false
     required:
       - input
@@ -171,7 +171,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
 def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None) -> _pd.DataFrame:
     """
     type: object
-    description: Extract text properties from the input
+    description: Extract text properties from the input. Stock Account Wrangle
     additionalProperties: false
     required:
       - input

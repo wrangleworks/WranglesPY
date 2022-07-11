@@ -11,6 +11,7 @@ from typing import Union
 def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
     """
     Predict which category an input belongs to.
+    Requires WrangleWorks Account. DIY or Bespoke Wrangle.
 
     :param input: A string or list of strings to be classified.
     :param model_id: The model to be used to predict the class.

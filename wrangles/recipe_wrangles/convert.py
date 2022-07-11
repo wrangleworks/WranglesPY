@@ -9,7 +9,7 @@ from typing import Union as _Union
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
     type: object
-    description: Change the case of the input
+    description: Change the case of the input. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -62,7 +62,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
 def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
     """
     type: object
-    description: Change the data type of the input
+    description: Change the data type of the input. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -105,7 +105,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
 def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Convert an object to a JSON representation
+    description: Convert an object to a JSON representation. Stock Wrangle
     additionalProperties: false
     required:
       - input

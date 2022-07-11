@@ -10,7 +10,7 @@ from typing import List as _list       # Rename List to _list to be able to use 
 def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False) -> _pd.DataFrame:
     """
     type: object
-    description: Split a string to multiple columns or a list.
+    description: Split a string to multiple columns or a list. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -74,7 +74,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
 def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
     """
     type: object
-    description: Split a list in a single column to multiple columns
+    description: Split a list in a single column to multiple columns. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -112,7 +112,7 @@ def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
 def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     """
     type: object
-    description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
+    description: Split a dictionary into columns. The dictionary keys will be used as the new column headers. Stock Wrangles
     additionalProperties: false
     required:
       - input
@@ -129,7 +129,7 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
 def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Tokenize elements in a list into individual tokens.
+    description: Tokenize elements in a list into individual tokens. Stock Wrangle
     additionalProperties: false
     required:
       - input
