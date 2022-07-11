@@ -177,7 +177,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, password: str, columns: list = None, data_source: str = None) -> None:
+def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None) -> None:
     """
     Export data to a PriceFx instance. Column names must match the ID or label of the respective pricefx columns.
 
@@ -191,7 +191,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     :param user: User with access to write
     :param password: Password of user
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
-    :param data_source: If the target is a Data Source, set the specific table.
+    :param source: Required for Data Sources. Set the specific table.
     """
     _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
 
@@ -233,14 +233,14 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     # Upload to target
     if target_code in ['DS']:
       # Data Source requires upload + trigger a 'flush'
-      url = f"https://{host}/pricefx/{partition}/datamart.loaddata/{data_source}"
+      url = f"https://{host}/pricefx/{partition}/datamart.loaddata/{source}"
       _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
       url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
       payload = {
         "data": {
           "type": "DS_FLUSH",
-          "targetName": f"DMDS.{data_source}",
-          "sourceName": f"DMF.{data_source}"
+          "targetName": f"DMDS.{source}",
+          "sourceName": f"DMF.{source}"
         }
       }
       response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
@@ -290,7 +290,7 @@ properties:
   columns:
     type: array
     description: A list of the columns to write to the table.
-  data_source:
+  source:
     type: string
-    description: If the target is a Data Source, set the specific table.
+    description: Required for Data Sources. Set the specific table.
 """
