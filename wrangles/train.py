@@ -14,6 +14,7 @@ class train():
     def classify(training_data: list, name: str):
         """
         Train a classification model. This can predict the category of a text input.
+        Requires WrangleWorks Account. DIY or Bespoke Wrangle.
         
         :param training_data: paired list of examples and labels.
         :param name: The name of the new model.
@@ -34,6 +35,7 @@ class train():
     def extract(training_data: list, name: str):
         """
         Train an extraction model. This can extract custom entities from the input.
+        Requires WrangleWorks Account. DIY or Bespoke Wrangle.
         
         :param training_data: paired list of entities to find and optional standard representation of that entitiy.
         :param name: The name of the new model.
@@ -56,6 +58,7 @@ class train():
     def standardize(training_data: list, name: str):
         """
         Train a standardize model. This can standardize text to a desired format.
+        Requires WrangleWorks Account. DIY or Bespoke Wrangle.
         
         :param training_data: paired list of entities to find and replace.
         :param name: The name of the new model.

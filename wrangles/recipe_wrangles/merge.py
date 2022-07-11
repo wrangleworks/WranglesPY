@@ -10,7 +10,7 @@ import fnmatch as _fnmatch
 def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Take the first non-empty value from a series of columns
+    description: Take the first non-empty value from a series of columns. Stock Wrangles
     additionalProperties: false
     required:
       - input
@@ -32,7 +32,7 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
 def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: str = ',') -> _pd.DataFrame:
     """
     type: object
-    description: Concatenate a list of columns or a list within a single column
+    description: Concatenate a list of columns or a list within a single column. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -63,7 +63,7 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
 def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False) -> _pd.DataFrame:
     """
     type: object
-    description: Take lists in multiple columns and merge them to a single list
+    description: Take lists in multiple columns and merge them to a single list. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -95,7 +95,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
 def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
-    description: Take multiple columns and merge them to a list
+    description: Take multiple columns and merge them to a list. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -124,7 +124,7 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
 def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
-    description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys
+    description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -154,7 +154,7 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
 def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
+    description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ... Stock Wrangle
     additionalProperties: false
     required:
       - input

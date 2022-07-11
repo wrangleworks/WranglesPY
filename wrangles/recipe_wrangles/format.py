@@ -8,6 +8,7 @@ from .. import format as _format
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
     """
     Rearrange price breaks
+    Stock Wrangle
     """
     df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
     return df
@@ -16,7 +17,7 @@ def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel:
 def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
-    description: Remove duplicates from a list. Preserves input order.
+    description: Remove duplicates from a list. Preserves input order. Stock Wrangle
     additionalProperties: false
     required:
       - input
@@ -44,7 +45,7 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.
 def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
-    description: Remove excess whitespace at the start and end of text
+    description: Remove excess whitespace at the start and end of text. Stock Wrangle
     additionalProperties: false
     required:
       - input

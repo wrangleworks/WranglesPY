@@ -5,12 +5,17 @@ import re
 def join_list(input_list, join_char):
     """
     Join a python list with a specified char
+    Stock Wrangle
     """
     results = [join_char.join(x) for x in input_list]
     return results
 
 
 def concatenate(data_list, concat_char):
+    """
+    Concatenate a list of columns
+    Stock Wrangle
+    """
     results = []
     for row in data_list:
         results.append(concat_char.join(row))            
@@ -39,6 +44,7 @@ def coalesce(input_list: list) -> list:
     """
     Return the first not empty result for each row
     where each row has a list of possibilities
+    Stock Wrangle
     """
     output_list = []
     for row in input_list:
@@ -54,6 +60,10 @@ def coalesce(input_list: list) -> list:
 
 
 def price_breaks(df_input, header_cat, header_val): # pragma: no cover
+    """
+    Rearrange price breaks
+    Stock Wrangle
+    """
     output = []
     headers = []
     i = 1
@@ -88,6 +98,7 @@ def tokenize(input):
     Tokenizes everything in a list that has spaces
     Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
     Ex: 'Cookie Monster -> ['Cookie', 'Monster']
+    Stock Wrangle
     """
     
     results = []

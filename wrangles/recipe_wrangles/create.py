@@ -10,7 +10,7 @@ from typing import Union as _Union
 def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with a user defined value. Defaults to None (empty).
+    description: Create column(s) with a user defined value. Defaults to None (empty). Stock Wrangle
     additionalProperties: false
     required:
       - output
@@ -37,7 +37,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
 def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with a GUID
+    description: Create column(s) with a GUID. Stock Wrangle
     additionalProperties: false
     required:
       - output
@@ -54,7 +54,7 @@ def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
 def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: int = 1) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with an incremental index.
+    description: Create column(s) with an incremental index. Stock Wrangle
     additionalProperties: false
     required:
       - output
@@ -84,7 +84,7 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
 def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with a UUID
+    description: Create column(s) with a UUID. Stock Wrangle
     additionalProperties: false
     required:
       - output

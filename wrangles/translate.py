@@ -10,6 +10,7 @@ from typing import Union as _Union
 def translate(input: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _Union[str, list]:
     """
     Translate text
+    Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available)
 
     :param input: A string or list of strings to be translated.
     :param target_language: A two letter code for the target language. For codes see: https://www.deepl.com/docs-api/translating-text/
