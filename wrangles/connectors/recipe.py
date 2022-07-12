@@ -12,7 +12,7 @@ _schema = {}
 
 def run(name: str, variables: dict = {}) -> None:
     """
-    Run a recipe.
+    Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
 
     >>> from wrangles.connectors import recipe
     >>> recipe.run('recipe.wrgl.yml')
@@ -24,7 +24,7 @@ def run(name: str, variables: dict = {}) -> None:
 
 _schema['run'] = """
 type: object
-description: Run a recipe, from a recipe! Recipe-ception.
+description: Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
 required:
   - name
 properties:
@@ -39,7 +39,7 @@ properties:
 
 def read(name: str, variables: dict = {}, columns: list = None) -> _pd.DataFrame:
     """
-    Read a recipe.
+    Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
 
     >>> from wrangles.connectors import recipe
     >>> df = recipe.read('recipe.wrgl.yml')
@@ -58,7 +58,7 @@ def read(name: str, variables: dict = {}, columns: list = None) -> _pd.DataFrame
 
 _schema['read'] = """
 type: object
-description: Run a recipe, from a recipe! Recipe-ception.
+description: Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
 required:
   - name
 properties:
@@ -76,7 +76,7 @@ properties:
 
 def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = None) -> None:
     """
-    Read a recipe.
+    Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
 
     >>> from wrangles.connectors import recipe
     >>> recipe.write(dataframe=df, name='recipe.wrgl.yml')
