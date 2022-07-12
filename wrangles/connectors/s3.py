@@ -14,6 +14,7 @@ def read(bucket: str, key: str, access_key: str = None, secret_access_key: str =
     :param key: The name of the key to download from
     :param access_key: S3 access key
     :param secret_access_key: S3 secret access key
+    :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
     
     _logging.info(f": Importing Data :: {bucket}.{key}")
@@ -62,6 +63,7 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     :param key: The name of the key to download from
     :param access_key: S3 access key
     :param secret_access_key: S3 secret access key
+    :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
     """
   
   # Check if access keys are not none then auth
