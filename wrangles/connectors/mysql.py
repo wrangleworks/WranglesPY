@@ -9,7 +9,7 @@ import logging as _logging
 _schema = {}
 
 
-def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
+def read(host: str, user: str, password: str, command: str, port = 3306, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
     """
     Import data from a MySQL database.
 
@@ -60,14 +60,14 @@ properties:
     description: The database to connect to
   port:
     type: integer
-    description: The Port to connect to. Defaults to 5432.
+    description: The Port to connect to. Defaults to 3306.
   columns:
     type: array
     description: A list with a subset of the columns to import. This is less efficient than specifying in the command.
 """
 
 
-def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, columns: _Union[str, list] = None) -> None:
+def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 3306, columns: _Union[str, list] = None) -> None:
     """
     Export data to a MySQL database.
 
@@ -125,7 +125,7 @@ properties:
     description: The name of the table to insert the data into
   port:
     type: integer
-    description: The Port to connect to. Defaults to 5432.
+    description: The Port to connect to. Defaults to 3306.
   columns:
     type: array
     description: A list of the columns to write to the table. If omitted, all columns will be written.
