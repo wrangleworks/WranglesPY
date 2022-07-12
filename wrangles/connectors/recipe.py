@@ -37,7 +37,7 @@ properties:
 """
 
 
-def read(name: str, variables: dict = {}):
+def read(name: str, variables: dict = {}, columns: list = None) -> _pd.DataFrame:
     """
     Read a recipe.
 
@@ -46,8 +46,13 @@ def read(name: str, variables: dict = {}):
 
     :param name: Name of the recipe to run
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     """
     df = _recipe.run(name, variables=variables)
+
+    # Select only specific columns if user requests them
+    if columns is not None: df = df[columns]
+
     return df
 
 
@@ -63,6 +68,9 @@ properties:
   variables:
     type: object
     description: A dictionary of variables to pass to the recipe
+  columns:
+    type: array
+    description: Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
 """
 
 
