@@ -12,3 +12,4 @@ lorem
 pymongo[srv]
 simple-salesforce
 numexpr
+boto3
