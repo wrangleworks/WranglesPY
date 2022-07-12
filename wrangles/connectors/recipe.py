@@ -74,7 +74,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: list = None, variables: dict = {}) -> None:
+def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = None) -> None:
     """
     Read a recipe.
 
@@ -84,6 +84,7 @@ def write(df: _pd.DataFrame, name: str, columns: list = None, variables: dict = 
     :param df: Dataframe to start the recipe with
     :param name: Name of the recipe to run
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     """
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
