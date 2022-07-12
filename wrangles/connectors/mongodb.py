@@ -82,7 +82,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     Write data into a monfoDB database
     
     >>> from wrangles.connectors import mongodb
-    >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT, data = [{"name": "Mario"}, {"name": "Luigi"}])
+    >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
     
     :param df: Dataframe to be exported
     :param user: User with access to the database
@@ -91,7 +91,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     :param collection: Collection to be queried
     :param host: mongobd cluster-url
     :param action: actions supported INSERT, UPDATE
-    :pram query: mongoDB query to search for value to update or delete, only valid when using UPDATE, DELETE
+    :pram query: mongoDB query to search for value to update, only valid when using UPDATE
     :param update: mongoDB query value to update, only valid when using UPDATE
     
     """
