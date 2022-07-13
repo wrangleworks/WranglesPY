@@ -13,12 +13,11 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: wrangleworks/wrangles-pipeline
+  IMAGE_NAME: wrangleworks/wrangles
   IMAGE_TAG: dev
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
