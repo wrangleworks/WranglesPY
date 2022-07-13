@@ -288,7 +288,7 @@ def test_standardize_4():
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id in a standardize function.'
     
 # Using classify model with standardize function
-def test_steandardize_4():
+def test_standardize_4():
     data = pd.DataFrame({
     'Abbrev': ['ASAP'],
     })
@@ -367,3 +367,79 @@ def test_custom_function_cell_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
     assert df.iloc[0]['col1'] == 'Reverse Reverse xyz'
+    
+
+#
+# Maths
+#
+
+# Regular use
+def test_maths_1():
+    data = pd.DataFrame({
+        'col1': [1, 1, 1],
+        'col2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - maths:
+          input: col1 + col2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
+    
+# US spelling of maths
+def test_math_1():
+    data = pd.DataFrame({
+        'col1': [1, 1, 1],
+        'col2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col1 + col2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
+    
+#
+# SQL
+#
+
+#regular use
+def test_sql_1():
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', 'z'],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            SELECT header1, header2
+            FROM df
+            WHERE header1 >= 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header1'] == 2
+    
+# Using an incorrect sql statement
+def test_sql_2():
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', 'z'],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            CREATE TABLE header1
+            FROM df
+            WHERE header1 >= 2
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Only SELECT statements are supported for sql wrangles'
