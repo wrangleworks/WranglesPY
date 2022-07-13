@@ -56,7 +56,7 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
 
 
 
-def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None) -> _pd.DataFrame:
+def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None, batch_size: int = 10000) -> _pd.DataFrame:
     """
     Import data from a PriceFx instance.
 
@@ -70,6 +70,7 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
     :param password: Password of user
     :param columns: (Optional) Specify which columns to include
     :param source: If the data type is a Data Source or Extension, set the specific table
+    :param batch_size: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
     :param criteria: (Optional) Filter the returned data set
     """
     _logging.info(f": Importing Data :: {host} / {partition} / {target}")
@@ -123,8 +124,26 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
             }
         }
 
-    response = _requests.post(url, auth=(f'{partition}/{user}', password), params=params, json=payload)
-    df = _pd.json_normalize(response.json()["response"]["data"]).fillna("")
+    continue_query = True
+    i = 0
+    df = None
+    
+    # Query for data in batches
+    while continue_query:
+        payload['startRow'] = i
+        payload['endRow'] = i + batch_size
+
+        response = _requests.post(url, auth=(f'{partition}/{user}', password), params=params, json=payload)
+        if df is None:
+            df = _pd.json_normalize(response.json()["response"]["data"]).fillna("")
+        else:
+            df = _pd.concat([df, _pd.json_normalize(response.json()["response"]["data"]).fillna("")])
+
+        if len(df) % batch_size or len(df) == 0:
+            # Reached the end of the batch - stop looping
+            continue_query = False
+        
+        i += batch_size
     
     if source_code != 'DS':
         df.rename(columns=_get_field_map(host, partition, source_code, user, password), inplace=True)
@@ -171,6 +190,9 @@ properties:
   source:
     type: string
     description: If the data type is a Data Source or Extension, set the specific table.
+  batch_size:
+    type: int
+    description: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
   critera:
     type: array
     description: Filter the returned data set.
