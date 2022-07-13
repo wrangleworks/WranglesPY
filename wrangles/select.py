@@ -44,7 +44,13 @@ def list_element(input, n):
     """
     Select a numbered element of a list (zero indexed).
     """
-    return [row[n] if isinstance(row, list) else '' for row in input]
+    def check_if_possible(element, index):
+        try:
+            return element[index]
+        except IndexError:
+            return ''
+        
+    return [check_if_possible(row, n) if isinstance(row, list) else '' for row in input]
 
 def dict_element(input, key):
     """
