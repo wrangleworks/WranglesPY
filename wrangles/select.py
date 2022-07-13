@@ -57,4 +57,5 @@ def dict_element(input, key):
     """
     Select a named element of a dictionary
     """
-    return [row.get(key, '') for row in input]
+    return [row.get(key, '') if isinstance(row, dict) else '' for row in input]
+        
