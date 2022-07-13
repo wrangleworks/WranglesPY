@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+from wrangles.train import train
 
 
 # Classify
@@ -166,12 +167,53 @@ def test_standardize_2():
         raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
+# If input is a list, check to make sure that all sublists are length of 2
+# Headers not included ['Find', 'Replace']
+def test_standardize_train_1(mocker):
+    data = [
+        ['Rice', 'Arroz'],
+        ['Wheat', 'Trigo']
+    ]
+    config = {
+        'training_data': data,
+        'name': 'test_standardize'
+    }
+    m = mocker.patch("requests.post")
+    m.return_value = temp_classify
+    m2 = mocker.patch("wrangles.auth.get_access_token")
+    m2.return_value = 'None'
+    test = train.standardize(**config)
+    assert test.status_code == 202
+    
+# If input is a list, check to make sure that all sublists are length of 2
+# Headers not included ['Find', 'Replace']
+def test_standardize_train_2():
+    data = [
+        ['Rice', 'Arroz'],
+        ['Wheat']
+    ]
+    config = {
+        'training_data': data,
+        'name': 'test_standardize'
+    }
+    with pytest.raises(ValueError) as info:
+        raise train.standardize(**config)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Entity to Find"\nSecond Element is "Variation", If no variation, use \'\'\nExample:[[\'USA\', \'United States of America\']]'
+    
+def test_standardize_train_3():
+    data = {'Rice': 'Arroz'}
+    config = {
+        'training_data': data,
+        'name': 'test_standardize'
+    }
+    with pytest.raises(ValueError) as info:
+        raise train.standardize(**config)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'A list is expected for training_data'
+
 
 #
 # Train Wrangles
 #
-
-from wrangles.train import train
 
 class temp_classify():
     status_code = 202
