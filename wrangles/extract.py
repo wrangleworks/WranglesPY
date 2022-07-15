@@ -35,7 +35,7 @@ def address(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None) -> _Union[dict, list]:
+def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None) -> _Union[dict, list]:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
     Requires WrangleWorks Account.
@@ -55,7 +55,8 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {'responseFormat':'array', 'responseContent': responseContent}
     if type is not None: params['attributeType'] = type
-
+    if desiredUnit is not None: params['desiredUnit'] = desiredUnit
+    
     batch_size = 1000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
