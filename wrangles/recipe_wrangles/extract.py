@@ -27,7 +27,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     return df
 
 
-def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None) -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -52,7 +52,7 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
           - span
           - object
     """
-    df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, attribute_type)
+    df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, attribute_type, desired_unit)
     return df
 
 
