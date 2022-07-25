@@ -34,11 +34,12 @@ def split(input_list, split_char, output, pad=False):
         max_len = max([len(x.split(split_char)) for x in input_list])
         results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
         
-        # trimming list to appropriate output columns length if possible, else throw an error
+        # trimming list to appropriate output columns number
         if len(output) <= max_len and isinstance(output, list):
             results = [x[:len(output)] for x in results]
+        # if more columns than number of splits, then add '' in extra columns
         elif len(output) >= max_len and isinstance(output, list):
-            raise ValueError('Number of output columns exceeds the number of splits.')
+            results = [x + [''] * (len(output) - len(x)) for x in results] 
     else:
         results = [x.split(split_char) for x in input_list]
     return results
