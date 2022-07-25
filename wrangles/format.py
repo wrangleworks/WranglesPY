@@ -20,7 +20,7 @@ def concatenate(data_list, concat_char):
     return results
     
 # Super Mario Function
-def split_re(input_list, split_char):
+def split_re(input_list, split_char, output):
     # split char is a list of characters -> Joining them
     if isinstance(split_char, list):
         split_char = '|'.join(split_char)
@@ -28,11 +28,17 @@ def split_re(input_list, split_char):
     results = [re.split(split_char, x) for x in input_list]
     return results
     
-def split(input_list, split_char, pad=False):
+def split(input_list, split_char, output, pad=False):
     if pad:
         # Pad to be as long as the longest result
         max_len = max([len(x.split(split_char)) for x in input_list])
         results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
+        
+        # trimming list to appropriate output columns length if possible, else throw an error
+        if len(output) <= max_len and isinstance(output, list):
+            results = [x[:len(output)] for x in results]
+        elif len(output) >= max_len and isinstance(output, list):
+            raise ValueError('Number of output columns exceeds the number of splits.')
     else:
         results = [x.split(split_char) for x in input_list]
     return results
