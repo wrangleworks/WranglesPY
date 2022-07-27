@@ -7,6 +7,7 @@ from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from .. import extract as _extract
+from .. import recipe as _recipe
 
 import numexpr as _ne
 import pandas as _pd
@@ -276,3 +277,21 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
     return df
+    
+
+def recipe(df: _pd.DataFrame, name, variables = {}):
+    """
+    type: object
+    description: Run a recipe as a Wrangle. Recipe-ception,
+    additionalProperties: false
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: file name of the recipe
+    """
+    df = _recipe.run(name, variables=variables, dataframe=df)
+
+    return df
+    
