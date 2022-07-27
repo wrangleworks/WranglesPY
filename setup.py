@@ -18,7 +18,7 @@ setup(
     description = 'Wrangle your data into shape with machine learning',
     long_description = long_description,
     long_description_content_type = 'text/markdown',
-    version = '0.4',
+    version = '0.5',
     url = 'https://wrangles.io',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
