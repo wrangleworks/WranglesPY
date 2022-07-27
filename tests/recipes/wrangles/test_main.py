@@ -443,3 +443,18 @@ def test_sql_2():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Only SELECT statements are supported for sql wrangles'
+    
+#
+# Recipe as a wrangle. Recipe-ception
+#
+def test_recipe_wrangle_1():
+    data = pd.DataFrame({
+        'col': ['Mario', 'Luigi']
+    })
+    recipe = """
+    wrangles:
+      - recipe:
+          name: 'tests/samples/recipe_ception.wrgl.yaml'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col'].iloc[0] == 'MARIO'
