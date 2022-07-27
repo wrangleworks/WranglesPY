@@ -290,6 +290,9 @@ def recipe(df: _pd.DataFrame, name, variables = {}):
       name:
         type: string
         description: file name of the recipe
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe
     """
     df = _recipe.run(name, variables=variables, dataframe=df)
 
