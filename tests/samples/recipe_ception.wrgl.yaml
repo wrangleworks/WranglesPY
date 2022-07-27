@@ -1,0 +1,4 @@
+wrangles:
+  - convert.case:
+      input: col
+      case: upper
