@@ -7,15 +7,13 @@ import fabric as _fabric
 import pandas as _pd
 import io as _io
 import logging as _logging
-
-# TODO: add write
-# TODO: add run to move/copy/delete files?
+from . import file as _file
 
 
 _schema = {}
 
 
-def read(host: str, user: str, password: str, file: str, port: int = 22, columns: list = None, **kwargs) -> _pd.DataFrame:
+def read(host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> _pd.DataFrame:
     """
     Read files from an SFTP server
 
@@ -26,6 +24,7 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, columns
     :param user: The user to connect as
     :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param kwargs: Other arguments from the file connector may also be used
     :return: A dataframe with the imported data
     """
     _logging.info(f": Importing Data from SFTP :: {host}")
@@ -35,23 +34,8 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, columns
     _fabric.Connection(host, user=user, port=port, connect_kwargs={'password': password}).get(file, local=tempFile)
     tempFile.seek(0)
     
-    # Open appropriate file type
-    if file.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
-        if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
-        df = _pd.read_excel(tempFile, **kwargs).fillna('')
-    elif file.split('.')[-1] in ['csv', 'txt'] or '.'.join(file.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
-        df = _pd.read_csv(tempFile, **kwargs).fillna('')
-    elif file.split('.')[-1] in ['json'] or '.'.join(file.split('.')[-2:]) in ['json.gz']:
-        df = _pd.read_json(tempFile, **kwargs).fillna('')
-    elif file.split('.')[-1] in ['jsonl'] or '.'.join(file.split('.')[-2:]) in ['jsonl.gz']:
-        # Set lines to true 
-        kwargs['lines'] = True
-        # Only records orientation is supported for JSONL
-        kwargs['orient'] = 'records'
-        df = _pd.read_json(tempFile, **kwargs).fillna('')
-
-    # If the user specifies only certain columns, only include those
-    if columns is not None: df = df[columns]
+    # Read the data using the file connector
+    df = _file.read(file, file_object=tempFile, **kwargs)
 
     return df
 
@@ -102,9 +86,9 @@ properties:
 """
 
 
-def write(df, host: str, user: str, password: str, file: str, port: int = 22, columns: list = None, **kwargs) -> None:
+def write(df, host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> None:
     """
-    Read files to an SFTP server
+    Write files to an SFTP server
 
     Supports Excel (.xlsx, .xls), CSV (.csv, .txt) and JSON (.json) files.
     JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be compressed.
@@ -117,43 +101,16 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, co
     :param user: The user to connect as
     :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param port: (Optional) Specify the port to connect to
+    :param kwargs: Other arguments from the file connector may also be used
     """
-    _logging.info(f": Exporting data via SFTP :: {host}")
-
-    # If the user specifies only certain columns, only include those
-    if columns is not None: df = df[columns]
-
-    # Get the file from the SFTP server
+    # Create file in memory using the file connector
     tempFile = _io.BytesIO()
-
-    # Write appropriate file
-    if file.split('.')[-1] in ['xlsx', 'xls']:
-        # Write an Excel file
-        # Default to not including index if user hasn't explicitly requested it
-        if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_excel(tempFile, **kwargs)
-
-    elif file.split('.')[-1] in ['csv', 'txt'] or '.'.join(file.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
-        # Write a CSV file
-        # Default to not including index if user hasn't explicitly requested it
-        if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_csv(tempFile, **kwargs)
-
-    elif file.split('.')[-1] in ['json'] or '.'.join(file.split('.')[-2:]) in ['json.gz']:
-        # Write a JSON file
-        # If user doesn't explicitly set orient, assume records - this seems a better default
-        if 'orient' not in kwargs.keys(): kwargs['orient'] = 'records'
-        df.to_json(tempFile, **kwargs)
-        
-    elif file.split('.')[-1] in ['jsonl'] or '.'.join(file.split('.')[-2:]) in ['jsonl.gz']:
-        # Write a line delimited JSONL file
-        # Set lines to true 
-        kwargs['lines'] = True
-        # Only records orientation is supported for JSONL
-        kwargs['orient'] = 'records'
-        df.to_json(tempFile, **kwargs)
-
+    _file.write(df, name=file, file_object=tempFile, **kwargs)
     tempFile.seek(0)  # Reset file to start
+
+    # Export to SFTP server
+    _logging.info(f": Exporting data via SFTP :: {host}")
     _fabric.Connection(host, user=user, port=port, connect_kwargs={'password': password}).put(tempFile, remote=file)
 
 
