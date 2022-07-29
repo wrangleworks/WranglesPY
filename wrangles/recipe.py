@@ -150,7 +150,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
                 # TODO: remove parameters, allow selecting in/out columns
-                df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+                df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
 
             elif wrangle.split('.')[0] == 'custom':
                 # Execute a user's custom function
