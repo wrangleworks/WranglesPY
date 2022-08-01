@@ -51,14 +51,22 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     return df
 
 
-def filter(df: _pd.DataFrame, input: str, equal: _Union[str, list]) -> _pd.DataFrame:
+def filter(df: _pd.DataFrame, input: str,
+          equal: _Union[str, list] = None,
+          is_in: _Union[str, list] = None,
+          not_in: _Union[str, list] = None,
+          greater_than: _Union[int, float] = None,
+          greater_than_equal_to: _Union[int, float] = None,
+          lower_than: _Union[int, float] = None,
+          lower_than_equal_to: _Union[int, float] = None,
+          in_between: list = None
+          ) -> _pd.DataFrame:
     """
     type: object
     description: Filter the dataframe based on the contents.
     additionalProperties: false
     required:
       - input
-      - equal
     properties:
       input:
         type: string
@@ -68,9 +76,67 @@ def filter(df: _pd.DataFrame, input: str, equal: _Union[str, list]) -> _pd.DataF
           - string
           - array
         description: Value or list of values to filter to
+      is_in:
+        type:
+          - string
+          - array
+        description: Value or list of values to filter to
+      not_in:
+        type:
+          - string
+          - array
+        description: Value or list of values to filter to
+      greater_than:
+        type:
+          - integer
+          - float
+        description: Value or list of values to filter to
+      greater_than_equal:
+        type:
+          - integer
+          - float
+        description: Value or list of values to filter to
+      lower_than:
+        type:
+          - integer
+          - float
+        description: Value or list of values to filter to
+      lower_than_equal:
+        type:
+          - integer
+          - float
+        description: Value or list of values to filter to
+      in_between:
+        type:
+          - array
+        description: Value or list of values to filter to
+      
     """
-    if isinstance(equal, str): equal = [equal]
-    df = df.loc[df[input].isin(equal)]
+    # check that only one variable is selected
+    none_list = [equal, is_in, not_in, greater_than, greater_than_equal_to, lower_than, lower_than_equal_to, in_between]
+    variables_count = [x for x in none_list if x != None]
+    if len(variables_count) > 1: raise ValueError("Only one filter at a time can be used.")
+    
+    if equal != None:
+      if isinstance(equal, str): equal = [equal]
+      df = df.loc[df[input].isin(equal)]
+    elif is_in != None:
+      if isinstance(is_in, str): is_in = [is_in]
+      df = df[df[input].isin(is_in)]
+    elif not_in != None:
+      if isinstance(not_in, str): not_in = [not_in]
+      df = df[~df[input].isin(not_in)]
+    elif greater_than != None:
+      df = df[df[input] > greater_than]
+    elif greater_than_equal_to != None:
+      df = df[df[input] >= greater_than_equal_to]
+    elif lower_than != None:
+      df = df[df[input] < lower_than]
+    elif lower_than_equal_to != None:
+      df = df[df[input] <= lower_than_equal_to]
+    elif in_between != None:
+      if len(in_between) != 2: raise ValueError('Can only use "in_between" with two values')
+      df = df[df[input].between(in_between[0], in_between[1])]      
     return df
 
 
@@ -279,7 +345,7 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
     
 
-def recipe(df: _pd.DataFrame, name, variables = {}):
+def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     """
     type: object
     description: Run a recipe as a Wrangle. Recipe-ception,
@@ -294,7 +360,17 @@ def recipe(df: _pd.DataFrame, name, variables = {}):
         type: object
         description: A dictionary of variables to pass to the recipe
     """
-    df = _recipe.run(name, variables=variables, dataframe=df)
-
+    original_df = df.copy() # copy of the original df
+    
+    # Running recipe wrangle
+    df_temp = _recipe.run(name, variables=variables, dataframe=df)
+    
+    # colum output logic
+    if output_columns is None:
+        df = df_temp
+    else:
+        df = original_df.merge(df_temp[output_columns], how='right', left_index=True, right_index=True)
+        print()
+        
     return df
     
