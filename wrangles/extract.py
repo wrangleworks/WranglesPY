@@ -7,6 +7,8 @@ from . import data as _data
 from . import batching as _batching
 from typing import Union as _Union
 
+from .format import tokenize
+
 
 def address(input: _Union[str, list], dataType: str) -> list:
     """
@@ -216,13 +218,18 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 
 
 # SUPER MARIO
-def remove_words(input, to_remove):
+def remove_words(input, to_remove, tokenize_to_remove):
     """
     Remove all the elements that occur in one list from another.
     
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words
     """
+    
+    # Tokenize to_remove values
+    if tokenize_to_remove == True:
+        to_remove = [tokenize(to_remove[0])]
+            
         
     # Input is string
     if isinstance(input[0], str):
