@@ -7,7 +7,7 @@ from typing import Union as _Union
 from typing import List as _list       # Rename List to _list to be able to use function name list without clashing
 
 
-def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False) -> _pd.DataFrame:
+def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
@@ -32,6 +32,11 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
       pad:
         type: boolean
         description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
+      element:
+        type: 
+          - integer
+          - string
+        description: (Optional) Select a specific element or range after splitting
     """
     # If char is a list -> split on multiple chars using regex
     if isinstance(char, _list) and '*' not in output:
@@ -67,6 +72,21 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
 
     elif isinstance(output, _list) or pad:
         df[output] = _format.split(df[input].astype(str).tolist(), char, output, pad=True)
+        
+    # Specific element of the output list
+    if isinstance(element, int):
+        element_list = []
+        for x in df[output]:
+            try:
+                # df[output] = df[output].apply(lambda x: [x[element]])
+                element_list.append(x[element])
+            except(IndexError):
+                element_list.append('')
+        df[output] = element_list
+        
+    elif isinstance(element, str):
+        slice_values = [int(x) for x in element.split(':')]
+        df[output] = df[output].apply(lambda x: x[slice_values[0]:slice_values[1]])
         
     return df
     
