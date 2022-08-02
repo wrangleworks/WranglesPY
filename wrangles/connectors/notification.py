@@ -3,6 +3,8 @@ Send notifications to a varity of services
 """
 import apprise as _apprise
 from typing import Union as _Union
+import requests
+import json
 
 
 _schema = {}
@@ -169,3 +171,35 @@ class email():
         url = url + f"&cc={','.join(cc)}".replace('@', '%40')
 
     run(url, subject, body)
+    
+    
+class slack():
+  """
+  Send Slack Messages
+  """
+  _schema = {
+  "run": """
+    type: object
+    description: Send a message to Slack
+    required:
+      - web_hook
+      - title
+      - message
+    properties:
+      web_hook:
+        type: string
+        description: Webhook to post a message to Slack
+      title:
+        type: string
+        description: Title of the message to send to Slack
+      message:
+        type: string
+        description: Message to send to Slack
+  """  
+  }
+  
+  def run(web_hook: str, title: str, message: str):
+      # Apprise supports this Slack Webhook as-is (as of v0.7.7); 
+      # you no longer need to parse the URL any further
+      run(web_hook, title, message)
+      
