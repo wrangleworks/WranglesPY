@@ -8,7 +8,6 @@ import json as _json
 
 
 # TODO: JWT auth rather than basic auth
-# TODO: Is batching required for large data sets?
 # TODO: enable use of labels for read criteria as well as column Ids
 
 
@@ -19,9 +18,46 @@ _schema = {}
 _target_types = {
     'products': 'P',
     'product extensions': 'PX',
+    'product references': 'PXREF',
+    'product competition': 'PCOMP',
     'customers': 'C',
     'customer extensions': 'CX',
-    'data source': 'DS'
+    'data source': 'DS',
+    'company parameters': 'LT',
+}
+
+_lookup_table_codes = {
+    'MATRIX': {
+        'MATRIX': 'MLTV',
+        'MATRIX2': 'MLTV2',
+        'MATRIX3': 'MLTV3',
+        'MATRIX4': 'MLTV4',
+        'MATRIX5': 'MLTV5',
+        'MATRIX6': 'MLTV6'
+    },
+    'JSON': {
+        'JSON': 'JLTV',
+        'JSON2': 'JLTV2'
+    },
+    'SIMPLE': {
+        'STRING': 'LTV',
+        'REAL': 'LTV'
+    }
+}
+
+_meta_tables = {
+    'C': 'CAM',
+    'CX': 'CXAM',
+    'P': 'PAM',
+    'PX': 'PXAM',
+    'MLTV': 'MLTVM',
+    'MLTV2': 'MLTVM',
+    'MLTV3': 'MLTVM',
+    'MLTV4': 'MLTVM',
+    'MLTV5': 'MLTVM',
+    'MLTV6': 'MLTVM',
+    'JLTV': 'JLTVM',
+    'JLTV2': 'JLTVM'
 }
 
 
@@ -53,7 +89,6 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
                 field_map[val] = row['fieldName']
     
     return field_map
-
 
 
 def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None, batch_size: int = 10000) -> _pd.DataFrame:
@@ -102,6 +137,12 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
     elif source_code == 'PX':
         url = f"https://{host}/pricefx/{partition}/productmanager.fetch/*/PX/{source}"
 
+    elif source_code == 'PXREF':
+        url = f"https://{host}/pricefx/{partition}/productmanager.fetchproductxref"
+
+    elif source_code == 'PCOMP':
+        url = f"https://{host}/pricefx/{partition}/productmanager.fetchproductcompetition"
+
     elif source_code == 'P':
         url = f"https://{host}/pricefx/{partition}/productmanager.fetchformulafilteredproducts"
 
@@ -110,6 +151,22 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         
     elif source_code == 'CX':
         url = f"https://{host}/pricefx/{partition}/customermanager.fetch/*/CX/{source}"
+
+    elif source_code == 'LT' and not source:
+        # Requested company parameters, but no source provided
+        # then get list of all tables
+        url = f"https://{host}/pricefx/{partition}/lookuptablemanager.fetch"
+    
+    elif source_code == 'LT' and source:
+        # Requested company parameters + a specific table
+        # Look up table data
+        df_tables = read(host, partition, target, user, password)
+        
+        # Get ID for source requested
+        for row in df_tables.to_dict('records'):
+            if row['uniqueName'] == source:
+                url = f"https://{host}/pricefx/{partition}/lookuptablemanager.fetch/{row['id']}"
+                break
 
     payload = {}
     params = {}
@@ -145,7 +202,7 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         
         i += batch_size
     
-    if source_code != 'DS':
+    if source_code in ['P', 'PX', 'C', 'CX']:
         df.rename(columns=_get_field_map(host, partition, source_code, user, password), inplace=True)
 
     # Reduce to user's columns if specified
@@ -222,60 +279,120 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
 
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
-    
-    # Get list of headers
-    header_list = df.columns.tolist()
 
-    # If not a data_source, convert column labels to IDs
-    if target_code not in ['DS']:
-      field_map = {}
-      url = f"https://{host}/pricefx/{partition}/fetch/{target_code}AM"
-      field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
-      for row in field_map_list:
-        # Add labels and labelTranslations to map for alternative lookups
-        field_map[row['label']] = row['fieldName']
-        for _, val in _json.loads(row["labelTranslations"]).items():
-          field_map[val] = row['fieldName']
-      
-      header_list = [field_map.get(header, header) for header in header_list]
+    # LookupTables (LT) have multiple specific subtypes.
+    # Find the specific code for the user's requested table.
+    if target_code == 'LT':
+        # Look up table data
+        df_tables = read(host, partition, target, user, password)
+        
+        # Get ID for source requested
+        for row in df_tables.to_dict('records'):
+            if row['uniqueName'] == source:
+                target_code = _lookup_table_codes[row['type']][row['valueType']]
+                source = row['id']
+                break
 
-    # Create payload
-    payload = {
-        "data": {
-            "header": header_list,
-            "options": {
-                "direct2ds": False,
-                "detectJoinFields": True,
-                "maxJoinFieldsLengths": []
-            },
-            "data": df.values.tolist()
-        }
-    }
+    # Translate column labels to IDs if we have a meta table to reference
+    meta_table = _meta_tables.get(target_code, None)
+    if meta_table:
+        field_map = {}
+        url = f"https://{host}/pricefx/{partition}/fetch/{meta_table}"
+        payload = { 'startRow': 0, 'endRow': 100000 }
+        response = _requests.post(url, auth=(f'{partition}/{user}', password), json=payload)
+        for row in response.json()['response']['data']:
+            # Skip if this isn't the right lookup table
+            if meta_table in ['JLTVM', 'MLTVM'] and row['lookupTableId'] != source:
+                continue
+            
+            # Skip is this isn't the right extension table
+            if meta_table in ['PXAM', 'CXAM'] and row['name'] != source:
+                continue
+
+            # Add labels and labelTranslations to map for alternative lookups
+            field_map[row['label']] = row['fieldName']
+            for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+                field_map[val] = row['fieldName']
+        
+        df = df.rename(columns=field_map)
+
+    # If user hasn't explicitly defined the extension table then add it here
+    if target_code in ['PX', 'CX'] and 'name' not in df.columns:
+        df['name'] = source
 
     # Upload to target
-    if target_code in ['DS']:
-      # Data Source requires upload + trigger a 'flush'
-      url = f"https://{host}/pricefx/{partition}/datamart.loaddata/{source}"
-      _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
-      url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
-      payload = {
-        "data": {
-          "type": "DS_FLUSH",
-          "targetName": f"DMDS.{source}",
-          "sourceName": f"DMF.{source}"
+    if target_code == 'DS':
+        # Data Source requires upload + trigger a 'flush'
+        # Upload new data
+        url = f"https://{host}/pricefx/{partition}/datamart.loaddata/{source}"
+        # Create payload
+        payload = {
+            "data": {
+                "header": df.columns.tolist(),
+                "options": {
+                    "direct2ds": False,
+                    "detectJoinFields": True,
+                    "maxJoinFieldsLengths": []
+                },
+                "data": df.values.tolist()
+            }
         }
-      }
-      response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
-       # If the response is not 2XX then raise an error
-      if str(response.status_code)[0] != '2':
-        raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
+        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+
+        # If the response is not 2XX then raise an error
+        if str(response.status_code)[0] != '2':
+            raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
+        
+        # Trigger flush
+        url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
+        payload = {
+            "data": {
+                "type": "DS_FLUSH",
+                "targetName": f"DMDS.{source}",
+                "sourceName": f"DMF.{source}"
+            }
+        }
+        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+
+        # If the response is not 2XX then raise an error
+        if str(response.status_code)[0] != '2':
+            raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
+
+    elif target.lower() == 'company parameters':
+        df['lookupTable'] = source
+
+        url = f"https://{host}/pricefx/{partition}/lookuptablemanager.loaddata/{target_code}"
+        
+        # Create payload
+        payload = {
+            "data": {
+                "header": df.columns.tolist(),
+                "data": df.values.tolist()
+            }
+        }
+
+        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+        # If the response is not 2XX then raise an error
+        if str(response.status_code)[0] != '2':
+            raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
 
     else:
-      url = f"https://{host}/pricefx/{partition}/loaddata/{target_code}"
-      response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
-      # If the response is not 2XX then raise an error
-      if str(response.status_code)[0] != '2':
-        raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
+        url = f"https://{host}/pricefx/{partition}/loaddata/{target_code}"
+        payload = {
+            "data": {
+                "header": df.columns.tolist(),
+                "options": {
+                    "direct2ds": False,
+                    "detectJoinFields": True,
+                    "maxJoinFieldsLengths": []
+                },
+                "data": df.values.tolist()
+            }
+        }
+        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+        # If the response is not 2XX then raise an error
+        if str(response.status_code)[0] != '2':
+            raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
     
 
 _schema['write'] = """
@@ -304,11 +421,14 @@ properties:
     type: string
     description: Target for the data. Products, Customers, Data Source, etc.
     enum:
-      - Products
-      - Product Extensions
+      - Company Parameters
       - Customers
       - Customer Extensions
       - Data Source
+      - Products
+      - Product Extensions
+      - Product References
+      - Product Competition
   columns:
     type: array
     description: A list of the columns to write to the table.
