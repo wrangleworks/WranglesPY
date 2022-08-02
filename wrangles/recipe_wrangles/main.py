@@ -57,9 +57,13 @@ def filter(df: _pd.DataFrame, input: str,
           not_in: _Union[str, list] = None,
           greater_than: _Union[int, float] = None,
           greater_than_equal_to: _Union[int, float] = None,
-          lower_than: _Union[int, float] = None,
-          lower_than_equal_to: _Union[int, float] = None,
-          in_between: list = None
+          less_than: _Union[int, float] = None,
+          less_than_equal_to: _Union[int, float] = None,
+          between: list = None,
+          contains: str = None,
+          does_not_contain: str = None,
+          not_null: bool = None,
+          **kwargs,
           ) -> _pd.DataFrame:
     """
     type: object
@@ -113,30 +117,40 @@ def filter(df: _pd.DataFrame, input: str,
       
     """
     # check that only one variable is selected
-    none_list = [equal, is_in, not_in, greater_than, greater_than_equal_to, lower_than, lower_than_equal_to, in_between]
+    none_list = [equal, is_in, not_in, greater_than, greater_than_equal_to, less_than, less_than_equal_to, between, contains, does_not_contain, not_null]
     variables_count = [x for x in none_list if x != None]
     if len(variables_count) > 1: raise ValueError("Only one filter at a time can be used.")
     
     if equal != None:
-      if isinstance(equal, str): equal = [equal]
-      df = df.loc[df[input].isin(equal)]
+        if isinstance(equal, str) or isinstance(equal, bool): equal = [equal]
+        df = df.loc[df[input].isin(equal)]
     elif is_in != None:
-      if isinstance(is_in, str): is_in = [is_in]
-      df = df[df[input].isin(is_in)]
+        if isinstance(is_in, str): is_in = [is_in]
+        df = df[df[input].isin(is_in)]
     elif not_in != None:
-      if isinstance(not_in, str): not_in = [not_in]
-      df = df[~df[input].isin(not_in)]
+        if isinstance(not_in, str): not_in = [not_in]
+        df = df[~df[input].isin(not_in)]
     elif greater_than != None:
-      df = df[df[input] > greater_than]
+        df = df[df[input] > greater_than]
     elif greater_than_equal_to != None:
-      df = df[df[input] >= greater_than_equal_to]
-    elif lower_than != None:
-      df = df[df[input] < lower_than]
-    elif lower_than_equal_to != None:
-      df = df[df[input] <= lower_than_equal_to]
-    elif in_between != None:
-      if len(in_between) != 2: raise ValueError('Can only use "in_between" with two values')
-      df = df[df[input].between(in_between[0], in_between[1])]      
+        df = df[df[input] >= greater_than_equal_to]
+    elif less_than != None:
+        df = df[df[input] < less_than]
+    elif less_than_equal_to != None:
+        df = df[df[input] <= less_than_equal_to]
+    elif between != None:
+        if len(between) != 2: raise ValueError('Can only use "between" with two values')
+        df = df[df[input].between(between[0], between[1], **kwargs)]
+    elif contains != None:
+        df = df[df[input].str.contains(contains, **kwargs)]
+    elif does_not_contain != None:
+        df = df[~df[input].str.contains(does_not_contain, **kwargs)]
+    elif not_null != None:
+        if not_null == True:
+            df = df[df[input].notnull()]
+        else:
+            df = df[df[input].isnull()]
+     
     return df
 
 
@@ -372,7 +386,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     if output_columns is None:
         df = df_temp
     else:
-        df = original_df.merge(df_temp[output_columns], how='right', left_index=True, right_index=True)
+        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
         print()
         
     return df
