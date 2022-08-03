@@ -1,4 +1,5 @@
 import wrangles
+import pandas as pd
 
 recipe = """
 read:
@@ -33,3 +34,19 @@ def test_pandas_tail():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_base)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 1
+    
+    
+# pandas function, take in an input and create new column for output
+def test_pandas_func_1():
+    data = pd.DataFrame({
+        'numbers': [3.14159265359, 2.718281828]
+    })
+    recipe = """
+    wrangles:
+      - pandas.round:
+          input: numbers
+          output: round_num
+          decimals: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['round_num'].iloc[0] == 3
