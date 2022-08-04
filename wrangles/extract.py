@@ -37,7 +37,7 @@ def address(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None) -> _Union[dict, list]:
+def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None, bound: str = 'mid') -> _Union[dict, list]:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
     Requires WrangleWorks Account.
@@ -48,6 +48,7 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     :param input: Input string or list of strings to be searched for attributes
     :param responseContent: (Optional, default Span) 'span' or 'object'. If span, returns original text, if object returns an object of value and dimension.
     :param type: (Optional) Specify which types of attributes to find. If omitted, a dict of all attributes types is returned
+    :param bound: (Optional, default mid). When returning an object, if the input is a range. e.g. 10-20mm, set the value to return. min, mid or max.
     """
     if isinstance(input, str): 
         json_data = [input]
@@ -56,8 +57,13 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
 
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {'responseFormat':'array', 'responseContent': responseContent}
-    if type is not None: params['attributeType'] = type
-    if desiredUnit is not None: params['desiredUnit'] = desiredUnit
+    if type: params['attributeType'] = type
+    if desiredUnit: params['desiredUnit'] = desiredUnit
+    
+    if bound in ['min', 'mid', 'max']:
+        params['bound'] = bound
+    else:
+        raise ValueError('Invalid boundary setting. min, mid or max permitted.')
     
     batch_size = 1000
 
