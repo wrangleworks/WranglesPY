@@ -45,6 +45,30 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
       attribute_type:
         type: string
         description: Request only a specific type of attribute
+        enum:
+          - angle
+          - area
+          - capacitance
+          - charge
+          - current
+          - data transfer rate
+          - electric potential
+          - electrical conductance
+          - electrical resistance
+          - energy
+          - force
+          - frequency
+          - inductance
+          - instance frequency
+          - length
+          - mass
+          - power
+          - pressure
+          - speed
+          - temperature
+          - time
+          - volume
+          - volumetric flow
       responseContent:
         type: string
         description: span - returns the text found. object - returns an object with the value and unit
