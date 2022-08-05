@@ -5,6 +5,8 @@ Run a recipe, from a recipe! Recipe-ception.
 """
 from .. import recipe as _recipe
 import pandas as _pd
+import requests
+import os
 
 
 _schema = {}
@@ -48,10 +50,41 @@ def read(name: str, variables: dict = {}, columns: list = None) -> _pd.DataFrame
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     """
+    
+    # If the recipe to read is from an "https//"
+    if 'https://' in name:
+        name = name.replace("/blob/", "/")
+        name = name.replace("/raw/", "/")
+        name = name.replace("/tree/", "/")
+        name = name.replace("github.com/", "raw.githubusercontent.com/")
+
+        token = os.getenv('GITHUB_TOKEN', '')
+        headers = {
+        'Authorization': f'token {token}',
+        'Accept': 'application/vnd.github.v3.raw'}
+        response = requests.get(name, headers=headers)
+            
+        # Checking if file is 'yml' or 'yaml'
+        file = response.url.split('/')[-1]
+        if file.split('.')[-1] in ['yml', 'yaml']:
+            # Write temp file
+            with open('temp_recipe_from_https.yaml', 'w') as f:
+                f.write(response.text)
+            name = 'temp_recipe_from_https.yaml'
+            # delete file later
+        else:
+            raise ValueError('Recipes can only be yaml files')
+    
     df = _recipe.run(name, variables=variables)
 
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
+    
+    # delete file if imported using "https://"
+    try:
+        os.remove('temp_recipe_from_https.yaml')
+    except:
+        pass
 
     return df
 
