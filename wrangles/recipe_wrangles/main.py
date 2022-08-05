@@ -93,22 +93,22 @@ def filter(df: _pd.DataFrame, input: str,
       greater_than:
         type:
           - integer
-          - float
+          - number
         description: Value or list of values to filter to
       greater_than_equal:
         type:
           - integer
-          - float
+          - number
         description: Value or list of values to filter to
       lower_than:
         type:
           - integer
-          - float
+          - number
         description: Value or list of values to filter to
       lower_than_equal:
         type:
           - integer
-          - float
+          - number
         description: Value or list of values to filter to
       in_between:
         type:
