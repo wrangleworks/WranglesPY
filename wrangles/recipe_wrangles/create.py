@@ -126,12 +126,12 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         description: Namen of new column
       bins:
         type:
-          - int
+          - integer
           - array
         description: Defines the number of equal-width bins in the range
       labels:
         type:
-          - str
+          - string
           - array
         description: Labels for the returned bins
     """
