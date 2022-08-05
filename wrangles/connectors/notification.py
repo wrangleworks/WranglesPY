@@ -3,8 +3,6 @@ Send notifications to a varity of services
 """
 import apprise as _apprise
 from typing import Union as _Union
-import requests
-import json
 
 
 _schema = {}
