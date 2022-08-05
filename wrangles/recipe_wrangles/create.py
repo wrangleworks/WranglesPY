@@ -5,7 +5,7 @@ import pandas as _pd
 import uuid as _uuid
 import numpy as _np
 from typing import Union as _Union
-import math
+import math as _math
 
 
 def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
@@ -139,11 +139,11 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     # Dealing with positive infinity. At end of bins list
     if isinstance(bins, list):
         if bins[-1] == '+':
-            bins[-1] = math.inf
+            bins[-1] = _math.inf
         
         # Dealing with negative infinity. At start of bins list
         if bins[0] == '-':
-            bins[0] = -math.inf
+            bins[0] = -_math.inf
     
     
     df[output] = _pd.cut(
