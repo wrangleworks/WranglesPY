@@ -381,29 +381,6 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     """
     original_df = df.copy() # copy of the original df
     
-    if 'https://' in name:
-        name = name.replace("/blob/", "/")
-        name = name.replace("/raw/", "/")
-        name = name.replace("/tree/", "/")
-        name = name.replace("github.com/", "raw.githubusercontent.com/")
-
-        token = os.getenv('GITHUB_TOKEN', '')
-        headers = {
-        'Authorization': f'token {token}',
-        'Accept': 'application/vnd.github.v3.raw'}
-        response = requests.get(name, headers=headers)
-        
-        # Checking if file is 'yml' or 'yaml'
-        file = response.url.split('/')[-1]
-        if file.split('.')[-1] in ['yml', 'yaml']:
-            # Write temp file
-            with open('temp_recipe_from_https.yaml', 'w') as f:
-                f.write(response.text)
-            name = 'temp_recipe_from_https.yaml'
-            # delete file later
-        else:
-            raise ValueError('Recipes can only be yaml files')
-    
     # Running recipe wrangle
     df_temp = _recipe.run(name, variables=variables, dataframe=df)
     
@@ -413,12 +390,6 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     else:
         df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
         print()
-        
-    # delete file if imported using "https://"
-    try:
-        os.remove('temp_recipe_from_https.yaml')
-    except:
-        pass
         
     return df
     

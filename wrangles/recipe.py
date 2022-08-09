@@ -10,6 +10,7 @@ import os as _os
 import fnmatch as _fnmatch
 import inspect as _inspect
 import warnings as _warnings
+import requests as _requests
 
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
@@ -35,10 +36,17 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     :return: YAML Recipe converted to a dictionary
     """
     _logging.info(": Reading Recipe ::")
+    
+    # If the recipe to read is from an "https//"
+    if 'https://' == recipe[:8]:
+        response = _requests.get(recipe)
+        if str(response.status_code)[0] != '2':
+            raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
+        recipe_string = response.text
 
     # If recipe is a single line, it's probably a file path
     # Otherwise it's a recipe
-    if "\n" in recipe:
+    elif "\n" in recipe:
         recipe_string = recipe
     else:
         with open(recipe, "r") as f:
