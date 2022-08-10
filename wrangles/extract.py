@@ -224,7 +224,7 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 
 
 # SUPER MARIO
-def remove_words(input, to_remove, tokenize_to_remove):
+def remove_words(input, to_remove, tokenize_to_remove, ignore_case):
     """
     Remove all the elements that occur in one list from another.
     
@@ -234,33 +234,37 @@ def remove_words(input, to_remove, tokenize_to_remove):
     
     # Tokenize to_remove values
     if tokenize_to_remove == True:
-        to_remove = [tokenize(to_remove[0])]
+        to_remove = [tokenize(to_remove[x]) for x in range(len(to_remove))]
             
-        
-    # Input is string
+    # If Input is a string
     if isinstance(input[0], str):
-        input_lower = [x.lower() for x in input]
-        input = [[x.split()] for x in input_lower]
+        input = [x.split() for x in input]
+    
+    if ignore_case == True:
+        """
+        Takes inputs and converts to lower
+        """
+    
         results = []
         for item in range(len(input)):
             temp = []
             to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-            temp = filter(None, [x.title() for x in input[item][0] if x not in to_remove_lower])
+            input_lower = [x.lower() for x  in input[item]]
+            temp = filter(None, [x.title() for x in input_lower if x not in to_remove_lower])
             results.append(' '.join(temp))
-        
-        return results
-        
-    
-    # Input is list
-    results = []
-    for item in range(len(input)):
-        temp = []
-        to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-        input_lower = [x.lower() for x  in input[item]]
-        temp = filter(None, [x.title() for x in input_lower if x not in to_remove_lower])
-        results.append(' '.join(temp))
+            
+    else:
+        """
+        Takes inputs as is (raw)
+        """
+        results = []
+        for item in range(len(input)):
+            temp = []
+            to_remove_lower = [item for sublist in to_remove[item] for item in sublist]
+            input_lower = [x for x  in input[item]]
+            temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
+            results.append(' '.join(temp))
 
-        
     return results
     
     

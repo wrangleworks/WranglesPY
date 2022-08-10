@@ -270,7 +270,7 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tokenize_to_remove: bool = False) -> _pd.DataFrame:
+def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -295,7 +295,7 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tok
         type: boolean
         description: tokenize all to_remove inputs
     """
-    df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove)
+    df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
     return df
 
 
