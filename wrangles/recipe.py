@@ -37,8 +37,8 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
     _logging.info(": Reading Recipe ::")
     
-    # If the recipe to read is from an "https//"
-    if 'https://' == recipe[:8]:
+    # If the recipe to read is from "https://" or "http://"
+    if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
         response = _requests.get(recipe)
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
