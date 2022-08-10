@@ -217,6 +217,11 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
       property_type:
         type: string
         description: The specific type of properties to extract
+        enum:
+          - Colours
+          - Materials
+          - Shapes
+          - Standards
     """
     df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type)
     return df
