@@ -13,8 +13,6 @@ import numexpr as _ne
 import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
-import os
-import requests
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
