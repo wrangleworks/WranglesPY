@@ -5,8 +5,6 @@ Run a recipe, from a recipe! Recipe-ception.
 """
 from .. import recipe as _recipe
 import pandas as _pd
-import requests
-import os
 
 
 _schema = {}
