@@ -152,7 +152,6 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         labels=labels,
         **kwargs
     )
-    print(df[['IMAP_Value', 'Pricing']].head(10).to_markdown(index=False))
     
     return df
   
