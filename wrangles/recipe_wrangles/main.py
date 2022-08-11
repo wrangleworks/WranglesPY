@@ -387,7 +387,6 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
         df = df_temp
     else:
         df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
-        print()
         
     return df
     

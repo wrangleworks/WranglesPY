@@ -98,7 +98,7 @@ def test_lists_1():
             output: Combined Col
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    print(df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'E'])
+    assert df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'E']
 
 
 #
@@ -192,5 +192,5 @@ def test_key_value_pairs_2():
             output: Object
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    print(df.iloc[2]['Object'] == {'C': 'c', 'three': 'Third'})
+    assert df.iloc[2]['Object'] == {'C': 'c', 'three': 'Third'}
 

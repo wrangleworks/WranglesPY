@@ -28,7 +28,6 @@ def test_get_access_token_error2(mocker):
     m2.return_value = 'None'
     with pytest.raises(RuntimeError) as info:
         raise get_access_token()
-    print()
     assert info.typename == 'RuntimeError' and info.value.args[0] == 'Unexpected error when authenticating'
     
 # Testing Batching
@@ -56,20 +55,7 @@ def test_batch_api_calls_errors(mocker):
         raise batch_api_calls(**config)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Status Code: 500 - Internal Server Error.. An internal error has occured. \n'
     
-    
-# ssh connection
-# from wrangles.connectors.ssh import run
-# def test_ssh_connection(mocker):
-#     m = mocker.patch("fabric.Connection")
-#     m.return_value = None
-#     config = {
-#         "host": "WrWx",
-#         "user": "SuperMario",
-#         "password": "1234",
-#         "command": "Enhance!"
-#     }
-#     assert run(**config) == None
-#     print()
+
     
     
     

@@ -38,7 +38,7 @@ def test_address_countries():
                 dataType: countries
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_address)
-    print(df.iloc[0]['country'] == ['United Kingdom'])
+    assert df.iloc[0]['country'] == ['United Kingdom']
     
 def test_address_regions():
     recipe = """
@@ -79,8 +79,7 @@ def test_attributes_object():
             responseContent: object
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
-    print(df.iloc[0]['Attributes'] == {'length': [{'unit': 'metre', 'value': 0.5}], 'mass': [{'unit': 'kilogram', 'value': 5.0}]})
-    
+    assert df.iloc[0]['Attributes'] == {'length': [{'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'mass': [{'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
 
 df_test_attributes_all = pd.DataFrame([['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']], columns=['Tools'])
 
