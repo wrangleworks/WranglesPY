@@ -165,7 +165,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             elif wrangle.split('.')[0] == 'custom':
                 # Execute a user's custom function
-                custom_function = functions[wrangle[7:]]
+                try:
+                    custom_function = functions[wrangle[7:]]
+                except:
+                    raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
 
                 # Get user's function arguments
                 function_args = _inspect.getfullargspec(custom_function).args
