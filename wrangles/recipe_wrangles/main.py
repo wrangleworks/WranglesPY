@@ -13,6 +13,7 @@ import numexpr as _ne
 import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
+import re as _re
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -201,14 +202,13 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     return df.rename(columns=rename_dict)
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list] = None, output: _Union[str, list] = None, find: str = None, replace: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
     additionalProperties: false
     required:
       - input
-      - model_id
     properties:
       input:
         type:
@@ -224,19 +224,41 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         type:
           - string
           - array
-        description: The ID of the wrangle to use
+        description: The ID of the wrangle to use (do not include 'find' and 'replace')
+      find:
+        type:
+          - string
+        description: Pattern to find using regex (do not include model_id)
+      replace:
+        type:
+          - string
+        description: Value to replace the pattern found (do not include model_id)
     """
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
+      
+    if model_id is not None and [find, replace] == [None, None]:
 
-    # If user provides a single string, convert all the arguments to lists for consistency
-    if isinstance(input, str): input = [input]
-    if isinstance(output, str): output = [output]
-    if isinstance(model_id, str): model_id = [model_id]
+      # If user provides a single string, convert all the arguments to lists for consistency
+      if isinstance(input, str): input = [input]
+      if isinstance(output, str): output = [output]
+      if isinstance(model_id, str): model_id = [model_id]
 
-    for model in model_id:
-      for input_column, output_column in zip(input, output):
-        df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
+      for model in model_id:
+        for input_column, output_column in zip(input, output):
+          df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
+    
+    # Small on Demand Standardize if model ID is not provided
+    elif model_id is None and find is not None and replace is not None:
+      
+        def mini_standardize(string):
+            new_string = _re.sub(find, replace, string)
+            return new_string
+      
+        df[output] = df[input].apply(lambda x: mini_standardize(x))
+    
+    else:
+        raise ValueError("Standardize must have model_id or find and replace as parameters")
 
     return df
 
