@@ -43,7 +43,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
       df[output] = _format.split_re(df[input].astype(str).tolist(), char, output)
       return df
       
-    # Wilcard with multiple split and multiple char
+    # Wildcard with multiple split and multiple char
     if isinstance(output, str) and '*' in output and isinstance(char, _list):
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
