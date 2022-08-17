@@ -79,41 +79,41 @@ def filter(df: _pd.DataFrame, input: str,
         type:
           - string
           - array
-        description: Value or list of values to filter to
+        description: Value or list of values to filter, equal to parameter values
       is_in:
         type:
           - string
           - array
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are in parameter values
       not_in:
         type:
           - string
           - array
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are not in parameter values
       greater_than:
         type:
           - integer
           - number
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are greater than parameter values
       greater_than_equal:
         type:
           - integer
           - number
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are greater than or equal to parameter values
       lower_than:
         type:
           - integer
           - number
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are lower than parameter values
       lower_than_equal:
         type:
           - integer
           - number
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are lower than or equal to parameter values
       in_between:
         type:
           - array
-        description: Value or list of values to filter to
+        description: Value or list of values to filter that are in between two parameter values
       
     """
     # check that only one variable is selected
@@ -289,9 +289,12 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tok
       output:
         type: string
         description: Name of the output columns
-      output:
+      tokenize_to_remove:
         type: boolean
-        description: tokenize all to_remove inputs
+        description: Tokenize all to_remove inputs
+      ignore_case:
+        type: boolean
+        description: Ignore input and to_remove case
     """
     df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
     return df
