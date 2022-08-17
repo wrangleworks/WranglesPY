@@ -70,3 +70,62 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
         df[output_column] = df[input_column].str.strip()
 
     return df
+    
+
+def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
+  """
+  type: object
+    description: Add a prefix to a column
+    additionalProperties: false
+    required:
+      - input
+      - value
+    properties:
+      input:
+        type:
+          - string
+        description: Name of the input column
+      value:
+        type:
+          - string
+        description: Prefix value to add
+      output:
+        type:
+          - string
+        description: (Optional) Name of the output column
+  """
+  if output is None:
+    df[input] = value + df[input].astype(str)
+  else:
+    df[output] = value + df[input].astype(str)
+  
+  return df
+  
+def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
+  """
+  type: object
+    description: Add a suffix to a column
+    additionalProperties: false
+    required:
+      - input
+      - value
+    properties:
+      input:
+        type:
+          - string
+        description: Name of the input column
+      value:
+        type:
+          - string
+        description: Suffix value to add
+      output:
+        type:
+          - string
+        description: (Optional) Name of the output column
+  """
+  if output is None:
+    df[input] = df[input].astype(str) + value
+  else:
+    df[output] = df[input].astype(str) + value
+  
+  return df
