@@ -154,28 +154,3 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     )
     
     return df
-    
-def column_copy(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Creates a copy of a column
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - array
-        description: Name of column to copy
-      output:
-          type:
-            - array
-        description: Name of the copy column
-    """
-    
-    df[output] = df[input]
-    
-    return df
-    
-  
