@@ -197,7 +197,7 @@ def html(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]:
+def properties(input: _Union[str, list], type: str = None, return_data_type: str = 'list') -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
     Requires WrangleWorks Account.
@@ -222,6 +222,8 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
+    
+    if return_data_type == 'string': results = [', '.join(x) if x != [] else '' for x in results]
     
     return results
 

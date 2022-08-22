@@ -216,7 +216,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     return df
 
 
-def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None) -> _pd.DataFrame:
+def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
@@ -235,6 +235,6 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
         type: string
         description: The specific type of properties to extract
     """
-    df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type)
+    df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
     return df
     
