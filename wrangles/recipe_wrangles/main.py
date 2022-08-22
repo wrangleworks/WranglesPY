@@ -189,11 +189,24 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
           - string
         description: Name or list of output columns.
     """
+    # For checking if columns exist
+    df_cols = list(df.columns)
+    
     # If short form of paired names is provided, use that
     if input is None:
+        # Check that column name exists
+        rename_cols = list(kwargs.keys())
+        for x in rename_cols:
+            
+            if x not in df_cols: raise ValueError(f'Rename column "{x}" not found.')
+        
         rename_dict = kwargs
     else:
         # Otherwise create a dict from input and output columns
+        
+        # Check column exists
+        if input not in df_cols: raise ValueError(f'Rename column "{input}" not found.')
+        
         if isinstance(input, str):
             input = [input]
             output = [output]
