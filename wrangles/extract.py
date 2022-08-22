@@ -52,7 +52,7 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     """
     # Check that attribute_type is correct
     attributes_type_list = ["angle","area","current","force","length","power","pressure","electric potential","volume","mass"]
-    if type.lower() not in attributes_type_list: raise ValueError(f'"{type}" is not a valid attribute_type value.')
+    if type not in attributes_type_list: raise ValueError(f'"{type}" is not a valid attribute_type value. Be sure to use lowercase')
     
     if isinstance(input, str): 
         json_data = [input]
