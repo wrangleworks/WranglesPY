@@ -6,6 +6,7 @@ from . import config as _config
 from . import data as _data
 from . import batching as _batching
 from typing import Union as _Union
+import re as _re
 
 from .format import tokenize
 
@@ -231,12 +232,14 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
 
 
 # SUPER MARIO
-def remove_words(input, to_remove, tokenize_to_remove, ignore_case):
+def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
     """
     Remove all the elements that occur in one list from another.
     
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words
+    :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
+    :pram ignore_case: (Optional) ignore the case of input and to_remove
     """
     
     # Tokenize to_remove values
@@ -272,6 +275,22 @@ def remove_words(input, to_remove, tokenize_to_remove, ignore_case):
             temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
             results.append(' '.join(temp))
 
+    return results
+    
+def brackets(input: str) -> list:
+    """
+    Extract values in brackets, [], {}
+    
+    :param input: Name of the input column
+    :param output: Name of the output column
+    """
+    results = []
+    for item in input:
+        re = _re.findall('\[.*?\]|{.*?}', item)
+        re = [_re.sub('\[|\]|{|}', '', re[x]) for x in range(len(re))]
+        
+        results.append(', '.join(re))
+        
     return results
     
     

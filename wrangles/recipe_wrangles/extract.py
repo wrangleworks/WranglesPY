@@ -241,3 +241,21 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
     df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
     return df
     
+def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract text properties in brackets from the input
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: Name of the input column
+      output:
+        type: string
+        description: Name of the output columns
+    """
+    df[output] = _extract.brackets(df[input].astype(str).tolist())
+    return df
