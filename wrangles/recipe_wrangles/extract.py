@@ -234,6 +234,9 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
       property_type:
         type: string
         description: The specific type of properties to extract
+      return_data_type:
+        type: string
+        description: The format to return the data, as a list or as a string
     """
     df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
     return df

@@ -207,6 +207,7 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
 
     :param input: A string or list of strings to be searched for properties
     :param type: (Optional) The specific type of property to search for. If omitted an objected with all results will be returned.
+    :param return_data_type: (Optional) The format to return the data, as a list or as a string.
     :return: A single or list with the extracted properties. Each extracted property may be a dict or list depending on settings.
     """
     if isinstance(input, str): 
