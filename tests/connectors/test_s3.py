@@ -35,6 +35,18 @@ def test_read_s3(mocker):
     df = read(**config)
     assert df['col'].iloc[0] == 'test1'
     
+# Reading with no access keys provided
+def test_read_s3_env_var(mocker):
+    m1 = mocker.patch("boto3.client")
+    m1.return_value = s3_mock
+    config = {
+        'bucket': 'demo-1313',
+        'key': 'demo_file.csv',
+        'encoding': 'ISO-8859-1'
+    }
+    df = read(**config)
+    assert df['col'].iloc[0] == 'test1'
+    
 
 # Classes required to mock write test
 class s3_mock_write:
@@ -59,3 +71,17 @@ def test_write_s3(mocker):
     }
     write(**config) # No response from function
 
+# Writing a file with no access keys provided
+def test_write_s3_env_var(mocker):
+    m1 = mocker.patch("boto3.client")
+    m1.return_value = s3_mock_write
+    
+    write_data = pd.DataFrame({
+        'col': ['test1', 'test2']
+    })
+    config = {
+        'df': write_data,
+        'bucket': 'demo-1313',
+        'key': 'demo_file.csv',
+    }
+    write(**config) # No response from function
