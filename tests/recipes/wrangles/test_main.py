@@ -106,6 +106,8 @@ def test_classify_5():
 #
 # Filter
 #
+
+# Equal
 def test_filter_1():
     data = pd.DataFrame({
     'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
@@ -121,6 +123,194 @@ def test_filter_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Fruit'] == 'Strawberry'
     
+# Is_in
+def test_filter_2():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Color': ['red','green', 'orange', 'red']
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Color
+            is_in:
+              - red
+              - green
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Fruit'] == 'Apple'
+    
+# Not_in
+def test_filter_3():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Color': ['red','green', 'orange', 'red']
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Color
+            not_in:
+              - red
+              - green
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Fruit'] == 'Orange'
+    
+# Greater_than
+def test_filter_4():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 13, 26]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            greater_than: 14
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Fruit'] == 'Apple'
+
+# Greater_than or equal to
+def test_filter_5():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 13, 26]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            greater_than_equal_to: 13
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 4
+    
+# Less than
+def test_filter_6():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 13, 26]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            less_than: 26
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 2
+    
+# Less than or equal to
+def test_filter_6_less_than():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 13, 26]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            less_than_equal_to: 25
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 2
+    
+# Between
+def test_filter_7():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 52, 52]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            between:
+              - 14
+              - 50
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Fruit'] == 'Apple'
+    
+# Between, more than two values error
+def test_filter_8():
+    data = pd.DataFrame({
+    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+    'Number': [13, 26, 52, 52]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Number
+            between:
+              - 14
+              - 50
+              - 133
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Can only use "between" with two values'
+
+# Contains
+def test_filter_9():
+    data = pd.DataFrame({
+    'Random': ['Apples', 'Random', 'App', 'nothing here'],
+    'Number': [13, 26, 52, 52]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            contains: 'App'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 2
+    
+# Does not contain
+def test_filter_10():
+    data = pd.DataFrame({
+    'Random': ['Apples', 'Applications', 'App', 'nothing here'],
+    'Number': [13, 26, 52, 52]
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            does_not_contain: 'App'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 1
+    
+# not_null
+def test_filter_11():
+    data = pd.DataFrame({
+    'Random': ['Apples', None, 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            not_null: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 2
+    
+# not_null, False
+def test_filter_12():
+    data = pd.DataFrame({
+    'Random': ['Apples', 'None', 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            not_null: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 1
+
 #
 # Log
 #
@@ -323,7 +513,40 @@ def test_standardize_4():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
+
+# Mini Standardize
+def test_standardize_5():
+    data = pd.DataFrame({
+    'Abbrev': ['random ASAP random', 'random ETA random'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            find: ETA
+            replace: Estimated Time of Arrival
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
     
+# Mini Standardize error with model id also included
+def test_standardize_6():
+    data = pd.DataFrame({
+    'Abbrev': ['random ASAP random', 'random ETA random'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            find: ETA
+            replace: Estimated Time of Arrival
+            model_id: f7958bd2-af22-43b1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Standardize must have model_id or find and replace as parameters'
 
 #
 # Translate

@@ -123,13 +123,13 @@ def filter(df: _pd.DataFrame, input: str,
     if len(variables_count) > 1: raise ValueError("Only one filter at a time can be used.")
     
     if equal != None:
-        if isinstance(equal, str) or isinstance(equal, bool): equal = [equal]
+        if isinstance(equal, str) or isinstance(equal, bool): equal = [equal] # pragma: no cover 
         df = df.loc[df[input].isin(equal)]
     elif is_in != None:
-        if isinstance(is_in, str): is_in = [is_in]
+        if isinstance(is_in, str): is_in = [is_in] # pragma: no cover 
         df = df[df[input].isin(is_in)]
     elif not_in != None:
-        if isinstance(not_in, str): not_in = [not_in]
+        if isinstance(not_in, str): not_in = [not_in] # pragma: no cover 
         df = df[~df[input].isin(not_in)]
     elif greater_than != None:
         df = df[df[input] > greater_than]
@@ -424,7 +424,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     if output_columns is None:
         df = df_temp
     else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
+        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True) # pragma no cover
         
     return df
     
