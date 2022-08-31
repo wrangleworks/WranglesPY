@@ -26,7 +26,7 @@ def test_read_s3(mocker):
     m1 = mocker.patch("boto3.client")
     m1.return_value = s3_mock
     config = {
-        'bucket': 'feyfey-1313',
+        'bucket': 'demo-1313',
         'key': 'demo_file.csv',
         'access_key': '123',
         'secret_access_key': '123',
@@ -35,3 +35,27 @@ def test_read_s3(mocker):
     df = read(**config)
     assert df['col'].iloc[0] == 'test1'
     
+
+# Classes required to mock write test
+class s3_mock_write:
+    def put_object(Bucket, Body, Key):
+        return 'File uploaded!'
+
+
+# Writing a file
+def test_write_s3(mocker):
+    m1 = mocker.patch("boto3.client")
+    m1.return_value = s3_mock_write
+    
+    write_data = pd.DataFrame({
+        'col': ['test1', 'test2']
+    })
+    config = {
+        'df': write_data,
+        'bucket': 'demo-1313',
+        'key': 'demo_file.csv',
+        'access_key': '123',
+        'secret_access_key': '123',
+    }
+    write(**config) # No response from function
+
