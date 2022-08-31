@@ -82,6 +82,27 @@ def test_classify_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
     
+# Not using ${} in recipe when using a model-id
+def test_classify_5():
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Ball Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+              - Col2
+            output: 
+              - Class
+              - Class2
+            model_id: {noWord}
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+    
 #
 # Filter
 #
