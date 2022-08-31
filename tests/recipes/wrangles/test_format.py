@@ -44,3 +44,70 @@ def test_trim_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Trim'] == 'Wilson!'
+
+#    
+# Prefix
+#
+
+# output column defined
+def test_prefix_1():
+    data = pd.DataFrame({
+        'col': ['terrestrial', 'ordinary']
+    })
+    recipe = """
+    wrangles:
+      - format.prefix:
+          input: col
+          output: pre-col
+          value: extra-
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['pre-col'][0] == 'extra-terrestrial'
+    
+# output column not defined
+def test_prefix_2():
+    data = pd.DataFrame({
+        'col': ['terrestrial', 'ordinary']
+    })
+    recipe = """
+    wrangles:
+      - format.prefix:
+          input: col
+          value: extra-
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col'][0] == 'extra-terrestrial'
+    
+    
+#    
+# Suffix
+#
+
+# output column defined
+def test_suffix_1():
+    data = pd.DataFrame({
+        'col': ['urgen', 'efficien']
+    })
+    recipe = """
+    wrangles:
+      - format.suffix:
+          input: col
+          output: col-suf
+          value: -cy
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col-suf'][0] == 'urgen-cy'
+    
+# output column not defined
+def test_suffix_2():
+    data = pd.DataFrame({
+        'col': ['urgen', 'efficien']
+    })
+    recipe = """
+    wrangles:
+      - format.suffix:
+          input: col
+          value: -cy
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col'][0] == 'urgen-cy'
