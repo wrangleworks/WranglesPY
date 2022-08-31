@@ -360,6 +360,40 @@ def test_extract_custom_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    
+    
+# Mini Extract
+def test_extract_custom_4():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          find: Pikachu
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col_out'] == ['Pikachu']
+    
+    
+# Mini Extract with model id also included -> Error
+def test_extract_custom_5():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          find: Pikachu
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract custom must have model_id or find as parameters'
 
 
 # Input column is list
@@ -496,3 +530,20 @@ def test_extract_html_links():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+    
+#
+# Brackets
+#
+
+def test_extract_brackets_1():
+    data = pd.DataFrame({
+        'col': ['[1234]', '{1234}']
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input: col
+          output: no_brackets
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['no_brackets'] == '1234'
