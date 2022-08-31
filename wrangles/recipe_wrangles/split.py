@@ -78,7 +78,6 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
         element_list = []
         for x in df[output]:
             try:
-                # df[output] = df[output].apply(lambda x: [x[element]])
                 element_list.append(x[element])
             except(IndexError):
                 element_list.append('')

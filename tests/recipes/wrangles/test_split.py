@@ -90,6 +90,55 @@ def test_split_text_5():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
     
+# Select element from the output list
+def test_split_text_6():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: 0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == 'Wrangles'
+
+# Select element from the output list, index error
+# Number of index greater than Out list size
+def test_split_text_7():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: 100
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == ''
+    
+# Select element from the output list, using list slice
+def test_split_text_8():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: '0:3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == ['Wrangles', 'are', 'very']  
+
 #
 # Split from List
 #
