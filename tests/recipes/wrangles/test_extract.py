@@ -212,6 +212,24 @@ def test_attributes_mass():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13kg']
+    
+# min/mid/max attributes
+def test_attributes_MinMidMax():
+    data = pd.DataFrame({
+        'Tools': ['object mass ranges from 13kg to 14.5kg to 18.2kg']
+    })
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            responseContent: span
+            attribute_type: mass
+            bound: Minimum
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Invalid boundary setting. min, mid or max permitted.'
 
 #
 # Codes
@@ -395,6 +413,22 @@ def test_extract_custom_5():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Extract custom must have model_id or find as parameters'
 
+# incorrect model_id - forget to use ${}
+# Mini Extract with model id also included -> Error
+def test_extract_custom_6():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          model_id: {model_id_here}
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
 
 # Input column is list
 df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])
@@ -547,3 +581,65 @@ def test_extract_brackets_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['no_brackets'] == '1234'
+    
+    
+#
+# Remove Words
+#
+
+# tokenize inputs
+def test_remove_words_1():
+    data = pd.DataFrame({
+        'col': ['Metal Carbon Water Tank'],
+        'materials': ['Metal Carbon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
+    
+    
+# tokenize inputs and ignore case
+def test_remove_words_2():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL carbOn']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
+
+# Raw inputs, ignore case is False
+def test_remove_words_3():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL CaRBon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'METAl WateR TaNk'

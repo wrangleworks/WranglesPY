@@ -138,6 +138,28 @@ def test_split_text_8():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out'] == ['Wrangles', 'are', 'very']  
+    
+    
+# If more columns than number of splits
+def test_split_text_9():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: 
+              - Out1
+              - Out2
+              - Out3
+              - Out4
+              - Out5
+            char: ' '
+            pad: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out5'].iloc[0] == ''
 
 #
 # Split from List
