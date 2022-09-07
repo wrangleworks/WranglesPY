@@ -59,3 +59,34 @@ def test_uuid_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'UUID Col' in list(df.columns)
+    
+    
+#
+# Bins
+#
+
+def test_create_bins_1():
+    data = pd.DataFrame({
+        'col': [3, 13, 113]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input: col
+            output: Pricing
+            bins:
+                - '-'
+                - 10
+                - 20
+                - 50
+                - 70
+                - '+'
+            labels:
+                - 'under 10'
+                - '10-20'
+                - '20-40'
+                - '40-70'
+                - '100 and above'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Pricing'].iloc[0] == 'under 10'
