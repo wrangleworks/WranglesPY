@@ -165,8 +165,37 @@ def log(df: _pd.DataFrame, columns: list = None):
         type: array
         description: (Optional, default all columns) List of specific columns to log.
     """ 
+
     if columns is not None:
-        print(df[columns])
+
+        # Get the wildcards
+        wildcard_check = [x for x in columns if '*' in x]
+
+        
+        columns_to_print = []
+        temp_cols = []
+        # Check if there are any asterisks in columns to print
+        if len(wildcard_check):
+            for iter in wildcard_check:
+                
+                # Do nothing if the user enters an escape character
+                if '\\' in iter:
+                    column = iter.replace('\\', '')
+                    columns_to_print.append(column)
+                # Add all columns names with similar name
+                else:
+                    column = iter.replace('*', '')
+                    re_pattern = r"^\b{}(\s)?(\d+)?\b$".format(column)
+                    list_re = [_re.search(re_pattern, x) for x in df.columns]
+                    temp_cols.extend([x.string for x in list_re if x != None])
+
+
+        # Remove columns that have "*" as they are handled above
+        no_wildcard = [x for x in columns if '*' not in x]
+        columns_to_print.extend(no_wildcard)
+        columns_to_print.extend(temp_cols)
+
+        print(df[columns_to_print])
     else:
         print(df)
 
