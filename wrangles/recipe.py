@@ -67,24 +67,48 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
 
     # list of variable tuples
     variables_list = [x for x in variables.items()]
+    
+    
+    if recipe_object.get('wrangles', ''):
+        
+        # Iterating over the wrangles
+        for step in recipe_object['wrangles']:
+            for wrangle, params in step.items():
 
-    # Iterating over the wrangles
-    for step in recipe_object['wrangles']:
-        for wrangle, params in step.items():
-
-            # Change all inputs if they fit the patter ${}
-            if '$' in params['input']:
-                # Check that the input value is in variables
-
-                char_check = _re.subn('[\$\{\}]', '', params['input'])[0]
-                # Check if the value is in variables first tuple index
-                found_input = [x for x in variables_list if x[0] == char_check]
-                if found_input:
-                    
-                    # Change the input
-                    params['input'] = found_input[0][1]
+                # Change all inputs if they fit the patter ${}
+                for key, value in params.items():
                     pass
+                    
+                    if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+                        # Check that the input value is in variables
 
+                        char_check = _re.subn('[\$\{\}]', '', value)[0]
+                        # Check if the value is in variables first tuple index
+                        found_input = [x for x in variables_list if x[0] == char_check]
+                        if found_input:
+                            
+                            # Change the input
+                            params[key] = found_input[0][1]
+                
+                    # What if the input is a list
+                    elif isinstance(value, list):
+                        
+                        list_params = []
+                        # Get values that only match ${} format
+                        for par in value:
+                            
+                            if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+                                char_check = _re.subn('[\$\{\}]', '', par)[0]
+                                # Check if the value is in variables first tuple index
+                                found_input =  [x for x in variables_list if x[0] == char_check]
+                                if found_input:
+                                    list_params.append(found_input[0][1])
+                                    
+                            else:
+                                list_params.append(par)
+                        
+                        params[key] = list_params
+                
     # Replace templated values
     # for key, val in variables.items():
     #     recipe_string = recipe_string.replace("${" + key + "}", val)

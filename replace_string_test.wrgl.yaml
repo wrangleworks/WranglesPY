@@ -1,0 +1,22 @@
+wrangles:
+  - split.text:
+      input: ${Input1}
+      output: ${Output1}
+      
+  - convert.case:
+      input: ${Input2}
+      output: ${Output2}
+      case: upper
+      
+  - merge.concatenate:
+      input:
+        - col
+        - ${ExtraValue}
+      output: Out_Final
+      char: ' '
+      
+write:
+  - file:
+      name: ${fileName}
+  
+  
