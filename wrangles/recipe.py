@@ -11,6 +11,7 @@ import fnmatch as _fnmatch
 import inspect as _inspect
 import warnings as _warnings
 import requests as _requests
+import re as _re
 
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
@@ -58,11 +59,38 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         if env_key not in variables.keys():
             variables[env_key] = env_val
 
-    # Replace templated values
-    for key, val in variables.items():
-        recipe_string = recipe_string.replace("${" + key + "}", val)
-
     recipe_object = _yaml.safe_load(recipe_string)
+
+    # The recipe is now a dictionary
+    # Iterate through and replace all of the values that are ${} with the
+    # Appropriate variables from py file
+
+    # list of variable tuples
+    variables_list = [x for x in variables.items()]
+
+    # Iterating over the wrangles
+    for step in recipe_object['wrangles']:
+        for wrangle, params in step.items():
+
+            # Change all inputs if they fit the patter ${}
+            if '$' in params['input']:
+                # Check that the input value is in variables
+
+                char_check = _re.subn('[\$\{\}]', '', params['input'])[0]
+                # Check if the value is in variables first tuple index
+                found_input = [x for x in variables_list if x[0] == char_check]
+                if found_input:
+                    
+                    # Change the input
+                    params['input'] = found_input[0][1]
+                    pass
+
+    # Replace templated values
+    # for key, val in variables.items():
+    #     recipe_string = recipe_string.replace("${" + key + "}", val)
+
+    # recipe_object = _yaml.safe_load(recipe_string)
+
 
     return recipe_object
 
