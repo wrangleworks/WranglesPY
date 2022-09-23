@@ -18,5 +18,11 @@ wrangles:
 write:
   - file:
       name: ${fileName}
+      columns:
+        - col
+        - out1
+        - col
+        - out2
+        - Extra
   
   

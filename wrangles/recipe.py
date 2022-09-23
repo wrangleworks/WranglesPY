@@ -77,7 +77,6 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
 
                 # Change all inputs if they fit the patter ${}
                 for key, value in params.items():
-                    pass
                     
                     if isinstance(value, str) and _re.search("\$\{\w+\}", value):
                         # Check that the input value is in variables
@@ -108,6 +107,42 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
                                 list_params.append(par)
                         
                         params[key] = list_params
+                        
+    if recipe_object.get('write', ''):
+        for step in recipe_object['write']:
+            for connector, params in step.items():
+                
+                # Check all inputs if they fit the pattern ${}
+                for key, value in params.items():
+                    if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+                        # Check that the input value is in variables
+
+                        char_check = _re.subn('[\$\{\}]', '', value)[0]
+                        # Check if the value is in variables first tuple index
+                        found_input = [x for x in variables_list if x[0] == char_check]
+                        if found_input:
+                            
+                            # Change the input
+                            params[key] = found_input[0][1]
+                    # What if the input is a list
+                    elif isinstance(value, list):
+                        
+                        list_params = []
+                        # Get values that only match ${} format
+                        for par in value:
+                            
+                            if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+                                char_check = _re.subn('[\$\{\}]', '', par)[0]
+                                # Check if the value is in variables first tuple index
+                                found_input =  [x for x in variables_list if x[0] == char_check]
+                                if found_input:
+                                    list_params.append(found_input[0][1])
+                                    
+                            else:
+                                list_params.append(par)
+                        
+                        params[key] = list_params
+                
                 
     # Replace templated values
     # for key, val in variables.items():
