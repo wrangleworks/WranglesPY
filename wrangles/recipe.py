@@ -26,6 +26,102 @@ _logging.getLogger().setLevel(_logging.INFO)
 # but will also investigate if there is a better long term solution
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
+def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
+    """
+    Replace templated values of format ${} in recipe
+    
+    :param recipe_object: Recipe obeject that may contain values to replace
+    :param variables: List of variables that contain any templated values to update
+    """
+    
+    variables_list = [x for x in variables.items()]
+    
+    
+    for section in recipe_object.keys():
+        
+        if section != 'run':
+            
+            # Should non list actions be allowed?
+            if isinstance(recipe_object[section], dict): recipe_object[section] = [recipe_object[section]]
+            
+            for step in recipe_object[section]:
+                for action, params in step.items():
+                    
+                    for key, value in params.items():
+                        if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+                            
+                            char_check = _re.subn('[\$\{\}]', '', value)[0]
+                            # Check if the value is in variables first tuple index
+                            found_input = [x for x in variables_list if x[0] == char_check]
+                            if found_input:
+                                
+                                # Change the input
+                                params[key] = found_input[0][1]
+                                
+                        # What if the input is a list
+                        elif isinstance(value, list):
+                            
+                            list_params = []
+                            # Get values that only match ${} format
+                            for par in value:
+                                
+                                if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+                                    char_check = _re.subn('[\$\{\}]', '', par)[0]
+                                    # Check if the value is in variables first tuple index
+                                    found_input =  [x for x in variables_list if x[0] == char_check]
+                                    if found_input:
+                                        list_params.append(found_input[0][1])
+                                        
+                                else:
+                                    list_params.append(par)
+                            
+                            params[key] = list_params
+                            
+        elif section == 'run':
+            
+            # Should non list actions be allowed?
+            if isinstance(recipe_object[section], dict): recipe_object[section] = [recipe_object[section]]
+            
+            for step in recipe_object[section]:
+                for action, params in step.items():
+                    
+                    # another loop here.. since run has an extra layer
+                    
+                    for key, value in params.items():
+                        if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+                            
+                            char_check = _re.subn('[\$\{\}]', '', value)[0]
+                            # Check if the value is in variables first tuple index
+                            found_input = [x for x in variables_list if x[0] == char_check]
+                            if found_input:
+                                
+                                # Change the input
+                                params[key] = found_input[0][1]
+                                
+                        # What if the input is a list
+                        elif isinstance(value, list):
+                            
+                            list_params = []
+                            # Get values that only match ${} format
+                            for par in value:
+                                
+                                if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+                                    char_check = _re.subn('[\$\{\}]', '', par)[0]
+                                    # Check if the value is in variables first tuple index
+                                    found_input =  [x for x in variables_list if x[0] == char_check]
+                                    if found_input:
+                                        list_params.append(found_input[0][1])
+                                        
+                                else:
+                                    list_params.append(par)
+                            
+                            params[key] = list_params
+            pass
+            
+    
+    return recipe_object
+        
+    
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
@@ -60,124 +156,127 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
             variables[env_key] = env_val
 
     recipe_object = _yaml.safe_load(recipe_string)
+    
+    # Check if there are any templated valued to update
+    _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     # The recipe is now a dictionary
     # Iterate through and replace all of the values that are ${} with the
     # Appropriate variables from py file
 
-    # list of variable tuples
-    variables_list = [x for x in variables.items()]
+    # # list of variable tuples
+    # variables_list = [x for x in variables.items()]
     
 
-    if recipe_object.get('read', ''):
+    # if recipe_object.get('read', ''):
         
-        # Iterating over the wrangles
-        for step in recipe_object['read']:
-            for connector, params in step.items():
+    #     # Iterating over the wrangles
+    #     for step in recipe_object['read']:
+    #         for connector, params in step.items():
                 
-                for key, value in params.items():
-                    if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+    #             for key, value in params.items():
+    #                 if isinstance(value, str) and _re.search("\$\{\w+\}", value):
                         
-                        char_check = _re.subn('[\$\{\}]', '', value)[0]
-                        # Check if the value is in variables first tuple index
-                        found_input = [x for x in variables_list if x[0] == char_check]
-                        if found_input:
+    #                     char_check = _re.subn('[\$\{\}]', '', value)[0]
+    #                     # Check if the value is in variables first tuple index
+    #                     found_input = [x for x in variables_list if x[0] == char_check]
+    #                     if found_input:
                             
-                            # Change the input
-                            params[key] = found_input[0][1]
+    #                         # Change the input
+    #                         params[key] = found_input[0][1]
                             
-                    # What if the input is a list
-                    elif isinstance(value, list):
+    #                 # What if the input is a list
+    #                 elif isinstance(value, list):
                         
-                        list_params = []
-                        # Get values that only match ${} format
-                        for par in value:
+    #                     list_params = []
+    #                     # Get values that only match ${} format
+    #                     for par in value:
                             
-                            if isinstance(par, str) and _re.search("\$\{\w+\}", par):
-                                char_check = _re.subn('[\$\{\}]', '', par)[0]
-                                # Check if the value is in variables first tuple index
-                                found_input =  [x for x in variables_list if x[0] == char_check]
-                                if found_input:
-                                    list_params.append(found_input[0][1])
+    #                         if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+    #                             char_check = _re.subn('[\$\{\}]', '', par)[0]
+    #                             # Check if the value is in variables first tuple index
+    #                             found_input =  [x for x in variables_list if x[0] == char_check]
+    #                             if found_input:
+    #                                 list_params.append(found_input[0][1])
                                     
-                            else:
-                                list_params.append(par)
+    #                         else:
+    #                             list_params.append(par)
                         
-                        params[key] = list_params
+    #                     params[key] = list_params
     
-    elif recipe_object.get('wrangles', ''):
+    # elif recipe_object.get('wrangles', ''):
         
-        # Iterating over the wrangles
-        for step in recipe_object['wrangles']:
-            for wrangle, params in step.items():
+    #     # Iterating over the wrangles
+    #     for step in recipe_object['wrangles']:
+    #         for wrangle, params in step.items():
 
-                # Change all inputs if they fit the patter ${}
-                for key, value in params.items():
+    #             # Change all inputs if they fit the patter ${}
+    #             for key, value in params.items():
                     
-                    if isinstance(value, str) and _re.search("\$\{\w+\}", value):
-                        # Check that the input value is in variables
+    #                 if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+    #                     # Check that the input value is in variables
 
-                        char_check = _re.subn('[\$\{\}]', '', value)[0]
-                        # Check if the value is in variables first tuple index
-                        found_input = [x for x in variables_list if x[0] == char_check]
-                        if found_input:
+    #                     char_check = _re.subn('[\$\{\}]', '', value)[0]
+    #                     # Check if the value is in variables first tuple index
+    #                     found_input = [x for x in variables_list if x[0] == char_check]
+    #                     if found_input:
                             
-                            # Change the input
-                            params[key] = found_input[0][1]
+    #                         # Change the input
+    #                         params[key] = found_input[0][1]
                 
-                    # What if the input is a list
-                    elif isinstance(value, list):
+    #                 # What if the input is a list
+    #                 elif isinstance(value, list):
                         
-                        list_params = []
-                        # Get values that only match ${} format
-                        for par in value:
+    #                     list_params = []
+    #                     # Get values that only match ${} format
+    #                     for par in value:
                             
-                            if isinstance(par, str) and _re.search("\$\{\w+\}", par):
-                                char_check = _re.subn('[\$\{\}]', '', par)[0]
-                                # Check if the value is in variables first tuple index
-                                found_input =  [x for x in variables_list if x[0] == char_check]
-                                if found_input:
-                                    list_params.append(found_input[0][1])
+    #                         if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+    #                             char_check = _re.subn('[\$\{\}]', '', par)[0]
+    #                             # Check if the value is in variables first tuple index
+    #                             found_input =  [x for x in variables_list if x[0] == char_check]
+    #                             if found_input:
+    #                                 list_params.append(found_input[0][1])
                                     
-                            else:
-                                list_params.append(par)
+    #                         else:
+    #                             list_params.append(par)
                         
-                        params[key] = list_params
+    #                     params[key] = list_params
                         
-    if recipe_object.get('write', ''):
-        for step in recipe_object['write']:
-            for connector, params in step.items():
+    # if recipe_object.get('write', ''):
+    #     for step in recipe_object['write']:
+    #         for connector, params in step.items():
                 
-                # Check all inputs if they fit the pattern ${}
-                for key, value in params.items():
-                    if isinstance(value, str) and _re.search("\$\{\w+\}", value):
-                        # Check that the input value is in variables
+    #             # Check all inputs if they fit the pattern ${}
+    #             for key, value in params.items():
+    #                 if isinstance(value, str) and _re.search("\$\{\w+\}", value):
+    #                     # Check that the input value is in variables
 
-                        char_check = _re.subn('[\$\{\}]', '', value)[0]
-                        # Check if the value is in variables first tuple index
-                        found_input = [x for x in variables_list if x[0] == char_check]
-                        if found_input:
+    #                     char_check = _re.subn('[\$\{\}]', '', value)[0]
+    #                     # Check if the value is in variables first tuple index
+    #                     found_input = [x for x in variables_list if x[0] == char_check]
+    #                     if found_input:
                             
-                            # Change the input
-                            params[key] = found_input[0][1]
-                    # What if the input is a list
-                    elif isinstance(value, list):
+    #                         # Change the input
+    #                         params[key] = found_input[0][1]
+    #                 # What if the input is a list
+    #                 elif isinstance(value, list):
                         
-                        list_params = []
-                        # Get values that only match ${} format
-                        for par in value:
+    #                     list_params = []
+    #                     # Get values that only match ${} format
+    #                     for par in value:
                             
-                            if isinstance(par, str) and _re.search("\$\{\w+\}", par):
-                                char_check = _re.subn('[\$\{\}]', '', par)[0]
-                                # Check if the value is in variables first tuple index
-                                found_input =  [x for x in variables_list if x[0] == char_check]
-                                if found_input:
-                                    list_params.append(found_input[0][1])
+    #                         if isinstance(par, str) and _re.search("\$\{\w+\}", par):
+    #                             char_check = _re.subn('[\$\{\}]', '', par)[0]
+    #                             # Check if the value is in variables first tuple index
+    #                             found_input =  [x for x in variables_list if x[0] == char_check]
+    #                             if found_input:
+    #                                 list_params.append(found_input[0][1])
                                     
-                            else:
-                                list_params.append(par)
+    #                         else:
+    #                             list_params.append(par)
                         
-                        params[key] = list_params
+    #                     params[key] = list_params
 
                 
                 
