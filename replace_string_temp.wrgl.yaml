@@ -1,3 +1,7 @@
+# read:
+#   - file:
+#       name: temp.csv
+
 wrangles:
   - split.text:
       input: ${Input1}

@@ -15,7 +15,7 @@ vars = {
     'fileName': 'TEST.xlsx',
 }
 
-rec = 'replace_string_test.wrgl.yaml'
+rec = 'replace_string_temp.wrgl.yaml'
 df = wrangles.recipe.run(recipe=rec, dataframe=data, variables=vars)
 print(df.to_markdown(index=False))
 pass
