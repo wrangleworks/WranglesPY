@@ -59,7 +59,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
+def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -98,7 +98,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         
     # If the datatype is datetime
     if data_type == 'datetime':
-        temp = _pd.to_datetime(df[input].stack()).unstack()
+        temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
         df[output] = temp
 
     else:

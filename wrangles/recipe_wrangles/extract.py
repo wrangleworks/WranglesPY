@@ -259,3 +259,55 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     df[output] = _extract.brackets(df[input].astype(str).tolist())
     return df
+    
+def date_properties(df: _pd.DataFrame, input: str, property: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract date properties from a date (day, month, year, etc...)
+    additionalProperties: false
+    required:
+      - input
+      - property
+    properties:
+      input:
+        type: string
+        description: Name of the input column
+      output:
+        type: string
+        description: Name of the output columns
+      property:
+        type: string
+        description: Property to extract from date
+        enum:
+          - day
+          - day_of_year
+          - month
+          - month_name
+          - weekday
+          - week_name
+          - week_year
+          - quarter
+    """
+    if output is None: output = input
+    
+    properties_object = {
+        'day': df[input].dt.day,
+        'day_of_year': df[input].dt.day_of_year,
+        'month': df[input].dt.month,
+        'month_name': df[input].dt.month_name(),
+        'weekday': df[input].dt.weekday,
+        'week_name': df[input].dt.day_name(),
+        'week_year': df[input].dt.isocalendar()['week'],
+        'quarter': df[input].dt.quarter,
+    }
+    
+    if property in properties_object.keys():
+        df[output] = properties_object[property]
+    else:
+        raise ValueError(f"\"{property}\" not a valid date property.")
+    
+    return df
+    
+    
+    
+  
