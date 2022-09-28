@@ -94,10 +94,16 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     if isinstance(input, str):
         input = [input]
         output = [output]
+        
+    # If the datatype is datetime
+    if data_type == 'datetime':
+        temp = _pd.to_datetime(df[input].stack()).unstack()
+        df[output] = temp
 
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(data_type)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].astype(data_type)
 
     return df
 
