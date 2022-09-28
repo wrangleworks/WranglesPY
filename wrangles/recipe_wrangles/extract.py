@@ -260,7 +260,7 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     df[output] = _extract.brackets(df[input].astype(str).tolist())
     return df
     
-def date_properties(df: _pd.DataFrame, input: str, property: str, output: str = None) -> _pd.DataFrame:
+def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract date properties from a date (day, month, year, etc...)
@@ -308,6 +308,76 @@ def date_properties(df: _pd.DataFrame, input: str, property: str, output: str = 
     
     return df
     
+def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, frequency: str = 'day') -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract date range frequency from two dates
+    additionalProperties: false
+    required:
+      - start_time
+      - end_time
+    properties:
+      start_time:
+        type: string
+        description: Name of the start date column
+      end_time:
+        type: string
+        description: Name of the end date column
+      output:
+        type: string
+        description: Name of the output column
+      frequency:
+        type: string
+        description: Type of frequency to count
+        enum:
+          - business days
+          - days
+          - weeks
+          - months
+          - semi months
+          - business month ends
+          - month starts
+          - semi month starts
+          - business month starts
+          - quarters
+          - quarter starts
+          - years
+          - business hours
+          - hours
+          - minutes
+          - seconds
+          - milliseconds
+    """
+    frequency_object = {
+        'business days': 'B',
+        'days': 'D',
+        'weeks': 'W',
+        'months':'M',
+        'semi months': 'SM',
+        'business month ends': 'BM',
+        'month starts': 'MS',
+        'semi month starts': 'SMS',
+        'business month starts': 'BMS',
+        'quarters': 'Q',
+        'quarter starts': 'QS',
+        'years': 'Y',
+        'business hours': 'BH',
+        'hours': 'H',
+        'minutes': 'T',
+        'seconds': 'S',
+        'milliseconds': 'L',
+    }
     
+    # Checking if frequency is invalid
+    if frequency not in frequency_object.keys():
+        raise ValueError(f"\"{frequency}\" not a valid frequency")
+    
+    results = []
+    for start, end in zip(df[start_time], df[end_time]):
+        results.append(len(_pd.date_range(start, end, freq=frequency_object[frequency])))
+    
+    df[output] = results
+    
+    return df
     
   
