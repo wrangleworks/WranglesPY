@@ -86,6 +86,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - float
           - int
           - bool
+          - datetime
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
