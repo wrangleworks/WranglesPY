@@ -457,3 +457,62 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
         
     return df
     
+def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, **kwargs) -> _pd.DataFrame:
+    """
+    type: object
+    description: Add or Subtract time from a date
+    additionalProperties: false
+    required:
+      - input
+      - operation
+      - kwargs
+    properties:
+      input:
+        type: string
+        description: Name of the dates column
+      operation:
+        type: string
+        description: Date operation
+        enum:
+          - add
+          - subtract
+      output:
+        type: string
+        description: Name of the output column of dates
+      kwargs:
+        type: int
+        description: date parameters for operation
+        enum:
+          - years
+          - months
+          - weeks
+          - days
+          - hours
+          - minutes
+          - seconds
+          - milliseconds
+    """
+    # If the output is not provided
+    if output is None: output = input
+    
+    # Get all of the date parameters for operation
+    offset = _pd.DateOffset(**kwargs)
+    
+    results = []
+    if operation == 'add':
+        for date in df[input]:
+            results.append(date + offset)
+            
+    elif operation == 'subtract':
+        for date in df[input]:
+            results.append(date + offset)
+            
+    else:
+        raise ValueError(f'\"{operation}\" is not a valid operation. Available oprations: \"add\", \"subtract\"')
+    
+    df[output] = results
+    
+    return df
+        
+    
+    
