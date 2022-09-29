@@ -26,6 +26,7 @@ _logging.getLogger().setLevel(_logging.INFO)
 # but will also investigate if there is a better long term solution
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
+
 def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
     """
     Replace templated values of format ${} in recipe
@@ -34,107 +35,36 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
     :param variables: List of variables that contain any templated values to update
     """
     
-    variables_list = [x for x in variables.items()]
-    
-    
-    for section in recipe_object.keys():
+    if isinstance(recipe_object, list):
+        new_recipe_object = []
+        # Iterate over all of the elements in a list
+        for element in recipe_object:
+            # Recursively check if the elements in list are lists, dictionaries or strings
+            new_recipe_object.append(_replace_templated_values(element, variables))
+            
+    elif isinstance(recipe_object, dict):
+        new_recipe_object = {}
+        # Iterate over all of the keys and value in a dictionary
+        for key, val in recipe_object.items():
+            # Recursively check if the elements in dictionary are lists, dictionaries or strings
+            new_recipe_object[key] = _replace_templated_values(val, variables)
+            
+    elif isinstance(recipe_object, str):
         
-        if section != 'run':
+        # Check if the variable is a templated value
+        if _re.search("\$\{\w+\}", recipe_object):
+            # Change the value accordingly
+            change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
+            new_recipe_object = change_value
             
-            # Should non list actions be allowed?
-            if isinstance(recipe_object[section], dict): recipe_object[section] = [recipe_object[section]]
+        # Else do nothing to the value
+        else:
+            new_recipe_object = recipe_object
             
-            for step in recipe_object[section]:
-                for action, params in step.items():
-                    
-                    for key, value in params.items():
-                        if isinstance(value, str) and _re.search("\$\{\w+\}", value):
-                            
-                            char_check = _re.subn('[\$\{\}]', '', value)[0]
-                            # Check if the value is in variables first tuple index
-                            found_input = [x for x in variables_list if x[0] == char_check]
-                            if found_input:
-                                
-                                # Change the input
-                                params[key] = found_input[0][1]
-                                
-                        # What if the input is a list
-                        elif isinstance(value, list):
-                            
-                            list_params = []
-                            # Get values that only match ${} format
-                            for par in value:
-                                
-                                if isinstance(par, str) and _re.search("\$\{\w+\}", par):
-                                    char_check = _re.subn('[\$\{\}]', '', par)[0]
-                                    # Check if the value is in variables first tuple index
-                                    found_input =  [x for x in variables_list if x[0] == char_check]
-                                    if found_input:
-                                        list_params.append(found_input[0][1])
-                                        
-                                else:
-                                    list_params.append(par)
-                            
-                            params[key] = list_params
-                            
-        elif section == 'run':
-            
-            # Should non list actions be allowed?
-            # if isinstance(recipe_object[section], dict): recipe_object[section] = [recipe_object[section]]
-            
-            for first_action, actions in recipe_object[section].items():
-            
-                for action in actions:
-                    
-                    for act, params in action.items():
-                        
-                        # After here, it should be the same as above...    
-                        for key, value in params.items():
-                            
-                            if isinstance(value, str) and _re.search("\$\{\w+\}", value):
-                                
-                                char_check = _re.subn('[\$\{\}]', '', value)[0]
-                                # Check if the value is in variables first tuple index
-                                found_input = [x for x in variables_list if x[0] == char_check]
-                                if found_input:
-                                    
-                                    # Change the input
-                                    params[key] = found_input[0][1]
-                                    
-                            # What if the input is a list
-                            elif isinstance(value, list):
-                                
-                                list_params = []
-                                # Get values that only match ${} format
-                                for par in value:
-                                    
-                                    if isinstance(par, str) and _re.search("\$\{\w+\}", par):
-                                        char_check = _re.subn('[\$\{\}]', '', par)[0]
-                                        # Check if the value is in variables first tuple index
-                                        found_input =  [x for x in variables_list if x[0] == char_check]
-                                        if found_input:
-                                            list_params.append(found_input[0][1])
-                                            
-                                    else:
-                                        list_params.append(par)
-                                
-                                params[key] = list_params
-                            
-                            # What id the input is a dict
-                            elif isinstance(value, dict):
-                                # In here, we are inside of the variables object
-                                list_params = []
-                                for inner_key, inner_val in value.items():
-                                    
-                                    if isinstance(inner_val, str) and _re.search("\$\{\w+\}", inner_val):
-                                        char_check = _re.subn('[\$\{\}]', '', inner_val)[0]
-                                        # Check if the value is in variables first tuple index
-                                        found_input =  [x for x in variables_list if x[0] == char_check]
-                                        if found_input:
-                                            params[key][inner_key] = found_input[0][1]
-                                 
-                                    
-    return recipe_object
+    else:
+        new_recipe_object = recipe_object
+
+    return new_recipe_object
         
     
 
@@ -173,7 +103,7 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     recipe_object = _yaml.safe_load(recipe_string)
     
     # Check if there are any templated valued to update
-    _replace_templated_values(recipe_object=recipe_object, variables=variables)
+    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     return recipe_object
 
