@@ -47,7 +47,11 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
         # Iterate over all of the keys and value in a dictionary
         for key, val in recipe_object.items():
             # Recursively check if the elements in dictionary are lists, dictionaries or strings
-            new_recipe_object[key] = _replace_templated_values(val, variables)
+            if _re.search("\$\{\w+\}", key):
+                change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
+                new_recipe_object[change_value] = _replace_templated_values(val, variables)
+            else:
+                new_recipe_object[key] = _replace_templated_values(val, variables)
             
     elif isinstance(recipe_object, str):
         
@@ -55,7 +59,12 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
         if _re.search("\$\{\w+\}", recipe_object):
             # Change the value accordingly
             change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
-            new_recipe_object = change_value
+            
+            if "\n" in change_value:
+                yaml_object = _yaml.safe_load(variables[_re.subn('[\$\{\}]', '', recipe_object)[0]])
+                new_recipe_object = _replace_templated_values(yaml_object, variables)
+            else:
+                new_recipe_object = change_value
             
         # Else do nothing to the value
         else:
