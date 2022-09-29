@@ -508,7 +508,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
             results.append(date + offset)
             
     else:
-        raise ValueError(f'\"{operation}\" is not a valid operation. Available oprations: \"add\", \"subtract\"')
+        raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
     
     df[output] = results
     

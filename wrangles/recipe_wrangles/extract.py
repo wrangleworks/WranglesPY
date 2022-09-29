@@ -284,7 +284,7 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
           - month
           - month_name
           - weekday
-          - week_name
+          - week_day_name
           - week_year
           - quarter
     """
@@ -296,7 +296,7 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
         'month': df[input].dt.month,
         'month_name': df[input].dt.month_name(),
         'weekday': df[input].dt.weekday,
-        'week_name': df[input].dt.day_name(),
+        'week_day_name': df[input].dt.day_name(),
         'week_year': df[input].dt.isocalendar()['week'],
         'quarter': df[input].dt.quarter,
     }
@@ -371,10 +371,14 @@ def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.T
     # Checking if frequency is invalid
     if frequency not in frequency_object.keys():
         raise ValueError(f"\"{frequency}\" not a valid frequency")
+        
+    # Removing timezone information from columns before operation
+    start_data = df[start_time].dt.tz_localize(None).copy()
+    end_data = df[end_time].dt.tz_localize(None).copy()
     
     results = []
-    for start, end in zip(df[start_time], df[end_time]):
-        results.append(len(_pd.date_range(start, end, freq=frequency_object[frequency])))
+    for start, end in zip(start_data, end_data):
+        results.append(len(_pd.date_range(start, end, freq=frequency_object[frequency])[1:]))
     
     df[output] = results
     
