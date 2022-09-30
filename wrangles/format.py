@@ -93,7 +93,29 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
     
     df_output = pandas.DataFrame(output_padded, columns=headers)
     return df_output
+
+def remove_duplicates(input_list: list) -> list:
+    """
+    Remove duplicates from a list. Preserves input order.
+    """
+    results = []
+    for row in input_list:
+        if isinstance(row, list):
+            results.append(list(dict.fromkeys(row)))
+        
+        # If row is a string, recursively remove duplicates and return a string
+        elif isinstance(row, str):
+            # Convert row to a list
+            split_row = row.split(' ')
+            # Recursion
+            output = remove_duplicates([split_row])
+            results.append(' '.join(output[0]))
+
+        else:
+            results.append(row)
     
+    return results
+
 
 # Super Mario function
 def tokenize(input):

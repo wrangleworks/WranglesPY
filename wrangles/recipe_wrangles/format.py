@@ -31,13 +31,19 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.
     # If user hasn't provided an output, overwrite input
     if output is None: output = input
 
-    output_list = []
-    for row in df[input].values.tolist():
-        if isinstance(row, list):
-            output_list.append(list(dict.fromkeys(row)))
-        else:
-            output_list.append(row)
-    df[output] = output_list
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _format.remove_duplicates(df[input].values.tolist())
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] =  _format.remove_duplicates(df[in_col].values.tolist())
+
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
     return df
 
 
