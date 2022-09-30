@@ -265,6 +265,16 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
     # If the input is a string
     if isinstance(input, str) and isinstance(output, str):
         df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.properties(df[in_col].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    
     return df
     
 def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
@@ -283,5 +293,17 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: Name of the output columns
     """
-    df[output] = _extract.brackets(df[input].astype(str).tolist())
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.brackets(df[input].astype(str).tolist())
+
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.brackets(df[in_col].astype(str).tolist())
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
     return df
