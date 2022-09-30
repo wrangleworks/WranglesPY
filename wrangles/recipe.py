@@ -50,6 +50,7 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
             if _re.search("\$\{\w+\}", key):
                 change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
                 new_recipe_object[change_value] = _replace_templated_values(val, variables)
+            # Else do nothing
             else:
                 new_recipe_object[key] = _replace_templated_values(val, variables)
             
@@ -60,16 +61,19 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
             # Change the value accordingly
             change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
             
-            if "\n" in change_value:
+            # Check if the change value is a recipe or sql command
+            if isinstance(change_value, str) and "input:" in change_value: # If the value is a recipe
                 yaml_object = _yaml.safe_load(variables[_re.subn('[\$\{\}]', '', recipe_object)[0]])
                 new_recipe_object = _replace_templated_values(yaml_object, variables)
             else:
+                # An SQL command or other
                 new_recipe_object = change_value
             
         # Else do nothing to the value
         else:
             new_recipe_object = recipe_object
-            
+    
+    # If recipe_object is not list, dict, or str     
     else:
         new_recipe_object = recipe_object
 
