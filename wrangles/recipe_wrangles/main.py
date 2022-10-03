@@ -328,11 +328,24 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
         type: string
         description: Code of the language to translate from. If omitted, automatically detects the input language
     """
-    df[output] = _translate(df[input].astype(str).tolist(), target_language, source_language, case)
+
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _translate(df[input].astype(str).tolist(), target_language, source_language, case)
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _translate(df[in_col].astype(str).tolist(), target_language, source_language, case)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -360,7 +373,21 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str, tok
         type: boolean
         description: Ignore input and to_remove case
     """
-    df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+    if output is None: output = input
+
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.remove_words(df[in_col].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    
     return df
 
 

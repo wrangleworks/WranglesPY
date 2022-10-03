@@ -24,7 +24,19 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
         type: string
         description: Name of the output column.
     """
-    df[output] = _extract.address(df[input].astype(str).tolist(), dataType)
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.address(df[input].astype(str).tolist(), dataType)
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.address(df[in_col].astype(str).tolist(), dataType)
+            
+    # If the input and output are not the same type    
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+            
     return df
 
 
@@ -84,7 +96,19 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
           - mid
           - max
     """
-    df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, attribute_type, desired_unit, bound)
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.attributes(df[input].astype(str).tolist(), responseContent, attribute_type, desired_unit, bound)
+        
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.attributes(df[in_col].astype(str).tolist(), responseContent, attribute_type, desired_unit, bound)
+    
+    # If the input and output are not the same type    
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+        
     return df
 
 
@@ -238,7 +262,19 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
         type: string
         description: The format to return the data, as a list or as a string
     """
-    df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.properties(df[input].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.properties(df[in_col].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    
     return df
     
 def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
@@ -257,9 +293,21 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: Name of the output columns
     """
-    df[output] = _extract.brackets(df[input].astype(str).tolist())
-    return df
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _extract.brackets(df[input].astype(str).tolist())
+
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _extract.brackets(df[in_col].astype(str).tolist())
     
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
+    return df
+
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -383,5 +431,3 @@ def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.T
     df[output] = results
     
     return df
-    
-  

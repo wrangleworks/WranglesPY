@@ -6,7 +6,7 @@ import pandas as _pd
 from typing import Union as _Union
 
 
-def list_element(df: _pd.DataFrame, input: str, output: str, element: int = 0) -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: str, output: str = None, element: int = 0) -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -26,7 +26,21 @@ def list_element(df: _pd.DataFrame, input: str, output: str, element: int = 0) -
         type: integer
         description: The numbered element of the list to select. Starts from zero
     """
-    df[output] = _select.list_element(df[input].tolist(), element)
+    if output is None: output = input
+    
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _select.list_element(df[input].tolist(), element)    
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _select.list_element(df[in_col].tolist(), element)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    
     return df
 
 
@@ -50,7 +64,19 @@ def dictionary_element(df: _pd.DataFrame, input: str, output: str, element: str)
         type: string
         description: The key from the dictionary to select.
     """
-    df[output] = _select.dict_element(df[input].tolist(), element)
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _select.dict_element(df[input].tolist(), element)
+        
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _select.dict_element(df[in_col].tolist(), element)
+            
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    
     return df
 
 

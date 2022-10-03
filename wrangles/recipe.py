@@ -11,6 +11,7 @@ import fnmatch as _fnmatch
 import inspect as _inspect
 import warnings as _warnings
 import requests as _requests
+import re as _re
 
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
@@ -138,6 +139,50 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
         df = getattr(getattr(_connectors, import_type), 'read')(**params)
     
     return df
+    
+def _wildcard_expansion(df_columns: list, params: dict) -> list:
+    """
+    Expand wildcards and set the columns in order for Wrangle inputs
+    
+    :param df_columns: List of dataframe columns
+    :param params: Wrangle parameters to use (inputs)
+    """
+    if isinstance(params.get('input', ''), str): params['input'] = [params['input']]
+    wildcard_check = [x for x in params['input'] if '*' in x]
+    columns_to_use = []
+    temp_cols = []
+    # Check if there are any asterisks in columns to use
+    if len(wildcard_check):
+        for iter in wildcard_check:
+            
+            # Do nothing id the user enters an escape character
+            if '\\' in iter:
+                column = iter.replace('\\', '')
+                columns_to_use.append(column)
+            # Add all columns with similar names
+            else:
+                column = iter.replace('*', '')
+                re_pattern = r"^\b{}(\s)?(\d+)?\b$".format(column)
+                list_re = [_re.search(re_pattern, x) for x in df_columns]
+                temp_cols.extend([x.string for x in list_re if x != None])
+    
+    # Remove columns that have '*' as they are handled above
+    no_wildcard = [x for x in params['input'] if '*' not in x]
+    
+    # Arrange the columns in columns order
+    columns_to_use.extend(no_wildcard)
+    columns_to_use.extend(temp_cols)
+    
+    index_keys = {}
+    for col_name in columns_to_use:
+        index_keys[df_columns.index(col_name)] = col_name
+    
+    sorted_index = list(index_keys.keys())
+    sorted_index.sort()
+    
+    sorted_columns_to_use = [index_keys[x] for x in sorted_index]
+    
+    return sorted_columns_to_use
 
 
 def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
@@ -193,11 +238,14 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths']:
-                    # Allow user to specify a wildcard (? or *) for the input columns
-                    if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
-                        params['input'] = _fnmatch.filter(df.columns, params['input'])
-
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary']:
+                    
+                    # Allow user to specify a wildcard (*) for the input columns
+                    if '*' in params.get('input', '') or len([x for x in params.get('input', ['']) if '*' in x]):
+                    
+                        # Set the params to the new columns to use from Expand Wildcard function
+                        params['input'] = _wildcard_expansion(df_columns=df.columns.tolist(), params=params)
+                        
                 # Get the requested function from the recipe_wrangles module
                 obj = _recipe_wrangles
                 for element in wrangle.split('.'):

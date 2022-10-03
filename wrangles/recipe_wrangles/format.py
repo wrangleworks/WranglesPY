@@ -31,13 +31,19 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.
     # If user hasn't provided an output, overwrite input
     if output is None: output = input
 
-    output_list = []
-    for row in df[input].values.tolist():
-        if isinstance(row, list):
-            output_list.append(list(dict.fromkeys(row)))
-        else:
-            output_list.append(row)
-    df[output] = output_list
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _format.remove_duplicates(df[input].values.tolist())
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] =  _format.remove_duplicates(df[in_col].values.tolist())
+
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
     return df
 
 
@@ -73,62 +79,81 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     
 
 def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
-  """
-  type: object
-    description: Add a prefix to a column
-    additionalProperties: false
-    required:
-      - input
-      - value
-    properties:
-      input:
-        type:
-          - string
-        description: Name of the input column
-      value:
-        type:
-          - string
-        description: Prefix value to add
-      output:
-        type:
-          - string
-        description: (Optional) Name of the output column
-  """
-  if output is None:
-    df[input] = value + df[input].astype(str)
-  else:
-    df[output] = value + df[input].astype(str)
-  
-  return df
+    """
+    type: object
+        description: Add a prefix to a column
+        additionalProperties: false
+        required:
+        - input
+        - value
+        properties:
+        input:
+            type:
+            - string
+            description: Name of the input column
+        value:
+            type:
+            - string
+            description: Prefix value to add
+        output:
+            type:
+            - string
+            description: (Optional) Name of the output column
+    """
+    # If the output is not specified
+    if output is None: output = input
+
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):  
+        df[output] = value + df[input].astype(str)
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = value + df[in_col].astype(str)
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+
+    return df
   
 def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
-  """
-  type: object
+    """
+    type: object
     description: Add a suffix to a column
     additionalProperties: false
     required:
-      - input
-      - value
+        - input
+        - value
     properties:
-      input:
-        type:
-          - string
-        description: Name of the input column
-      value:
-        type:
-          - string
-        description: Suffix value to add
-      output:
-        type:
-          - string
-        description: (Optional) Name of the output column
-  """
-  if output is None:
-    df[input] = df[input].astype(str) + value
-  else:
-    df[output] = df[input].astype(str) + value
+        input:
+          type: string
+          description: Name of the input column
+        value:
+          type: string
+          description: Suffix value to add
+        output:
+          type: string
+          description: (Optional) Name of the output column
+    """
+    # If the output is not specified
+    if output is None: output = input
+
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = df[input].astype(str) + value
+
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = df[in_col].astype(str) + value
+
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
   
-  return df
+    return df
   
 def date_format(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
     """
