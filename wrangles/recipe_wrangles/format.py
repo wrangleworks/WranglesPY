@@ -128,17 +128,14 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
         - value
     properties:
         input:
-        type:
-            - string
-        description: Name of the input column
+          type: string
+          description: Name of the input column
         value:
-        type:
-            - string
-        description: Suffix value to add
+          type: string
+          description: Suffix value to add
         output:
-        type:
-            - string
-        description: (Optional) Name of the output column
+          type: string
+          description: (Optional) Name of the output column
     """
     # If the output is not specified
     if output is None: output = input
