@@ -102,7 +102,6 @@ def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
     """
     # If the output is not specified
     if output is None: output = input
-    
 
     # If the input is a string
     if isinstance(input, str) and isinstance(output, str):  
@@ -120,30 +119,41 @@ def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
     return df
   
 def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
-  """
-  type: object
+    """
+    type: object
     description: Add a suffix to a column
     additionalProperties: false
     required:
-      - input
-      - value
+        - input
+        - value
     properties:
-      input:
+        input:
         type:
-          - string
+            - string
         description: Name of the input column
-      value:
+        value:
         type:
-          - string
+            - string
         description: Suffix value to add
-      output:
+        output:
         type:
-          - string
+            - string
         description: (Optional) Name of the output column
-  """
-  if output is None:
-    df[input] = df[input].astype(str) + value
-  else:
-    df[output] = df[input].astype(str) + value
+    """
+    # If the output is not specified
+    if output is None: output = input
+
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = df[input].astype(str) + value
+
+    # If the input is multiple columns (a list)
+    elif isinstance(input, list) and isinstance(output, list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = df[in_col].astype(str) + value
+
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
   
-  return df
+    return df
