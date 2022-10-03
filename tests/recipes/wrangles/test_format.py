@@ -28,7 +28,7 @@ def test_remove_duplicates_2():
         output: Remove
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Remove'] == 'Agent Smith Agent Smith Agent Smith'
+    assert df.iloc[0]['Remove'] == 'Agent Smith'
 
 #
 # Trim
