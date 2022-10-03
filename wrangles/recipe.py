@@ -31,7 +31,7 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
     """
     Replace templated values of format ${} in recipe
     
-    :param recipe_object: Recipe obeject that may contain values to replace
+    :param recipe_object: Recipe object that may contain values to replace
     :param variables: List of variables that contain any templated values to update
     """
     
