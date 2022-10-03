@@ -6,6 +6,7 @@ import uuid as _uuid
 import numpy as _np
 from typing import Union as _Union
 import math as _math
+from ..connectors.test import _generate_cell_values
 
 
 def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
@@ -25,12 +26,12 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type: string
         description: (Optional) Value to add in the new column(s). If omitted, defaults to None.
     """
-    # If a string provided, convert to list
-    if isinstance(output, str): output = [output]
-
-    # Loop through and create new columns
-    for output_column in output:
-        df[output_column] = value
+    # Rows is the length of the dataframe
+    rows = len(df)
+    # Data to generate
+    data = _pd.DataFrame(_generate_cell_values(value, rows), columns=[output])
+    # Merging existing dataframe with values created
+    df = _pd.concat([df, data], axis=1)
 
     return df
 
