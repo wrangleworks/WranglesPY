@@ -238,7 +238,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs']:
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary']:
                     
                     # Allow user to specify a wildcard (*) for the input columns
                     if '*' in params.get('input', '') or len([x for x in params.get('input', ['']) if '*' in x]):
