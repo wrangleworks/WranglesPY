@@ -307,3 +307,127 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
 
     return df
+
+def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract date properties from a date (day, month, year, etc...)
+    additionalProperties: false
+    required:
+      - input
+      - property
+    properties:
+      input:
+        type: string
+        description: Name of the input column
+      output:
+        type: string
+        description: Name of the output columns
+      property:
+        type: string
+        description: Property to extract from date
+        enum:
+          - day
+          - day_of_year
+          - month
+          - month_name
+          - weekday
+          - week_day_name
+          - week_year
+          - quarter
+    """
+    if output is None: output = input
+    
+    properties_object = {
+        'day': df[input].dt.day,
+        'day_of_year': df[input].dt.day_of_year,
+        'month': df[input].dt.month,
+        'month_name': df[input].dt.month_name(),
+        'weekday': df[input].dt.weekday,
+        'week_day_name': df[input].dt.day_name(),
+        'week_year': df[input].dt.isocalendar()['week'],
+        'quarter': df[input].dt.quarter,
+    }
+    
+    if property in properties_object.keys():
+        df[output] = properties_object[property]
+    else:
+        raise ValueError(f"\"{property}\" not a valid date property.")
+    
+    return df
+    
+def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, frequency: str = 'day') -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract date range frequency from two dates
+    additionalProperties: false
+    required:
+      - start_time
+      - end_time
+    properties:
+      start_time:
+        type: string
+        description: Name of the start date column
+      end_time:
+        type: string
+        description: Name of the end date column
+      output:
+        type: string
+        description: Name of the output column
+      frequency:
+        type: string
+        description: Type of frequency to count
+        enum:
+          - business days
+          - days
+          - weeks
+          - months
+          - semi months
+          - business month ends
+          - month starts
+          - semi month starts
+          - business month starts
+          - quarters
+          - quarter starts
+          - years
+          - business hours
+          - hours
+          - minutes
+          - seconds
+          - milliseconds
+    """
+    frequency_object = {
+        'business days': 'B',
+        'days': 'D',
+        'weeks': 'W',
+        'months':'M',
+        'semi months': 'SM',
+        'business month ends': 'BM',
+        'month starts': 'MS',
+        'semi month starts': 'SMS',
+        'business month starts': 'BMS',
+        'quarters': 'Q',
+        'quarter starts': 'QS',
+        'years': 'Y',
+        'business hours': 'BH',
+        'hours': 'H',
+        'minutes': 'T',
+        'seconds': 'S',
+        'milliseconds': 'L',
+    }
+    
+    # Checking if frequency is invalid
+    if frequency not in frequency_object.keys():
+        raise ValueError(f"\"{frequency}\" not a valid frequency")
+        
+    # Removing timezone information from columns before operation
+    start_data = df[start_time].dt.tz_localize(None).copy()
+    end_data = df[end_time].dt.tz_localize(None).copy()
+    
+    results = []
+    for start, end in zip(start_data, end_data):
+        results.append(len(_pd.date_range(start, end, freq=frequency_object[frequency])[1:]))
+    
+    df[output] = results
+    
+    return df
