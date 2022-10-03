@@ -59,7 +59,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
+def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -86,6 +86,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - float
           - int
           - bool
+          - datetime
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -94,10 +95,16 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     if isinstance(input, str):
         input = [input]
         output = [output]
+        
+    # If the datatype is datetime
+    if data_type == 'datetime':
+        temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
+        df[output] = temp
 
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(data_type)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].astype(data_type)
 
     return df
 
@@ -122,3 +129,52 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     df[output] = [_json.dumps(row) for row in df[input].values.tolist()]
     return df
+    
+def timezone(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], set_timezone: str, convert_to: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert from one timezone to another
+    additionalProperties: false
+    required:
+      - input
+      - set_timezone
+      - convert_to
+    properties:
+      input:
+        type: string
+        description: Name of the dates column
+      set_timezone:
+        type: string
+        description: Set the current date to a timezone
+      convert_to:
+        type: string
+        description: Timezone to convert dates
+      output:
+        type: string
+        description: (Optional) Name of the output column
+    """
+     # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+    
+    # convert the column to timestamp
+    df[input] = _pd.to_datetime(df[input])
+    
+    # Assign timezone to input
+    assign_timezone = []
+    for date in df[input]:
+        
+        # Assign timezone
+        assign_timezone.append(date.tz_localize(set_timezone))
+        
+    df[input] = assign_timezone
+    
+    # Convert timezone
+    new_timezone = []
+    for date in df[input]:
+        
+        # Convert timezone
+        new_timezone.append(date.tz_convert(convert_to))
+        
+    df[output] = new_timezone
+    
+    return df    
