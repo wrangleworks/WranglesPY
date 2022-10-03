@@ -154,3 +154,35 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
   
     return df
+  
+def date_format(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Format a date
+    additionalProperties: false
+    required:
+      - input
+      - format
+    properties:
+      input:
+        type:
+          - string
+        description: Name of the input column
+      output:
+        type:
+          - string
+        description: Name of the output column
+      format:
+        type:
+          - string
+        description: String pattern to format date
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+    
+    # convert the column to timestamp type and format date
+    df[output] = _pd.to_datetime(df[input]).dt.strftime(format)
+    
+    return df
+  
+  
