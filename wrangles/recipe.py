@@ -27,6 +27,60 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
+def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
+    """
+    Replace templated values of format ${} in recipe
+    
+    :param recipe_object: Recipe object that may contain values to replace
+    :param variables: List of variables that contain any templated values to update
+    """
+    
+    if isinstance(recipe_object, list):
+        new_recipe_object = []
+        # Iterate over all of the elements in a list
+        for element in recipe_object:
+            # Recursively check if the elements in list are lists, dictionaries or strings
+            new_recipe_object.append(_replace_templated_values(element, variables))
+            
+    elif isinstance(recipe_object, dict):
+        new_recipe_object = {}
+        # Iterate over all of the keys and value in a dictionary
+        for key, val in recipe_object.items():
+            # Recursively check if the elements in dictionary are lists, dictionaries or strings
+            if _re.search("\$\{\w+\}", key):
+                change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
+                new_recipe_object[change_value] = _replace_templated_values(val, variables)
+            # Else do nothing
+            else:
+                new_recipe_object[key] = _replace_templated_values(val, variables)
+            
+    elif isinstance(recipe_object, str):
+        
+        # Check if the variable is a templated value
+        if _re.search("\$\{\w+\}", recipe_object):
+            # Change the value accordingly
+            change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
+            
+            # Check if the change value is a recipe or sql command
+            if isinstance(change_value, str) and "input:" in change_value: # If the value is a recipe
+                yaml_object = _yaml.safe_load(variables[_re.subn('[\$\{\}]', '', recipe_object)[0]])
+                new_recipe_object = _replace_templated_values(yaml_object, variables)
+            else:
+                # An SQL command or other
+                new_recipe_object = change_value
+            
+        # Else do nothing to the value
+        else:
+            new_recipe_object = recipe_object
+    
+    # If recipe_object is not list, dict, or str     
+    else:
+        new_recipe_object = recipe_object
+
+    return new_recipe_object
+        
+    
+
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
@@ -59,11 +113,10 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         if env_key not in variables.keys():
             variables[env_key] = env_val
 
-    # Replace templated values
-    for key, val in variables.items():
-        recipe_string = recipe_string.replace("${" + key + "}", val)
-
     recipe_object = _yaml.safe_load(recipe_string)
+    
+    # Check if there are any templated valued to update
+    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     return recipe_object
 
