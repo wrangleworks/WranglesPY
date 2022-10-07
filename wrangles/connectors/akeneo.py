@@ -1,31 +1,73 @@
 import pandas as _pd
 import requests as _requests
 import json as _json
-import os as _os
-
-# login stuff
-client_id = _os.getenv('AKENEO_CLIENT_ID', '...')
-secret = _os.getenv('AKENEO_SECRET', '...')
-username = _os.getenv('AKENEO_USERNAME', '...')
-password = _os.getenv('AKENEO_PASSWORD', '...')
-
-host = 'https://akeneo.wrangle.works/'
-
-payload = {"username" : username, "password" : password, "grant_type" : "password"}
-response = _requests.request("POST", host + "api/oauth/v1/token", auth=(client_id, secret), json=payload)
-res =  response.json()['access_token']
 
 
-headers = {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer ' + res
-        }
+def read(user: str, password: str, host: str, client_id: str, client_secret: str):
+    """
+    Import data from Akeneo
+    """
+    payload = {"username" : user, "password" : password, "grant_type" : "password"}
+    response = _requests.request("POST", host + "api/oauth/v1/token", auth=(client_id, client_secret), json=payload)
+    res =  response.json()['access_token']
+
+    headers = {
+                'Accept': 'application/json', # For reading
+                'Authorization': 'Bearer ' + res
+            }
+    
+    data = _json.loads(_requests.get(host + "api/rest/v1/products", headers=headers).text)
+    number_items = len(data['_embedded']['items'])
+    
+    akeneo_data = {
+        'identifier': [],
+        'family': [],
+        'categories': [],
+        'groups': [],
+    }
+    # # Getting data
+    for item_index in range(number_items):
+        akeneo_data['identifier'].append(data['_embedded']['items'][item_index]['identifier'])
+        akeneo_data['family'].append(data['_embedded']['items'][item_index]['family'])
+        akeneo_data['categories'].append(data['_embedded']['items'][item_index]['categories'])
+        akeneo_data['groups'].append(data['_embedded']['items'][item_index]['groups'])
         
-# Get the data
-data = _json.loads(_requests.get(host + "api/rest/v1/products", headers=headers).text)
+        # Further extraction needed for values (contains attributes)
+        for attr, attr_data in data['_embedded']['items'][item_index]['values'].items():
+            if akeneo_data.get(attr, "") == "":
+                akeneo_data[attr] = []
+                akeneo_data[attr].append(attr_data)
+            else:
+                akeneo_data[attr].append(attr_data)
+                
+    # Convert dictionary to dataframe
+    df = _pd.DataFrame(akeneo_data)
+    
+    return df
 
-# for key, items in data.items():
+
+# Write data
+
+def write(df: _pd.DataFrame, user: str, password: str, host: str, client_id: str, client_secret: str):
+    """
+    Write data into Akeneo
+    """
+    payload = {"username" : user, "password" : password, "grant_type" : "password"}
+    response = _requests.request("POST", host + "api/oauth/v1/token", auth=(client_id, client_secret), json=payload)
+    res =  response.json()['access_token']
+
+    headers = {
+                'Content-type': 'application/vnd.akeneo.collection+json', # For Writing
+                'Authorization': 'Bearer ' + res
+            }
+    
+    payload_batch = ''
+    for row in range(len(df)):
+        payload_batch =  payload_batch +  _json.dumps(df.to_dict(orient='records')[row]) + '\n'
+    
+    res = _requests.patch(host + "api/rest/v1/products", headers=headers, data=payload_batch)
     
 
-pass
+    
+
 
