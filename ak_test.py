@@ -11,6 +11,14 @@ username = _os.getenv('AKENEO_USERNAME', '...')
 password = _os.getenv('AKENEO_PASSWORD', '...')
 attributes = ['USD', 'Name', 'Weight', 'In_Stock']
 
+test_df = read(
+    user=username,
+    password=password,
+    host='https://akeneo.wrangle.works/',
+    client_id=client_id,
+    client_secret=secret
+)
+
 # Convert list of attributes into keys
 column_header_to_dict = """
 read:
@@ -57,6 +65,39 @@ df = df[[
     'values'
 ]]
 
+new_values = []
+for item in df['values']:
+    new_dict  = {}
+    for key, value in item.items():
+        
+        if key == 'Name':
+            value = value[0]['data']
+        elif key == 'Weight':
+            value = value[0]
+        elif key == 'In_Stock':
+            value = value[0]['data']
+        else: value = [value[0]]
+        
+        
+        if key == 'In_Stock':
+            
+            static_dict = {
+            'locale': None,
+            'scope': 'ecommerce',
+            'data': value
+            }
+        else:
+            static_dict = {
+            'locale': None,
+            'scope': None,
+            'data': value
+            }
+        
+        new_dict[key] = [static_dict] # Getting an error here for weight
+    new_values.append(new_dict)
+df['values'] = new_values
+    
+    
 tt = write(
     df=df,
     user=username,
