@@ -61,7 +61,7 @@ _meta_tables = {
 }
 
 
-def _get_field_map(host: str, partition: str, target_code: str, user: str, password: str, to_label: bool = True) -> dict:
+def _get_field_map(host: str, partition: str, target_code: str, user: str, password: str, to_label: bool = True, source = None) -> dict:
     """
     Generate a mapping of pricefx field labels to ids for master tables
 
@@ -78,15 +78,16 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
     field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
     for row in field_map_list:
         # Add labels and labelTranslations to map for alternative lookups
-        if to_label:
-            field_map[row['fieldName']] = row['label']
-        else:
-            field_map[row['label']] = row['fieldName']
-        for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+        if source is None or source == row['name']:
             if to_label:
-                field_map[row['fieldName']] = val
+                field_map[row['fieldName']] = row['label']
             else:
-                field_map[val] = row['fieldName']
+                field_map[row['label']] = row['fieldName']
+            for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+                if to_label:
+                    field_map[row['fieldName']] = val
+                else:
+                    field_map[val] = row['fieldName']
 
     return field_map
 
@@ -210,7 +211,7 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         i += batch_size
 
     if source_code in ['P', 'PX', 'C', 'CX']:
-        df.rename(columns=_get_field_map(host, partition, source_code, user, password), inplace=True)
+        df.rename(columns=_get_field_map(host, partition, source_code, user, password, source=source), inplace=True)
 
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
