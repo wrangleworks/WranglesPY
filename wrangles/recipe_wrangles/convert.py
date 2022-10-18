@@ -132,12 +132,23 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     
 def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
+    type: object
+    description: Convert a JSON representation into an object
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: string
+        description: Name of the input column.
+      output:
+        type: string
+        description: Name of the output column. If omitted, the input column will be overwritten
     """
     # Set output column as input if not provided
     if output is None: output = input
-    
-    obj = _json.loads(input)
-    df_obj = _pd.json_normalize(obj)
+ 
+    df[output] = df[input].apply(lambda x: _json.loads(x))
     
     return df
     
