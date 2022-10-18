@@ -130,6 +130,18 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     df[output] = [_json.dumps(row) for row in df[input].values.tolist()]
     return df
     
+def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    obj = _json.loads(input)
+    df_obj = _pd.json_normalize(obj)
+    
+    return df
+    
+    
 def timezone(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], set_timezone: str, convert_to: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
