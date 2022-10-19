@@ -126,8 +126,16 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     """
     # Set output column as input if not provided
     if output is None: output = input
-
-    df[output] = [_json.dumps(row) for row in df[input].values.tolist()]
+    
+    # If a string provided, convert to list
+    if isinstance(input, str):
+        input = [input]
+        output = [output]
+        
+    # Loop through and apply for all columns
+    for input_columns, output_column in zip(input, output):
+        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        
     return df
     
 def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
@@ -147,8 +155,15 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     """
     # Set output column as input if not provided
     if output is None: output = input
- 
-    df[output] = df[input].apply(lambda x: _json.loads(x))
+    
+    # If a string provided, convert to list
+    if isinstance(input, str):
+        input = [input]
+        output = [output]
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [_json.loads(x) for x in df[input_column]]
     
     return df
     
