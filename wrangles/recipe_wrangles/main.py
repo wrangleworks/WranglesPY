@@ -14,7 +14,7 @@ import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
-
+import json as _json
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
@@ -408,11 +408,28 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
+    
+    # List of columns changed
+    cols_changed = []
+    # If column contains objects, then convert to json
+    for cols in df.columns:
+        
+        if isinstance(df[cols][0], dict):
+            cols_changed.append(cols)
+            df[cols] = [_json.dumps(row) for row in df[cols].values.tolist()]
+    
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
-
+    
     # Execute the user's query against the database and return the results
     df = _pd.read_sql(command, db)
     db.close()
+    
+    # Change the columns back to an object
+    for new_cols in df.columns:
+        
+        if new_cols in cols_changed:
+            df[new_cols] = [_json.loads(x) for x in df[new_cols].values.tolist()]
+    
     return df
 
 
