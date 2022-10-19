@@ -6,7 +6,7 @@ data = pd.DataFrame({
     'col1': ['Hello', 'Mario'],
     'col2': ['Hello', 'Fey'],
     'col3': ['Hello', 'Stranger'],
-    'objects': [{'Name': 'obj1'}, {'Name': 'obj2'}],
+    'objects': ['Non obj', {'Name': 'obj1'}],
 })
 
 comm = """
@@ -15,15 +15,16 @@ FROM df
 WHERE main > 14
 """
 
-rec = f"""
+variables = {
+    'sql_comm': comm
+}
+
+rec = """
 wrangles:
   - sql:
-      command: |
-        SELECT *
-        FROM df
-        WHERE main > 14
+      command: ${sql_comm}
 """
 
-df = wrangles.recipe.run(recipe=rec, dataframe=data)
+df = wrangles.recipe.run(recipe=rec, variables=variables, dataframe=data)
 
 pass

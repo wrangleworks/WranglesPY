@@ -413,10 +413,17 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     cols_changed = []
     # If column contains objects, then convert to json
     for cols in df.columns:
+                    
+        for row in df[cols]:
+            
+            if isinstance(row, dict):
+                # Check if there is an object in the column and record column name to convert to json
+                cols_changed.append(cols)
+                break
         
-        if isinstance(df[cols][0], dict):
-            cols_changed.append(cols)
-            df[cols] = [_json.dumps(row) for row in df[cols].values.tolist()]
+        # If the column is in cols_changed then convert to json
+        if cols in cols_changed:
+            df[cols] = [_json.dumps(rows) for rows in df[cols].values.tolist()]
     
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
@@ -428,6 +435,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     for new_cols in df.columns:
         
         if new_cols in cols_changed:
+            # If the column is in cols changed, then change back to an object
             df[new_cols] = [_json.loads(x) for x in df[new_cols].values.tolist()]
     
     return df
