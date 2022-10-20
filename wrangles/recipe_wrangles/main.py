@@ -8,13 +8,14 @@ from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
 from .. import extract as _extract
 from .. import recipe as _recipe
+from .convert import to_json as _to_json
+from .convert import from_json as _from_json
 
 import numexpr as _ne
 import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
-
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
@@ -408,11 +409,38 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
+    
+    # List of columns changed
+    cols_changed = []
+    for cols in df.columns:
+        count = 0        
+        for row in df[cols]:
+            # If row contains objects, then convert to json
+            if isinstance(row, dict):
+                # Check if there is an object in the column and record column name to convert to json
+                cols_changed.append(cols)
+                break
+            # Only check the first 10 rows of a column
+            count += 1
+            if count > 10: break
+            
+        if cols in cols_changed:
+            # If the column is in cols_changed then convert to json
+            _to_json(df=df, input=cols)
+    
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
-
+    
     # Execute the user's query against the database and return the results
     df = _pd.read_sql(command, db)
     db.close()
+    
+    # Change the columns back to an object
+    for new_cols in df.columns:
+        
+        if new_cols in cols_changed:
+            # If the column is in cols changed, then change back to an object
+            _from_json(df=df, input=new_cols)
+    
     return df
 
 
