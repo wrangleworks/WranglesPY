@@ -48,7 +48,13 @@ def read(user: str, password: str, host: str, client_id: str, client_secret: str
 
 # Write data
 
-def write(df: _pd.DataFrame, user: str, password: str, host: str, client_id: str, client_secret: str):
+def write(
+        df: _pd.DataFrame,
+        user: str, password: str,
+        host: str, client_id: str,
+        client_secret: str, 
+        locale: str = None,
+        scope: str = None) -> None:
     """
     Write data into Akeneo
     """
@@ -71,10 +77,17 @@ def write(df: _pd.DataFrame, user: str, password: str, host: str, client_id: str
     for col_arr in metadata_keys_array:
         df[col_arr] = [x.split(", ") for x in df[col_arr]]
         
-    
+        
     # Data Format
-    # Format for data under values
-    
+    # Format for data under values. Check if the columns headers are not under special name columns
+    special_col_names = ['identifier', 'family', 'categories', 'groups']
+    locale_scope = {'locale': locale, 'scope': scope}
+    for cols in df.columns:
+        if cols not in special_col_names:
+            
+            # Adding locale and scope to the column dictionary
+            df[cols] = [{**locale_scope, **x} for x in df[cols]]
+    pass
     
     
     

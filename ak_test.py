@@ -15,74 +15,84 @@ read:
   - file:
       name: Akeneo Test Data.xlsx
       sheet_name: Data to Write Test 1
+      
+wrangles:
+  - create.column:
+      output: data
+      value: data
+
+  - merge.key_value_pairs:
+      input:
+        data: Name
+      output: Name
+  - split.text:
+      input: Weight
+      output:
+        - amount
+        - unit
+      char: ' '
+      
+  - standardize:
+      input: unit
+      model_id: 
+      
 """
 
 df = wrangles.recipe.run(recipe=rec)
 
-# Dealing with Required Values
+df.drop('Weight', axis=1, inplace=True)
 
-# Identifier must be a string
-df['identifier'] = df['identifier'].astype(str)
-
-# family must be a string
-df['family'] = df['family'].astype(str)
-
-# categories must be an array
-df['categories'] = [x.split(", ") for x in df['categories']]
-
-# groups must be an array
-df['groups'] = [x.split(", ") for x in df['groups']]
-
+pass
 
 
 # Dealing with Name - Text and Text Area Attributes - pim_catalog_text or pim_catalog_textarea
 
 # the name of the columns is the key here
 # the list will be populated by objects in format {"data" : "Name of the columns item"}
-name_list = []
-for item in df['Name']:
-    name_list.append([{"locale": None, "scope": None, "data": item}])
-df['Name'] = name_list
+# name_list = []
+# for item in df['Name']:
+#     name_list.append([{"locale": None, "scope": None, "data": item}])
+# df['Name'] = name_list
 
 # Weight Attribute - Metric Attributes - pim_catalog_metric
 
 # Standardizing units to full name and upper case
-input_list = df['Weight'].tolist()
-clean_list = wrangles.standardize(input_list, '49b583d9-114f-4303')
+# input_list = df['Weight'].tolist()
+# clean_list = wrangles.standardize(input_list, '49b583d9-114f-4303')
 
-df['Weight'] = clean_list
+# df['Weight'] = clean_list
 
-weight_list = []
-for weight_item in df['Weight']:
-    weight_list.append([{"locale": None, "scope": None, "data": {"amount": weight_item.split(" ")[0], "unit": weight_item.split(" ")[1]}}])
-df['Weight'] = weight_list
+# weight_list = []
+# for weight_item in df['Weight']:
+#     weight_list.append([{"locale": None, "scope": None, "data": {"amount": weight_item.split(" ")[0], "unit": weight_item.split(" ")[1]}}])
+# df['Weight'] = weight_list
 
 
 
 # Putting all attributes under 'values'
 
-attributes = ['Name', 'Weight']
-values_list = []
-for df_index in range(len(df)):
-    value_obj = {}
-    for attr in attributes:
-        value_obj[attr] = df[attr][df_index]
-    values_list.append(value_obj)
-df['values'] = values_list
-# Dropping attribute columns as they are no longer needed
-df.drop(attributes, axis=1, inplace=True)
+# attributes = ['Name', 'Weight']
+# values_list = []
+# for df_index in range(len(df)):
+#     value_obj = {}
+#     for attr in attributes:
+#         value_obj[attr] = df[attr][df_index]
+#     values_list.append(value_obj)
+# df['values'] = values_list
+# # Dropping attribute columns as they are no longer needed
+# df.drop(attributes, axis=1, inplace=True)
 
 
 
 
     
-# tt = write(
-#     df=df,
-#     user=username,
-#     password=password,
-#     host='https://akeneo.wrangle.works/',
-#     client_id=client_id,
-#     client_secret=secret
-# )
+tt = write(
+    df=df,
+    user=username,
+    password=password,
+    host='https://akeneo.wrangle.works/',
+    client_id=client_id,
+    client_secret=secret
+)
 
 pass
