@@ -2,110 +2,87 @@ import json
 from wrangles.connectors.akeneo import read, write
 import wrangles
 import os as _os
-import ast
 
 # login stuff
 client_id = _os.getenv('AKENEO_CLIENT_ID', '...')
 secret = _os.getenv('AKENEO_SECRET', '...')
 username = _os.getenv('AKENEO_USERNAME', '...')
 password = _os.getenv('AKENEO_PASSWORD', '...')
-attributes = ['USD', 'Name', 'Weight', 'In_Stock']
 
-test_df = read(
-    user=username,
-    password=password,
-    host='https://akeneo.wrangle.works/',
-    client_id=client_id,
-    client_secret=secret
-)
-
-# Convert list of attributes into keys
-column_header_to_dict = """
+# Writing from a file (Excel)
+rec = """
 read:
   - file:
-      name: temp.xlsx
-wrangles:
-    - merge.to_dict:
-        input: ${attributes_list}
-        output: values
-    - convert.data_type:
-        input: identifier
-        data_type: str
+      name: Akeneo Test Data.xlsx
+      sheet_name: Data to Write Test 1
 """
-vars = {
-    'attributes_list': attributes,
-}
 
-df = wrangles.recipe.run(recipe=column_header_to_dict, variables=vars)
+df = wrangles.recipe.run(recipe=rec)
 
-cat_list = []
-for cats in df['categories']:
-    cat_list.append(ast.literal_eval(cats))
-df['categories'] = cat_list
+# Dealing with Required Values
 
-group_list = []
-for groups in df['groups']:
-    group_list.append(ast.literal_eval(groups))
-df['groups'] = group_list
+# Identifier must be a string
+df['identifier'] = df['identifier'].astype(str)
 
+# family must be a string
+df['family'] = df['family'].astype(str)
+
+# categories must be an array
+df['categories'] = [x.split(", ") for x in df['categories']]
+
+# groups must be an array
+df['groups'] = [x.split(", ") for x in df['groups']]
+
+
+
+# Dealing with Name - Text and Text Area Attributes - pim_catalog_text or pim_catalog_textarea
+
+# the name of the columns is the key here
+# the list will be populated by objects in format {"data" : "Name of the columns item"}
+name_list = []
+for item in df['Name']:
+    name_list.append([{"locale": None, "scope": None, "data": item}])
+df['Name'] = name_list
+
+# Weight Attribute - Metric Attributes - pim_catalog_metric
+
+# Standardizing units to full name and upper case
+input_list = df['Weight'].tolist()
+clean_list = wrangles.standardize(input_list, '49b583d9-114f-4303')
+
+df['Weight'] = clean_list
+
+weight_list = []
+for weight_item in df['Weight']:
+    weight_list.append([{"locale": None, "scope": None, "data": {"amount": weight_item.split(" ")[0], "unit": weight_item.split(" ")[1]}}])
+df['Weight'] = weight_list
+
+
+
+# Putting all attributes under 'values'
+
+attributes = ['Name', 'Weight']
 values_list = []
-for item in df['values']:
-    values_dict = {}
-    for key, value in item.items():
-        values_dict[key] = ast.literal_eval(value)
-    values_list.append(values_dict)
+for df_index in range(len(df)):
+    value_obj = {}
+    for attr in attributes:
+        value_obj[attr] = df[attr][df_index]
+    values_list.append(value_obj)
 df['values'] = values_list
+# Dropping attribute columns as they are no longer needed
+df.drop(attributes, axis=1, inplace=True)
 
 
-df = df[[
-    'identifier',
-    'family',
-    'categories',
-    'groups',
-    'values'
-]]
 
-new_values = []
-for item in df['values']:
-    new_dict  = {}
-    for key, value in item.items():
-        
-        if key == 'Name':
-            value = value[0]['data']
-        elif key == 'Weight':
-            value = value[0]
-        elif key == 'In_Stock':
-            value = value[0]['data']
-        else: value = [value[0]]
-        
-        
-        if key == 'In_Stock':
-            
-            static_dict = {
-            'locale': None,
-            'scope': 'ecommerce',
-            'data': value
-            }
-        else:
-            static_dict = {
-            'locale': None,
-            'scope': None,
-            'data': value
-            }
-        
-        new_dict[key] = [static_dict] # Getting an error here for weight
-    new_values.append(new_dict)
-df['values'] = new_values
+
     
-    
-tt = write(
-    df=df,
-    user=username,
-    password=password,
-    host='https://akeneo.wrangle.works/',
-    client_id=client_id,
-    client_secret=secret
-)
+# tt = write(
+#     df=df,
+#     user=username,
+#     password=password,
+#     host='https://akeneo.wrangle.works/',
+#     client_id=client_id,
+#     client_secret=secret
+# )
 
-print(tt)
 pass

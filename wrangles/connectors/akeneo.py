@@ -61,11 +61,31 @@ def write(df: _pd.DataFrame, user: str, password: str, host: str, client_id: str
                 'Authorization': 'Bearer ' + res
             }
     
+    ### Data pre-cleaning for Akeneo Format ###
+    
+    # Required metadata Keys
+    metadata_keys_str = ['identifier', 'family'] # string format
+    df[metadata_keys_str] = df[metadata_keys_str].astype(str)
+    
+    metadata_keys_array = ['categories', 'groups'] # array format
+    for col_arr in metadata_keys_array:
+        df[col_arr] = [x.split(", ") for x in df[col_arr]]
+        
+    
+    # Data Format
+    # Format for data under values
+    
+    
+    
+    
+    
     payload_batch = ''
     for row in range(len(df)):
         payload_batch =  payload_batch +  _json.dumps(df.to_dict(orient='records')[row]) + '\n'
     
     res = _requests.patch(host + "api/rest/v1/products", headers=headers, data=payload_batch)
+    
+    pass
     
 
     
