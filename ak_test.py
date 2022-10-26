@@ -10,49 +10,17 @@ username = _os.getenv('AKENEO_USERNAME', '...')
 password = _os.getenv('AKENEO_PASSWORD', '...')
 
 # Writing from a file (Excel)
-rec = """
-read:
-  - file:
-      name: Akeneo Test Data.xlsx
-      sheet_name: Data to Write Test 1
-      
-wrangles:
-  - create.column:
-      output: data
-      value: data
+rec = "akeneo_test.wrgl.yaml"
+vars = {'None_Value': None}
+df = wrangles.recipe.run(recipe=rec, variables=vars)
 
-  - merge.key_value_pairs:
-      input:
-        data: Name
-      output: Name
+# Merging two dictionaries together
 
-  - split.text:
-      input: Weight
-      output:
-        - amount
-        - unit
-      char: ' '
-      
-  - standardize:
-      input: unit
-      model_id: 49b583d9-114f-4303
-  
-  - merge.to_dict:
-      input:
-        - amount
-        - unit
-      output: Weight
+df['In_Stock'] = [{**df['scope_ecom'][x], **df['In_Stock'][x]} for x in range(len(df))]
 
-  - merge.key_value_pairs:
-      input:
-        data: Weight
-      output: Weight
+df.drop(['data', 'unit', 'amount', 'currency', 'scope_ecom', 'scope', 'locale'], axis=1, inplace=True)
+pass
 
-      
-"""
-df = wrangles.recipe.run(recipe=rec)
-df.drop(['data', 'unit', 'amount'], axis=1, inplace=True)
-   
 tt = write(
     df=df,
     user=username,

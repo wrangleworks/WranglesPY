@@ -90,7 +90,11 @@ def write(
     for cols in df.columns:
         if cols not in special_col_names:
             # Adding locale and scope to the column dictionary
-            df[cols] = [[{**locale_scope, **x}] for x in df[cols]]
+            if 'scope' not in df[cols][0].keys() and 'locale' not in df[cols][0].keys():
+                df[cols] = [[{**locale_scope, **x}] for x in df[cols]]
+            else:
+                # locale and scope are in the data
+                df[cols] = [[x] for x in df[cols]]
             values_cols.append(cols)
     
     # Merging all non special columns to values dictionary
