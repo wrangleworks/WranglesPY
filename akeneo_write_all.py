@@ -10,7 +10,7 @@ username = _os.getenv('AKENEO_USERNAME', '...')
 password = _os.getenv('AKENEO_PASSWORD', '...')
 
 # Writing from a file (Excel)
-rec = "akeneo_test.wrgl.yaml"
+rec = "akeneo_write_all.wrgl.yaml"
 vars = {'None_Value': None}
 df = wrangles.recipe.run(recipe=rec, variables=vars)
 

@@ -47,7 +47,8 @@ wrangles:
         - amount
         - currency
       output: USD
-      
+
+# Only if it is one currency
   - merge.to_list:
       input:
         - USD
@@ -58,6 +59,21 @@ wrangles:
         data: USD
       output: USD
 
+  # Adding another currency to the product
+  # - split.text:
+  #     input: GBP
+  #     output:
+  #       - amount
+  #       - currency
+  #     char: ' '
+      
+  # - merge.to_dict:
+  #     input:
+  #       - amount
+  #       - currency
+  #     output: GBP
+      
+      
       
   - merge.key_value_pairs:
       input:

@@ -72,7 +72,7 @@ def write(
     ### Data pre-cleaning for Akeneo Format ###
     
     # Required metadata Keys
-    metadata_keys_str = ['identifier', 'family'] # string format
+    metadata_keys_str = ['identifier','family'] # string format
     df[metadata_keys_str] = df[metadata_keys_str].astype(str)
     
     metadata_keys_array = ['categories', 'groups'] # array format
@@ -107,11 +107,22 @@ def write(
     for row in range(len(df)):
         payload_batch =  payload_batch +  _json.dumps(df.to_dict(orient='records')[row]) + '\n'
     
-    res = _requests.patch(host + "api/rest/v1/products", headers=headers, data=payload_batch)
+    response = _requests.patch(host + "api/rest/v1/products", headers=headers, data=payload_batch)
     
+    # Returning error message if any
+    
+    # Looping through response if 200 main response
+    if str(response.status_code)[0] == '2':
+        list_of_responses = [_json.loads(x) for x in response.text.split('\n')]
+        status_error = [x for x in list_of_responses if str(x['status_code'])[0] != '2']
+        if status_error:
+            raise ValueError(f"Error in the following data:\n{status_error}")
+    else:
+        json_response = _json.loads(response.text)
+        raise ValueError(f"Status Code: {json_response['code']} Message: {json_response['message']}")
+        
     pass
     
 
-    
 
 
