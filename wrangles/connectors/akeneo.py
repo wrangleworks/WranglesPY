@@ -2,6 +2,8 @@ import pandas as _pd
 import requests as _requests
 import json as _json
 
+from ..recipe_wrangles import merge
+
 
 def read(user: str, password: str, host: str, client_id: str, client_secret: str):
     """
@@ -82,16 +84,21 @@ def write(
     # Format for data under values. Check if the columns headers are not under special name columns
     special_col_names = ['identifier', 'family', 'categories', 'groups']
     locale_scope = {'locale': locale, 'scope': scope}
+    values_cols = [] # columns that will need to be merged
+    
+    # Iterating through non special columns to format in Akeneo way
     for cols in df.columns:
         if cols not in special_col_names:
-            
             # Adding locale and scope to the column dictionary
-            df[cols] = [{**locale_scope, **x} for x in df[cols]]
-    pass
+            df[cols] = [[{**locale_scope, **x}] for x in df[cols]]
+            values_cols.append(cols)
     
-    
-    
-    
+    # Merging all non special columns to values dictionary
+    merge.to_dict(df=df, input=values_cols, output='values')
+    # Dropping all non special columns
+    df.drop(values_cols, axis=1, inplace=True)
+
+    # Sending payload to Akeneo
     payload_batch = ''
     for row in range(len(df)):
         payload_batch =  payload_batch +  _json.dumps(df.to_dict(orient='records')[row]) + '\n'

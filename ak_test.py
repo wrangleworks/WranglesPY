@@ -25,6 +25,7 @@ wrangles:
       input:
         data: Name
       output: Name
+
   - split.text:
       input: Weight
       output:
@@ -34,58 +35,24 @@ wrangles:
       
   - standardize:
       input: unit
-      model_id: 
+      model_id: 49b583d9-114f-4303
+  
+  - merge.to_dict:
+      input:
+        - amount
+        - unit
+      output: Weight
+
+  - merge.key_value_pairs:
+      input:
+        data: Weight
+      output: Weight
+
       
 """
-
 df = wrangles.recipe.run(recipe=rec)
-
-df.drop('Weight', axis=1, inplace=True)
-
-pass
-
-
-# Dealing with Name - Text and Text Area Attributes - pim_catalog_text or pim_catalog_textarea
-
-# the name of the columns is the key here
-# the list will be populated by objects in format {"data" : "Name of the columns item"}
-# name_list = []
-# for item in df['Name']:
-#     name_list.append([{"locale": None, "scope": None, "data": item}])
-# df['Name'] = name_list
-
-# Weight Attribute - Metric Attributes - pim_catalog_metric
-
-# Standardizing units to full name and upper case
-# input_list = df['Weight'].tolist()
-# clean_list = wrangles.standardize(input_list, '49b583d9-114f-4303')
-
-# df['Weight'] = clean_list
-
-# weight_list = []
-# for weight_item in df['Weight']:
-#     weight_list.append([{"locale": None, "scope": None, "data": {"amount": weight_item.split(" ")[0], "unit": weight_item.split(" ")[1]}}])
-# df['Weight'] = weight_list
-
-
-
-# Putting all attributes under 'values'
-
-# attributes = ['Name', 'Weight']
-# values_list = []
-# for df_index in range(len(df)):
-#     value_obj = {}
-#     for attr in attributes:
-#         value_obj[attr] = df[attr][df_index]
-#     values_list.append(value_obj)
-# df['values'] = values_list
-# # Dropping attribute columns as they are no longer needed
-# df.drop(attributes, axis=1, inplace=True)
-
-
-
-
-    
+df.drop(['data', 'unit', 'amount'], axis=1, inplace=True)
+   
 tt = write(
     df=df,
     user=username,
