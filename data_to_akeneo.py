@@ -13,21 +13,21 @@ password = _os.getenv('AKENEO_PASSWORD', '...')
 rec = "data_to_akeneo.wrgl.yaml"
 vars = {'None_Value': None}
 df = wrangles.recipe.run(recipe=rec, variables=vars)
-pass
+
 # Writing to Akeneo
 cols_to_use = [
     'identifier',
     'family',
     'categories',
     'groups',
-    'Blade Dia.',
-    'Max. RPM',
-    'Tool Weight',
-    'Tool Length',
+    'Blade_Dia_',
+    'Max__RPM',
+    'Tool_Weight',
+    'Tool_Length',
     'Voltage',
-    'BOSCH CATEGORY',
+    'BOSCH_CATEGORY',
     'Item',
-    'USD'
+    'Price'
     ]
 
 write(

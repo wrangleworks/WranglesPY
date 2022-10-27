@@ -13,7 +13,7 @@ read:
         - BOSCH CATEGORY
         - Item
         - Category
-        - USD
+        - Price
         - groups
         - categories
         - family
@@ -141,11 +141,15 @@ wrangles:
   - rename:
       SKU: identifier
       # Manufacturer: family
-      # Blade Dia.: Blade_Dia_
+      Blade Dia.: Blade_Dia_
+      Max. RPM: Max__RPM
+      Tool Weight: Tool_Weight
+      Tool Length: Tool_Length
+      BOSCH CATEGORY: BOSCH_CATEGORY
       
   # Dealing with price
   - split.text:
-      input: USD
+      input: Price
       output:
         - amount
         - currency
@@ -155,16 +159,16 @@ wrangles:
       input:
         - amount
         - currency
-      output: USD
+      output: Price
       
   - merge.to_list:
       input:
-        - USD
-      output: USD
+        - Price
+      output: Price
       
   - merge.key_value_pairs:
       input:
-        data: USD
-      output: USD
+        data: Price
+      output: Price
   
   
