@@ -47,7 +47,7 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
         # Iterate over all of the keys and value in a dictionary
         for key, val in recipe_object.items():
             # Recursively check if the elements in dictionary are lists, dictionaries or strings
-            if _re.search("\$\{\w+\}", key):
+            if _re.search("\${.+}", key):
                 change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
                 new_recipe_object[change_value] = _replace_templated_values(val, variables)
             # Else do nothing
@@ -57,7 +57,7 @@ def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
     elif isinstance(recipe_object, str):
         
         # Check if the variable is a templated value
-        if _re.search("\$\{\w+\}", recipe_object):
+        if _re.search("\${.+}", recipe_object):
             # Change the value accordingly
             change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
             
