@@ -96,7 +96,7 @@ def write(
         if cols not in special_col_names:
             # Adding locale and scope to the column dictionary
             if 'scope' not in df[cols][0].keys() and 'locale' not in df[cols][0].keys():
-                df[cols] = [[{**locale_scope, **x}] for x in df[cols]]
+                df[cols] = [[{**locale_scope, **x}] if x != {} else '' for x in df[cols]]
             else:
                 # locale and scope are in the data
                 df[cols] = [[x] for x in df[cols]]
