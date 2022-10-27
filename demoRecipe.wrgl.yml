@@ -1,0 +1,84 @@
+read:
+  - file:
+      name: ${inputFile}
+      sheet_name: ${inputSheet}
+
+wrangles:
+
+### Attributes ###
+  - extract.custom:
+      input: DESCRIPTION
+      output: Attributes
+      model_id: ${Attributes}
+
+  - merge.concatenate:
+      input: Attributes
+      output: Attributes
+      char: ","
+
+  # - standardize:
+  #     input: Attributes
+  #     model_id: ${ObjectWrap}
+
+  - custom.from_json:
+      input: Attributes
+
+# may not work without being wrapped using 'Object Wrap' first
+  - split.dictionary:
+      input: Attributes
+# Outputs  Blade Dia., Max. RPM, Tool Weight, Voltage, Tool Length
+
+### Item ###
+  - extract.custom:
+      input: CATEGORY
+      output: Item
+      model_id: ${Item Extractor}
+
+### Family ###
+  - classify:
+      input: CATEGORY
+      output: Family
+      model_id: ${Family Classifier}
+
+### Category ###
+  - classify:
+      input: CATEGORY
+      output: Category
+      model_id: ${Demo DIY Categories}
+
+  - rename:
+      P/N: MPN
+
+  - create.column:
+      output: Manufacturer
+      value: ${supplier}
+
+  - create.index:
+      output: ID
+      start: 2
+
+# Rename fields to match the names in PriceFX
+  - rename:
+      MPN: sku
+
+write:
+
+###### Akeneo connector #######
+
+  - file:
+      name: ${outputFile}
+      columns:
+        - sku
+        - Manufacturer
+        - DESCRIPTION
+        - Attributes   
+        # - Blade Dia.
+        # - Max. RPM
+        # - Tool Weight
+        # - Tool Length
+        # - Voltage
+        - CATEGORY
+        - Item
+        - Family
+        - Category
+        - New Price

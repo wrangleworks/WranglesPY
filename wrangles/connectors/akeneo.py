@@ -56,7 +56,8 @@ def write(
         host: str, client_id: str,
         client_secret: str, 
         locale: str = None,
-        scope: str = None) -> None:
+        scope: str = None,
+        columns: list = None) -> None:
     """
     Write data into Akeneo
     """
@@ -68,6 +69,10 @@ def write(
                 'Content-type': 'application/vnd.akeneo.collection+json', # For Writing
                 'Authorization': 'Bearer ' + res
             }
+    
+    # If the user specifies only certain columns
+    if columns is not None:
+        df = df[columns]    
     
     ### Data pre-cleaning for Akeneo Format ###
     
@@ -116,7 +121,7 @@ def write(
         list_of_responses = [_json.loads(x) for x in response.text.split('\n')]
         status_error = [x for x in list_of_responses if str(x['status_code'])[0] != '2']
         if status_error:
-            raise ValueError(f"Error in the following data:\n{status_error}")
+            raise ValueError(f"Error in the following data:\n{status_error[:5]}")
     else:
         json_response = _json.loads(response.text)
         raise ValueError(f"Status Code: {json_response['code']} Message: {json_response['message']}")
