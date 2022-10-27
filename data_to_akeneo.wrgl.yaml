@@ -137,15 +137,21 @@ wrangles:
         data: BOSCH DESCRIPTION
       output: BOSCH DESCRIPTION
       
-  # Renaming special col values to match connector
+  # Manufacturer
+  - merge.key_value_pairs:
+      input:
+        data: Manufacturer
+      output: Manufacturer
+      
+  # Renaming to match identifier Code in Akeneo
   - rename:
       SKU: identifier
-      # Manufacturer: family
       Blade Dia.: Blade_Dia_
       Max. RPM: Max__RPM
       Tool Weight: Tool_Weight
       Tool Length: Tool_Length
       BOSCH CATEGORY: BOSCH_CATEGORY
+      Manufacturer: manufacturer
       
   # Dealing with price
   - split.text:

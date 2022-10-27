@@ -27,7 +27,8 @@ cols_to_use = [
     'Voltage',
     'BOSCH_CATEGORY',
     'Item',
-    'Price'
+    'Price',
+    'manufacturer',
     ]
 
 write(

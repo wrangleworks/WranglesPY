@@ -115,7 +115,6 @@ def write(
     response = _requests.patch(host + "api/rest/v1/products", headers=headers, data=payload_batch)
     
     # Returning error message if any
-    
     # Looping through response if 200 main response
     if str(response.status_code)[0] == '2':
         list_of_responses = [_json.loads(x) for x in response.text.split('\n')]
@@ -125,8 +124,6 @@ def write(
     else:
         json_response = _json.loads(response.text)
         raise ValueError(f"Status Code: {json_response['code']} Message: {json_response['message']}")
-        
-    pass
     
 
 
