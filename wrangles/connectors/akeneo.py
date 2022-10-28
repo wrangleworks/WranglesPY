@@ -4,6 +4,7 @@ import json as _json
 
 from ..recipe_wrangles import merge
 
+_schema = {}
 
 def read(user: str, password: str, host: str, client_id: str, client_secret: str):
     """
@@ -52,14 +53,26 @@ def read(user: str, password: str, host: str, client_id: str, client_secret: str
 
 def write(
         df: _pd.DataFrame,
-        user: str, password: str,
-        host: str, client_id: str,
+        user: str,
+        password: str,
+        host: str,
+        client_id: str,
         client_secret: str, 
         locale: str = None,
         scope: str = None,
         columns: list = None) -> None:
     """
     Write data into Akeneo
+    
+    :param df: Dataframe to be exported
+    :param user: User with access to Akeneo
+    :param password: Password for user
+    :param host: Akeneo host url
+    :param client_id: Client id for Akeneo API
+    :param client_secret: Secret (Password) to Access Akeneo API
+    :param locale: Language locale for product
+    :param scope: The scope of the product (also called channel) in Akeneo
+    :param columns: (Optional) Columns to include in the Dataframe to be exported
     """
     payload = {"username" : user, "password" : password, "grant_type" : "password"}
     response = _requests.request("POST", host + "api/oauth/v1/token", auth=(client_id, client_secret), json=payload)
@@ -125,6 +138,41 @@ def write(
         json_response = _json.loads(response.text)
         raise ValueError(f"Status Code: {json_response['code']} Message: {json_response['message']}")
     
+_schema['write'] = """
+type: object
+description: insert, delete, or update data to a mongoDB Server
+required:
+  - user
+  - password
+  - host
+  - client_id
+  - client_secret
+properties:
+  user:
+    type: string
+    description: User with access to the database
+  password:
+    type: string
+    description: Password for user
+  host:
+    type: string
+    description: Akeneo host url
+  client_id:
+    type: string
+    description: Client id for Akeneo API
+  client_secret:
+    type: string
+    description: Secret (Password) to Access Akeneo API
+  scope:
+    type: string
+    description: The scope of the product (also called channel) in Akeneo
+  locale:
+    type: string
+    description: Language locale for product
+  columns:
+    type: array
+    description: (Optional) Columns to include in the Dataframe to be exported
 
+"""
 
 
