@@ -234,3 +234,31 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
     df[output] = results
 
     return df
+
+
+def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Take dictionaries in multiple columns and merge them to a single dictionaries.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: object
+        description: list of input columns
+      output:
+        type: string
+        description: Name of the output column    
+    """
+    output_list = []
+    for row in df[input].values.tolist():
+        output_row = {**row[0]}
+        for col in row[1:]:
+            output_row = {**output_row, **col}
+        output_list.append(output_row)
+    
+    df[output] = output_list
+    
+    return df    
