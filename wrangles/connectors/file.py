@@ -47,6 +47,9 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
         df = _pd.read_json(file_object, **kwargs).fillna('')
+    else:
+      # If file type is not supported
+      raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by rangles recipe.")
 
     # If the user specifies only certain columns, only include those
     if columns is not None: df = df[columns]
