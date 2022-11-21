@@ -177,10 +177,10 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
     """
     if model_id is not None and find is None:
     
-        if isinstance(input, str) and isinstance(output, str) and isinstance(model_id, str):
+        if isinstance(input, str) and isinstance(output, str) and type(model_id) != list:
             df[output] = _extract.custom(df[input].astype(str).tolist(), model_id=model_id)
             
-        elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, str):
+        elif isinstance(input, list) and type(model_id) != list:
             # If a list of inputs is provided, ensure the list of outputs is the same length
             if len(input) != len(output):
                 if isinstance(output, str):
@@ -195,7 +195,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
         elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, list):
             for in_col, out_col, mod_id in zip(input, output, model_id):
                 df[out_col] = _extract.custom(df[in_col].astype(str).tolist(),model_id=mod_id)
-    
+
     elif find is not None and model_id is None:
         
         def mini_extract(string):
