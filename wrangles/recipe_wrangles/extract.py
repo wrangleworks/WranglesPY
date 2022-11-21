@@ -148,7 +148,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str = None, find: str = None) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, find: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -177,9 +177,10 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
     """
     if model_id is not None and find is None:
     
-        if isinstance(input, str):
+        if isinstance(input, str) and isinstance(output, str) and isinstance(model_id, str):
             df[output] = _extract.custom(df[input].astype(str).tolist(), model_id=model_id)
-        elif isinstance(input, list):
+            
+        elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, str):
             # If a list of inputs is provided, ensure the list of outputs is the same length
             if len(input) != len(output):
                 if isinstance(output, str):
@@ -189,6 +190,11 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
             else:
                 for input_column, output_column in zip(input, output):
                     df[output_column] = _extract.custom(df[input_column].astype(str).tolist(), model_id=model_id)
+                    
+        # Multiple different custom wrangles at the same time
+        elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, list):
+            for in_col, out_col, mod_id in zip(input, output, model_id):
+                df[out_col] = _extract.custom(df[in_col].astype(str).tolist(),model_id=mod_id)
     
     elif find is not None and model_id is None:
         

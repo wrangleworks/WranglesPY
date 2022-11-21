@@ -122,10 +122,13 @@ def custom(input: _Union[str, list], model_id: str) -> list:
     # If the Model Id is not appropriate, raise error (Only for Recipes)
     if isinstance(model_id, dict):
         raise ValueError('Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value')
-        
-    # Checking to see if GUID format is correct
-    if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
-        raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    
+    # If the model_id is a list, then split the contents
+    if isinstance(model_id, str): model_id = [model_id]
+    for model in model_id:
+        # Checking to see if GUID format is correct
+        if [len(x) for x in model.split('-')] != [8, 4, 4]:
+            raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
     params = {'responseFormat': 'array', 'model_id': model_id}
