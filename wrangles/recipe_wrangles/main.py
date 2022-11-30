@@ -325,10 +325,128 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
       target_language:
         type: string
         description: Code of the language to translate to
+        enum:
+          - Bulgarian
+          - Chinese
+          - Czech
+          - Danish
+          - Dutch
+          - English (American)
+          - English (British)
+          - Estonian
+          - Finnish
+          - French
+          - German
+          - Greek
+          - Hungarian
+          - Italian
+          - Japanese
+          - Latvian
+          - Lithuanian
+          - Polish
+          - Portuguese
+          - Portuguese (Brazilian)
+          - Romanian
+          - Russian
+          - Slovak
+          - Slovenian
+          - Spanish
+          - Swedish
       source_language:
         type: string
         description: Code of the language to translate from. If omitted, automatically detects the input language
+        enum:
+          - Auto
+          - Bulgarian
+          - Chinese
+          - Czech
+          - Danish
+          - Dutch
+          - English
+          - Estonian
+          - Finnish
+          - French
+          - German
+          - Greek
+          - Hungarian
+          - Italian
+          - Japanese
+          - Latvian
+          - Lithuanian
+          - Polish
+          - Portuguese
+          - Romanian
+          - Russian
+          - Slovak
+          - Slovenian
+          - Spanish
+          - Swedish
     """
+    
+    # Convert Language to DeepL Code
+    source_dict = [
+        { 'key': 'AUTO', 'text': 'Auto'},
+        { 'key': 'BG', 'text': 'Bulgarian' },
+        { 'key': 'ZH', 'text': 'Chinese' },
+        { 'key': 'CS', 'text': 'Czech' },
+        { 'key': 'DA', 'text': 'Danish' },
+        { 'key': 'NL', 'text': 'Dutch' },
+        { 'key': 'EN', 'text': 'English' },
+        { 'key': 'ET', 'text': 'Estonian' },
+        { 'key': 'FI', 'text': 'Finnish' },
+        { 'key': 'FR', 'text': 'French' },
+        { 'key': 'DE', 'text': 'German' },
+        { 'key': 'EL', 'text': 'Greek' },
+        { 'key': 'HU', 'text': 'Hungarian' },
+        { 'key': 'IT', 'text': 'Italian' },
+        { 'key': 'JA', 'text': 'Japanese' },
+        { 'key': 'LV', 'text': 'Latvian' },
+        { 'key': 'LT', 'text': 'Lithuanian' },
+        { 'key': 'PL', 'text': 'Polish' },
+        { 'key': 'PT', 'text': 'Portuguese' },
+        { 'key': 'RO', 'text': 'Romanian' },
+        { 'key': 'RU', 'text': 'Russian' },
+        { 'key': 'SK', 'text': 'Slovak' },
+        { 'key': 'SL', 'text': 'Slovenian' },
+        { 'key': 'ES', 'text': 'Spanish' },
+        { 'key': 'SV', 'text': 'Swedish' },
+    ]
+    
+    target_dict = [
+        { 'key': 'BG', 'text': 'Bulgarian' },
+        { 'key': 'ZH', 'text': 'Chinese' },
+        { 'key': 'CS', 'text': 'Czech' },
+        { 'key': 'DA', 'text': 'Danish' },
+        { 'key': 'NL', 'text': 'Dutch' },
+        { 'key': 'EN-US', 'text': 'English (American)' },
+        { 'key': 'EN-GB', 'text': 'English (British)' },
+        { 'key': 'ET', 'text': 'Estonian' },
+        { 'key': 'FI', 'text': 'Finnish' },
+        { 'key': 'FR', 'text': 'French' },
+        { 'key': 'DE', 'text': 'German' },
+        { 'key': 'EL', 'text': 'Greek' },
+        { 'key': 'HU', 'text': 'Hungarian' },
+        { 'key': 'IT', 'text': 'Italian' },
+        { 'key': 'JA', 'text': 'Japanese' },
+        { 'key': 'LV', 'text': 'Latvian' },
+        { 'key': 'LT', 'text': 'Lithuanian' },
+        { 'key': 'PL', 'text': 'Polish' },
+        { 'key': 'PT-PT', 'text': 'Portuguese' },
+        { 'key': 'PT-BR', 'text': 'Portuguese (Brazilian)' },
+        { 'key': 'RO', 'text': 'Romanian' },
+        { 'key': 'RU', 'text': 'Russian' },
+        { 'key': 'SK', 'text': 'Slovak' },
+        { 'key': 'SL', 'text': 'Slovenian' },
+        { 'key': 'ES', 'text': 'Spanish' },
+        { 'key': 'SV', 'text': 'Swedish' },
+    ]
+    # Source Language code
+    try:
+        if target_language == 'English': target_language = 'English (British)'
+        source_language = [x['key'] for x in source_dict if x['text'] == source_language][0]
+        target_language = [x['key'] for x in target_dict if x['text'] == target_language][0]
+    except:
+        pass
 
     # If the input is a string
     if isinstance(input, str) and isinstance(output, str):
