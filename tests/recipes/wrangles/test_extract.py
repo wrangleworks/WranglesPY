@@ -94,7 +94,7 @@ def test_attributes_angle():
             attribute_type: angle
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'][0] in ['13°', '13deg']
+    assert df.iloc[0]['Attributes'][0] in ['13deg', '13°']
 
 # Testing area 
 def test_attributes_area():
@@ -107,7 +107,7 @@ def test_attributes_area():
             attribute_type: area
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'][0] in ['13sq m', '13m^2']
+    assert df.iloc[0]['Attributes'][0] in ['13m^2', '13sq m']
 
 # Testing Current
 def test_attributes_current():
@@ -198,7 +198,7 @@ def test_attributes_volume():
             attribute_type: volume
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'][0] in ['13cu m', '13m^3']
+    assert df.iloc[0]['Attributes'][0] in ['13m^3', '13cu m']
 
 # Testing mass
 def test_attributes_mass():
@@ -414,7 +414,6 @@ def test_extract_custom_5():
     assert info.typename == 'ValueError' and info.value.args[0] == 'Extract custom must have model_id or find as parameters'
 
 # incorrect model_id - forget to use ${}
-# Mini Extract with model id also included -> Error
 def test_extract_custom_6():
     data = pd.DataFrame({
         'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
@@ -452,7 +451,7 @@ df_test_custom_multi_input = pd.DataFrame(
   }
 )
 
-def test_extract_custom_mulit_input():
+def test_extract_custom_multi_input():
     recipe = """
     wrangles:
       - extract.custom:
