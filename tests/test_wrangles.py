@@ -176,7 +176,8 @@ def test_standardize_train_1(mocker):
     ]
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     m = mocker.patch("requests.post")
     m.return_value = temp_classify
@@ -194,7 +195,8 @@ def test_standardize_train_2():
     ]
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.standardize(**config)
@@ -204,7 +206,8 @@ def test_standardize_train_3():
     data = {'Rice': 'Arroz'}
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.standardize(**config)
@@ -228,7 +231,8 @@ def test_classify_train_1():
     ]
     config = {
         'training_data': data,
-        'name': 'test_classify'
+        'name': 'test_classify',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.classify(**config)
@@ -243,7 +247,8 @@ def test_classify_train_2(mocker):
     ]
     config = {
         'training_data': data,
-        'name': 'test_classify'
+        'name': 'test_classify',
+        'model_id': '1234567890',
     }
     m = mocker.patch("requests.post")
     m.return_value = temp_classify
