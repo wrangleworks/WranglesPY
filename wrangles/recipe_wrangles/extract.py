@@ -267,6 +267,11 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
       return_data_type:
         type: string
         description: The format to return the data, as a list or as a string
+        enum:
+          - Colours
+          - Materials
+          - Shapes
+          - Standards
     """
     # If the input is a string
     if isinstance(input, str) and isinstance(output, str):

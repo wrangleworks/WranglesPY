@@ -11,13 +11,14 @@ class train():
     Train new models
     """
 
-    def classify(training_data: list, name: str):
+    def classify(training_data: list, name: str, model_id: str):
         """
         Train a classification model. This can predict the category of a text input.
         Requires WrangleWorks Account and Subscription.
         
         :param training_data: paired list of examples and labels.
-        :param name: The name of the new model.
+        :param name: If provided, will create a new model with this name.
+        :param model_id: If provided, will update this model.
         """
         # If input is a list, check to make sure that all sublists are length of 2
         if isinstance(training_data, list):
@@ -28,17 +29,24 @@ class train():
             # checking the first element in training list
             if training_data[0] != ['Example', 'Category']:
                 training_data = [['Example', 'Category']] + training_data
-        # Validate input here
-        response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'classify', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        
+        if name:
+            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'classify', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        elif model_id:
+            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'classify', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        else:
+            raise ValueError('Either a name or a model id must be provided')
+
         return response
 
-    def extract(training_data: list, name: str):
+    def extract(training_data: list, name: str = None, model_id: str = None):
         """
         Train an extraction model. This can extract custom entities from the input.
         Requires WrangleWorks Account and Subscription.
         
         :param training_data: paired list of entities to find and optional standard representation of that entitiy.
-        :param name: The name of the new model.
+        :param name: If provided, will create a new model with this name.
+        :param model_id: If provided, will update this model.
         """
         # If input is a list, check to make sure that all sublists are length of 2
         # Must have both values filled ('' counts as filled, None does not count)
@@ -51,17 +59,23 @@ class train():
             if training_data[0] != ['Entity to Find', 'Variation (Optional)']:
                 training_data = [['Entity to Find', 'Variation (Optional)']] + training_data
         
-        # Validate input here
-        response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'extract', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        if name:
+            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'extract', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        elif model_id:
+            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'extract', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        else:
+            raise ValueError('Either a name or a model id must be provided')
+
         return response
 
-    def standardize(training_data: list, name: str):
+    def standardize(training_data: list, name: str, model_id: str):
         """
         Train a standardize model. This can standardize text to a desired format.
         Requires WrangleWorks Account and Subscription.
         
         :param training_data: paired list of entities to find and replace.
-        :param name: The name of the new model.
+        :param name: If provided, will create a new model with this name.
+        :param model_id: If provided, will update this model.
         """
         # If input is a list, check to make sure that all sublists are length of 2
         if isinstance(training_data, list):
@@ -76,6 +90,11 @@ class train():
         else:
             raise ValueError('A list is expected for training_data')
         
-        # Validate input here
-        response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'standardize', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        if name:
+            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'standardize', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        elif model_id:
+            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'standardize', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+        else:
+            raise ValueError('Either a name or a model id must be provided')
+
         return response

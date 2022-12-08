@@ -188,8 +188,12 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
             params.update(connections[params['connection']])
             params.pop('connection')
 
-        # Load appropriate data
-        df = getattr(getattr(_connectors, import_type), 'read')(**params)
+        # Get read function of requested connector and pass user defined params
+        obj = _connectors
+        for element in import_type.split('.'):
+            obj = getattr(obj, element)
+
+        df = getattr(obj, 'read')(**params)
     
     return df
     
@@ -344,8 +348,12 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
                     params.update(connections[params['connection']])
                     params.pop('connection')
 
-                # Get output function of requested connector and pass dataframe + user defined params
-                getattr(getattr(_connectors, export_type), 'write')(df, **params)
+                # Get write function of requested connector and pass dataframe and user defined params
+                obj = _connectors
+                for element in export_type.split('.'):
+                    obj = getattr(obj, element)
+
+                getattr(obj, 'write')(df, **params)
 
     return df_return
 
