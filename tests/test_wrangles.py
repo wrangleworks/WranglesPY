@@ -62,11 +62,11 @@ def test_address_list():
 
 def test_attributes():
     result = wrangles.extract.attributes('something 15V something')
-    assert result['electric potential'][0] == '15V'
+    assert result['voltage'][0] == '15V'
 
 def test_attributes_list():
     result = wrangles.extract.attributes(['something 15V something'])
-    assert result[0]['electric potential'][0] == '15V'
+    assert result[0]['voltage'][0] == '15V'
 
 def test_codes():
     result = wrangles.extract.codes('something ABC123ZZ something')

@@ -94,7 +94,7 @@ def test_attributes_angle():
             attribute_type: angle
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13deg']
+    assert df.iloc[0]['Attributes'][0] in ['13°', '13deg']
 
 # Testing area 
 def test_attributes_area():
@@ -107,7 +107,7 @@ def test_attributes_area():
             attribute_type: area
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13m^2']
+    assert df.iloc[0]['Attributes'][0] in ['13sq m', '13m^2']
 
 # Testing Current
 def test_attributes_current():
@@ -198,7 +198,7 @@ def test_attributes_volume():
             attribute_type: volume
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13m^3']
+    assert df.iloc[0]['Attributes'][0] in ['13cu m', '13m^3']
 
 # Testing mass
 def test_attributes_mass():
