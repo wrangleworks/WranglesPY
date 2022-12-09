@@ -7,6 +7,8 @@ import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
+import os as _os
+import re as _re
 
 
 _schema = {}
@@ -117,7 +119,14 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
     _logging.info(f": Exporting Data :: {name}")
-
+    
+    # Get the path to make a directory if it does not exists
+    re_patter = '^.+(?=\/\w+\.\w+)'
+    path_matched = _re.search(re_patter, name)
+    if path_matched:
+        _os.makedirs(path_matched[0], exist_ok=True)
+    
+    pass
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
    
