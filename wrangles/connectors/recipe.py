@@ -3,6 +3,8 @@ Connector to run a recipe.
 
 Run a recipe, from a recipe! Recipe-ception.
 """
+from typing import Union as _Union
+import types as _types
 from .. import recipe as _recipe
 import pandas as _pd
 
@@ -75,7 +77,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = None) -> None:
+def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = None, functions: _Union[_types.FunctionType, list] = []) -> None:
     """
     Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
 
@@ -90,7 +92,7 @@ def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = No
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
 
-    _recipe.run(name, dataframe=df, variables=variables)
+    _recipe.run(name, dataframe=df, variables=variables, functions=functions)
 
 
 _schema['write'] = """

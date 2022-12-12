@@ -144,7 +144,7 @@ def test_custom_function_write():
           output: out1
           case: upper
     write:
-        custom.custom_funct_write:
+      - custom.custom_funct_write:
           end_str: ' Ending'
     """
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[custom_funct_write])

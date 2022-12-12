@@ -1,0 +1,9 @@
+read:
+  - custom.read_data:
+      columns:
+        - col1
+        - col2
+
+write:
+  - recipe:
+      name: tests/samples/sub_rec.wrgl.yaml

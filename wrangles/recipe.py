@@ -340,7 +340,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
             
             # Execute a user's custom function
             elif export_type.split('.')[0] == 'custom':
-                df = functions[export_type[7:]](df, **params)
+                functions[export_type[7:]](df, **params)
 
             else:
                 # Use shared connection details if set
@@ -352,7 +352,10 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
                 obj = _connectors
                 for element in export_type.split('.'):
                     obj = getattr(obj, element)
-
+                
+                if export_type == 'recipe':
+                    params['functions'] = functions
+                
                 getattr(obj, 'write')(df, **params)
 
     return df_return
