@@ -16,7 +16,5 @@ from . import mongodb
 from . import salesforce
 from . import recipe
 from . import s3
-from . import oracle
-from . import google_drive
 from . import akeneo
 from . import train
