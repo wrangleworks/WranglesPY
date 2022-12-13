@@ -3,7 +3,7 @@ import wrangles
 import pandas as pd
 import io
 import sys
-
+import logging
 
 #
 # Classify
@@ -316,34 +316,35 @@ def test_filter_12():
 #
 # Log
 #
-# Specify log columns
-def test_log_1():
-    data = pd.DataFrame({
-    'Col1': ['Ball Bearing'],
-    'Col2': ['Bearing']
-    })
-    recipe = """
-    wrangles:
-        - classify:
-            input:
-              - Col1
-              - Col2
-            output:
-              - Output 1
-              - Output 2
-            model_id: c77839db-237a-476b
-        - log:
-            columns:
-              - Col1
-    """
-    capturedOutput = io.StringIO()
-    sys.stdout = capturedOutput
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    sys.stdout = sys.__stdout__
-    assert capturedOutput.getvalue() == '           Col1\n0  Ball Bearing\n'
 
+LOGGER = logging.getLogger(__name__)
+
+# Specify log columns
+def test_log_1(caplog):
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input:
+              - Col1
+              - Col2
+            output:
+              - Output 1
+              - Output 2
+            model_id: c77839db-237a-476b
+        - log:
+            columns:
+              - Col1
+    """
+    wrangles.recipe.run(recipe, dataframe=data)
+    assert caplog.messages[-1] == 'Dataframe ::\n\n           Col1\n0  Ball Bearing\n'
+    
+    
 # no log columns specified
-def test_log_2():
+def test_log_2(caplog):
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Bearing']
@@ -361,14 +362,11 @@ def test_log_2():
         - log:
             columns:
     """
-    capturedOutput = io.StringIO()
-    sys.stdout = capturedOutput
     df = wrangles.recipe.run(recipe, dataframe=data)
-    sys.stdout = sys.__stdout__
-    assert capturedOutput.getvalue() == '           Col1     Col2      Output 1 Output 2\n0  Ball Bearing  Bearing  Ball Bearing  Bearing\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2      Output 1 Output 2\n0  Ball Bearing  Bearing  Ball Bearing  Bearing\n'
 
 # Test one column with wildcard
-def test_log_3():
+def test_log_3(caplog):
     data = pd.DataFrame({
         'Col': ['Hello, Wrangle, Works'],
     })
@@ -383,14 +381,11 @@ def test_log_3():
           columns:
             - Col*
     """
-    capturedOutput = io.StringIO()
-    sys.stdout = capturedOutput
     df = wrangles.recipe.run(recipe, dataframe=data)
-    sys.stdout = sys.__stdout__
-    assert capturedOutput.getvalue() == '                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
+    assert caplog.messages[-1] == 'Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
 
 # Test column with escape character
-def test_log_4():
+def test_log_4(caplog):
     data = pd.DataFrame({
         'Col': ['Hello'],
         'Col*': ['WrangleWorks!'],
@@ -401,11 +396,9 @@ def test_log_4():
           columns:
             - Col\*
     """
-    capturedOutput = io.StringIO()
-    sys.stdout = capturedOutput
     df = wrangles.recipe.run(recipe, dataframe=data)
-    sys.stdout = sys.__stdout__
-    assert capturedOutput.getvalue() == '            Col*\n0  WrangleWorks!\n'
+    assert caplog.messages[-1] == 'Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
+
 
 
 #
