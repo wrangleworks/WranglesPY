@@ -10,6 +10,7 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+import logging as _logging
 
 import numexpr as _ne
 import pandas as _pd
@@ -196,9 +197,9 @@ def log(df: _pd.DataFrame, columns: list = None):
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        print(df[columns_to_print])
+        _logging.info(msg='Dataframe ::\n\n' + df[columns_to_print].to_string() + '\n')
     else:
-        print(df)
+        _logging.info(msg=': Dataframe ::\n\n' + df.to_string() + '\n')
 
     return df
 
