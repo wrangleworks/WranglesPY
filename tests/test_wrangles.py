@@ -89,14 +89,6 @@ def test_custom_large_list():
     results = wrangles.extract.custom(input, '4786921f-342f-4a0c')
     assert len(results) == 25000 and results[0][0] == 'SKF'
 
-def test_geography():
-    result = wrangles.extract.geography('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
-    assert result[0] == '1100 Congress Ave'
-
-def test_geography_list():
-    result = wrangles.extract.geography(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
-    assert result[0][0] == '1100 Congress Ave'
-
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
     assert result['Colours'][0] == 'Yellow'

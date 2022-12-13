@@ -149,33 +149,6 @@ def custom(input: _Union[str, list], model_id: str) -> list:
     return results
 
 
-def geography(input: _Union[str, list], dataType: str) -> list:
-    """
-    Extract geographical information from unstructured text such as streets, cities or countries.
-    Requires WrangleWorks Account.
-
-    e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
-
-    :param input: A string or list of strings with addresses to search for information.
-    :param dataType: The type of information to return. 'streets', 'cities', 'regions' or 'countries'
-    :return: A list of any results found.
-    """
-    if isinstance(input, str): 
-        json_data = [input]
-    else:
-        json_data = input
-
-    url = f'{_config.api_host}/wrangles/extract/geography'
-    params = {'responseFormat': 'array', 'dataType': dataType}
-    batch_size = 10000
-
-    results = _batching.batch_api_calls(url, params, json_data, batch_size)
-
-    if isinstance(input, str): results = results[0]
-    
-    return results
-
-
 def html(input: _Union[str, list], dataType: str) -> list:
     """
     Extract specific html elements from strings containing html.
