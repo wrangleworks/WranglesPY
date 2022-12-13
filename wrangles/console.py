@@ -4,6 +4,7 @@ Wrangles Package Console Functions
 import argparse as _argparse
 from types import ModuleType as _ModuleType
 from . import recipe as _recipe
+from inspect import isfunction as _isfunction
 
 def recipe():
     """
@@ -26,6 +27,8 @@ def recipe():
         custom_module = _ModuleType('custom_module')
         exec(args.functions.read(), custom_module.__dict__)
         functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+        # getting only the functions
+        functions = [x for x in functions if _isfunction(x)]
     else:
         functions = []
 
