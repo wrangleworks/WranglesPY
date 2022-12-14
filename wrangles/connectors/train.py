@@ -6,6 +6,10 @@ from .. import data as _data
 class classify():
     def read(model_id: str) -> _pd.DataFrame:
         """
+        Read the training data for a Classify Wrangle.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's training data
         """
         tmp_data = _data.model_data(model_id, 'classify')
 
@@ -22,20 +26,30 @@ class classify():
         """
         Train a new or existing classify wrangle
 
-        :param df: Dataframe to be written to a file
-        :param model_id: Model to be updated
+        :param df: DataFrame to be written to a file
+        :param columns: Subset of columns to use from the DataFrame
+        :param name: Name to give to a new Wrangle that will be created
+        :param model_id: Model to be updated. Either this or name must be provided
         """
         _logging.info(": Training Classify Wrangle")
 
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        _train.classify(df.values.tolist(), name, model_id)
+        required_columns = ['Example', 'Category', 'Notes']
+        if not required_columns == list(df.columns):
+            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.classify.")
+
+        _train.classify(df[required_columns].values.tolist(), name, model_id)
 
 
 class extract():
     def read(model_id: str) -> _pd.DataFrame:
         """
+        Read the training data for an Extract Wrangle.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's training data
         """
         tmp_data = _data.model_data(model_id, 'extract')
 
@@ -52,20 +66,30 @@ class extract():
         """
         Train a new or existing extract wrangle
 
-        :param df: Dataframe to be written to a file
-        :param model_id: Model to be updated
+        :param df: DataFrame to be written to a file
+        :param columns: Subset of columns to use from the DataFrame
+        :param name: Name to give to a new Wrangle that will be created
+        :param model_id: Model to be updated. Either this or name must be provided
         """
         _logging.info(f": Training Extract Wrangle")
 
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        _train.extract(df.values.tolist(), name, model_id)
+        required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+        if not required_columns == list(df.columns):
+            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
+
+        _train.extract(df[required_columns].values.tolist(), name, model_id)
 
 
 class standardize():
     def read(model_id: str) -> _pd.DataFrame:
         """
+        Read the training data for a Standardize Wrangle.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's training data
         """
         tmp_data = _data.model_data(model_id, 'standardize')
 
@@ -82,12 +106,18 @@ class standardize():
         """
         Train a new or existing standardize wrangle
 
-        :param df: Dataframe to be written to a file
-        :param model_id: Model to be updated
+        :param df: DataFrame to be written to a file
+        :param columns: Subset of columns to use from the DataFrame
+        :param name: Name to give to a new Wrangle that will be created.
+        :param model_id: Model to be updated. Either this or name must be provided.
         """
         _logging.info(f": Training Standardize Wrangle")
 
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        _train.standardize(df.values.tolist(), name, model_id)
+        required_columns = ['Find', 'Replace', 'Notes']
+        if not required_columns == list(df.columns):
+            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.standardize.")
+
+        _train.standardize(df[required_columns].values.tolist(), name, model_id)
