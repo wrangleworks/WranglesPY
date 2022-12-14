@@ -158,6 +158,22 @@ def test_to_dict_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}}
 
+# if the row instance is a boolean type
+def test_to_dict_3():
+    data = pd.DataFrame({
+    'Col1':[True],
+    'Col2':[False],
+    'Col3': [None],
+})
+    recipe = """
+    wrangles:
+        - merge.to_dict:
+            input: Col*
+            output: Dict Col
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Dict Col'] == {'Col1': True, 'Col2': False, 'Col3': None}
+
 #
 # Key Value Pairs
 #
@@ -194,3 +210,41 @@ def test_key_value_pairs_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Object'] == {'C': 'c', 'three': 'Third'}
 
+
+# True or False in row Values
+def test_key_value_pairs_3():
+    data = pd.DataFrame({
+    'key 1': ['A'],
+    'key 2': [True],
+    'value 1': ['a'],
+    'value 2': [False]
+    })
+    recipe = """
+    wrangles:
+        - merge.key_value_pairs:
+            input:
+              key*: value*
+            output: Object
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Object'] == {'A': 'a', True: False}
+    
+#
+# Dictionaries
+#
+
+def test_merge_dicts_1():
+    data = pd.DataFrame({
+        'd1': [{'Hello': 'Fey'}],
+        'd2': [{'Hello2': 'Lucy'}],
+    })
+    recipe = """
+    wrangles:
+      - merge.dictionaries:
+          input:
+            - d1
+            - d2
+          output: out
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Hello2': 'Lucy'}

@@ -1,6 +1,6 @@
 import wrangles
 import pandas as pd
-
+import pytest
 
 #
 # Split From Text
@@ -243,3 +243,40 @@ def test_tokenize_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'][1] == 'Steel'
     
+# If the input is multiple columns (a list)
+def test_tokenize_3():
+    data = pd.DataFrame({
+        'col1': ['Iron Man'],
+        'col2': ['Spider Man'],
+    })
+    recipe = """
+    wrangles:
+      - split.tokenize:
+          input:
+            - col1
+            - col2
+          output:
+            - out1
+            - out2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'][1] == 'Man'
+    
+# if the input and output are not the same
+# If the input is multiple columns (a list)
+def test_tokenize_4():
+    data = pd.DataFrame({
+        'col1': ['Iron Man'],
+        'col2': ['Spider Man'],
+    })
+    recipe = """
+    wrangles:
+      - split.tokenize:
+          input:
+            - col1
+            - col2
+          output: out1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."

@@ -687,7 +687,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
             
     elif operation == 'subtract':
         for date in df[input]:
-            results.append(date + offset)
+            results.append(date - offset)
             
     else:
         raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')

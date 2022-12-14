@@ -442,6 +442,53 @@ def test_remove_words_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Product'] == 'Bottle'
     
+# if the input is multiple columns (a list)
+def test_remove_words_3():
+    data = pd.DataFrame({
+    'Description': [['Steel', 'Blue', 'Bottle']],
+    'Description2': [['Steel', 'Blue', 'Bottle']],
+    'Materials': [['Steel']],
+    'Colours': [['Blue']]
+    })
+    recipe = """
+    wrangles:
+        - remove_words:
+            input:
+              - Description
+              - Description2
+            to_remove:
+                - Materials
+                - Colours
+            output:
+              - Product1
+              - Product2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Product2'] == 'Bottle'
+
+# if the input and output are not the same type
+def test_remove_words_4():
+    data = pd.DataFrame({
+    'Description': [['Steel', 'Blue', 'Bottle']],
+    'Description2': [['Steel', 'Blue', 'Bottle']],
+    'Materials': [['Steel']],
+    'Colours': [['Blue']]
+    })
+    recipe = """
+    wrangles:
+        - remove_words:
+            input:
+              - Description
+              - Description2
+            to_remove:
+                - Materials
+                - Colours
+            output: Product1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+
 #
 # Rename
 #
@@ -608,6 +655,63 @@ def test_translate_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['English'] == 'Hello World!'
     
+# using full language names
+def test_translate_2():
+    data = pd.DataFrame({
+    'Español': ['¡Hola Mundo!'],
+    })
+    recipe = """
+    wrangles:
+        - translate:
+            input: Español
+            output: English
+            source_language: Spanish
+            target_language: English
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['English'] == 'Hello World!'
+    
+# If the input is multiple columns (a list)
+def test_translate_3():
+    data = pd.DataFrame({
+    'Español': ['¡Hola Mundo!'],
+    'Español2': ['¡Hola Mundo Dos!'],
+    })
+    recipe = """
+    wrangles:
+        - translate:
+            input:
+              - Español
+              - Español2
+            output:
+              - English
+              - English2
+            source_language: Spanish
+            target_language: English
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['English2'] == 'Hello World Two!'
+    
+# if the input and output are not the same
+def test_translate_4():
+    data = pd.DataFrame({
+    'Español': ['¡Hola Mundo!'],
+    'Español2': ['¡Hola Mundo Dos!'],
+    })
+    recipe = """
+    wrangles:
+        - translate:
+            input:
+              - Español
+              - Español2
+            output: English
+            source_language: Spanish
+            target_language: English
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    
 #
 # Custom Function
 #
@@ -730,6 +834,24 @@ def test_sql_2():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Only SELECT statements are supported for sql wrangles'
     
+# sql with objects in data
+def test_sql_3():
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', {"Object": "z"}],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            SELECT *
+            FROM df
+            WHERE header1 >= 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header3'] == {"Object": "z"}
+
 #
 # Recipe as a wrangle. Recipe-ception
 #
@@ -744,3 +866,59 @@ def test_recipe_wrangle_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col'].iloc[0] == 'MARIO'
+    
+    
+#
+# Date Calculator
+#
+
+# add time (default)
+def test_date_calc_1():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022'],
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          time_unit: days
+          time_value: 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1']._date_repr == '2022-12-31'
+    
+# subtract time
+def test_date_calc_2():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022'],
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1']._date_repr == '2022-12-24'
+    
+# Invalid operation
+def test_date_calc_3():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022'],
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: matrix-multiplication
+          time_unit: days
+          time_value: 6
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
