@@ -163,8 +163,8 @@ def test_standardize_2():
 # Headers not included ['Find', 'Replace']
 def test_standardize_train_1(mocker):
     data = [
-        ['Rice', 'Arroz'],
-        ['Wheat', 'Trigo']
+        ['Rice', 'Arroz', ''],
+        ['Wheat', 'Trigo', '']
     ]
     config = {
         'training_data': data,
@@ -192,7 +192,7 @@ def test_standardize_train_2():
     }
     with pytest.raises(ValueError) as info:
         raise train.standardize(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Entity to Find"\nSecond Element is "Variation", If no variation, use \'\'\nExample:[[\'USA\', \'United States of America\']]'
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == 'Training_data list must contain'
     
 def test_standardize_train_3():
     data = {'Rice': 'Arroz'}
@@ -228,14 +228,14 @@ def test_classify_train_1():
     }
     with pytest.raises(ValueError) as info:
         raise train.classify(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Training_data list must contain a list of two non-empty elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Example"\nSecond Element is "Category" -- \'\' is not valid.\n'"Example:[['Rice', 'Grain']]"
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 # Input of lists of lists
 # Headers not included ['Example', 'Category']
 def test_classify_train_2(mocker):
     data = [
-        ['Rice', 'Grain'],
-        ['Wheat', 'Grain']
+        ['Rice', 'Grain', ''],
+        ['Wheat', 'Grain', '']
     ]
     config = {
         'training_data': data,
@@ -267,14 +267,14 @@ def test_extract_train_1():
     }
     with pytest.raises(ValueError) as info:
         raise train.extract(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == "Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use ''\nExample:[['Television', 'TV']]"
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
     
 # Input of lists of lists
 # Headers not included ['Entity to Find', 'Variation (Optional)']
 def test_extract_train_2(mocker):
     data = [
-        ['Television', 'TV'],
-        ['Computer', 'Comp']
+        ['Television', 'TV', ''],
+        ['Computer', 'Comp', '']
     ]
     m = mocker.patch("requests.post")
     m.return_value = temp_extract
