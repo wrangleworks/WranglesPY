@@ -1,7 +1,8 @@
+from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from typing import Union as _Union
+
 
 def standardize(input: _Union[str, list], model_id: str) -> list:
     """
@@ -45,4 +46,3 @@ def standardize(input: _Union[str, list], model_id: str) -> list:
     if isinstance(input, str): results = results[0]
     
     return results
-

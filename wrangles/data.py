@@ -1,10 +1,10 @@
 """
 Functions for interacting with user and app data
 """
-
 import requests as _requests
 from . import config as _config
 from . import auth as _auth
+
 
 class user():
     """

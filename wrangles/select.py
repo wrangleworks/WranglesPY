@@ -1,3 +1,6 @@
+"""
+Select subsets of input data
+"""
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
@@ -15,6 +18,7 @@ def highest_confidence(data_list):
         results.append(highest_result)
         
     return results
+
 
 def confidence_threshold(list_1, list_2, threshold):
     """
@@ -40,6 +44,7 @@ def confidence_threshold(list_1, list_2, threshold):
             
     return results
 
+
 def list_element(input, n):
     """
     Select a numbered element of a list (zero indexed).
@@ -52,9 +57,10 @@ def list_element(input, n):
         
     return [check_if_possible(row, n) if isinstance(row, list) else '' for row in input]
 
+
 def dict_element(input, key):
     """
     Select a named element of a dictionary
     """
     return [row.get(key, '') if isinstance(row, dict) else '' for row in input]
-        
+   

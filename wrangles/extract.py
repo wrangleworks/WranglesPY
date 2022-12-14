@@ -1,13 +1,11 @@
 """
 Functions to extract information from unstructured text.
 """
-
+import re as _re
+from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from typing import Union as _Union
-import re as _re
-
 from .format import tokenize
 
 
@@ -206,7 +204,6 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
     return results
 
 
-
 # SUPER MARIO
 def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
     """
@@ -252,7 +249,8 @@ def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_c
             results.append(' '.join(temp))
 
     return results
-    
+
+
 def brackets(input: str) -> list:
     """
     Extract values in brackets, [], {}
@@ -268,5 +266,3 @@ def brackets(input: str) -> list:
         results.append(', '.join(re))
         
     return results
-    
-    

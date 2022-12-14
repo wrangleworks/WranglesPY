@@ -1,10 +1,9 @@
 """
 Functions to translate text
 """
-
+from typing import Union as _Union
 from . import config as _config
 from . import batching as _batching
-from typing import Union as _Union
 
 
 def translate(input: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _Union[str, list]:
