@@ -4,6 +4,8 @@ from ..train import train as _train
 from .. import data as _data
 
 class classify():
+    _schema = {}
+
     def read(model_id: str) -> _pd.DataFrame:
         """
         Read the training data for a Classify Wrangle.
@@ -21,6 +23,18 @@ class classify():
             columns = None
 
         return _pd.DataFrame(tmp_data, columns=columns)
+
+    _schema["read"] = """
+        type: object
+        description: Read the training data for a Standardize Wrangle
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
 
     def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
         """
@@ -42,8 +56,25 @@ class classify():
 
         _train.classify(df[required_columns].values.tolist(), name, model_id)
 
+    _schema["write"] = """
+        type: object
+        description: Train a new or existing Classify Wrangle
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name to give to a new Wrangle that will be created
+          model_id:
+            type: string
+            description: Model to be updated. Either this or a name must be provided
+          columns:
+            type: array
+            description: Columns to submit
+        """
 
 class extract():
+    _schema = {}
+
     def read(model_id: str) -> _pd.DataFrame:
         """
         Read the training data for an Extract Wrangle.
@@ -61,6 +92,18 @@ class extract():
             columns = None
 
         return _pd.DataFrame(tmp_data, columns=columns)
+
+    _schema["read"] = """
+        type: object
+        description: Read the training data for an Extract Wrangle
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
 
     def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
         """
@@ -82,8 +125,25 @@ class extract():
 
         _train.extract(df[required_columns].values.tolist(), name, model_id)
 
+    _schema["write"] = """
+        type: object
+        description: Train a new or existing Extract Wrangle
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name to give to a new Wrangle that will be created
+          model_id:
+            type: string
+            description: Model to be updated. Either this or a name must be provided
+          columns:
+            type: array
+            description: Columns to submit
+        """
 
 class standardize():
+    _schema = {}
+
     def read(model_id: str) -> _pd.DataFrame:
         """
         Read the training data for a Standardize Wrangle.
@@ -101,6 +161,18 @@ class standardize():
             columns = None
 
         return _pd.DataFrame(tmp_data, columns=columns)
+
+    _schema["read"] = """
+        type: object
+        description: Read the training data for a Standardize Wrangle
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
 
     def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
         """
@@ -121,3 +193,19 @@ class standardize():
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.standardize.")
 
         _train.standardize(df[required_columns].values.tolist(), name, model_id)
+
+    _schema["write"] = """
+        type: object
+        description: Train a new or existing Standardize Wrangle
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name to give to a new Wrangle that will be created
+          model_id:
+            type: string
+            description: Model to be updated. Either this or a name must be provided
+          columns:
+            type: array
+            description: Columns to submit
+        """
