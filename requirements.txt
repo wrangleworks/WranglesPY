@@ -13,4 +13,3 @@ pymongo[srv]
 simple-salesforce
 numexpr
 boto3
-pytest-mock
