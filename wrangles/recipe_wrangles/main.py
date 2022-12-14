@@ -3,6 +3,7 @@ Standalone functions
 
 These will be called directly, without belonging to a parent module
 """
+import types as _types
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -603,7 +604,7 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
     
 
-def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
+def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, functions: _Union[_types.FunctionType, list] = []):
     """
     type: object
     description: Run a recipe as a Wrangle. Recipe-ception,
@@ -621,9 +622,9 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None):
     original_df = df.copy() # copy of the original df
     
     # Running recipe wrangle
-    df_temp = _recipe.run(name, variables=variables, dataframe=df)
+    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
     
-    # colum output logic
+    # column output logic
     if output_columns is None:
         df = df_temp
     else:

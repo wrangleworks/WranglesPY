@@ -143,6 +143,9 @@ def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: 
                 for element in action_type.split('.'):
                     obj = getattr(obj, element)
 
+                if action_type == 'recipe':
+                    params['functions'] = functions
+
                 getattr(obj, 'run')(**params)
 
 
@@ -192,6 +195,9 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
         obj = _connectors
         for element in import_type.split('.'):
             obj = getattr(obj, element)
+
+        if import_type == 'recipe':
+            params['functions'] = functions
 
         df = getattr(obj, 'read')(**params)
     
@@ -307,6 +313,9 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 obj = _recipe_wrangles
                 for element in wrangle.split('.'):
                     obj = getattr(obj, element)
+
+                if wrangle == 'recipe':
+                    params['functions'] = functions
 
                 # Execute the requested function and return the value
                 df = obj(df, **params)
