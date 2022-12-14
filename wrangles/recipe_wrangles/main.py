@@ -632,7 +632,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
         
     return df
     
-def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, **kwargs) -> _pd.DataFrame:
+def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
     type: object
     description: Add or Subtract time from a date
@@ -654,9 +654,9 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
       output:
         type: string
         description: Name of the output column of dates
-      kwargs:
-        type: int
-        description: date parameters for operation
+      time_unit:
+        type: string
+        description: time unit for operation
         enum:
           - years
           - months
@@ -666,12 +666,19 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
           - minutes
           - seconds
           - milliseconds
+      time_value:
+        type: number
+        description: time unit value for operation
     """
     # If the output is not provided
     if output is None: output = input
     
     # Get all of the date parameters for operation
-    offset = _pd.DateOffset(**kwargs)
+    args = {time_unit: time_value}
+    offset = _pd.DateOffset(**args)
+    
+    # Converting data to datetime
+    df[input] = _pd.to_datetime(df[input])
     
     results = []
     if operation == 'add':
