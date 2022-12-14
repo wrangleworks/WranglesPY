@@ -121,12 +121,11 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     _logging.info(f": Exporting Data :: {name}")
 
     # Get the path to make a directory if it does not exists
-    re_patter = '^.+(?=\/\w+\.\w+)'
-    path_matched = _re.search(re_patter, name)
+    re_pattern = '^.+(?=\/\w+\.\w+)'
+    path_matched = _re.search(re_pattern, name)
     if path_matched:
         _os.makedirs(path_matched[0], exist_ok=True)
 
-    pass
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
 
