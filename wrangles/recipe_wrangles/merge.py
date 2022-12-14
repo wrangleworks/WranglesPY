@@ -239,7 +239,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
 def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     """
     type: object
-    description: Take dictionaries in multiple columns and merge them to a single dictionaries.
+    description: Take dictionaries in multiple columns and merge them to a single dictionary.
     additionalProperties: false
     required:
       - input

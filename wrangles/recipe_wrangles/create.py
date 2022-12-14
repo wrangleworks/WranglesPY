@@ -136,7 +136,6 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           - array
         description: Labels for the returned bins
     """
-    
     # Dealing with positive infinity. At end of bins list
     if isinstance(bins, list):
         if bins[-1] == '+':
@@ -145,7 +144,6 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         # Dealing with negative infinity. At start of bins list
         if bins[0] == '-':
             bins[0] = -_math.inf
-    
     
     df[output] = _pd.cut(
         x=df[input],

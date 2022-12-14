@@ -3,8 +3,9 @@ Wrangles Package Console Functions
 """
 import argparse as _argparse
 from types import ModuleType as _ModuleType
-from . import recipe as _recipe
 from inspect import isfunction as _isfunction
+from . import recipe as _recipe
+
 
 def recipe():
     """

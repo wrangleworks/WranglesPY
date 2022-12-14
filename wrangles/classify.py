@@ -1,14 +1,13 @@
 """
 Functions to classify information.
 """
-
+from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from typing import Union
 
 
-def classify(input: Union[str, list], model_id: str) -> Union[str, list]:
+def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
     """
     Predict which category an input belongs to.
     Requires WrangleWorks Account and Subscription.

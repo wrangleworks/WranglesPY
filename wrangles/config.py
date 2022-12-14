@@ -1,12 +1,12 @@
 """
 Configuration Settings
 """
-import os
+import os as _os
 
 
 api_host = 'https://api.wrangle.works'
-api_user = os.environ.get('WRANGLES_USER')
-api_password = os.environ.get('WRANGLES_PASSWORD')
+api_user = _os.environ.get('WRANGLES_USER')
+api_password = _os.environ.get('WRANGLES_PASSWORD')
 
 def authenticate(user, password):
     """
