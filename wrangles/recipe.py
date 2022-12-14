@@ -121,22 +121,16 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     return recipe_object
 
 
-def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> None:
+def _run_actions(recipe: _Union[dict, list], functions: dict = {}) -> None:
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
 
     for action in recipe:
         for action_type, params in action.items():
-            # Use shared connection details if set
-            if 'connection' in params.keys():
-                params.update(connections[params['connection']])
-                params.pop('connection')
-
             if action_type.split('.')[0] == 'custom':
                 # Execute a user's custom function
                 functions[action_type[7:]](**params)
-
             else:
                 # Get run function of requested connector and pass user defined params
                 obj = _connectors
@@ -149,12 +143,11 @@ def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: 
                 getattr(obj, 'run')(**params)
 
 
-def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
+def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
 
     :param recipe: Read section of a recipe
-    :param connections: shared connections
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
@@ -162,7 +155,7 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
     if list(recipe)[0] in ['join', 'concatenate', 'union']:
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
-            dfs.append(_read_data_sources(source, connections))
+            dfs.append(_read_data_sources(source))
         
         recipe_temp = recipe[list(recipe)[0]]
         recipe_temp.pop('sources')
@@ -185,11 +178,6 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
         # Single source import
         import_type = list(recipe)[0]
         params = recipe[import_type]
-
-        # Use shared connection details if set
-        if 'connection' in params.keys():
-            params.update(connections[params['connection']])
-            params.pop('connection')
 
         # Get read function of requested connector and pass user defined params
         obj = _connectors
@@ -323,13 +311,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
+def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
-    :param connections: shared connections
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
@@ -352,11 +339,6 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
                 functions[export_type[7:]](df, **params)
 
             else:
-                # Use shared connection details if set
-                if 'connection' in params.keys():
-                    params.update(connections[params['connection']])
-                    params.pop('connection')
-
                 # Get write function of requested connector and pass dataframe and user defined params
                 obj = _connectors
                 for element in export_type.split('.'):
@@ -396,15 +378,15 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
         # Run any actions required before the main recipe runs
         if 'on_start' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
+            _run_actions(recipe['run']['on_start'], functions)
 
         # Get requested data
         if 'read' in recipe.keys():
             # Execute requested data imports
             if isinstance(recipe['read'], list):
-                df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}), functions)
+                df = _read_data_sources(recipe['read'][0], functions)
             else:
-                df = _read_data_sources(recipe['read'], recipe.get('connections', {}), functions)
+                df = _read_data_sources(recipe['read'], functions)
         elif dataframe is not None:
             # User has passed in a pre-created dataframe
             df = dataframe
@@ -420,11 +402,11 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
         # Execute requested data exports
         if 'write' in recipe.keys():
-            df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
+            df = _write_data(df, recipe['write'], functions)
 
         # Run any actions required after the main recipe finishes
         if 'on_success' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
+            _run_actions(recipe['run']['on_success'], functions)
 
         return df
 
@@ -432,7 +414,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         try:
             # Run any actions requested if the recipe fails
             if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions=functions)
+                _run_actions(recipe['run']['on_failure'], functions)
         except:
             pass
 
