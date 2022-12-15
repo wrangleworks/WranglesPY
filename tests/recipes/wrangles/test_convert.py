@@ -135,3 +135,21 @@ def test_to_json_array():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['headers_json'] == '["val1", "val2"]'
+    
+#
+# Convert to datetime
+#
+
+def test_convert_to_datetime():
+    data = pd.DataFrame({
+        'date': ['12/25/2050'],
+    })
+    recipe = """
+    wrangles:
+      - convert.data_type:
+          input: date
+          output: date_type
+          data_type: datetime
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['date_type'].week == 51
