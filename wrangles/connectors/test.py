@@ -79,13 +79,15 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
         
         elif data_type == '<date_today>':
             return [_pd.to_datetime('today').normalize() for _ in range(rows)]
-            
+        
+        # Get a random date from a range of dates
         elif _re.findall('<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
             date_range_string = _re.findall('\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
             start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
             end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
             return [_random_date(start_date, end_date) for _ in range(rows)]
         
+        # Enter a date
         elif _re.findall('<date\s\d+-\d+-\d+>', data_type):
             date = _pd.to_datetime(_re.findall('\d+-\d+-\d+', data_type)[0])
             return [date for _ in range(rows)]

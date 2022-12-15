@@ -93,3 +93,94 @@ def test_function_sub_recipe():
     assert df['col1'][0] == 'MARIO'
 
 
+#
+# importing templated values
+#
+
+# recipe as a templated value
+def test_templated_values_1():
+    case_var = "upper"
+    inputs = ['col', 'col2']
+    templated_rec = """
+        convert.case:
+          input:
+            ${inputs}
+          output:
+            - out
+            - out2
+          case: ${case_value}
+    """
+    data = pd.DataFrame({
+        'col': ['Hello World'],
+        'col2': ['hello world'],
+    })
+    recipe = """
+    wrangles:
+      - ${wrgl1}
+    """
+    vars = {
+        'wrgl1': templated_rec,
+        'case_value': case_var,
+        'inputs': inputs,
+    }
+    df = wrangles.recipe.run(recipe, variables=vars, dataframe=data)
+    assert df.iloc[0]['out'] == "HELLO WORLD"
+    
+    
+# templated value in a sql command
+def test_templated_values_2():
+    data = pd.DataFrame({
+        'col': ['Hello SQL']
+    })
+    templated_sql = """
+    SELECT * from df
+    """
+    recipe = """
+    wrangles:
+      - sql: 
+          command: ${sql_command}
+    """
+    vars = {
+        "sql_command": templated_sql,
+    }
+    df = wrangles.recipe.run(recipe, variables=vars, dataframe=data)
+    assert 1
+
+#
+# Wild card Expansion escape character
+#
+
+def test_wildcard_expansion_1():
+    data = pd.DataFrame({
+        'col1': ['HEllO'],
+        'col*': ['WORLD'],
+    })
+    recipe = """
+    wrangles:
+      - convert.case:
+          input:
+            - col\*
+          output:
+            - out
+          case: lower
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out'] == 'world'
+    
+#
+# Custom function not found error message
+#
+
+def test_custom_func_not_found():
+    data = pd.DataFrame({
+        'col':['Hello World']
+    })
+    recipe = """
+    wrangles:
+      - custom.does_not_exists:
+          input: col
+          output: out
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Custom Wrangle function: "custom.does_not_exists" not found'

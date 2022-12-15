@@ -115,7 +115,7 @@ def remove_duplicates(input_list: list) -> list:
             results.append(' '.join(output[0]))
 
         else:
-            results.append(row)
+            results.append(row) # pragma: no cover 
     
     return results
 
