@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 
 # Files
@@ -317,4 +318,13 @@ def test_input_is_list():
     df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 2
     
-
+# file not supported error message
+def test_read_file_no_supported():
+    recipe = """
+    read:
+      - file:
+          name: data.jason
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert info.typename == 'ValueError' and info.value.args[0] == "File type 'jason' is not supported by the file connector."

@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 recipe = """
 read:
@@ -149,4 +150,20 @@ def test_custom_function_write():
     """
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[custom_funct_write])
     assert df.iloc[0]['out1'] == 'HELLO Ending'
+    
+    
+# Exporting file type error message
+def test_export_wrong_file_type():
+    recipe = """
+      read:
+        file:
+          name: temp.csv
+      
+      write:
+        - file:
+            name: data.jason
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert info.typename == 'ValueError' and info.value.args[0] == "File type 'jason' is not supported by the file connector."
     
