@@ -256,7 +256,7 @@ properties:
     type: string
     description: If the data type is a Data Source or Extension, set the specific table.
   batch_size:
-    type: int
+    type: integer
     description: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
   critera:
     type: array
