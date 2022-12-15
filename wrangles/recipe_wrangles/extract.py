@@ -349,6 +349,9 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     """
     if output is None: output = input
     
+    # Converting data to datetime
+    df[input] = _pd.to_datetime(df[input])
+    
     properties_object = {
         'day': df[input].dt.day,
         'day_of_year': df[input].dt.day_of_year,
@@ -367,7 +370,7 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     
     return df
     
-def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, frequency: str = 'day') -> _pd.DataFrame:
+def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, range: str = 'day') -> _pd.DataFrame:
     """
     type: object
     description: Extract date range frequency from two dates
@@ -407,7 +410,7 @@ def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.T
           - seconds
           - milliseconds
     """
-    frequency_object = {
+    range_object = {
         'business days': 'B',
         'days': 'D',
         'weeks': 'W',
@@ -428,16 +431,20 @@ def date_frequency(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.T
     }
     
     # Checking if frequency is invalid
-    if frequency not in frequency_object.keys():
-        raise ValueError(f"\"{frequency}\" not a valid frequency")
+    if range not in range_object.keys():
+        raise ValueError(f"\"{range}\" not a valid frequency")
+        
+    # Converting data to datetime
+    df[start_time] = _pd.to_datetime(df[start_time])
+    df[end_time] = _pd.to_datetime(df[end_time])
         
     # Removing timezone information from columns before operation
     start_data = df[start_time].dt.tz_localize(None).copy()
-    end_data = df[end_time].dt.tz_localize(None).copy()
+    end_date = df[end_time].dt.tz_localize(None).copy()
     
     results = []
-    for start, end in zip(start_data, end_data):
-        results.append(len(_pd.date_range(start, end, freq=frequency_object[frequency])[1:]))
+    for start, end in zip(start_data, end_date):
+        results.append(len(_pd.date_range(start, end, freq=range_object[range])[1:]))
     
     df[output] = results
     
