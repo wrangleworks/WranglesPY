@@ -20,7 +20,7 @@ class classify():
         elif len(tmp_data[0]) == 3:
             columns = ['Example', 'Category', 'Notes']
         else:
-            columns = None
+            raise ValueError("Classify Wrangle data should contain three columns. Check Wrangle data")
 
         return _pd.DataFrame(tmp_data, columns=columns)
 
@@ -89,7 +89,7 @@ class extract():
         elif len(tmp_data[0]) == 3:
             columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
         else:
-            columns = None
+            raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
 
         return _pd.DataFrame(tmp_data, columns=columns)
 
@@ -158,7 +158,7 @@ class standardize():
         elif len(tmp_data[0]) == 3:
             columns = ['Find', 'Replace', 'Notes']
         else:
-            columns = None
+            raise ValueError("Standardize Wrangle data should contain three columns. Check Wrangle data")
 
         return _pd.DataFrame(tmp_data, columns=columns)
 
