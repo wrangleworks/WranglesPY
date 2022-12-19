@@ -153,7 +153,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     if list(recipe)[0] in ['join', 'concatenate', 'union']:
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
-            dfs.append(_read_data_sources(source))
+            dfs.append(_read_data_sources(source, functions))
         
         recipe_temp = recipe[list(recipe)[0]]
         recipe_temp.pop('sources')
