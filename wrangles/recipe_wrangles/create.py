@@ -26,12 +26,24 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type: string
         description: (Optional) Value to add in the new column(s). If omitted, defaults to None.
     """
-    # Rows is the length of the dataframe
+    # Get number of rows in df
     rows = len(df)
-    # Data to generate
-    data = _pd.DataFrame(_generate_cell_values(value, rows), columns=[output])
-    # Merging existing dataframe with values created
-    df = _pd.concat([df, data], axis=1)
+    # Get number of columns created
+    cols_created = len(output)
+    # If a string provided, convert to list
+    if isinstance(output, str): output = [output]
+    if isinstance(value, list) and cols_created == 1:
+        value = [value[0] for _ in range(cols_created)]
+    elif isinstance(value, str):
+        value = [value for _ in range(cols_created)]
+    elif value == None:
+        value = ['' for _ in range(cols_created)]
+    
+    for output_column, values_list in zip(output, value):
+        # Data to generate
+        data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
+        # Merging existing dataframe with values created
+        df = _pd.concat([df, data], axis=1)
 
     return df
 

@@ -14,6 +14,49 @@ def test_create_column_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df.columns) == 3
+    
+# Adding a value from test connector
+def test_create_columns_2():
+    data = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
+    recipe = """
+    wrangles:
+        - create.column:
+            output: column3
+            value: <boolean>
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column3'] in [True, False]
+    
+# Adding multiple columns with the same generated value
+def test_create_columns_3():
+    data = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
+    recipe = """
+    wrangles:
+        - create.column:
+            output:
+              - column3
+              - column4
+            value: <boolean>
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column4'] in [True, False]
+    
+# Adding multiple columns with multiple generated values
+def test_create_columns_4():
+    data = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
+    recipe = """
+    wrangles:
+        - create.column:
+            output:
+              - column3
+              - column4
+            value:
+              - <boolean>
+              - <number(1-3)>
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column4'] in [1, 2, 3, 4]
+    
 
 #
 # Index
