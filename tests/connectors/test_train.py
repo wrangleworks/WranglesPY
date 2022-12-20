@@ -75,6 +75,31 @@ def test_classify_error():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "Either a name or a model id must be provided"
     
+# Wrangle that contains only two columns
+def test_classify_read_two_cols_wrgl(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    recipe = """
+    read:
+      - train.classify:
+          model_id: a62c7480-500e-480c
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
+    
+# wrangles that does not contain 3 columns
+def test_classify_read_four_cols_error(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello']]
+    recipe = """
+    read:
+      - train.classify:
+          model_id: a62c7480-500e-480c
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert info.typename == 'ValueError' and info.value.args[0] == "Classify Wrangle data should contain three columns. Check Wrangle data"
+
 #
 # Extract
 #
@@ -129,7 +154,30 @@ def test_extract_write_2():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The columns Entity to Find, Variation (Optional), Notes must be provided for train.extract.'
     
+# Wrangle that contains only two columns
+def test_extract_read_two_cols_wrgl(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    recipe = """
+    read:
+      - train.extract:
+          model_id: a62c7480-500e-480c
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
     
+# wrangles that does not contain 3 columns
+def test_extract_read_four_cols_error(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello']]
+    recipe = """
+    read:
+      - train.extract:
+          model_id: a62c7480-500e-480c
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert info.typename == 'ValueError' and info.value.args[0] == "Extract Wrangle data should contain three columns. Check Wrangle data"
     
 # Not Providing model_id or name in train wrangles
 def test_extract_error():
@@ -202,3 +250,27 @@ def test_standardize_write_2():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The columns Find, Replace, Notes must be provided for train.standardize.'
     
+# Wrangle that contains only two columns
+def test_standardize_read_two_cols_wrgl(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    recipe = """
+    read:
+      - train.standardize:
+          model_id: a62c7480-500e-480c
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
+    
+# wrangles that does not contain 3 columns
+def test_standardize_read_four_cols_error(mocker):
+    m1 = mocker.patch("wrangles.data.model_data")
+    m1.return_value = [['Hello']]
+    recipe = """
+    read:
+      - train.standardize:
+          model_id: a62c7480-500e-480c
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert info.typename == 'ValueError' and info.value.args[0] == "Standardize Wrangle data should contain three columns. Check Wrangle data"

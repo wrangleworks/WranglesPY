@@ -16,7 +16,9 @@ class classify():
         tmp_data = _data.model_data(model_id, 'classify')
 
         if len(tmp_data[0]) == 2:
-            columns = ['Example', 'Category']
+            # Add a third column for Notes of empty strings
+            [x.append('') for x in tmp_data]
+            columns = ['Example', 'Category', 'Notes']
         elif len(tmp_data[0]) == 3:
             columns = ['Example', 'Category', 'Notes']
         else:
@@ -85,7 +87,9 @@ class extract():
         tmp_data = _data.model_data(model_id, 'extract')
 
         if len(tmp_data[0]) == 2:
-            columns = ['Entity to Find', 'Variation (Optional)']
+            # Add a third column for Notes of empty strings
+            [x.append('') for x in tmp_data]
+            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
         elif len(tmp_data[0]) == 3:
             columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
         else:
@@ -154,7 +158,9 @@ class standardize():
         tmp_data = _data.model_data(model_id, 'standardize')
 
         if len(tmp_data[0]) == 2:
-            columns = ['Find', 'Replace']
+            # Add a third column for Notes of empty strings
+            [x.append('') for x in tmp_data]
+            columns = ['Find', 'Replace', 'Notes']
         elif len(tmp_data[0]) == 3:
             columns = ['Find', 'Replace', 'Notes']
         else:
