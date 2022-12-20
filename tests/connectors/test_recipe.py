@@ -278,5 +278,29 @@ def test_on_failure():
     df = wrangles.recipe.run(recipe, dataframe=data, variables=vars)
     assert df.iloc[0]['col1'] == 'hello world'
     
+# Custom function as a run action
+def test_custom_run_action():
+    def fail_func(input):
+        better_data = pd.DataFrame({
+            'col111': [input],
+        })
+    data = pd.DataFrame({
+        'col1': ['hello world'],
+    })
+    recipe = """
+    run:
+      on_failure:
+        custom.fail_func:
+          input: Hello Wrangles
+        
+      wrangles:
+        - convert.case:
+            input: col111
+            output: out
+            case: upper
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col1'] == 'hello world'
+    
     
     

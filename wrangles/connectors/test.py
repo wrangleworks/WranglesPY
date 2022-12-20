@@ -64,7 +64,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
                     num_decimals = len(num_range[0].split('.')[1])
                 except:
                     num_decimals = 0
-            except:
+            except: # pragma: no cover
                 num_range = [0, 1]
                 num_decimals = 2
             return [round(_random.uniform(float(num_range[0]), float(num_range[1])), num_decimals) for _ in range(rows)]
