@@ -81,24 +81,26 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
 def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
-        description: Add a prefix to a column
-        additionalProperties: false
-        required:
-        - input
-        - value
-        properties:
-        input:
-            type:
-            - string
-            description: Name of the input column
-        value:
-            type:
-            - string
-            description: Prefix value to add
-        output:
-            type:
-            - string
-            description: (Optional) Name of the output column
+    description: Add a prefix to a column
+    additionalProperties: false
+    required:
+      - input
+      - value
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      value:
+        type:
+          - string
+        description: Prefix value to add
+      output:
+        type:
+          - string
+          - array
+        description: (Optional) Name of the output column
     """
     # If the output is not specified
     if output is None: output = input
@@ -129,13 +131,17 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
         - value
     properties:
         input:
-          type: string
+          type:
+            - string
+            - array
           description: Name of the input column
         value:
           type: string
           description: Suffix value to add
         output:
-          type: string
+          type:
+            - string
+            - array
           description: (Optional) Name of the output column
     """
     # If the output is not specified
