@@ -5,8 +5,8 @@ import pytest
 
 from wrangles.connectors.s3 import read, write
 
-s3_key = os.getenv('S3_KEY_TEST', '...')
-s3_secret = os.getenv('S3_SECRET_KEY_TEST', '...')
+s3_key = os.getenv('AWS_ACCESS_KEY_ID', '...')
+s3_secret = os.getenv('AWS_SECRET_ACCESS_KEY', '...')
 
 # Reading a file in S3
 def test_read_1():
