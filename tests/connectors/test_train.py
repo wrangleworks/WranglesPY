@@ -274,3 +274,23 @@ def test_standardize_read_four_cols_error(mocker):
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe)
     assert info.typename == 'ValueError' and info.value.args[0] == "Standardize Wrangle data should contain three columns. Check Wrangle data"
+    
+    
+# Not Providing model_id or name in train wrangles
+def test_standardize_error():
+    recipe = """
+    write:
+      - train.standardize:
+          columns:
+            - Find
+            - Replace
+            - Notes
+    """
+    data = pd.DataFrame({
+        'Find': ['rice', 'milk', 'beef'],
+        'Replace': ['Grains', 'Dairy', 'Meat'],
+        'Notes': ['Notes here', 'and here', 'and also here']
+    })
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "Either a name or a model id must be provided"

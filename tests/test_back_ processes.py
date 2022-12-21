@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+import os
 
 
 # Testing Auth
@@ -56,6 +57,12 @@ def test_batch_api_calls_errors(mocker):
     assert info.typename == 'ValueError' and info.value.args[0] == 'Status Code: 500 - Internal Server Error.. An internal error has occured. \n'
     
 
+# Get user config
+def test_user_config_credentials():
+    from wrangles.config import authenticate
+    user = os.getenv('WRANGLES_USER','...')
+    password = os.getenv('WRANGLES_PASSWORD', '...')
+    assert authenticate(user, password) == None
     
     
     

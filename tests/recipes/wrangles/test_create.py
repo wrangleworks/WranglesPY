@@ -57,6 +57,20 @@ def test_create_columns_4():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column4'] in [1, 2, 3, 4]
     
+# if the output is a list with length one
+def test_create_columns_5():
+    data = pd.DataFrame([['data1', 'data2']], columns=['column1', 'column2'])
+    recipe = """
+    wrangles:
+        - create.column:
+            output:
+              - column3
+            value:
+              - <boolean>
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column3'] in [True, False]
+    
 
 #
 # Index

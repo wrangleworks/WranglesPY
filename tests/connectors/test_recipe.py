@@ -266,7 +266,7 @@ def test_on_failure():
       on_failure:
         - recipe:
             name: ${rec2}
-      wrangles:
+    wrangles:
         - convert.case:
             input: col111
             output: out
@@ -275,8 +275,9 @@ def test_on_failure():
     vars = {
         "rec2": failure_rec
     }
-    df = wrangles.recipe.run(recipe, dataframe=data, variables=vars)
-    assert df.iloc[0]['col1'] == 'hello world'
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data, variables=vars)
+    assert info.typename == 'KeyError' and info.value.args[0] == "col111"
     
 # Custom function as a run action
 def test_custom_run_action():
@@ -284,22 +285,23 @@ def test_custom_run_action():
         better_data = pd.DataFrame({
             'col111': [input],
         })
+        return better_data
     data = pd.DataFrame({
         'col1': ['hello world'],
     })
     recipe = """
     run:
-      on_failure:
+      on_success:
         custom.fail_func:
           input: Hello Wrangles
         
       wrangles:
         - convert.case:
-            input: col111
+            input: col1
             output: out
             case: upper
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[fail_func])
     assert df.iloc[0]['col1'] == 'hello world'
     
     
