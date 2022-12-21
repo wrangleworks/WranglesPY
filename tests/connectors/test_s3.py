@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import wrangles
 import pytest
+import time
 
 from wrangles.connectors.s3 import read, write
 
@@ -77,17 +78,18 @@ def test_file_upload_and_download_1():
            file: tests/samples/data.csv
            aws_access_key_id: {s3_key}
            aws_secret_access_key: {s3_secret}
-
-      on_success:
+    """
+    wrangles.recipe.run(recipe)
+    time.sleep(3)
+    # Reading uploaded file to complete the cycle
+    recipe2 = f"""
+    run:
+      on_start:
         - s3.download_files:
             bucket: wrwx-public
             key: Test_Upload_File.csv
             aws_access_key_id: {s3_key}
             aws_secret_access_key: {s3_secret}
-    """
-    wrangles.recipe.run(recipe)
-    # Reading uploaded file to complete the cycle
-    recipe2 = """
     read:
       - file:
           name: temp_download_data.csv
@@ -107,7 +109,12 @@ def test_file_upload_and_download_2():
            file: tests/samples/data.csv
            aws_access_key_id: {s3_key}
            aws_secret_access_key: {s3_secret}
-
+    """
+    wrangles.recipe.run(recipe)
+    time.sleep(3)
+    # Reading uploaded file to complete the cycle
+    recipe2 = f"""
+    run:
       on_success:
         - s3.download_files:
             bucket: wrwx-public
@@ -115,10 +122,6 @@ def test_file_upload_and_download_2():
             file: temp_download_data.csv
             aws_access_key_id: {s3_key}
             aws_secret_access_key: {s3_secret}
-    """
-    wrangles.recipe.run(recipe)
-    # Reading uploaded file to complete the cycle
-    recipe2 = """
     read:
       - file:
           name: temp_download_data.csv
