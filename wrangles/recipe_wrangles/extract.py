@@ -18,10 +18,14 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column.
     """
     # If the input is a string
@@ -50,10 +54,14 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column.
       attribute_type:
         type: string
@@ -256,10 +264,14 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output columns
       property_type:
         type: string
@@ -299,10 +311,14 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output columns
     """
     # If the input is a string

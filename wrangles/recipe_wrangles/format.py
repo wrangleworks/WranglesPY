@@ -57,13 +57,13 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     properties:
       input:
         type:
-          - array
           - string
+          - array
         description: Name of the input column
       output:
         type:
-          - array
           - string
+          - array
         description: Name of the output column
     """
     if output is None: output = input

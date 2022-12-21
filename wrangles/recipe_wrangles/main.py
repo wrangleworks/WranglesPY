@@ -213,13 +213,13 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     properties:
       input:
         type:
-          - array
           - string
+          - array
         description: Name or list of input columns.
       output:
         type:
-          - array
           - string
+          - array
         description: Name or list of output columns.
     """
     # For checking if columns exist
@@ -320,10 +320,14 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
       - target_language
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the column to translate
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column
       target_language:
         type: string

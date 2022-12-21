@@ -118,10 +118,14 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column. If omitted, the input column will be overwritten
     """
     # Set output column as input if not provided
@@ -148,10 +152,14 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column. If omitted, the input column will be overwritten
     """
     # Set output column as input if not provided
