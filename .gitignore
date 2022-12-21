@@ -36,6 +36,10 @@ temp.csv
 temp.json
 temp.txt
 temp2.csv
+temp3.csv
+Test_Upload_File.csv
+temp_download_data.csv
+temp_excel.xlsx
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

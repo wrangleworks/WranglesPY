@@ -67,7 +67,7 @@ def test_write_2():
     assert df.iloc[0]['Country'] == 'Brazil'
     
     
-# upload file to s3 kye and file not included
+# upload file to s3 key and file not included
 def test_file_upload_and_download_1():
     recipe = f"""
     run:
