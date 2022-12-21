@@ -238,7 +238,7 @@ def test_data_format_1():
     })
     recipe = """
     wrangles:
-      - format.date_format:
+      - format.dates:
           input: col
           format: "%Y-%m-%d"
     """

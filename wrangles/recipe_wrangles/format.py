@@ -157,7 +157,7 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
     return df
 
 
-def date_format(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
+def dates(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Format a date
