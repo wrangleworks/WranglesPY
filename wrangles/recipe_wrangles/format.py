@@ -117,7 +117,8 @@ def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
 
     return df
-  
+
+
 def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -154,7 +155,8 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
   
     return df
-  
+
+
 def date_format(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -184,5 +186,3 @@ def date_format(df: _pd.DataFrame, input: str, format: str, output: str = None) 
     df[output] = _pd.to_datetime(df[input]).dt.strftime(format)
     
     return df
-  
-  

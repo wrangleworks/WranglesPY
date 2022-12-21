@@ -137,6 +137,7 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
         
     return df
+
     
 def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """

@@ -287,7 +287,8 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
     
     return df
-    
+
+
 def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     type: object
@@ -318,6 +319,7 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
 
     return df
+
 
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
@@ -369,7 +371,8 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
         raise ValueError(f"\"{property}\" not a valid date property.")
     
     return df
-    
+
+
 def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, range: str = 'day') -> _pd.DataFrame:
     """
     type: object

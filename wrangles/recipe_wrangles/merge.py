@@ -261,4 +261,4 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     
     df[output] = output_list
     
-    return df    
+    return df

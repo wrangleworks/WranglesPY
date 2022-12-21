@@ -19,6 +19,7 @@ from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
 
+
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     type: object
@@ -631,7 +632,8 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
         df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True) # pragma no cover
         
     return df
-    
+
+
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
     type: object
