@@ -61,7 +61,7 @@ _meta_tables = {
 }
 
 
-def _get_field_map(host: str, partition: str, target_code: str, user: str, password: str, to_label: bool = True) -> dict:
+def _get_field_map(host: str, partition: str, target_code: str, user: str, password: str, to_label: bool = True, source = None) -> dict:
     """
     Generate a mapping of pricefx field labels to ids for master tables
 
@@ -78,16 +78,17 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
     field_map_list = _requests.post(url, auth=(f'{partition}/{user}', password)).json()['response']['data']
     for row in field_map_list:
         # Add labels and labelTranslations to map for alternative lookups
-        if to_label:
-            field_map[row['fieldName']] = row['label'] 
-        else:
-            field_map[row['label']] = row['fieldName']
-        for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+        if source is None or source == row['name']:
             if to_label:
-                field_map[row['fieldName']] = val 
+                field_map[row['fieldName']] = row['label']
             else:
-                field_map[val] = row['fieldName']
-    
+                field_map[row['label']] = row['fieldName']
+            for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
+                if to_label:
+                    field_map[row['fieldName']] = val
+                else:
+                    field_map[val] = row['fieldName']
+
     return field_map
 
 
@@ -109,7 +110,7 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
     :param criteria: (Optional) Filter the returned data set
     """
     _logging.info(f": Importing Data :: {host} / {partition} / {target}")
-    
+
     # Convert target name to code
     source_code = _target_types.get(target.lower(), target)
 
@@ -148,7 +149,7 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
 
     elif source_code == 'C':
         url = f"https://{host}/pricefx/{partition}/customermanager.fetchformulafilteredcustomers"
-        
+
     elif source_code == 'CX':
         url = f"https://{host}/pricefx/{partition}/customermanager.fetch/*/CX/{source}"
 
@@ -156,17 +157,21 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         # Requested company parameters, but no source provided
         # then get list of all tables
         url = f"https://{host}/pricefx/{partition}/lookuptablemanager.fetch"
-    
+
     elif source_code == 'LT' and source:
         # Requested company parameters + a specific table
         # Look up table data
         df_tables = read(host, partition, target, user, password)
-        
+
+        url = None
         # Get ID for source requested
         for row in df_tables.to_dict('records'):
             if row['uniqueName'] == source:
                 url = f"https://{host}/pricefx/{partition}/lookuptablemanager.fetch/{row['id']}"
                 break
+
+        if not url:
+            raise ValueError('Company Parameter table not found.')
 
     payload = {}
     params = {}
@@ -184,13 +189,16 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
     continue_query = True
     i = 0
     df = None
-    
+
     # Query for data in batches
     while continue_query:
         payload['startRow'] = i
         payload['endRow'] = i + batch_size
 
         response = _requests.post(url, auth=(f'{partition}/{user}', password), params=params, json=payload)
+        if str(response.status_code)[0] != '2':
+            raise RuntimeError('Failed to read data. Check your input settings. If using column/table lables, consider trying names instead.')
+
         if df is None:
             df = _pd.json_normalize(response.json()["response"]["data"]).fillna("")
         else:
@@ -199,11 +207,11 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         if len(df) % batch_size or len(df) == 0:
             # Reached the end of the batch - stop looping
             continue_query = False
-        
+
         i += batch_size
-    
+
     if source_code in ['P', 'PX', 'C', 'CX']:
-        df.rename(columns=_get_field_map(host, partition, source_code, user, password), inplace=True)
+        df.rename(columns=_get_field_map(host, partition, source_code, user, password, source=source), inplace=True)
 
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
@@ -248,7 +256,7 @@ properties:
     type: string
     description: If the data type is a Data Source or Extension, set the specific table.
   batch_size:
-    type: int
+    type: integer
     description: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
   critera:
     type: array
@@ -285,7 +293,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     if target_code == 'LT':
         # Look up table data
         df_tables = read(host, partition, target, user, password)
-        
+
         # Get ID for source requested
         for row in df_tables.to_dict('records'):
             if row['uniqueName'] == source:
@@ -304,7 +312,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
             # Skip if this isn't the right lookup table
             if meta_table in ['JLTVM', 'MLTVM'] and row['lookupTableId'] != source:
                 continue
-            
+
             # Skip is this isn't the right extension table
             if meta_table in ['PXAM', 'CXAM'] and row['name'] != source:
                 continue
@@ -313,7 +321,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
             field_map[row['label']] = row['fieldName']
             for _, val in _json.loads(row.get("labelTranslations", "{}")).items():
                 field_map[val] = row['fieldName']
-        
+
         df = df.rename(columns=field_map)
 
     # If user hasn't explicitly defined the extension table then add it here
@@ -342,7 +350,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
         # If the response is not 2XX then raise an error
         if str(response.status_code)[0] != '2':
             raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
-        
+
         # Trigger flush
         url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
         payload = {
@@ -362,7 +370,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
         df['lookupTable'] = source
 
         url = f"https://{host}/pricefx/{partition}/lookuptablemanager.loaddata/{target_code}"
-        
+
         # Create payload
         payload = {
             "data": {
@@ -393,7 +401,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
         # If the response is not 2XX then raise an error
         if str(response.status_code)[0] != '2':
             raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
-    
+
 
 _schema['write'] = """
 type: object

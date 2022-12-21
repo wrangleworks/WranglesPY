@@ -31,6 +31,16 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# WrWx Test generated files
+temp.csv
+temp.json
+temp.txt
+temp2.csv
+temp3.csv
+Test_Upload_File.csv
+temp_download_data.csv
+temp_excel.xlsx
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.

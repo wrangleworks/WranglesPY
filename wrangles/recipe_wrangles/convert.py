@@ -59,7 +59,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str') -> _pd.DataFrame:
+def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -86,6 +86,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - float
           - int
           - bool
+          - datetime
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -94,10 +95,16 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     if isinstance(input, str):
         input = [input]
         output = [output]
+        
+    # If the datatype is datetime
+    if data_type == 'datetime':
+        temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
+        df[output] = temp
 
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(data_type)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].astype(data_type)
 
     return df
 
@@ -111,14 +118,60 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the input column.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column. If omitted, the input column will be overwritten
     """
     # Set output column as input if not provided
     if output is None: output = input
+    
+    # If a string provided, convert to list
+    if isinstance(input, str):
+        input = [input]
+        output = [output]
+        
+    # Loop through and apply for all columns
+    for input_columns, output_column in zip(input, output):
+        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        
+    return df
 
-    df[output] = [_json.dumps(row) for row in df[input].values.tolist()]
+    
+def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert a JSON representation into an object
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # If a string provided, convert to list
+    if isinstance(input, str):
+        input = [input]
+        output = [output]
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [_json.loads(x) for x in df[input_column]]
+    
     return df

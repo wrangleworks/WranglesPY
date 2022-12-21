@@ -140,12 +140,33 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type: boolean
         description: Whether to include empty columns in the created dictionary
     """
+    
+    # checking if
+    index_check = 0
+    cols_changed = [] 
+    for cols in input:
+        for row in df[cols]:
+            if isinstance(row, bool) or row == None:
+                cols_changed.append(cols)
+                break
+        # only check the first 10 rows
+        index_check += 1
+        if index_check > 10: break
+        
+        # If the column is in the cols changed then convert values to strings
+        if cols in cols_changed:
+            df[cols] = df[cols].astype(str)
+    
     output_list = []
     column_headers = df[input].columns
     for row in df[input].values.tolist():
         output_dict = {}
         for col, header in zip(row, column_headers):
             if col or include_empty: output_dict[header] = col
+            if header in cols_changed:
+                if col == 'None': output_dict[header] = None
+                elif col == 'False': output_dict[header] = False
+                elif col == 'True': output_dict[header] = True
         output_list.append(output_dict)
     df[output] = output_list
     return df
@@ -180,14 +201,64 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
             pairs[key] = val
 
     results = [{} for _ in range(len(df))]
-
+    
+    # Checking if the inputs are boolean type
+    index_check = 0
+    cols_changed = []
+    for cols in list(pairs.values()):
+        for row in df[cols]:
+            # If the row value is a boolean then record the column
+            if isinstance(row, bool):
+                cols_changed.append(cols)
+                break
+        # only check the first 10 rows
+        index_check += 1
+        if index_check > 10: break
+        
+        # If the column is in the columns changed then convert to string
+        if cols in cols_changed:
+            df[cols] = df[cols].astype(str)
+    
     idx = 0
     for row in df.to_dict('records'):
-      for key, val in pairs.items():
+        for key, val in pairs.items():
             if row[key] and row[val]:
                 results[idx][row[key]] = row[val]
-      idx+=1
+                if val in cols_changed:
+                    # If the row is in columns changed then return to boolean
+                    if row[val] == 'True': results[idx][row[key]] = True
+                    if row[val] == 'False': results[idx][row[key]] = False
+        # Adding to the index
+        idx+=1
 
     df[output] = results
 
+    return df
+
+
+def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Take dictionaries in multiple columns and merge them to a single dictionary.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: object
+        description: list of input columns
+      output:
+        type: string
+        description: Name of the output column    
+    """
+    output_list = []
+    for row in df[input].values.tolist():
+        output_row = {**row[0]}
+        for col in row[1:]:
+            output_row = {**output_row, **col}
+        output_list.append(output_row)
+    
+    df[output] = output_list
+    
     return df

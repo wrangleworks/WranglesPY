@@ -1,12 +1,11 @@
 """
 Functions to extract information from unstructured text.
 """
-
+import re as _re
+from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from typing import Union as _Union
-
 from .format import tokenize
 
 
@@ -50,6 +49,10 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     :param type: (Optional) Specify which types of attributes to find. If omitted, a dict of all attributes types is returned
     :param bound: (Optional, default mid). When returning an object, if the input is a range. e.g. 10-20mm, set the value to return. min, mid or max.
     """
+    # Check that attribute_type is correct
+    attributes_type_list = ["angle","area","current","force","length","power","pressure","electric potential","volume","mass"]
+    if type != None and type.lower() not in attributes_type_list: raise ValueError(f'"{type}" is not a valid attribute_type value.')
+    
     if isinstance(input, str): 
         json_data = [input]
     else:
@@ -117,10 +120,13 @@ def custom(input: _Union[str, list], model_id: str) -> list:
     # If the Model Id is not appropriate, raise error (Only for Recipes)
     if isinstance(model_id, dict):
         raise ValueError('Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value')
-        
-    # Checking to see if GUID format is correct
-    if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
-        raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    
+    # If the model_id is a list, then split the contents
+    if isinstance(model_id, str): model_id = [model_id]
+    for model in model_id:
+        # Checking to see if GUID format is correct
+        if [len(x) for x in model.split('-')] != [8, 4, 4]:
+            raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
     params = {'responseFormat': 'array', 'model_id': model_id}
@@ -134,33 +140,6 @@ def custom(input: _Union[str, list], model_id: str) -> list:
     if purpose != 'extract':
         raise ValueError(f'Using {purpose} model_id in an extract function.')
     
-    results = _batching.batch_api_calls(url, params, json_data, batch_size)
-
-    if isinstance(input, str): results = results[0]
-    
-    return results
-
-
-def geography(input: _Union[str, list], dataType: str) -> list:
-    """
-    Extract geographical information from unstructured text such as streets, cities or countries.
-    Requires WrangleWorks Account.
-
-    e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
-
-    :param input: A string or list of strings with addresses to search for information.
-    :param dataType: The type of information to return. 'streets', 'cities', 'regions' or 'countries'
-    :return: A list of any results found.
-    """
-    if isinstance(input, str): 
-        json_data = [input]
-    else:
-        json_data = input
-
-    url = f'{_config.api_host}/wrangles/extract/geography'
-    params = {'responseFormat': 'array', 'dataType': dataType}
-    batch_size = 10000
-
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]
@@ -193,7 +172,7 @@ def html(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]:
+def properties(input: _Union[str, list], type: str = None, return_data_type: str = 'list') -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
     Requires WrangleWorks Account.
@@ -203,6 +182,7 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 
     :param input: A string or list of strings to be searched for properties
     :param type: (Optional) The specific type of property to search for. If omitted an objected with all results will be returned.
+    :param return_data_type: (Optional) The format to return the data, as a list or as a string.
     :return: A single or list with the extracted properties. Each extracted property may be a dict or list depending on settings.
     """
     if isinstance(input, str): 
@@ -219,17 +199,20 @@ def properties(input: _Union[str, list], type: str = None) -> _Union[dict, list]
 
     if isinstance(input, str): results = results[0]
     
+    if return_data_type == 'string': results = [', '.join(x) if x != [] else '' for x in results]
+    
     return results
 
 
-
 # SUPER MARIO
-def remove_words(input, to_remove, tokenize_to_remove, ignore_case):
+def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
     """
     Remove all the elements that occur in one list from another.
     
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words
+    :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
+    :pram ignore_case: (Optional) ignore the case of input and to_remove
     """
     
     # Tokenize to_remove values
@@ -266,5 +249,20 @@ def remove_words(input, to_remove, tokenize_to_remove, ignore_case):
             results.append(' '.join(temp))
 
     return results
+
+
+def brackets(input: str) -> list:
+    """
+    Extract values in brackets, [], {}
     
-    
+    :param input: Name of the input column
+    :param output: Name of the output column
+    """
+    results = []
+    for item in input:
+        re = _re.findall('\[.*?\]|{.*?}', item)
+        re = [_re.sub('\[|\]|{|}', '', re[x]) for x in range(len(re))]
+        
+        results.append(', '.join(re))
+        
+    return results

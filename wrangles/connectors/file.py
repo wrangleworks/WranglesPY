@@ -7,6 +7,8 @@ import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
+import os as _os
+import re as _re
 
 
 _schema = {}
@@ -47,6 +49,9 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
         df = _pd.read_json(file_object, **kwargs).fillna('')
+    else:
+      # If file type is not recognised
+      raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
 
     # If the user specifies only certain columns, only include those
     if columns is not None: df = df[columns]
@@ -115,12 +120,18 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     """
     _logging.info(f": Exporting Data :: {name}")
 
+    # Get the path to make a directory if it does not exists
+    re_pattern = '^.+(?=\/\w+\.\w+)'
+    path_matched = _re.search(re_pattern, name)
+    if path_matched:
+        _os.makedirs(path_matched[0], exist_ok=True)
+
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
-   
+
     if file_object is None:
         file_object = name
-    
+
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
         # Write an Excel file
@@ -139,7 +150,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # If user doesn't explicitly set orient, assume records - this seems a better default
         if 'orient' not in kwargs.keys(): kwargs['orient'] = 'records'
         df.to_json(file_object, **kwargs)
-        
+
     elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
         # Write a line delimited JSONL file
         # Set lines to true 
@@ -147,6 +158,10 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
         df.to_json(file_object, **kwargs)
+
+    else:
+      # If file type is not recognised
+      raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
 
 _schema['write'] = """
 type: object

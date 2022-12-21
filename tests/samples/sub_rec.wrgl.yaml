@@ -1,0 +1,9 @@
+
+wrangles:
+  - custom.custom_func_1:
+      case: upper
+      
+write:
+  - custom.write_1:
+      type: xlsx
+      

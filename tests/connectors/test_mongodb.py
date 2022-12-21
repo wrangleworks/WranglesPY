@@ -57,6 +57,8 @@ class client_mock_write(Subscriptable):
         class col_class(Subscriptable):
             def insert_many(df):
                 return 'Items inserted'
+            def update_many(query, update):
+                return 'Items updated'
         col = col_class
     db = db_class
 
@@ -71,6 +73,22 @@ def test_write(mocker):
         'collection': 'col',
         'host': 'host',
         'action': 'INSERT',
+    }
+    test = write(**config)
+    assert test == None
+    
+# Testing update
+def test_write_update(mocker):
+    m1 = mocker.patch("pymongo.MongoClient")
+    m1.return_value = client_mock_write
+    config = {
+        'df': df,
+        'user': 'us',
+        'password': 'pass',
+        'database': 'db',
+        'collection': 'col',
+        'host': 'host',
+        'action': 'UPDATE',
     }
     test = write(**config)
     assert test == None

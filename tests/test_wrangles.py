@@ -62,11 +62,11 @@ def test_address_list():
 
 def test_attributes():
     result = wrangles.extract.attributes('something 15V something')
-    assert result['electric potential'][0] == '15V'
+    assert result['voltage'][0] == '15V'
 
 def test_attributes_list():
     result = wrangles.extract.attributes(['something 15V something'])
-    assert result[0]['electric potential'][0] == '15V'
+    assert result[0]['voltage'][0] == '15V'
 
 def test_codes():
     result = wrangles.extract.codes('something ABC123ZZ something')
@@ -88,14 +88,6 @@ def test_custom_large_list():
     input = ['test skf test' for _ in range(25000)]
     results = wrangles.extract.custom(input, '4786921f-342f-4a0c')
     assert len(results) == 25000 and results[0][0] == 'SKF'
-
-def test_geography():
-    result = wrangles.extract.geography('1100 Congress Ave, Austin, TX 78701, USA', 'streets')
-    assert result[0] == '1100 Congress Ave'
-
-def test_geography_list():
-    result = wrangles.extract.geography(['1100 Congress Ave, Austin, TX 78701, USA'], 'streets')
-    assert result[0][0] == '1100 Congress Ave'
 
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
@@ -171,12 +163,13 @@ def test_standardize_2():
 # Headers not included ['Find', 'Replace']
 def test_standardize_train_1(mocker):
     data = [
-        ['Rice', 'Arroz'],
-        ['Wheat', 'Trigo']
+        ['Rice', 'Arroz', ''],
+        ['Wheat', 'Trigo', '']
     ]
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     m = mocker.patch("requests.post")
     m.return_value = temp_classify
@@ -194,17 +187,19 @@ def test_standardize_train_2():
     ]
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.standardize(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Entity to Find"\nSecond Element is "Variation", If no variation, use \'\'\nExample:[[\'USA\', \'United States of America\']]'
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == 'Training_data list must contain'
     
 def test_standardize_train_3():
     data = {'Rice': 'Arroz'}
     config = {
         'training_data': data,
-        'name': 'test_standardize'
+        'name': 'test_standardize',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.standardize(**config)
@@ -228,22 +223,24 @@ def test_classify_train_1():
     ]
     config = {
         'training_data': data,
-        'name': 'test_classify'
+        'name': 'test_classify',
+        'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
         raise train.classify(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Training_data list must contain a list of two non-empty elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is "Example"\nSecond Element is "Category" -- \'\' is not valid.\n'"Example:[['Rice', 'Grain']]"
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 # Input of lists of lists
 # Headers not included ['Example', 'Category']
 def test_classify_train_2(mocker):
     data = [
-        ['Rice', 'Grain'],
-        ['Wheat', 'Grain']
+        ['Rice', 'Grain', ''],
+        ['Wheat', 'Grain', '']
     ]
     config = {
         'training_data': data,
-        'name': 'test_classify'
+        'name': 'test_classify',
+        'model_id': '1234567890',
     }
     m = mocker.patch("requests.post")
     m.return_value = temp_classify
@@ -270,14 +267,14 @@ def test_extract_train_1():
     }
     with pytest.raises(ValueError) as info:
         raise train.extract(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == "Training_data list must contain a list of two elements. Check element(s) [1] in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use ''\nExample:[['Television', 'TV']]"
+    assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
     
 # Input of lists of lists
 # Headers not included ['Entity to Find', 'Variation (Optional)']
 def test_extract_train_2(mocker):
     data = [
-        ['Television', 'TV'],
-        ['Computer', 'Comp']
+        ['Television', 'TV', ''],
+        ['Computer', 'Comp', '']
     ]
     m = mocker.patch("requests.post")
     m.return_value = temp_extract

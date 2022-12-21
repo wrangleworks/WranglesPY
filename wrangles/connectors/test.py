@@ -15,6 +15,14 @@ _lorem = _TextLorem()
 
 _schema = {}
 
+def _random_date(start, end):
+    """
+    Generate random dates given a date range
+    """
+    start_value = start.value//10**9
+    end_value = end.value//10**9
+    
+    return _pd.to_datetime(_random.randint(start_value, end_value), unit='s')
 
 def _generate_cell_values(data_type: _Union[str, list], rows: int):
     """
@@ -56,7 +64,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
                     num_decimals = len(num_range[0].split('.')[1])
                 except:
                     num_decimals = 0
-            except:
+            except: # pragma: no cover
                 num_range = [0, 1]
                 num_decimals = 2
             return [round(_random.uniform(float(num_range[0]), float(num_range[1])), num_decimals) for _ in range(rows)]
@@ -68,7 +76,22 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
             except:
                 length = 8
             return [''.join(_random.choice(_string.ascii_uppercase + _string.digits) for _ in range(length)) for _ in range(rows)]
-
+        
+        elif data_type == '<date_today>':
+            return [_pd.to_datetime('today').normalize() for _ in range(rows)]
+        
+        # Get a random date from a range of dates
+        elif _re.findall('<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
+            date_range_string = _re.findall('\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
+            start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
+            end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
+            return [_random_date(start_date, end_date) for _ in range(rows)]
+        
+        # Enter a date
+        elif _re.findall('<date\s\d+-\d+-\d+>', data_type):
+            date = _pd.to_datetime(_re.findall('\d+-\d+-\d+', data_type)[0])
+            return [date for _ in range(rows)]
+        
         else:
             return [data_type for _ in range(rows)]
     else:

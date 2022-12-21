@@ -1,17 +1,16 @@
 """
 Create and execute Wrangling recipes
 """
-import pandas as _pandas
 import yaml as _yaml
 import logging as _logging
 from typing import Union as _Union
 import types as _types
 import os as _os
-import fnmatch as _fnmatch
 import inspect as _inspect
+import re as _re
 import warnings as _warnings
+import pandas as _pandas
 import requests as _requests
-
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 
@@ -25,6 +24,60 @@ _logging.getLogger().setLevel(_logging.INFO)
 # but will also investigate if there is a better long term solution
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
+
+def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
+    """
+    Replace templated values of format ${} in recipe
+    
+    :param recipe_object: Recipe object that may contain values to replace
+    :param variables: List of variables that contain any templated values to update
+    """
+    
+    if isinstance(recipe_object, list):
+        new_recipe_object = []
+        # Iterate over all of the elements in a list
+        for element in recipe_object:
+            # Recursively check if the elements in list are lists, dictionaries or strings
+            new_recipe_object.append(_replace_templated_values(element, variables))
+            
+    elif isinstance(recipe_object, dict):
+        new_recipe_object = {}
+        # Iterate over all of the keys and value in a dictionary
+        for key, val in recipe_object.items():
+            # Recursively check if the elements in dictionary are lists, dictionaries or strings
+            if _re.search("\${.+}", key):
+                change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
+                new_recipe_object[change_value] = _replace_templated_values(val, variables)
+            # Else do nothing
+            else:
+                new_recipe_object[key] = _replace_templated_values(val, variables)
+            
+    elif isinstance(recipe_object, str):
+        
+        # Check if the variable is a templated value
+        if _re.search("\${.+}", recipe_object):
+            # Change the value accordingly
+            change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
+            
+            # Check if the change value is a recipe or sql command
+            if isinstance(change_value, str) and "input:" in change_value: # If the value is a recipe
+                yaml_object = _yaml.safe_load(variables[_re.subn('[\$\{\}]', '', recipe_object)[0]])
+                new_recipe_object = _replace_templated_values(yaml_object, variables)
+            else:
+                # An SQL command or other
+                new_recipe_object = change_value
+            
+        # Else do nothing to the value
+        else:
+            new_recipe_object = recipe_object
+    
+    # If recipe_object is not list, dict, or str     
+    else:
+        new_recipe_object = recipe_object
+
+    return new_recipe_object
+        
+    
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
@@ -58,46 +111,41 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         if env_key not in variables.keys():
             variables[env_key] = env_val
 
-    # Replace templated values
-    for key, val in variables.items():
-        recipe_string = recipe_string.replace("${" + key + "}", val)
-
     recipe_object = _yaml.safe_load(recipe_string)
+    
+    # Check if there are any templated valued to update
+    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     return recipe_object
 
 
-def _run_actions(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> None:
+def _run_actions(recipe: _Union[dict, list], functions: dict = {}) -> None:
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
 
     for action in recipe:
         for action_type, params in action.items():
-            # Use shared connection details if set
-            if 'connection' in params.keys():
-                params.update(connections[params['connection']])
-                params.pop('connection')
-
             if action_type.split('.')[0] == 'custom':
                 # Execute a user's custom function
                 functions[action_type[7:]](**params)
-
             else:
                 # Get run function of requested connector and pass user defined params
                 obj = _connectors
                 for element in action_type.split('.'):
                     obj = getattr(obj, element)
 
+                if action_type == 'recipe':
+                    params['functions'] = functions
+
                 getattr(obj, 'run')(**params)
 
 
-def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
+def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
 
     :param recipe: Read section of a recipe
-    :param connections: shared connections
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
@@ -105,7 +153,7 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
     if list(recipe)[0] in ['join', 'concatenate', 'union']:
         dfs = []
         for source in recipe[list(recipe)[0]]['sources']:
-            dfs.append(_read_data_sources(source, connections))
+            dfs.append(_read_data_sources(source, functions))
         
         recipe_temp = recipe[list(recipe)[0]]
         recipe_temp.pop('sources')
@@ -129,15 +177,62 @@ def _read_data_sources(recipe: _Union[dict, list], connections: dict = {}, funct
         import_type = list(recipe)[0]
         params = recipe[import_type]
 
-        # Use shared connection details if set
-        if 'connection' in params.keys():
-            params.update(connections[params['connection']])
-            params.pop('connection')
+        # Get read function of requested connector and pass user defined params
+        obj = _connectors
+        for element in import_type.split('.'):
+            obj = getattr(obj, element)
 
-        # Load appropriate data
-        df = getattr(getattr(_connectors, import_type), 'read')(**params)
+        if import_type == 'recipe':
+            params['functions'] = functions
+
+        df = getattr(obj, 'read')(**params)
     
     return df
+
+   
+def _wildcard_expansion(df_columns: list, params: dict) -> list:
+    """
+    Expand wildcards and set the columns in order for Wrangle inputs
+    
+    :param df_columns: List of dataframe columns
+    :param params: Wrangle parameters to use (inputs)
+    """
+    if isinstance(params.get('input', ''), str): params['input'] = [params['input']]
+    wildcard_check = [x for x in params['input'] if '*' in x]
+    columns_to_use = []
+    temp_cols = []
+    # Check if there are any asterisks in columns to use
+    if len(wildcard_check):
+        for iter in wildcard_check:
+            
+            # Do nothing id the user enters an escape character
+            if '\\' in iter:
+                column = iter.replace('\\', '')
+                columns_to_use.append(column)
+            # Add all columns with similar names
+            else:
+                column = iter.replace('*', '')
+                re_pattern = r"^\b{}(\s)?(\d+)?\b$".format(column)
+                list_re = [_re.search(re_pattern, x) for x in df_columns]
+                temp_cols.extend([x.string for x in list_re if x != None])
+    
+    # Remove columns that have '*' as they are handled above
+    no_wildcard = [x for x in params['input'] if '*' not in x]
+    
+    # Arrange the columns in columns order
+    columns_to_use.extend(no_wildcard)
+    columns_to_use.extend(temp_cols)
+    
+    index_keys = {}
+    for col_name in columns_to_use:
+        index_keys[df_columns.index(col_name)] = col_name
+    
+    sorted_index = list(index_keys.keys())
+    sorted_index.sort()
+    
+    sorted_columns_to_use = [index_keys[x] for x in sorted_index]
+    
+    return sorted_columns_to_use
 
 
 def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
@@ -165,7 +260,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             elif wrangle.split('.')[0] == 'custom':
                 # Execute a user's custom function
-                custom_function = functions[wrangle[7:]]
+                try:
+                    custom_function = functions[wrangle[7:]]
+                except:
+                    raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
 
                 # Get user's function arguments
                 function_args = _inspect.getfullargspec(custom_function).args
@@ -190,15 +288,21 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths']:
-                    # Allow user to specify a wildcard (? or *) for the input columns
-                    if isinstance(params.get('input', ''), str) and ('*' in params.get('input', '') or '?' in params.get('input', '')):
-                        params['input'] = _fnmatch.filter(df.columns, params['input'])
-
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary']:
+                    
+                    # Allow user to specify a wildcard (*) for the input columns
+                    if '*' in params.get('input', '') or len([x for x in params.get('input', ['']) if '*' in x]):
+                    
+                        # Set the params to the new columns to use from Expand Wildcard function
+                        params['input'] = _wildcard_expansion(df_columns=df.columns.tolist(), params=params)
+                        
                 # Get the requested function from the recipe_wrangles module
                 obj = _recipe_wrangles
                 for element in wrangle.split('.'):
                     obj = getattr(obj, element)
+
+                if wrangle == 'recipe':
+                    params['functions'] = functions
 
                 # Execute the requested function and return the value
                 df = obj(df, **params)
@@ -206,13 +310,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, functions: dict = {}) -> _pandas.DataFrame:
+def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
-    :param connections: shared connections
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
@@ -232,16 +335,18 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, connections: dict = {}, fun
             
             # Execute a user's custom function
             elif export_type.split('.')[0] == 'custom':
-                df = functions[export_type[7:]](df, **params)
+                functions[export_type[7:]](df, **params)
 
             else:
-                # Use shared connection details if set
-                if 'connection' in params.keys():
-                    params.update(connections[params['connection']])
-                    params.pop('connection')
-
-                # Get output function of requested connector and pass dataframe + user defined params
-                getattr(getattr(_connectors, export_type), 'write')(df, **params)
+                # Get write function of requested connector and pass dataframe and user defined params
+                obj = _connectors
+                for element in export_type.split('.'):
+                    obj = getattr(obj, element)
+                
+                if export_type == 'recipe':
+                    params['functions'] = functions
+                
+                getattr(obj, 'write')(df, **params)
 
     return df_return
 
@@ -272,15 +377,15 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
         # Run any actions required before the main recipe runs
         if 'on_start' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_start'], recipe.get('connections', {}), functions)
+            _run_actions(recipe['run']['on_start'], functions)
 
         # Get requested data
         if 'read' in recipe.keys():
             # Execute requested data imports
             if isinstance(recipe['read'], list):
-                df = _read_data_sources(recipe['read'][0], recipe.get('connections', {}), functions)
+                df = _read_data_sources(recipe['read'][0], functions)
             else:
-                df = _read_data_sources(recipe['read'], recipe.get('connections', {}), functions)
+                df = _read_data_sources(recipe['read'], functions)
         elif dataframe is not None:
             # User has passed in a pre-created dataframe
             df = dataframe
@@ -296,11 +401,11 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
         # Execute requested data exports
         if 'write' in recipe.keys():
-            df = _write_data(df, recipe['write'], recipe.get('connections', {}), functions)
+            df = _write_data(df, recipe['write'], functions)
 
         # Run any actions required after the main recipe finishes
         if 'on_success' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_success'], recipe.get('connections', {}), functions)
+            _run_actions(recipe['run']['on_success'], functions)
 
         return df
 
@@ -308,7 +413,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         try:
             # Run any actions requested if the recipe fails
             if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions=functions)
+                _run_actions(recipe['run']['on_failure'], functions)
         except:
             pass
 

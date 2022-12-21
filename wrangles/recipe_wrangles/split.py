@@ -43,7 +43,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
       df[output] = _format.split_re(df[input].astype(str).tolist(), char, output)
       return df
       
-    # Wilcard with multiple split and multiple char
+    # Wildcard with multiple split and multiple char
     if isinstance(output, str) and '*' in output and isinstance(char, _list):
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
@@ -78,7 +78,6 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
         element_list = []
         for x in df[output]:
             try:
-                # df[output] = df[output].apply(lambda x: [x[element]])
                 element_list.append(x[element])
             except(IndexError):
                 element_list.append('')
@@ -146,7 +145,7 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     return df
 
 
-def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Tokenize elements in a list into individual tokens.
@@ -164,5 +163,19 @@ def tokenize(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: Name of the output column
     """
-    df[output] = _format.tokenize(df[input].values.tolist())
+    if output is None: output = input
+    
+    # If the input is a string
+    if isinstance(input, str) and isinstance(output, str):
+        df[output] = _format.tokenize(df[input].values.tolist())
+    
+    # If the input is multiple columns (a list)
+    elif isinstance(input, _list) and isinstance(output, _list):
+        for in_col, out_col in zip(input, output):
+            df[out_col] = _format.tokenize(df[in_col].values.tolist())
+    
+    # If the input and output are not the same type
+    elif type(input) != type(output):
+        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+            
     return df

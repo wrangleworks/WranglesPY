@@ -19,6 +19,45 @@ def test_dictionary_element_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes'] == 'round'
     
+# if the input is multiple columns (a list)
+def test_dictionary_element_2():
+    data = pd.DataFrame({
+    'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+    'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input:
+            - Prop1
+            - Prop2
+          output:
+            - Shapes1
+            - Shapes2
+          element: shapes
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Shapes2'] == 'ROUND'
+    
+# if the input and output are not the same type
+def test_dictionary_element_3():
+    data = pd.DataFrame({
+    'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+    'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input:
+            - Prop1
+            - Prop2
+          output: Shapes1
+          element: shapes
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    
 #
 # List Element
 #
@@ -65,6 +104,45 @@ def test_list_element_3():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Second Element'] == ''
+    
+# if the input is multiple columns (a list)
+def test_list_element_3():
+    data = pd.DataFrame({
+    'Col1': [['A One', 'A Two']],
+    'Col2': [['Another here']],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: 
+            - Col1
+            - Col2
+          output:
+            - Out1
+            - Out2
+          element: 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out1'] == 'A Two'
+    
+# if the input and output are not the same type
+def test_list_element_4():
+    data = pd.DataFrame({
+    'Col1': [['A One', 'A Two']],
+    'Col2': [['Another here']],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: 
+            - Col1
+            - Col2
+          output: Out1
+          element: 1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
     
 #
 # Highest confidence

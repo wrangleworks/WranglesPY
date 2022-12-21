@@ -38,7 +38,7 @@ def test_address_countries():
                 dataType: countries
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_address)
-    print(df.iloc[0]['country'] == ['United Kingdom'])
+    assert df.iloc[0]['country'] == ['United Kingdom']
     
 def test_address_regions():
     recipe = """
@@ -51,6 +51,44 @@ def test_address_regions():
     df = wrangles.recipe.run(recipe, dataframe=df_test_address)
     assert df.iloc[0]['regions'] == ['England']
     
+# if the input is multiple columns (a list)
+def test_address_5():
+    data = pd.DataFrame({
+        'col1': ['221 B Baker St., London, England, United Kingdom'],
+        'col2': ['742 Evergreen St, Springfield, USA']
+    })
+    recipe = """
+    wrangles:
+      - extract.address:
+          input:
+            - col1
+            - col2
+          output:
+            - out1
+            - out2
+          dataType: streets
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out2'][0] == '742 Evergreen St'
+    
+# if the input and output are not the same type
+def test_address_6():
+    data = pd.DataFrame({
+        'col1': ['221 B Baker St., London, England, United Kingdom'],
+        'col2': ['742 Evergreen St, Springfield, USA']
+    })
+    recipe = """
+    wrangles:
+      - extract.address:
+          input:
+            - col1
+            - col2
+          output: out
+          dataType: streets
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
 #
 # Attributes
 #
@@ -79,8 +117,7 @@ def test_attributes_object():
             responseContent: object
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
-    print(df.iloc[0]['Attributes'] == {'length': [{'unit': 'metre', 'value': 0.5}], 'mass': [{'unit': 'kilogram', 'value': 5.0}]})
-    
+    assert df.iloc[0]['Attributes'] == {'length': [{'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'mass': [{'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
 
 df_test_attributes_all = pd.DataFrame([['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']], columns=['Tools'])
 
@@ -95,7 +132,7 @@ def test_attributes_angle():
             attribute_type: angle
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13deg']
+    assert df.iloc[0]['Attributes'][0] in ['13deg', '13°']
 
 # Testing area 
 def test_attributes_area():
@@ -108,7 +145,7 @@ def test_attributes_area():
             attribute_type: area
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13m^2']
+    assert df.iloc[0]['Attributes'][0] in ['13m^2', '13sq m']
 
 # Testing Current
 def test_attributes_current():
@@ -199,7 +236,7 @@ def test_attributes_volume():
             attribute_type: volume
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
-    assert df.iloc[0]['Attributes'] == ['13m^3']
+    assert df.iloc[0]['Attributes'][0] in ['13m^3', '13cu m']
 
 # Testing mass
 def test_attributes_mass():
@@ -213,6 +250,66 @@ def test_attributes_mass():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13kg']
+    
+# min/mid/max attributes
+def test_attributes_MinMidMax():
+    data = pd.DataFrame({
+        'Tools': ['object mass ranges from 13kg to 14.5kg to 18.2kg']
+    })
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            responseContent: span
+            attribute_type: mass
+            bound: Minimum
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Invalid boundary setting. min, mid or max permitted.'
+    
+# if the input is multiple columns (a list)
+def test_attributes_multi_col():
+    data = pd.DataFrame({
+        'col1': ['13 something 13kg 13 random'],
+        'col2': ['3 something 3kg 3 random'],
+    })
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input:
+              - col1
+              - col2
+            output:
+              - out1
+              - out2
+            responseContent: span
+            attribute_type: mass
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out2'] == ['3kg']
+    
+# if the input and output are not the same type
+def test_attributes_diff_type():
+    data = pd.DataFrame({
+        'col1': ['13 something 13kg 13 random'],
+        'col2': ['3 something 3kg 3 random'],
+    })
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input:
+              - col1
+              - col2
+            output: out
+            responseContent: span
+            attribute_type: mass
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    
 
 #
 # Codes
@@ -361,7 +458,56 @@ def test_extract_custom_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    
+    
+# Mini Extract
+def test_extract_custom_4():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          find: Pikachu
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col_out'] == ['Pikachu']
+    
+    
+# Mini Extract with model id also included -> Error
+def test_extract_custom_5():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          find: Pikachu
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract custom must have model_id or find as parameters'
 
+# incorrect model_id - forget to use ${}
+def test_extract_custom_6():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          model_id: {model_id_here}
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
 
 # Input column is list
 df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])
@@ -385,7 +531,7 @@ df_test_custom_multi_input = pd.DataFrame(
   }
 )
 
-def test_extract_custom_mulit_input():
+def test_extract_custom_multi_input():
     recipe = """
     wrangles:
       - extract.custom:
@@ -413,6 +559,29 @@ def test_extract_custom_mulit_input_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
     assert df.iloc[0]['Fact2'] == ['Charizard']
+    
+# multiple different custom extract at the same time
+def test_extract_multi_custom():
+    data = pd.DataFrame({
+        'Pokemon': ['my favorite pokemon is Charizard'],
+        'AI':['My favorite AIs are Dolores and TARS both from are great']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input:
+            - Pokemon
+            - AI
+          output:
+            - Fact1
+            - Fact2
+          model_id:
+            - 1eddb7e8-1b2b-4a52
+            - 05f6bb73-de04-4cb6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Fact2'][0] in ['Dolores', 'TARS']
+    
 
 
 #
@@ -465,6 +634,44 @@ def test_extract_standards():
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['OSHA']
     
+# if the input is multiple columns (a list)
+def test_properties_5():
+    data = pd.DataFrame({
+        'col1': ['Why is the sky blue?'],
+        'col2': ['Temperature of a star if it looks blue'],
+    })
+    recipe = """
+    wrangles:
+      - extract.properties:
+          input:
+            - col1
+            - col2
+          output:
+            - out1
+            - out2
+          property_type: colours
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out2'] == ['Blue']
+    
+# if the input and output are not the same type
+def test_properties_6():
+    data = pd.DataFrame({
+        'col1': ['Why is the sky blue?'],
+        'col2': ['Temperature of a star if it looks blue'],
+    })
+    recipe = """
+    wrangles:
+      - extract.properties:
+          input:
+            - col1
+            - col2
+          output: out
+          property_type: colours
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
     
 #
 # HTML
@@ -497,3 +704,194 @@ def test_extract_html_links():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+    
+#
+# Brackets
+#
+
+def test_extract_brackets_1():
+    data = pd.DataFrame({
+        'col': ['[1234]', '{1234}']
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input: col
+          output: no_brackets
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['no_brackets'] == '1234'
+    
+# if the input is multi column (a list)
+def test_extract_brackets_2():
+    data = pd.DataFrame({
+        'col': ['[1234]'],
+        'col2': ['{1234}'],
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input:
+            - col
+            - col2
+          output:
+            - no_brackets
+            - no_brackets2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['no_brackets2'] == '1234'
+    
+# if the input and output are not the same type
+def test_extract_brackets_3():
+    data = pd.DataFrame({
+        'col': ['[1234]'],
+        'col2': ['{1234}'],
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input:
+            - col
+            - col2
+          output: no_work
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    
+    
+#
+# Remove Words
+#
+
+# tokenize inputs
+def test_remove_words_1():
+    data = pd.DataFrame({
+        'col': ['Metal Carbon Water Tank'],
+        'materials': ['Metal Carbon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
+    
+    
+# tokenize inputs and ignore case
+def test_remove_words_2():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL carbOn']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
+
+# Raw inputs, ignore case is False
+def test_remove_words_3():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL CaRBon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'METAl WateR TaNk'
+    
+#
+# Date Properties
+#
+
+# Basic function
+def test_date_properties_1():
+    data = pd.DataFrame({
+        'col1': ['12/24/2000'],
+    })
+    recipe = """
+    wrangles:
+      - extract.date_properties:
+          input: col1
+          output: out1
+          property: quarter
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == 4
+    
+# not valid property types
+def test_date_properties_2():
+    data = pd.DataFrame({
+        'col1': ['12/24/2000'],
+    })
+    recipe = """
+    wrangles:
+      - extract.date_properties:
+          input: col1
+          output: out1
+          property: millennium
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == '"millennium" not a valid date property.'
+    
+#
+# Date range
+#
+
+# basic function
+def test_date_range_1():
+    data = pd.DataFrame({
+      'date1': ['08-13-1992'],
+      'date2': ['08-13-2022'],
+    })
+    recipe = """
+    wrangles:
+      - extract.date_range:
+          start_time: date1
+          end_time: date2
+          output: Range
+          range: years
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Range'] == 29
+    
+    
+# invalid range
+def test_date_range_2():
+    data = pd.DataFrame({
+      'date1': ['08-13-1992'],
+      'date2': ['08-13-2022'],
+    })
+    recipe = """
+    wrangles:
+      - extract.date_range:
+          start_time: date1
+          end_time: date2
+          output: Range
+          range: millennium
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == '"millennium" not a valid frequency'

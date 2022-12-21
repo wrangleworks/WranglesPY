@@ -1,6 +1,6 @@
 import wrangles
 import pandas as pd
-
+import pytest
 
 #
 # Split From Text
@@ -90,6 +90,77 @@ def test_split_text_5():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
     
+# Select element from the output list
+def test_split_text_6():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: 0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == 'Wrangles'
+
+# Select element from the output list, index error
+# Number of index greater than Out list size
+def test_split_text_7():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: 100
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == ''
+    
+# Select element from the output list, using list slice
+def test_split_text_8():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: Out
+            char: ' '
+            element: '0:3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Out'] == ['Wrangles', 'are', 'very']  
+    
+    
+# If more columns than number of splits
+def test_split_text_9():
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: 
+              - Out1
+              - Out2
+              - Out3
+              - Out4
+              - Out5
+            char: ' '
+            pad: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out5'].iloc[0] == ''
+
 #
 # Split from List
 #
@@ -172,3 +243,40 @@ def test_tokenize_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'][1] == 'Steel'
     
+# If the input is multiple columns (a list)
+def test_tokenize_3():
+    data = pd.DataFrame({
+        'col1': ['Iron Man'],
+        'col2': ['Spider Man'],
+    })
+    recipe = """
+    wrangles:
+      - split.tokenize:
+          input:
+            - col1
+            - col2
+          output:
+            - out1
+            - out2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'][1] == 'Man'
+    
+# if the input and output are not the same
+# If the input is multiple columns (a list)
+def test_tokenize_4():
+    data = pd.DataFrame({
+        'col1': ['Iron Man'],
+        'col2': ['Spider Man'],
+    })
+    recipe = """
+    wrangles:
+      - split.tokenize:
+          input:
+            - col1
+            - col2
+          output: out1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."

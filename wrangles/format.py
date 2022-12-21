@@ -1,5 +1,5 @@
-import pandas
-import re
+import re as _re
+import pandas as _pandas
 
 
 def join_list(input_list, join_char):
@@ -18,16 +18,18 @@ def concatenate(data_list, concat_char):
     for row in data_list:
         results.append(concat_char.join(row))            
     return results
-    
+
+
 # Super Mario Function
 def split_re(input_list, split_char, output):
     # split char is a list of characters -> Joining them
     if isinstance(split_char, list):
         split_char = '|'.join(split_char)
     
-    results = [re.split(split_char, x) for x in input_list]
+    results = [_re.split(split_char, x) for x in input_list]
     return results
-    
+
+
 def split(input_list, split_char, output, pad=False):
     if pad:
         # Pad to be as long as the longest result
@@ -91,9 +93,32 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
 
         output_padded.append(output_row)
     
-    df_output = pandas.DataFrame(output_padded, columns=headers)
+    df_output = _pandas.DataFrame(output_padded, columns=headers)
     return df_output
+
+
+def remove_duplicates(input_list: list) -> list:
+    """
+    Remove duplicates from a list. Preserves input order.
+    """
+    results = []
+    for row in input_list:
+        if isinstance(row, list):
+            results.append(list(dict.fromkeys(row)))
+        
+        # If row is a string, recursively remove duplicates and return a string
+        elif isinstance(row, str):
+            # Convert row to a list
+            split_row = row.split(' ')
+            # Recursion
+            output = remove_duplicates([split_row])
+            results.append(' '.join(output[0]))
+
+        else:
+            results.append(row) # pragma: no cover 
     
+    return results
+
 
 # Super Mario function
 def tokenize(input):
