@@ -397,6 +397,8 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     required:
       - start_time
       - end_time
+      - output
+      - range
     properties:
       start_time:
         type: string
@@ -407,7 +409,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
       output:
         type: string
         description: Name of the output column
-      frequency:
+      range:
         type: string
         description: Type of frequency to count
         enum:
