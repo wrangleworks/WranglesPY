@@ -26,7 +26,7 @@ setup(
         'Operating System :: OS Independent'
     ],
     version = '1.0.1',
-    url = 'https://wrangles.io',
+    url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
     keywords = ['data','wrangling'],
