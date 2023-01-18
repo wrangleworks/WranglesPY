@@ -25,7 +25,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent'
     ],
-    version = '1.0',
+    version = '1.0.1',
     url = 'https://wrangles.io',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
