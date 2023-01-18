@@ -76,9 +76,7 @@ Recipes are written in YAML and allow a series of Wrangles to be run as an autom
 Recipes can be triggered either from python code or a terminal command.
 #### Run
 ```python
-"""
-PYTHON
-"""
+# PYTHON
 import wrangles
 wrangles.recipe.run('recipe.wrgl.yml')
 ```
