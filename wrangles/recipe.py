@@ -2,9 +2,11 @@
 Create and execute Wrangling recipes
 """
 import yaml as _yaml
+import json as _json
 import logging as _logging
 from typing import Union as _Union
 import types as _types
+import typing as _typing
 import os as _os
 import inspect as _inspect
 import re as _re
@@ -25,53 +27,76 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
-def _replace_templated_values(recipe_object: dict, variables: list) -> dict:
+def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _typing.Any:
     """
-    Replace templated values of format ${} in recipe
+    Replace templated values of the format ${} within a recipe.
+    This function can be called recursively to iterate through an arbitrary number of levels within the main object
     
     :param recipe_object: Recipe object that may contain values to replace
     :param variables: List of variables that contain any templated values to update
+    :return: Updated Recipe object with variables replaced by their corresponding values
     """
-    
     if isinstance(recipe_object, list):
-        new_recipe_object = []
-        # Iterate over all of the elements in a list
-        for element in recipe_object:
-            # Recursively check if the elements in list are lists, dictionaries or strings
-            new_recipe_object.append(_replace_templated_values(element, variables))
+        # Iterate over all of the elements in a list recursively
+        new_recipe_object = [_replace_templated_values(element, variables) for element in recipe_object]
             
     elif isinstance(recipe_object, dict):
-        new_recipe_object = {}
-        # Iterate over all of the keys and value in a dictionary
-        for key, val in recipe_object.items():
-            # Recursively check if the elements in dictionary are lists, dictionaries or strings
-            if _re.search("\${.+}", key):
-                change_value = variables[_re.subn('[\$\{\}]', '', key)[0]]
-                new_recipe_object[change_value] = _replace_templated_values(val, variables)
-            # Else do nothing
-            else:
-                new_recipe_object[key] = _replace_templated_values(val, variables)
-            
+        # Iterate over all of the keys and value in a dictionary recursively
+        new_recipe_object = {
+            _replace_templated_values(key, variables) : _replace_templated_values(val, variables)
+            for key, val in recipe_object.items()
+        }
+
     elif isinstance(recipe_object, str):
-        
-        # Check if the variable is a templated value
-        if _re.search("\${.+}", recipe_object):
-            # Change the value accordingly
-            change_value = variables[_re.subn('[\$\{\}]', '', recipe_object)[0]]
-            
-            # Check if the change value is a recipe or sql command
-            if isinstance(change_value, str) and "input:" in change_value: # If the value is a recipe
-                yaml_object = _yaml.safe_load(variables[_re.subn('[\$\{\}]', '', recipe_object)[0]])
-                new_recipe_object = _replace_templated_values(yaml_object, variables)
-            else:
-                # An SQL command or other
-                new_recipe_object = change_value
-            
-        # Else do nothing to the value
-        else:
-            new_recipe_object = recipe_object
-    
-    # If recipe_object is not list, dict, or str     
+        # Search string for one or more variables to replace
+        new_recipe_object = recipe_object
+
+        # Pattern matching ${<something here>}
+        variable_pattern = _re.compile(r"\$\{[^\}]+\}")
+
+        # Whole string is a variable
+        if variable_pattern.fullmatch(new_recipe_object):
+            try:
+                replacement_value = variables[new_recipe_object[2:-1]]
+            except:
+                raise ValueError(f"Variable {new_recipe_object} was not found.")
+
+            # Test if replacement is JSON
+            if (isinstance(replacement_value, str)
+                and replacement_value[0] in ['{', '[']
+                and replacement_value[-1] in ['}', ']']
+            ):
+                try:
+                    replacement_value = _json.loads(replacement_value)
+                except:
+                    # Replacement wasn't JSON
+                    pass
+
+            # Test if replacement is YAML
+            if (isinstance(replacement_value, str) 
+                and ':' in replacement_value 
+                and '\n' in replacement_value
+            ):
+                try:
+                    replacement_value = _yaml.safe_load(replacement_value)
+                except:
+                    # Replacement wasn't YAML
+                    pass
+
+            new_recipe_object = _replace_templated_values(replacement_value, variables)
+
+        # Variable is found within the string e.g. file-${number}.csv
+        # Since this is within a string, the type is forced to also be a string
+        elif variable_pattern.search(new_recipe_object):
+            for var in variable_pattern.findall(new_recipe_object):
+                try:
+                    replacement_value = variables[var[2:-1]]
+                except:
+                    raise ValueError(f"Variable {var} was not found.")
+
+                new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
+
+    # Otherwise, just return unchanged    
     else:
         new_recipe_object = recipe_object
 
@@ -90,6 +115,13 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
     _logging.info(": Reading Recipe ::")
     
+    if not isinstance(recipe, str):
+        try:
+            # If user passes in a pre-parsed recipe, convert back to YAML
+            recipe = _yaml.dump(recipe)
+        except:
+            raise ValueError('Recipe passed in as an invalid type')
+
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
         response = _requests.get(recipe)
