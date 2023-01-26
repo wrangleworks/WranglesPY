@@ -3,6 +3,7 @@ Functions to re-format data
 """
 import pandas as _pd
 from .. import format as _format
+from typing import Union as _Union
 
 
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
@@ -69,9 +70,10 @@ def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
     if output is None: output = input
 
     # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
 
-    # Loop through and create uuid for all requested columns
+    # Loop through all requested columns
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].str.strip()
 
@@ -192,3 +194,52 @@ def dates(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd
     df[output] = _pd.to_datetime(df[input]).dt.strftime(format)
     
     return df
+    
+    
+def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output =  None):
+  """
+  type: object
+  description: Pad a string to a fixed length
+  additionalProperties: false
+  required:
+    - input
+    - pad_length
+    - side
+    - char
+  properties:
+    input:
+      type:
+        - string
+        - array
+      description: Name of the input column
+    output:
+      type:
+        - string
+        - array
+      description: Name of the output column
+    pad_length:
+      type:
+        - number
+      description: Length for the output
+    side:
+      type:
+        - string
+      description:  Side from which to fill resulting string
+    char:
+      type:
+        - str
+      description: The character to pad the input with
+  """
+  char = str(char)
+  # If the output is not specified, overwrite input columns in place
+  if output is None: output = input
+  
+  # If the input is a string
+  if isinstance(input, str): input = [input]
+  if isinstance(output, str): output = [output]
+  
+  for input_column, output_column in zip(input, output):
+    df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
+    
+  return df
+  

@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 
 #
@@ -70,6 +71,20 @@ def test_create_columns_5():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column3'] in [True, False]
+    
+# Error if column already exists
+def test_create_column_6():
+    data = pd.DataFrame({
+      'col': ['data1']
+    })
+    recipe = """
+    wrangles:
+      - create.column:
+          output: col
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == '"col" column already exists in dataFrame.'
     
 
 #

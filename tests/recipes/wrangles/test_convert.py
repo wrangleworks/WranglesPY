@@ -1,5 +1,7 @@
 import wrangles
 import pandas as pd
+import re as _re
+from fractions import Fraction as _Fraction
 
 
 #
@@ -153,3 +155,19 @@ def test_convert_to_datetime():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['date_type'].week == 51
+    
+#
+# Fractions
+#
+def test_fraction_to_decimal():
+    data = pd.DataFrame({
+    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+    })
+    recipe = """
+    wrangles:
+      - convert.fraction_to_decimal:
+          input: col1
+          output: out1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"

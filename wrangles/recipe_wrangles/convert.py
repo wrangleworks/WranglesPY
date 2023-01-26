@@ -4,6 +4,8 @@ Functions to convert data formats and representations
 import pandas as _pd
 import json as _json
 from typing import Union as _Union
+import re as _re
+from fractions import Fraction as _Fraction
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -173,5 +175,48 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = [_json.loads(x) for x in df[input_column]]
+    
+    return df
+
+def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None):
+    """
+    type: object
+    description: Convert fractions to decimals
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+        description: Name of the input column
+      output:
+        type:
+          - string
+        description: Name of the output colum
+      decimals:
+        type:
+          - number
+        description: Number of decimals to round fraction
+    """
+    # Set the output column as input if not provided
+    if output is None: output = input
+    
+    results = []
+    for item in df[input].astype(str):
+        fractions = fractions = _re.finditer(r'\b\d+/\d+\b', item)
+        replacement_list = []
+        for match in fractions:
+            fraction_str = match.group()
+            fraction = _Fraction(fraction_str)
+            decimal = round(float(fraction), decimals)
+            replacement_list.append((fraction_str, str(decimal)))
+        for fraction, dec in replacement_list:
+            item = item.replace(fraction, dec)
+        
+        
+        results.append(item)
+        
+    df[output] = results
     
     return df
