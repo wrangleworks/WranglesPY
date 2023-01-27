@@ -86,7 +86,7 @@ def write(df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str = 
     """
     memory_file = _BytesIO()
     _file.write(df, name=file, file_object=memory_file, **kwargs)
-    # memory_file.seek(0, 0)
+    
     _logging.info(f": Writing File :: {host} / {dataset} / {file}")
 
     packages = _get_packages_in_dataset(host, dataset, api_key)
