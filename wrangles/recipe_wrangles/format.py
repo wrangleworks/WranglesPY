@@ -227,7 +227,7 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
       description:  Side from which to fill resulting string
     char:
       type:
-        - str
+        - string
       description: The character to pad the input with
   """
   char = str(char)
