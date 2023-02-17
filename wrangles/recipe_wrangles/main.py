@@ -170,6 +170,9 @@ def log(df: _pd.DataFrame, columns: list = None, write: str = None):
       columns:
         type: array
         description: (Optional, default all columns) List of specific columns to log.
+      write:
+        type: string
+        description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
     """ 
 
     if columns is not None:
