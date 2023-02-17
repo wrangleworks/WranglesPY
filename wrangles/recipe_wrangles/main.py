@@ -18,6 +18,8 @@ import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
+import yaml
+import wrangles
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -159,7 +161,7 @@ def filter(df: _pd.DataFrame, input: str,
     return df
 
 
-def log(df: _pd.DataFrame, columns: list = None):
+def log(df: _pd.DataFrame, columns: list = None, write: str = None):
     """
     type: object
     description: Log the current status of the dataframe.
@@ -200,6 +202,10 @@ def log(df: _pd.DataFrame, columns: list = None):
         columns_to_print.extend(temp_cols)
 
         _logging.info(msg='Dataframe ::\n\n' + df[columns_to_print].to_string() + '\n')
+
+    if write is not None:
+        write = yaml.dump({'write': write})
+        wrangles.recipe.run(write, dataframe=df)
     else:
         _logging.info(msg=': Dataframe ::\n\n' + df.to_string() + '\n')
 
