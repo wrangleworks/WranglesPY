@@ -340,7 +340,7 @@ def test_log_1(caplog):
               - Col1
     """
     wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == 'Dataframe ::\n\n           Col1\n0  Ball Bearing\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1\n0  Ball Bearing\n'
     
     
 # no log columns specified
@@ -382,7 +382,7 @@ def test_log_3(caplog):
             - Col*
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == 'Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
 
 # Test column with escape character
 def test_log_4(caplog):
@@ -397,7 +397,7 @@ def test_log_4(caplog):
             - Col\*
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == 'Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
 
 
 

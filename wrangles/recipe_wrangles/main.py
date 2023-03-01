@@ -207,8 +207,8 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        df_tolog = df[columns]
-        
+        df_tolog = df[columns_to_print]
+
     else:
         df_tolog = df
 
