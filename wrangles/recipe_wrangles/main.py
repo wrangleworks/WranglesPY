@@ -56,8 +56,11 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     return df
 
 
-def filter(df: _pd.DataFrame, input: str,
+def filter(
+          df: _pd.DataFrame,
+          input: str = None,
           equal: _Union[str, list] = None,
+          not_equal: _Union[str, list] = None,
           is_in: _Union[str, list] = None,
           not_in: _Union[str, list] = None,
           greater_than: _Union[int, float] = None,
@@ -66,17 +69,22 @@ def filter(df: _pd.DataFrame, input: str,
           less_than_equal_to: _Union[int, float] = None,
           between: list = None,
           contains: str = None,
-          does_not_contain: str = None,
-          not_null: bool = None,
+          not_contains: str = None,
+          is_null: bool = None,
+          where: str = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
     type: object
-    description: Filter the dataframe based on the contents.
+    description: |
+      Filter the dataframe based on the contents.
+      If multiple filters are specified, all must be correct.
+      For complex filters, use the where parameter.
     additionalProperties: false
-    required:
-      - input
     properties:
+      where:
+        type: string
+        description: Use a SQL WHERE clause to filter the data.
       input:
         type: string
         description: Name of the column to filter on
@@ -84,77 +92,109 @@ def filter(df: _pd.DataFrame, input: str,
         type:
           - string
           - array
-        description: Value or list of values to filter, equal to parameter values
+        description: Select rows where the values equal a given value.
+      not_equal:
+        type:
+          - string
+          - array
+        description: Select rows where the values do not equal a given value.
       is_in:
         type:
-          - string
           - array
-        description: Value or list of values to filter that are in parameter values
+          - string
+        description: Select rows where the values are in a given list.
       not_in:
         type:
-          - string
           - array
-        description: Value or list of values to filter that are not in parameter values
+          - string
+        description: Select rows where the values are not in a given list.
+      is_null:
+        type: boolean
+        description: If true, select all rows where the value is NULL. If false, where is not NULL.
       greater_than:
         type:
           - integer
           - number
-        description: Value or list of values to filter that are greater than parameter values
-      greater_than_equal:
+        description: Select rows where the values are greater than a specified value. Does include the value itself.
+      greater_than_equal_to:
         type:
           - integer
           - number
-        description: Value or list of values to filter that are greater than or equal to parameter values
-      lower_than:
+        description: Select rows where the values are greater than a specified value. Does include the value itself.
+      less_than:
         type:
           - integer
           - number
-        description: Value or list of values to filter that are lower than parameter values
-      lower_than_equal:
+        description: Select rows where the values are less than a specified value. Does not include the value itself.
+      less_than_equal_to:
         type:
           - integer
           - number
-        description: Value or list of values to filter that are lower than or equal to parameter values
-      in_between:
+        description: Select rows where the values are less than a specified value. Does include the value itself.
+      between:
         type:
           - array
         description: Value or list of values to filter that are in between two parameter values
-      
+      contains:
+        type: string
+        description: Select rows where the input contains the value. Allows regular expressions.
+      not_contains:
+        type: string
+        description: Select rows where the input does not contain the value. Allows regular expressions.
     """
-    # check that only one variable is selected
-    none_list = [equal, is_in, not_in, greater_than, greater_than_equal_to, less_than, less_than_equal_to, between, contains, does_not_contain, not_null]
-    variables_count = [x for x in none_list if x != None]
-    if len(variables_count) > 1: raise ValueError("Only one filter at a time can be used.")
-    
+    if where != None:
+        df = sql(
+            df,
+            f"""
+            SELECT *
+            FROM df
+            WHERE {where};
+            """
+        )
+
     if equal != None:
-        if isinstance(equal, str) or isinstance(equal, bool): equal = [equal] # pragma: no cover 
+        if not isinstance(equal, list): equal = [equal] # pragma: no cover 
         df = df.loc[df[input].isin(equal)]
-    elif is_in != None:
-        if isinstance(is_in, str): is_in = [is_in] # pragma: no cover 
+
+    if not_equal != None:
+        if not isinstance(not_equal, list): not_equal = [not_equal] # pragma: no cover 
+        df = df.loc[~df[input].isin(not_equal)]
+    
+    if is_in != None:
+        if not isinstance(is_in, list): is_in = [is_in] # pragma: no cover 
         df = df[df[input].isin(is_in)]
-    elif not_in != None:
-        if isinstance(not_in, str): not_in = [not_in] # pragma: no cover 
+    
+    if not_in != None:
+        if not isinstance(not_in, list): not_in = [not_in] # pragma: no cover 
         df = df[~df[input].isin(not_in)]
-    elif greater_than != None:
+    
+    if greater_than != None:
         df = df[df[input] > greater_than]
-    elif greater_than_equal_to != None:
+    
+    if greater_than_equal_to != None:
         df = df[df[input] >= greater_than_equal_to]
-    elif less_than != None:
+    
+    if less_than != None:
         df = df[df[input] < less_than]
-    elif less_than_equal_to != None:
+    
+    if less_than_equal_to != None:
         df = df[df[input] <= less_than_equal_to]
-    elif between != None:
+    
+    if between != None:
         if len(between) != 2: raise ValueError('Can only use "between" with two values')
         df = df[df[input].between(between[0], between[1], **kwargs)]
-    elif contains != None:
-        df = df[df[input].str.contains(contains, **kwargs)]
-    elif does_not_contain != None:
-        df = df[~df[input].str.contains(does_not_contain, **kwargs)]
-    elif not_null != None:
-        if not_null == True:
-            df = df[df[input].notnull()]
-        else:
-            df = df[df[input].isnull()]
+    
+    if contains != None:
+        df = df[df[input].str.contains(contains, na=False, **kwargs)]
+    
+    if not_contains != None:
+        df = df[~df[input].str.contains(not_contains, na=False, **kwargs)]
+    
+    if is_null == True:
+        df = df[df[input].isnull()]
+    
+    if is_null == False:
+        df = df[df[input].notnull()]
      
     return df
 

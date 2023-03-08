@@ -110,10 +110,10 @@ def test_classify_5():
 #
 
 # Equal
-def test_filter_1():
+def test_filter_equal():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Color': ['red','green', 'orange', 'red']
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Color': ['red','green', 'orange', 'red']
     })
     recipe = """
     wrangles:
@@ -124,12 +124,27 @@ def test_filter_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Fruit'] == 'Strawberry'
-    
-# Is_in
-def test_filter_2():
+
+# Equal
+def test_filter_not_equal():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Color': ['red','green', 'orange', 'red']
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Color': ['red','green', 'orange', 'red']
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Color
+            not_equal: red
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Fruit'] == 'Orange'
+
+# Is_in
+def test_filter_in():
+    data = pd.DataFrame({
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Color': ['red','green', 'orange', 'red']
     })
     recipe = """
     wrangles:
@@ -143,10 +158,10 @@ def test_filter_2():
     assert df.iloc[1]['Fruit'] == 'Apple'
     
 # Not_in
-def test_filter_3():
+def test_filter_not_in():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Color': ['red','green', 'orange', 'red']
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Color': ['red','green', 'orange', 'red']
     })
     recipe = """
     wrangles:
@@ -160,10 +175,10 @@ def test_filter_3():
     assert df.iloc[0]['Fruit'] == 'Orange'
     
 # Greater_than
-def test_filter_4():
+def test_filter_greater_than():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 13, 26]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 13, 26]
     })
     recipe = """
     wrangles:
@@ -175,10 +190,10 @@ def test_filter_4():
     assert df.iloc[0]['Fruit'] == 'Apple'
 
 # Greater_than or equal to
-def test_filter_5():
+def test_filter_greater_than_equal_to():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 13, 26]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 13, 26]
     })
     recipe = """
     wrangles:
@@ -190,10 +205,10 @@ def test_filter_5():
     assert len(df) == 4
     
 # Less than
-def test_filter_6():
+def test_filter_less_than():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 13, 26]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 13, 26]
     })
     recipe = """
     wrangles:
@@ -205,10 +220,10 @@ def test_filter_6():
     assert len(df) == 2
     
 # Less than or equal to
-def test_filter_6_less_than():
+def test_filter_less_than_equal_to():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 13, 26]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 13, 26]
     })
     recipe = """
     wrangles:
@@ -220,10 +235,10 @@ def test_filter_6_less_than():
     assert len(df) == 2
     
 # Between
-def test_filter_7():
+def test_filter_between():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 52, 52]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 52, 52]
     })
     recipe = """
     wrangles:
@@ -237,10 +252,10 @@ def test_filter_7():
     assert df.iloc[0]['Fruit'] == 'Apple'
     
 # Between, more than two values error
-def test_filter_8():
+def test_filter_between_error():
     data = pd.DataFrame({
-    'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
-    'Number': [13, 26, 52, 52]
+        'Fruit': ['Apple', 'Apple', 'Orange', 'Strawberry'],
+        'Number': [13, 26, 52, 52]
     })
     recipe = """
     wrangles:
@@ -256,10 +271,10 @@ def test_filter_8():
     assert info.typename == 'ValueError' and info.value.args[0] == 'Can only use "between" with two values'
 
 # Contains
-def test_filter_9():
+def test_filter_contains():
     data = pd.DataFrame({
-    'Random': ['Apples', 'Random', 'App', 'nothing here'],
-    'Number': [13, 26, 52, 52]
+        'Random': ['Apples', 'Random', 'App', 'nothing here'],
+        'Number': [13, 26, 52, 52]
     })
     recipe = """
     wrangles:
@@ -271,47 +286,87 @@ def test_filter_9():
     assert len(df) == 2
     
 # Does not contain
-def test_filter_10():
+def test_filter_not_contains():
     data = pd.DataFrame({
-    'Random': ['Apples', 'Applications', 'App', 'nothing here'],
-    'Number': [13, 26, 52, 52]
+        'Random': ['Apples', 'Applications', 'App', 'nothing here'],
+        'Number': [13, 26, 52, 52]
     })
     recipe = """
     wrangles:
         - filter:
             input: Random
-            does_not_contain: 'App'
+            not_contains: App
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 1
     
-# not_null
-def test_filter_11():
+# is_null
+def test_filter_is_null_true():
     data = pd.DataFrame({
-    'Random': ['Apples', None, 'App', None],
+        'Random': ['Apples', 'None', 'App', None],
     })
     recipe = """
     wrangles:
         - filter:
             input: Random
-            not_null: True
+            is_null: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 3
+    
+# not_null, False
+def test_filter_is_null_false():
+    data = pd.DataFrame({
+        'Random': ['Apples', 'None', 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            is_null: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 1
+
+def test_filter_multiple():
+    data = pd.DataFrame({
+        'Random': ['Apples', 'None', 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            input: Random
+            contains: App
+            not_contains: les
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 1
+
+def test_filter_where():
+    data = pd.DataFrame({
+        'Random': ['Apples', 'None', 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            where: Random = 'Apples'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 1
+
+def test_filter_where_2():
+    data = pd.DataFrame({
+        'Random': ['Apples', 'None', 'App', None],
+    })
+    recipe = """
+    wrangles:
+        - filter:
+            where: |
+              Random = 'Apples'
+              OR Random = 'App'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 2
-    
-# not_null, False
-def test_filter_12():
-    data = pd.DataFrame({
-    'Random': ['Apples', 'None', 'App', None],
-    })
-    recipe = """
-    wrangles:
-        - filter:
-            input: Random
-            not_null: False
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert len(df) == 1
 
 #
 # Log
