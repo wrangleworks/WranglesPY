@@ -18,3 +18,4 @@ from . import salesforce
 from . import recipe
 from . import s3
 from . import train
+from . import jinja

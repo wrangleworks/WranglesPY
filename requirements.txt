@@ -13,3 +13,4 @@ pymongo[srv]
 simple-salesforce
 numexpr
 boto3
+jinja2
