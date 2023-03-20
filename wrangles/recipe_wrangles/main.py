@@ -19,6 +19,8 @@ from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
 from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemLoader, BaseLoader as _BaseLoader
+import wrangles as _wrangles
+import yaml as _yaml
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -200,7 +202,7 @@ def filter(
     return df
 
 
-def log(df: _pd.DataFrame, columns: list = None):
+def log(df: _pd.DataFrame, columns: list = None, write: list = None):
     """
     type: object
     description: Log the current status of the dataframe.
@@ -209,6 +211,12 @@ def log(df: _pd.DataFrame, columns: list = None):
       columns:
         type: array
         description: (Optional, default all columns) List of specific columns to log.
+      write:
+        type: array
+        description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
+        minItems: 1
+        items: 
+          '$ref: #/$defs/sources/read'
     """ 
 
     if columns is not None:
@@ -240,9 +248,16 @@ def log(df: _pd.DataFrame, columns: list = None):
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        _logging.info(msg='Dataframe ::\n\n' + df[columns_to_print].to_string() + '\n')
+        df_tolog = df[columns_to_print]
+
     else:
-        _logging.info(msg=': Dataframe ::\n\n' + df.to_string() + '\n')
+        df_tolog = df
+
+    _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
+
+    if write is not None:
+        write = _yaml.dump({'write': write})
+        _wrangles.recipe.run(write, dataframe=df)
 
     return df
 

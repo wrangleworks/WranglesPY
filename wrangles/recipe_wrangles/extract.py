@@ -6,6 +6,7 @@ from typing import Union as _Union
 from .. import extract as _extract
 from .. import format as _format
 import re as _re
+from collections import OrderedDict as _OrderedDict
 
 
 def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
@@ -156,11 +157,11 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, find: str = None) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, use_labels: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: false
+    additionalProperties: true
     required:
       - input
       - output
@@ -177,44 +178,64 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
         description: Name or list of output columns
       model_id:
         type: string
-        description: The ID of the wrangle to use (do not include find)
-      find:
-        type:
-          - string
-        description: Pattern to find using regex (do not include model_id)
+        description: The ID of the wrangle to use
     """
-    if model_id is not None and find is None:
+    # if model_id is not None and find is None:
     
-        if isinstance(input, str) and isinstance(output, str) and type(model_id) != list:
-            df[output] = _extract.custom(df[input].astype(str).tolist(), model_id=model_id)
-            
-        elif isinstance(input, list) and type(model_id) != list:
-            # If a list of inputs is provided, ensure the list of outputs is the same length
-            if len(input) != len(output):
-                if isinstance(output, str):
-                    df[output] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
-                else:
-                    raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
+    if isinstance(input, str) and isinstance(output, str) and type(model_id) != list:
+        df[output] = _extract.custom(df[input].astype(str).tolist(), model_id=model_id)
+        
+    elif isinstance(input, list) and type(model_id) != list:
+        # If a list of inputs is provided, ensure the list of outputs is the same length
+        if len(input) != len(output):
+            if isinstance(output, str):
+                df[output] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
             else:
-                for input_column, output_column in zip(input, output):
-                    df[output_column] = _extract.custom(df[input_column].astype(str).tolist(), model_id=model_id)
-                    
-        # Multiple different custom wrangles at the same time
-        elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, list):
-            for in_col, out_col, mod_id in zip(input, output, model_id):
-                df[out_col] = _extract.custom(df[in_col].astype(str).tolist(),model_id=mod_id)
-
-    elif find is not None and model_id is None:
-        
-        def mini_extract(string):
-            new_string = _re.findall(find, string)
-            return new_string
-        
-        df[output] = df[input].apply(lambda x: mini_extract(x))
+                raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
+        else:
+            for input_column, output_column in zip(input, output):
+                df[output_column] = _extract.custom(df[input_column].astype(str).tolist(), model_id=model_id)
+                
+    # Multiple different custom wrangles at the same time
+    elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, list):
+        for in_col, out_col, mod_id in zip(input, output, model_id):
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(),model_id=mod_id)
         
     else:
         raise ValueError('Extract custom must have model_id or find as parameters')
-          
+    
+    if (use_labels and isinstance(output, str)):
+        
+        if isinstance(output, list): raise ValueError("'key_value' can only be used with a single output")
+        
+        # Run the custom dictionary maker after normal operation from extract
+        # This will be triggered only if a parameter is set
+        result = []
+        for out_row in df[output]:
+        
+            dict_output = {'Unlabeled': []}
+            # Iterating over the results
+            for item in out_row:
+                
+                try:
+                    item = item.strip()
+                    # Check if the item contains a colon
+                    if (item.count(':') == 1 and item.split(':')[0] != ''):
+                        dict_output[item.split(':')[0].strip()] = item.split(':')[1].strip()
+                    else:
+                        dict_output['Unlabeled'].append(item)
+                except:
+                    dict_output['Unlabeled'].append(item)
+                    
+            tmp_unlabeled = dict_output['Unlabeled']
+            del dict_output['Unlabeled']
+            output_dict = _OrderedDict(dict_output)
+            output_dict['Unlabeled'] = tmp_unlabeled
+                
+            result.append(dict(output_dict))
+            
+        df[output] = result
+        
     return df
 
 
