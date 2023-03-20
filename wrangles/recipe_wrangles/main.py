@@ -772,6 +772,10 @@ def jinja(df, input: str, template: dict, output: str=None):
       template:
         type: object
         description: A dictionary which defines the template/location as well as the form which the template is input
+        properties:
+          file: A .jinja file containing the template
+          column: The dataframe column containing the jinja template
+          string: A string which is used as the jinja template
       output_file:
         type: string
         description: File name/path for the file to be output
