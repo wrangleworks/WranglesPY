@@ -18,6 +18,7 @@ import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
+from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemLoader, BaseLoader as _BaseLoader
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -740,4 +741,46 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     
     df[output] = results
     
+    return df
+
+def jinja(df, input: str, template: dict, output: str=None):
+    """
+    type: object
+    description: Create a description from a jinja template
+    required:
+      - output
+      - template
+    properties:
+      input:
+        type: string
+        description: Name of column containing a dictionary of elements to be used in jinja template
+      template:
+        type: object
+        description: A dictionary which defines the template/location as well as the form which the template is input
+      output_file:
+        type: string
+        description: File name/path for the file to be output
+    """
+    if output == None:
+        output = input
+    if len(template) > 1:
+        raise Exception('Template must have only one key specified')
+    
+    # Template input as a file
+    if 'file' in list(template.keys()):
+        environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
+        desc_template = environment.get_template(template['file'])
+        df[output] = [desc_template.render(desc) for desc in df[input]]
+
+    # Template input as a column of the dataframe
+    elif 'column' in list(template.keys()):
+        lst = [_Environment(loader=_BaseLoader).from_string(df[template['column']][i]).render(df[input][i]) for i in range(len(df))]
+        df[output] = lst
+        
+    # Template input as a string
+    elif 'string' in list(template.keys()):
+        desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
+        df[output] = [desc_template.render(desc) for desc in df[input]]
+    else:
+        raise Exception("'file', 'column' or 'string' not found")
     return df
