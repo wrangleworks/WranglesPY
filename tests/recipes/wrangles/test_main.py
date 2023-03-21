@@ -658,14 +658,14 @@ def test_standardize_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
 
-# Mini Standardize
-def test_standardize_5():
+# Find and replace
+def test_find_and_replace():
     data = pd.DataFrame({
     'Abbrev': ['random ASAP random', 'random ETA random'],
     })
     recipe = """
     wrangles:
-        - standardize:
+        - find_replace:
             input: Abbrev
             output: Abbreviations
             find: ETA
@@ -674,23 +674,6 @@ def test_standardize_5():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
     
-# Mini Standardize error with model id also included
-def test_standardize_6():
-    data = pd.DataFrame({
-    'Abbrev': ['random ASAP random', 'random ETA random'],
-    })
-    recipe = """
-    wrangles:
-        - standardize:
-            input: Abbrev
-            output: Abbreviations
-            find: ETA
-            replace: Estimated Time of Arrival
-            model_id: f7958bd2-af22-43b1
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Standardize must have model_id or find and replace as parameters'
 
 #
 # Translate
