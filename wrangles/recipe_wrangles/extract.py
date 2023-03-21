@@ -156,6 +156,33 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 
     return df
 
+def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract single values using regex
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: Name of the input column.
+    output:
+      type: string
+      description: Name of the output column.
+      find:
+        type: string
+        description: Pattern to find using regex
+    """
+    def _mini_extract(string):
+        new_string = _re.findall(find, string)
+        return new_string
+        
+    df[output] = df[input].apply(lambda x: _mini_extract(x))
+    
+    return df
+
 
 def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, use_labels: bool = False) -> _pd.DataFrame:
     """

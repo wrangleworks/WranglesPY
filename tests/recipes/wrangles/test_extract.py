@@ -460,14 +460,14 @@ def test_extract_custom_3():
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
     
     
-# Mini Extract
-def test_extract_custom_4():
+# Extract Regex Extract
+def test_extract_regex():
     data = pd.DataFrame({
         'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
     })
     recipe = """
     wrangles:
-      - extract.custom:
+      - extract.regex:
           input: col
           output: col_out
           find: Pikachu
@@ -476,23 +476,6 @@ def test_extract_custom_4():
     assert df.iloc[0]['col_out'] == ['Pikachu']
     
     
-# Mini Extract with model id also included -> Error
-def test_extract_custom_5():
-    data = pd.DataFrame({
-        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-    })
-    recipe = """
-    wrangles:
-      - extract.custom:
-          input: col
-          output: col_out
-          find: Pikachu
-          model_id: 1eddb7e8-1b2b-4a52
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract custom must have model_id or find as parameters'
-
 # incorrect model_id - forget to use ${}
 def test_extract_custom_6():
     data = pd.DataFrame({
