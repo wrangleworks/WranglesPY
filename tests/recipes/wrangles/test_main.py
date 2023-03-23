@@ -977,3 +977,103 @@ def test_date_calc_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
+
+# Test jinja with a string template
+def test_jinja():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: col
+          output: description
+          template: 
+            string: This is a {{length}} {{type}} screwdriver
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.columns.to_list() == ['col', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
+# Test jinja with a column template
+def test_jinja2():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
+        'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: data column
+          output: description
+          template: 
+            column: template column
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.columns.to_list() == ['data column', 'template column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
+template = 'This is a {{length}} {{type}} screwdriver'
+# Test jinja with a file template
+def test_jinja3():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: data column
+          output: description
+          template: 
+            file: template
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.columns.to_list() == ['data column', 'template column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
+# Test jinja throws the appropriate error with multiple templates
+def test_jinja4():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
+        'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: col
+          output: description
+          template: 
+            string: This is a {{length}} {{type}} screwdriver
+            column: template column
+    """
+    with pytest.raises(Exception) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'Exception' and info.value.args[0] == 'Template must have only one key specified'
+
+# Test jinja throws the appropriate error without a template
+def test_jinja5():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: col
+          output: description
+    """
+    with pytest.raises(Exception) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'TypeError' and info.value.args[0] == "jinja() missing 1 required positional argument: 'template'"
+
+# Test jinja throws the appropriate error without a template
+def test_jinja6():
+    data = pd.DataFrame({
+        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          input: col
+          output: description
+          template:
+    """
+    with pytest.raises(Exception) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'TypeError' and info.value.args[0] == "object of type 'NoneType' has no len()"
