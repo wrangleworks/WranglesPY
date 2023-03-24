@@ -29,7 +29,20 @@ def getConnectorDocs(schema_wrangles, obj, path):
             schema['read'][path[1:]] = yaml.safe_load(obj._schema['read'])
 
         if 'write' in obj._schema.keys():
-            schema['write'][path[1:]] = yaml.safe_load(obj._schema['write'])
+            temp = yaml.safe_load(obj._schema['write'])
+            temp['properties']['columns'] = {
+                'type': 'array',
+                'description': 'Specify a subset of the columns to write.\nAccepts wildcards using * or prefix with "regex:" to use a regex pattern.\nIf not provided, all columns will be included'
+            }
+            temp['properties']['not_columns'] = {
+                'type': 'array',
+                'description': 'Specify a subset of the columns to ignore. Accepts wildcards using * or prefix with "regex:" to use a regex pattern. If not provided, all columns will be included'
+            }
+            temp['properties']['where'] = {
+                'type': 'string',
+                'description': 'Filter the data before writing using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456'
+            }
+            schema['write'][path[1:]] = temp
 
         if 'run' in obj._schema.keys():
             schema['run'][path[1:]] = yaml.safe_load(obj._schema['run'])
