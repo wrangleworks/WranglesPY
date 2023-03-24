@@ -741,7 +741,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
     if output_columns is None:
         df = df_temp
     else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True) # pragma no cover
+        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
         
     return df
 
