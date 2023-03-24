@@ -898,6 +898,33 @@ def test_replace_regex():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations'] == 'random found random'
 
+def test_replace_inconsistent_input():
+    """
+    Check error when the lists for input and output are inconsistent
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - replace:
+                  input:
+                    - Abbrev1
+                  output:
+                    - Abbreviations1
+                    - Abbreviations2
+                  find: ETA
+                  replace: Estimated Time of Arrival
+            """,
+            dataframe = pd.DataFrame({
+                'Abbrev1': ['random ETA random'],
+                'Abbrev2': ['another ETA another']
+            })
+        )
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0].startswith('The lists for')
+    )
+
 #
 # Translate
 #
@@ -1142,6 +1169,34 @@ def test_date_calc_3():
         info.typename == 'ValueError' and
         info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
     )
+
+def test_date_calc_inconsistent_input():
+    """
+    Check error if input and output provided aren't consistent lengths
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - date_calculator:
+                input:
+                  - date1
+                output:
+                  - out1
+                  - out2
+                operation: subtract
+                time_unit: days
+                time_value: 1
+            """,
+            dataframe = pd.DataFrame({
+                'date1': ['12/25/2022'],
+            })
+        )
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0].startswith('The lists for')
+    )
+
 
 def test_jinja_from_columns():
     """

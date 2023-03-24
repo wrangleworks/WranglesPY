@@ -174,19 +174,19 @@ def filter(
 
     for input_column in input: 
         if equal != None:
-            if not isinstance(equal, list): equal = [equal] # pragma: no cover 
+            if not isinstance(equal, list): equal = [equal]
             df = df.loc[df[input_column].isin(equal)]
 
         if not_equal != None:
-            if not isinstance(not_equal, list): not_equal = [not_equal] # pragma: no cover 
+            if not isinstance(not_equal, list): not_equal = [not_equal]
             df = df.loc[~df[input_column].isin(not_equal)]
         
         if is_in != None:
-            if not isinstance(is_in, list): is_in = [is_in] # pragma: no cover 
+            if not isinstance(is_in, list): is_in = [is_in]
             df = df[df[input_column].isin(is_in)]
         
         if not_in != None:
-            if not isinstance(not_in, list): not_in = [not_in] # pragma: no cover 
+            if not isinstance(not_in, list): not_in = [not_in]
             df = df[~df[input_column].isin(not_in)]
         
         if greater_than != None:

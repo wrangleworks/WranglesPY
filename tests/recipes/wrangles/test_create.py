@@ -72,8 +72,10 @@ def test_create_columns_5():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column3'] in [True, False]
     
-# Error if column already exists
-def test_create_column_6():
+def test_column_exists():
+    """
+    Check error if trying to create a column that already exists
+    """
     data = pd.DataFrame({
       'col': ['data1']
     })
@@ -85,7 +87,23 @@ def test_create_column_6():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == '"col" column already exists in dataFrame.'
-    
+
+def test_column_exists_list():
+    """
+    Check error if trying to create a list of columns where one already exists
+    """
+    data = pd.DataFrame({
+      'col': ['data1']
+    })
+    recipe = """
+    wrangles:
+      - create.column:
+          output:
+            - col
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("['col'] column(s)")
 
 #
 # Index
