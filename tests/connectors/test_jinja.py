@@ -80,7 +80,7 @@ def test_bad_filepath():
                 - jinja:
                     template:
                       file: doesn't exist
-                    output_file: tests/samples/output_template.jinja
+                    output_file: tests/temp/output_template.jinja
                     context_dictionary:
                       placeholder: value
             """
@@ -99,7 +99,7 @@ def test_no_template():
                 - jinja:
                     template:
                       invalid: input
-                    output_file: tests/samples/output_template.jinja
+                    output_file: tests/temp/output_template.jinja
                     context_dictionary:
                       placeholder: value
             """
