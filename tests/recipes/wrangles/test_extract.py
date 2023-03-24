@@ -88,7 +88,7 @@ def test_address_6():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 #
 # Attributes
 #
@@ -308,7 +308,7 @@ def test_attributes_diff_type():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 
 #
@@ -335,7 +335,7 @@ def test_codes_inconsistent_input_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
 # Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
@@ -657,7 +657,7 @@ def test_properties_6():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #
 # HTML
@@ -743,7 +743,7 @@ def test_extract_brackets_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #
 # Date Properties

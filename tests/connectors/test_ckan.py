@@ -56,9 +56,9 @@ def test_missing_apikey():
     with pytest.raises(RuntimeError) as info:
         raise wrangles.recipe.run(recipe)
     
-    assert info.typename == 'RuntimeError' and info.value.args[0][:13] == 'Access Denied'
+    assert info.typename == 'RuntimeError' and info.value.args[0].startswith('Access Denied')
 
-def test_missing_apikey():
+def test_invalid_apikey():
     """
     Check error if user has invalid API KEY
     """
@@ -73,7 +73,7 @@ def test_missing_apikey():
     with pytest.raises(RuntimeError) as info:
         raise wrangles.recipe.run(recipe)
     
-    assert info.typename == 'RuntimeError' and info.value.args[0][:13] == 'Access Denied'
+    assert info.typename == 'RuntimeError' and info.value.args[0].startswith('Access Denied')
 
 def test_missing_dataset():
     """

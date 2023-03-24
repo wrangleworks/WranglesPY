@@ -1,7 +1,7 @@
 import wrangles
 
 
-def test_http_read_1():
+def test_read():
     recipe = """
     read:
       - http:
@@ -10,7 +10,7 @@ def test_http_read_1():
     df = wrangles.recipe.run(recipe)
     assert df['abilities'][0][0]['ability']['name'] == 'blaze'
     
-def test_http_read_2():
+def test_read_json_key():
     recipe = """
     read:
       - http:
@@ -21,7 +21,7 @@ def test_http_read_2():
     assert df.iloc[0]['ability']['name'] == 'blaze'
     
 
-def test_http_run():
+def test_run():
     from wrangles.connectors import http
     test = http.run('https://pokeapi.co/api/v2/pokemon/charizard')
     assert test == None

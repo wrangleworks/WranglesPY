@@ -67,7 +67,7 @@ def test_remove_duplicates_4():
 
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
 #
 # Trim
@@ -166,7 +166,7 @@ def test_prefix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #    
 # Suffix
@@ -238,7 +238,7 @@ def test_suffix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #
 # date format

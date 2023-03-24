@@ -64,7 +64,7 @@ def test_classify_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
 def test_classify_invalid_model():
     """
@@ -401,11 +401,10 @@ def test_filter_input_list():
 #
 # Log
 #
-
-LOGGER = logging.getLogger(__name__)
-
-# Specify log columns
-def test_log_1(caplog):
+def test_log_columns(caplog):
+    """
+    Test log when specifying columns
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Bearing']
@@ -426,10 +425,11 @@ def test_log_1(caplog):
     """
     wrangles.recipe.run(recipe, dataframe=data)
     assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1\n0  Ball Bearing\n'
-    
-    
-# no log columns specified
-def test_log_2(caplog):
+
+def test_log(caplog):
+    """
+    Test default log
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Bearing']
@@ -444,14 +444,15 @@ def test_log_2(caplog):
               - Output 1
               - Output 2
             model_id: c77839db-237a-476b
-        - log:
-            columns:
+        - log: {}
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    wrangles.recipe.run(recipe, dataframe=data)
     assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2      Output 1 Output 2\n0  Ball Bearing  Bearing  Ball Bearing  Bearing\n'
 
-# Test one column with wildcard
-def test_log_3(caplog):
+def test_log_wildcard(caplog):
+    """
+    Test one column with wildcard
+    """
     data = pd.DataFrame({
         'Col': ['Hello, Wrangle, Works'],
     })
@@ -466,11 +467,13 @@ def test_log_3(caplog):
           columns:
             - Col*
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    wrangles.recipe.run(recipe, dataframe=data)
     assert caplog.messages[-1] == ': Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
 
-# Test column with escape character
-def test_log_4(caplog):
+def test_log_escaped_wildcard(caplog):
+    """
+    Test escaping a wildcard when specifying columns.
+    """
     data = pd.DataFrame({
         'Col': ['Hello'],
         'Col*': ['WrangleWorks!'],
@@ -481,9 +484,36 @@ def test_log_4(caplog):
           columns:
             - Col\*
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    wrangles.recipe.run(recipe, dataframe=data)
     assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
 
+def test_log_write():
+    """
+    Test using a connector as part of a log
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header: value
+            
+        wrangles:
+          - log:
+              write:
+                - file:
+                    name: tests/temp/temp.csv
+        """
+    )
+    df = wrangles.recipe.run(
+        """
+        read:
+          - file:
+              name: tests/temp/temp.csv
+        """
+    )
+    assert len(df) == 5 and df['header'][0] == 'value'
 
 #
 # Remove Words
@@ -571,7 +601,7 @@ def test_remove_words_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
 # tokenize inputs
 def test_remove_words_tokenize():
@@ -704,28 +734,26 @@ def test_rename_inconsistent_input_output():
                 'Part Number': ['CH465517080'],
             })
         )
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
-def test_rename_missing_input():
+def test_rename_invalid_input():
     """
     Check error if a column specified in input doesn't exist
     """
-    with pytest.raises(ValueError) as info:
+    with pytest.raises(KeyError) as info:
         wrangles.recipe.run(
             """
             wrangles:
                 - rename:
-                    input: Manufacturer Name
-                    output:
-                      - Has
-                      - Two
+                    input: doesn't exist
+                    output: Column
             """,
             dataframe = pd.DataFrame({
                 'Manufacturer Name': ['Delos'],
                 'Part Number': ['CH465517080'],
             })
         )
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
+    assert info.typename == 'KeyError'
 
 #
 # Standardize
@@ -943,7 +971,7 @@ def test_translate_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #
 # Maths
@@ -1264,3 +1292,51 @@ def test_jinja_unsupported_template_key():
     with pytest.raises(Exception) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'Exception' and info.value.args[0] == "'file', 'column' or 'string' not found"
+
+def test_jinja_output_list():
+    """
+    Tests specifying the output as a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - jinja:
+              input: data column
+              output:
+                - description
+              template: 
+                string: "This is a {{length}} {{type}} screwdriver"
+        """,
+        dataframe = pd.DataFrame({
+            'data column': [
+                {'type': 'phillips head', 'length': '3 inch'},
+                {'type': 'flat head', 'length': '6 inch'}
+            ]
+        })
+    )
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
+def test_jinja_output_missing():
+    """
+    Check error if user doesn't specify output
+    """
+    with pytest.raises(TypeError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - jinja:
+                input: data column
+                template: 
+                    string: "This is a {{length}} {{type}} screwdriver"
+            """,
+            dataframe = pd.DataFrame({
+                'data column': [
+                    {'type': 'phillips head', 'length': '3 inch'},
+                    {'type': 'flat head', 'length': '6 inch'}
+                ]
+            })
+        )
+    assert (
+        info.typename == 'TypeError' and
+        info.value.args[0].startswith("jinja() missing")
+    )

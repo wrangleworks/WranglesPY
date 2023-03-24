@@ -28,7 +28,7 @@ def test_template_string():
     assert lines == 'This is a 3 inch flat head screwdriver'
 
 
-def test_jinja_connector():
+def test_template_file():
     """
     Tests the output template as well as the dataframe output from that template
     """

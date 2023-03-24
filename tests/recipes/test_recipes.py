@@ -108,4 +108,4 @@ def test_on_failure():
     }
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data, variables=vars)
-    assert info.typename == 'KeyError' and info.value.args[0][:13] == "Column col111"
+    assert info.typename == 'KeyError' and info.value.args[0].startswith("Column col111")
