@@ -978,8 +978,10 @@ def test_date_calc_3():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
 
-# Test jinja with a string template
-def test_jinja():
+def test_jinja_string_template():
+    """
+    Tests functionality with template given as a string
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
     })
@@ -994,8 +996,10 @@ def test_jinja():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns.to_list() == ['col', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
-# Test jinja with a column template
-def test_jinja2():
+def test_jinja_column_template():
+    """
+    Tests functionality with templates in dataframe column
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
         'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
@@ -1011,9 +1015,10 @@ def test_jinja2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns.to_list() == ['data column', 'template column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
-template = 'This is a {{length}} {{type}} screwdriver'
-# Test jinja with a file template
-def test_jinja3():
+def test_jinja_file_template():
+    """
+    Tests functionality with a template in a file
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
     })
@@ -1023,13 +1028,15 @@ def test_jinja3():
           input: data column
           output: description
           template: 
-            file: template
+            file: tests/samples/jinjadescriptiontemplate.jinja
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.to_list() == ['data column', 'template column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+    assert df.columns.to_list() == ['data column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
-# Test jinja throws the appropriate error with multiple templates
-def test_jinja4():
+def test_jinja_multiple_templates():
+    """
+    Tests that the appropriate error message is shown when multiple templates are given
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
         'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
@@ -1047,8 +1054,10 @@ def test_jinja4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'Exception' and info.value.args[0] == 'Template must have only one key specified'
 
-# Test jinja throws the appropriate error without a template
-def test_jinja5():
+def test_jinja_no_template():
+    """
+    Tests that the appropriate error message is shown when no template is given
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
     })
@@ -1058,12 +1067,15 @@ def test_jinja5():
           input: col
           output: description
     """
-    with pytest.raises(Exception) as info:
+    with pytest.raises(TypeError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'TypeError' and info.value.args[0] == "jinja() missing 1 required positional argument: 'template'"
 
-# Test jinja throws the appropriate error without a template
-def test_jinja6():
+def test_jinja_unsupported_template_key():
+    """
+    Test that the appropriate error message is shown when template
+    is passed a key other than 'file', 'string', 'column'
+    """
     data = pd.DataFrame({
         'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
     })
@@ -1073,7 +1085,8 @@ def test_jinja6():
           input: col
           output: description
           template:
+            wrong: test
     """
     with pytest.raises(Exception) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'TypeError' and info.value.args[0] == "object of type 'NoneType' has no len()"
+    assert info.typename == 'Exception' and info.value.args[0] == "'file', 'column' or 'string' not found"

@@ -1,0 +1,6 @@
+
+{% if Category == 'Parts' %}
+{% if size is defined %}size: {{ size }} {% endif %}
+{% endif %}{% if Category == 'Pieces' %}
+{% if quantity is defined %}quantity: {{ quantity }} {% endif %}
+{% endif %}
