@@ -222,49 +222,37 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     return df
 
    
-def _wildcard_expansion(df_columns: list, params: dict) -> list:
+def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
     """
-    Expand wildcards and set the columns in order for Wrangle inputs
+    Finds matching columns for wildcards or regex from all available columns
     
-    :param df_columns: List of dataframe columns
-    :param params: Wrangle parameters to use (inputs)
+    :param all_columns: List of all available columns in the dataframe
+    :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
     """
-    if isinstance(params.get('input', ''), str): params['input'] = [params['input']]
-    wildcard_check = [x for x in params['input'] if '*' in x]
-    columns_to_use = []
-    temp_cols = []
-    # Check if there are any asterisks in columns to use
-    if len(wildcard_check):
-        for iter in wildcard_check:
-            
-            # Do nothing id the user enters an escape character
-            if '\\' in iter:
-                column = iter.replace('\\', '')
-                columns_to_use.append(column)
-            # Add all columns with similar names
+    if not isinstance(selected_columns, list): selected_columns = [selected_columns]
+
+    # Convert wildcards to regex pattern
+    for i in range(len(selected_columns)):
+        # If column contains * without escape
+        if _re.search(r'[^\\]?\*', selected_columns[i]) and not selected_columns[i].lower().startswith('regex:'):
+            selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
+
+    # Using a dict to preserve insert order.
+    # Order is preserved for Dictionaries from Python 3.7+
+    result_columns = {}
+
+    # Identify any matching columns using regex within the list
+    for column in selected_columns:
+        if column.lower().startswith('regex:'):
+            result_columns.update(dict.fromkeys(list(filter(_re.compile(column[6:].strip()).fullmatch, all_columns)))) # Read Note below
+        else:
+            if column in all_columns:
+                result_columns[column] = None
             else:
-                column = iter.replace('*', '')
-                re_pattern = r"^\b{}(\s)?(\d+)?\b$".format(column)
-                list_re = [_re.search(re_pattern, x) for x in df_columns]
-                temp_cols.extend([x.string for x in list_re if x != None])
+                raise KeyError(f'Column {column} does not exist')
     
-    # Remove columns that have '*' as they are handled above
-    no_wildcard = [x for x in params['input'] if '*' not in x]
-    
-    # Arrange the columns in columns order
-    columns_to_use.extend(no_wildcard)
-    columns_to_use.extend(temp_cols)
-    
-    index_keys = {}
-    for col_name in columns_to_use:
-        index_keys[df_columns.index(col_name)] = col_name
-    
-    sorted_index = list(index_keys.keys())
-    sorted_index.sort()
-    
-    sorted_columns_to_use = [index_keys[x] for x in sorted_index]
-    
-    return sorted_columns_to_use
+    # Return, preserving original order
+    return list(result_columns.keys())
 
 
 def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
@@ -320,13 +308,9 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary']:
-                    
-                    # Allow user to specify a wildcard (*) for the input columns
-                    if '*' in params.get('input', '') or len([x for x in params.get('input', ['']) if '*' in x]):
-                    
-                        # Set the params to the new columns to use from Expand Wildcard function
-                        params['input'] = _wildcard_expansion(df_columns=df.columns.tolist(), params=params)
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary'] and 'input' in params:
+                    # Expand out any wildcards or regex in column names
+                    params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                         
                 # Get the requested function from the recipe_wrangles module
                 obj = _recipe_wrangles
@@ -338,6 +322,38 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 # Execute the requested function and return the value
                 df = obj(df, **params)
+
+    return df
+
+def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
+    """
+    Filter a DataFrame
+
+    :param df: Input DataFrame
+    :param columns: List of columns to include
+    :param not_columns: List of columns to exclude
+    :param where: SQL where criteria to filter based on
+    """
+    # Reduce to user chosen columns
+    if columns:
+        columns = _wildcard_expansion(df.columns.tolist(), columns)
+        df = df[columns]
+
+    # Remove any columns specified by the user
+    if not_columns:
+        not_columns = _wildcard_expansion(df.columns.tolist(), not_columns)
+        remaining_columns = list(set(df.columns) - set(not_columns))
+        df = df[remaining_columns]
+
+    if where:
+        df = _recipe_wrangles.sql(
+            df,
+            f"""
+            SELECT *
+            FROM df
+            WHERE {where};
+            """
+        )
 
     return df
 
@@ -361,13 +377,20 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     # Loop through all exports, get type and execute appropriate export
     for export in recipe:
         for export_type, params in export.items():
+            # Filter the dataframe as requested before passing
+            # to the desired write function
+            df_temp = _filter_dataframe(df, **params)
+            for key in ['columns', 'not_columns', 'where']:
+                if key in params:
+                    params.pop(key)
+
             if export_type == 'dataframe':
                 # Define the dataframe that is returned
-                df_return = df[params['columns']]
+                df_return = df_temp
             
             # Execute a user's custom function
             elif export_type.split('.')[0] == 'custom':
-                functions[export_type[7:]](df, **params)
+                functions[export_type[7:]](df_temp, **params)
 
             else:
                 # Get write function of requested connector and pass dataframe and user defined params
@@ -378,7 +401,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 if export_type == 'recipe':
                     params['functions'] = functions
                 
-                getattr(obj, 'write')(df, **params)
+                getattr(obj, 'write')(df_temp, **params)
 
     return df_return
 
