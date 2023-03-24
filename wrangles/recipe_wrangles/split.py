@@ -165,17 +165,14 @@ def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame
     """
     if output is None: output = input
     
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _format.tokenize(df[input].values.tolist())
+    # Ensure input and outputs are lists
+    if not isinstance(input, _list): input = [input]
+    if not isinstance(output, _list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     
-    # If the input is multiple columns (a list)
-    elif isinstance(input, _list) and isinstance(output, _list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _format.tokenize(df[in_col].values.tolist())
-    
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    for in_col, out_col in zip(input, output):
+        df[out_col] = _format.tokenize(df[in_col].values.tolist())
             
     return df

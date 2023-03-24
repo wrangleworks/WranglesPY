@@ -51,12 +51,17 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
         type: string
         description: (Optional) Character to add between successive values
     """
-    if isinstance(input, str):
-        df[output] = _format.join_list(df[input].tolist(), char)
-    elif isinstance(input, list):
-        df[output] = _format.concatenate(df[input].astype(str).values.tolist(), char)
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) == 1:
+        df[output[0]] = _format.join_list(df[input[0]].tolist(), char)
     else:
-        raise ValueError('Unexpected data type for merge.concatenate / input')
+        df[output[0]] = _format.concatenate(df[input].astype(str).values.tolist(), char)
+
     return df
 
 

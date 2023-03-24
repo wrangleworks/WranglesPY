@@ -6,7 +6,7 @@ import pandas as _pd
 from typing import Union as _Union
 
 
-def list_element(df: _pd.DataFrame, input: str, output: str = None, element: int = 0) -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0) -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -28,23 +28,20 @@ def list_element(df: _pd.DataFrame, input: str, output: str = None, element: int
     """
     if output is None: output = input
     
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _select.list_element(df[input].tolist(), element)    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
     
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _select.list_element(df[in_col].tolist(), element)
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    for in_col, out_col in zip(input, output):
+        df[out_col] = _select.list_element(df[in_col].tolist(), element)
     
     return df
 
 
-def dictionary_element(df: _pd.DataFrame, input: str, output: str, element: str) -> _pd.DataFrame:
+def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str, output: _Union[str, list] = None,) -> _pd.DataFrame:
     """
     type: object
     description: Select a named element of a dictionary.
@@ -64,18 +61,17 @@ def dictionary_element(df: _pd.DataFrame, input: str, output: str, element: str)
         type: string
         description: The key from the dictionary to select.
     """
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _select.dict_element(df[input].tolist(), element)
-        
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _select.dict_element(df[in_col].tolist(), element)
-            
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
+    
+    for in_col, out_col in zip(input, output):
+        df[out_col] = _select.dict_element(df[in_col].tolist(), element)
     
     return df
 

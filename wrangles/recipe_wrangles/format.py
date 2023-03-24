@@ -29,21 +29,20 @@ def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.
         type: string
         description: Name of the output column
     """
-    # If user hasn't provided an output, overwrite input
+    # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _format.remove_duplicates(df[input].values.tolist())
-    
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] =  _format.remove_duplicates(df[in_col].values.tolist())
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
     # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist())
 
     return df
 
@@ -104,21 +103,20 @@ def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
           - array
         description: (Optional) Name of the output column
     """
-    # If the output is not specified
+    # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):  
-        df[output] = value + df[input].astype(str)
-    
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = value + df[in_col].astype(str)
-    
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
     # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = value + df[input_column].astype(str)
 
     return df
 
@@ -146,21 +144,20 @@ def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd
             - array
           description: (Optional) Name of the output column
     """
-    # If the output is not specified
+    # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = df[input].astype(str) + value
-
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = df[in_col].astype(str) + value
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
     # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].astype(str) + value
   
     return df
 
@@ -189,57 +186,71 @@ def dates(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # If the input and output are not the same type
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
     
-    # convert the column to timestamp type and format date
-    df[output] = _pd.to_datetime(df[input]).dt.strftime(format)
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        # convert the column to timestamp type and format date
+        df[output_column] = _pd.to_datetime(df[input_column]).dt.strftime(format)
     
     return df
     
     
 def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output =  None):
+    """
+    type: object
+    description: Pad a string to a fixed length
+    additionalProperties: false
+    required:
+      - input
+      - pad_length
+      - side
+      - char
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      pad_length:
+        type:
+          - number
+        description: Length for the output
+      side:
+        type:
+          - string
+        description:  Side from which to fill resulting string
+      char:
+        type:
+          - string
+        description: The character to pad the input with
   """
-  type: object
-  description: Pad a string to a fixed length
-  additionalProperties: false
-  required:
-    - input
-    - pad_length
-    - side
-    - char
-  properties:
-    input:
-      type:
-        - string
-        - array
-      description: Name of the input column
-    output:
-      type:
-        - string
-        - array
-      description: Name of the output column
-    pad_length:
-      type:
-        - number
-      description: Length for the output
-    side:
-      type:
-        - string
-      description:  Side from which to fill resulting string
-    char:
-      type:
-        - string
-      description: The character to pad the input with
-  """
-  char = str(char)
-  # If the output is not specified, overwrite input columns in place
-  if output is None: output = input
-  
-  # If the input is a string
-  if isinstance(input, str): input = [input]
-  if isinstance(output, str): output = [output]
-  
-  for input_column, output_column in zip(input, output):
-    df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
+    char = str(char)
+    # If the output is not specified, overwrite input columns in place
+    if output is None: output = input
     
-  return df
+    # If the input is a string
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+
+    # If the input and output are not the same type
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+  
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
+    
+    return df
   

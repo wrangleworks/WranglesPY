@@ -161,20 +161,27 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           - array
         description: Labels for the returned bins
     """
-    # Dealing with positive infinity. At end of bins list
-    if isinstance(bins, list):
-        if bins[-1] == '+':
-            bins[-1] = _math.inf
-        
-        # Dealing with negative infinity. At start of bins list
-        if bins[0] == '-':
-            bins[0] = -_math.inf
+    if output is None: output = input
     
-    df[output] = _pd.cut(
-        x=df[input],
-        bins=bins,
-        labels=labels,
-        **kwargs
-    )
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    for in_col, out_col in zip(input, output):
+      # Dealing with positive infinity. At end of bins list
+      if isinstance(bins, list):
+          if bins[-1] == '+':
+              bins[-1] = _math.inf
+          
+          # Dealing with negative infinity. At start of bins list
+          if bins[0] == '-':
+              bins[0] = -_math.inf
+      
+      df[out_col] = _pd.cut(
+          x=df[in_col],
+          bins=bins,
+          labels=labels,
+          **kwargs
+      )
     
     return df

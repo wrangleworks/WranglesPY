@@ -26,7 +26,9 @@ import yaml as _yaml
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     type: object
-    description: Run classify wrangles on the specified columns. Requires WrangleWorks Account and Subscription.
+    description: |
+      Run classify wrangles on the specified columns.
+      Requires WrangleWorks Account and Subscription.
     additionalProperties: false
     required:
       - input
@@ -47,21 +49,27 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
         type: string
         description: ID of the classification model to be used
     """
-    if isinstance(input, str):
-        df[output] = _classify(df[input].astype(str).tolist(), model_id)
-    elif isinstance(input, list):
-        # If a list of inputs is provided, ensure the list of outputs is the same length
-        if len(input) != len(output):
-            raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
-        for input_column, output_column in zip(input, output):
-            df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
         
     return df
 
 
 def filter(
           df: _pd.DataFrame,
-          input: str = None,
+          input: list = [],
           equal: _Union[str, list] = None,
           not_equal: _Union[str, list] = None,
           is_in: _Union[str, list] = None,
@@ -89,17 +97,23 @@ def filter(
         type: string
         description: Use a SQL WHERE clause to filter the data.
       input:
-        type: string
-        description: Name of the column to filter on
-      equal:
         type:
           - string
           - array
+        description: |
+          Name of the column to filter on.
+          If multiple are provided, all must match the criteria.
+      equal:
+        type:
+          - string
+          - integer
+          - number
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
-          - array
+          - integer
+          - number
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
@@ -155,49 +169,53 @@ def filter(
             """
         )
 
-    if equal != None:
-        if not isinstance(equal, list): equal = [equal] # pragma: no cover 
-        df = df.loc[df[input].isin(equal)]
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
 
-    if not_equal != None:
-        if not isinstance(not_equal, list): not_equal = [not_equal] # pragma: no cover 
-        df = df.loc[~df[input].isin(not_equal)]
-    
-    if is_in != None:
-        if not isinstance(is_in, list): is_in = [is_in] # pragma: no cover 
-        df = df[df[input].isin(is_in)]
-    
-    if not_in != None:
-        if not isinstance(not_in, list): not_in = [not_in] # pragma: no cover 
-        df = df[~df[input].isin(not_in)]
-    
-    if greater_than != None:
-        df = df[df[input] > greater_than]
-    
-    if greater_than_equal_to != None:
-        df = df[df[input] >= greater_than_equal_to]
-    
-    if less_than != None:
-        df = df[df[input] < less_than]
-    
-    if less_than_equal_to != None:
-        df = df[df[input] <= less_than_equal_to]
-    
-    if between != None:
-        if len(between) != 2: raise ValueError('Can only use "between" with two values')
-        df = df[df[input].between(between[0], between[1], **kwargs)]
-    
-    if contains != None:
-        df = df[df[input].str.contains(contains, na=False, **kwargs)]
-    
-    if not_contains != None:
-        df = df[~df[input].str.contains(not_contains, na=False, **kwargs)]
-    
-    if is_null == True:
-        df = df[df[input].isnull()]
-    
-    if is_null == False:
-        df = df[df[input].notnull()]
+    for input_column in input: 
+        if equal != None:
+            if not isinstance(equal, list): equal = [equal] # pragma: no cover 
+            df = df.loc[df[input_column].isin(equal)]
+
+        if not_equal != None:
+            if not isinstance(not_equal, list): not_equal = [not_equal] # pragma: no cover 
+            df = df.loc[~df[input_column].isin(not_equal)]
+        
+        if is_in != None:
+            if not isinstance(is_in, list): is_in = [is_in] # pragma: no cover 
+            df = df[df[input_column].isin(is_in)]
+        
+        if not_in != None:
+            if not isinstance(not_in, list): not_in = [not_in] # pragma: no cover 
+            df = df[~df[input_column].isin(not_in)]
+        
+        if greater_than != None:
+            df = df[df[input_column] > greater_than]
+        
+        if greater_than_equal_to != None:
+            df = df[df[input_column] >= greater_than_equal_to]
+        
+        if less_than != None:
+            df = df[df[input_column] < less_than]
+        
+        if less_than_equal_to != None:
+            df = df[df[input_column] <= less_than_equal_to]
+        
+        if between != None:
+            if len(between) != 2: raise ValueError('Can only use "between" with two values')
+            df = df[df[input_column].between(between[0], between[1], **kwargs)]
+        
+        if contains != None:
+            df = df[df[input_column].str.contains(contains, na=False, **kwargs)]
+        
+        if not_contains != None:
+            df = df[~df[input_column].str.contains(not_contains, na=False, **kwargs)]
+        
+        if is_null == True:
+            df = df[df[input_column].isnull()]
+        
+        if is_null == False:
+            df = df[df[input_column].notnull()]
      
     return df
 
@@ -224,7 +242,6 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
 
-        
         columns_to_print = []
         temp_cols = []
         # Check if there are any asterisks in columns to print
@@ -278,64 +295,79 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
           - array
         description: Name or list of output columns.
     """
-    # For checking if columns exist
-    df_cols = list(df.columns)
-    
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists
         rename_cols = list(kwargs.keys())
         for x in rename_cols:
-            
-            if x not in df_cols: raise ValueError(f'Rename column "{x}" not found.')
+            if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
         
         rename_dict = kwargs
     else:
-        # Otherwise create a dict from input and output columns
-        
+        if not output:
+            raise ValueError('If an input is provided, an output must also be provided.')
+
+        # If a string provided, convert to list
+        if not isinstance(input, list): input = [input]
+        if not isinstance(output, list): output = [output]
+
+        # Ensure input and output are equal lengths
+        if len(input) != len(output):
+            raise ValueError('The lists for input and output must be the same length.')
+
         # Check column exists
-        if input not in df_cols: raise ValueError(f'Rename column "{input}" not found.')
+        for input_column in input:
+            if input_column not in list(df.columns):
+                raise ValueError(f'Rename column "{input}" not found.')
         
-        if isinstance(input, str):
-            input = [input]
-            output = [output]
+        # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
 
     return df.rename(columns=rename_dict)
 
-def find_replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str) -> _pd.DataFrame:
+
+def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str) -> _pd.DataFrame:
     """
-        type: object
-        description: Quick find and replace for simple values. Can use regex in the find field.
-        additionalProperties: false
-        required:
-        - input
-        - output
-        - find
-        - replace
-        properties:
-        input:
-            type:
-            - string
-            description: Name or list of input column
-        output:
-            type:
-            - string
-            description: Name or list of output column
-        find:
-            type:
-            - string
-            description: Pattern to find using regex (do not include model_id)
-        replace:
-            type:
-            - string
-            description: Value to replace the pattern found (do not include model_id)
-    """      
-    def mini_standardize(string):
-        new_string = _re.sub(find, replace, string)
-        return new_string
-      
-    df[output] = df[input].apply(lambda x: mini_standardize(x))
+    type: object
+    description: Quick find and replace for simple values. Can use regex in the find field.
+    additionalProperties: false
+    required:
+      - input
+      - output
+      - find
+      - replace
+    properties:
+    input:
+      type:
+        - string
+        - array
+      description: Name or list of input column
+    output:
+      type:
+        - string
+        - array
+      description: Name or list of output column
+    find:
+      type: string
+      description: Pattern to find using regex
+    replace:
+      type: string
+      description: Value to replace the pattern found
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):  
+        df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
     
     return df
 
@@ -534,18 +566,20 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     except:
         pass
 
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _translate(df[input].astype(str).tolist(), target_language, source_language, case)
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
     
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _translate(df[in_col].astype(str).tolist(), target_language, source_language, case)
-    
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
     return df
 
@@ -578,20 +612,20 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = No
         type: boolean
         description: Ignore input and to_remove case
     """
+    # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _extract.remove_words(df[input].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
-    # If the input is multiple columns (a list)
-    elif isinstance(input, list) and isinstance(output, list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _extract.remove_words(df[in_col].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
     
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
     
     return df
 
@@ -755,74 +789,103 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
         type: number
         description: time unit value for operation
     """
-    # If the output is not provided
-    if output is None: output = input
-    
     # Get all of the date parameters for operation
-    args = {time_unit: time_value}
-    offset = _pd.DateOffset(**args)
+    offset = _pd.DateOffset(**{time_unit: time_value})
+
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
     
-    # Converting data to datetime
-    df[input] = _pd.to_datetime(df[input])
-    
-    results = []
-    if operation == 'add':
-        for date in df[input]:
-            results.append(date + offset)
-            
-    elif operation == 'subtract':
-        for date in df[input]:
-            results.append(date - offset)
-            
-    else:
-        raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
-    
-    df[output] = results
-    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        # Converting data to datetime
+        df_temp = _pd.to_datetime(df[input_column])
+        
+        results = []
+        if operation == 'add':
+            for date in df_temp:
+                results.append(date + offset)
+                
+        elif operation == 'subtract':
+            for date in df_temp:
+                results.append(date - offset)
+                
+        else:
+            raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
+        
+        df[output_column] = results
+
     return df
 
-def jinja(df, input: str, template: dict, output: str=None):
+def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
     """
     type: object
-    description: Create a description from a jinja template
+    description: Output text using a jinja template
+    additionalProperties: false
     required:
       - output
       - template
     properties:
       input:
         type: string
-        description: Name of column containing a dictionary of elements to be used in jinja template
+        description: |
+          Specify a name of column containing a dictionary of elements to be used in jinja template.
+          Otherwise, the column headers will be used as keys.
+      output:
+        type: string
+        description: Name of the column to be output to.
       template:
         type: object
         description: A dictionary which defines the template/location as well as the form which the template is input
         properties:
           file: A .jinja file containing the template
-          column: The dataframe column containing the jinja template
+          column: A column containing the jinja template - this will apply to the corresponding row.
           string: A string which is used as the jinja template
-      output_file:
-        type: string
-        description: File name/path for the file to be output
     """
-    if output == None:
-        output = input
+    if not output:
+        raise ValueError('jinja: 1 output column must be specified')
+  
+    if isinstance(output, list):
+        output = output[0]
+    
+    if input:
+        input = input[0]
+        input_list = df[input]
+    else:
+        input_list = df.to_dict(orient='records')
+
+    if not isinstance(template, dict):
+        raise ValueError('You must provide a parameter template with one of file, column or string')
+
     if len(template) > 1:
         raise Exception('Template must have only one key specified')
-    
+
     # Template input as a file
-    if 'file' in list(template.keys()):
+    if 'file' in template:
         environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
         desc_template = environment.get_template(template['file'])
-        df[output] = [desc_template.render(desc) for desc in df[input]]
+        df[output] = [desc_template.render(row) for row in input_list]
 
     # Template input as a column of the dataframe
     elif 'column' in list(template.keys()):
-        lst = [_Environment(loader=_BaseLoader).from_string(df[template['column']][i]).render(df[input][i]) for i in range(len(df))]
-        df[output] = lst
+        df[output] = [
+            _Environment(loader=_BaseLoader).from_string(template).render(row)
+            for (template, row) in zip(df[template['column']], input_list)
+        ]
         
     # Template input as a string
     elif 'string' in list(template.keys()):
         desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
-        df[output] = [desc_template.render(desc) for desc in df[input]]
+        df[output] = [desc_template.render(row) for row in input_list]
+  
     else:
         raise Exception("'file', 'column' or 'string' not found")
+
     return df
