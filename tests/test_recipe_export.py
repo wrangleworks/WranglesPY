@@ -31,13 +31,13 @@ def test_export_csv():
     recipe = """
       write:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
     """
     wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
     """
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
@@ -49,13 +49,13 @@ def test_export_txt():
     recipe = """
       write:
         file:
-          name: temp.txt
+          name: tests/temp/temp.txt
     """
     wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
-          name: temp.txt
+          name: tests/temp/temp.txt
     """
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 3
@@ -67,14 +67,14 @@ def test_export_json():
     recipe = """
       write:
         file:
-          name: temp.json
+          name: tests/temp/temp.json
           orient: records
     """
     wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
-          name: temp.json
+          name: tests/temp/temp.json
           orient: records
     """
     df = wrangles.recipe.run(recipe)
@@ -87,7 +87,7 @@ def test_export_csv_columns():
     recipe = """
       write:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
           columns:
             - Find
     """
@@ -95,7 +95,7 @@ def test_export_csv_columns():
     recipe = """
       read:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
           columns:
             - Find
     """
@@ -109,21 +109,21 @@ def test_export_multiple():
     recipe = """
       write:
         - file:
-            name: temp.txt
+            name: tests/temp/temp.txt
         - file:
-            name: temp.csv
+            name: tests/temp/temp.csv
     """
     wrangles.recipe.run(recipe, dataframe=df_base)
     recipe = """
       read:
         file:
-          name: temp.txt
+          name: tests/temp/temp.txt
     """
     df1 = wrangles.recipe.run(recipe)
     recipe = """
       read:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
     """
     df2 = wrangles.recipe.run(recipe)
     assert df1.columns.tolist() == ['Find', 'Replace'] and len(df1) == 3 and df2.columns.tolist() == ['Find', 'Replace'] and len(df2)
@@ -157,11 +157,11 @@ def test_export_wrong_file_type():
     recipe = """
       read:
         file:
-          name: temp.csv
+          name: tests/temp/temp.csv
       
       write:
         - file:
-            name: data.jason
+            name: tests/temp/data.jason
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe)

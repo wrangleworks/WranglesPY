@@ -88,7 +88,7 @@ def test_address_6():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
 #
 # Attributes
 #
@@ -308,15 +308,16 @@ def test_attributes_diff_type():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
     
 
 #
 # Codes
 #
-
-# Len input != len output
-def test_extract_codes_1():
+def test_codes_inconsistent_input_output():
+    """
+    Check error if user provides inconsistent lists for input and output
+    """
     data = pd.DataFrame({
         'col1': ['to gain access use Z1ON0101'],
         'col2': ['to gain access use Z1ON0101']
@@ -328,11 +329,13 @@ def test_extract_codes_1():
             - col1
             - col2
           output: 
-            - code
+            - code_a
+            - code_b
+            - code_c
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
 
 # Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
@@ -436,7 +439,7 @@ def test_extract_custom_2():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
+    assert info.typename == 'ValueError' and info.value.args[0][:19] == "If providing a list"
 
 # Incorrect model_id missing "${ }" around value
 def test_extract_custom_3():
@@ -654,7 +657,7 @@ def test_properties_6():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
     
 #
 # HTML
@@ -740,69 +743,7 @@ def test_extract_brackets_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
-    
-    
-#
-# Remove Words
-#
-
-# tokenize inputs
-def test_remove_words_1():
-    data = pd.DataFrame({
-        'col': ['Metal Carbon Water Tank'],
-        'materials': ['Metal Carbon']
-    })
-    recipe = """
-    wrangles:
-      - remove_words:
-          input: col
-          to_remove:
-            - materials
-          output: Out
-          tokenize_to_remove: True
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'].iloc[0] == 'Water Tank'
-    
-    
-# tokenize inputs and ignore case
-def test_remove_words_2():
-    data = pd.DataFrame({
-        'col': ['METAl CaRBon WateR TaNk'],
-        'materials': ['meTAL carbOn']
-    })
-    recipe = """
-    wrangles:
-      - remove_words:
-          input: col
-          to_remove:
-            - materials
-          output: Out
-          tokenize_to_remove: True
-          ignore_case: True
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'].iloc[0] == 'Water Tank'
-
-# Raw inputs, ignore case is False
-def test_remove_words_3():
-    data = pd.DataFrame({
-        'col': ['METAl CaRBon WateR TaNk'],
-        'materials': ['meTAL CaRBon']
-    })
-    recipe = """
-    wrangles:
-      - remove_words:
-          input: col
-          to_remove:
-            - materials
-          output: Out
-          tokenize_to_remove: True
-          ignore_case: False
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'].iloc[0] == 'METAl WateR TaNk'
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
     
 #
 # Date Properties

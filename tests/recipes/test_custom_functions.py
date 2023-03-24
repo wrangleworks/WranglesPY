@@ -125,3 +125,51 @@ def test_with_parameters():
     df = wrangles.recipe.run(recipe, functions=[func])
 
     assert df.iloc[0]['col1'] == 'hello world'
+
+def test_custom_function():
+    def my_function(df, input, output):
+        df[output] = df[input].apply(lambda x: x[::-1])
+        return df
+
+    data = pd.DataFrame({'col1': ['Reverse Reverse']})
+    recipe = """
+    wrangles:
+        - custom.my_function:
+            input: col1
+            output: out1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
+
+    assert df.iloc[0]['out1'] == 'esreveR esreveR'
+    
+
+def test_custom_function_cell():
+    # using cell as args[0]
+    def my_function(cell):    
+        return str(cell) + ' xyz'
+
+    data = pd.DataFrame({'col1': ['Reverse Reverse']})
+    recipe = """
+    wrangles:
+        - custom.my_function:
+            input: col1
+            output: out1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
+
+    assert df.iloc[0]['out1'] == 'Reverse Reverse xyz'
+    
+def test_custom_function_cell_2():
+    # not mentioning output ->  using cell as args[0]
+    def my_function(cell):    
+        return str(cell) + ' xyz'
+
+    data = pd.DataFrame({'col1': ['Reverse Reverse']})
+    recipe = """
+    wrangles:
+        - custom.my_function:
+            input: col1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
+
+    assert df.iloc[0]['col1'] == 'Reverse Reverse xyz'

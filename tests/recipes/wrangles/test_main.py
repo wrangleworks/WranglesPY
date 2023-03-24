@@ -1,30 +1,33 @@
 import pytest
 import wrangles
 import pandas as pd
-import io
-import sys
 import logging
 
 #
 # Classify
 #
-# Input is one column
-def test_classify_1():
-    data = pd.DataFrame({
-    'Col1': ['Ball Bearing']
-    })
-    recipe = """
-    wrangles:
-        - classify:
-            input: Col1
-            output: Class
-            model_id: c77839db-237a-476b
+def test_classify():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    Test classify on a single input
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - classify:
+                input: Col1
+                output: Class
+                model_id: c77839db-237a-476b
+        """,
+        dataframe = pd.DataFrame({
+            'Col1': ['Ball Bearing']
+        })
+    )
     assert df.iloc[0]['Class'] == 'Ball Bearing'
-    
-# Multiple column input and output
+
 def test_classify_2():
+    """
+    Multiple column input and output
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Bearing']
@@ -61,10 +64,12 @@ def test_classify_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'If providing a list of inputs, a corresponding list of outputs must also be provided.'
-    
-# Incorrect model_id missing "${ }" around value
-def test_classify_4():
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
+
+def test_classify_invalid_model():
+    """
+    # Incorrect model_id missing "${ }" around value
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Ball Bearing']
@@ -82,10 +87,15 @@ def test_classify_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    )
     
-# Not using ${} in recipe when using a model-id
-def test_classify_5():
+def test_classify_invalid_variable_syntax():
+    """
+    # Not using ${} in recipe when using a model-id
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Ball Bearing']
@@ -354,7 +364,7 @@ def test_filter_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 1
 
-def test_filter_where_2():
+def test_filter_where_or():
     data = pd.DataFrame({
         'Random': ['Apples', 'None', 'App', None],
     })
@@ -367,6 +377,26 @@ def test_filter_where_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 2
+
+def test_filter_input_list():
+    """
+    Test using a list for input. All input columns must match the criteria
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              input:
+                - Column1
+                - Column2
+              contains: App
+        """,
+        dataframe = pd.DataFrame({
+            'Column1': ['Apples', 'None', 'App', 'Other'],
+            'Column2': ['Apples', 'Apples', 'Other', 'Other']
+        })
+    )
+    assert len(df) == 1
 
 #
 # Log
@@ -455,7 +485,6 @@ def test_log_4(caplog):
     assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
 
 
-
 #
 # Remove Words
 #
@@ -542,28 +571,89 @@ def test_remove_words_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
+
+# tokenize inputs
+def test_remove_words_tokenize():
+    data = pd.DataFrame({
+        'col': ['Metal Carbon Water Tank'],
+        'materials': ['Metal Carbon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
+
+# Raw inputs, ignore case is False
+def test_remove_words_case_sensitive():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL CaRBon']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'METAl WateR TaNk'
+
+# tokenize inputs and ignore case
+def test_remove_words_tokenize_case_sensitive():
+    data = pd.DataFrame({
+        'col': ['METAl CaRBon WateR TaNk'],
+        'materials': ['meTAL carbOn']
+    })
+    recipe = """
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - materials
+          output: Out
+          tokenize_to_remove: True
+          ignore_case: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Water Tank'
 
 #
 # Rename
 #
-# Multi Column
-def test_rename_1():
-    data = pd.DataFrame({
-    'Manufacturer Name': ['Delos'],
-    'Part Number': ['CH465517080'],
-    })
-    recipe = """
-    wrangles:
-        - rename:
-            Manufacturer Name: Company
-            Part Number: MPN
+def test_rename_dict():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    Rename using a dictionary of columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - rename:
+              Manufacturer Name: Company
+              Part Number: MPN
+        """,
+        dataframe = pd.DataFrame({
+            'Manufacturer Name': ['Delos'],
+            'Part Number': ['CH465517080'],
+        })
+    )
     assert df.iloc[0]['MPN'] == 'CH465517080'
 
-# One column using input and output
-def test_rename_2():
+def test_rename_input_output():
+    """
+    Rename using a single input to a single output
+    """
     data = pd.DataFrame({
     'Manufacturer Name': ['Delos'],
     'Part Number': ['CH465517080'],
@@ -576,6 +666,66 @@ def test_rename_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Company'] == 'Delos'
+
+def test_rename_missing_output():
+    """
+    Check error if input is provided but not output
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    input: Manufacturer Name
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos'],
+                'Part Number': ['CH465517080'],
+            })
+        )
+    assert info.typename == 'ValueError' and info.value.args[0][:11] == 'If an input'
+
+def test_rename_inconsistent_input_output():
+    """
+    Check error if the lists for input and output are not equal lengths
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    input: Manufacturer Name
+                    output:
+                      - Two
+                      - Columns
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos'],
+                'Part Number': ['CH465517080'],
+            })
+        )
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
+
+def test_rename_missing_input():
+    """
+    Check error if a column specified in input doesn't exist
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    input: Manufacturer Name
+                    output:
+                      - Has
+                      - Two
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos'],
+                'Part Number': ['CH465517080'],
+            })
+        )
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == 'The lists for'
 
 #
 # Standardize
@@ -658,14 +808,16 @@ def test_standardize_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
 
-# Find and replace
-def test_find_and_replace():
+def test_replace():
+    """
+    Test replace
+    """
     data = pd.DataFrame({
     'Abbrev': ['random ASAP random', 'random ETA random'],
     })
     recipe = """
     wrangles:
-        - find_replace:
+        - replace:
             input: Abbrev
             output: Abbreviations
             find: ETA
@@ -673,7 +825,50 @@ def test_find_and_replace():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
-    
+
+def test_replace_lists():
+    """
+    Test replace with a list for input and output
+    """
+    data = pd.DataFrame({
+        'Abbrev1': ['random ETA random'],
+        'Abbrev2': ['another ETA another']
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input:
+              - Abbrev1
+              - Abbrev2
+            output:
+              - Abbreviations1
+              - Abbreviations2
+            find: ETA
+            replace: Estimated Time of Arrival
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        df.iloc[0]['Abbreviations1'] == 'random Estimated Time of Arrival random' and
+        df.iloc[0]['Abbreviations2'] == 'another Estimated Time of Arrival another'
+    )
+
+def test_replace_regex():
+    """
+    Test replace using a regex pattern
+    """
+    data = pd.DataFrame({
+        'Abbrev': ['random 123 random'],
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: Abbrev
+            output: Abbreviations
+            find: "[0-9]+"
+            replace: found
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'random found random'
 
 #
 # Translate
@@ -748,55 +943,8 @@ def test_translate_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0][:13] == "The lists for"
     
-#
-# Custom Function
-#
-
-def my_function1(df, input, output):
-    df[output] = df[input].apply(lambda x: x[::-1])
-    return df
-    
-def test_custom_function():
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function1:
-            input: col1
-            output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function1])
-    assert df.iloc[0]['out1'] == 'esreveR esreveR'
-    
-# using cell as args[0]
-def my_function(cell):    
-    return str(cell) + ' xyz'
-def test_custom_function_cell():
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function:
-            input: col1
-            output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
-    assert df.iloc[0]['out1'] == 'Reverse Reverse xyz'
-    
-# not mentioning output ->  using cell as args[0]
-def my_function(cell):    
-    return str(cell) + ' xyz'
-def test_custom_function_cell_2():
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function:
-            input: col1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
-    assert df.iloc[0]['col1'] == 'Reverse Reverse xyz'
-    
-
 #
 # Maths
 #
@@ -909,21 +1057,23 @@ def test_recipe_wrangle_1():
 #
 # Date Calculator
 #
-
-# add time (default)
 def test_date_calc_1():
-    data = pd.DataFrame({
-        'date1': ['12/25/2022'],
-    })
-    recipe = """
-    wrangles:
-      - date_calculator:
-          input: date1
-          output: out1
-          time_unit: days
-          time_value: 6
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    Add time (default)
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - date_calculator:
+              input: date1
+              output: out1
+              time_unit: days
+              time_value: 6
+        """,
+        dataframe = pd.DataFrame({
+            'date1': ['12/25/2022'],
+        })
+    )
     assert df.iloc[0]['out1']._date_repr == '2022-12-31'
     
 # subtract time
@@ -959,33 +1109,65 @@ def test_date_calc_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
+
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
+    )
+
+def test_jinja_from_columns():
+    """
+    Tests functionality with template given as a string
+    """
+    data = pd.DataFrame({
+        'type': ['phillips head', 'flat head'],
+        'length': ['3 inch', '6 inch']
+    })
+    recipe = """
+    wrangles:
+      - jinja:
+          output: description
+          template: 
+            string: This is a {{length}} {{type}} screwdriver
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
 
 def test_jinja_string_template():
     """
     Tests functionality with template given as a string
     """
     data = pd.DataFrame({
-        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+        'data column': [
+            {'type': 'phillips head', 'length': '3 inch'},
+            {'type': 'flat head', 'length': '6 inch'}
+        ]
     })
     recipe = """
     wrangles:
       - jinja:
-          input: col
+          input: data column
           output: description
           template: 
-            string: This is a {{length}} {{type}} screwdriver
+            string: "This is a {{length}} {{type}} screwdriver"
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.to_list() == ['col', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
 def test_jinja_column_template():
     """
     Tests functionality with templates in dataframe column
     """
     data = pd.DataFrame({
-        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
-        'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
+        'data column': [
+            {'type': 'phillips head', 'length': '3 inch'},
+            {'type': 'flat head', 'length': '6 inch'}
+        ],
+        'template column': [
+            'This is a {{length}} {{type}} screwdriver',
+            'This is a {{length}} {{type}} screwdriver'
+        ]
     })
     recipe = """
     wrangles:
@@ -996,14 +1178,17 @@ def test_jinja_column_template():
             column: template column
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.to_list() == ['data column', 'template column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
 def test_jinja_file_template():
     """
     Tests functionality with a template in a file
     """
     data = pd.DataFrame({
-        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
+        'data column': [
+            {'type': 'phillips head', 'length': '3 inch'},
+            {'type': 'flat head', 'length': '6 inch'}
+        ]
     })
     recipe = """
     wrangles:
@@ -1014,20 +1199,26 @@ def test_jinja_file_template():
             file: tests/samples/jinjadescriptiontemplate.jinja
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.to_list() == ['data column', 'description'] and df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
 def test_jinja_multiple_templates():
     """
     Tests that the appropriate error message is shown when multiple templates are given
     """
     data = pd.DataFrame({
-        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}],
-        'template column': ['This is a {{length}} {{type}} screwdriver', 'This is a {{length}} {{type}} screwdriver']
+        'data column': [
+            {'type': 'phillips head', 'length': '3 inch'},
+            {'type': 'flat head', 'length': '6 inch'}
+        ],
+        'template column': [
+            'This is a {{length}} {{type}} screwdriver',
+            'This is a {{length}} {{type}} screwdriver'
+        ]
     })
     recipe = """
     wrangles:
       - jinja:
-          input: col
+          input: data column
           output: description
           template: 
             string: This is a {{length}} {{type}} screwdriver
@@ -1047,7 +1238,7 @@ def test_jinja_no_template():
     recipe = """
     wrangles:
       - jinja:
-          input: col
+          input: data column
           output: description
     """
     with pytest.raises(TypeError) as info:
@@ -1065,7 +1256,7 @@ def test_jinja_unsupported_template_key():
     recipe = """
     wrangles:
       - jinja:
-          input: col
+          input: data column
           output: description
           template:
             wrong: test

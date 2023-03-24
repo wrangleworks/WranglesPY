@@ -1,6 +1,4 @@
-import requests
 import wrangles
-import pandas as pd
 
 
 def test_http_read_1():
@@ -22,7 +20,8 @@ def test_http_read_2():
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['ability']['name'] == 'blaze'
     
-from wrangles.connectors.http import run
+
 def test_http_run():
-    test = run('https://pokeapi.co/api/v2/pokemon/charizard')
+    from wrangles.connectors import http
+    test = http.run('https://pokeapi.co/api/v2/pokemon/charizard')
     assert test == None

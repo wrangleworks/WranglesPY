@@ -121,7 +121,7 @@ def test_write_file_indexed():
             case: lower
     write:
         file:
-          name: tests/samples/write_data.xlsx
+          name: tests/temp/write_data.xlsx
           index: true
     """
     df = wrangles.recipe.run(recipe)
@@ -139,7 +139,7 @@ def test_write_file_indexed():
             case: lower
     write:
         file:
-          name: tests/samples/write_data.xlsx
+          name: tests/temp/write_data.xlsx
           index: true
     """
     df = wrangles.recipe.run(recipe)
@@ -157,7 +157,7 @@ def test_write_file_jsonl():
             case: lower
     write:
         file:
-          name: tests/samples/write_data.jsonl
+          name: tests/temp/write_data.jsonl
     """
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
@@ -167,7 +167,7 @@ def test_recipe_file_input():
   recipe = "tests/samples/recipe_sample.wrgl.yaml"
   config = {
     "inputFile": 'tests/samples/data.csv',
-    "outputFile": 'tests/samples/write_data.xlsx'
+    "outputFile": 'tests/temp/write_data.xlsx'
   }
   df = wrangles.recipe.run(recipe, config)
   assert df.columns.tolist() == ['ID', 'Find2']

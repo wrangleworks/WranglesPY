@@ -63,7 +63,7 @@ def test_on_success():
     success_rec = """
     write:
       - file:
-          name: temp2.csv
+          name: tests/temp/temp2.csv
     """
     recipe = """
     run:
@@ -90,7 +90,7 @@ def test_on_failure():
     failure_rec = """
     write:
       - file:
-          name: temp3.csv
+          name: tests/temp/temp3.csv
     """
     recipe = """
     run:
@@ -108,4 +108,4 @@ def test_on_failure():
     }
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data, variables=vars)
-    assert info.typename == 'KeyError' and info.value.args[0] == "col111"
+    assert info.typename == 'KeyError' and info.value.args[0][:13] == "Column col111"
