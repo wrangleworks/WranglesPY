@@ -18,6 +18,7 @@ import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
+from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemLoader, BaseLoader as _BaseLoader
 import wrangles as _wrangles
 import yaml as _yaml
 
@@ -302,8 +303,44 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
 
     return df.rename(columns=rename_dict)
 
+def find_replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str) -> _pd.DataFrame:
+    """
+        type: object
+        description: Quick find and replace for simple values. Can use regex in the find field.
+        additionalProperties: false
+        required:
+        - input
+        - output
+        - find
+        - replace
+        properties:
+        input:
+            type:
+            - string
+            description: Name or list of input column
+        output:
+            type:
+            - string
+            description: Name or list of output column
+        find:
+            type:
+            - string
+            description: Pattern to find using regex (do not include model_id)
+        replace:
+            type:
+            - string
+            description: Value to replace the pattern found (do not include model_id)
+    """      
+    def mini_standardize(string):
+        new_string = _re.sub(find, replace, string)
+        return new_string
+      
+    df[output] = df[input].apply(lambda x: mini_standardize(x))
+    
+    return df
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list] = None, output: _Union[str, list] = None, find: str = None, replace: str = None) -> _pd.DataFrame:
+
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
@@ -337,29 +374,16 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     """
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
-      
-    if model_id is not None and [find, replace] == [None, None]:
 
-      # If user provides a single string, convert all the arguments to lists for consistency
-      if isinstance(input, str): input = [input]
-      if isinstance(output, str): output = [output]
-      if isinstance(model_id, str): model_id = [model_id]
+    # If user provides a single string, convert all the arguments to lists for consistency
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+    if isinstance(model_id, str): model_id = [model_id]
 
-      for model in model_id:
+    for model in model_id:
         for input_column, output_column in zip(input, output):
-          df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-    
-    # Small on Demand Standardize if model ID is not provided
-    elif model_id is None and find is not None and replace is not None:
-      
-        def mini_standardize(string):
-            new_string = _re.sub(find, replace, string)
-            return new_string
-      
-        df[output] = df[input].apply(lambda x: mini_standardize(x))
-    
-    else:
-        raise ValueError("Standardize must have model_id or find and replace as parameters")
+            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
+
 
     return df
 
@@ -755,4 +779,50 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     
     df[output] = results
     
+    return df
+
+def jinja(df, input: str, template: dict, output: str=None):
+    """
+    type: object
+    description: Create a description from a jinja template
+    required:
+      - output
+      - template
+    properties:
+      input:
+        type: string
+        description: Name of column containing a dictionary of elements to be used in jinja template
+      template:
+        type: object
+        description: A dictionary which defines the template/location as well as the form which the template is input
+        properties:
+          file: A .jinja file containing the template
+          column: The dataframe column containing the jinja template
+          string: A string which is used as the jinja template
+      output_file:
+        type: string
+        description: File name/path for the file to be output
+    """
+    if output == None:
+        output = input
+    if len(template) > 1:
+        raise Exception('Template must have only one key specified')
+    
+    # Template input as a file
+    if 'file' in list(template.keys()):
+        environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
+        desc_template = environment.get_template(template['file'])
+        df[output] = [desc_template.render(desc) for desc in df[input]]
+
+    # Template input as a column of the dataframe
+    elif 'column' in list(template.keys()):
+        lst = [_Environment(loader=_BaseLoader).from_string(df[template['column']][i]).render(df[input][i]) for i in range(len(df))]
+        df[output] = lst
+        
+    # Template input as a string
+    elif 'string' in list(template.keys()):
+        desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
+        df[output] = [desc_template.render(desc) for desc in df[input]]
+    else:
+        raise Exception("'file', 'column' or 'string' not found")
     return df
