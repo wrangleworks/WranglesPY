@@ -314,11 +314,6 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
         # Ensure input and output are equal lengths
         if len(input) != len(output):
             raise ValueError('The lists for input and output must be the same length.')
-
-        # Check column exists
-        for input_column in input:
-            if input_column not in list(df.columns):
-                raise ValueError(f'Rename column "{input}" not found.')
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
@@ -848,10 +843,7 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
           file: A .jinja file containing the template
           column: A column containing the jinja template - this will apply to the corresponding row.
           string: A string which is used as the jinja template
-    """
-    if not output:
-        raise ValueError('jinja: 1 output column must be specified')
-  
+    """  
     if isinstance(output, list):
         output = output[0]
     
@@ -860,9 +852,6 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
         input_list = df[input]
     else:
         input_list = df.to_dict(orient='records')
-
-    if not isinstance(template, dict):
-        raise ValueError('You must provide a parameter template with one of file, column or string')
 
     if len(template) > 1:
         raise Exception('Template must have only one key specified')
