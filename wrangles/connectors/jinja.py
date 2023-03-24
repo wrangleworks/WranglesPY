@@ -7,31 +7,31 @@ from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemL
 _schema = {}
 
 
-def run(gen_template, template_defn, output_file):
+def run(template, context_dictionary, output_file):
     """
     Create a jinja template
-    :param gen_tamplate: A generic template used to generate a more specific template to be used
-    :param template_defn: A dictionary used to define the output template
+    :param template: A generic template used to generate a more specific template to be used
+    :param context_dictionary: A dictionary used to define the output template
     :param output_file: File name/path for the file to be output
     """
-    env = _Environment(loader=_FileSystemLoader('templates/'),trim_blocks=True, lstrip_blocks=True)
-    gen_template = env.get_template(gen_template)
+    env = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
+    template = env.get_template(template)
     # writing the file makes it easy to see what the Description template does
     with open (output_file, 'w') as f:
-        f.write(gen_template.render(template_defn))
+        f.write(template.render(context_dictionary))
 
 _schema['run'] = """
 type: object
 description: Create a jinja template
 required:
-  - gen_template
-  - template_defn
+  - template
+  - context_dictionary
   - output_file
 properties:
-  gen_template:
+  template:
     type: string
     description: A generic template used to generate a more specific template to be used
-  template_defn:
+  context_dictionary:
     type: object
     description: A dictionary used to define the output template
   output_file:

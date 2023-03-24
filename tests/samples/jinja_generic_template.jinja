@@ -1,0 +1,23 @@
+{% macro wrap(elements) -%}
+{% set wrapped_elements = [] %}
+{% for element in elements.cat_fields %}
+{% set wrapped_element = "{% if " + element.field + " is defined %}" + element.field + ": {{ " + element.field + " }} {% endif %}" %}
+{% if element.bracket_char is defined %}{% set wrapped_element = element.bracket_char[0] + wrapped_element + element.bracket_char[1] %}{%endif%}
+{% set _ = wrapped_elements.append(wrapped_element) %}
+{% endfor %}
+{{ wrapped_elements|join(elements.joiner_char|default(' ')) }}
+{%- endmacro -%}
+
+{% set all = namespace (base_desc ='') %}
+{% for all_flds in category_fields|selectattr('category', 'equalto', 'All') %}
+{% set all.base_desc = wrap(all_flds) %}
+{% endfor %}
+
+{% for cat in category_fields|rejectattr('category', 'equalto', 'All')|map(attribute='category') %}
+{{ "{% if Category == '"}}{{ cat }}{{"' %}" }}
+{% for c_flds in category_fields|selectattr('category', 'equalto', cat) %}
+{{ wrap(c_flds) }}
+{% endfor %}
+{{ '{% endif %}' }}
+
+{%- endfor %}
