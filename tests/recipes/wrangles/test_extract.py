@@ -421,8 +421,10 @@ def test_extract_custom_1():
 # Input is String
 df_test_custom = pd.DataFrame([['My favorite pokemon is charizard!']], columns=['Fact'])
 
-# Len input != Len output
-def test_extract_custom_2():
+def test_custom_one_output():
+    """
+    Test using extract.custom with a single output
+    """
     data = pd.DataFrame({
         'col1': ['My favorite pokemon is charizard!'],
         'col2': ['My favorite pokemon is charizard2!']
@@ -437,9 +439,8 @@ def test_extract_custom_2():
             - Fact Out
           model_id: 1eddb7e8-1b2b-4a52
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0][:19] == "If providing a list"
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Fact Out'][0] == 'Charizard'
 
 # Incorrect model_id missing "${ }" around value
 def test_extract_custom_3():
@@ -461,8 +462,29 @@ def test_extract_custom_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
-    
-    
+
+def test_extract_custom_labels():
+    """
+    Test use_labels option to group output
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.custom:
+              input: col1
+              output: col2
+              model_id: 829c1a73-1bfd-4ac0
+              use_labels: true
+        """,
+        dataframe = pd.DataFrame({
+            'col1': ['small blue cotton jacket']
+        })
+    )
+    assert (
+        df['col2'][0]['colour'] == 'blue' and
+        df['col2'][0]['size'] == 'small'
+    )
+
 # Extract Regex Extract
 def test_extract_regex():
     data = pd.DataFrame({
