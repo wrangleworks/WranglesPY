@@ -15,9 +15,13 @@ import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+from . import verbose_logging as _verbose_logging
 
 
-_logging.getLogger().setLevel(_logging.INFO)
+logger = _logging.getLogger('logger')
+logger.setLevel(_logging.INFO)
+progress = _verbose_logging.ProgressConsoleHandler()
+_logging.getLogger().addHandler(progress)
 
 
 # Suppress pandas performance warnings
@@ -102,7 +106,7 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
 
     return new_recipe_object
         
-    
+
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
@@ -113,7 +117,7 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
 
     :return: YAML Recipe converted to a dictionary
     """
-    _logging.info(": Reading Recipe ::")
+    _logging.info(": Reading Recipe ::", recipe, 'read')
     
     if not isinstance(recipe, str):
         try:
@@ -218,7 +222,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
             params['functions'] = functions
 
         df = getattr(obj, 'read')(**params)
-    
+
     return df
 
    
@@ -267,7 +271,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     for step in wrangles_list:
         for wrangle, params in step.items():
             if params is None: params = {}
-            _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+            logger.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
@@ -322,6 +326,18 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 # Execute the requested function and return the value
                 df = obj(df, **params)
+
+            log_record = _logging.LogRecord(
+                name='my_logger',
+                level=_logging.debug,
+                pathname=None,
+                lineno=None,
+                msg=None,
+                args=[df.head(1000), step, 'wrangle'],
+                exc_info=None
+            )
+            
+            progress.emit(log_record)
 
     return df
 
@@ -406,7 +422,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     return df_return
 
 
-def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
+def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = [], log_file: str = None) -> _pandas.DataFrame:
     """
     Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
 
@@ -416,6 +432,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param log_file: (Optional) A string representing the file path for the log file to be output. If left empty, defaults to no log output.
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
@@ -448,6 +465,8 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
             # User hasn't provided anything - initialize empty dataframe
             df = _pandas.DataFrame()
 
+        logger.info(f": {len(df)} rows imported ::", df.head(1000), 'read')
+
         # Execute any Wrangles required (allow single or plural)
         if 'wrangles' in recipe.keys():
             df = _execute_wrangles(df, recipe['wrangles'], functions)
@@ -461,6 +480,10 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         # Run any actions required after the main recipe finishes
         if 'on_success' in recipe.get('run', {}).keys():
             _run_actions(recipe['run']['on_success'], functions)
+
+        # Create verbose log of recipe
+        if log_file:
+            progress.create_log(recipe, variables, log_file)
 
         return df
 

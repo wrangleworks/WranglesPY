@@ -1,0 +1,55 @@
+{# Test against cases where multipe i/o's are used against a single i/o #}
+{% if data.read %}
+## Read
+This recipe first reads in a {% for key, value in data.read[0].items() %} **{{ key }}** with the filepath *{{ variables['inputFile'] }}* and a length of {% if logs %}**{{ (logs[0]['dfWrangled']|length) }} {% endif %} rows**. {% endfor %}
+
+  - Additional parameters: {{ read_params }}
+{% endif %}
+
+{% if data.wrangles %}
+## Wrangles
+{% for i in range((logs|length)) %}
+    {% set outer_loop = loop %}
+
+{{outer_loop.index}}. **{{ wrangles[i] }}** *{{ logs[i]['wrangle'][wrangles[i]]['input'] }}* into {% if logs[i]['wrangle'][wrangles[i]]['output'] is defined %} *{{ logs[i]['wrangle'][wrangles[i]]['output'] }}* {% else %} *{{ logs[i]['wrangle'][wrangles[i]]['input'] }}* (the column name was not changed) {% endif %}
+  {% if logs[i]['otherParameters'] is defined %}
+  - Additional parameters: {% for key, value in logs[i]['otherParameters'].items() %} 
+    - {{ key }}: {{ value }}
+  {% endfor %}
+  {% endif %}
+{% if not logs[i]['dfRaw'].empty %} 
+  - Before:
+
+    | {% for column in logs[i]['dfRaw'].columns %} {{ column }} | {% endfor %}
+    | {% for j in range((logs[i]['dfRaw'].columns|length)) %} ----| {% endfor %}
+    | {% for j in range((logs[i]['dfRaw'].columns|length)) %} | {% endfor %} {% for k in range(5) %}
+    | {% for column in logs[i]['dfRaw'].columns %} {{ logs[i]['dfRaw'][column][k] }} | {% endfor %} {% endfor %}
+    |  |  |  |  |
+    {% endif %}
+
+{% if not logs[i]['dfWrangled'].empty %} 
+  - After:
+
+    | {% for column in logs[i]['dfWrangled'].columns %} {{ column }} | {% endfor %}
+    | {% for j in range((logs[i]['dfWrangled'].columns|length)) %} ----| {% endfor %}
+    | {% for j in range((logs[i]['dfWrangled'].columns|length)) %} | {% endfor %} {% for k in range(5) %}
+    | {% for column in logs[i]['dfWrangled'].columns %} {{ logs[i]['dfWrangled'][column][k] }} | {% endfor %} {% endfor %}
+    |  |  |  |  |
+    {% endif %}
+
+    {% endfor %}
+
+{% endif %}
+
+{% if data.write %}
+## Write
+
+The recipe writes to a {% for key, value in data.write[0].items() %} **{{ key }}** {% if variables['outputFile'] %} with a filepath/name of *{{ variables['outputFile'] }}* {% endif %} with the following parameters:
+
+  - Columns: {% for column in value.columns %}
+     - {{ column }}
+     {% endfor %}
+  
+  {% for params in write_params %} {% if params|length > 0 %}- Additional parameters: {{ params }} {% endif %} {% endfor %}
+{% endfor %}
+{% endif %}

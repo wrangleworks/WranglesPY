@@ -286,3 +286,78 @@ def test_extract_train_2(mocker):
     }
     test = train.extract(**config)
     assert test.status_code == 202
+
+def test_verbose_logging_wrangle_only():
+    """
+    Test the output of verbose logging with no read or write
+    """
+    data = pd.DataFrame({
+        'Col': ['Hello', 'World']
+    })
+    recipe = """
+      wrangles:
+        - convert.case:
+            case: lower
+            input: Col
+            output: Col Lower
+    """
+    wrangles.recipe.run(recipe, dataframe=data, log_file='tests/temp/temp.md')
+
+    with open('tests/temp/temp.md') as f:
+        lines = f.readlines()
+    assert (
+        lines[4] == '## Wrangles\n' and
+        lines[8] == '1. **convert.case** *Col* into  *Col Lower* \n'
+    )
+
+def test_verbose_logging_read_only():
+    """
+    Test the output of verbose logging with no wrangle or write
+    """
+    recipe = """
+      read:
+        - file:
+            name: tests/samples/data.csv
+    """
+    wrangles.recipe.run(recipe, log_file='tests/temp/temp.md')
+    with open('tests/temp/temp.md') as f:
+        lines = f.readlines()
+    assert (
+        lines[2] == '## Read\n' and
+        lines[3] == 'This recipe first reads in a  **file** with the filepath ** and a length of  rows**. \n'
+    )
+
+def test_verbose_logging_write_only():
+    """
+    Test the output of verbose logging with no wrangle or write
+    """
+    recipe = """
+      write:
+        - file:
+            name: tests/samples/temp.csv
+    """
+    wrangles.recipe.run(recipe, log_file='tests/temp/temp.md')
+    with open('tests/temp/temp.md') as f:
+        lines = f.readlines()
+    assert (
+        lines[6] == '## Write\n' and
+        lines[8] == 'The recipe writes to a  **file**  with the following parameters:\n'
+    )
+
+def test_verbose_logging_no_output_file():
+    """
+    Test the error message of a log output into a non-existent folder.
+    """
+    data = pd.DataFrame({
+        'Col': ['Hello', 'World']
+    })
+    recipe = """
+      wrangles:
+        - convert.case:
+            case: lower
+            input: Col
+            output: Col Lower
+    """
+    with pytest.raises(FileNotFoundError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data, log_file='logTests/temp.csv')
+    assert info.typename == 'FileNotFoundError' and info.value.args[1] == 'No such file or directory'
