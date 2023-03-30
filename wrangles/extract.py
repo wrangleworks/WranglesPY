@@ -260,8 +260,8 @@ def brackets(input: str) -> list:
     """
     results = []
     for item in input:
-        re = _re.findall('\[.*?\]|{.*?}|\(.*?\)|<.*?>', item)
-        re = [_re.sub('\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
+        re = _re.findall(r'\[.*?\]|{.*?}|\(.*?\)|<.*?>', item)
+        re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
         
         results.append(', '.join(re))
         
