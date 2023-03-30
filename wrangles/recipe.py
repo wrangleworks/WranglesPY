@@ -302,8 +302,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df[output_column] = [custom_function(cell, **params) for cell in df[input_column].to_list()]
 
                 else:
-                    pass # pragma: no cover
-                    # shouldn't get here
+                    df[params['output']] = df[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for

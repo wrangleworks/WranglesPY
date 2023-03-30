@@ -261,3 +261,52 @@ def test_custom_function_2():
     """
     df = wrangles.recipe.run(recipe, functions=[custom_func])
     assert df.iloc[0]['Col1'] == 'HELLO ONE'
+
+
+def test_row_function():
+    """
+    Test a custom function that applies to an individual row
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                val1: 1
+                val2: 2
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+        """,
+        functions=[add_numbers]
+    )
+    assert df['val3'][0] == 3
+
+def test_row_function_list_out():
+    """
+    Test a custom function that applies to an individual row with multi column outputs
+    """
+    def add_three(val1, val2):
+        return [val1 + 3, val2 + 3]
+    
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                val1: 1
+                val2: 2
+        wrangles:
+          - custom.add_three:
+              output:
+                - val3
+                - val4
+        """,
+        functions=[add_three]
+    )
+    assert df['val3'][0] == 4 and df['val4'][0] == 5
