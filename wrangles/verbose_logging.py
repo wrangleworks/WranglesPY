@@ -1,7 +1,70 @@
-from jinja2 import Environment, FileSystemLoader
-import copy
+from jinja2 import (
+    Environment as _Environment,
+    BaseLoader as _BaseLoader
+)
+import copy as _copy
 import logging as _logging
-import pandas as pd
+import pandas as _pd
+
+# This is moved here as the earlier file based method will not work
+# when the code is deployed as a package.
+template_jinja = """
+{# Test against cases where multipe i/o's are used against a single i/o #}
+{% if data.read %}
+## Read
+This recipe first reads in a {% for key, value in data.read[0].items() %} **{{ key }}** with the filepath *{{ variables['inputFile'] }}* and a length of {% if logs %}**{{ (logs[0]['dfWrangled']|length) }} {% endif %} rows**. {% endfor %}
+
+  - Additional parameters: {{ read_params }}
+{% endif %}
+
+{% if data.wrangles %}
+## Wrangles
+{% for i in range((logs|length)) %}
+    {% set outer_loop = loop %}
+
+{{outer_loop.index}}. **{{ wrangles[i] }}** *{{ logs[i]['wrangle'][wrangles[i]]['input'] }}* into {% if logs[i]['wrangle'][wrangles[i]]['output'] is defined %} *{{ logs[i]['wrangle'][wrangles[i]]['output'] }}* {% else %} *{{ logs[i]['wrangle'][wrangles[i]]['input'] }}* (the column name was not changed) {% endif %}
+  {% if logs[i]['otherParameters'] is defined %}
+  - Additional parameters: {% for key, value in logs[i]['otherParameters'].items() %} 
+    - {{ key }}: {{ value }}
+  {% endfor %}
+  {% endif %}
+{% if not logs[i]['dfRaw'].empty %} 
+  - Before:
+
+    | {% for column in logs[i]['dfRaw'].columns %} {{ column }} | {% endfor %}
+    | {% for j in range((logs[i]['dfRaw'].columns|length)) %} ----| {% endfor %}
+    | {% for j in range((logs[i]['dfRaw'].columns|length)) %} | {% endfor %} {% for k in range(5) %}
+    | {% for column in logs[i]['dfRaw'].columns %} {{ logs[i]['dfRaw'][column][k] }} | {% endfor %} {% endfor %}
+    |  |  |  |  |
+    {% endif %}
+
+{% if not logs[i]['dfWrangled'].empty %} 
+  - After:
+
+    | {% for column in logs[i]['dfWrangled'].columns %} {{ column }} | {% endfor %}
+    | {% for j in range((logs[i]['dfWrangled'].columns|length)) %} ----| {% endfor %}
+    | {% for j in range((logs[i]['dfWrangled'].columns|length)) %} | {% endfor %} {% for k in range(5) %}
+    | {% for column in logs[i]['dfWrangled'].columns %} {{ logs[i]['dfWrangled'][column][k] }} | {% endfor %} {% endfor %}
+    |  |  |  |  |
+    {% endif %}
+
+    {% endfor %}
+
+{% endif %}
+
+{% if data.write %}
+## Write
+
+The recipe writes to a {% for key, value in data.write[0].items() %} **{{ key }}** {% if variables['outputFile'] %} with a filepath/name of *{{ variables['outputFile'] }}* {% endif %} with the following parameters:
+
+  - Columns: {% for column in value.columns %}
+     - {{ column }}
+     {% endfor %}
+  
+  {% for params in write_params %} {% if params|length > 0 %}- Additional parameters: {{ params }} {% endif %} {% endfor %}
+{% endfor %}
+{% endif %}
+"""
 
 class MyFilter(object):
     def __init__(self, level):
@@ -18,12 +81,11 @@ class ProgressConsoleHandler(_logging.StreamHandler):
     
     def __init__(self):
         super().__init__()
-        self.environment = Environment(loader=FileSystemLoader(''))
         self.logging_record = []
         self.log_file = None
         self.wrangles = []
         self.recipe = None
-        self.df = pd.DataFrame()
+        self.df = _pd.DataFrame()
         self.readParameters = []
         self.writeParameters = []
 
@@ -80,7 +142,7 @@ class ProgressConsoleHandler(_logging.StreamHandler):
         raw = self.df[diff_common + self.df_only_cols]
         if raw.empty:
             try:
-                raw = pd.DataFrame(self.df[self.input])
+                raw = _pd.DataFrame(self.df[self.input])
             except:
                 raw = self.df
 
@@ -127,7 +189,7 @@ class ProgressConsoleHandler(_logging.StreamHandler):
         :param self: allows access to the attributes and methods of the ProgressConsoleHandler Class
         """
         if 'write' in self.recipe:
-            temp = copy.deepcopy(self.recipe)
+            temp = _copy.deepcopy(self.recipe)
             for wrangle in temp['write']:
                 for key, value in wrangle.items():
                     values = list(value)
@@ -145,7 +207,7 @@ class ProgressConsoleHandler(_logging.StreamHandler):
         :param self: allows access to the attributes and methods of the ProgressConsoleHandler Class
         :param i: used as an index for logging_record
         """
-        otherParameters = copy.deepcopy(self.logging_record[i]['wrangle'][self.wrangles[i]])
+        otherParameters = _copy.deepcopy(self.logging_record[i]['wrangle'][self.wrangles[i]])
         keys = list(otherParameters.keys())
         for key in keys:
             if key == 'input':
@@ -171,14 +233,13 @@ class ProgressConsoleHandler(_logging.StreamHandler):
         self.log_file = log_file
         self._read_params()
         self._write_params()
-        self.template = self.environment.get_template("wrangles/template.jinja")
+        self.template = _Environment(loader=_BaseLoader).from_string(template_jinja)
         for i in range(len(self.logging_record)):
             self.wrangles.append(list(self.logging_record[i]['wrangle'].items())[0][0])
             self._otherParams(i)
 
         results_filename = self.log_file
-        results_template = self.environment.get_template(self.template)
-        # results_template = self.template
+
         context = {
             "data": recipe,
             "logs": self.logging_record,
@@ -189,6 +250,6 @@ class ProgressConsoleHandler(_logging.StreamHandler):
         }
         
         with open(results_filename, mode="w", encoding="utf-8") as results:
-            results.write(results_template.render(context))
+            results.write(self.template.render(context))
             print(f"... wrote {results_filename}")
 
