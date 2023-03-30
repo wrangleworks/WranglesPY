@@ -1,17 +1,72 @@
 """
 Functions to create new columns
 """
-import pandas as _pd
 import uuid as _uuid
-import numpy as _np
 from typing import Union as _Union
 import math as _math
-from ..connectors.test import _generate_cell_values
+import pandas as _pd
+import numpy as _np
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
     BaseLoader as _BaseLoader
 )
+from ..connectors.test import _generate_cell_values
+
+
+def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+    """
+    type: object
+    description: Creates a column that segment and sort data values into bins
+    additionalProperties: false
+    required:
+      - input
+      - output
+      - bins
+    properties:
+      input:
+        type:
+          - array
+        description: Name of input column
+      output:
+        type:
+          - array
+        description: Name of new column
+      bins:
+        type:
+          - integer
+          - array
+        description: Defines the number of equal-width bins in the range
+      labels:
+        type:
+          - string
+          - array
+        description: Labels for the returned bins
+    """
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    for in_col, out_col in zip(input, output):
+      # Dealing with positive infinity. At end of bins list
+      if isinstance(bins, list):
+          if bins[-1] == '+':
+              bins[-1] = _math.inf
+          
+          # Dealing with negative infinity. At start of bins list
+          if bins[0] == '-':
+              bins[0] = -_math.inf
+      
+      df[out_col] = _pd.cut(
+          x=df[in_col],
+          bins=bins,
+          labels=labels,
+          **kwargs
+      )
+    
+    return df
 
 
 def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
@@ -113,7 +168,7 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
     return df
 
 
-def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
+def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Output text using a jinja template
@@ -202,59 +257,4 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     for output_column in output:
         df[output_column] = [_uuid.uuid4() for _ in range(len(df.index))]
 
-    return df
-    
-    
-def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs):
-    """
-    type: object
-    description: Creates a column that segment and sort data values into bins
-    additionalProperties: false
-    required:
-      - input
-      - output
-      - bins
-    properties:
-      input:
-        type:
-          - array
-        description: Name of input column
-      output:
-        type:
-          - array
-        description: Name of new column
-      bins:
-        type:
-          - integer
-          - array
-        description: Defines the number of equal-width bins in the range
-      labels:
-        type:
-          - string
-          - array
-        description: Labels for the returned bins
-    """
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    for in_col, out_col in zip(input, output):
-      # Dealing with positive infinity. At end of bins list
-      if isinstance(bins, list):
-          if bins[-1] == '+':
-              bins[-1] = _math.inf
-          
-          # Dealing with negative infinity. At start of bins list
-          if bins[0] == '-':
-              bins[0] = -_math.inf
-      
-      df[out_col] = _pd.cut(
-          x=df[in_col],
-          bins=bins,
-          labels=labels,
-          **kwargs
-      )
-    
     return df
