@@ -307,7 +307,7 @@ def test_verbose_logging_wrangle_only():
         lines = f.readlines()
     assert (
         lines[4] == '## Wrangles\n' and
-        lines[8] == '1. **convert.case** *Col* into  *Col Lower* \n'
+        lines[8] == "1. **convert.case** *['Col']* into  *Col Lower* \n"
     )
 
 def test_verbose_logging_read_only():
