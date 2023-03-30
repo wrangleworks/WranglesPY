@@ -234,7 +234,7 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
         minItems: 1
         items: 
-          '$ref: #/$defs/sources/read'
+          "$ref": "#/$defs/write/items"
     """ 
 
     if columns is not None:
@@ -332,22 +332,22 @@ def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str)
       - find
       - replace
     properties:
-    input:
-      type:
-        - string
-        - array
-      description: Name or list of input column
-    output:
-      type:
-        - string
-        - array
-      description: Name or list of output column
-    find:
-      type: string
-      description: Pattern to find using regex
-    replace:
-      type: string
-      description: Value to replace the pattern found
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output column
+      find:
+        type: string
+        description: Pattern to find using regex
+      replace:
+        type: string
+        description: Value to replace the pattern found
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -839,11 +839,18 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
       template:
         type: object
         description: A dictionary which defines the template/location as well as the form which the template is input
+        additionalProperties: false
         properties:
-          file: A .jinja file containing the template
-          column: A column containing the jinja template - this will apply to the corresponding row.
-          string: A string which is used as the jinja template
-    """  
+          file:
+            type: string
+            description: A .jinja file containing the template
+          column:
+            type: string
+            description: A column containing the jinja template - this will apply to the corresponding row.
+          string:
+            type: string
+            description: A string which is used as the jinja template
+    """
     if isinstance(output, list):
         output = output[0]
     
