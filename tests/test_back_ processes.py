@@ -63,11 +63,3 @@ def test_user_config_credentials():
     user = os.getenv('WRANGLES_USER','...')
     password = os.getenv('WRANGLES_PASSWORD', '...')
     assert authenticate(user, password) == None
-    
-    
-    
-    
-    
-    
-    
-    
