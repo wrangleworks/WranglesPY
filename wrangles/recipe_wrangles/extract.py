@@ -249,7 +249,7 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
         # If a list of inputs is provided, ensure the list of outputs is the same length
         if len(input) != len(output):
             if len(output) == 1:
-                df[output] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
+                df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
             else:
                 raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
         else:
