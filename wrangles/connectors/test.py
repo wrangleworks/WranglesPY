@@ -88,7 +88,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
             return [_random_date(start_date, end_date) for _ in range(rows)]
         
         # Enter a date
-        elif _re.findall('<date\s\d+-\d+-\d+>', data_type):
+        elif _re.findall(r'<date\s\d+-\d+-\d+>', data_type):
             date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
             return [date for _ in range(rows)]
         
