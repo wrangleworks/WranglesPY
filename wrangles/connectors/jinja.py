@@ -37,7 +37,7 @@ def run(template: dict, context: dict, output_file: str):
 
 _schema['run'] = """
 type: object
-description: Create a jinja template
+description: Use a Jinja template with a context to create a file
 additionalProperties: false
 required:
   - template
@@ -46,10 +46,15 @@ required:
 properties:
   template:
     type: object
+    additionalProperties: false
     description: The template to apply the values to. Either a file or string.
     properties:
-      file: A .jinja file containing the template
-      string: A string which is used as the jinja template
+      file:
+        type: string
+        description: A .jinja file containing the template
+      string:
+        type: string
+        description: A string which is used as the jinja template
   context:
     type: object
     description: A dictionary used to define the output template
