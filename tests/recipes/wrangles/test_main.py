@@ -478,7 +478,7 @@ def test_log_escaped_wildcard(caplog):
         'Col': ['Hello'],
         'Col*': ['WrangleWorks!'],
     })
-    recipe = """
+    recipe = r"""
     wrangles:
       - log:
           columns:

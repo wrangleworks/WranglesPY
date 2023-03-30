@@ -58,7 +58,7 @@ def test_wildcard_expansion_1():
         'col1': ['HEllO'],
         'col*': ['WORLD'],
     })
-    recipe = """
+    recipe = r"""
     wrangles:
       - convert.case:
           input:

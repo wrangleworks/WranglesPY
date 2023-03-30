@@ -9,10 +9,10 @@ _schema = {}
 
 
 def run(url: str, title: str, body: str):
-    """
+    r"""
     Send a generic apprise notification.
 
-    :param url: Apprise notification url. See https:\//github.com/caronc/apprise
+    :param url: Apprise notification url. See https://github.com/caronc/apprise
     :param title: The title of the notification
     :param body: The body of the notification
     """

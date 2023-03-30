@@ -59,8 +59,8 @@ def test_split_text_4():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
-    recipe = """
-    wrangles:
+    recipe = r"""
+      wrangles:
         - split.text:
             input: col1
             output: out1
@@ -77,8 +77,8 @@ def test_split_text_5():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
-    recipe = """
-    wrangles:
+    recipe = r"""
+      wrangles:
         - split.text:
             input: col1
             output: out*
