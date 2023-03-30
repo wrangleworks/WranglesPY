@@ -56,7 +56,7 @@ def test_dictionary_element_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.dictionary_element"
     
 #
 # List Element
@@ -142,7 +142,7 @@ def test_list_element_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
     
 #
 # Highest confidence

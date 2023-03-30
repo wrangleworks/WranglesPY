@@ -1,9 +1,11 @@
 """
 Functions to convert data formats and representations
 """
-import pandas as _pd
 import json as _json
 from typing import Union as _Union
+import re as _re
+import pandas as _pd
+from fractions import Fraction as _Fraction
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -41,9 +43,8 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     desired_case = case.lower()
 
     # If a string provided, convert to list
-    if isinstance(input, str):
-        input = [input]
-        output = [output]
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -92,9 +93,8 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     if output is None: output = input
 
     # If a string provided, convert to list
-    if isinstance(input, str):
-        input = [input]
-        output = [output]
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
         
     # If the datatype is datetime
     if data_type == 'datetime':
@@ -106,6 +106,88 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         for input_column, output_column in zip(input, output):
             df[output_column] = df[input_column].astype(data_type)
 
+    return df
+
+
+def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert fractions to decimals
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+        description: Name of the input column
+      output:
+        type:
+          - string
+        description: Name of the output colum
+      decimals:
+        type:
+          - number
+        description: Number of decimals to round fraction
+    """
+    # Set the output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    for in_col, out_col in zip(input, output):
+      results = []
+      for item in df[in_col].astype(str):
+          fractions = fractions = _re.finditer(r'\b\d+/\d+\b', item)
+          replacement_list = []
+          for match in fractions:
+              fraction_str = match.group()
+              fraction = _Fraction(fraction_str)
+              decimal = round(float(fraction), decimals)
+              replacement_list.append((fraction_str, str(decimal)))
+          for fraction, dec in replacement_list:
+              item = item.replace(fraction, dec)
+          
+          
+          results.append(item)
+          
+      df[out_col] = results
+    
+    return df
+
+
+def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert a JSON representation into an object
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [_json.loads(x) for x in df[input_column]]
+    
     return df
 
 
@@ -131,47 +213,12 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     # Set output column as input if not provided
     if output is None: output = input
     
-    # If a string provided, convert to list
-    if isinstance(input, str):
-        input = [input]
-        output = [output]
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
         
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
         
-    return df
-
-    
-def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Convert a JSON representation into an object
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column. If omitted, the input column will be overwritten
-    """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # If a string provided, convert to list
-    if isinstance(input, str):
-        input = [input]
-        output = [output]
-        
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = [_json.loads(x) for x in df[input_column]]
-    
     return df

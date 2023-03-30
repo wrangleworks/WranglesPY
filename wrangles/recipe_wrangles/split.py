@@ -1,10 +1,66 @@
 """
 Split a single column to multiple columns
 """
+from typing import Union as _Union
+# Rename List to _list to be able to use function name list without clashing
+from typing import List as _list
 import pandas as _pd
 from .. import format as _format
-from typing import Union as _Union
-from typing import List as _list       # Rename List to _list to be able to use function name list without clashing
+
+
+def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: string
+        description: Name of the column to be split
+    """
+    exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
+    df[exploded_df.columns] = exploded_df
+    return df
+
+    
+def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
+    """
+    type: object
+    description: Split a list in a single column to multiple columns.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: Name of the column to be split
+      output:
+        type:
+          - string
+          - array
+        description: Name of column(s) for the results. If providing a single column, use a wildcard (*) to indicate a incrementing integer
+    """
+    # Generate results and pad to a consistent length
+    # as long as the max length
+    max_len = max([len(x) for x in df[input].tolist()])
+    results = [x + [''] * (max_len - len(x)) for x in df[input].tolist()]
+
+    if isinstance(output, str) and '*' in output:
+        # If user has provided a wildcard for the column name
+        # then use that with an incrementing index
+        output_headers = []
+        for i in range(1, len(results[0]) + 1):
+            output_headers.append(output.replace('*', str(i)))
+        df[output_headers] = results
+
+    else:
+        # Else they should have provided a list for all the output columns
+        df[output] = results
+
+    return df
 
 
 def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
@@ -88,61 +144,6 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
         df[output] = df[output].apply(lambda x: x[slice_values[0]:slice_values[1]])
         
     return df
-    
-    
-def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
-    """
-    type: object
-    description: Split a list in a single column to multiple columns.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: Name of the column to be split
-      output:
-        type:
-          - string
-          - array
-        description: Name of column(s) for the results. If providing a single column, use a wildcard (*) to indicate a incrementing integer
-    """
-    # Generate results and pad to a consistent length
-    # as long as the max length
-    max_len = max([len(x) for x in df[input].tolist()])
-    results = [x + [''] * (max_len - len(x)) for x in df[input].tolist()]
-
-    if isinstance(output, str) and '*' in output:
-        # If user has provided a wildcard for the column name
-        # then use that with an incrementing index
-        output_headers = []
-        for i in range(1, len(results[0]) + 1):
-            output_headers.append(output.replace('*', str(i)))
-        df[output_headers] = results
-
-    else:
-        # Else they should have provided a list for all the output columns
-        df[output] = results
-
-    return df
-
-
-def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: string
-        description: Name of the column to be split
-    """
-    exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
-    df[exploded_df.columns] = exploded_df
-    return df
 
 
 def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
@@ -165,17 +166,14 @@ def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame
     """
     if output is None: output = input
     
-    # If the input is a string
-    if isinstance(input, str) and isinstance(output, str):
-        df[output] = _format.tokenize(df[input].values.tolist())
+    # Ensure input and outputs are lists
+    if not isinstance(input, _list): input = [input]
+    if not isinstance(output, _list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     
-    # If the input is multiple columns (a list)
-    elif isinstance(input, _list) and isinstance(output, _list):
-        for in_col, out_col in zip(input, output):
-            df[out_col] = _format.tokenize(df[in_col].values.tolist())
-    
-    # If the input and output are not the same type
-    elif type(input) != type(output):
-        raise ValueError('If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided.')
+    for in_col, out_col in zip(input, output):
+        df[out_col] = _format.tokenize(df[in_col].values.tolist())
             
     return df

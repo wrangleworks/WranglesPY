@@ -82,7 +82,7 @@ def test_function_sub_recipe():
         return df
         
     def write_1(df, type):
-        df.to_excel(f"temp_excel.{type}")
+        df.to_excel(f"tests/temp/excel.{type}")
 
     df = wrangles.recipe.run(
         recipe=main_recipe,

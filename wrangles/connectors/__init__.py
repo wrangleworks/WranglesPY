@@ -2,6 +2,7 @@
 Connectors to read/write from external systems
 """
 
+from . import ckan
 from . import file
 from . import http
 from . import mssql
@@ -17,3 +18,4 @@ from . import salesforce
 from . import recipe
 from . import s3
 from . import train
+from . import jinja

@@ -140,6 +140,23 @@ def test_json():
         and df.iloc[0]['col2'] == 'value2'
     )
 
+def test_similar_to_json():
+    """
+    Test that a variable passed 
+    in that looks like JSON but isn't
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                column1: ${not_json}
+        """,
+        variables={'not_json': '{{something}}'}
+    )
+    assert df['column1'][0] == '{{something}}'
+
 # USER OMITS VARIABLES
 def test_missing_error():
     """

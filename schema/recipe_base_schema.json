@@ -15,7 +15,7 @@
           "description": "Run actions before the main recipe starts",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/actions"
+            "$ref": "#/$defs/run/items"
           }
         },
         "on_success": {
@@ -23,7 +23,7 @@
           "description": "Run actions if the recipe succeeds",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/actions"
+            "$ref": "#/$defs/run/items"
           }
         },
         "on_failure": {
@@ -31,7 +31,7 @@
           "description": "Run actions if the recipe fails",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/actions"
+            "$ref": "#/$defs/run/items"
           }
         }
       }
@@ -42,7 +42,7 @@
       "minItems": 1,
       "maxItems": 1,
       "items": {
-        "$ref": "#/$defs/sources/read"
+        "$ref": "#/$defs/read/items"
       }
     },
     "wrangles": {
@@ -50,8 +50,39 @@
       "description": "A list of wrangles to apply",
       "minItems": 1,
       "items": {
+        "$ref": "#/$defs/wrangles/items"
+      }
+    },
+    "write": {
+      "type": "array",
+      "description": "Export your wrangled data",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/write/items"
+      }
+    }
+  },
+  "$defs": {
+    "read": {
+      "items": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Define import sources",
+        "maxProperties": 1,
+        "additionProperties": false,
+        "patternProperties": {
+          "^custom\\..*": {
+            "type": "object",
+            "description": "Use custom functions."
+          }
+        },
+        "properties": {}
+      }
+    },
+    "wrangles": {
+      "items": {
+        "type": "object",
+        "description": "Wrangle data to be how you need it to be",
+        "additionProperties": false,
         "patternProperties": {
           "^custom\\..*": {
             "type": "object",
@@ -66,12 +97,10 @@
       }
     },
     "write": {
-      "type": "array",
-      "description": "Export your wrangled data",
-      "minItems": 1,
       "items": {
         "type": "object",
-        "additionalProperties": false,
+        "description": "Define targets to export data to",
+        "additionProperties": false,
         "patternProperties": {
           "^custom\\..*": {
             "type": "object",
@@ -80,13 +109,11 @@
         },
         "properties": {}
       }
-    }
-  },
-  "$defs": {
-    "sources": {
-      "read": {
+    },
+    "run": {
+      "items": {
         "type": "object",
-        "description": "Define import sources",
+        "description": "Run actions",
         "maxProperties": 1,
         "additionProperties": false,
         "patternProperties": {
@@ -96,21 +123,7 @@
           }
         },
         "properties": {}
-      },
-      "write": {}
-    },
-    "actions": {
-      "type": "object",
-      "description": "Run actions",
-      "maxProperties": 1,
-      "additionProperties": false,
-      "patternProperties": {
-        "^custom\\..*": {
-          "type": "object",
-          "description": "Use custom functions."
-        }
-      },
-      "properties": {}
+      }
     }
   }
 }

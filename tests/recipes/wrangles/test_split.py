@@ -59,8 +59,8 @@ def test_split_text_4():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
-    recipe = """
-    wrangles:
+    recipe = r"""
+      wrangles:
         - split.text:
             input: col1
             output: out1
@@ -77,8 +77,8 @@ def test_split_text_5():
     data = pd.DataFrame({
     'col1': ['Wrangles@are&very$cool']
     })
-    recipe = """
-    wrangles:
+    recipe = r"""
+      wrangles:
         - split.text:
             input: col1
             output: out*
@@ -279,4 +279,4 @@ def test_tokenize_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for split.tokenize"

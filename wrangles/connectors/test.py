@@ -50,7 +50,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
         elif _re.match(r'^\<int(\(\d+-\d+\))?\>$', data_type):
             # Match <int(1-10)> -> where (1-10) sets the range
             try:
-                int_range = _re.findall('\((\d+-\d+)\)', data_type)[0].split("-")
+                int_range = _re.findall(r'\((\d+-\d+)\)', data_type)[0].split("-")
                 int_range = [int(val) for val in int_range]
             except:
                 int_range = [1, 100]
@@ -59,7 +59,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
         elif _re.match(r'^\<number(\(\d+(\.\d+)?-\d+(\.\d+)?\))?\>$', data_type):
             # Match <number(2.718-3.141)> -> where (2.718-3.141) sets the range and number of decimal places
             try:
-                num_range = _re.findall('\((\d+(\.\d+)?-\d+(\.\d+)?)\)', data_type)[0][0].split("-")
+                num_range = _re.findall(r'\((\d+(\.\d+)?-\d+(\.\d+)?)\)', data_type)[0][0].split("-")
                 try:
                     num_decimals = len(num_range[0].split('.')[1])
                 except:
@@ -69,10 +69,10 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
                 num_decimals = 2
             return [round(_random.uniform(float(num_range[0]), float(num_range[1])), num_decimals) for _ in range(rows)]
 
-        elif _re.match('^\<code(\(\d+\))?\>$', data_type):
+        elif _re.match(r'^\<code(\(\d+\))?\>$', data_type):
             # Match <code> or <code(8)> -> where (8) sets the length, default 8
             try:
-                length = int(_re.findall('\((\d+)\)', data_type)[0])
+                length = int(_re.findall(r'\((\d+)\)', data_type)[0])
             except:
                 length = 8
             return [''.join(_random.choice(_string.ascii_uppercase + _string.digits) for _ in range(length)) for _ in range(rows)]
@@ -81,15 +81,15 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
             return [_pd.to_datetime('today').normalize() for _ in range(rows)]
         
         # Get a random date from a range of dates
-        elif _re.findall('<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
-            date_range_string = _re.findall('\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
+        elif _re.findall(r'<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
+            date_range_string = _re.findall(r'\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
             start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
             end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
             return [_random_date(start_date, end_date) for _ in range(rows)]
         
         # Enter a date
-        elif _re.findall('<date\s\d+-\d+-\d+>', data_type):
-            date = _pd.to_datetime(_re.findall('\d+-\d+-\d+', data_type)[0])
+        elif _re.findall(r'<date\s\d+-\d+-\d+>', data_type):
+            date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
             return [date for _ in range(rows)]
         
         else:

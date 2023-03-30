@@ -67,7 +67,7 @@ def test_remove_duplicates_4():
 
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
 #
 # Trim
@@ -79,6 +79,18 @@ def test_trim_1():
     - format.trim:
         input: 
         - Alone
+        output: Trim
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Trim'] == 'Wilson!'
+    
+# trim input is a string
+def test_trim_2():
+    data = pd.DataFrame([['         Wilson!         ']], columns=['Alone'])
+    recipe = """
+    wrangles:
+    - format.trim:
+        input: Alone
         output: Trim
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
@@ -154,7 +166,7 @@ def test_prefix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #    
 # Suffix
@@ -226,7 +238,7 @@ def test_suffix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "If providing a list of inputs/outputs, a corresponding list of inputs/outputs must also be provided."
+    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
 #
 # date format
@@ -244,3 +256,41 @@ def test_data_format_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col'] == '1992-08-13'
+    
+#
+# pad
+#
+
+# Normal operation left
+def test_pad_1():
+  data = pd.DataFrame({
+    'col1': ['7']
+  })
+  recipe = """
+  wrangles:
+    - format.pad:
+        input: col1
+        output: out1
+        pad_length: 3
+        side: left
+        char: 0
+  """
+  df = wrangles.recipe.run(recipe, dataframe=data)
+  assert df.iloc[0]['out1'] == '007'
+  
+# output no specified
+def test_pad_2():
+  data = pd.DataFrame({
+    'col1': ['7']
+  })
+  recipe = """
+  wrangles:
+    - format.pad:
+        input: col1
+        pad_length: 3
+        side: left
+        char: 0
+  """
+  df = wrangles.recipe.run(recipe, dataframe=data)
+  assert df.iloc[0]['col1'] == '007'
+  
