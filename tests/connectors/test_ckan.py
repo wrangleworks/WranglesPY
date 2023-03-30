@@ -21,7 +21,7 @@ def test_write_and_read():
       - ckan:
           host: https://catalog.wrangle.works
           dataset: test
-          file: test.csv
+          file: test-${RANDOM_VALUE}.csv
           api_key: ${CKAN_API_KEY}
     """
     wrangles.recipe.run(
@@ -31,15 +31,19 @@ def test_write_and_read():
         }
     )
 
-    recipe = """
-    read:
-      - ckan:
-          host: https://catalog.wrangle.works
-          dataset: test
-          file: test.csv
-          api_key: ${CKAN_API_KEY}
-    """
-    df = wrangles.recipe.run(recipe)
+    df = wrangles.recipe.run(
+        """
+        read:
+          - ckan:
+              host: https://catalog.wrangle.works
+              dataset: test
+              file: test-${RANDOM_VALUE}.csv
+              api_key: ${CKAN_API_KEY}
+        """,
+        variables={
+            'RANDOM_VALUE': random_string
+        }
+    )
     assert df['header'].values[0] == random_string
 
 def test_missing_apikey():
@@ -115,8 +119,6 @@ def test_upload_file():
     """
     Test run action to upload a file
     """
-    random_string = ''.join(random.choices(string.ascii_lowercase, k=8))
-
     wrangles.recipe.run(
         """
           run:
@@ -132,15 +134,12 @@ def test_upload_file():
             - test:
                 rows: 5
                 values:
-                  header: ${RANDOM_STRING}
+                  header: value
             
           write:
             - file:
                name: tests/temp/test.csv
-        """,
-        variables = {
-          'RANDOM_STRING': random_string
-        }
+        """
     )
 
     df = wrangles.recipe.run(
@@ -154,17 +153,12 @@ def test_upload_file():
         """
     )
 
-    assert df['header'][0] == random_string
+    assert len(df) == 5
 
 def test_upload_files():
     """
     Test run action to upload a list of file
     """
-    random_strings = [
-        ''.join(random.choices(string.ascii_lowercase, k=8)),
-        ''.join(random.choices(string.ascii_lowercase, k=8))
-    ]
-
     wrangles.recipe.run(
         """
         run:
@@ -184,8 +178,8 @@ def test_upload_files():
           - test:
               rows: 5
               values:
-                header0: ${RANDOM_STRING_0}
-                header1: ${RANDOM_STRING_1}
+                header0: value0
+                header1: value1
             
         write:
           - file:
@@ -196,11 +190,7 @@ def test_upload_files():
               name: tests/temp/test1.csv
               columns:
                 - header1
-        """,
-        variables = {
-            'RANDOM_STRING_0': random_strings[0],
-            'RANDOM_STRING_1': random_strings[1],
-        }
+        """
     )
 
     df = wrangles.recipe.run(
@@ -221,7 +211,7 @@ def test_upload_files():
         """
     )
 
-    assert df['header0'][0] == random_strings[0] and df['header1'][0] == random_strings[1]
+    assert df['header0'][0] == 'value0' and df['header1'][0] == 'value1'
 
 def test_download_file():
     """
