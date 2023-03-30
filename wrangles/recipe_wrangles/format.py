@@ -1,165 +1,9 @@
 """
 Functions to re-format data
 """
+from typing import Union as _Union
 import pandas as _pd
 from .. import format as _format
-from typing import Union as _Union
-
-
-def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
-    """
-    Rearrange price breaks
-    """
-    df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
-    return df
-
-
-def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove duplicates from a list. Preserves input order.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: string
-        description: Name of the input column
-      output:
-        type: string
-        description: Name of the output column
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # If the input and output are not the same type
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist())
-
-    return df
-
-
-def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove excess whitespace at the start and end of text.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column
-    """
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if isinstance(input, str): input = [input]
-    if isinstance(output, str): output = [output]
-
-    # Loop through all requested columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str.strip()
-
-    return df
-    
-
-def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Add a prefix to a column
-    additionalProperties: false
-    required:
-      - input
-      - value
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column
-      value:
-        type:
-          - string
-        description: Prefix value to add
-      output:
-        type:
-          - string
-          - array
-        description: (Optional) Name of the output column
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # If the input and output are not the same type
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = value + df[input_column].astype(str)
-
-    return df
-
-
-def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Add a suffix to a column
-    additionalProperties: false
-    required:
-        - input
-        - value
-    properties:
-        input:
-          type:
-            - string
-            - array
-          description: Name of the input column
-        value:
-          type: string
-          description: Suffix value to add
-        output:
-          type:
-            - string
-            - array
-          description: (Optional) Name of the output column
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # If the input and output are not the same type
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(str) + value
-  
-    return df
 
 
 def dates(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd.DataFrame:
@@ -203,7 +47,7 @@ def dates(df: _pd.DataFrame, input: str, format: str, output: str = None) -> _pd
     return df
     
     
-def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output =  None):
+def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output =  None) -> _pd.DataFrame:
     """
     type: object
     description: Pad a string to a fixed length
@@ -253,4 +97,160 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
         df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
     
     return df
+
+
+def prefix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Add a prefix to a column
+    additionalProperties: false
+    required:
+      - input
+      - value
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      value:
+        type:
+          - string
+        description: Prefix value to add
+      output:
+        type:
+          - string
+          - array
+        description: (Optional) Name of the output column
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # If the input and output are not the same type
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = value + df[input_column].astype(str)
+
+    return df
+
+
+def remove_duplicates(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove duplicates from a list. Preserves input order.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: string
+        description: Name of the input column
+      output:
+        type: string
+        description: Name of the output column
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # If the input and output are not the same type
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist())
+
+    return df
+
+
+def suffix(df: _pd.DataFrame, input: str, value: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Add a suffix to a column
+    additionalProperties: false
+    required:
+        - input
+        - value
+    properties:
+        input:
+          type:
+            - string
+            - array
+          description: Name of the input column
+        value:
+          type: string
+          description: Suffix value to add
+        output:
+          type:
+            - string
+            - array
+          description: (Optional) Name of the output column
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # If the input and output are not the same type
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].astype(str) + value
   
+    return df
+
+
+def trim(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove excess whitespace at the start and end of text.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+    """
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+
+    # Loop through all requested columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].str.strip()
+
+    return df
+
+
+# Undocumented
+def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
+    """
+    Rearrange price breaks
+    """
+    df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
+    return df

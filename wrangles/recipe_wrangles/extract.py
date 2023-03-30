@@ -1,12 +1,12 @@
 """
 Functions to run extraction wrangles
 """
-import pandas as _pd
 from typing import Union as _Union
-from .. import extract as _extract
-from .. import format as _format
 import re as _re
 from collections import OrderedDict as _OrderedDict
+import pandas as _pd
+from .. import extract as _extract
+from .. import format as _format
 
 
 def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
@@ -138,6 +138,44 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     return df
 
 
+def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract text properties in brackets from the input
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
+
+    return df
+
+
 def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
@@ -178,42 +216,6 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 
     return df
 
-def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Extract single values using regex
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: Name of the input column.
-    output:
-      type: string
-      description: Name of the output column.
-      find:
-        type: string
-        description: Pattern to find using regex
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
-    
-    return df
-
 
 def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
     """
@@ -249,7 +251,7 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
         # If a list of inputs is provided, ensure the list of outputs is the same length
         if len(input) != len(output):
             if len(output) == 1:
-                df[output] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
+                df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
             else:
                 raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
         else:
@@ -295,138 +297,6 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
             
         df[output] = result
         
-    return df
-
-
-def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Extract elements from strings containing html. Requires WrangleWorks Account.
-    additionalProperties: false
-    required:
-      - input
-      - output
-      - data_type
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name or list of input columns.
-      output:
-        type:
-          - string
-          - array
-        description: Name or list of output columns
-      data_type:
-        type: string
-        description: The type of data to extract
-        enum:
-          - text
-          - links
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
-            
-    return df
-
-
-def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
-    """
-    type: object
-    description: Extract text properties from the input. Requires WrangleWorks Account.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output columns
-      property_type:
-        type: string
-        description: The specific type of properties to extract
-      return_data_type:
-        type: string
-        description: The format to return the data, as a list or as a string
-        enum:
-          - Colours
-          - Materials
-          - Shapes
-          - Standards
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
-    
-    return df
-
-
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Extract text properties in brackets from the input
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output columns
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
-
     return df
 
 
@@ -576,5 +446,136 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
         results.append(len(_pd.date_range(start, end, freq=range_object[range])[1:]))
     
     df[output] = results
+    
+    return df
+
+
+def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract elements from strings containing html. Requires WrangleWorks Account.
+    additionalProperties: false
+    required:
+      - input
+      - output
+      - data_type
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      data_type:
+        type: string
+        description: The type of data to extract
+        enum:
+          - text
+          - links
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
+            
+    return df
+
+
+def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract text properties from the input. Requires WrangleWorks Account.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+      property_type:
+        type: string
+        description: The specific type of properties to extract
+      return_data_type:
+        type: string
+        description: The format to return the data, as a list or as a string
+        enum:
+          - Colours
+          - Materials
+          - Shapes
+          - Standards
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    
+    return df
+
+
+def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Extract single values using regex
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: Name of the input column.
+    output:
+      type: string
+      description: Name of the output column.
+      find:
+        type: string
+        description: Pattern to find using regex
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
     
     return df

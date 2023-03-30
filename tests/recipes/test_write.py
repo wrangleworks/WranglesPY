@@ -5,7 +5,7 @@ import wrangles
 import pandas as pd
 
 
-def test_write_columns():
+def test_specify_columns():
     """
     Test writing and selecting only a subset of columns
     """
@@ -22,7 +22,7 @@ def test_write_columns():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns == ['col1']
 
-def test_write_columns_wildcard():
+def test_specify_columns_wildcard():
     """
     Test writing and selecting only a subset of columns using a wildcard
     """
@@ -39,7 +39,7 @@ def test_write_columns_wildcard():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns.tolist() == ['col1','col2']
 
-def test_write_columns_regex():
+def test_specify_columns_regex():
     """
     Test writing and selecting only a subset of columns using regex
     """
@@ -57,7 +57,7 @@ def test_write_columns_regex():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns.tolist() == ['col1','col2']
 
-def test_write_not_columns():
+def test_specify_not_columns():
     """
     Test writing and excluding a subset of columns
     """
@@ -74,7 +74,7 @@ def test_write_not_columns():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns == ['col1']
 
-def test_write_not_columns_wildcard():
+def test_specify_not_columns_wildcard():
     """
     Test writing and excluding a subset of columns using a wildcard
     """
@@ -92,7 +92,7 @@ def test_write_not_columns_wildcard():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns == ['3col']
 
-def test_write_not_columns_regex():
+def test_specify_not_columns_regex():
     """
     Test writing and excluding a subset of columns using a regex
     """
@@ -110,7 +110,7 @@ def test_write_not_columns_regex():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.columns == ['3col']
 
-def test_write_where():
+def test_specify_where():
     """
     Test writing and applying a WHERE sql criteria
     """
@@ -128,3 +128,45 @@ def test_write_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col1'].values.tolist() == ['val1', 'val3']
+
+def test_multiple():
+    """
+    Test writing more than one output
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          test:
+            rows: 3
+            values:
+              Column1: aaa
+              Column2: bbb
+        write:
+          - file:
+              name: tests/temp/temp.txt
+          - file:
+              name: tests/temp/temp.csv
+        """
+    )
+    df1 = wrangles.recipe.run(
+        """
+        read:
+          file:
+              name: tests/temp/temp.txt
+        """
+    )
+    df2 = wrangles.recipe.run(
+        """
+        read:
+          file:
+            name: tests/temp/temp.csv
+        """
+    )
+    assert (
+        df1.columns.tolist() == ['Column1', 'Column2'] and
+        len(df1) == 3 and
+        df1['Column1'][0] == 'aaa' and
+        df2.columns.tolist() == ['Column1', 'Column2'] and
+        len(df2) == 3 and
+        df2['Column2'][0] == 'bbb'
+    )

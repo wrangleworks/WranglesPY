@@ -16,7 +16,7 @@ def test_template_string():
                 template:
                     string: This is a {{length}} {{type}} screwdriver
                 output_file: tests/temp/temp.jinja
-                context_dictionary:
+                context:
                     length: "3 inch"
                     type: flat head
         """
@@ -40,7 +40,7 @@ def test_template_file():
                 template:
                   file: tests/samples/jinja_generic_template.jinja
                 output_file: tests/temp/output_template.jinja
-                context_dictionary:
+                context:
                   category_fields:
                     - category: All
                       cat_fields:
@@ -53,7 +53,7 @@ def test_template_file():
                         - field: quantity
 
         wrangles:
-            - jinja:
+            - create.jinja:
                 input: data column
                 output: description
                 template: 
@@ -81,7 +81,7 @@ def test_bad_filepath():
                     template:
                       file: doesn't exist
                     output_file: tests/temp/output_template.jinja
-                    context_dictionary:
+                    context:
                       placeholder: value
             """
         )
@@ -100,7 +100,7 @@ def test_no_template():
                     template:
                       invalid: input
                     output_file: tests/temp/output_template.jinja
-                    context_dictionary:
+                    context:
                       placeholder: value
             """
         )

@@ -1,10 +1,10 @@
 """
 Functions to convert data formats and representations
 """
-import pandas as _pd
 import json as _json
 from typing import Union as _Union
 import re as _re
+import pandas as _pd
 from fractions import Fraction as _Fraction
 
 
@@ -109,73 +109,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     return df
 
 
-def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Convert an object to a JSON representation.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column. If omitted, the input column will be overwritten
-    """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-        
-    # Loop through and apply for all columns
-    for input_columns, output_column in zip(input, output):
-        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
-        
-    return df
-
-    
-def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Convert a JSON representation into an object
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column. If omitted, the input column will be overwritten
-    """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-        
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = [_json.loads(x) for x in df[input_column]]
-    
-    return df
-
-
-def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None):
+def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None) -> _pd.DataFrame:
     """
     type: object
     description: Convert fractions to decimals
@@ -221,4 +155,70 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
           
       df[out_col] = results
     
+    return df
+
+
+def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert a JSON representation into an object
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [_json.loads(x) for x in df[input_column]]
+    
+    return df
+
+
+def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert an object to a JSON representation.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+        
+    # Loop through and apply for all columns
+    for input_columns, output_column in zip(input, output):
+        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        
     return df

@@ -440,7 +440,7 @@ def test_custom_one_output():
           model_id: 1eddb7e8-1b2b-4a52
     """
     df =  wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Fact Out'][0] == 'Charizard'
+    assert df['Fact Out'][0] == ['Charizard']
 
 # Incorrect model_id missing "${ }" around value
 def test_extract_custom_3():
@@ -550,7 +550,10 @@ def test_extract_custom_multi_input():
           model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
-    assert df.iloc[0]['Fact Output'][0] in ['Charizard', 'Pikachu']
+    assert (
+        'Charizard' in df['Fact Output'][0] and
+        'Pikachu' in df['Fact Output'][0]
+    )
 
 # Multiple output and inputs
 def test_extract_custom_mulit_input_output():

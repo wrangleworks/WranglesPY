@@ -4,6 +4,14 @@ Standalone functions
 These will be called directly, without belonging to a parent module
 """
 import types as _types
+import logging as _logging
+from typing import Union as _Union
+import sqlite3 as _sqlite3
+import re as _re
+import numexpr as _ne
+import pandas as _pd
+import wrangles as _wrangles
+import yaml as _yaml
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -11,16 +19,6 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
-import logging as _logging
-
-import numexpr as _ne
-import pandas as _pd
-from typing import Union as _Union
-import sqlite3 as _sqlite3
-import re as _re
-from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemLoader, BaseLoader as _BaseLoader
-import wrangles as _wrangles
-import yaml as _yaml
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -64,6 +62,80 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     for input_column, output_column in zip(input, output):
         df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
         
+    return df
+
+
+def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Add or Subtract time from a date
+    additionalProperties: false
+    required:
+      - input
+      - operation
+      - kwargs
+    properties:
+      input:
+        type: string
+        description: Name of the dates column
+      operation:
+        type: string
+        description: Date operation
+        enum:
+          - add
+          - subtract
+      output:
+        type: string
+        description: Name of the output column of dates
+      time_unit:
+        type: string
+        description: time unit for operation
+        enum:
+          - years
+          - months
+          - weeks
+          - days
+          - hours
+          - minutes
+          - seconds
+          - milliseconds
+      time_value:
+        type: number
+        description: time unit value for operation
+    """
+    # Get all of the date parameters for operation
+    offset = _pd.DateOffset(**{time_unit: time_value})
+
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        # Converting data to datetime
+        df_temp = _pd.to_datetime(df[input_column])
+        
+        results = []
+        if operation == 'add':
+            for date in df_temp:
+                results.append(date + offset)
+                
+        elif operation == 'subtract':
+            for date in df_temp:
+                results.append(date - offset)
+                
+        else:
+            raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
+        
+        df[output_column] = results
+
     return df
 
 
@@ -234,7 +306,7 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
         minItems: 1
         items: 
-          '$ref: #/$defs/sources/read'
+          "$ref": "#/$defs/write/items"
     """ 
 
     if columns is not None:
@@ -276,6 +348,121 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         write = _yaml.dump({'write': write})
         _wrangles.recipe.run(write, dataframe=df)
 
+    return df
+
+
+def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a mathematical calculation.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+      output:
+        type: string
+        description: The column to output the results to
+    """
+    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    return df
+
+
+def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a mathematical calculation.
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: string
+        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+      output:
+        type: string
+        description: The column to output the results to
+    """
+    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    return df
+
+
+def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, functions: _Union[_types.FunctionType, list] = []) -> _pd.DataFrame:
+    """
+    type: object
+    description: Run a recipe as a Wrangle. Recipe-ception,
+    additionalProperties: false
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: file name of the recipe
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe
+    """
+    original_df = df.copy() # copy of the original df
+    
+    # Running recipe wrangle
+    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
+    
+    # column output logic
+    if output_columns is None:
+        df = df_temp
+    else:
+        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
+        
+    return df
+
+
+def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+    """
+    type: object
+    description: Remove all the elements that occur in one list from another.
+    additionalProperties: false
+    required:
+      - input
+      - to_remove
+      - output
+    properties:
+      input:
+        type: 
+          - string
+          - array
+        description: Name of column to remove words from
+      to_remove:
+        type: array
+        description: Column or list of columns with a list of words to be removed
+      output:
+        type: string
+        description: Name of the output columns
+      tokenize_to_remove:
+        type: boolean
+        description: Tokenize all to_remove inputs
+      ignore_case:
+        type: boolean
+        description: Ignore input and to_remove case
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+    
     return df
 
 
@@ -332,22 +519,22 @@ def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str)
       - find
       - replace
     properties:
-    input:
-      type:
-        - string
-        - array
-      description: Name or list of input column
-    output:
-      type:
-        - string
-        - array
-      description: Name or list of output column
-    find:
-      type: string
-      description: Pattern to find using regex
-    replace:
-      type: string
-      description: Value to replace the pattern found
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output column
+      find:
+        type: string
+        description: Pattern to find using regex
+      replace:
+        type: string
+        description: Value to replace the pattern found
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -363,6 +550,58 @@ def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str)
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):  
         df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
+    
+    return df
+
+
+def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
+    additionalProperties: false
+    required:
+      - command
+    properties:
+      command:
+        type: string
+        description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+    """
+    if command.strip().split()[0].upper() != 'SELECT':
+      raise ValueError('Only SELECT statements are supported for sql wrangles')
+
+    # Create an in-memory db with the contents of the current dataframe
+    db = _sqlite3.connect(':memory:')
+    
+    # List of columns changed
+    cols_changed = []
+    for cols in df.columns:
+        count = 0        
+        for row in df[cols]:
+            # If row contains objects, then convert to json
+            if isinstance(row, dict):
+                # Check if there is an object in the column and record column name to convert to json
+                cols_changed.append(cols)
+                break
+            # Only check the first 10 rows of a column
+            count += 1
+            if count > 10: break
+            
+        if cols in cols_changed:
+            # If the column is in cols_changed then convert to json
+            _to_json(df=df, input=cols)
+    
+    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
+    
+    # Execute the user's query against the database and return the results
+    df = _pd.read_sql(command, db)
+    db.close()
+    
+    # Change the columns back to an object
+    for new_cols in df.columns:
+        
+        if new_cols in cols_changed:
+            # If the column is in cols changed, then change back to an object
+            _from_json(df=df, input=new_cols)
     
     return df
 
@@ -575,306 +814,5 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
-
-    return df
-
-
-def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove all the elements that occur in one list from another.
-    additionalProperties: false
-    required:
-      - input
-      - to_remove
-      - output
-    properties:
-      input:
-        type: 
-          - string
-          - array
-        description: Name of column to remove words from
-      to_remove:
-        type: array
-        description: Column or list of columns with a list of words to be removed
-      output:
-        type: string
-        description: Name of the output columns
-      tokenize_to_remove:
-        type: boolean
-        description: Tokenize all to_remove inputs
-      ignore_case:
-        type: boolean
-        description: Ignore input and to_remove case
-    """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
-    
-    return df
-
-
-def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
-    additionalProperties: false
-    required:
-      - command
-    properties:
-      command:
-        type: string
-        description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
-    """
-    if command.strip().split()[0].upper() != 'SELECT':
-      raise ValueError('Only SELECT statements are supported for sql wrangles')
-
-    # Create an in-memory db with the contents of the current dataframe
-    db = _sqlite3.connect(':memory:')
-    
-    # List of columns changed
-    cols_changed = []
-    for cols in df.columns:
-        count = 0        
-        for row in df[cols]:
-            # If row contains objects, then convert to json
-            if isinstance(row, dict):
-                # Check if there is an object in the column and record column name to convert to json
-                cols_changed.append(cols)
-                break
-            # Only check the first 10 rows of a column
-            count += 1
-            if count > 10: break
-            
-        if cols in cols_changed:
-            # If the column is in cols_changed then convert to json
-            _to_json(df=df, input=cols)
-    
-    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
-    
-    # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db)
-    db.close()
-    
-    # Change the columns back to an object
-    for new_cols in df.columns:
-        
-        if new_cols in cols_changed:
-            # If the column is in cols changed, then change back to an object
-            _from_json(df=df, input=new_cols)
-    
-    return df
-
-
-def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
-      output:
-        type: string
-        description: The column to output the results to
-    """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
-    return df
-
-
-def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
-      output:
-        type: string
-        description: The column to output the results to
-    """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
-    return df
-    
-
-def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, functions: _Union[_types.FunctionType, list] = []):
-    """
-    type: object
-    description: Run a recipe as a Wrangle. Recipe-ception,
-    additionalProperties: false
-    required:
-      - name
-    properties:
-      name:
-        type: string
-        description: file name of the recipe
-      variables:
-        type: object
-        description: A dictionary of variables to pass to the recipe
-    """
-    original_df = df.copy() # copy of the original df
-    
-    # Running recipe wrangle
-    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
-    
-    # column output logic
-    if output_columns is None:
-        df = df_temp
-    else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
-        
-    return df
-
-
-def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Add or Subtract time from a date
-    additionalProperties: false
-    required:
-      - input
-      - operation
-      - kwargs
-    properties:
-      input:
-        type: string
-        description: Name of the dates column
-      operation:
-        type: string
-        description: Date operation
-        enum:
-          - add
-          - subtract
-      output:
-        type: string
-        description: Name of the output column of dates
-      time_unit:
-        type: string
-        description: time unit for operation
-        enum:
-          - years
-          - months
-          - weeks
-          - days
-          - hours
-          - minutes
-          - seconds
-          - milliseconds
-      time_value:
-        type: number
-        description: time unit value for operation
-    """
-    # Get all of the date parameters for operation
-    offset = _pd.DateOffset(**{time_unit: time_value})
-
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        # Converting data to datetime
-        df_temp = _pd.to_datetime(df[input_column])
-        
-        results = []
-        if operation == 'add':
-            for date in df_temp:
-                results.append(date + offset)
-                
-        elif operation == 'subtract':
-            for date in df_temp:
-                results.append(date - offset)
-                
-        else:
-            raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
-        
-        df[output_column] = results
-
-    return df
-
-def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
-    """
-    type: object
-    description: Output text using a jinja template
-    additionalProperties: false
-    required:
-      - output
-      - template
-    properties:
-      input:
-        type: string
-        description: |
-          Specify a name of column containing a dictionary of elements to be used in jinja template.
-          Otherwise, the column headers will be used as keys.
-      output:
-        type: string
-        description: Name of the column to be output to.
-      template:
-        type: object
-        description: A dictionary which defines the template/location as well as the form which the template is input
-        properties:
-          file: A .jinja file containing the template
-          column: A column containing the jinja template - this will apply to the corresponding row.
-          string: A string which is used as the jinja template
-    """  
-    if isinstance(output, list):
-        output = output[0]
-    
-    if input:
-        input = input[0]
-        input_list = df[input]
-    else:
-        input_list = df.to_dict(orient='records')
-
-    if len(template) > 1:
-        raise Exception('Template must have only one key specified')
-
-    # Template input as a file
-    if 'file' in template:
-        environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
-        desc_template = environment.get_template(template['file'])
-        df[output] = [desc_template.render(row) for row in input_list]
-
-    # Template input as a column of the dataframe
-    elif 'column' in list(template.keys()):
-        df[output] = [
-            _Environment(loader=_BaseLoader).from_string(template).render(row)
-            for (template, row) in zip(df[template['column']], input_list)
-        ]
-        
-    # Template input as a string
-    elif 'string' in list(template.keys()):
-        desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
-        df[output] = [desc_template.render(row) for row in input_list]
-  
-    else:
-        raise Exception("'file', 'column' or 'string' not found")
 
     return df

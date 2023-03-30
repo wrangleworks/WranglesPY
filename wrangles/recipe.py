@@ -105,7 +105,6 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
         new_recipe_object = recipe_object
 
     return new_recipe_object
-        
 
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
@@ -307,8 +306,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df[output_column] = [custom_function(cell, **params) for cell in df[input_column].to_list()]
 
                 else:
-                    pass # pragma: no cover
-                    # shouldn't get here
+                    df[params['output']] = df[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
@@ -340,6 +338,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
             progress.emit(log_record)
 
     return df
+
 
 def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
     """

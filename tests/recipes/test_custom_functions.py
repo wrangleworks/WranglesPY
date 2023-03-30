@@ -11,18 +11,22 @@ def test_function_not_found():
     Test that if a custom function isn't found
     that the user gets a relevant error message
     """
-    data = pd.DataFrame({
-        'col':['Hello World']
-    })
-    recipe = """
-    wrangles:
-      - custom.does_not_exists:
-          input: col
-          output: out
-    """
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Custom Wrangle function: "custom.does_not_exists" not found'
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.does_not_exists:
+                  input: col
+                  output: out
+            """,
+            dataframe = pd.DataFrame({
+                'col':['Hello World']
+            })
+        )
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'Custom Wrangle function: "custom.does_not_exists" not found'
+    )
 
 
 def test_run():
@@ -91,6 +95,29 @@ def test_wrangle():
 
     assert len(df) == 5
 
+def test_write():
+    """
+    Test using a custom function for write
+    """
+    def custom_funct_write(df, end_str):
+        df['out1'] = df['out1'].apply(lambda x: x + end_str)
+        return df
+
+    data = pd.DataFrame({
+        'col1': ['Hello', 'Wrangles']
+    })
+    recipe = """
+    wrangles:
+      - convert.case:
+          input: col1
+          output: out1
+          case: upper
+    write:
+      - custom.custom_funct_write:
+          end_str: ' Ending'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data, functions=[custom_funct_write])
+    assert df.iloc[0]['out1'] == 'HELLO Ending'
 
 def test_no_parameters():
     """
@@ -126,23 +153,6 @@ def test_with_parameters():
 
     assert df.iloc[0]['col1'] == 'hello world'
 
-def test_custom_function():
-    def my_function(df, input, output):
-        df[output] = df[input].apply(lambda x: x[::-1])
-        return df
-
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function:
-            input: col1
-            output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
-
-    assert df.iloc[0]['out1'] == 'esreveR esreveR'
-    
-
 def test_custom_function_cell():
     # using cell as args[0]
     def my_function(cell):    
@@ -173,3 +183,130 @@ def test_custom_function_cell_2():
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
 
     assert df.iloc[0]['col1'] == 'Reverse Reverse xyz'
+
+# Custom Function
+def test_custom_function_1():
+    data = pd.DataFrame({
+        'Col1': ['Hello One', 'Hello Two'],
+    })
+    def custom_func(df, input, output):
+        second_token = []
+        for x in range(len(df)):
+            second_token.append(df[input][x].split()[1])
+        df[output] = second_token
+        return df
+    recipe = """
+    wrangle:
+        - custom.custom_func:
+            input: Col1
+            output: Col2
+            
+        - convert.case:
+            input: Col2
+            output: Col3
+    write:
+        dataframe:
+            columns:
+                - Col1
+                - Col2
+    """
+    df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
+    assert df.iloc[1]['Col2'] == 'Two'
+
+# Custom Function no output specified
+def test_custom_function_2():
+    data = pd.DataFrame({
+        'Col1': ['Hello One', 'Hello Two'],
+    })
+    def custom_func(df, input):
+        second_token = []
+        for x in range(len(df)):
+            second_token.append(df[input][x].split()[1])
+        df[input] = second_token
+        return df
+    recipe = """
+    wrangles:
+        - custom.custom_func:
+            input: Col1
+    write:
+        dataframe:
+            columns:
+                - Col1
+    """
+    df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
+    assert df.iloc[1]['Col1'] == 'Two'
+    
+
+# Custom Function before wrangles
+def test_custom_function_2():
+    
+    def custom_func():
+        df = pd.DataFrame({
+            'Col1': ['Hello One', 'Hello Two'],
+        })
+        return df
+        
+    recipe = """
+    read:
+        - custom.custom_func: {}
+        
+    wrangles:
+        - convert.case:
+            input: Col1
+            case: upper
+    write:
+        dataframe:
+            columns:
+                - Col1
+    """
+    df = wrangles.recipe.run(recipe, functions=[custom_func])
+    assert df.iloc[0]['Col1'] == 'HELLO ONE'
+
+
+def test_row_function():
+    """
+    Test a custom function that applies to an individual row
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                val1: 1
+                val2: 2
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+        """,
+        functions=[add_numbers]
+    )
+    assert df['val3'][0] == 3
+
+def test_row_function_list_out():
+    """
+    Test a custom function that applies to an individual row with multi column outputs
+    """
+    def add_three(val1, val2):
+        return [val1 + 3, val2 + 3]
+    
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                val1: 1
+                val2: 2
+        wrangles:
+          - custom.add_three:
+              output:
+                - val3
+                - val4
+        """,
+        functions=[add_three]
+    )
+    assert df['val3'][0] == 4 and df['val4'][0] == 5
