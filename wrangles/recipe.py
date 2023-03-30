@@ -101,8 +101,7 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
         new_recipe_object = recipe_object
 
     return new_recipe_object
-        
-    
+
 
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
@@ -324,6 +323,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 df = obj(df, **params)
 
     return df
+
 
 def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
     """
