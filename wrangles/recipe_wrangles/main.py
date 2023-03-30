@@ -18,7 +18,6 @@ import pandas as _pd
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
-from jinja2 import Environment as _Environment, FileSystemLoader as _FileSystemLoader, BaseLoader as _BaseLoader
 import wrangles as _wrangles
 import yaml as _yaml
 
@@ -816,72 +815,5 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
             raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
         
         df[output_column] = results
-
-    return df
-
-def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None):
-    """
-    type: object
-    description: Output text using a jinja template
-    additionalProperties: false
-    required:
-      - output
-      - template
-    properties:
-      input:
-        type: string
-        description: |
-          Specify a name of column containing a dictionary of elements to be used in jinja template.
-          Otherwise, the column headers will be used as keys.
-      output:
-        type: string
-        description: Name of the column to be output to.
-      template:
-        type: object
-        description: A dictionary which defines the template/location as well as the form which the template is input
-        additionalProperties: false
-        properties:
-          file:
-            type: string
-            description: A .jinja file containing the template
-          column:
-            type: string
-            description: A column containing the jinja template - this will apply to the corresponding row.
-          string:
-            type: string
-            description: A string which is used as the jinja template
-    """
-    if isinstance(output, list):
-        output = output[0]
-    
-    if input:
-        input = input[0]
-        input_list = df[input]
-    else:
-        input_list = df.to_dict(orient='records')
-
-    if len(template) > 1:
-        raise Exception('Template must have only one key specified')
-
-    # Template input as a file
-    if 'file' in template:
-        environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
-        desc_template = environment.get_template(template['file'])
-        df[output] = [desc_template.render(row) for row in input_list]
-
-    # Template input as a column of the dataframe
-    elif 'column' in list(template.keys()):
-        df[output] = [
-            _Environment(loader=_BaseLoader).from_string(template).render(row)
-            for (template, row) in zip(df[template['column']], input_list)
-        ]
-        
-    # Template input as a string
-    elif 'string' in list(template.keys()):
-        desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
-        df[output] = [desc_template.render(row) for row in input_list]
-  
-    else:
-        raise Exception("'file', 'column' or 'string' not found")
 
     return df
