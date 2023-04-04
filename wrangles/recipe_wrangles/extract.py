@@ -287,12 +287,17 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
                         dict_output['Unlabeled'].append(item)
                 except:
                     dict_output['Unlabeled'].append(item)
-                    
+            
+            # Make sure the unlabeled key gets added to the end of the dictionary (ordered dict)
             tmp_unlabeled = dict_output['Unlabeled']
             del dict_output['Unlabeled']
             output_dict = _OrderedDict(dict_output)
             output_dict['Unlabeled'] = tmp_unlabeled
-                
+            
+            # check if the Unlabeled key is empty if yes, delete the key
+            if len(output_dict['Unlabeled']) == 0:
+                del output_dict['Unlabeled']
+            
             result.append(dict(output_dict))
             
         df[output] = result
