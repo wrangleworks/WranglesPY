@@ -9,7 +9,7 @@ from .. import extract as _extract
 from .. import format as _format
 
 
-def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
@@ -17,6 +17,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     required:
       - input
       - output
+      - dataType
     properties:
       input:
         type:
@@ -54,7 +55,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     return df
 
 
-def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -138,7 +139,7 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def brackets(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -217,7 +218,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -238,7 +239,9 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
           - array
         description: Name or list of output columns
       model_id:
-        type: string
+        type: 
+          - string
+          - array
         description: The ID of the wrangle to use
     """
     if not output:
