@@ -438,7 +438,7 @@ def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: _Union[
       output:
         type: 
           - string
-          - list
+          - array
         description: Name of the output columns
       tokenize_to_remove:
         type: boolean
