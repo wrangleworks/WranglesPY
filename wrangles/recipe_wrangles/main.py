@@ -667,6 +667,11 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
       case:
         type: string
         description: Allow changing the case of the input prior to translation. lower, upper or title
+        enum:
+          - lower
+          - upper
+          - title
+          - sentence
       target_language:
         type: string
         description: Code of the language to translate to

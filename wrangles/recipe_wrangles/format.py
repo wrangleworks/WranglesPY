@@ -18,12 +18,12 @@ def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Uni
       input:
         type:
           - string
-          - list
+          - array
         description: Name of the input column
       output:
         type:
           - string
-          - list
+          - array
         description: Name of the output column
       format:
         type:
@@ -49,7 +49,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Uni
     return df
     
     
-def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
+def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: _Union[str, int], output: _Union[str, list] =  None) -> _pd.DataFrame:
     """
     type: object
     description: Pad a string to a fixed length
@@ -85,6 +85,7 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
       char:
         type:
           - string
+          - int
         description: The character to pad the input with
   """
     char = str(char)
@@ -156,10 +157,14 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
       - input
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the output column
     """
     # If output is not specified, overwrite input columns in place
