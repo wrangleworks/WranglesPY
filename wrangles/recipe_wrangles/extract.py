@@ -243,6 +243,9 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
           - string
           - array
         description: The ID of the wrangle to use
+      use_labels:
+        type: bool
+        description: Allows the use of key values pairs to output a dictionary
     """
     if not output:
         output = input
@@ -303,7 +306,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
     return df
 
 
-def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
+def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract date properties from a date (day, month, year, etc...)
@@ -379,7 +382,6 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
       - start_time
       - end_time
       - output
-      - range
     properties:
       start_time:
         type: string
@@ -460,7 +462,6 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     additionalProperties: false
     required:
       - input
-      - output
       - data_type
     properties:
       input:
@@ -555,6 +556,7 @@ def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFram
     required:
       - input
       - output
+      - find
     properties:
       input:
         type: string
@@ -562,9 +564,9 @@ def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFram
     output:
       type: string
       description: Name of the output column.
-      find:
-        type: string
-        description: Pattern to find using regex
+    find:
+      type: string
+      description: Pattern to find using regex
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input

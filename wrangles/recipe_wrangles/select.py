@@ -13,7 +13,6 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
     additionalProperties: false
     required:
       - input
-      - output
       - element
     properties:
       input:
@@ -41,7 +40,7 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
     return df
 
 
-def highest_confidence(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
@@ -108,14 +107,16 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     additionalProperties: false
     required:
       - input
-      - output
-      - element
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the output column
       element:
         type: integer

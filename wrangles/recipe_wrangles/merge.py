@@ -37,7 +37,6 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
     required:
       - input
       - output
-      - char
     properties:
       input:
         type: 
@@ -75,7 +74,7 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: object
+        type: array
         description: list of input columns
       output:
         type: string

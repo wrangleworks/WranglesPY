@@ -72,8 +72,6 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     additionalProperties: false
     required:
       - input
-      - operation
-      - kwargs
     properties:
       input:
         type: string
@@ -420,7 +418,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: _Union[str, list], output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -428,7 +426,6 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = No
     required:
       - input
       - to_remove
-      - output
     properties:
       input:
         type: 
@@ -439,7 +436,9 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = No
         type: array
         description: Column or list of columns with a list of words to be removed
       output:
-        type: string
+        type: 
+          - string
+          - list
         description: Name of the output columns
       tokenize_to_remove:
         type: boolean
@@ -508,14 +507,13 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
     additionalProperties: false
     required:
       - input
-      - output
       - find
       - replace
     properties:
@@ -629,14 +627,6 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
-      find:
-        type:
-          - string
-        description: Pattern to find using regex (do not include model_id)
-      replace:
-        type:
-          - string
-        description: Value to replace the pattern found (do not include model_id)
     """
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
@@ -654,7 +644,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     return df
 
 
-def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
+def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
@@ -674,6 +664,9 @@ def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, 
           - string
           - array
         description: Name of the output column
+      case:
+        type: string
+        description: Allow changing the case of the input prior to translation. lower, upper or title
       target_language:
         type: string
         description: Code of the language to translate to
