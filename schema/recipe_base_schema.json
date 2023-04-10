@@ -60,6 +60,10 @@
       "items": {
         "$ref": "#/$defs/write/items"
       }
+    },
+    "alias": {
+      "type": "array",
+      "description": "Placeholder to store YAML anchor values for use with aliases elsewhere in the recipe"
     }
   },
   "$defs": {

@@ -168,7 +168,7 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
     return df
 
 
-def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
+def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Output text using a jinja template
@@ -183,7 +183,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
           Specify a name of column containing a dictionary of elements to be used in jinja template.
           Otherwise, the column headers will be used as keys.
       output:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the column to be output to.
       template:
         type: object
