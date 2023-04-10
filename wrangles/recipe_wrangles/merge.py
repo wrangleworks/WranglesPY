@@ -37,7 +37,6 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
     required:
       - input
       - output
-      - char
     properties:
       input:
         type: 

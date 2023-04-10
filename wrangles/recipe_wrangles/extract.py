@@ -9,7 +9,7 @@ from .. import extract as _extract
 from .. import format as _format
 
 
-def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
@@ -17,6 +17,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     required:
       - input
       - output
+      - dataType
     properties:
       input:
         type:
@@ -54,7 +55,7 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     return df
 
 
-def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -138,7 +139,7 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def brackets(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -217,7 +218,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -238,8 +239,13 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
           - array
         description: Name or list of output columns
       model_id:
-        type: string
+        type: 
+          - string
+          - array
         description: The ID of the wrangle to use
+      use_labels:
+        type: bool
+        description: Allows the use of key values pairs to output a dictionary
     """
     if not output:
         output = input
@@ -300,7 +306,7 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
     return df
 
 
-def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
+def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract date properties from a date (day, month, year, etc...)
@@ -376,7 +382,6 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
       - start_time
       - end_time
       - output
-      - range
     properties:
       start_time:
         type: string
@@ -457,7 +462,6 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     additionalProperties: false
     required:
       - input
-      - output
       - data_type
     properties:
       input:
@@ -552,6 +556,7 @@ def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFram
     required:
       - input
       - output
+      - find
     properties:
       input:
         type: string
@@ -559,9 +564,9 @@ def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFram
     output:
       type: string
       description: Name of the output column.
-      find:
-        type: string
-        description: Pattern to find using regex
+    find:
+      type: string
+      description: Pattern to find using regex
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
