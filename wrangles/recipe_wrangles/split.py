@@ -25,7 +25,7 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     return df
 
     
-def list(df: _pd.DataFrame, input: str, output: list) -> _pd.DataFrame:
+def list(df: _pd.DataFrame, input: str, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns.
@@ -146,7 +146,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
     return df
 
 
-def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame:
+def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Tokenize elements in a list into individual tokens.
@@ -161,7 +161,9 @@ def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame
           - array
         description: list in column to split
       output:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the output column
     """
     if output is None: output = input
@@ -170,8 +172,9 @@ def tokenize(df: _pd.DataFrame, input: str, output: str = None) -> _pd.DataFrame
     if not isinstance(input, _list): input = [input]
     if not isinstance(output, _list): output = [output]
 
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
+        raise ValueError('The lists for input and output must be the same length.')
     
     for in_col, out_col in zip(input, output):
         df[out_col] = _format.tokenize(df[in_col].values.tolist())

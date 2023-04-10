@@ -48,6 +48,10 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     for in_col, out_col in zip(input, output):
       # Dealing with positive infinity. At end of bins list

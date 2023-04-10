@@ -203,6 +203,10 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.codes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
     else:
@@ -217,7 +221,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -244,8 +248,13 @@ def custom(df: _pd.DataFrame, input: list, output: _Union[str, list], model_id: 
     if not output:
         output = input
 
-    if not isinstance(output, list):
-        output = [output]
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     if not isinstance(model_id, list):
         # If a list of inputs is provided, ensure the list of outputs is the same length
@@ -495,7 +504,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     return df
 
 
-def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
+def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
@@ -544,7 +553,7 @@ def properties(df: _pd.DataFrame, input: str, output: str, property_type: str = 
     return df
 
 
-def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFrame:
+def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Extract single values using regex
@@ -554,13 +563,17 @@ def regex(df: _pd.DataFrame, input: str, find: str, output: str) -> _pd.DataFram
       - output
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the input column.
     output:
       type: string
       description: Name of the output column.
       find:
-        type: string
+        type: 
+          - string
+          - array
         description: Pattern to find using regex
     """
     # If output is not specified, overwrite input columns in place

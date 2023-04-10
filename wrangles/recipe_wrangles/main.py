@@ -420,7 +420,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: str, output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -439,7 +439,9 @@ def remove_words(df: _pd.DataFrame, input: str, to_remove: str, output: str = No
         type: array
         description: Column or list of columns with a list of words to be removed
       output:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the output columns
       tokenize_to_remove:
         type: boolean
@@ -508,7 +510,7 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: str, output: str, find: str, replace: str) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], find: str, replace: str) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -646,6 +648,14 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     if isinstance(output, str): output = [output]
     if isinstance(model_id, str): model_id = [model_id]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Ensure input and model_id are equal lengths
+    if len(input) != len(model_id):
+        raise ValueError('The lists for input and model_id must be the same length.')
+
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
@@ -654,7 +664,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     return df
 
 
-def translate(df: _pd.DataFrame, input: str, output: str, target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
+def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
