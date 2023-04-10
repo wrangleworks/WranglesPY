@@ -218,15 +218,14 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list], use_labels: bool = False) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, use_labels: bool = False, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: true
+    additionalProperties: false
     required:
       - input
       - output
-      - model_id
     properties:
       input:
         type:
@@ -239,42 +238,52 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
           - array
         description: Name or list of output columns
       model_id:
-        type: 
-          - string
-          - array
+        type: string
         description: The ID of the wrangle to use
-      use_labels:
-        type: bool
-        description: Allows the use of key values pairs to output a dictionary
+      use_label:
+        type: boolean
+        description: Use Labels in the extract output {label: value}
     """
-    if not output:
-        output = input
-
-    if not isinstance(output, list):
-        output = [output]
-
-    if not isinstance(model_id, list):
+    # one input, output, and model_id
+    if isinstance(input, str) and isinstance(output, str) and type(model_id) != list:
+        df[output] = _extract.custom(df[input].astype(str).tolist(), model_id=model_id)
+        if first_element and use_labels == False:
+            # getting the first element only
+            df[output] = df[output].apply(lambda x: x[:1][0] if len(x) > 0 else "")
+        
+    # multiple inputs
+    elif isinstance(input, list) and type(model_id) != list:
         # If a list of inputs is provided, ensure the list of outputs is the same length
         if len(input) != len(output):
-            if len(output) == 1:
-                df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
+            if isinstance(output, str):
+                df[output] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id)
+                if first_element and use_labels == False:
+                    # getting the first element only
+                    df[output] = df[output].apply(lambda x: x[:1][0] if len(x) > 0 else "")
             else:
                 raise ValueError('If providing a list of inputs, a corresponding list of outputs must also be provided.')
         else:
+            # multiple inputs and outputs using the same model_id
             for input_column, output_column in zip(input, output):
                 df[output_column] = _extract.custom(df[input_column].astype(str).tolist(), model_id=model_id)
+                # getting the first element only
+                if first_element and use_labels == False:
+                    df[output_column] = df[output_column].apply(lambda x: x[:1][0] if len(x) > 0 else "")
                 
-    # Multiple different custom wrangles at the same time
-    else:
+    # Multiple different custom wrangles at the same time (multiple input and outputs and model_id)
+    elif isinstance(input, list) and isinstance(output, list) and isinstance(model_id, list):
         for in_col, out_col, mod_id in zip(input, output, model_id):
             df[out_col] = _extract.custom(df[in_col].astype(str).tolist(),model_id=mod_id)
-    
-    if use_labels:
-        if len(output) > 1:
-            raise ValueError("'use_labels' can only be used with a single output")
+            if first_element and use_labels == False:
+                # getting the first element only
+                df[out_col] = df[out_col].apply(lambda x: x[:1][0] if len(x) > 0 else "")
         
-        output = output[0]
-
+    
+    # if use_labels is true and output is only one
+    if (use_labels and isinstance(output, str)):
+        
+        if isinstance(output, list): raise ValueError("'key_value' can only be used with a single output")
+        
         # Run the custom dictionary maker after normal operation from extract
         # This will be triggered only if a parameter is set
         result = []
@@ -293,8 +302,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
                         dict_output['Unlabeled'].append(item)
                 except:
                     dict_output['Unlabeled'].append(item)
-            
-            # Make sure the unlabeled key gets added to the end of the dictionary (ordered dict)
+                    
             tmp_unlabeled = dict_output['Unlabeled']
             del dict_output['Unlabeled']
             output_dict = _OrderedDict(dict_output)
@@ -303,7 +311,11 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
             # check if the Unlabeled key is empty if yes, delete the key
             if len(output_dict['Unlabeled']) == 0:
                 del output_dict['Unlabeled']
-            
+                
+            # if first_element is set to true
+            if first_element and len(output_dict):
+                output_dict = {list(output_dict.keys())[0]: list(output_dict.values())[0]}
+                
             result.append(dict(output_dict))
             
         df[output] = result
