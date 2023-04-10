@@ -189,7 +189,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: s
         description: Name of the column to be output to.
       template:
         type: object
-        description: A dictionary which defines the template/location as well as the form which the template is input
+        description: |
+          A dictionary which defines the template/location as well as the form which the template is input.
+          If any keys use a space, it must be replaced with an underscore.
         additionalProperties: false
         properties:
           file:
