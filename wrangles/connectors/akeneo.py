@@ -144,7 +144,6 @@ properties:
 """
 
 
-
 def write(
     df: _pd.DataFrame,
     host: str,
@@ -175,7 +174,6 @@ def write(
     :param client_id: Client ID. These need to be generated in the PIM.
     :param client_secret: Client Secret
     :param source: Type of data to return
-    :param columns: Specify which columns to return
     """
     # TODO: handle errors appropriately
     token = _requests.post(
@@ -187,10 +185,6 @@ def write(
             "grant_type" : "password"
         }
     ).json()['access_token']
-    
-    # If the user specifies only certain columns
-    if columns is not None:
-        df = df[columns]
     
     # TODO: batch this if required??
     # Create payload for Akeneo
@@ -258,7 +252,4 @@ properties:
       - categories
       - channels
       - measurement-families
-  columns:
-    type: array
-    description: Specify which columns to include
 """
