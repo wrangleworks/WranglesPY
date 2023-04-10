@@ -22,7 +22,7 @@ def read(
     client_secret: str,
     source: str,
     columns: list = None,
-    parameters: dict = None
+    parameters: dict = {}
 ):
     """
     Read data from an Akeneo PIM
