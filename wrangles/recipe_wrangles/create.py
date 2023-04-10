@@ -211,6 +211,15 @@ def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: s
     else:
         input_list = df.to_dict(orient='records')
 
+    # Replace any spaces in keys with underscores
+    input_list = [
+        {
+            key.replace(' ', '_'): val
+            for key, val in row.items()
+        }
+        for row in input_list
+    ]
+
     if len(template) > 1:
         raise Exception('Template must have only one key specified')
 
