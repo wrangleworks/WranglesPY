@@ -218,14 +218,14 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     return df
 
 
-def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: _Union[str, list] = None, use_labels: bool = False, first_element: bool = False) -> _pd.DataFrame:
+def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, use_labels: bool = False, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
     additionalProperties: false
     required:
       - input
-      - output
+      - model_id
     properties:
       input:
         type:
@@ -238,31 +238,39 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
           - array
         description: Name or list of output columns
       model_id:
-        type: string
+        type:
+          - string
+          - array
         description: The ID of the wrangle to use
-      use_label:
+      use_labels:
         type: boolean
         description: Use Labels in the extract output {label: value}
       first_element:
         type: boolean
         description: Get the first element from results
     """
+    if output is None: output = input
     
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     if not isinstance(model_id, list): model_id = [model_id]
     
-    if len(input) == len(output):
-        # if one model_id, then use that model for all columns
-        if len(model_id) == 1:
-            model_id = [model_id[0] for _ in range(len(input))]
-        
+    if len(input) == len(output) and len(model_id) == 1:
+        # if one model_id, then use that model for all columns inputs and outputs
+        model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
             df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element)
-        
-    elif len(input) and len(output) == 1:
+    
+    elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
+        # if there are multiple inputs and one output and one model_id. concatenate the inputs
         df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id, first_element=first_element)
+    
+    else:
+        # Iterate through the inputs, outputs and model_ids
+        for in_col, out_col, model in zip(input, output, model_id):
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element)
+
         
 
     
