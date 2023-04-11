@@ -142,12 +142,10 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False)
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if isinstance(input, str): results = results[0]
-    
-    if first_element and isinstance(input, str):
-        results = next(iter(results), "")
-    elif first_element and not isinstance(input, str):
+    if first_element:
         results = [x[0] if len(x) >= 1 else "" for x in results]
+
+    if isinstance(input, str): results = results[0]
     
     return results
 
