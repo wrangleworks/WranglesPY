@@ -84,6 +84,14 @@ def test_custom_list():
     result = wrangles.extract.custom(['test skf test'], 'fce592c9-26f5-4fd7')
     assert result[0][0] == 'SKF'
 
+def test_custom_first_element():
+    result = wrangles.extract.custom('test skf test timken', 'fce592c9-26f5-4fd7', first_element=True)
+    assert result == 'SKF'
+
+def test_custom_first_element_list():
+    result = wrangles.extract.custom(['test skf test timken', 'test timken test skf'], 'fce592c9-26f5-4fd7', first_element=True)
+    assert result == ['SKF', 'SKF']
+
 def test_custom_large_list():
     input = ['test skf test' for _ in range(25000)]
     results = wrangles.extract.custom(input, '4786921f-342f-4a0c')

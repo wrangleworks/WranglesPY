@@ -101,7 +101,7 @@ def codes(input: _Union[str, list]) -> list:
     return results
 
 
-def custom(input: _Union[str, list], model_id: str) -> list:
+def custom(input: _Union[str, list], model_id: str, first_element: bool = False) -> list:
     """
     Extract entities using a custom model.
     Requires WrangleWorks Account and Subscription.
@@ -141,6 +141,9 @@ def custom(input: _Union[str, list], model_id: str) -> list:
         raise ValueError(f'Using {purpose} model_id in an extract function.')
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
 
     if isinstance(input, str): results = results[0]
     

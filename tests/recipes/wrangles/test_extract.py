@@ -592,7 +592,28 @@ def test_extract_multi_custom():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Fact2'][0] in ['Dolores', 'TARS']
-    
+
+def test_extract_custom_first_only():
+    """
+    Test that the first only parameter works correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: Pikachu vs Charizard
+
+        wrangles:
+          - extract.custom:
+              input: header
+              output: results
+              model_id: 1eddb7e8-1b2b-4a52
+              first_element: True
+        """
+    )
+    assert df['results'][0] == 'Charizard'
 
 
 #

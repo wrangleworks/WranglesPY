@@ -398,6 +398,87 @@ def test_filter_input_list():
     )
     assert len(df) == 1
 
+
+#
+# HUGGINGFACE
+#
+def test_huggingface():
+    """
+    Test a huggingface model
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: >
+                  The tower is 324 metres (1,063 ft) tall, 
+                  about the same height as an 81-storey building, 
+                  and the tallest structure in Paris.
+                  Its base is square, measuring 125 metres (410 ft) on each side. 
+                  During its construction,
+                  the Eiffel Tower surpassed the Washington Monument to 
+                  become the tallest man-made structure in the world,
+                  a title it held for 41 years until the Chrysler Building 
+                  in New York City was finished in 1930.
+                  It was the first structure to reach a height of 300 metres. 
+                  Due to the addition of a broadcasting aerial at the top of the tower in 1957,
+                  it is now taller than the Chrysler Building by 5.2 metres (17 ft). 
+                  Excluding transmitters, the Eiffel Tower is the second tallest 
+                  free-standing structure in France after the Millau Viaduct.
+
+        wrangles:
+          - huggingface:
+              input: header
+              output: summary
+              api_token: ${HUGGINGFACE_TOKEN}
+              model: facebook/bart-large-cnn
+
+          - select.list_element:
+              input: summary
+              element: 0
+    
+          - select.dictionary_element:
+              input: summary
+              element: summary_text
+        """
+    )
+
+    assert len(df['summary'][0]) / len(df['header'][0])  < 0.5
+
+def test_huggingface_parameters():
+    """
+    Test a huggingface model that requires parameters
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                header: SKF Roller bearing 6202-2RS
+
+        wrangles:
+          - huggingface:
+              input: header
+              output: predictions
+              api_token: ${HUGGINGFACE_TOKEN}
+              model: facebook/bart-large-mnli
+              parameters:
+                candidate_labels:
+                  - power transmission
+                  - tools
+                  - electronics
+
+          - select.dictionary_element:
+              input: predictions
+              element: labels
+        """
+    )
+
+    assert 'tools' in df['predictions'][0]
+
 #
 # Log
 #
