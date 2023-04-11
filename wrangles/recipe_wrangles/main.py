@@ -287,7 +287,9 @@ def filter(
         
         if is_null == False:
             df = df[df[input_column].notnull()]
-     
+
+    df = df.reset_index(drop=True)
+
     return df
 
 
