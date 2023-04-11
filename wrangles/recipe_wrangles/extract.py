@@ -271,9 +271,6 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
         for in_col, out_col, model in zip(input, output, model_id):
             df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element)
 
-        
-
-    
     # if use_labels is true and output is only one column
     if (use_labels and len(output) == 1):
         
