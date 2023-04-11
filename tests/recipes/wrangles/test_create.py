@@ -337,6 +337,24 @@ def test_jinja_output_missing():
         info.value.args[0].startswith("jinja() missing")
     )
 
+def test_jinja_variable_with_space():
+    """
+    Tests variable with a space
+    """
+    data = pd.DataFrame({
+        'head type': ['phillips head', 'flat head'],
+        'length': ['3 inch', '6 inch']
+    })
+    recipe = """
+    wrangles:
+      - create.jinja:
+          output: description
+          template: 
+            string: This is a {{length}} {{head_type}} screwdriver
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
 
 #
 # UUID
