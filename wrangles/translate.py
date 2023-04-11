@@ -17,6 +17,70 @@ def translate(input: _Union[str, list], target_language: str, source_language: s
     :params case: (Optional) Allow changing the case of the input prior to translation. lower, upper or title
     :return: A translated string or list of strings corresponding to the input 
     """
+
+    source_dict = {
+        'Auto': 'AUTO',
+        'AUTO': 'AUTO',
+        'Bulgarian': 'BG',
+        'Chinese': 'ZH',
+        'Czech': 'CS',
+        'Danish': 'DA',
+        'Dutch': 'NL',
+        'English': 'EN',
+        'Estonian': 'ET',
+        'Finnish': 'FI',
+        'French': 'FR',
+        'German': 'DE',
+        'Greek': 'EL',
+        'Hungarian': 'HU',
+        'Italian': 'IT',
+        'Japanese': 'JA',
+        'Latvian': 'LV',
+        'Lithuanian': 'LT',
+        'Polish': 'PL',
+        'Portuguese': 'PT',
+        'Romanian': 'RO',
+        'Russian': 'RU',
+        'Slovak': 'SK',
+        'Slovenian': 'SL',
+        'Spanish': 'ES',
+        'Swedish': 'SV'
+        }
+    
+    target_dict = {
+        'Bulgarian': 'BG',
+        'Chinese': 'ZH',
+        'Czech': 'CS',
+        'Danish': 'DA',
+        'Dutch': 'NL',
+        'English (American)': 'EN-US',
+        'English (British)': 'EN-GB',
+        'Estonian': 'ET',
+        'Finnish': 'FI',
+        'French': 'FR',
+        'German': 'DE',
+        'Greek': 'EL',
+        'Hungarian': 'HU',
+        'Italian': 'IT',
+        'Japanese': 'JA',
+        'Latvian': 'LV',
+        'Lithuanian': 'LT',
+        'Polish': 'PL',
+        'Portuguese': 'PT-PT',
+        'Portuguese (Brazilian)': 'PT-BR',
+        'Romanian': 'RO',
+        'Russian': 'RU',
+        'Slovak': 'SK',
+        'Slovenian': 'SL',
+        'Spanish': 'ES',
+        'Swedish': 'SV',
+        }
+
+    if source_language in source_dict.keys():
+        source_language = source_dict.get(source_language)
+    if target_language in target_dict.keys():
+        target_language = target_dict.get(target_language)
+
     if isinstance(input, str): 
         json_data = [input]
     elif isinstance(input, list):
