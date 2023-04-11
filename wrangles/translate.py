@@ -53,6 +53,7 @@ def translate(input: _Union[str, list], target_language: str, source_language: s
         'Czech': 'CS',
         'Danish': 'DA',
         'Dutch': 'NL',
+        'English': 'EN-GB',
         'English (American)': 'EN-US',
         'English (British)': 'EN-GB',
         'Estonian': 'ET',
