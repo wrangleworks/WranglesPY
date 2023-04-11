@@ -435,7 +435,8 @@ def test_custom_one_output():
           input:
             - col1
             - col2
-          output: Fact Out
+          output:
+            - Fact Out
           model_id: 1eddb7e8-1b2b-4a52
     """
     df =  wrangles.recipe.run(recipe, dataframe=data)
