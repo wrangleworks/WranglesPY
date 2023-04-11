@@ -9,6 +9,7 @@ from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
+import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
 import yaml as _yaml
@@ -287,6 +288,70 @@ def filter(
         if is_null == False:
             df = df[df[input_column].notnull()]
      
+    return df
+
+
+def huggingface(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    api_token: str,
+    model: str,
+    output: _Union[str, list] = None,
+    parameters = None
+):
+    """
+    type: object
+    description: Use a model from huggingface
+    required:
+      - input
+      - api_token
+      - model
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >
+          Name of the output column.
+          If not provided, will overwrite the input column
+      model:
+        type: string
+        description: Name of the model to use. e.g. facebook/bart-large-cnn
+      api_token:
+        type: string
+        description: Huggingface API Token
+      parameters:
+        type: object
+        description: Optionally, provide additional parameters to define the model behaviour
+    """
+    if not output: output = input
+    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list): input = [input]
+
+    json_base = {}
+    if parameters:
+        json_base['parameters'] = parameters
+
+    for input_col, output_col in zip(input, output):
+        df[output_col] = [
+            _requests.post(
+                f"https://api-inference.huggingface.co/models/{model}",
+                headers={
+                    "Authorization": f"Bearer {api_token}"
+                },
+                json={
+                    **json_base,
+                    **{"inputs": row}
+                }
+            ).json()
+            for row in df[input_col].values
+        ]
+
     return df
 
 
