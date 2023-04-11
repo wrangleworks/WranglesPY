@@ -217,7 +217,12 @@ _schema['write'] = """
 type: object
 description: Export data to a file
 required:
-  - name
+  - host
+  - user
+  - password
+  - client_id
+  - client_secret
+  - source
 properties:
   host:
     type: string
