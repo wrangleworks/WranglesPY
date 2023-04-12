@@ -290,7 +290,20 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
                     item = item.strip()
                     # Check if the item contains a colon
                     if (item.count(':') == 1 and item.split(':')[0] != ''):
-                        dict_output[item.split(':')[0].strip()] = item.split(':')[1].strip()
+                        
+                        key, value = map(str.strip, item.split(':', 1))
+                        
+                        if dict_output.get(key, ''):
+                            # if the key is already present in the dictionary then add to list
+                            if isinstance(dict_output[key], str):
+                                dict_output[key] = [value]
+                                dict_output[key].append(value)
+                            # if the key is already converted to a list then just append
+                            elif isinstance(dict_output[key], list):
+                                dict_output[key].append(value)
+                        else:
+                            dict_output[key] = value
+                            
                     else:
                         dict_output['Unlabeled'].append(item)
                 except:
