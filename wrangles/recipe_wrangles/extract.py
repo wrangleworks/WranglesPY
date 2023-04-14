@@ -315,8 +315,8 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
             # check if the Unlabeled key is empty if yes, delete the key
             if len(output_dict['Unlabeled']) == 0: del output_dict['Unlabeled']
             
-            # if first element is set then get the first element as string, else return the dictionary
-            if first_element: output_dict = list(output_dict.values())[0][0]
+            # if first element is set then get the first value as string in dictionary, else return the dictionary
+            if first_element: output_dict = {list(dict(output_dict).keys())[0]: list(dict(output_dict).values())[0][0]}
             else: output_dict = dict(output_dict)
             
             result.append(output_dict)
