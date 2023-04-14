@@ -150,7 +150,7 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     return recipe_object
 
 
-def _run_actions(recipe: _Union[dict, list], functions: dict = {}) -> None:
+def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
@@ -158,8 +158,15 @@ def _run_actions(recipe: _Union[dict, list], functions: dict = {}) -> None:
     for action in recipe:
         for action_type, params in action.items():
             if action_type.split('.')[0] == 'custom':
+                # Get custom function
+                custom_function = functions[action_type[7:]]
+
+                # Check if error is one of the user's function arguments
+                if 'error' in _inspect.getfullargspec(custom_function).args:
+                    params['error'] = error
+
                 # Execute a user's custom function
-                functions[action_type[7:]](**params)
+                custom_function(**params)
             else:
                 # Get run function of requested connector and pass user defined params
                 obj = _connectors
@@ -467,7 +474,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         try:
             # Run any actions requested if the recipe fails
             if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions)
+                _run_actions(recipe['run']['on_failure'], functions, e)
         except:
             pass
 
