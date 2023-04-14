@@ -478,4 +478,4 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         except:
             pass
 
-        raise e
+        raise
