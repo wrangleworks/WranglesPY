@@ -481,8 +481,8 @@ def test_extract_custom_labels():
         })
     )
     assert (
-        df['col2'][0]['colour'] == 'blue' and
-        df['col2'][0]['size'] == 'small'
+        df['col2'][0]['colour'] == ['blue'] and
+        df['col2'][0]['size'] == ['small']
     )
 
 # Extract Regex Extract
@@ -595,7 +595,7 @@ def test_extract_multi_custom():
 
 def test_extract_custom_first_only():
     """
-    Test that the first only parameter works correctly
+    Test that the first only parameter works correctly. use_labels is False
     """
     df = wrangles.recipe.run(
         """
@@ -610,12 +610,149 @@ def test_extract_custom_first_only():
               input: header
               output: results
               model_id: 1eddb7e8-1b2b-4a52
+              use_labels: false
               first_element: True
         """
     )
     assert df['results'][0] == 'Charizard'
 
 
+# combinations of use_labels and first_element begins
+def test_use_labels_true_and_first_element_false():
+    """
+    Use_labels and first_element set to true. output is a dictionary with only one value (string)    
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue size: small colour: green size: large']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'size': 'small'}
+    
+def test_use_labels_false_first_element_true():
+    """
+    Use labels is false and first element is true. output is a string only
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue size: small colour: green size: large']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: false
+          first_element: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == 'size: small'
+
+def test_use_labels_multiple():
+    """
+    Use labels true and first element is false. output is a dictionary where values are lists
+    Testing use labels with multiple same labels and other labels
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue size: small colour: black']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: false
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']}
+    
+def test_use_labels_same_key():
+    """
+    Testing use labels where multiple labels that are the same only. 
+    This should put all of the values from the same labels in a list
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue colour: green colour: black']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: false
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    df['out'][0]['colour'] == ['green', 'blue', 'black']
+    
+def test_unlabeled_in_use_labels():
+    """
+    Testing unlabeled key. This everything that is not specified in the labels
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue colour: green colour: black red']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: false
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    df['out'][0] == {'colour': ['green', 'blue', 'black'], 'Unlabeled': ['red']}
+    
+def test_unlabeled_only():
+    """
+    Getting unlabeled only
+    """
+    data = pd.DataFrame({
+        'col': ['my color is red']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: false
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'Unlabeled': ['red']}
+    
+def test_unlabeled_only_with_first_element_true():
+    """
+    Unlabeled only with first_element set to true
+    """
+    data = pd.DataFrame({
+        'col': ['my color is red']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: true
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'Unlabeled': 'red'}
+    
 #
 # Properties
 #

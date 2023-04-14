@@ -274,7 +274,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
     # if use_labels is true and output is only one column
     if (use_labels and len(output) == 1):
         
-        # if first_element is checked, then the output must be converted to lists
+        # if first_element is checked, then the output must be converted to lists to iterate
         if first_element: df[output[0]] = [[x] for x in df[output[0]]]
         
         # Run the custom dictionary maker after normal operation from extract
@@ -290,22 +290,36 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
                     item = item.strip()
                     # Check if the item contains a colon
                     if (item.count(':') == 1 and item.split(':')[0] != ''):
-                        dict_output[item.split(':')[0].strip()] = item.split(':')[1].strip()
+                        
+                        # get the key and value from item split
+                        key, value = map(str.strip, item.split(':', 1))
+                        
+                        if dict_output.get(key, ''):
+                            # if the keys is already present, then append to the list
+                            dict_output[key].append(value)
+
+                        else:
+                            dict_output[key] = [value]
+                            
                     else:
                         dict_output['Unlabeled'].append(item)
                 except:
                     dict_output['Unlabeled'].append(item)
-                    
+            
+            # putting Unlabeled at the end of the dictionary
             tmp_unlabeled = dict_output['Unlabeled']
             del dict_output['Unlabeled']
             output_dict = _OrderedDict(dict_output)
             output_dict['Unlabeled'] = tmp_unlabeled
             
             # check if the Unlabeled key is empty if yes, delete the key
-            if len(output_dict['Unlabeled']) == 0:
-                del output_dict['Unlabeled']
-                            
-            result.append(dict(output_dict))
+            if len(output_dict['Unlabeled']) == 0: del output_dict['Unlabeled']
+            
+            # if first element is set then get the first value as string in dictionary, else return the dictionary
+            if first_element: output_dict = {list(dict(output_dict).keys())[0]: list(dict(output_dict).values())[0][0]}
+            else: output_dict = dict(output_dict)
+            
+            result.append(output_dict)
             
         df[output[0]] = result
         
