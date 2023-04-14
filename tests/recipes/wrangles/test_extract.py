@@ -618,9 +618,10 @@ def test_extract_custom_first_only():
 
 
 # combinations of use_labels and first_element begins
-
-# use_labels and first_element set to true. output is a dictionary with only one value (string)
 def test_use_labels_true_and_first_element_false():
+    """
+    Use_labels and first_element set to true. output is a dictionary with only one value (string)    
+    """
     data = pd.DataFrame({
         'col': ['colour: blue size: small colour: green size: large']
     })
@@ -636,8 +637,10 @@ def test_use_labels_true_and_first_element_false():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['out'][0] == {'size': 'small'}
     
-# use labels is false and first element is true. output is a string only
 def test_use_labels_false_first_element_true():
+    """
+    Use labels is false and first element is true. output is a string only
+    """
     data = pd.DataFrame({
         'col': ['colour: blue size: small colour: green size: large']
     })
@@ -653,9 +656,11 @@ def test_use_labels_false_first_element_true():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['out'][0] == 'size: small'
 
-# use labels true and first element is false. output is a dictionary where values are lists
-# Testing use labels with multiple same labels and other labels
 def test_use_labels_multiple():
+    """
+    Use labels true and first element is false. output is a dictionary where values are lists
+    Testing use labels with multiple same labels and other labels
+    """
     data = pd.DataFrame({
         'col': ['colour: blue size: small colour: black']
     })
@@ -671,9 +676,11 @@ def test_use_labels_multiple():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']}
     
-# Testing use labels where multiple labels that are the same only. 
-# This should put all of the values from the same labels in a list
 def test_use_labels_same_key():
+    """
+    Testing use labels where multiple labels that are the same only. 
+    This should put all of the values from the same labels in a list
+    """
     data = pd.DataFrame({
         'col': ['colour: blue colour: green colour: black']
     })
@@ -689,8 +696,10 @@ def test_use_labels_same_key():
     df =  wrangles.recipe.run(recipe, dataframe=data)
     df['out'][0]['colour'] == ['green', 'blue', 'black']
     
-# testing unlabeled key. This everything that is not specified in the labels
 def test_unlabeled_in_use_labels():
+    """
+    Testing unlabeled key. This everything that is not specified in the labels
+    """
     data = pd.DataFrame({
         'col': ['colour: blue colour: green colour: black red']
     })
@@ -706,8 +715,10 @@ def test_unlabeled_in_use_labels():
     df =  wrangles.recipe.run(recipe, dataframe=data)
     df['out'][0] == {'colour': ['green', 'blue', 'black'], 'Unlabeled': ['red']}
     
-# getting unlabeled only
 def test_unlabeled_only():
+    """
+    Getting unlabeled only
+    """
     data = pd.DataFrame({
         'col': ['my color is red']
     })
@@ -723,8 +734,10 @@ def test_unlabeled_only():
     df =  wrangles.recipe.run(recipe, dataframe=data)
     assert df['out'][0] == {'Unlabeled': ['red']}
     
-# unlabeled only with first_element set to true
 def test_unlabeled_only_with_first_element_true():
+    """
+    Unlabeled only with first_element set to true
+    """
     data = pd.DataFrame({
         'col': ['my color is red']
     })
