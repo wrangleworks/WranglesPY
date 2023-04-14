@@ -481,8 +481,8 @@ def test_extract_custom_labels():
         })
     )
     assert (
-        df['col2'][0]['colour'] == 'blue' and
-        df['col2'][0]['size'] == 'small'
+        df['col2'][0]['colour'] == ['blue'] and
+        df['col2'][0]['size'] == ['small']
     )
 
 # Extract Regex Extract
@@ -633,7 +633,7 @@ def test_use_labels_and_first_element():
           first_element: true
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out'][0] == {'size': 'small'}
+    assert df['out'][0] == 'small'
     
 def test_use_labels_multiple():
     """
@@ -651,7 +651,7 @@ def test_use_labels_multiple():
           use_labels: true
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out'][0] == {'size': 'small', 'colour': 'blue'}
+    assert df['out'][0] == {'size': ['small'], 'colour': ['blue']}
     
 def test_use_labels_same_key():
     """
