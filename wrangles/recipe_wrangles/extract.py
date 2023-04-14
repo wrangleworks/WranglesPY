@@ -296,7 +296,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
                         if dict_output.get(key, ''):
                             # if the key is already present in the dictionary then add to list
                             if isinstance(dict_output[key], str):
-                                dict_output[key] = [value]
+                                dict_output[key] = [dict_output[key]]
                                 dict_output[key].append(value)
                             # if the key is already converted to a list then just append
                             elif isinstance(dict_output[key], list):

@@ -614,8 +614,66 @@ def test_extract_custom_first_only():
         """
     )
     assert df['results'][0] == 'Charizard'
+    
+# Testing use labels and first_element
+def test_use_labels_and_first_element():
+    """
+    Testing use labels parameter and first element is set to true
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue size: small']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+          first_element: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'size': 'small'}
+    
+def test_use_labels_multiple():
+    """
+    Testing use labels only with multiple labels
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue size: small']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out'][0] == {'size': 'small', 'colour': 'blue'}
+    
+def test_use_labels_same_key():
+    """
+    Testing use labels with labels that are the same. This should put all of the values from the same labels in a list
+    """
+    data = pd.DataFrame({
+        'col': ['colour: blue colour: green colour: black']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: out
+          model_id: 829c1a73-1bfd-4ac0
+          use_labels: true
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    df['out'][0]['colour'] == ['green', 'blue', 'black']
+    
+    
 
-
+    
 #
 # Properties
 #
