@@ -244,7 +244,7 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, li
         description: The ID of the wrangle to use
       use_labels:
         type: boolean
-        description: Use Labels in the extract output {label: value}
+        description: "Use Labels in the extract output {label: value}"
       first_element:
         type: boolean
         description: Get the first element from results
