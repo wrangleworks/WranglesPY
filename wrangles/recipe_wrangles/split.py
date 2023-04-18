@@ -6,6 +6,7 @@ from typing import Union as _Union
 from typing import List as _list
 import pandas as _pd
 from .. import format as _format
+import json as _json
 
 
 def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
@@ -19,8 +20,15 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
       input:
         type: string
         description: Name of the column to be split
-    """
-    exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
+    """ 
+    # storing data as df temp to prevent the original data to be changed
+    df_temp = df[input]
+    try:
+        df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
+    except:
+        df_temp = [{} if x == None else x for x in df[input]]
+            
+    exploded_df = _pd.json_normalize(df_temp, max_level=1).fillna('')
     df[exploded_df.columns] = exploded_df
     return df
 
