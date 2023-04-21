@@ -44,9 +44,9 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
   
     for input_column, output_column in zip(input, output):
         df[output_column] = _extract.address(df[input_column].astype(str).tolist(), dataType)
@@ -121,18 +121,27 @@ def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str 
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.attributes(
-            df[input_column].astype(str).tolist(),
-            responseContent,
-            attribute_type,
-            desired_unit,
-            bound
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+    
+    if len(output) == 1 and len(input) > 1:
+        # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
+        df[output[0]] = _extract.attributes(
+            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+              responseContent,
+              attribute_type,
+              desired_unit,
+              bound)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _extract.attributes(
+                df[input_column].astype(str).tolist(),
+                responseContent,
+                attribute_type,
+                desired_unit,
+                bound
         )
         
     return df
@@ -165,9 +174,9 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -203,17 +212,13 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.codes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
     else:
-        # Ensure input and output are equal lengths
-        if len(input) != len(output) and len(output) > 1:
-            raise ValueError('The lists for input and output must be the same length.')
-
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.codes(df[input_column].astype(str).tolist())
@@ -252,9 +257,9 @@ def custom(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if not isinstance(model_id, list):
         # If a list of inputs is provided, ensure the list of outputs is the same length
@@ -348,9 +353,9 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -493,9 +498,9 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -542,9 +547,9 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -583,9 +588,9 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):

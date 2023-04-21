@@ -38,7 +38,7 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
     
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element)
@@ -142,7 +142,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.list_element(df[in_col].tolist(), element)

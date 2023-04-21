@@ -306,9 +306,8 @@ def test_attributes_diff_type():
             responseContent: span
             attribute_type: mass
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out'] == ['13kg', '3kg']
     
 
 #
@@ -335,7 +334,7 @@ def test_codes_inconsistent_input_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
 
 # Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
@@ -399,7 +398,20 @@ def test_extract_codes_milti_input_output():
     df = wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
     assert df.iloc[0]['out2'] == ['Z1ON0101-2']
 
-    
+def test_extract_codes_one_input_multi_output():
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: 
+            - code1
+          output:
+            - out1
+            - out2
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
+
 #
 # Custom Extraction
 #

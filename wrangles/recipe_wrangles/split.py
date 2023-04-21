@@ -174,7 +174,7 @@ def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     
     for in_col, out_col in zip(input, output):
         df[out_col] = _format.tokenize(df[in_col].values.tolist())
