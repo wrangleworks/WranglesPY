@@ -101,7 +101,7 @@ def codes(input: _Union[str, list]) -> list:
     return results
 
 
-def custom(input: _Union[str, list], model_id: str, first_element: bool = False) -> list:
+def custom(input: _Union[str, list], model_id: str, first_element: bool = False, use_labels: bool = False) -> list:
     """
     Extract entities using a custom model.
     Requires WrangleWorks Account and Subscription.
@@ -129,7 +129,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False)
             raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
-    params = {'responseFormat': 'array', 'model_id': model_id}
+    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -142,9 +142,12 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False)
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if first_element:
+    if first_element and not use_labels:
         results = [x[0] if len(x) >= 1 else "" for x in results]
-
+    
+    if use_labels and first_element:
+        results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+    
     if isinstance(input, str): results = results[0]
     
     return results
