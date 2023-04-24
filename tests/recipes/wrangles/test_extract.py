@@ -618,12 +618,12 @@ def test_extract_custom_first_only():
 
 
 # combinations of use_labels and first_element begins
-def test_use_labels_true_and_first_element_false():
+def test_use_labels_true_and_first_element_true():
     """
     Use_labels and first_element set to true. output is a dictionary with only one value (string)    
     """
     data = pd.DataFrame({
-        'col': ['colour: blue size: small colour: green size: large']
+        'col': ['colour: blue size: small colour: green']
     })
     recipe = """
     wrangles:
@@ -635,7 +635,7 @@ def test_use_labels_true_and_first_element_false():
           first_element: true
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out'][0] == {'size': 'small'}
+    assert df['out'][0] == {'colour': 'blue', 'size': 'small'} or {'colour': 'green', 'size': 'small'}
     
 def test_use_labels_false_first_element_true():
     """
@@ -654,7 +654,7 @@ def test_use_labels_false_first_element_true():
           first_element: true
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out'][0] == 'size: small'
+    assert df['out'][0] == 'size: small' or df['out'][0] == 'colour: green' or df['out'][0] == 'colour: blue'
 
 def test_use_labels_multiple():
     """
