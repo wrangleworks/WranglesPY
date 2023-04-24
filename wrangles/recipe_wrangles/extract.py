@@ -9,7 +9,7 @@ from .. import extract as _extract
 from .. import format as _format
 
 
-def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
@@ -47,14 +47,20 @@ def address(df: _pd.DataFrame, input: str, output: str, dataType: str) -> _pd.Da
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-  
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.address(df[input_column].astype(str).tolist(), dataType)
+
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _extract.address(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _extract.address(
+                df[input_column].astype(str).tolist(), dataType)
   
     return df
 
 
-def attributes(df: _pd.DataFrame, input: str, output: str, responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -178,9 +184,12 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
 
     return df
 
@@ -356,28 +365,59 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        # Converting data to datetime
-        df_temp = _pd.to_datetime(df[input_column])
-        
-        properties_object = {
-            'day': df_temp.dt.day,
-            'day_of_year': df_temp.dt.day_of_year,
-            'month': df_temp.dt.month,
-            'month_name': df_temp.dt.month_name(),
-            'weekday': df_temp.dt.weekday,
-            'week_day_name': df_temp.dt.day_name(),
-            'week_year': df_temp.dt.isocalendar()['week'],
-            'quarter': df_temp.dt.quarter,
-        }
-        
-        if property in properties_object.keys():
-            df[output_column] = properties_object[property]
-        else:
-            raise ValueError(f"\"{property}\" not a valid date property.")
     
+    if len(output) == 1 and len(input) > 1:
+        output = [output[0] for i in range(len(input))]
+        # df_temp = df[input].apply(_pd.to_datetime)
+        temp = []
+        # for i in range(len(input)):
+            # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            # Converting data to datetime
+            df_temp = _pd.to_datetime(df[input_column])
+            
+            properties_object = {
+                'day': df_temp.dt.day,
+                'day_of_year': df_temp.dt.day_of_year,
+                'month': df_temp.dt.month,
+                'month_name': df_temp.dt.month_name(),
+                'weekday': df_temp.dt.weekday,
+                'week_day_name': df_temp.dt.day_name(),
+                'week_year': df_temp.dt.isocalendar()['week'],
+                'quarter': df_temp.dt.quarter,
+            }
+            
+            if property in properties_object.keys() and temp == []:
+                temp.append([properties_object[property][0]])
+
+            elif property in properties_object.keys() and temp != []:
+                for j in range(len(df)):
+                    temp[j].append(properties_object[property][0])
+
+            else:
+                raise ValueError(f"\"{property}\" not a valid date property.")
+        df[output[0]] = temp
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            # Converting data to datetime
+            df_temp = _pd.to_datetime(df[input_column])
+            
+            properties_object = {
+                'day': df_temp.dt.day,
+                'day_of_year': df_temp.dt.day_of_year,
+                'month': df_temp.dt.month,
+                'month_name': df_temp.dt.month_name(),
+                'weekday': df_temp.dt.weekday,
+                'week_day_name': df_temp.dt.day_name(),
+                'week_year': df_temp.dt.isocalendar()['week'],
+                'quarter': df_temp.dt.quarter,
+            }
+            
+            if property in properties_object.keys():
+                df[output_column] = properties_object[property]
+            else:
+                raise ValueError(f"\"{property}\" not a valid date property.")
     return df
 
 
@@ -552,8 +592,15 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+    # for input_column, output_column in zip(input, output):
+    #     df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _extract.properties(df[input_column].astype(str).tolist())
     
     return df
 

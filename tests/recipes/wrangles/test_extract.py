@@ -72,23 +72,27 @@ def test_address_5():
     assert df.iloc[0]['out2'][0] == '742 Evergreen St'
     
 # if the input and output are not the same type
-def test_address_6():
+def test_address_multi_input():
     data = pd.DataFrame({
-        'col1': ['221 B Baker St., London, England, United Kingdom'],
-        'col2': ['742 Evergreen St, Springfield, USA']
+        'street': ['221 B Baker St.'],
+        'city': ['London'],
+        'region': ['England'],
+        'country': ['United Kingdom']
     })
     recipe = """
     wrangles:
       - extract.address:
           input:
-            - col1
-            - col2
+            - street
+            - city
+            - region
+            - country
           output: out
           dataType: streets
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out'] == ['221 B Baker St.']
+
 #
 # Attributes
 #
@@ -309,6 +313,25 @@ def test_attributes_diff_type():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == ['13kg', '3kg']
     
+# if the input and output are different lengths
+def test_attributes_single_input_multi_output():
+    data = pd.DataFrame({
+        'col1': ['13 something 13kg 13 random'],
+        'col2': ['3 something 3kg 3 random'],
+    })
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: col1
+            output: 
+              - out1
+              - out2
+            responseContent: span
+            attribute_type: mass
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
 
 #
 # Codes
@@ -692,9 +715,9 @@ def test_properties_6():
           output: out
           property_type: colours
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out']['Colours'] == ['Blue', 'Sky Blue']
     
 #
 # HTML
@@ -767,7 +790,7 @@ def test_extract_brackets_2():
 # if the input and output are not the same type
 def test_extract_brackets_3():
     data = pd.DataFrame({
-        'col': ['[1234]'],
+        'col': ['[12345]'],
         'col2': ['{1234}'],
     })
     recipe = """
@@ -776,11 +799,27 @@ def test_extract_brackets_3():
           input:
             - col
             - col2
-          output: no_work
+          output: output
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == '12345'
+
+# if the input and output are not the same type
+def test_extract_brackets_multi_input():
+    data = pd.DataFrame({
+        'col': ['[12345]'],
+        'col2': ['[6789]'],
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input:
+            - col
+            - col2
+          output: output
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == '12345, 6789'
     
 #
 # Date Properties
@@ -816,6 +855,44 @@ def test_date_properties_2():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == '"millennium" not a valid date property.'
+
+# Multiple inputs to single output
+def test_date_properties_multi_input():
+    data = pd.DataFrame({
+        'col1': ['12/24/2000'],
+        'col2': ['4/24/2023']
+    })
+    recipe = """
+    wrangles:
+      - extract.date_properties:
+          input: 
+            - col1
+            - col2
+          output: out1
+          property: week_day_name
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == ['Sunday','Monday']
+
+# Multiple inputs and outputs
+def test_date_properties_multi_input_multi_output():
+    data = pd.DataFrame({
+        'col1': ['12/24/2000'],
+        'col2': ['4/24/2023']
+    })
+    recipe = """
+    wrangles:
+      - extract.date_properties:
+          input: 
+            - col1
+            - col2
+          output: 
+            - out1
+            - out2
+          property: week_day_name
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == 'Sunday' and df.iloc[0]['out2'] == 'Monday'
     
 #
 # Date range
