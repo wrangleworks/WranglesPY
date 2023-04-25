@@ -99,46 +99,38 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
     return df
 
 
-def map(df: _pd.DataFrame, arg, input: _Union[str, list], output: _Union[str, list] = None, na_action: str = None) -> _pd.DataFrame:
+    
+    
+def reindex(
+        df: _pd.DataFrame,
+        labels: list= None,
+        index: list = None,
+        columns: list = None,
+        axis: _Union[str, int] = None,
+        **kwargs
+        ) -> _pd.DataFrame:
     """
     type: object
-    description: Map values of Series according to an input mapping
+    description: Extract parts of addresses. Requires WrangleWorks Account.
     additionalProperties: false
-    required:
-      - arg
-      - input
     properties:
-      input:
+      labels:
+        type: array
+        description: New labels / index to conform the axis specified by ‘axis’ to.
+      index:
+        type: array
+        description: New labels for the index. Preferably an Index object to avoid duplicating data.
+      columns:
+        type: array
+        description: New labels for the columns. Preferably an Index object to avoid duplicating data.
+      axis:
         type:
+          - number
           - string
-          - array
-        description: Name of the input column(s)
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      arg:
-        type:
-          - object
-        description: Mapping correspondence object
-      na_action:
-        type:
-          - string
-        description: Decide if values are passed to the mapping or ignored
-        
+        description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
     """
     
-    if output is None: output = input
-    
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].map(arg=arg, na_action=na_action)
+    df = df.reindex(labels, index, columns, axis, kwargs)
     
     return df
-    
-    
     
