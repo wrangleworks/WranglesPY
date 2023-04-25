@@ -10,7 +10,7 @@ def test_pd_copy_one_col():
     })
     recipe = """
     wrangles:
-      - pd.copy:
+      - copy:
           input: col
           output: col-copy
     """
@@ -27,7 +27,7 @@ def test_pd_copy_multi_cols():
     })
     recipe = """
     wrangles:
-      - pd.copy:
+      - copy:
           input:
             - col
             - col2
@@ -48,7 +48,7 @@ def test_pd_drop_one_col():
     })
     recipe = """
     wrangles:
-      - pd.drop:
+      - drop:
           column: col2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
@@ -65,7 +65,7 @@ def test_pd_drop_multi_column():
     })
     recipe = """
     wrangles:
-      - pd.drop:
+      - drop:
           column:
             - col2
             - col3
@@ -85,7 +85,51 @@ def test_pd_transpose():
     }, index=['Characters'])
     recipe = """
     wrangles:
-      - pd.transpose: {}
+      - transpose: {}
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['Characters']
+    
+def test_round_one_input():
+    """
+    Test round with one input and output. decimals default is 0
+    """
+    data = pd.DataFrame({
+        'col1': [3.13],
+        'col2': [1.16],
+        'col3': [2.5555],
+        'col4': [3.15]
+    })
+    recipe = """
+    wrangles:
+      - round:
+          input: col1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col1'][0] == 3
+    
+def test_round_multi_input():
+    """
+    Test multiple inputs and outputs
+    """
+    data = pd.DataFrame({
+        'col1': [3.13],
+        'col2': [1.16],
+        'col3': [2.5555],
+        'col4': [3.15]
+    })
+    recipe = """
+    wrangles:
+      - round:
+          input:
+            - col1
+            - col2
+            - col3
+          output:
+            - out1
+            - out2
+            - out3
+          decimals: 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df[['out1', 'out2', 'out3']].values.tolist()[0] == [3.1, 1.2, 2.6]
