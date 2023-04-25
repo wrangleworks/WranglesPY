@@ -130,7 +130,7 @@ def reindex(
         description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
     """
     
-    df = df.reindex(labels, index, columns, axis, kwargs)
+    df = df.reindex(labels=labels, index=index, columns=columns, axis=axis, **kwargs)
     
     return df
     
