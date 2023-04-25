@@ -97,8 +97,48 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
         df[output_column] = df[input_column].round(decimals=decimals)
         
     return df
+
+
+def map(df: _pd.DataFrame, arg, input: _Union[str, list], output: _Union[str, list] = None, na_action: str = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Map values of Series according to an input mapping
+    additionalProperties: false
+    required:
+      - arg
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column(s)
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      arg:
+        type:
+          - object
+        description: Mapping correspondence object
+      na_action:
+        type:
+          - string
+        description: Decide if values are passed to the mapping or ignored
+        
+    """
     
+    if output is None: output = input
     
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].map(arg=arg, na_action=na_action)
+    
+    return df
     
     
     
