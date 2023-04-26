@@ -100,7 +100,7 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0) -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, fill_value = '') -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -132,7 +132,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
         raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
     for in_col, out_col in zip(input, output):
-        df[out_col] = _select.list_element(df[in_col].tolist(), element)
+        df[out_col] = _select.list_element(df[in_col].tolist(), element, fill_value=fill_value)
     
     return df
 
