@@ -821,7 +821,7 @@ def test_standardize_4():
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id in a standardize function.'
     
 # Using classify model with standardize function
-def test_standardize_4():
+def test_standardize_5():
     data = pd.DataFrame({
     'Abbrev': ['ASAP'],
     })
@@ -835,6 +835,51 @@ def test_standardize_4():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
+
+# List of inputs to one output
+def test_standardize_multi_input_single_output():
+    """
+    Test error using multiple input columns and only one output
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['ASAP'],
+    'Abbrev2': ['RSVP']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: Abbreviations
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+# List of inputs and outputs single model_id
+def test_standardize_multi_io_single_model():
+    """
+    Test error using multiple input and output columns with a single model_id
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['ASAP'],
+    'Abbrev2': ['ETA']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbreviations1
+              - Abbreviations2
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
 
 def test_replace():
     """
@@ -1196,3 +1241,28 @@ def test_date_calc_inconsistent_input():
         info.typename == 'ValueError' and
         info.value.args[0].startswith('The lists for')
     )
+
+# Test date_calculator using multiple input and output columns
+def test_date_calc_multi_io():
+    """
+    Check output when ran with multiple input and output columns
+    """
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input:
+            - date1
+            - date2
+          output:
+            - out1
+            - out2
+          operation: subtract
+          time_unit: days
+          time_value: 5
+    """
+    data = pd.DataFrame({
+                'date1': ['12/25/2022'],
+                'date2': ['7/4/2023']
+            })
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1']._date_repr == '2022-12-20' and df.iloc[0]['out2']._date_repr == '2023-06-29'

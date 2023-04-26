@@ -590,17 +590,13 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
-    # Loop through and apply for all columns
-    # for input_column, output_column in zip(input, output):
-    #     df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
+        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(df[input_column].astype(str).tolist())
+            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
     
     return df
 

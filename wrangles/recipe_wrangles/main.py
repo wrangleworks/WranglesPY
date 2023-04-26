@@ -651,15 +651,10 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-    
-    # Ensure input and model_id are equal lengths
-    if len(input) != len(model_id):
-        raise ValueError('The lists for input and model_id must be the same length.')
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-
 
     return df
 

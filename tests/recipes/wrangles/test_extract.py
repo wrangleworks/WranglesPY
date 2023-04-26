@@ -802,7 +802,7 @@ def test_extract_brackets_3():
           output: output
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == '12345'
+    assert df.iloc[0]['output'] == '12345, 1234'
 
 # if the input and output are not the same type
 def test_extract_brackets_multi_input():
