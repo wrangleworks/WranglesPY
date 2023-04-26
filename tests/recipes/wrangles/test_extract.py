@@ -717,7 +717,7 @@ def test_properties_6():
     """
 
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out']['Colours'] == ['Blue', 'Sky Blue']
+    assert df.iloc[0]['out'] == ['Blue', 'Sky Blue']
     
 #
 # HTML
