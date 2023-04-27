@@ -48,6 +48,10 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     for in_col, out_col in zip(input, output):
       # Dealing with positive infinity. At end of bins list
@@ -168,7 +172,7 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
     return df
 
 
-def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: str = None) -> _pd.DataFrame:
+def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Output text using a jinja template
@@ -183,15 +187,11 @@ def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: s
           Specify a name of column containing a dictionary of elements to be used in jinja template.
           Otherwise, the column headers will be used as keys.
       output:
-        type: 
-          - string
-          - array
+        type: string
         description: Name of the column to be output to.
       template:
         type: object
-        description: |
-          A dictionary which defines the template/location as well as the form which the template is input.
-          If any keys use a space, it must be replaced with an underscore.
+        description: A dictionary which defines the template/location as well as the form which the template is input
         additionalProperties: false
         properties:
           file:
@@ -212,15 +212,6 @@ def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: s
         input_list = df[input]
     else:
         input_list = df.to_dict(orient='records')
-
-    # Replace any spaces in keys with underscores
-    input_list = [
-        {
-            key.replace(' ', '_'): val
-            for key, val in row.items()
-        }
-        for row in input_list
-    ]
 
     if len(template) > 1:
         raise Exception('Template must have only one key specified')

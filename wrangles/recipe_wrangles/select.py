@@ -13,13 +13,18 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
     additionalProperties: false
     required:
       - input
+      - output
       - element
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column
       element:
         type: string
@@ -31,6 +36,7 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
     
@@ -93,6 +99,10 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     # Loop through and get left characters of the length requested for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].str[:length]
@@ -107,6 +117,8 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     additionalProperties: false
     required:
       - input
+      - output
+      - element
     properties:
       input:
         type: 
@@ -130,6 +142,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
@@ -169,6 +182,10 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through and get the right characters of the length requested for all columns
     for input_column, output_column in zip(input, output):
@@ -212,6 +229,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through and get the substring requested for all requested columns
     for input_column, output_column in zip(input, output):

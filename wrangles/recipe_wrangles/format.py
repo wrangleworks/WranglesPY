@@ -49,7 +49,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Uni
     return df
     
     
-def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: _Union[str, int], output: _Union[str, list] =  None) -> _pd.DataFrame:
+def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
     """
     type: object
     description: Pad a string to a fixed length
@@ -78,14 +78,9 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
         type:
           - string
         description:  Side from which to fill resulting string
-        enum:
-          - left
-          - right
-          - both
       char:
         type:
           - string
-          - int
         description: The character to pad the input with
   """
     char = str(char)
@@ -185,7 +180,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
     return df
 
 
-def suffix(df: _pd.DataFrame, input: _Union[str, list], value: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def suffix(df: _pd.DataFrame, input: _Union[str, list], value: _Union[str, list], output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Add a suffix to a column
@@ -250,6 +245,10 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through all requested columns
     for input_column, output_column in zip(input, output):

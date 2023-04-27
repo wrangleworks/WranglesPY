@@ -102,6 +102,7 @@ def codes(input: _Union[str, list]) -> list:
 
 
 def custom(input: _Union[str, list], model_id: str, first_element: bool = False, use_labels: bool = False) -> list:
+
     """
     Extract entities using a custom model.
     Requires WrangleWorks Account and Subscription.
@@ -142,12 +143,15 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
+
+
     if first_element and not use_labels:
         results = [x[0] if len(x) >= 1 else "" for x in results]
     
     if use_labels and first_element:
         results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
     
+
     if isinstance(input, str): results = results[0]
     
     return results

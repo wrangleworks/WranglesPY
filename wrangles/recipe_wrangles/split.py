@@ -180,6 +180,7 @@ def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     if not isinstance(input, _list): input = [input]
     if not isinstance(output, _list): output = [output]
 
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     

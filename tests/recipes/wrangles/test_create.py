@@ -337,24 +337,6 @@ def test_jinja_output_missing():
         info.value.args[0].startswith("jinja() missing")
     )
 
-def test_jinja_variable_with_space():
-    """
-    Tests variable with a space
-    """
-    data = pd.DataFrame({
-        'head type': ['phillips head', 'flat head'],
-        'length': ['3 inch', '6 inch']
-    })
-    recipe = """
-    wrangles:
-      - create.jinja:
-          output: description
-          template: 
-            string: This is a {{length}} {{head_type}} screwdriver
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
-
 
 #
 # UUID
@@ -401,3 +383,106 @@ def test_create_bins_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Pricing'].iloc[0] == 'under 10'
+
+# Test create.bins with a list of input and output columns
+def test_create_bins_list_to_list():
+    """
+    Test create.bins using a list of input and output columns
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input:
+              - col1
+              - col2
+            output:
+              - Pricing1
+              - Pricing2
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Pricing1'].iloc[0] == 'under 10' and df['Pricing2'].iloc[0] == 'under 10'
+    
+# Test create.bins with a list of input and output columns
+def test_create_bins_list_to_single_output():
+    """
+    Test create.bins using a list of inputs and a single output column
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input:
+              - col1
+              - col2
+            output: Pricing1
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+# Test create.bins with a single input and a list of output columns
+def test_create_bins_single_input_multi_output():
+    """
+    Test create.bins using a single input and a list of output columns
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input: col1
+            output: 
+              - Pricing1
+              - Pricing2
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
