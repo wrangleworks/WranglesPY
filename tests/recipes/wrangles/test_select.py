@@ -144,6 +144,45 @@ def test_list_element_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
     
+def test_list_elem_fill_value_string():
+    """
+    Test fill_value to be a string
+    
+    """
+    data = pd.DataFrame({
+    'Col1': [['A'], [], 'C'],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Out
+          element: 0
+          fill_value: 'None'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].values.tolist() == ['A', 'None', 'C']
+    
+def test_list_elem_fill_value_list():
+    """
+    Test fill_value to be a empty list
+    
+    """
+    data = pd.DataFrame({
+    'Col1': [[['A']], [], [['C']]],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Out
+          element: 0
+          fill_value: []
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].values.tolist() == [['A'], [], ['C']]
+    
+    
 #
 # Highest confidence
 #
