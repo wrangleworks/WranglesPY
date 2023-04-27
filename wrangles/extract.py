@@ -146,8 +146,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
 
 
     if first_element and not use_labels:
-        results = [x[0] if len(x) 
-        = 1 else "" for x in results]
+        results = [x[0] if len(x) >= 1 else "" for x in results]
     
     if use_labels and first_element:
         results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
