@@ -9,6 +9,7 @@ from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
+import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
 import yaml as _yaml
@@ -288,7 +289,73 @@ def filter(
         
         if is_null == False:
             df = df[df[input_column].notnull()]
-     
+
+    df = df.reset_index(drop=True)
+
+    return df
+
+
+def huggingface(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    api_token: str,
+    model: str,
+    output: _Union[str, list] = None,
+    parameters = None
+):
+    """
+    type: object
+    description: Use a model from huggingface
+    required:
+      - input
+      - api_token
+      - model
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >
+          Name of the output column.
+          If not provided, will overwrite the input column
+      model:
+        type: string
+        description: Name of the model to use. e.g. facebook/bart-large-cnn
+      api_token:
+        type: string
+        description: Huggingface API Token
+      parameters:
+        type: object
+        description: Optionally, provide additional parameters to define the model behaviour
+    """
+    if not output: output = input
+    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list): input = [input]
+
+    json_base = {}
+    if parameters:
+        json_base['parameters'] = parameters
+
+    for input_col, output_col in zip(input, output):
+        df[output_col] = [
+            _requests.post(
+                f"https://api-inference.huggingface.co/models/{model}",
+                headers={
+                    "Authorization": f"Bearer {api_token}"
+                },
+                json={
+                    **json_base,
+                    **{"inputs": row}
+                }
+            ).json()
+            for row in df[input_col].values
+        ]
+
     return df
 
 
@@ -740,71 +807,6 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - Swedish
     """
     
-    # Convert Language to DeepL Code
-    source_dict = [
-        { 'key': 'AUTO', 'text': 'Auto'},
-        { 'key': 'BG', 'text': 'Bulgarian' },
-        { 'key': 'ZH', 'text': 'Chinese' },
-        { 'key': 'CS', 'text': 'Czech' },
-        { 'key': 'DA', 'text': 'Danish' },
-        { 'key': 'NL', 'text': 'Dutch' },
-        { 'key': 'EN', 'text': 'English' },
-        { 'key': 'ET', 'text': 'Estonian' },
-        { 'key': 'FI', 'text': 'Finnish' },
-        { 'key': 'FR', 'text': 'French' },
-        { 'key': 'DE', 'text': 'German' },
-        { 'key': 'EL', 'text': 'Greek' },
-        { 'key': 'HU', 'text': 'Hungarian' },
-        { 'key': 'IT', 'text': 'Italian' },
-        { 'key': 'JA', 'text': 'Japanese' },
-        { 'key': 'LV', 'text': 'Latvian' },
-        { 'key': 'LT', 'text': 'Lithuanian' },
-        { 'key': 'PL', 'text': 'Polish' },
-        { 'key': 'PT', 'text': 'Portuguese' },
-        { 'key': 'RO', 'text': 'Romanian' },
-        { 'key': 'RU', 'text': 'Russian' },
-        { 'key': 'SK', 'text': 'Slovak' },
-        { 'key': 'SL', 'text': 'Slovenian' },
-        { 'key': 'ES', 'text': 'Spanish' },
-        { 'key': 'SV', 'text': 'Swedish' },
-    ]
-    
-    target_dict = [
-        { 'key': 'BG', 'text': 'Bulgarian' },
-        { 'key': 'ZH', 'text': 'Chinese' },
-        { 'key': 'CS', 'text': 'Czech' },
-        { 'key': 'DA', 'text': 'Danish' },
-        { 'key': 'NL', 'text': 'Dutch' },
-        { 'key': 'EN-US', 'text': 'English (American)' },
-        { 'key': 'EN-GB', 'text': 'English (British)' },
-        { 'key': 'ET', 'text': 'Estonian' },
-        { 'key': 'FI', 'text': 'Finnish' },
-        { 'key': 'FR', 'text': 'French' },
-        { 'key': 'DE', 'text': 'German' },
-        { 'key': 'EL', 'text': 'Greek' },
-        { 'key': 'HU', 'text': 'Hungarian' },
-        { 'key': 'IT', 'text': 'Italian' },
-        { 'key': 'JA', 'text': 'Japanese' },
-        { 'key': 'LV', 'text': 'Latvian' },
-        { 'key': 'LT', 'text': 'Lithuanian' },
-        { 'key': 'PL', 'text': 'Polish' },
-        { 'key': 'PT-PT', 'text': 'Portuguese' },
-        { 'key': 'PT-BR', 'text': 'Portuguese (Brazilian)' },
-        { 'key': 'RO', 'text': 'Romanian' },
-        { 'key': 'RU', 'text': 'Russian' },
-        { 'key': 'SK', 'text': 'Slovak' },
-        { 'key': 'SL', 'text': 'Slovenian' },
-        { 'key': 'ES', 'text': 'Spanish' },
-        { 'key': 'SV', 'text': 'Swedish' },
-    ]
-    # Source Language code
-    try:
-        if target_language == 'English': target_language = 'English (British)'
-        source_language = [x['key'] for x in source_dict if x['text'] == source_language][0]
-        target_language = [x['key'] for x in target_dict if x['text'] == target_language][0]
-    except:
-        pass
-
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 

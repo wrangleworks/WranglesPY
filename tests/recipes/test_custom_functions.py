@@ -310,3 +310,155 @@ def test_row_function_list_out():
         functions=[add_three]
     )
     assert df['val3'][0] == 4 and df['val4'][0] == 5
+
+def test_pass_error():
+    """
+    Test using error argument for a custom run function
+    to get access to the Exception when an error occurs
+    """
+    global test_var_pass_error
+    test_var_pass_error = False
+
+    def handle_error(error):
+        if (type(error).__name__ == 'TypeError' and
+            str(error) == "data type 'andksankdl' not understood"
+        ):
+            global test_var_pass_error
+            test_var_pass_error = True
+
+    with pytest.raises(Exception) as err:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+
+            wrangles:
+            - convert.data_type:
+                input: header
+                data_type: andksankdl
+            
+            run:
+              on_failure:
+                - custom.handle_error: {}
+            """,
+            functions=[handle_error]
+        )
+
+    assert test_var_pass_error
+
+def test_pass_error_with_params():
+    """
+    Test using error argument for a custom run function
+    to get access to the Exception when an error occurs
+    Also including user defined parameters.
+    """
+    global test_var_pass_error_params
+    test_var_pass_error_params = False
+
+    def handle_error(error, param):
+        if (type(error).__name__ == 'TypeError' and
+            str(error) == "data type 'andksankdl' not understood" and
+            param == "value"
+        ):
+            global test_var_pass_error_params
+            test_var_pass_error_params = True
+
+    with pytest.raises(Exception) as err:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+
+            wrangles:
+            - convert.data_type:
+                input: header
+                data_type: andksankdl
+            
+            run:
+              on_failure:
+                - custom.handle_error:
+                    param: value
+            """,
+            functions=[handle_error]
+        )
+
+    assert test_var_pass_error_params
+
+def test_error_not_passed():
+    """
+    Test that if a user doesn't request the error
+    this is handled correctly.
+    """
+    global test_var_error_not_passed
+    test_var_error_not_passed = False
+
+    def handle_error():
+        global test_var_error_not_passed
+        test_var_error_not_passed = True
+
+    with pytest.raises(Exception) as err:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+
+            wrangles:
+            - convert.data_type:
+                input: header
+                data_type: andksankdl
+            
+            run:
+              on_failure:
+                - custom.handle_error: {}
+            """,
+            functions=[handle_error]
+        )
+
+    assert test_var_error_not_passed
+
+def test_error_not_passed_with_params():
+    """
+    Test that if a user doesn't request the error
+    this is handled correctly.
+    Also including user defined parameters.
+    """
+    global test_var_error_not_passed_params
+    test_var_error_not_passed_params = False
+
+    def handle_error(param):
+        if param == "value":
+            global test_var_error_not_passed_params
+            test_var_error_not_passed_params = True
+
+    with pytest.raises(Exception) as err:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+
+            wrangles:
+            - convert.data_type:
+                input: header
+                data_type: andksankdl
+            
+            run:
+              on_failure:
+                - custom.handle_error:
+                    param: value
+            """,
+            functions=[handle_error]
+        )
+
+    assert test_var_error_not_passed_params
