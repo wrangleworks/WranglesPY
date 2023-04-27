@@ -121,6 +121,8 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
       element:
         type: integer
         description: The numbered element of the list to select. Starts from zero
+      fill_value:
+        description: Fill value if the list element cannot be selected
     """
     if output is None: output = input
     
