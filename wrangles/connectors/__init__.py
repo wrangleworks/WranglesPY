@@ -14,6 +14,7 @@ from . import pricefx
 from . import test
 from . import ssh
 from . import sftp
+from . import matrix
 from . import mongodb
 from . import salesforce
 from . import recipe

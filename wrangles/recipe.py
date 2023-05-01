@@ -92,7 +92,8 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                 try:
                     replacement_value = variables[var[2:-1]]
                 except:
-                    raise ValueError(f"Variable {var} was not found.")
+                    replacement_value = var
+                    # raise ValueError(f"Variable {var} was not found.")
 
                 new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
 
