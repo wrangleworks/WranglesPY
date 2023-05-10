@@ -718,11 +718,23 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # If Several model ids applied to a column in place
+    if all(len(x) == 1 for x in [input, output]) and isinstance(model_id, list):
+        tmp_output = input
+        df_copy = df.loc[:, [input[0]]]
+        for model in model_id:
+            for input_column, output_column in zip(input, tmp_output):
+                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model)
+        
+        # Adding the result of the df_copy to the original dataframe
+        df[output[0]] = df_copy[output_column]
+        return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-
+            
     return df
 
 
