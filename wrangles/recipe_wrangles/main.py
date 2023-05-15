@@ -11,6 +11,7 @@ import re as _re
 import numexpr as _ne
 import requests as _requests
 import pandas as _pd
+import numpy as _np
 import wrangles as _wrangles
 import yaml as _yaml
 from ..classify import classify as _classify
@@ -816,3 +817,39 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
     return df
+
+
+def validate(df: _pd.DataFrame, output: _Union[str, list] = None, **kwargs):
+    """
+    type: object
+    description: Validate the data contents
+    additionalProperties: false
+    required:
+      - assert
+      - output
+    properties:
+      assert:
+        type:
+          - string
+          - array
+        description: Python command to test the data against. Must return True or False.
+      output:
+        type: string
+        description: Output column to save the validation results
+    """
+    def test_assertion(assertion, **kwargs):
+        return eval(assertion, {}, kwargs)
+        
+    assertions = kwargs['assert']
+    if not isinstance(assertions, list): assertions = [assertions]
+    if output and not isinstance(output, list): output = [output]
+    
+    results = _np.full((len(df)), True, dtype=bool)
+
+    for assertion in assertions:
+        results = results & _np.array(df.apply(lambda x: test_assertion(assertion, **x), axis=1, result_type='expand'))
+    
+    df[output[0]] = results
+    return df
+
+    
