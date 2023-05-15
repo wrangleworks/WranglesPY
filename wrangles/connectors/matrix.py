@@ -9,18 +9,25 @@ import pandas as _pd
 import yaml as _yaml
 
 
-def write(df: _pd.DataFrame, keys: list, write: list):
+def write(df: _pd.DataFrame, variables: dict, write: list):
     """
     """
     permutations = []
 
-    for key, val in keys.items():
+    for key, val in variables.items():
         if isinstance(val, list):
             vals = val
         
         elif _re.fullmatch(r'set\((.*)\)', val.strip()):
             column_name = _re.fullmatch(r'set\((.*)\)', val.strip())[1]
             vals = list(set(df[column_name]))
+
+        elif _re.fullmatch(r'custom.(.*)', val.strip()):
+            # Run custom function
+            pass
+        
+        else:
+            vals = [val]
 
         permutations.append([{key: var} for var in vals])
 
@@ -42,7 +49,7 @@ def write(df: _pd.DataFrame, keys: list, write: list):
 """
 write:
   - matrix:
-      keys:
+      variables:
         filename: set(header)
         filename2: [a, b, c]
       write:
