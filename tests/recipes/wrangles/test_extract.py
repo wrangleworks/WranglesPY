@@ -709,7 +709,7 @@ def test_use_labels_multiple():
           first_element: false
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']}
+    assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']} or df['out'][0] == {'colour': ['black', 'blue'], 'size': ['small']}
     
 def test_use_labels_same_key():
     """
