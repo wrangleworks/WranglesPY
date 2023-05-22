@@ -111,7 +111,7 @@ def reindex(
         ) -> _pd.DataFrame:
     """
     type: object
-    description: Extract parts of addresses. Requires WrangleWorks Account.
+    description: Changes the row labels and column labels of a DataFrame.
     additionalProperties: false
     properties:
       labels:
