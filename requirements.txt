@@ -6,7 +6,7 @@ sqlalchemy<2.0
 pymssql
 psycopg2-binary
 pymysql
-fabric
+fabric==2.7.1
 apprise
 lorem
 pymongo[srv]
