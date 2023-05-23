@@ -98,6 +98,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - inductance
           - instance frequency
           - length
+          - luminous flux
           - mass
           - power
           - pressure
