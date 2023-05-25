@@ -142,7 +142,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 def filter(
           df: _pd.DataFrame,
-          input: list = [],
+          input: _Union[str, list] = [],
           equal: _Union[str, list] = None,
           not_equal: _Union[str, list] = None,
           is_in: _Union[str, list] = None,
@@ -179,14 +179,12 @@ def filter(
       equal:
         type:
           - string
-          - integer
-          - number
+          - array
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
-          - integer
-          - number
+          - array
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
