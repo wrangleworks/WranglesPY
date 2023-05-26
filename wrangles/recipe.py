@@ -348,7 +348,8 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
     # Remove any columns specified by the user
     if not_columns:
         not_columns = _wildcard_expansion(df.columns.tolist(), not_columns)
-        remaining_columns = list(set(df.columns) - set(not_columns))
+        # List comprehension is used below to preserve order of columns 
+        remaining_columns = [column for column in list(df.columns) if column not in not_columns]
         df = df[remaining_columns]
 
     if where:
