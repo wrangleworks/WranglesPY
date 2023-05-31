@@ -49,9 +49,6 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     :param type: (Optional) Specify which types of attributes to find. If omitted, a dict of all attributes types is returned
     :param bound: (Optional, default mid). When returning an object, if the input is a range. e.g. 10-20mm, set the value to return. min, mid or max.
     """
-    # Check that attribute_type is correct
-    attributes_type_list = ["angle","area","current","force","length","power","pressure","electric potential","volume","mass"]
-    if type != None and type.lower() not in attributes_type_list: raise ValueError(f'"{type}" is not a valid attribute_type value.')
     
     if isinstance(input, str): 
         json_data = [input]
