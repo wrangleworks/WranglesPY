@@ -100,9 +100,11 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - length
           - luminous flux
           - mass
+          - weight
           - power
           - pressure
           - speed
+          - velocity
           - temperature
           - time
           - volume
