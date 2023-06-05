@@ -73,8 +73,6 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     additionalProperties: false
     required:
       - input
-      - operation
-      - kwargs
     properties:
       input:
         type: string
