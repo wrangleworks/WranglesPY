@@ -462,3 +462,130 @@ def test_error_not_passed_with_params():
         )
 
     assert test_var_error_not_passed_params
+
+df_test_kwargs = pd.DataFrame({'ID': [1, 2, 3, 4, 5], 'Products': ['Hammer', 'Hex Nut', 'Pliers', 'Machine Screw', 'Socket'], 'Category': ['Tools', 'Hardware', 'Tools', 'Hardware', 'Tools']})
+
+def test_empty_kwargs():
+    """
+    Test functionality when kwargs are empty
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(Products, string, **kwargs):
+        return Products + ' ' + string
+
+    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+
+def test_single_kwarg():
+    """
+    Test functionality with single kwarg
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(Products, **kwargs):
+        output = ''
+        for value in kwargs.values():
+            output += Products + ' ' + value
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+
+def test_multiple_kwargs():
+    """
+    Test functionality with multiple kwargs
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string1: this
+          string2: is
+          string3: a
+          string4: string
+          output: Stuff
+    """
+    def function(Products, **kwargs):
+        output = Products
+        for value in kwargs.values():
+            output += ' ' + value
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+
+def test_kwargs_input_error():
+    """
+    Test error when using input key as a variable instead of the input value
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(input, string, **kwargs):
+        return input + ' ' + string
+
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe, df_test_kwargs, functions = function)
+    
+    assert (
+        info.typename == 'KeyError' and
+        info.value.args[0] == 'Column Products does not exist'
+    )
+
+def test_kwargs_output_error():
+    """
+    Test error when using output in custom function
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(output, string, **kwargs):
+        return output + ' ' + string
+
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe = df_test_kwargs, functions = function)
+    
+    assert (
+        info.typename == 'TypeError' and
+        info.value.args[0] == "test_kwargs_output_error.<locals>.function() missing 1 required positional argument: 'output'"
+    )
+
+def test_kwargs_dictionary_error():
+    """
+    Test error when using output in custom function
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(string, **kwargs):
+        return kwargs + ' ' + string
+
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe = df_test_kwargs, functions = function)
+    
+    assert (
+        info.typename == 'TypeError' and
+        info.value.args[0] == "unsupported operand type(s) for +: 'dict' and 'str'"
+    )
+

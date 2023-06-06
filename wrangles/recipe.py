@@ -293,23 +293,27 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 # Get user's function arguments
                 function_args = _inspect.getfullargspec(custom_function).args
+                function_kwargs = _inspect.getfullargspec(custom_function).varkw
 
                 if function_args[0] == 'df':
                     # If user's first argument is df, pass them the whole dataframe
                     df = functions[wrangle[7:]](df, **params)
-                elif function_args[0] == 'cell':
-                    # If user's first function is cell, pass them the cells defined by the parameter input individually
-                    input_column = params['input']
-                    params.pop('input')
-                    if params.get('output') is None:
-                        output_column = input_column
-                    else:
-                        output_column = params['output']
-                        params.pop('output')
-                    df[output_column] = [custom_function(cell, **params) for cell in df[input_column].to_list()]
 
                 else:
-                    df[params['output']] = df[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
+                    if 'input' in params:
+                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                        df_temp = df[params['input']]
+                    else:
+                        df_temp = df
+
+                    params_temp = params.copy()
+                    params_temp.pop('input')
+                    params_temp.pop('output')
+
+                    if function_kwargs:
+                        df[params['output']] = df_temp.apply(lambda x: custom_function(**{**x, **params_temp}), axis=1, result_type='expand')
+                    else:
+                        df[params['output']] = df_temp[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
