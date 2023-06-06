@@ -589,3 +589,122 @@ def test_kwargs_dictionary_error():
         info.value.args[0] == "unsupported operand type(s) for +: 'dict' and 'str'"
     )
 
+def test_kwargs_only():
+    """
+    Test functionality when using only kwargs
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(**kwargs):
+        outputString = ''
+        for value in kwargs.values():
+            outputString += value
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammerthis is a string' and df.iloc[4]['Stuff'] == 'Socketthis is a string'
+
+def test_not_kwargs():
+    """
+    Test functionality when using **notkwargs in place of **kwargs
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          output: Stuff
+    """
+    def function(**notkwargs):
+        outputString = ''
+        for value in notkwargs.values():
+            outputString += value
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammerthis is a string' and df.iloc[4]['Stuff'] == 'Socketthis is a string'
+
+def test_kwargs_with_list():
+    """
+    Test functionality when using a list in kwargs
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          strings: 
+            - this is a string
+            - so is this
+            - this is also a string
+          output: Stuff
+    """
+    def function(**notkwargs):
+        outputString = ''
+        for value in notkwargs.values():
+            for i in range(len(value)):
+                outputString += value[i]
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammerthis is a stringso is thisthis is also a string' and df.iloc[4]['Stuff'] == 'Socketthis is a stringso is thisthis is also a string'
+
+def test_regex_with_kwargs():
+    """
+    Test functionality using regex in the input
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: P[a-z]*s
+          string: this is a string
+          output: Stuff
+    """
+    def function(Products, **kwargs):
+        output = ''
+        for value in kwargs.values():
+            output += Products + ' ' + value
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+
+def test_wildcard_with_kwargs():
+    """
+    Test functionality using a wildcard
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Product*
+          string: this is a string
+          output: Stuff
+    """
+    def function(Products, **kwargs):
+        output = ''
+        for value in kwargs.values():
+            output += Products + ' ' + value
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+
+def test_kwargs_no_input():
+    """
+    Test functionality using a wildcard
+    """
+    recipe = """
+    wrangles:
+      - custom.function:
+          string: this is a string
+          output: Stuff
+    """
+    def function(**kwargs):
+        output = ''
+        for value in kwargs.values():
+            output += str(value)
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
+    assert df.iloc[0]['Stuff'] == '1HammerToolsthis is a string' and df.iloc[4]['Stuff'] == '5SocketToolsthis is a string'

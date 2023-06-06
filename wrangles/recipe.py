@@ -295,7 +295,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 function_args = _inspect.getfullargspec(custom_function).args
                 function_kwargs = _inspect.getfullargspec(custom_function).varkw
 
-                if function_args[0] == 'df':
+                if len(function_args) > 0 and function_args[0] == 'df':
                     # If user's first argument is df, pass them the whole dataframe
                     df = functions[wrangle[7:]](df, **params)
 
@@ -307,8 +307,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         df_temp = df
 
                     params_temp = params.copy()
-                    params_temp.pop('input')
-                    params_temp.pop('output')
+                    if 'input' in params_temp.keys():
+                        params_temp.pop('input')
+                    if 'output' in params_temp.keys():
+                        params_temp.pop('output')
 
                     if function_kwargs:
                         df[params['output']] = df_temp.apply(lambda x: custom_function(**{**x, **params_temp}), axis=1, result_type='expand')
