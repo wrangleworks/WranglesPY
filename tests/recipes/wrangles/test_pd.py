@@ -135,26 +135,22 @@ def test_round_multi_input():
     assert df[['out1', 'out2', 'out3']].values.tolist()[0] == [3.1, 1.2, 2.6]
     
 def test_reindex():
-    data = pd.DataFrame({
-        'Name': ['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror'],
-        'http_status': [200, 200, 404, 404, 301],
-        'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]
-        })
-
-    print(data)
-
+    """
+    Testing Pandas reindex function
+    """
+    index = ['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror']
+    data = pd.DataFrame({'http_status': [200, 200, 404, 404, 301],
+                  'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]},
+                  index=index)
+    
     rec = """
     wrangles:
-    - pandas.set_index:
-        parameters:
-            keys: Name
-
-    - reindex:
-        labels:
+      - reindex:
+          index:
             - Safari
-            - Chrome
+            - Iceweasel
             - Comodo Dragon
-        fill_value: None
+            - IE10
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
-    assert df.index.tolist() == ['Safari', 'Chrome', 'Comodo Dragon']
+    assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
