@@ -432,6 +432,56 @@ def test_error_not_passed_with_params():
 
     assert test_var_error_not_passed_params
 
+def test_df_at_end_of_variables():
+    """
+    Test functionality when df is placed at the end of the function variables
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 2
+          values:
+            ID: 1
+            Products: Hammer
+            Category: Tools
+    
+    wrangles:
+      - custom.function:
+          input: Products
+          output: Stuff
+    """
+    def function(input, output, df):
+        df[output] = df[input] + ' sold out'
+        return df
+
+    dfNew = wrangles.recipe.run(recipe, functions=function)
+    assert dfNew['Stuff'][0] == 'Hammer sold out'
+
+def test_df_at_beginning_of_variables():
+    """
+    Test functionality when df is placed at the beginning of the function variables
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 2
+          values:
+            ID: 1
+            Products: Hammer
+            Category: Tools
+    
+    wrangles:
+      - custom.function:
+          input: Products
+          output: Stuff
+    """
+    def function(df, input, output):
+        df[output] = df[input] + ' sold out'
+        return df
+
+    dfNew = wrangles.recipe.run(recipe, functions=function)
+    assert dfNew['Stuff'][0] == 'Hammer sold out'
+
 def test_empty_kwargs():
     """
     Test functionality when kwargs are empty

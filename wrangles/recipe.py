@@ -301,7 +301,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 # Check for function_args and df
                 if len(function_args) > 0 and 'df' in function_args:
                     # If user's first argument is df, pass them the whole dataframe
-                    df = functions[wrangle[7:]](df, **params)
+                    df = functions[wrangle[7:]](df=df, **params)
 
                 # Dealing with no function_args
                 else:
