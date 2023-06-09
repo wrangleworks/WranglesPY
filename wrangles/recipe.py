@@ -293,29 +293,37 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 # Get user's function arguments
                 function_args = _inspect.getfullargspec(custom_function).args
-                function_kwargs = _inspect.getfullargspec(custom_function).varkw
+                # Drop params from function_args
+                for arg in function_args:
+                    if arg in params.keys():
+                        function_args.remove(arg)
 
-                if len(function_args) > 0 and function_args[0] == 'df':
+                # Check for function_args and df
+                if len(function_args) > 0 and 'df' in function_args:
                     # If user's first argument is df, pass them the whole dataframe
                     df = functions[wrangle[7:]](df, **params)
 
+                # Dealing with no function_args
                 else:
+                    df_temp = df
+                    
                     if 'input' in params:
                         params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                        df_temp = df[params['input']]
-                    else:
-                        df_temp = df
+                        df_temp = df_temp[params['input']]
+                    # Set df_temp equal to 
+                    if function_args:
+                        df_temp = df_temp[function_args]
 
                     params_temp = params.copy()
                     if 'input' in params_temp.keys():
                         params_temp.pop('input')
                     if 'output' in params_temp.keys():
                         params_temp.pop('output')
-
-                    if function_kwargs:
+                    # {**x, **params_temp} deals with columns in function args and **params_temp without columns
+                    try:
                         df[params['output']] = df_temp.apply(lambda x: custom_function(**{**x, **params_temp}), axis=1, result_type='expand')
-                    else:
-                        df[params['output']] = df_temp[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
+                    except:    
+                        df[params['output']] = df_temp.apply(lambda x: custom_function(**params_temp), axis=1, result_type='expand')
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for

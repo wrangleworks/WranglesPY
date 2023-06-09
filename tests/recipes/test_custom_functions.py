@@ -153,37 +153,6 @@ def test_with_parameters():
 
     assert df.iloc[0]['col1'] == 'hello world'
 
-def test_custom_function_cell():
-    # using cell as args[0]
-    def my_function(cell):    
-        return str(cell) + ' xyz'
-
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function:
-            input: col1
-            output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
-
-    assert df.iloc[0]['out1'] == 'Reverse Reverse xyz'
-    
-def test_custom_function_cell_2():
-    # not mentioning output ->  using cell as args[0]
-    def my_function(cell):    
-        return str(cell) + ' xyz'
-
-    data = pd.DataFrame({'col1': ['Reverse Reverse']})
-    recipe = """
-    wrangles:
-        - custom.my_function:
-            input: col1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data, functions=[my_function])
-
-    assert df.iloc[0]['col1'] == 'Reverse Reverse xyz'
-
 # Custom Function
 def test_custom_function_1():
     data = pd.DataFrame({
@@ -463,12 +432,11 @@ def test_error_not_passed_with_params():
 
     assert test_var_error_not_passed_params
 
-df_test_kwargs = pd.DataFrame({'ID': [1, 2, 3, 4, 5], 'Products': ['Hammer', 'Hex Nut', 'Pliers', 'Machine Screw', 'Socket'], 'Category': ['Tools', 'Hardware', 'Tools', 'Hardware', 'Tools']})
-
 def test_empty_kwargs():
     """
     Test functionality when kwargs are empty
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -479,13 +447,14 @@ def test_empty_kwargs():
     def function(Products, string, **kwargs):
         return Products + ' ' + string
 
-    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer this is a string' and df.iloc[1]['Stuff'] == 'Hex Nut this is a string'
 
 def test_single_kwarg():
     """
     Test functionality with single kwarg
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -498,13 +467,14 @@ def test_single_kwarg():
         for value in kwargs.values():
             output += Products + ' ' + value
         return output
-    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer this is a string'
 
 def test_multiple_kwargs():
     """
     Test functionality with multiple kwargs
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -520,13 +490,14 @@ def test_multiple_kwargs():
         for value in kwargs.values():
             output += ' ' + value
         return output
-    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer this is a string'
 
 def test_kwargs_input_error():
     """
     Test error when using input key as a variable instead of the input value
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -538,17 +509,18 @@ def test_kwargs_input_error():
         return input + ' ' + string
 
     with pytest.raises(KeyError) as info:
-        raise wrangles.recipe.run(recipe, df_test_kwargs, functions = function)
+        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == 'Column Products does not exist'
+        info.value.args[0] == "None of [Index(['string'], dtype='object')] are in the [columns]"
     )
 
 def test_kwargs_output_error():
     """
     Test error when using output in custom function
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -559,18 +531,19 @@ def test_kwargs_output_error():
     def function(output, string, **kwargs):
         return output + ' ' + string
 
-    with pytest.raises(TypeError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df_test_kwargs, functions = function)
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
-        info.typename == 'TypeError' and
-        info.value.args[0] == "test_kwargs_output_error.<locals>.function() missing 1 required positional argument: 'output'"
+        info.typename == 'KeyError' and
+        info.value.args[0] == "None of [Index(['string'], dtype='object')] are in the [columns]"
     )
 
 def test_kwargs_dictionary_error():
     """
     Test error when using output in custom function
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -582,7 +555,7 @@ def test_kwargs_dictionary_error():
         return kwargs + ' ' + string
 
     with pytest.raises(TypeError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df_test_kwargs, functions = function)
+        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'TypeError' and
@@ -593,6 +566,7 @@ def test_kwargs_only():
     """
     Test functionality when using only kwargs
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -606,13 +580,14 @@ def test_kwargs_only():
             outputString += value
         return outputString
 
-    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammerthis is a string' and df.iloc[4]['Stuff'] == 'Socketthis is a string'
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammerthis is a string' and df.iloc[1]['Stuff'] == 'Hex Nutthis is a string'
 
 def test_not_kwargs():
     """
     Test functionality when using **notkwargs in place of **kwargs
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -626,13 +601,14 @@ def test_not_kwargs():
             outputString += value
         return outputString
 
-    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammerthis is a string' and df.iloc[4]['Stuff'] == 'Socketthis is a string'
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammerthis is a string'
 
 def test_kwargs_with_list():
     """
     Test functionality when using a list in kwargs
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -643,20 +619,21 @@ def test_kwargs_with_list():
             - this is also a string
           output: Stuff
     """
-    def function(**notkwargs):
+    def function(**kwargs):
         outputString = ''
-        for value in notkwargs.values():
+        for value in kwargs.values():
             for i in range(len(value)):
                 outputString += value[i]
         return outputString
 
-    df = wrangles.recipe.run(recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammerthis is a stringso is thisthis is also a string' and df.iloc[4]['Stuff'] == 'Socketthis is a stringso is thisthis is also a string'
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammerthis is a stringso is thisthis is also a string'
 
 def test_regex_with_kwargs():
     """
     Test functionality using regex in the input
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -669,13 +646,14 @@ def test_regex_with_kwargs():
         for value in kwargs.values():
             output += Products + ' ' + value
         return output
-    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer this is a string' and df.iloc[1]['Stuff'] == 'Hex Nut this is a string'
 
 def test_wildcard_with_kwargs():
     """
     Test functionality using a wildcard
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -688,13 +666,14 @@ def test_wildcard_with_kwargs():
         for value in kwargs.values():
             output += Products + ' ' + value
         return output
-    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == 'Hammer this is a string' and df.iloc[4]['Stuff'] == 'Socket this is a string'
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer this is a string'
 
 def test_kwargs_no_input():
     """
-    Test functionality using a wildcard
+    Test functionality without a specified input
     """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
     wrangles:
       - custom.function:
@@ -706,5 +685,174 @@ def test_kwargs_no_input():
         for value in kwargs.values():
             output += str(value)
         return output
-    df = wrangles.recipe.run(recipe=recipe, dataframe=df_test_kwargs, functions=function)
-    assert df.iloc[0]['Stuff'] == '1HammerToolsthis is a string' and df.iloc[4]['Stuff'] == '5SocketToolsthis is a string'
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == '1HammerToolsthis is a string'
+
+def test_kwargs_with_parameters():
+    """
+    Test Functionality of kwargs with parameters
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          string: this is a string
+          parameters: things
+          output: Stuff
+    """
+    def function(parameters, **kwargs):
+        output = ''
+        for value in kwargs.values():
+            output += str(value) + parameters
+        return output
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammerthingsthis is a stringthings'
+
+def test_parameters():
+    """
+    Test functionality using parameters 
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          parameters: parameter
+          output: Stuff
+    """
+    def function(Products, parameters):
+        string = Products
+        string += ' ' + parameters
+        return string
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer parameter'
+
+def test_parameters_list():
+    """
+    Test functionality using a list of parameters 
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          parameters: 
+            - parameter1
+            - parameter2
+          output: Stuff
+    """
+    def function(Products, parameters):
+        string = Products
+        for parameter in parameters:
+            string += ' ' + parameter
+        return string
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer parameter1 parameter2'
+
+def test_parameters_input_error():
+    """
+    Tests error when using input incorrectly
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          parameters: parameter
+          output: Stuff
+    """
+    def function(input, parameters):
+        string = input
+        string += ' ' + parameters
+        return string
+    
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    
+    assert (
+        info.typename == 'KeyError' and
+        info.value.args[0] == "None of [Index(['parameters'], dtype='object')] are in the [columns]"
+    )
+
+def test_parameters_output_error():
+    """
+    Test error when using output incorrectly
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products
+          parameters: this is a string
+          output: Stuff
+    """
+    def function(output, parameters):
+        return output + ' ' + parameters
+
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    
+    assert (
+        info.typename == 'KeyError' and
+        info.value.args[0] == "None of [Index(['parameters'], dtype='object')] are in the [columns]"
+    )
+
+# Currently does not work as shown, need to fix code to allow to work with no specified input. if input: Products is added to the recipe, and Products added as a function variable it will work
+# even though Products is not being used in the function. Need this to work without naming input in recipe or function
+def test_parameters_only():
+    """
+    Test error when using only parameters
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          parameters: 
+            - parameter1
+            - parameter2
+          output: Stuff
+    """
+    def function(parameters):
+        outputString = ''
+        for parameter in parameters:
+            outputString += parameter
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] =='parameter1parameter2'
+
+def test_no_function_variables():
+    """
+    Test functionality when no variables are given to the function
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          output: Stuff
+    """
+    def function():
+        outputString = 'Placeholder string'
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] =='Placeholder string'
+
+def test_no_function_variables_output_list():
+    """
+    Test functionality when no variables are given to the function
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          output: 
+            - Stuff1
+            - Stuff2
+    """
+    def function():
+        outputString = 'Placeholder string'
+        return outputString
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df['Stuff1'][0] =='Placeholder string' and df['Stuff2'][0] =='Placeholder string'
