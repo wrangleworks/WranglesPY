@@ -120,10 +120,9 @@ def reindex(
           - string
         description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
     """
-    #
+
     # The following code is due to issue "Get Pandas to work with versions" #199
-    #
-    
+    # This ensures this works with older and newer pandas versions
     # Adding parameters to dictionary
     params = {"labels": labels, "index": index, "columns": columns, "axis": axis}
     # filter any None values
