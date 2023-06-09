@@ -58,9 +58,9 @@ def list_element(input, n, default = ""):
     return [check_if_possible(row, n) for row in input]
 
 
-def dict_element(input, key):
+def dict_element(input, key, default=""):
     """
     Select a named element of a dictionary
     """
-    return [row.get(key, '') if isinstance(row, dict) else '' for row in input]
+    return [row.get(key, default) if isinstance(row, dict) else default for row in input]
    

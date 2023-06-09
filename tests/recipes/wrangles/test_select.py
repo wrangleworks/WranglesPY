@@ -57,7 +57,25 @@ def test_dictionary_element_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.dictionary_element"
-    
+
+def test_dictionary_elem_default():
+    """
+    Test user defined default value
+    """
+    data = pd.DataFrame({
+    'Col1': [{'A': '1', 'B': '2'}],
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Col1
+          output: Out
+          element: C
+          default: '3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'][0] == '3'
+
 #
 # List Element
 #
