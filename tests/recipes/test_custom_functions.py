@@ -513,7 +513,7 @@ def test_kwargs_input_error():
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
+        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
     )
 
 def test_kwargs_output_error():
@@ -536,7 +536,7 @@ def test_kwargs_output_error():
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
+        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
     )
 
 def test_kwargs_dictionary_error():
@@ -771,7 +771,7 @@ def test_parameters_input_error():
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
+        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
     )
 
 def test_parameters_output_error():
@@ -794,7 +794,7 @@ def test_parameters_output_error():
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
+        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
     )
 
 def test_parameters_only():

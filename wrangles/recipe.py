@@ -311,13 +311,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                         df_temp = df_temp[params['input']]
                     # Drop columns from df_temp that are not in function_args
-                    # if function_args:
-                    #     df_temp = df_temp[function_args]
                     if function_args:
                         try:
                             df_temp = df_temp[function_args]
                         except:
-                            raise KeyError(f"input/output passed explicitly. Try using the value instead of the key")
+                            raise KeyError(f"input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information")
                     # Create params_temp and drop input/output
                     params_temp = params.copy()
                     if 'input' in params_temp.keys():
