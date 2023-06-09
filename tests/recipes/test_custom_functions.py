@@ -507,13 +507,13 @@ def test_kwargs_input_error():
     """
     def function(input, string, **kwargs):
         return input + ' ' + string
-
+    
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "None of [Index(['string'], dtype='object')] are in the [columns]"
+        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
     )
 
 def test_kwargs_output_error():
@@ -530,18 +530,18 @@ def test_kwargs_output_error():
     """
     def function(output, string, **kwargs):
         return output + ' ' + string
-
+    
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "None of [Index(['string'], dtype='object')] are in the [columns]"
+        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
     )
 
 def test_kwargs_dictionary_error():
     """
-    Test error when using output in custom function
+    Test error when using kwargs as a string instead of a dictionary
     """
     df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
@@ -771,7 +771,7 @@ def test_parameters_input_error():
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "None of [Index(['parameters'], dtype='object')] are in the [columns]"
+        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
     )
 
 def test_parameters_output_error():
@@ -788,17 +788,15 @@ def test_parameters_output_error():
     """
     def function(output, parameters):
         return output + ' ' + parameters
-
+    
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'KeyError' and
-        info.value.args[0] == "None of [Index(['parameters'], dtype='object')] are in the [columns]"
+        info.value.args[0] == "input/output passed explicitly. Try using the value instead of the key"
     )
 
-# Currently does not work as shown, need to fix code to allow to work with no specified input. if input: Products is added to the recipe, and Products added as a function variable it will work
-# even though Products is not being used in the function. Need this to work without naming input in recipe or function
 def test_parameters_only():
     """
     Test error when using only parameters

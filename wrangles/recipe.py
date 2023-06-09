@@ -306,14 +306,19 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 # Dealing with no function_args
                 else:
                     df_temp = df
-                    
+
                     if 'input' in params:
                         params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                         df_temp = df_temp[params['input']]
-                    # Set df_temp equal to 
+                    # Drop columns from df_temp that are not in function_args
+                    # if function_args:
+                    #     df_temp = df_temp[function_args]
                     if function_args:
-                        df_temp = df_temp[function_args]
-
+                        try:
+                            df_temp = df_temp[function_args]
+                        except:
+                            raise KeyError(f"input/output passed explicitly. Try using the value instead of the key")
+                    # Create params_temp and drop input/output
                     params_temp = params.copy()
                     if 'input' in params_temp.keys():
                         params_temp.pop('input')
