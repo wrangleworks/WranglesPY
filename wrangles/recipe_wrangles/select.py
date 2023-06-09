@@ -6,7 +6,13 @@ import pandas as _pd
 from .. import select as _select
 
 
-def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str, output: _Union[str, list] = None,) -> _pd.DataFrame:
+def dictionary_element(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    element: str,
+    output: _Union[str, list] = None,
+    default = ''
+) -> _pd.DataFrame:
     """
     type: object
     description: Select a named element of a dictionary.
@@ -29,6 +35,8 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
       element:
         type: string
         description: The key from the dictionary to select.
+      default:
+        description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
     
@@ -41,7 +49,7 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
     
     for in_col, out_col in zip(input, output):
-        df[out_col] = _select.dict_element(df[in_col].tolist(), element)
+        df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     
     return df
 
@@ -110,7 +118,7 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, fill_value = '') -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default = '') -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -133,8 +141,8 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
       element:
         type: integer
         description: The numbered element of the list to select. Starts from zero
-      fill_value:
-        description: Fill value if the list element cannot be selected
+      default:
+        description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
     
@@ -147,7 +155,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
         raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
     for in_col, out_col in zip(input, output):
-        df[out_col] = _select.list_element(df[in_col].tolist(), element, fill_value=fill_value)
+        df[out_col] = _select.list_element(df[in_col].tolist(), element, default=default)
     
     return df
 

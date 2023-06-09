@@ -57,7 +57,25 @@ def test_dictionary_element_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.dictionary_element"
-    
+
+def test_dictionary_elem_default():
+    """
+    Test user defined default value
+    """
+    data = pd.DataFrame({
+    'Col1': [{'A': '1', 'B': '2'}],
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Col1
+          output: Out
+          element: C
+          default: '3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'][0] == '3'
+
 #
 # List Element
 #
@@ -144,10 +162,9 @@ def test_list_element_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
     
-def test_list_elem_fill_value_string():
+def test_list_elem_default_string():
     """
-    Test fill_value to be a string
-    
+    Test default to be a string
     """
     data = pd.DataFrame({
     'Col1': [['A'], [], 'C'],
@@ -158,15 +175,14 @@ def test_list_elem_fill_value_string():
           input: Col1
           output: Out
           element: 0
-          fill_value: 'None'
+          default: 'None'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].values.tolist() == ['A', 'None', 'C']
     
-def test_list_elem_fill_value_list():
+def test_list_elem_default_list():
     """
-    Test fill_value to be a empty list
-    
+    Test default to be a empty list
     """
     data = pd.DataFrame({
     'Col1': [[['A']], [], [['C']]],
@@ -177,7 +193,7 @@ def test_list_elem_fill_value_list():
           input: Col1
           output: Out
           element: 0
-          fill_value: []
+          default: []
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].values.tolist() == [['A'], [], ['C']]

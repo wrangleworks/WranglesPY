@@ -191,7 +191,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
         description: Name of the column to be output to.
       template:
         type: object
-        description: A dictionary which defines the template/location as well as the form which the template is input
+        description: |
+          A dictionary which defines the template/location as well as the form which the template is input.
+          If any keys use a space, they must be replaced with an underscore.
         additionalProperties: false
         properties:
           file:
@@ -212,6 +214,15 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
         input_list = df[input]
     else:
         input_list = df.to_dict(orient='records')
+
+    # Replace any spaces in keys with underscores
+    input_list = [
+        {
+            key.replace(' ', '_'): val
+            for key, val in row.items()
+        }
+        for row in input_list
+    ]
 
     if len(template) > 1:
         raise Exception('Template must have only one key specified')

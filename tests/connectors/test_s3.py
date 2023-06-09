@@ -68,8 +68,11 @@ def test_write_2():
     assert df.iloc[0]['Country'] == 'Brazil'
     
     
-# upload file to s3 key and file not included
+
 def test_file_upload_and_download_1():
+    """
+    Upload file to s3 key and file not included
+    """
     recipe = f"""
     run:
       on_start:
@@ -88,11 +91,12 @@ def test_file_upload_and_download_1():
         - s3.download_files:
             bucket: wrwx-public
             key: data.csv
+            file: tests/temp/data.csv
             aws_access_key_id: {s3_key}
             aws_secret_access_key: {s3_secret}
     read:
       - file:
-          name: data.csv
+          name: tests/temp/data.csv
     """
     
     df = wrangles.recipe.run(recipe2)
@@ -142,7 +146,7 @@ def test_download_error():
               - Test_Upload_File.csv
               - World Cup Titles.csv
             file:
-              - temp_download_data.csv
+              - tests/temp/temp_download_data.csv
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe)

@@ -45,7 +45,7 @@ def confidence_threshold(list_1, list_2, threshold):
     return results
 
 
-def list_element(input, n, fill_value = ""):
+def list_element(input, n, default = ""):
     """
     Select a numbered element of a list (zero indexed).
     """
@@ -53,14 +53,14 @@ def list_element(input, n, fill_value = ""):
         try:
             return element[index]
         except IndexError:
-            return fill_value
+            return default
         
     return [check_if_possible(row, n) for row in input]
 
 
-def dict_element(input, key):
+def dict_element(input, key, default=""):
     """
     Select a named element of a dictionary
     """
-    return [row.get(key, '') if isinstance(row, dict) else '' for row in input]
+    return [row.get(key, default) if isinstance(row, dict) else default for row in input]
    
