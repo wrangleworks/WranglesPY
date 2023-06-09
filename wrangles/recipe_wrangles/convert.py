@@ -46,6 +46,10 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if desired_case == 'lower':
@@ -95,7 +99,11 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-        
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     # If the datatype is datetime
     if data_type == 'datetime':
         temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
@@ -136,6 +144,10 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
     
     for in_col, out_col in zip(input, output):
       results = []
@@ -183,6 +195,10 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
         
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -216,6 +232,10 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
         
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):

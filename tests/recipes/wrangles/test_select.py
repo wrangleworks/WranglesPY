@@ -57,7 +57,25 @@ def test_dictionary_element_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.dictionary_element"
-    
+
+def test_dictionary_elem_default():
+    """
+    Test user defined default value
+    """
+    data = pd.DataFrame({
+    'Col1': [{'A': '1', 'B': '2'}],
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Col1
+          output: Out
+          element: C
+          default: '3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'][0] == '3'
+
 #
 # List Element
 #
@@ -144,6 +162,43 @@ def test_list_element_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
     
+def test_list_elem_default_string():
+    """
+    Test default to be a string
+    """
+    data = pd.DataFrame({
+    'Col1': [['A'], [], 'C'],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Out
+          element: 0
+          default: 'None'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].values.tolist() == ['A', 'None', 'C']
+    
+def test_list_elem_default_list():
+    """
+    Test default to be a empty list
+    """
+    data = pd.DataFrame({
+    'Col1': [[['A']], [], [['C']]],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Out
+          element: 0
+          default: []
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].values.tolist() == [['A'], [], ['C']]
+    
+    
 #
 # Highest confidence
 #
@@ -165,6 +220,30 @@ def test_highest_confidence_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Winner'] == ['C', 0.99]
     
+# Test the output when using a list of two columns
+def test_highest_confidence_list_output():
+    """
+    Tests the output when using a list of two columns
+    """
+    data = pd.DataFrame({
+    'Col1': [['A', .79]],
+    'Col2': [['B', .80]],
+    'Col3': [['C', .99]]
+    })
+    recipe = """
+    wrangles:
+      - select.highest_confidence:
+          input:
+            - Col1
+            - Col2
+            - Col3
+          output: 
+            - Winner
+            - Confidence
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Winner'] == 'C' and df.iloc[0]['Confidence'] == 0.99
+
 #
 # Threshold
 #
@@ -279,7 +358,7 @@ def test_left_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'One T'
     
-# Input is none
+# Output is none
 def test_left_2():
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
@@ -293,6 +372,28 @@ def test_left_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'One T'
+
+# Test the error with a list of inputs and a single output
+def test_left_multi_input_single_output():
+    """
+    Test the error when using a list of input columns and a single output column
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input: 
+              - Col1
+              - Col2
+            output: out1
+            length: 5
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
     
 #
 # Right
@@ -317,7 +418,7 @@ def test_right_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'Four'
     
-# Input is none
+# Output is none
 def test_right_2():
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
@@ -332,6 +433,27 @@ def test_right_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Four'
     
+# Test the error with a list of inputs and a single output
+def test_right_multi_input_single_output():
+    """
+    Test the error when using a list of input columns and a single output column
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input: 
+              - Col1
+              - Col2
+            output: out1
+            length: 5
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
     
 #
 # Substring
@@ -358,7 +480,7 @@ def test_substring_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == ' Two'
     
-# Input is none
+# Output is none
 def test_substring_2():
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
@@ -373,3 +495,26 @@ def test_substring_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == ' Two'
+
+# Test the error with a list of inputs and a single output
+def test_substring_multi_input_single_output():
+    """
+    Test the error when using a list of input columns and a single output column
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: 
+              - Col1
+              - Col2
+            output: out1
+            start: 4
+            length: 4
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."

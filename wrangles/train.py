@@ -30,9 +30,9 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
-            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'classify', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'classify', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'classify', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'classify', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         else:
             raise ValueError('Either a name or a model id must be provided')
 
@@ -59,9 +59,9 @@ class train():
                 training_data = [['Entity to Find', 'Variation (Optional)', 'Notes']] + training_data
         
         if name:
-            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'extract', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'extract', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'extract', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'extract', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         else:
             raise ValueError('Either a name or a model id must be provided')
 
@@ -90,9 +90,9 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
-            response = _requests.post(f'{_config.api_host}/data/user/model/train', params={'type':'standardize', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'standardize', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/user/model/train', params={'type':'standardize', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'standardize', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         else:
             raise ValueError('Either a name or a model id must be provided')
 

@@ -16,6 +16,7 @@ wrangles:
 
 """
 from .main import *
+from .pandas import *
 from . import convert
 from . import create
 from . import extract

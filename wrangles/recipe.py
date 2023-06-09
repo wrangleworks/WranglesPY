@@ -293,23 +293,40 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 # Get user's function arguments
                 function_args = _inspect.getfullargspec(custom_function).args
+                # Drop params from function_args
+                for arg in function_args:
+                    if arg in params.keys():
+                        function_args.remove(arg)
 
-                if function_args[0] == 'df':
+                # Check for function_args and df
+                if len(function_args) > 0 and 'df' in function_args:
                     # If user's first argument is df, pass them the whole dataframe
-                    df = functions[wrangle[7:]](df, **params)
-                elif function_args[0] == 'cell':
-                    # If user's first function is cell, pass them the cells defined by the parameter input individually
-                    input_column = params['input']
-                    params.pop('input')
-                    if params.get('output') is None:
-                        output_column = input_column
-                    else:
-                        output_column = params['output']
-                        params.pop('output')
-                    df[output_column] = [custom_function(cell, **params) for cell in df[input_column].to_list()]
+                    df = functions[wrangle[7:]](df=df, **params)
 
+                # Dealing with no function_args
                 else:
-                    df[params['output']] = df[function_args].apply(lambda x: custom_function(**x), axis=1, result_type='expand')
+                    df_temp = df
+
+                    if 'input' in params:
+                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                        df_temp = df_temp[params['input']]
+                    # Drop columns from df_temp that are not in function_args
+                    if function_args:
+                        try:
+                            df_temp = df_temp[function_args]
+                        except:
+                            raise KeyError(f"input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information")
+                    # Create params_temp and drop input/output
+                    params_temp = params.copy()
+                    if 'input' in params_temp.keys():
+                        params_temp.pop('input')
+                    if 'output' in params_temp.keys():
+                        params_temp.pop('output')
+                    # {**x, **params_temp} deals with columns in function args and **params_temp without columns
+                    try:
+                        df[params['output']] = df_temp.apply(lambda x: custom_function(**{**x, **params_temp}), axis=1, result_type='expand')
+                    except:    
+                        df[params['output']] = df_temp.apply(lambda x: custom_function(**params_temp), axis=1, result_type='expand')
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
@@ -348,7 +365,8 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
     # Remove any columns specified by the user
     if not_columns:
         not_columns = _wildcard_expansion(df.columns.tolist(), not_columns)
-        remaining_columns = list(set(df.columns) - set(not_columns))
+        # List comprehension is used below to preserve order of columns 
+        remaining_columns = [column for column in list(df.columns) if column not in not_columns]
         df = df[remaining_columns]
 
     if where:

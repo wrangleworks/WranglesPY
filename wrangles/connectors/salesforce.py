@@ -81,7 +81,7 @@ properties:
     type: string
     description: User with read permission
   password:
-    type: integer
+    type: string
     description: Password for the user
   token:
     type: string
@@ -140,7 +140,7 @@ properties:
     type: string
     description: User with write permission
   password:
-    type: integer
+    type: string
     description: Password for the user
   token:
     type: string

@@ -6,24 +6,37 @@ import pandas as _pd
 from .. import select as _select
 
 
-def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str, output: _Union[str, list] = None,) -> _pd.DataFrame:
+def dictionary_element(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    element: str,
+    output: _Union[str, list] = None,
+    default = ''
+) -> _pd.DataFrame:
     """
     type: object
     description: Select a named element of a dictionary.
     additionalProperties: false
     required:
       - input
+      - output
       - element
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the input column
       output:
-        type: string
+        type:
+          - string
+          - array
         description: Name of the output column
       element:
         type: string
         description: The key from the dictionary to select.
+      default:
+        description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
     
@@ -31,11 +44,12 @@ def dictionary_element(df: _pd.DataFrame, input: _Union[str, list], element: str
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
     
     for in_col, out_col in zip(input, output):
-        df[out_col] = _select.dict_element(df[in_col].tolist(), element)
+        df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     
     return df
 
@@ -93,6 +107,10 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     # Loop through and get left characters of the length requested for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].str[:length]
@@ -100,13 +118,15 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0) -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default = '') -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
     additionalProperties: false
     required:
       - input
+      - output
+      - element
     properties:
       input:
         type: 
@@ -121,6 +141,8 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
       element:
         type: integer
         description: The numbered element of the list to select. Starts from zero
+      default:
+        description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
     
@@ -128,11 +150,12 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
     for in_col, out_col in zip(input, output):
-        df[out_col] = _select.list_element(df[in_col].tolist(), element)
+        df[out_col] = _select.list_element(df[in_col].tolist(), element, default=default)
     
     return df
 
@@ -167,6 +190,10 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through and get the right characters of the length requested for all columns
     for input_column, output_column in zip(input, output):
@@ -210,6 +237,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through and get the substring requested for all requested columns
     for input_column, output_column in zip(input, output):

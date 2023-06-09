@@ -96,6 +96,44 @@ def test_trim_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Trim'] == 'Wilson!'
 
+# Test list of input and output columns
+def test_trim_list_to_list():
+    """
+    Test trim with a list of input and output columns
+    """
+    data = pd.DataFrame([['         Wilson!         ', '          Where are you?!         ']], columns=['Alone', 'Out To Sea'])
+    recipe = """
+    wrangles:
+      - format.trim:
+          input:
+            - Alone
+            - Out To Sea
+          output:
+            - Trim1
+            - Trim2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Trim1'] == 'Wilson!' and df.iloc[0]['Trim2'] == 'Where are you?!'
+
+# Test error with a list of input columns and a single output
+def test_trim_list_to_single_output():
+    """
+    Test trim with a list of input columns and a single output column
+    """
+    data = pd.DataFrame([['         Wilson!         ', '          Where are you?!         ']], columns=['Alone', 'Out To Sea'])
+    recipe = """
+    wrangles:
+      - format.trim:
+          input:
+            - Alone
+            - Out To Sea
+          output:
+            - Trim1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
 #    
 # Prefix
 #
@@ -294,3 +332,51 @@ def test_pad_2():
   df = wrangles.recipe.run(recipe, dataframe=data)
   assert df.iloc[0]['col1'] == '007'
   
+# List of output and input columns
+def test_pad_list_to_list():
+  """
+  Test pad with a list of input and output columns
+  """
+  data = pd.DataFrame({
+    'col1': ['7'],
+    'col2': ['8']
+  })
+  recipe = """
+  wrangles:
+    - format.pad:
+        input: 
+          - col1
+          - col2
+        output:
+          - out1
+          - out2
+        pad_length: 3
+        side: left
+        char: 0
+  """
+  df = wrangles.recipe.run(recipe, dataframe=data)
+  assert df.iloc[0]['out1'] == '007' and df.iloc[0]['out2'] == '008'
+
+# List of input columns to a single output column
+def test_pad_list_to_single_output():
+  """
+  Test error with a list of input columns and a single output column
+  """
+  data = pd.DataFrame({
+    'col1': ['7'],
+    'col2': ['8']
+  })
+  recipe = """
+  wrangles:
+    - format.pad:
+        input: 
+          - col1
+          - col2
+        output: out1
+        pad_length: 3
+        side: left
+        char: 0
+  """
+  with pytest.raises(ValueError) as info:
+    raise wrangles.recipe.run(recipe, dataframe=data)
+  assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
