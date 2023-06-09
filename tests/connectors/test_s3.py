@@ -123,12 +123,12 @@ def test_file_upload_and_download_2():
         - s3.download_files:
             bucket: wrwx-public
             key: Test_Upload_File.csv
-            file: temp_download_data.csv
+            file: tests/temp/temp_download_data.csv
             aws_access_key_id: {s3_key}
             aws_secret_access_key: {s3_secret}
     read:
       - file:
-          name: temp_download_data.csv
+          name: tests/temp/temp_download_data.csv
     """
     
     df = wrangles.recipe.run(recipe2)
