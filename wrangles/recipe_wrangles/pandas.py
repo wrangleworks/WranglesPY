@@ -32,37 +32,31 @@ def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list])
     return df
 
 
-def drop(df: _pd.DataFrame, column: _Union[str, list]) -> _pd.DataFrame:
+def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Drop (Delete) selected column(s)
     additionalProperties: true
     required:
-      - column
+      - columns
     properties:
-      column:
+      columns:
         type:
-          - string
           - array
+          - string
         description: Name of the column(s) to drop
     """
-    # if a string provided, convert to list
-    if not isinstance(column, list): column = [column]
-    
-    df = df.drop(columns=column)
-    
-    return df
+    return df.drop(columns=columns)
     
 
 def transpose(df: _pd.DataFrame) -> _pd.DataFrame:
     """
     type: object
-    description: Drop (Delete) selected column(s)
+    description: Transpose the DataFrame (swap columns to rows)
     additionalProperties: true
     """
-    df = df.transpose()
-    
-    return df
+    return df.transpose()
+
 
 def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
@@ -86,7 +80,6 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
         type: number
         description: Number of decimal places to round column
     """
-    
     if output is None: output = input
     
     # If a string provided, convert to list
@@ -97,8 +90,6 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
         df[output_column] = df[input_column].round(decimals=decimals)
         
     return df
-
-
     
     
 def reindex(

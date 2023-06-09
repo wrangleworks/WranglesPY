@@ -4,7 +4,9 @@ Tests for passthrough pandas capabilities
 import wrangles
 import pandas as pd
 
+#
 # PASSTHROUGH
+#
 def test_pandas_head():
     """
     Test using pandas head function
@@ -57,8 +59,9 @@ def test_pandas_input_output():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['round_num'].iloc[0] == 3.14
 
-
-# Native recipe wrangle
+#
+# NATIVE RECIPE WRANGLES
+#
 def test_pd_copy_one_col():
     """
     Test one input and output (strings)
@@ -96,7 +99,7 @@ def test_pd_copy_multi_cols():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col', 'col2', 'col1-copy', 'col2-copy']
 
-def test_pd_drop_one_col():
+def test_drop_one_column():
     """
     Test drop using one column (string)
     """
@@ -107,12 +110,12 @@ def test_pd_drop_one_col():
     recipe = """
     wrangles:
       - drop:
-          column: col2
+          columns: col2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col']
 
-def test_pd_drop_multi_column():
+def test_drop_multiple_columns():
     """
     Test multiple columns (list)
     """
@@ -124,13 +127,12 @@ def test_pd_drop_multi_column():
     recipe = """
     wrangles:
       - drop:
-          column:
+          columns:
             - col2
             - col3
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col']
-
 
 def test_pd_transpose():
     """
@@ -165,7 +167,33 @@ def test_round_one_input():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col1'][0] == 3
-    
+
+def test_round_specify_decimals():
+    """
+    Test round with one input and output. decimals default is 0
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 3.13
+                col2: 1.16
+
+        wrangles:
+          - round:
+              input:
+                - col1
+                - col2
+              decimals: 1
+        """
+    )
+    assert (
+        df['col1'][0] == 3.1 and
+        df['col2'][0] == 1.2
+    )
+
 def test_round_multi_input():
     """
     Test multiple inputs and outputs
@@ -196,10 +224,13 @@ def test_reindex():
     """
     Testing Pandas reindex function
     """
-    index = ['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror']
-    data = pd.DataFrame({'http_status': [200, 200, 404, 404, 301],
-                  'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]},
-                  index=index)
+    data = pd.DataFrame(
+        {
+            'http_status': [200, 200, 404, 404, 301],
+            'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]
+        },
+        index=['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror']
+    )
     
     rec = """
     wrangles:
