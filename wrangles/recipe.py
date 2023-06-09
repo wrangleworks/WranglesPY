@@ -315,7 +315,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         try:
                             df_temp = df_temp[function_args]
                         except:
-                            raise KeyError(f"input/output passed without df. Pass df as a function variable or use the value of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information")
+                            raise KeyError(f"input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information")
                     # Create params_temp and drop input/output
                     params_temp = params.copy()
                     if 'input' in params_temp.keys():
