@@ -129,8 +129,18 @@ def reindex(
           - string
         description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
     """
+    #
+    # The following code is due to issue "Get Pandas to work with versions" #199
+    #
     
-    df = df.reindex(labels=labels, index=index, columns=columns, axis=axis, **kwargs)
+    # Adding parameters to dictionary
+    params = {"labels": labels, "index": index, "columns": columns, "axis": axis}
+    # filter any None values
+    params = {k:v for (k, v) in zip(params.keys(), params.values()) if v != None}
+    # merge with kwargs
+    parameters = {**params, **kwargs}
+    
+    df = df.reindex(**parameters)
     
     return df
     
