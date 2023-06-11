@@ -17,7 +17,7 @@ from ..connectors.test import _generate_cell_values
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
     type: object
-    description: Creates a column that segment and sort data values into bins
+    description: Create a column that groups data into bins
     additionalProperties: false
     required:
       - input

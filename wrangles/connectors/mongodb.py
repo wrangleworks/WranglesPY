@@ -84,7 +84,7 @@ properties:
 
 def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
     """
-    Write data into a monfoDB database
+    Write data into a mongoDB database
     
     >>> from wrangles.connectors import mongodb
     >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
@@ -124,7 +124,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
       pass
 _schema['write'] = """
 type: object
-description: insert, delete, or update data to a mongoDB Server
+description: Write data into a mongoDB database
 required:
   - user
   - password

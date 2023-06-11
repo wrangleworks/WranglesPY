@@ -215,7 +215,7 @@ def write(
 
 _schema['write'] = """
 type: object
-description: Export data to a file
+description: Write data into an Akeneo PIM
 required:
   - host
   - user

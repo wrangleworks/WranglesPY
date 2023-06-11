@@ -28,7 +28,7 @@ class classify():
 
     _schema["read"] = """
         type: object
-        description: Read the training data for a Standardize Wrangle
+        description: Read the training data for a Classify Wrangle
         additionalProperties: false
         required:
           - model_id

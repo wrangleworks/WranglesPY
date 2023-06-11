@@ -124,7 +124,8 @@ def getMethodDocs(schema_wrangles, obj, path):
 
     if len(non_hidden_methods) > 0:
         for method in non_hidden_methods:
-            if method != 'main':
+            # Prevent including methods twice that are referenced at the root
+            if method not in ('main', 'pandas'):
                 getMethodDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
     else:
         try:

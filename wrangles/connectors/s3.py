@@ -10,7 +10,7 @@ _schema = {}
 
 def read(bucket: str, key: str, access_key: str = None, secret_access_key: str = None, **kwargs) -> _pd.DataFrame:
     """
-    Import a data from a file in AWS S3
+    Import data from a file in AWS S3
     
     :param bucket: The name of the bucket to download object from
     :param key: The name of the key to download from
@@ -36,7 +36,7 @@ def read(bucket: str, key: str, access_key: str = None, secret_access_key: str =
     
 _schema['read'] = """
 type: object
-description: Import a data from a file in AWS S3
+description: Import data from a file in AWS S3
 required:
   - bucket
   - key
@@ -58,7 +58,7 @@ properties:
 
 def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secret_access_key: str = None, **kwargs):
     """
-    Write a file in AWS S3
+    Write a file to AWS S3
     
     :param df: Dataframe to be exported
     :param bucket: The name of the bucket where file will be written
@@ -83,7 +83,7 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     
 _schema['write'] = """
 type: object
-description: write files to AWS S3
+description: Write a file to AWS S3
 required:
   - bucket
   - key
