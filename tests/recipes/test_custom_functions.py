@@ -543,9 +543,9 @@ def test_multiple_kwargs():
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
     assert df['Stuff'][0] == 'Hammer this is a string'
 
-def test_kwargs_input_error():
+def test_kwargs_user_requires_input():
     """
-    Test error when using input key as a variable instead of the input value
+    Test if the user requests input as a function parameter
     """
     df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
     recipe = """
@@ -556,15 +556,10 @@ def test_kwargs_input_error():
           output: Stuff
     """
     def function(input, string, **kwargs):
-        return input + ' ' + string
+        return kwargs[input] + ' ' + string
     
-    with pytest.raises(KeyError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    
-    assert (
-        info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
-    )
+    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    assert df['Stuff'][0] == 'Hammer this is a string'
 
 def test_kwargs_output_error():
     """
@@ -581,13 +576,8 @@ def test_kwargs_output_error():
     def function(output, string, **kwargs):
         return output + ' ' + string
     
-    with pytest.raises(KeyError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    
-    assert (
-        info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
-    )
+    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    assert df['Stuff'][0] == 'Stuff this is a string'
 
 def test_kwargs_dictionary_error():
     """
@@ -799,6 +789,25 @@ def test_parameters_list():
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
     assert df['Stuff'][0] == 'Hammer parameter1 parameter2'
 
+def test_parameters_not_in_function_args():
+    """
+    Test functionality using a list of parameters 
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products            
+          parameter1: my_first_param
+          parameter2: my_second_param
+          parameter3: my_third_param 
+          output: Stuff
+    """
+    def function(Products, parameter3):
+        return Products + ' ' + parameter3
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer my_third_param'
+
 def test_parameters_input_error():
     """
     Tests error when using input incorrectly
@@ -812,17 +821,10 @@ def test_parameters_input_error():
           output: Stuff
     """
     def function(input, parameters):
-        string = input
-        string += ' ' + parameters
-        return string
+        return input + ' ' + parameters
     
-    with pytest.raises(KeyError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    
-    assert (
-        info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
-    )
+    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    assert df['Stuff'][0] == 'Products parameter'
 
 def test_parameters_output_error():
     """
@@ -839,13 +841,8 @@ def test_parameters_output_error():
     def function(output, parameters):
         return output + ' ' + parameters
     
-    with pytest.raises(KeyError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    
-    assert (
-        info.typename == 'KeyError' and
-        info.value.args[0] == "input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information"
-    )
+    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
+    assert df['Stuff'][0] == 'Stuff this is a string'
 
 def test_parameters_only():
     """
@@ -904,3 +901,166 @@ def test_no_function_variables_output_list():
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
     assert df['Stuff1'][0] =='Placeholder string' and df['Stuff2'][0] =='Placeholder string'
+
+def test_kwargs_with_input():
+    """
+    Test functionality of kwargs when a function is given an input
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: results
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1, **kwargs):
+        my_string = str(id) + heading1
+        for kwarg in kwargs:
+            my_string += kwarg
+        return my_string
+    
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results'][0] =='1value1heading2heading3'
+
+def test_kwargs_with_output_list_single_column():
+    """
+    Test functionality of kwargs when outputting a list to a single column
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: results
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1, **kwargs):
+        # return my_parameter + heading1
+        my_list = list(kwargs.values()) + [my_parameter]
+        return my_list
+
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results'][0] == ['value2', 'value3', 'my_value']
+
+def test_kwargs_with_output_list_multiple_columns():
+    """
+    Test functionality of kwargs when outputting a list multiple columns
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: 
+          - results1
+          - results2
+          - results3
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1, **kwargs):
+        my_list = list(kwargs.values()) + [my_parameter]
+        return my_list
+    
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results1'][0] == 'value2' and df['results2'][0] == 'value3' and df['results3'][0] == 'my_value'
+
+def test_output_list_single_column_without_kwargs():
+    """
+    Test functionality of kwargs when outputting a list to a single column
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: results
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1):
+        return [my_parameter, id, heading1]
+    
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results'][0] == ['my_value', 1, 'value1']
+
+def test_output_list_multiple_columns_without_kwargs():
+    """
+    Test functionality of kwargs when outputting a list to a single column
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: 
+          - results1
+          - results2
+          - results3
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1):
+        return [my_parameter, id, heading1]
+    
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results1'][0] == 'my_value' and df['results2'][0] == 1 and df['results3'][0] == 'value1'
+

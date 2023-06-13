@@ -292,41 +292,77 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
 
                 # Get user's function arguments
-                function_args = _inspect.getfullargspec(custom_function).args
-                # Drop params from function_args
-                for arg in function_args:
-                    if arg in params.keys():
-                        function_args.remove(arg)
+                fn_argspec = _inspect.getfullargspec(custom_function)
 
                 # Check for function_args and df
-                if len(function_args) > 0 and 'df' in function_args:
+                if 'df' in fn_argspec.args:
                     # If user's first argument is df, pass them the whole dataframe
-                    df = functions[wrangle[7:]](df=df, **params)
+                    df = custom_function(df=df, **params)
 
                 # Dealing with no function_args
                 else:
+                    # Use a temp copy of dataframe as not to affect original
                     df_temp = df
 
+                    # If user specifies an input, reduce dataframe down as required
                     if 'input' in params:
-                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                        df_temp = df_temp[params['input']]
-                    # Drop columns from df_temp that are not in function_args
-                    if function_args:
-                        try:
-                            df_temp = df_temp[function_args]
-                        except:
-                            raise KeyError(f"input/output passed without df. Pass df as a function variable or use the column header in place of input/output to fix this issue. See https://wrangles.io/python/recipes/custom-functions/wrangles for more information")
-                    # Create params_temp and drop input/output
+                        df_temp = df_temp[
+                            _wildcard_expansion(
+                                all_columns=df.columns.tolist(),
+                                selected_columns=params['input']
+                            )
+                        ]
+
+                    # If the user hasn't explicitly requested input or output
+                    # then remove them so they will not be included in kwargs
                     params_temp = params.copy()
-                    if 'input' in params_temp.keys():
-                        params_temp.pop('input')
-                    if 'output' in params_temp.keys():
-                        params_temp.pop('output')
-                    # {**x, **params_temp} deals with columns in function args and **params_temp without columns
+                    for special_parameter in ['input', 'output']:
+                        if special_parameter in params_temp and special_parameter not in fn_argspec.args:
+                            params_temp.pop(special_parameter)
+
+                    # If the user's custom function does not have kwargs available
+                    # then we need to remove any unmatched function arguments
+                    # from the parameters or the columns
+                    if not fn_argspec.varkw:
+                        params_temp2 = params_temp.copy()
+                        for param in params_temp2.keys():
+                            if param not in fn_argspec.args:
+                                params_temp.pop(param)
+
+                        cols = [
+                            col for col in 
+                            df_temp.columns.to_list()
+                            if col in fn_argspec.args
+                        ]
+
+                        # Ensure we don't remove all columns
+                        # if user hasn't specified any
+                        if cols:
+                            df_temp = df_temp[cols]
+                    
+                    # If user specifies multiple outputs, expand any list output
+                    # across the columns else return as a single column
+                    if isinstance(params['output'], list) and len(params['output']) > 1:
+                        result_type = 'expand'
+                    else:
+                        result_type = 'reduce'
+
+                    # {**x, **params_temp} deals with columns in 
+                    # function args and  **params_temp without columns
+                    # There may be no columns in the case that the user
+                    # does not specify any columns in their function parameters
                     try:
-                        df[params['output']] = df_temp.apply(lambda x: custom_function(**{**x, **params_temp}), axis=1, result_type='expand')
-                    except:    
-                        df[params['output']] = df_temp.apply(lambda x: custom_function(**params_temp), axis=1, result_type='expand')
+                        df[params['output']] = df_temp.apply(
+                            lambda x: custom_function(**{**x, **params_temp}),
+                            axis=1,
+                            result_type=result_type
+                        )
+                    except:
+                        df[params['output']] = df_temp.apply(
+                            lambda _: custom_function(**params_temp),
+                            axis=1,
+                            result_type=result_type
+                        )
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
