@@ -789,6 +789,25 @@ def test_parameters_list():
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
     assert df['Stuff'][0] == 'Hammer parameter1 parameter2'
 
+def test_parameters_not_in_function_args():
+    """
+    Test functionality using a list of parameters 
+    """
+    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    recipe = """
+    wrangles:
+      - custom.function:
+          input: Products            
+          parameter1: my_first_param
+          parameter2: my_second_param
+          parameter3: my_third_param 
+          output: Stuff
+    """
+    def function(Products, parameter3):
+        return Products + ' ' + parameter3
+    df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
+    assert df['Stuff'][0] == 'Hammer my_third_param'
+
 def test_parameters_input_error():
     """
     Tests error when using input incorrectly
@@ -1044,3 +1063,4 @@ def test_output_list_multiple_columns_without_kwargs():
     
     df = wrangles.recipe.run(recipe, functions=test_fn)
     assert df['results1'][0] == 'my_value' and df['results2'][0] == 1 and df['results3'][0] == 'value1'
+
