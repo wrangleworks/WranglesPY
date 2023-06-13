@@ -329,10 +329,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                             if param not in fn_argspec.args:
                                 params_temp.pop(param)
 
-                        cols = df_temp.columns.to_list()
-                        for col in cols:
-                            if col not in fn_argspec.args:
-                                cols.remove(col)
+                        cols = [
+                            col for col in 
+                            df_temp.columns.to_list()
+                            if col in fn_argspec.args
+                        ]
+
                         # Ensure we don't remove all columns
                         # if user hasn't specified any
                         if cols:

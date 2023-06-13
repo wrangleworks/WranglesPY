@@ -1009,12 +1009,38 @@ def test_output_list_single_column_without_kwargs():
     def test_fn(my_parameter, id, heading1):
         return [my_parameter, id, heading1]
     
-    # def test_fn(my_parameter, id, heading1, **kwargs):
-    #     my_string = str(id) + heading1
-    #     for kwarg in kwargs:
-    #         my_string += kwarg
-    #     return my_string
+    df = wrangles.recipe.run(recipe, functions=test_fn)
+    assert df['results'][0] == ['my_value', 1, 'value1']
+
+def test_output_list_multiple_columns_without_kwargs():
+    """
+    Test functionality of kwargs when outputting a list to a single column
+    """
+    recipe = '''
+    read:
+    - test:
+        rows: 5
+        values:
+            id: 1
+            description: my desc
+            heading1: value1
+            heading2: value2
+            heading3: value3
+
+    wrangles:
+    - custom.test_fn:
+        output: 
+          - results1
+          - results2
+          - results3
+        input:
+            - id
+            - heading*
+        my_parameter: my_value
+    '''
+
+    def test_fn(my_parameter, id, heading1):
+        return [my_parameter, id, heading1]
     
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    # assert df['results'][0] =='1value1heading2heading3'
-    assert df['results'][0] == ['1value1heading2heading3']
+    assert df['results1'][0] == 'my_value' and df['results2'][0] == 1 and df['results3'][0] == 'value1'
