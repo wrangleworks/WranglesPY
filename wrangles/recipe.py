@@ -329,16 +329,23 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                             if param not in fn_argspec.args:
                                 params_temp.pop(param)
 
-                        cols = [
-                            col for col in 
-                            df_temp.columns.to_list()
-                            if col in fn_argspec.args
-                        ]
+                        cols = df_temp.columns.to_list()
+                        cols_renamed = [col.replace(' ', '_') for col in cols]
+
+                        # Create a dictionary of columns with spaces and their replacement
+                        # with an underscore. Used in df_temp.rename
+                        colDict = {
+                            col: col.replace(' ', '_') for col in cols
+                            if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                        }
+
+                        df_temp.rename(columns=colDict, inplace=True)
+                        cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
 
                         # Ensure we don't remove all columns
                         # if user hasn't specified any
-                        if cols:
-                            df_temp = df_temp[cols]
+                        if cols_renamed:
+                            df_temp = df_temp[cols_renamed]
                     
                     # If user specifies multiple outputs, expand any list output
                     # across the columns else return as a single column
@@ -348,7 +355,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         result_type = 'reduce'
 
                     # {**x, **params_temp} deals with columns in 
-                    # function args and  **params_temp without columns
+                    # function args and **params_temp without columns
                     # There may be no columns in the case that the user
                     # does not specify any columns in their function parameters
                     try:

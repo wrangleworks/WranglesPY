@@ -1064,3 +1064,26 @@ def test_output_list_multiple_columns_without_kwargs():
     df = wrangles.recipe.run(recipe, functions=test_fn)
     assert df['results1'][0] == 'my_value' and df['results2'][0] == 1 and df['results3'][0] == 'value1'
 
+def test_column_spaces():
+    """
+    Test functionality when passing column names with spaces
+    """
+    recipe = '''
+    read:
+      - test:
+          rows: 5
+          values:
+            id: 123
+            my description: this is a
+
+    wrangles:
+      - custom.space_function:
+          suffix: description
+          output: New Description
+            '''
+    
+    def space_function(my_description, suffix):
+        return my_description + ' ' + suffix
+    
+    df = wrangles.recipe.run(recipe, functions=space_function)
+    assert df['New Description'][0] == 'this is a description'
