@@ -1080,10 +1080,33 @@ def test_column_spaces():
       - custom.space_function:
           suffix: description
           output: New Description
-            '''
+    '''
     
     def space_function(my_description, suffix):
         return my_description + ' ' + suffix
+    
+    df = wrangles.recipe.run(recipe, functions=space_function)
+    assert df['New Description'][0] == 'this is a description'
+
+def test_column_spaces_in_kwargs():
+    """
+    Test functionality when passing a column with a space through kwargs
+    """
+    recipe = '''
+    read:
+      - test:
+          rows: 5
+          values:
+            id: 123
+            my description: this is a
+
+    wrangles:
+      - custom.space_function:
+          suffix: description
+          output: New Description
+    '''
+    def space_function(**kwargs):
+        return kwargs['my description'] + ' ' + kwargs['suffix']
     
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
