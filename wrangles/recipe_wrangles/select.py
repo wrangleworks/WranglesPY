@@ -11,7 +11,7 @@ def dictionary_element(
     input: _Union[str, list],
     element: str,
     output: _Union[str, list] = None,
-    default = ''
+    default: str = ''
 ) -> _pd.DataFrame:
     """
     type: object
@@ -36,6 +36,7 @@ def dictionary_element(
         type: string
         description: The key from the dictionary to select.
       default:
+        type: string
         description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
@@ -118,7 +119,7 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default = '') -> _pd.DataFrame:
+def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default: str = '') -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -142,6 +143,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
         type: integer
         description: The numbered element of the list to select. Starts from zero
       default:
+        type: string
         description: Set the default value to return if the specified element doesn't exist.
     """
     if output is None: output = input
