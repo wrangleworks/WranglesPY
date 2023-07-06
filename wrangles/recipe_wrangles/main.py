@@ -580,7 +580,6 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     additionalProperties: false
     required:
       - input
-      - output
       - find
       - replace
     properties:
