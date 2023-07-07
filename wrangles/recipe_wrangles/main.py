@@ -693,14 +693,6 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
-      find:
-        type:
-          - string
-        description: Pattern to find using regex (do not include model_id)
-      replace:
-        type:
-          - string
-        description: Value to replace the pattern found (do not include model_id)
     """
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
