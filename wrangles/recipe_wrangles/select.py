@@ -19,7 +19,6 @@ def dictionary_element(
     additionalProperties: false
     required:
       - input
-      - output
       - element
     properties:
       input:
@@ -132,7 +131,6 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     additionalProperties: false
     required:
       - input
-      - output
       - element
     properties:
       input:
