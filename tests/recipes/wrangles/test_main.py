@@ -899,7 +899,7 @@ def test_standardize_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id in a standardize function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.'
     
 # Using classify model with standardize function
 def test_standardize_5():
@@ -915,7 +915,7 @@ def test_standardize_5():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id f7958bd2-af22-43b1 in a standardize function.'
 
 # List of inputs to one output
 def test_standardize_multi_input_single_output():
