@@ -170,7 +170,12 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
     return df
 
 
-def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def from_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None,
+        **kwargs
+        ) -> _pd.DataFrame:
     """
     type: object
     description: Convert a JSON representation into an object
@@ -202,13 +207,18 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = [_json.loads(x) for x in df[input_column]]
+        df[output_column] = [_json.loads(x, **kwargs) for x in df[input_column]]
     
     return df
 
 
-def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
+def to_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None, 
+        **kwargs
+        ) -> _pd.DataFrame:
+    r"""
     type: object
     description: Convert an object to a JSON representation.
     additionalProperties: false
@@ -225,6 +235,17 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - string
           - array
         description: Name of the output column. If omitted, the input column will be overwritten
+      indent:
+        type:
+          - string
+          - integer
+        description: If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+          with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
+          compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
+          that string is used to indent each level.
+      sort_keys:
+        type: boolean
+        description: If sort_keys is true (default: False), then the output of dictionaries will be sorted by key.
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -239,6 +260,9 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
-        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        df[output_column] = [
+            _json.dumps(row, **kwargs) 
+            for row in df[input_columns].values.tolist()
+            ]
         
     return df
