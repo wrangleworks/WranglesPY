@@ -170,7 +170,11 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
     return df
 
 
-def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def from_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None,
+        ) -> _pd.DataFrame:
     """
     type: object
     description: Convert a JSON representation into an object
@@ -207,7 +211,18 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     return df
 
 
-def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def to_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None, 
+        skipkeys: bool = False,
+        ensure_ascii: bool = True,
+        check_circular: bool = True,
+        allow_nan: bool = True,
+        indent: _Union[str, int] = None,
+        separators: str = None,
+        sort_keys: bool = False #### cls and default skipped because they both use a custom function/class
+        ) -> _pd.DataFrame:
     """
     type: object
     description: Convert an object to a JSON representation.
@@ -225,6 +240,38 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - string
           - array
         description: Name of the output column. If omitted, the input column will be overwritten
+      skipkeys:
+        type: boolean
+        description: If skipkeys is true (default: False), then dict keys that are not of a basic type (str, int, float, bool, None) 
+          will be skipped instead of raising a TypeError.
+      ensure_ascii: 
+        type: boolean
+        description: If ensure_ascii is true (the default), the output is guaranteed to have all incoming non-ASCII characters escaped. 
+          If ensure_ascii is false, these characters will be output as-is.
+      check_circular:
+        type: boolean
+        description: If check_circular is false (default: True), then the circular reference check for container types will be skipped 
+          and a circular reference will result in a RecursionError (or worse).
+      allow_nan:
+        type: boolean
+        description: If allow_nan is false (default: True), then it will be a ValueError to serialize out of range float values 
+          (nan, inf, -inf) in strict compliance of the JSON specification. If allow_nan is true, their JavaScript equivalents 
+          (NaN, Infinity, -Infinity) will be used.
+      indent:
+        type:
+          - string
+          - integer
+        description: If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+          with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
+          compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
+          that string is used to indent each level.
+      separators:
+        type: str
+        description: If specified, separators should be an (item_separator, key_separator) tuple. The default is (', ', ': ') if indent 
+          is None and (',', ': ') otherwise. To get the most compact JSON representation, you should specify (',', ':') to eliminate whitespace.
+      sort_keys:
+        type: boolean
+        description: If sort_keys is true (default: False), then the output of dictionaries will be sorted by key.
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -239,6 +286,9 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
-        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        df[output_column] = [
+            _json.dumps(row, skipkeys, ensure_ascii, check_circular, allow_nan, indent, separators, sort_keys) 
+            for row in df[input_columns].values.tolist()
+            ]
         
     return df
