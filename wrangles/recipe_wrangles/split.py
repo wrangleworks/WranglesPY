@@ -27,8 +27,8 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
         df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
     except:
         df_temp = [{} if x == None else x for x in df[input]]
-            
-    exploded_df = _pd.json_normalize(df_temp, max_level=1).fillna('')
+
+    exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
     df[exploded_df.columns] = exploded_df
     return df
 
