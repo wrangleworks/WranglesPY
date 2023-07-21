@@ -119,12 +119,9 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     if isinstance(model_id, dict):
         raise ValueError('Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value')
     
-    # If the model_id is a list, then split the contents
-    if isinstance(model_id, str): model_id = [model_id]
-    for model in model_id:
-        # Checking to see if GUID format is correct
-        if [len(x) for x in model.split('-')] != [8, 4, 4]:
-            raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    # Checking to see if GUID format is correct
+    if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
+        raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
     params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels}
@@ -139,8 +136,6 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
         raise ValueError(f'Using {purpose} model_id {model_id} in an extract function.')
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
-
-
 
     if first_element and not use_labels:
         results = [x[0] if len(x) >= 1 else "" for x in results]

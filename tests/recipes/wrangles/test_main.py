@@ -66,6 +66,27 @@ def test_classify_3():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
+def test_classify_extract_model_id():
+    """
+    Test error message when passing an extract model id into a classify wrangle
+    """
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Ball Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+            output: 
+              - Class
+            model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.'
+
 def test_classify_invalid_model():
     """
     # Incorrect model_id missing "${ }" around value
