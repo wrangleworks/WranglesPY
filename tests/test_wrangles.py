@@ -35,7 +35,7 @@ def test_classify_error_2():
 def test_classify_error_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.classify('ball bearing', 'fce592c9-26f5-4fd7')
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Using extract model_id in a classify function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using extract model_id fce592c9-26f5-4fd7 in a classify function.'
 
 # Data
 def test_user_models():
@@ -122,7 +122,7 @@ def test_extract_error_2():
 def test_extract_error_3():
     with pytest.raises(ValueError) as info:
         raise wrangles.extract.custom('ball bearing', '24ac9037-ecab-4030')
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id in an extract function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id 24ac9037-ecab-4030 in an extract function.'
 
 def test_extract_html_str():
     result = wrangles.extract.html('<a href="https://www.wrangleworks.com/">Wrangle Works!</a>', dataType='text')
