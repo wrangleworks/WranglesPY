@@ -670,7 +670,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     return df
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, where: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
@@ -693,7 +693,24 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
+      where:
+        type: string
+        description: Use a SQL WHERE clause to filter the data.
     """
+    # Filter the data based on the where property
+    ###### This method works but we want it to preserve all of the original data instead of filtering it all out ######
+    if where != None:
+        df['original index'] = df.index
+        df_original = df.copy()
+        df = sql(
+            df,
+            f"""
+            SELECT *
+            FROM df
+            WHERE {where};
+            """
+        )
+
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
 
@@ -716,12 +733,16 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
+        df = _pd.merge_asof(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
+
         return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
             
+    df = _pd.merge_asof(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
+
     return df
 
 

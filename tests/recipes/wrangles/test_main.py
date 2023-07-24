@@ -917,6 +917,26 @@ def test_standardize_5():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
 
+def test_standardize_where():
+    """
+    Test standardize function using a where clause
+    """
+    data = pd.DataFrame({
+    'Product': ['Wrench', 'Hammer', 'Pliers'],
+    'Price': [4.99, 9.99, 14.99]
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Product
+            output: Product Standardized
+            model_id: 6ca4ab44-8c66-40e8
+            where: Price > 10
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Product'] == 'Pliers' and len(df) == 1
+
+
 # List of inputs to one output
 def test_standardize_multi_input_single_output():
     """
