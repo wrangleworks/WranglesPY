@@ -699,7 +699,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     """
     # Filter the data based on the where property
     ###### This method works but we want it to preserve all of the original data instead of filtering it all out ######
-    if where != None:
+    if where:
         df['original index'] = df.index
         df_original = df.copy()
         df = sql(
@@ -733,16 +733,21 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
-        df = _pd.merge_asof(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
+        if where:
+            ##### Currently uses last match when merging, when it should be filling in with 'nan' or None instead #####
+            ##### See direction param in https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html #####
+            df = _pd.merge_asof(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
 
         return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-            
-    df = _pd.merge_asof(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
-
+            if where:
+                ##### Currently uses last match when merging, when it should be filling in with 'nan' or None instead #####
+                ##### See direction param in https://pandas.pydata.org/docs/reference/api/pandas.merge_asof.html #####
+                df_original = _pd.merge_asof(df_original, df[[output_column, 'original index']], on = 'original index', )
+    df = df_original.drop('original index', axis = 1)
     return df
 
 

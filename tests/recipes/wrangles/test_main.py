@@ -934,7 +934,7 @@ def test_standardize_where():
             where: Price > 10
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Product'] == 'Pliers' and len(df) == 1
+    assert pd.isna(df.iloc[0]['Product Standardized']) == True and df.iloc[2]['Product Standardized'] == 'Pliers'
 
 
 # List of inputs to one output
@@ -962,7 +962,7 @@ def test_standardize_multi_input_single_output():
 # List of inputs and outputs single model_id
 def test_standardize_multi_io_single_model():
     """
-    Test error using multiple input and output columns with a single model_id
+    Test output using multiple input and output columns with a single model_id
     """
     data = pd.DataFrame({
     'Abbrev1': ['ASAP'],
@@ -978,6 +978,30 @@ def test_standardize_multi_io_single_model():
               - Abbreviations1
               - Abbreviations2
             model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
+
+# List of inputs and outputs single model_id with where
+def test_standardize_multi_io_single_model_where():
+    """
+    Test output using multiple input and output columns with a single model_id with a where filter
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['ASAP', 'ETA', 'FOMO', 'IDK'],
+    'Abbrev2': ['ASAP', 'ETA', 'IDK', 'FOMO']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbreviations1
+              - Abbreviations2
+            model_id: 6ca4ab44-8c66-40e8
+            where: Abbrev1 LIKE Abbrev2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
