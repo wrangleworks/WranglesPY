@@ -606,6 +606,26 @@ def test_extract_custom_mulit_input_output():
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
     assert df.iloc[0]['Fact2'] == ['Charizard']
     
+# Multiple output and inputs with where
+def test_extract_custom_mulit_input_output_where():
+    data = pd.DataFrame({
+        'col': ['Pikachu', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input:
+            - col1
+            - col2
+          output:
+            - Fact1
+            - Fact2
+          model_id: 1eddb7e8-1b2b-4a52
+          where: col1 LIKE Pikachu
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
+    assert df.iloc[0]['Fact2'] == ['Charizard']
+
 # multiple different custom extract at the same time
 def test_extract_multi_custom():
     data = pd.DataFrame({

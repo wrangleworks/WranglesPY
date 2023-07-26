@@ -386,8 +386,34 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     params['functions'] = functions
 
                 # Execute the requested function and return the value
-                df = obj(df, **params)
+                # df = obj(df, **params)
 
+                ##### Testing where filter before executing wrangles #####
+                no_where_list = ['pandas.transpose', 'filter']
+                if 'where' in params.keys() and wrangle not in no_where_list:
+                    df['original index'] = df.index
+                    df_original = df.copy()
+                    df = _recipe_wrangles.main.sql(
+                        df,
+                        f"""
+                        SELECT *
+                        FROM df
+                        WHERE {params['where']};
+                        """
+                    )
+
+                    params.pop('where')
+
+                    df = obj(df, **params)
+                    if isinstance(params['output'], list) == True:
+                        df = _pandas.merge_ordered(df_original, df[params['output'] + ['original index']], on = 'original index').drop('original index', axis = 1)
+                    else:
+                        df = _pandas.merge_ordered(df_original, df[[params['output']] + ['original index']], on = 'original index').drop('original index', axis = 1)
+                    return df
+                
+                else:
+                    # Execute the requested function and return the value
+                    df = obj(df, **params)
     return df
 
 

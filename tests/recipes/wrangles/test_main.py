@@ -988,8 +988,8 @@ def test_standardize_multi_io_single_model_where():
     Test output using multiple input and output columns with a single model_id with a where filter
     """
     data = pd.DataFrame({
-    'Abbrev1': ['ASAP', 'ETA', 'FOMO', 'IDK'],
-    'Abbrev2': ['ASAP', 'ETA', 'IDK', 'FOMO']
+    'Abbrev1': ['FOMO', 'IDK', 'ASAP', 'ETA'],
+    'Abbrev2': ['IDK', 'FOMO', 'ASAP', 'ETA']
     })
     recipe = """
     wrangles:
@@ -1004,7 +1004,7 @@ def test_standardize_multi_io_single_model_where():
             where: Abbrev1 LIKE Abbrev2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
+    assert pd.isna(df.iloc[0]['Abbreviations1']) == True and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
 
 def test_replace():
     """
