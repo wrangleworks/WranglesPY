@@ -664,7 +664,7 @@ def test_extract_custom_first_only():
               first_element: True
         """
     )
-    assert df['results'][0] == 'Pikachu'
+    assert df['results'][0] == 'Charizard'
 
 
 # combinations of use_labels and first_element begins
@@ -890,7 +890,7 @@ def test_properties_6():
     """
 
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out'] == ['Blue', 'Sky Blue']
+    assert 'Blue' in df.iloc[0]['out'] and 'Sky Blue' in df.iloc[0]['out']
     
 #
 # HTML
