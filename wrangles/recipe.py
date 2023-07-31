@@ -385,11 +385,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if wrangle == 'recipe':
                     params['functions'] = functions
 
-                # Execute the requested function and return the value
-                # df = obj(df, **params)
-
-                ##### Testing where filter before executing wrangles #####
-                no_where_list = ['pandas.transpose', 'filter']
+                # Filter dataframe with where statement before passing to the wrangle
+                no_where_list = ['pandas.transpose', 'filter', 'rename', 'sql']
                 if 'where' in params.keys() and wrangle not in no_where_list:
                     df['original index'] = df.index
                     df_original = df.copy()
@@ -405,10 +402,14 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     params.pop('where')
 
                     df = obj(df, **params)
-                    if isinstance(params['output'], list) == True:
+                    if 'output' in params.keys() and isinstance(params['output'], list) == True:
                         df = _pandas.merge_ordered(df_original, df[params['output'] + ['original index']], on = 'original index').drop('original index', axis = 1)
-                    else:
+                    elif 'output' in params.keys() and isinstance(params['output'], str) == True:
                         df = _pandas.merge_ordered(df_original, df[[params['output']] + ['original index']], on = 'original index').drop('original index', axis = 1)
+                    else:
+                        df_original = df_original.drop(params['input'], axis = 1)
+                        df = _pandas.merge_ordered(df_original, df[params['input'] + ['original index']], on = 'original index').drop('original index', axis = 1)
+                    df.fillna("", inplace = True)
                     return df
                 
                 else:

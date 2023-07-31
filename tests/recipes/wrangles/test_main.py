@@ -114,6 +114,30 @@ def test_classify_invalid_variable_syntax():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+
+def test_classify_where():
+    """
+    Test classify using where
+    """
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing', 'Roller Bearing'],
+    'Col2': ['Ball Bearing', 'Needle Bearing'],
+    'number': [25, 31]
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+              - Col2
+            output: 
+              - Class1
+              - Class2
+            model_id: c77839db-237a-476b
+            where: number > 25
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
     
 #
 # Filter
@@ -740,6 +764,34 @@ def test_remove_words_tokenize_case_sensitive():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].iloc[0] == 'Water Tank'
 
+def test_remove_words_where():
+    """
+    Test remove_words using where
+    """
+    data = pd.DataFrame({
+    'Description': [['Steel', 'Blue', 'Bottle'], ['Aluminum', 'Red', 'Can'], ['Rubber', 'Yellow', 'Tire']],
+    'Description2': [['Steel', 'Blue', 'Bottle'], ['Titanium', 'Blue', 'Pipe'], ['Iron', 'Brown', 'Plate']],
+    'Materials': [['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron'], ['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron'], ['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron']],
+    'Colours': [['Blue', 'Red', 'Yellow', 'Brown'], ['Blue', 'Red', 'Yellow', 'Brown'], ['Blue', 'Red', 'Yellow', 'Brown']],
+    'numbers': [4, 3, 2]
+    })
+    recipe = """
+    wrangles:
+        - remove_words:
+            input:
+              - Description
+              - Description2
+            to_remove:
+              - Materials
+              - Colours
+            output: 
+              - Product1
+              - Product2
+            where: numbers >= 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Product1'] == 'Bottle' and df.iloc[1]['Product2'] == 'Pipe' and df.iloc[2]['Product1'] == ""
+
 #
 # Rename
 #
@@ -934,7 +986,7 @@ def test_standardize_where():
             where: Price > 10
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert pd.isna(df.iloc[0]['Product Standardized']) == True and df.iloc[2]['Product Standardized'] == 'Pliers'
+    assert df.iloc[0]['Product Standardized'] == "" and df.iloc[2]['Product Standardized'] == 'Pliers'
 
 
 # List of inputs to one output
@@ -1004,7 +1056,7 @@ def test_standardize_multi_io_single_model_where():
             where: Abbrev1 LIKE Abbrev2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert pd.isna(df.iloc[0]['Abbreviations1']) == True and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
+    assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
 
 def test_replace():
     """
@@ -1067,6 +1119,26 @@ def test_replace_regex():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations'] == 'random found random'
+
+def test_replace_where():
+    """
+    Test replace using where
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['random ASAP random', 'random ETA random'],
+    'numbers': [1, 2]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: Abbrev
+            output: Abbreviations
+            find: ETA
+            replace: Estimated Time of Arrival
+            where: numbers > 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == "" and df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
 
 def test_replace_inconsistent_input():
     """
@@ -1170,6 +1242,26 @@ def test_translate_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
+def test_translate_where():
+    """
+    Test translate using where
+    """
+    data = pd.DataFrame({
+    'Español': ['¡Hola Mundo!', 'Me llamo es Johnny Numero Cinco'],
+    'numbers': [3, 88]
+    })
+    recipe = """
+    wrangles:
+        - translate:
+            input: Español
+            output: English
+            source_language: Spanish
+            target_language: English
+            where: numbers > 70
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['English'] == "" and df.iloc[1]['English'] == 'My name is Johnny Number Five'
+
 #
 # Maths
 #
@@ -1204,6 +1296,24 @@ def test_math_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == 3
     
+def test_math_where():
+    """
+    Test math using where
+    """
+    data = pd.DataFrame({
+        'col1': [5, 9, 12],
+        'col2': [5, 3, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col1 + col2
+          output: result
+          where: col1 + col2 > 12
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == "" and df.iloc[2]['result'] == 14.0
+
 #
 # SQL
 #
@@ -1225,7 +1335,7 @@ def test_sql_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header1'] == 2
-    
+
 # Using an incorrect sql statement
 def test_sql_2():
     data = pd.DataFrame({
@@ -1391,3 +1501,21 @@ def test_date_calc_multi_io():
             })
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1']._date_repr == '2022-12-20' and df.iloc[0]['out2']._date_repr == '2023-06-29'
+
+def test_date_calc_where():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022', '12/31/2022'],
+        'number': [6, 12]
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+          where: number > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == "" and df.iloc[1]['out1']._date_repr == '2022-12-30'

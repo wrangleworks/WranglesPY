@@ -23,6 +23,29 @@ def test_coalesce_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Output Col'].values.tolist() == ['A', 'B', 'C']
 
+def test_coalesce_where():
+    """
+    Test coalesce using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['A', '', ''],
+        'Col2': ['', 'B', ''],
+        'Col3': ['', '', 'C'],
+        'numbers': [3, 4, 5]
+    })
+    recipe = """
+    wrangles:
+      - merge.coalesce:
+          input: 
+            - Col1
+            - Col2
+            - Col3
+          output: Output Col
+          where: numbers = 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Output Col'] == 'B' and df.iloc[0]['Output Col'] ==''
+
 #
 # Concatenate
 #
@@ -61,6 +84,29 @@ def test_concatenate_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Join Col'] == 'A, B, C'
 
+def test_concatenate_where():
+    """
+    Test concatenate using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['A', 'E', 'H'],
+        'Col2': ['B', 'F', 'I'],
+        'Col3': ['C', 'G', 'J'],
+        'numbers': [23, 44, 13]
+    })
+    recipe = """
+    wrangles:
+        - merge.concatenate:
+            input: 
+                - Col1
+                - Col2
+                - Col3
+            output: Join Col
+            char: ', '
+            where: numbers !=13
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Join Col'] == 'A, B, C' and df.iloc[2]['Join Col'] == ''
 
 #
 # Lists
@@ -82,6 +128,26 @@ def test_lists_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'E']
 
+def test_lists_where():
+    """
+    Test merge.lists using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', 'B'], ['C', 'D']],
+        'Col2': [['D', 'E'], ['F', 'G']],
+        'numbers': [0, 5]
+    })
+    recipe = """
+    wrangles:
+        - merge.lists:
+            input: 
+                - Col1
+                - Col2
+            output: Combined Col
+            where: numbers > 0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['C', 'D', 'F', 'G']
 
 #
 # to_list
