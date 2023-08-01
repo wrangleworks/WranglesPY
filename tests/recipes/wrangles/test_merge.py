@@ -171,6 +171,28 @@ def test_to_lists_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Combined Col'] == ['A', 'B', 'C']
     
+def test_to_lists_where():
+    """
+    Test merge.to_list using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['A', 'D', 'G'],
+        'Col2': ['B', 'E', 'H'],
+        'Col3': ['C', 'F', 'I'],
+        'numbers': [3, 6, 9]
+    })
+    recipe = """
+    wrangles:
+        - merge.to_list:
+            input: 
+                - Col1
+                - Col2
+                - Col3
+            output: Combined Col
+            where: numbers = 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['D', 'E', 'F']
 
 #
 # To Dict
@@ -209,10 +231,10 @@ def test_to_dict_2():
 # if the row instance is a boolean type
 def test_to_dict_3():
     data = pd.DataFrame({
-    'Col1':[True],
-    'Col2':[False],
-    'Col3': [None],
-})
+        'Col1':[True],
+        'Col2':[False],
+        'Col3': [None],
+    })
     recipe = """
     wrangles:
         - merge.to_dict:
@@ -221,6 +243,27 @@ def test_to_dict_3():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Dict Col'] == {'Col1': True, 'Col2': False, 'Col3': None}
+
+def test_to_dict_where():
+    """
+    Test merge.to_dict using where
+    """
+    data = pd.DataFrame({
+        'Col1':[{'A'}, {'C'}, {'E'}],
+        'Col2':[{'B'}, {'D'}, {'F'}],
+        'numbers': [43, 22, 65]
+    })
+    recipe = """
+    wrangles:
+        - merge.to_dict:
+            input: 
+                - Col1
+                - Col2
+            output: Dict Col
+            where: numbers < 60
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}} and df.iloc[2]['Dict Col'] == ''
 
 #
 # Key Value Pairs
