@@ -29,6 +29,10 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
         df_temp = [{} if x == None else x for x in df[input]]
             
     exploded_df = _pd.json_normalize(df_temp, max_level=1).fillna('')
+    # Reset the index to match the (pre-where filtered) index of the original dataframe
+    if 'original index' in df.columns.to_list():
+        exploded_df = exploded_df.set_index(df['original index'])
+        exploded_df.index.names = [None]
     df[exploded_df.columns] = exploded_df
     return df
 
