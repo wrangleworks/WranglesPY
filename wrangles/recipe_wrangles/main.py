@@ -632,6 +632,13 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
+    
+    # Check for set data types
+    set_list = []
+    for col in list(df.columns):
+        if type(df[col][0]) == set:
+            df[col] = [list(x) for x in df[col]]
+            set_list.append(col)
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
@@ -653,7 +660,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
         if cols in cols_changed:
             # If the column is in cols_changed then convert to json
             _to_json(df=df, input=cols)
-    
+
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
@@ -666,6 +673,9 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
         if new_cols in cols_changed:
             # If the column is in cols changed, then change back to an object
             _from_json(df=df, input=new_cols)
+
+    for col in set_list:
+        df[col] = [set(x) for x in df[col]]
     
     return df
 
