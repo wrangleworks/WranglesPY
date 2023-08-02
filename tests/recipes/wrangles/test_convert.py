@@ -373,6 +373,49 @@ def test_to_json_array_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['headers_json'] == "" and df.iloc[1]['headers_json'] == '["val2", "val5"]'
 
+# Test convert.to_json using indent
+def test_to_json_array_indent():
+    """
+    Test converting to a list to a JSON array using indent
+    """
+    data = pd.DataFrame([['val1', 'val2']], columns=['header1', 'header2'])
+    recipe = """
+    wrangles:
+        - merge.to_list:
+            input:
+              - header1
+              - header2
+            output: headers
+        - convert.to_json:
+            input: headers
+            output: headers_json
+            indent: 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['headers_json'] == '[\n    "val1",\n    "val2"\n]'
+    
+# Test convert.to_json using sort_keys
+def test_to_json_array_sort_keys():
+    """
+    Test converting to a list to a JSON array using sort_keys
+    """
+    data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
+    recipe = """
+    wrangles:
+        - merge.to_dict:
+            input:
+              - header3
+              - header1
+              - header2
+            output: headers
+        - convert.to_json:
+            input: headers
+            output: headers_json
+            sort_keys: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['headers_json'] == '{"header1": "val1", "header2": "val2", "header3": "val3"}'
+
 def test_from_json_array():
     """
     Test converting to a JSON array to a list

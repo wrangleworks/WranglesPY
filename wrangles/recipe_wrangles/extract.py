@@ -291,7 +291,7 @@ def custom(
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id, first_element=first_element, use_labels=use_labels)
+        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels)
     
     else:
         # Iterate through the inputs, outputs and model_ids

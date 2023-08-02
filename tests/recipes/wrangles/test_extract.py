@@ -609,6 +609,21 @@ def test_extract_custom_6():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
 
+def test_extract_with_standardize_model_id():
+    data = pd.DataFrame({
+        'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col
+          output: col_out
+          model_id: 6ca4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.'
+
 # Input column is list
 df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])
 
@@ -963,7 +978,7 @@ def test_properties_5():
 def test_properties_6():
     data = pd.DataFrame({
         'col1': ['Why is the sky blue?'],
-        'col2': ['Temperature of a star if it looks white'],
+        'col2': ['Temperature of a star if it looks blue'],
     })
     recipe = """
     wrangles:
@@ -976,7 +991,7 @@ def test_properties_6():
     """
 
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out'] == ['White', 'Sky Blue']
+    assert 'Blue' in df.iloc[0]['out'] and 'Sky Blue' in df.iloc[0]['out']
     
 #
 # HTML

@@ -47,5 +47,11 @@ def model_data(id: str, purpose: str) -> list:
     """
     params = {'model_id': id, 'type': purpose}
     response = _requests.get(f'{_config.api_host}/model/content', params=params, headers={'Authorization': f'Bearer {_auth.get_access_token()}'})
-    results = response.json()
+    if response.ok:
+        results = response.json()
+    elif response.status_code in [401, 403]:
+        raise RuntimeError('Not able to validate access, check wrangle to ensure accessibility')
+    else:
+        raise RuntimeError('Model data not found')
+
     return results['Data']

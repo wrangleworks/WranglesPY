@@ -33,6 +33,8 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
     if 'original index' in df.columns.to_list():
         exploded_df = exploded_df.set_index(df['original index'])
         exploded_df.index.names = [None]
+
+    exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
     df[exploded_df.columns] = exploded_df
     return df
 
