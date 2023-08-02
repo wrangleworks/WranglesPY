@@ -536,7 +536,7 @@ def test_convert_to_datetime_where():
           where: numbers > 3
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['date_type'] == "" and df.iloc[0]['date_type'].week == 51
+    assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
 
 #
 # Fractions
