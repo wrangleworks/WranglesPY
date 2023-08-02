@@ -24,6 +24,24 @@ def test_pandas_head():
     )
     assert df['header'].values[0] == 1 and len(df) == 1
 
+def test_pandas_head_where():
+    """
+    Test using pandas head function using where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - pandas.head:
+              parameters:
+                n: 2
+              where: header > 2
+        """,
+        dataframe=pd.DataFrame(
+            {'header': [1, 2, 3, 4, 5]}
+        )
+    )
+    assert df.iloc[0]['header'] == 3 and len(df) == 2
+
 def test_pandas_tail():
     """
     Test using pandas tail function
@@ -40,6 +58,24 @@ def test_pandas_tail():
         )
     )
     assert df['header'].values[0] == 5 and len(df) == 1
+
+def test_pandas_tail_where():
+    """
+    Test using pandas tail function using where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - pandas.tail:
+              parameters:
+                n: 2
+              where: header < 4
+        """,
+        dataframe=pd.DataFrame(
+            {'header': [1, 2, 3, 4, 5]}
+        )
+    )
+    assert df.iloc[0]['header'] == 2 and len(df) == 2
 
 def test_pandas_input_output():
     """
@@ -58,6 +94,25 @@ def test_pandas_input_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['round_num'].iloc[0] == 3.14
+
+def test_pandas_input_output_where():
+    """
+    Test a function that has an input and output using where
+    """
+    data = pd.DataFrame({
+        'numbers': [3.14159265359, 2.718281828]
+    })
+    recipe = """
+    wrangles:
+      - pandas.round:
+          input: numbers
+          output: round_num
+          parameters:
+            decimals: 2
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['round_num'].iloc[0] == 3.14 and df.iloc[1]['round_num'] == ''
 
 #
 # NATIVE RECIPE WRANGLES
@@ -99,6 +154,24 @@ def test_pd_copy_multi_cols():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col', 'col2', 'col1-copy', 'col2-copy']
 
+def test_pd_copy_where():
+    """
+    Test copy using where
+    """
+    data = pd.DataFrame({
+        'col': ['SuperMario', 'Luigi', 'Bowser'],
+        'numbers': [4, 2, 8]
+    })
+    recipe = """
+    wrangles:
+      - copy:
+          input: col
+          output: col-copy
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col-copy'] == 'SuperMario' and df.iloc[1]['col-copy'] == ''
+
 def test_drop_one_column():
     """
     Test drop using one column (string)
@@ -133,6 +206,24 @@ def test_drop_multiple_columns():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col']
+
+def test_drop_where():
+    """
+    Test drop using where
+    """
+    data = pd.DataFrame({
+        'col': ['Mario', 'Peach', 'Yoshi'],
+        'col2': ['Luigi', 'Bowser', 'Wario'],
+        'numbers': [3, 6, 10]
+    })
+    recipe = """
+    wrangles:
+      - drop:
+          columns: col2
+          where: numbers >= 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col'] == 'Peach' and list(df.columns) == ['col', 'numbers']
 
 def test_pd_transpose():
     """
@@ -220,6 +311,23 @@ def test_round_multi_input():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df[['out1', 'out2', 'out3']].values.tolist()[0] == [3.1, 1.2, 2.6]
     
+def test_round_where():
+    """
+    Test round using where
+    """
+    data = pd.DataFrame({
+        'col': [3.13, 1.16, 2.5555, 3.15]
+    })
+    recipe = """
+    wrangles:
+      - round:
+          input: col
+          output: rounded
+          where: col > 2.5
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['rounded'] == 3.0 and df.iloc[1]['rounded'] == ''
+    
 def test_reindex():
     """
     Testing Pandas reindex function
@@ -243,3 +351,28 @@ def test_reindex():
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
     assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
+
+def test_reindex_where():
+    """
+    Testing Pandas reindex function using where
+    """
+    data = pd.DataFrame(
+        {
+            'http_status': [200, 200, 404, 404, 301],
+            'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]
+        },
+        index=['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror']
+    )
+    
+    rec = """
+    wrangles:
+      - reindex:
+          index:
+            - Chrome
+            - Firefox
+            - Iceweasel
+          where: response_time <= .07
+    """
+    df = wrangles.recipe.run(recipe=rec, dataframe=data)
+
+    assert df.index.to_list() == ['Chrome', 'Firefox', 'Iceweasel'] and df.iloc[2]['response_time'] == ''

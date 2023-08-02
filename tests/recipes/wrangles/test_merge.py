@@ -283,6 +283,25 @@ def test_key_value_pairs_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Pairs'] == {'C': 3}
 
+def test_key_value_pairs_where():
+    """
+    Test merge.key_value_pairs using where
+    """
+    data = pd.DataFrame({
+    'Letter': ['A', 'B', 'C'],
+    'Number': [1, 2, 3],
+    })
+    recipe = """
+    wrangles:
+        - merge.key_value_pairs:
+            input:
+              Letter: Number
+            output: Pairs
+            where: Number = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Pairs'] == {'B': 2} and df.iloc[0]['Pairs'] == ''
+
 # Using a Wildcard
 def test_key_value_pairs_2():
     data = pd.DataFrame({
@@ -339,3 +358,24 @@ def test_merge_dicts_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Hello2': 'Lucy'}
+
+def test_merge_dicts_where():
+    """
+    Tests merge.dictionaries using where
+    """
+    data = pd.DataFrame({
+        'd1': [{'Hello': 'Fey'}, {'Hello': 'Moto'}, {'Hello': 'World'}],
+        'd2': [{'Hola': 'Lucy'}, {'Hola': 'Hello'}, {'Hola': 'Nice to meet you'}],
+        'numbers': [2, 55, 71]
+    })
+    recipe = """
+    wrangles:
+      - merge.dictionaries:
+          input:
+            - d1
+            - d2
+          output: out
+          where: numbers > 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['out'] == {'Hello': 'Moto', 'Hola': 'Hello'} and df.iloc[0]['out'] == ''

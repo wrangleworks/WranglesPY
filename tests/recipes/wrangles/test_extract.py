@@ -963,7 +963,7 @@ def test_properties_5():
 def test_properties_6():
     data = pd.DataFrame({
         'col1': ['Why is the sky blue?'],
-        'col2': ['Temperature of a star if it looks blue'],
+        'col2': ['Temperature of a star if it looks white'],
     })
     recipe = """
     wrangles:
@@ -976,7 +976,7 @@ def test_properties_6():
     """
 
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out'] == ['Blue', 'Sky Blue']
+    assert df.iloc[0]['out'] == ['White', 'Sky Blue']
     
 #
 # HTML
