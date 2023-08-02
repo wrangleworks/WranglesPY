@@ -270,6 +270,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Pandas Dataframe of the Wrangled data
     """
+    no_where_list = ['pandas.transpose', 'filter', 'rename', 'sql']
+
     for step in wrangles_list:
         for wrangle, params in step.items():
             if params is None: params = {}
@@ -279,10 +281,45 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
                 # TODO: remove parameters, allow selecting in/out columns
-                try:
-                    df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
-                except:
-                    df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+                if 'where' in params.keys() and wrangle not in no_where_list:
+                    # Add original index as a string to ensure no conflicts when merging
+                    df['original index'] = df.index
+                    # df['original index'] = df.index.astype(str)
+                    df_original = df.copy()
+                    df = _recipe_wrangles.main.sql(
+                        df,
+                        f"""
+                        SELECT *
+                        FROM df
+                        WHERE {params['where']};
+                        """
+                    )
+                    params.pop('where')
+
+                    try:
+                        df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
+                    except:
+                        df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+
+                    if list(df.columns) != list(df_original.columns):
+                        output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                        df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
+                        df.fillna("", inplace = True)
+                    if list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                        output_columns = params['input']
+                        df_original = df_original.drop(params['input'], axis = 1)
+                        df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
+                        df.fillna("", inplace = True)
+                    
+                    # Clean up NaN's and drop 'original index' column
+                    df.fillna("", inplace = True)
+                    df = df.drop('original index', axis = 1)
+
+                else:
+                    try:
+                        df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
+                    except:
+                        df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
             elif wrangle.split('.')[0] == 'custom':
                 # Execute a user's custom function
@@ -386,9 +423,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     params['functions'] = functions
 
                 # Filter dataframe with where statement before passing to the wrangle
-                no_where_list = ['pandas.transpose', 'filter', 'rename', 'sql']
                 if 'where' in params.keys() and wrangle not in no_where_list:
+                    # Add original index as a string to ensure no conflicts when merging
                     df['original index'] = df.index
+                    # Create a copy of the dataframe to merge back to
                     df_original = df.copy()
                     df = _recipe_wrangles.main.sql(
                         df,
@@ -398,23 +436,34 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         WHERE {params['where']};
                         """
                     )
+                    # Preserve original index for merging 
+                    df = df.set_index(df['original index'])
+                    df.index.names = [None]
 
                     params.pop('where')
 
                     df = obj(df, **params)
-                    if 'output' in params.keys() and isinstance(params['output'], list) == True:
-                        df = _pandas.merge_ordered(df_original, df[params['output'] + ['original index']], on = 'original index').drop('original index', axis = 1)
-                    elif 'output' in params.keys() and isinstance(params['output'], str) == True:
-                        df = _pandas.merge_ordered(df_original, df[[params['output']] + ['original index']], on = 'original index').drop('original index', axis = 1)
-                    else:
+
+                    # Setting output columns
+                    if list(df.columns) != list(df_original.columns): # should add a second check to this to get rid of the nested if statment below
+                        output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                        if output_columns != []:
+                            df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
+                    if list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                        output_columns = params['input']
                         df_original = df_original.drop(params['input'], axis = 1)
-                        df = _pandas.merge_ordered(df_original, df[params['input'] + ['original index']], on = 'original index').drop('original index', axis = 1)
+                        df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
+                    
+                    # Clean up NaN's and drop 'original index' column
                     df.fillna("", inplace = True)
+                    df = df.drop('original index', axis = 1)
+                    
                     return df
                 
                 else:
                     # Execute the requested function and return the value
                     df = obj(df, **params)
+
     return df
 
 
