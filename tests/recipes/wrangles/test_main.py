@@ -1518,4 +1518,4 @@ def test_date_calc_where():
           where: number > 6
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == "" and df.iloc[1]['out1']._date_repr == '2022-12-30'
+    assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'

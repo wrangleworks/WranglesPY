@@ -455,8 +455,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
                     
                     # Clean up NaN's and drop 'original index' column
-                    df.fillna("", inplace = True)
+                    df.fillna('', inplace = True)
+                    # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+                    # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+                    df.fillna('0', inplace = True)
                     df = df.drop('original index', axis = 1)
+
                     
                     return df
                 
