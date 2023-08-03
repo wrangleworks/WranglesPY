@@ -391,7 +391,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     return df
 
 
-def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, params = None, **_) -> _pandas.DataFrame:
+def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, params: _Union[list, dict] = None, **_) -> _pandas.DataFrame:
     """
     Filter a DataFrame
 
@@ -399,6 +399,7 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
     :param columns: List of columns to include
     :param not_columns: List of columns to exclude
     :param where: SQL where criteria to filter based on
+    :param params: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
     # Reduce to user chosen columns
     if columns:
