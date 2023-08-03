@@ -3,7 +3,7 @@ pyyaml
 pandas
 openpyxl
 sqlalchemy<2.0
-pymssql
+pymssql<2.2.8
 psycopg2-binary
 pymysql
 fabric==3.1.0
