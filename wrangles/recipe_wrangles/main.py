@@ -154,6 +154,7 @@ def filter(
           not_contains: str = None,
           is_null: bool = None,
           where: str = None,
+          params: _Union[list, dict] = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
@@ -227,6 +228,11 @@ def filter(
       not_contains:
         type: string
         description: Select rows where the input does not contain the value. Allows regular expressions.
+      params:
+        type: 
+          - array
+          - dict
+        description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
     if where != None:
         df = sql(
@@ -235,7 +241,8 @@ def filter(
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            params
         )
 
     # If a string provided, convert to list
@@ -618,7 +625,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     return df
 
 
-def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -629,6 +636,11 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
       command:
         type: string
         description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+      params:
+        type: 
+          - array
+          - dict
+        description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
@@ -657,7 +669,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db)
+    df = _pd.read_sql(command, db, params = params)
     db.close()
     
     # Change the columns back to an object

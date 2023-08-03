@@ -43,7 +43,7 @@ def _psql_insert_copy(table, conn, keys, data_iter):
 
 
 # Public methods
-def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
+def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     Import data from a PostgreSQL database.
 
@@ -57,12 +57,13 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     :param port: (Optional) If not provided, the default port will be used
     :param database: (Optional) Database to be queried
     :param columns: (Optional) Subset of columns to be returned. This is less efficient than specifying in the SQL command.
+    :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
     _logging.info(f": Importing Data :: {host}")
 
     conn = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
-    df = _pd.read_sql(command, conn)
+    df = _pd.read_sql(command, conn, params)
 
     if columns is not None: df = df[columns]
     
@@ -98,6 +99,11 @@ properties:
   columns:
     type: array
     description: A list with a subset of the columns to import. This is less efficient than specifying in the command.
+  params:
+    type: 
+      - array
+      - dict
+    description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
 """
 
 

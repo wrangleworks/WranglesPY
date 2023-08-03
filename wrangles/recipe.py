@@ -391,7 +391,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     return df
 
 
-def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
+def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, params = None, **_) -> _pandas.DataFrame:
     """
     Filter a DataFrame
 
@@ -419,7 +419,8 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            params
         )
 
     return df
