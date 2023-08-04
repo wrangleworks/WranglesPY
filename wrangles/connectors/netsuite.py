@@ -27,6 +27,7 @@ def _getToken(host, client_id, private_key, certificate_id):
             "iss": client_id,
             "scope": "rest_webservices,suite_analytics",
             "aud": f"{host}/services/rest/auth/oauth2/v1/token",
+            # "aud": f"https://{instance_id}.suitetalk.api.netsuite.com/services/rest/auth/oauth2/v1/token",
             "exp": int(_time()) + 59 * 60,  # maximum now + 60 mins
             "iat": int(_time())
         },
@@ -40,13 +41,14 @@ def _getToken(host, client_id, private_key, certificate_id):
 
     )
     url = f"{host}/services/rest/auth/oauth2/v1/token"
+    # url = f"https://{instance_id}.suitetalk.api.netsuite.com/services/rest/auth/oauth2/v1/token"
     '''
     -params:
            grant_type: The value of the grant_type parameter is always client_credentials.
            client_assertion_type: value is always urn:ietf:params:oauth:client-assertion-type:jwt-bearer.
     '''
     params = {
-        'grant_type': 'client credential',
+        'grant_type': 'client_credentials',
         'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
         'client_assertion': encoded_jwt  # generate from client application
 
@@ -64,74 +66,48 @@ def _getToken(host, client_id, private_key, certificate_id):
     return token
 
 
-def read(host, path, client_id, private_key, certificate_id, filter=None, limit=1000, offset=0) -> _pd.DataFrame:
-    """
-    :param host: Hostname or IP of API
-    :param path: name of record which which should be extract
-    :param filter: it can filter the entire data
-    :client_id: created when registering the integration in Netsuite.
-    :private_key:created when registering the integration in Netsuite.
-    :certificate_id:created when registering the integration in Netsuite.
-    :param limit: The limit used to specify the number of results on a single page.
-                  Default value is 1000.
-    :param offset:The offset used for selecting a specific page of results.
-                  Default value is 0.
-    :return: Pandas Dataframe of the imported data
-    """
-    logger = _logging.getLogger()
-    logger.setLevel(_logging.DEBUG)
-    logger.info(f": Exporting Data :: {host}")
-
-    '''requesting api'''
-
-    url = f"{host}/services/rest/record/v1/{path}"
-
-    # generating token
-    token = _getToken(host, client_id, private_key, certificate_id)
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Prefer": "transient",
-    }
-    # checking filter value is none or not, if it None --> remove from params
-    if filter == None:
-        params = {
-            'limit': limit,
-            'offset': offset
+def read(instance_id, client_id, certificate_id, private_key, query):
+    encoded_jwt = _jwt.encode(
+        payload = {
+            "iss": client_id,
+            "scope": "rest_webservices,suite_analytics",
+            "aud": f"https://{instance_id}.suitetalk.api.netsuite.com/services/rest/auth/oauth2/v1/token",
+            "exp": int(_time()) + 59 * 60,
+            "iat": int(_time())
+        },
+        key = private_key,
+        algorithm="RS256",
+        headers={
+            "typ": "JWT",
+            "alg": "PS256",
+            "kid": certificate_id
         }
-    else:
-        params = {
-            'q': filter,
-            'limit': limit,
-            'offset': offset
+    )
+
+    response = _requests.post(
+        url=f"https://{instance_id}.suitetalk.api.netsuite.com/services/rest/auth/oauth2/v1/token",
+        params={                        
+            'grant_type':'client_credentials',
+            'client_assertion_type':'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion': encoded_jwt
+        },
+        headers={'content-type': 'application/x-www-form-urlencoded'}
+    )
+
+    token = response.json()['access_token']
+
+    response = _requests.post(
+        url = f"https://{instance_id}.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Prefer": "transient"
+        },
+        json = {
+            "q": query
         }
+    )
 
-    # paginated response
-    # increasing offset value by 1 , so we get data of pages one by one
-    # if there is no data on next page then loop terminated
-
-    data = []
-    while True:
-        params = {
-            'q': filter,
-            'limit': limit,
-            'offset': offset
-        }
-
-        response = _requests.get(url=url, headers=headers, params=params)
-        if response.json()['items'] is None:
-            break
-        if response.status_code == '200':
-            data.append(response.json())
-            offset += 1
-        else:
-            # error handling
-            # https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_156570709583.html
-            raise RuntimeError(response.errorDetails)
-
-    # https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/section_156414087576.html
-    # converting json object into pandas dataframe
-    df = _pd.json_normalize(data['items'], max_level=0)
-    return df
+    return _pd.DataFrame(response.json()['items']).fillna('')
 
 
 _schema['read'] = """
@@ -144,33 +120,21 @@ _schema['read'] = """
       - private_key
       - certificate_id
     properties:
-      host:
-        type: string
-        description: Hostname of the API provider
-            e.g. https://[accountid].suitetalk.api.netsuite.com
-      path:
-        type: string
-        description: Name of record which should be extract
+      instance_id:
+        type: str
+        description: Created when registering the integration in Netsuite
       client_id:
-        type: int
+        type: str
         description: Created when registering the integration in Netsuite
       private_key:
-        type: int
+        type: str
         description: Created when registering the integration in Netsuite
       certificate_id:
-        type: int
+        type: str
         description: Created when registering the integration in Netsuite
-      filter:
-        type: object
-        description: API filters
-      limit:
-        type: int
-        description: The limit used to specify the number of results on a single page.
-                  Default value is 1000
-      offset:
-        type: int
-        description: The offset used for selecting a specific page of results.
-                  Default value is 0
+      query:
+        type: str
+        description: SQL query to filter the incoming data
 """
 
 
@@ -311,7 +275,7 @@ def test_failure(mocker):
     )
 
 
-def write(host, path, id, data, client_id, private_key, certificate_id, sublist=None):
+def write(df, host, path, client_id, private_key, certificate_id, sublist=None):
     """
     :param host: Hostname or IP of API
     :param path: name of record which which should be extract
@@ -346,19 +310,31 @@ def write(host, path, id, data, client_id, private_key, certificate_id, sublist=
     # it will create user if not exit or if exit then it will update based on id passed
     # it will do both insert & update operation
 
-    url = f"{host}/services/rest/record/v1/{path}/{id}"
-    token = _getToken(host, client_id, private_key, certificate_id)
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
-    params = {
-        "replace": sublist
-    }
-    response = _requests.post(url=url, headers=headers, params=params, data=data)
-    if response.status_code == 204:
-        return response.status_code
-    else:
-        raise RuntimeError(response.errorDetails)
+    data = df.to_dict(orient='records')
+
+    for row in data:
+        id = row['id']
+        row.pop('id')
+       
+        url = f"{host}/services/rest/record/v1/{path}/{id}"
+        # url = f"{host}/services/rest/record/v1/{path}/<<id>>"
+        token = _getToken(host, client_id, private_key, certificate_id)
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+
+        # params = {
+        #     "replace": sublist
+        # }
+        response = _requests.patch(url=url, headers=headers, json=row)
+
+        # patch to overwrite data
+        # post to insert
+        # put can do either
+        if response.status_code == 204:
+            return response.status_code
+        else:
+            raise RuntimeError(response.errorDetails)
 
 
 _schema['write'] = """
