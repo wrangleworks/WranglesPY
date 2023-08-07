@@ -10,7 +10,7 @@ import pymssql as _pymssql
 _schema = {}
 
 
-def read(host: str, user: str, password: str, command: str, port = 1433, database: str = '', columns: _Union[str, list] = None) -> _pd.DataFrame:
+def read(host: str, user: str, password: str, command: str, port = 1433, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     Import data from a Microsoft SQL database.
 
@@ -24,18 +24,19 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :param port: (Optional) If not provided, the default port will be used
     :param database: (Optional) Database to be queried
     :param columns: (Optional) Subset of columns to be returned. This is less efficient than specifying in the SQL command.
+    :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
     _logging.info(f": Importing Data :: {host}")
 
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
-    df = _pd.read_sql(command, conn)
+    df = _pd.read_sql(command, conn, params)
 
     if columns is not None: df = df[columns]
     
     return df
 
-_schema['read'] = """
+_schema['read'] = r"""
 type: object
 description: Import data from a Microsoft SQL Server
 required:
@@ -55,7 +56,11 @@ properties:
     description: Password for the specified user
   command:
     type: string
-    description: Table name or SQL command to select data
+    description: |-
+      Table name or SQL command to select data.
+      Note - using variables here can make your recipe vulnerable
+      to sql injection. Use params if using variables from
+      untrusted sources.
   database:
     type: string
     description: The database to connect to
@@ -65,6 +70,13 @@ properties:
   columns:
     type: array
     description: A list with a subset of the columns to import. This is less efficient than specifying in the command.
+  params:
+    type: 
+      - array
+      - dict
+    description: |-
+      List of parameters to pass to execute method.
+      This may use %s or %(name)s syntax
 """
 
 
@@ -133,17 +145,25 @@ properties:
 """
 
 
-def run(host: str, user: str, password: str, command: _Union[str, list], **kwargs) -> None:
+def run(
+  host: str,
+  user: str,
+  password: str,
+  command: _Union[str, list],
+  params: _Union[list, dict] = None,
+  **kwargs
+) -> None:
   """
   Run a command on a Microsoft SQL Server
 
   >>> from wrangles.connectors import mssql
-  >>> df = mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
+  >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
 
   :param host: Hostname or IP of the database
   :param user: User with access to the database
   :param password: Password of user
   :param command: SQL command or a list of SQL commands to execute
+  :param params: Variables to pass to a parameterized query.
   """
   _logging.info(f": Executing Command :: {host}")
 
@@ -155,7 +175,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], **kwarg
   cursor = conn.cursor()
 
   for sql in command:
-    cursor.execute(sql)
+    cursor.execute(sql, params)
 
   conn.close()
 
@@ -188,4 +208,11 @@ properties:
   port:
     type: integer
     description: The Port to connect to. Defaults to 1433.
+  params:
+    type:
+      - array
+      - object
+    description: |-
+      Variables to pass to a parameterized query.
+      This may use %s or %(name)s syntax
 """

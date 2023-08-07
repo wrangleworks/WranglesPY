@@ -129,6 +129,44 @@ def test_specify_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col1'].values.tolist() == ['val1', 'val3']
 
+def test_specify_where_params():
+    """
+    Test writing and applying a parameterized WHERE sql criteria
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+          - dataframe: 
+              where: col1 = ?
+              where_params:
+                - val1
+        """,
+        dataframe= pd.DataFrame({
+            'col1': ['val1', 'val2', 'val3'],
+            'col2': ['vala', 'valb', 'valc']
+        })
+    )
+    assert df['col2'][0] == "vala" and len(df) == 1
+
+def test_specify_where_params_dict():
+    """
+    Test writing and applying a parameterized WHERE sql criteria
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+          - dataframe: 
+              where: col1 = :var
+              where_params:
+                var: val1
+        """,
+        dataframe= pd.DataFrame({
+            'col1': ['val1', 'val2', 'val3'],
+            'col2': ['vala', 'valb', 'valc']
+        })
+    )
+    assert df['col2'][0] == "vala" and len(df) == 1
+
 def test_multiple():
     """
     Test writing more than one output
