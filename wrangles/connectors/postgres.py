@@ -70,7 +70,7 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     
     return df
 
-_schema['read'] = """
+_schema['read'] = r"""
 type: object
 description: Import data from a PostgreSQL Server
 required:
@@ -90,7 +90,11 @@ properties:
     description: Password for the specified user
   command:
     type: string
-    description: Table name or SQL command to select data
+    description: >-
+      Table name or SQL command to select data
+      Note - using variables here can make your recipe vulnerable
+      to sql injection. Use params if using variables from
+      untrusted sources.
   database:
     type: string
     description: The database to connect to
@@ -104,7 +108,9 @@ properties:
     type: 
       - array
       - dict
-    description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
+    description: >-
+      List of parameters to pass to execute method.
+      This may use %s or %(name)s syntax
 """
 
 
