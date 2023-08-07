@@ -276,26 +276,26 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
         for wrangle, params in step.items():
             if params is None: params = {}
             _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+
             original_params = params.copy()
+            if 'where' in params.keys() and wrangle not in no_where_list:
+                # Add original index to ensure no conflicts when merging
+                df['original index'] = df.index
+                df_original = df.copy()
+
+                df = _filter_dataframe(df, where = params['where'])
+
+                # Preserve original index for merging 
+                df = df.set_index(df['original index'])
+                df.index.names = [None]
+                
+                # Pop where out to avoid errors
+                params.pop('where')        
 
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
                 # TODO: remove parameters, allow selecting in/out columns
-                if 'where' in params.keys() and wrangle not in no_where_list:
-                    # Add original index to ensure no conflicts when merging
-                    df['original index'] = df.index
-                    df_original = df.copy()
-
-                    df = _filter_dataframe(df, where = params['where'])
-
-                    # Preserve original index for merging 
-                    df = df.set_index(df['original index'])
-                    df.index.names = [None]
-                    
-                    # Pop where out to avoid errors
-                    params.pop('where')
-
                 try:
                     df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
                 except:
@@ -402,28 +402,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if wrangle == 'recipe':
                     params['functions'] = functions
 
-                # Filter dataframe with where statement before passing to the wrangle
-                if 'where' in params.keys() and wrangle not in no_where_list:
-                    # Add original index as a string to ensure no conflicts when merging
-                    df['original index'] = df.index
-
-                    # Create a copy of the dataframe to merge back to
-                    df_original = df.copy()
-
-                    df = _filter_dataframe(df, where = params['where'])
-
-                    # Preserve original index for merging
-                    df = df.set_index(df['original index'])
-                    df.index.names = [None]
-
-                    # Pop where out to avoid errors
-                    params.pop('where')
-
                 df = obj(df, **params)
 
-            # Setting output columns
-            if wrangle.split('.')[0] != 'custom' and 'where' in original_params and wrangle not in no_where_list:
-
+            # If the user specified a where, we need to merge this back to the original dataframe
+            if 'where' in original_params and wrangle not in no_where_list:
                 if list(df.columns) != list(df_original.columns): # should add a second check to this to get rid of the nested if statment below
                     output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
                     if output_columns != []:
@@ -437,11 +419,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 # Drop original index column    
                 df = df.drop('original index', axis = 1)
                 
-        # Clean up NaN's and drop 'original index' column
-        df.fillna('', inplace = True)
-        # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
-        # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-        df.fillna('0', inplace = True)
+            # Clean up NaN's and drop 'original index' column
+            df.fillna('', inplace = True)
+            # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+            # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+            df.fillna('0', inplace = True)
 
     return df
 
