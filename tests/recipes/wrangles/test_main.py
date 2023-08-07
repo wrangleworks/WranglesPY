@@ -385,6 +385,42 @@ def test_filter_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 1
 
+def test_filter_where_params():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = ?
+              where_params:
+                - Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
+def test_filter_where_params_dict():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = :var
+              where_params:
+                var: Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
 def test_filter_where_or():
     data = pd.DataFrame({
         'Random': ['Apples', 'None', 'App', None],
