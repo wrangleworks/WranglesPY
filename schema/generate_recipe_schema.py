@@ -152,6 +152,10 @@ for write in schema['write']:
         'type': 'string',
         'description': 'Filter the data before writing using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456'
     }
+    schema['write'][write]['properties']['where_params'] = {
+        'type': ["array", "object"],
+        'description': "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
+    }
 
 # Construct final schema
 recipe_schema['$defs']['read']['items']['properties'] = schema['read']
