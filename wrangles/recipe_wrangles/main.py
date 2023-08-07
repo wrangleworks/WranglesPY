@@ -154,11 +154,12 @@ def filter(
           not_contains: str = None,
           is_null: bool = None,
           where: str = None,
+          where_params: _Union[list, dict] = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
     type: object
-    description: |
+    description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
       For complex filters, use the where parameter.
@@ -167,11 +168,19 @@ def filter(
       where:
         type: string
         description: Use a SQL WHERE clause to filter the data.
+      where_params:
+        type: 
+          - array
+          - dict
+        description: |-
+          Variables to use in conjunctions with where.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
       input:
         type:
           - string
           - array
-        description: |
+        description: |-
           Name of the column to filter on.
           If multiple are provided, all must match the criteria.
       equal:
@@ -235,7 +244,8 @@ def filter(
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            where_params
         )
 
     # If a string provided, convert to list
@@ -618,7 +628,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     return df
 
 
-def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -629,6 +639,14 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
       command:
         type: string
         description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+      params:
+        type: 
+          - array
+          - dict
+        description: |-
+          Variables to use in conjunctions with query.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
@@ -657,7 +675,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db)
+    df = _pd.read_sql(command, db, params = params)
     db.close()
     
     # Change the columns back to an object

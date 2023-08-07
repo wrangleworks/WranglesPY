@@ -15,6 +15,25 @@ def test_read_sql(mocker):
     }
     df = read(**config)
     assert df.equals(data)
+
+# Will need to update this in the future to be a real test that does not use mocker
+def test_read_sql_params(mocker):
+    """
+    Test read using params
+    """
+    data = pd.DataFrame({'Col1': ['Data1, Data2']})
+    m = mocker.patch("pandas.read_sql")
+    m.return_value = data
+    config = {
+        'host': 'host_mock',
+        'user': 'user_mock',
+        'password': 'password_mock',
+        'database': 'test_mock',
+        'command': 'SELECT ($columns) from df_mock',
+        'params': {'columns': '*'}
+    }
+    df = read(**config)
+    assert df.equals(data)
     
 # The function does not have a return
 # Have a way to test with sqllite?
