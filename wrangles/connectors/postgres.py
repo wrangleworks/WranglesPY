@@ -6,6 +6,7 @@ from typing import Union as _Union
 import logging as _logging
 import csv as _csv
 from io import StringIO as _StringIO
+import psycopg2 as _psycopg2
 
 
 _schema = {}
@@ -169,4 +170,93 @@ properties:
   columns:
     type: array
     description: A list of the columns to write to the table. If omitted, all columns will be written.
+"""
+
+
+def run(
+    host: str,
+    database: str,
+    user: str,
+    password: str,
+    command: _Union[str, list],
+    port = 5432,
+    params: _Union[list, dict] = None
+) -> None:
+    """
+    Run a command on a PostgreSQL Server
+
+    >>> wrangles.connectors.postgres.run(
+    >>>    host='sql.domain',
+    >>>    database='db',
+    >>>    user='user',
+    >>>    password='password',
+    >>>    command='CALL myStoredProcedure'
+    >>> )
+
+    :param host: Hostname or IP of the database
+    :param database: The name of the database
+    :param user: User with access to the database
+    :param password: Password of user
+    :param command: SQL command or a list of SQL commands to execute
+    :param port: The Port to connect to. Defaults to 5432.
+    :param params: Variables to pass to a parameterized query.
+    """
+    _logging.info(f": Executing Command :: {host}")
+
+    # If user has provided a single command, convert to a list of one.
+    if isinstance(command, str): command = [command]
+
+    # Establish connection
+    conn = _psycopg2.connect(
+        host = host,
+        port = port,
+        dbname = database,
+        user = user,
+        password = password
+    )
+    conn.autocommit = True
+    cursor = conn.cursor()
+
+    for sql in command:
+        cursor.execute(sql, params)
+
+    conn.close()
+
+_schema['run'] = r"""
+type: object
+description: Run a command against a PostgreSQL Server such as triggering a query or stored procedure
+required:
+  - host
+  - database
+  - user
+  - password
+  - command
+properties:
+  host:
+    type: string
+    description: Hostname or IP address of the server
+  database:
+    type: string
+    description: The name of the database to execute the query against
+  user:
+    type: string
+    description: The user to connect to the server as
+  password:
+    type: string
+    description: Password for the specified user
+  command:
+    type:
+      - string
+      - array
+    description: SQL command or a list of SQL commands to execute
+  port:
+    type: integer
+    description: The Port to connect to. Defaults to 5432.
+  params:
+    type:
+      - array
+      - object
+    description: >-
+      Variables to pass to a parameterized query.
+      This may use %s or %(name)s syntax
 """
