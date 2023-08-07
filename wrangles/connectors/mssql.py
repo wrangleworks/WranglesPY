@@ -145,7 +145,14 @@ properties:
 """
 
 
-def run(host: str, user: str, password: str, command: _Union[str, list], **kwargs) -> None:
+def run(
+  host: str,
+  user: str,
+  password: str,
+  command: _Union[str, list],
+  params: _Union[list, dict] = None,
+  **kwargs
+) -> None:
   """
   Run a command on a Microsoft SQL Server
 
@@ -156,6 +163,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], **kwarg
   :param user: User with access to the database
   :param password: Password of user
   :param command: SQL command or a list of SQL commands to execute
+  :param params: Variables to pass to a parameterized query.
   """
   _logging.info(f": Executing Command :: {host}")
 
@@ -167,7 +175,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], **kwarg
   cursor = conn.cursor()
 
   for sql in command:
-    cursor.execute(sql)
+    cursor.execute(sql, params)
 
   conn.close()
 
@@ -200,4 +208,11 @@ properties:
   port:
     type: integer
     description: The Port to connect to. Defaults to 1433.
+  params:
+    type:
+      - array
+      - object
+    description: |-
+      Variables to pass to a parameterized query.
+      This may use %s or %(name)s syntax
 """
