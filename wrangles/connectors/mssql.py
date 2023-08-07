@@ -138,7 +138,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], **kwarg
   Run a command on a Microsoft SQL Server
 
   >>> from wrangles.connectors import mssql
-  >>> df = mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
+  >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
 
   :param host: Hostname or IP of the database
   :param user: User with access to the database
