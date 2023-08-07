@@ -623,13 +623,8 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if isinstance(find, int) and isinstance(replace, int):
-            df[output_column] = [int(str(x).replace(str(find), str(replace))) for x in df[input_column]]
-        elif isinstance(find, str) != isinstance(replace, str):
-            df[output_column] = [str(x).replace(str(find), str(replace)) for x in df[input_column]]
-        else:
-            df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
-    
+        df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
+        
     return df
 
 
