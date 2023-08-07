@@ -643,7 +643,10 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         type: 
           - array
           - dict
-        description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
+        description: >-
+          Variables to use in conjunctions with query.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
