@@ -56,7 +56,7 @@ properties:
     description: Password for the specified user
   command:
     type: string
-    description: >-
+    description: |-
       Table name or SQL command to select data.
       Note - using variables here can make your recipe vulnerable
       to sql injection. Use params if using variables from
@@ -74,7 +74,7 @@ properties:
     type: 
       - array
       - dict
-    description: >-
+    description: |-
       List of parameters to pass to execute method.
       This may use %s or %(name)s syntax
 """

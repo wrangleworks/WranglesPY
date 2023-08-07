@@ -159,7 +159,7 @@ def filter(
           ) -> _pd.DataFrame:
     """
     type: object
-    description: |
+    description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
       For complex filters, use the where parameter.
@@ -172,7 +172,7 @@ def filter(
         type: 
           - array
           - dict
-        description: >-
+        description: |-
           Variables to use in conjunctions with where.
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
@@ -180,7 +180,7 @@ def filter(
         type:
           - string
           - array
-        description: |
+        description: |-
           Name of the column to filter on.
           If multiple are provided, all must match the criteria.
       equal:
@@ -643,7 +643,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         type: 
           - array
           - dict
-        description: >-
+        description: |-
           Variables to use in conjunctions with query.
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)

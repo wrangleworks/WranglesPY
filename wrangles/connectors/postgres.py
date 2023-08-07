@@ -90,10 +90,10 @@ properties:
     description: Password for the specified user
   command:
     type: string
-    description: >-
-      Table name or SQL command to select data
+    description: |-
+      Table name or SQL command to select data.
       Note - using variables here can make your recipe vulnerable
-      to sql injection. Use params if using variables from
+      to sql injection. Use params for variables from
       untrusted sources.
   database:
     type: string
@@ -108,7 +108,7 @@ properties:
     type: 
       - array
       - dict
-    description: >-
+    description: |-
       List of parameters to pass to execute method.
       This may use %s or %(name)s syntax
 """
@@ -268,7 +268,7 @@ properties:
     type:
       - array
       - object
-    description: >-
+    description: |-
       Variables to pass to a parameterized query.
       This may use %s or %(name)s syntax
 """
