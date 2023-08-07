@@ -446,7 +446,14 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     return df
 
 
-def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
+def _filter_dataframe(
+    df: _pandas.DataFrame,
+    columns: list = None,
+    not_columns: list = None,
+    where: str = None,
+    where_params: _Union[list, dict] = None, 
+    **_
+) -> _pandas.DataFrame:
     """
     Filter a DataFrame
 
@@ -454,6 +461,7 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
     :param columns: List of columns to include
     :param not_columns: List of columns to exclude
     :param where: SQL where criteria to filter based on
+    :param params: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
     # Reduce to user chosen columns
     if columns:
@@ -474,7 +482,8 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            where_params
         )
 
     return df
@@ -502,7 +511,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
             # Filter the dataframe as requested before passing
             # to the desired write function
             df_temp = _filter_dataframe(df, **params)
-            for key in ['columns', 'not_columns', 'where']:
+            for key in ['columns', 'not_columns', 'where', 'where_params']:
                 if key in params:
                     params.pop(key)
 

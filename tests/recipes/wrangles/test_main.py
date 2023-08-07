@@ -409,6 +409,42 @@ def test_filter_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 1
 
+def test_filter_where_params():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = ?
+              where_params:
+                - Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
+def test_filter_where_params_dict():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = :var
+              where_params:
+                var: Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
 def test_filter_where_or():
     data = pd.DataFrame({
         'Random': ['Apples', 'None', 'App', None],
@@ -1393,6 +1429,28 @@ def test_sql_3():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header3'] == {"Object": "z"}
+
+def test_sql_params():
+    """
+    Test sql using params
+    """
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', 'z'],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            SELECT header1, header2
+            FROM df
+            WHERE header1 >= ($number)
+          params: 
+            number: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header1'] == 2
 
 #
 # Recipe as a wrangle. Recipe-ception
