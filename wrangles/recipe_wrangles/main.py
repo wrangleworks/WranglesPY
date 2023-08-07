@@ -154,7 +154,7 @@ def filter(
           not_contains: str = None,
           is_null: bool = None,
           where: str = None,
-          params: _Union[list, dict] = None,
+          where_params: _Union[list, dict] = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
@@ -168,6 +168,14 @@ def filter(
       where:
         type: string
         description: Use a SQL WHERE clause to filter the data.
+      where_params:
+        type: 
+          - array
+          - dict
+        description: >-
+          Variables to use in conjunctions with where.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
       input:
         type:
           - string
@@ -228,11 +236,6 @@ def filter(
       not_contains:
         type: string
         description: Select rows where the input does not contain the value. Allows regular expressions.
-      params:
-        type: 
-          - array
-          - dict
-        description: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
     if where != None:
         df = sql(
@@ -242,7 +245,7 @@ def filter(
             FROM df
             WHERE {where};
             """,
-            params
+            where_params
         )
 
     # If a string provided, convert to list
