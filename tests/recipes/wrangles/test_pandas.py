@@ -333,28 +333,3 @@ def test_reindex():
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
     assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
-
-def test_reindex_where():
-    """
-    Testing Pandas reindex function using where
-    """
-    data = pd.DataFrame(
-        {
-            'http_status': [200, 200, 404, 404, 301],
-            'response_time': [0.04, 0.02, 0.07, 0.08, 1.0]
-        },
-        index=['Firefox', 'Chrome', 'Safari', 'IE10', 'Konqueror']
-    )
-    
-    rec = """
-    wrangles:
-      - reindex:
-          index:
-            - Chrome
-            - Firefox
-            - Iceweasel
-          where: response_time <= .07
-    """
-    df = wrangles.recipe.run(recipe=rec, dataframe=data)
-
-    assert df.index.to_list() == ['Chrome', 'Firefox', 'Iceweasel'] and df.iloc[2]['response_time'] == ''

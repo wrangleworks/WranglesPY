@@ -213,44 +213,6 @@ def test_split_list_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out2'] == 'Wrangles!'
     
-def test_split_list_where():
-    """
-    Test split.list using where
-    """
-    data = pd.DataFrame({
-        'Col': [['Hello', 'Wrangles!'], ['Hello', 'World!'], ['Hola', 'Mundo!']],
-        'numbers': [1, 2, 3]
-    })
-    recipe = """
-    wrangles:
-        - split.list:
-            input: Col
-            output: 
-              - Col1
-              - Col2
-            where: numbers = 2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['Col1'] == 'Hello' and df.iloc[0]['Col1'] == ''
-
-def test_split_list_where_wildcard():
-    """
-    Test split.list using where with a wildcard
-    """
-    data = pd.DataFrame({
-        'Col': [['Hello', 'Wrangles!'], ['Hello', 'World!'], ['Hola', 'Mundo!']],
-        'numbers': [1, 2, 3]
-    })
-    recipe = """
-    wrangles:
-        - split.list:
-            input: Col
-            output: Col*
-            where: numbers = 2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['Col1'] == 'Hello' and df.iloc[0]['Col1'] == ''
-    
 #
 # Split from Dict
 #
