@@ -68,8 +68,7 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           bins=bins,
           labels=labels,
           **kwargs
-      ).astype(str)
-
+      )
     
     return df
 
