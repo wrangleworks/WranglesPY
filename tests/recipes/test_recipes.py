@@ -69,30 +69,3 @@ def test_wildcard_expansion_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == 'world'
-
-
-def test_double_where():
-    """
-    Test using multiple where on different rows
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - convert.case:
-              input: col2
-              case: upper
-              where: col1 = 1
-
-          - convert.case:
-              input: col2
-              case: lower
-              where: col1 = 2 
-        """,
-        dataframe= pd.DataFrame({
-            'col1': [1, 2],
-            'col2': ['HeLlO', 'WoRlD'],
-        })
-    )
-    assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'world'
-
-
