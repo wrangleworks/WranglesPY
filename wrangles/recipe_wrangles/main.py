@@ -650,13 +650,6 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
-    
-    # Check for set data types
-    set_list = []
-    for col in list(df.columns):
-        if type(df[col][0]) == set:
-            df[col] = [list(x) for x in df[col]]
-            set_list.append(col)
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
@@ -667,7 +660,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         count = 0        
         for row in df[cols]:
             # If row contains objects, then convert to json
-            if isinstance(row, dict) or isinstance(row, list):
+            if isinstance(row, dict):
                 # Check if there is an object in the column and record column name to convert to json
                 cols_changed.append(cols)
                 break
@@ -678,7 +671,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         if cols in cols_changed:
             # If the column is in cols_changed then convert to json
             _to_json(df=df, input=cols)
-
+    
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
@@ -691,14 +684,11 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         if new_cols in cols_changed:
             # If the column is in cols changed, then change back to an object
             _from_json(df=df, input=new_cols)
-
-    for col in set_list:
-        df[col] = [set(x) for x in df[col]]
     
     return df
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, where: str = None) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
@@ -721,24 +711,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
-      where:
-        type: string
-        description: Use a SQL WHERE clause to filter the data.
     """
-    # Filter the data based on the where property
-    ###### This method works but we want it to preserve all of the original data instead of filtering it all out ######
-    # if where:
-    #     df['original index'] = df.index
-    #     df_original = df.copy()
-    #     df = sql(
-    #         df,
-    #         f"""
-    #         SELECT *
-    #         FROM df
-    #         WHERE {where};
-    #         """
-    #     )
-
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
 
@@ -761,18 +734,12 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
-        # if where:
-        #     df = _pd.merge_ordered(df_original, df[[output[0], 'original index']], on = 'original index').drop('original index', axis = 1)
-
         return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-    #         if where:
-    #             df_original = _pd.merge_ordered(df_original, df[[output_column, 'original index']], on = 'original index')
-    # if where:
-    #     df = df_original.drop('original index', axis = 1)
+            
     return df
 
 
