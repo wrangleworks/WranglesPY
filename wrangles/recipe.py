@@ -271,8 +271,6 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     :return: Pandas Dataframe of the Wrangled data
     """
     no_where_list = ['pandas.transpose', 'transpose', 'filter', 'rename', 'sql', 'drop']
-    # the random string is to prevent this overlapping a user's column
-    merge_index_column = 'original_index_ikdejsrvjazl'
 
     for step in wrangles_list:
         for wrangle, params in step.items():
@@ -281,15 +279,13 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             original_params = params.copy()
             if 'where' in params.keys() and wrangle not in no_where_list:
-                # Add original index to ensure no conflicts when merging
-                df[merge_index_column] = df.index
                 df_original = df.copy()
-
+                
+                # Save original index, filter data, then restore index
+                df['original_index_ikdejsrvjazl'] = df.index
                 df = _filter_dataframe(df, where = params['where'])
-
-                # Preserve original index for merging 
-                df = df.set_index(df[merge_index_column])
-                df.index.names = [None]
+                df = df.set_index(df['original_index_ikdejsrvjazl'])
+                df = df.drop('original_index_ikdejsrvjazl', axis = 1)
                 
                 # Pop where out to avoid errors
                 params.pop('where')        
@@ -411,22 +407,20 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if 'output' in params.keys() and wrangle not in ['split.list']:
                     # Wrangle explictly defined the output
                     output_columns = (params['output'] if isinstance(params['output'], list) else [params['output']])
-                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
-                elif list(df.columns) != list(df_original.columns):
-                    # Wrangle added columns
-                    output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
-                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
+                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
                 elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                     # Wrangle overwrote the input
                     output_columns = params['input']
                     # df_original = df_original.drop(params['input'], axis = 1)
-                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
+                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
                     for input_col in params['input']:
                         df = _recipe_wrangles.merge.coalesce(df, [input_col+'_y', input_col+'_x'], input_col)
                         df.drop([input_col+'_y', input_col+'_x'], axis = 1, inplace=True)
+                elif list(df.columns) != list(df_original.columns):
+                    # Wrangle added columns
+                    output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
 
-                # Drop original index column    
-                df = df.drop(merge_index_column, axis = 1)
                 
             # Clean up NaN's
             df.fillna('', inplace = True)
