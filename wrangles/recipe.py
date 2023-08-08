@@ -289,6 +289,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 )
                 df = df.set_index(df['original_index_ikdejsrvjazl'])
                 df = df.drop('original_index_ikdejsrvjazl', axis = 1)
+                df.index.names = [None]
 
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method

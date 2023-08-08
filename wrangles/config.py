@@ -33,5 +33,6 @@ no_where_list = [
     'rename',
     'sql',
     'drop',
-    'split.list'
+    'split.list',
+    'reindex'
 ]
