@@ -1124,7 +1124,7 @@ def test_replace_integer():
             replace: 2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['replaced numbers'] == 222
+    assert df.iloc[0]['replaced numbers'] == '222'
 
 def test_replace_integer_with_string():
     """
