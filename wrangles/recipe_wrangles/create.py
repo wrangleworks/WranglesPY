@@ -119,6 +119,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     for output_column, values_list in zip(output, value):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
+        data.set_index(df.index, inplace=True)  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
 
