@@ -1224,6 +1224,60 @@ def test_replace_inconsistent_input():
         info.value.args[0].startswith('The lists for')
     )
 
+def test_replace_integer():
+    """
+    Test replace with integers
+    """
+    data = pd.DataFrame({
+    'numbers': [555, 252, 355]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: 5
+            replace: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['replaced numbers'] == '222'
+
+def test_replace_integer_with_string():
+    """
+    Test replacing integers with strings
+    """
+    data = pd.DataFrame({
+    'numbers': [555, 252, 355]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: 5
+            replace: five
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['replaced numbers'] == 'fivefivefive'
+
+def test_replace_string_with_integer():
+    """
+    Test replacing a string with an integer
+    """
+    data = pd.DataFrame({
+    'numbers': ['five', 'fifty-five']
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: five
+            replace: 5
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['replaced numbers'] == 'fifty-5'
+
 #
 # Translate
 #

@@ -583,7 +583,7 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], find: str, replace: str) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -622,9 +622,9 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         raise ValueError('The lists for input and output must be the same length.')
     
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):  
-        df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
-    
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
+        
     return df
 
 
