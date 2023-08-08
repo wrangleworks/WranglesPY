@@ -404,7 +404,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             # If the user specified a where, we need to merge this back to the original dataframe
             if 'where' in original_params and wrangle not in no_where_list:
-                if 'output' in params.keys() and wrangle not in ['split.list']:
+                if 'output' in params.keys():
                     # Wrangle explictly defined the output
                     output_columns = (
                         params['output']
@@ -421,7 +421,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     )
                     for output_col in output_columns:
                         if output_col + '_x' in df.columns:
-                            df = _recipe_wrangles.merge.coalesce(df, [output_col, output_col+'_x'], output_col)
+                            df = _recipe_wrangles.merge.coalesce(
+                                df,
+                                [output_col, output_col+'_x'],
+                                output_col
+                            )
                             df.drop([output_col+'_x'], axis = 1, inplace=True)
                 elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                     # Wrangle overwrote the input
@@ -436,12 +440,22 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     )
                     for input_col in params['input']:
                         if input_col + '_x' in df.columns:
-                            df = _recipe_wrangles.merge.coalesce(df, [input_col, input_col+'_x'], input_col)
+                            df = _recipe_wrangles.merge.coalesce(
+                                df,
+                                [input_col, input_col+'_x'],
+                                input_col
+                            )
                             df.drop([input_col+'_x'], axis = 1, inplace=True)
                 elif list(df.columns) != list(df_original.columns):
                     # Wrangle added columns
                     output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
-                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left'
+                    )
 
             # Clean up NaN's
             df.fillna('', inplace = True)
