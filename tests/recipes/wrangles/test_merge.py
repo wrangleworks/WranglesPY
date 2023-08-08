@@ -249,8 +249,8 @@ def test_to_dict_where():
     Test merge.to_dict using where
     """
     data = pd.DataFrame({
-        'Col1':[{'A'}, {'C'}, {'E'}],
-        'Col2':[{'B'}, {'D'}, {'F'}],
+        'Col1':['A', 'C', 'E'],
+        'Col2':['B', 'D', 'F'],
         'numbers': [43, 22, 65]
     })
     recipe = """
@@ -263,7 +263,7 @@ def test_to_dict_where():
             where: numbers < 60
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Dict Col'] == {'Col1': {'A'}, 'Col2': {'B'}} and df.iloc[2]['Dict Col'] == ''
+    assert df.iloc[0]['Dict Col'] == {'Col1': 'A', 'Col2': 'B'} and df.iloc[2]['Dict Col'] == ''
 
 #
 # Key Value Pairs

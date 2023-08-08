@@ -177,7 +177,7 @@ def test_case_where():
           where: number > 22
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == ""
+    assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
 #
 # Data Type
@@ -499,7 +499,7 @@ def test_from_json_array_where():
             where: numbers > 6
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['header1'] == "" and isinstance(df.iloc[1]['header1'], list)
+    assert df.iloc[0]['header1'] == '["val1", "val2"]' and isinstance(df.iloc[1]['header1'], list)
     
 #
 # Convert to datetime

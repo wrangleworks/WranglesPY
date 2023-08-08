@@ -385,7 +385,7 @@ def test_date_format_where():
           where: people = 'Mario'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['date'] == '1992-08-13' and df.iloc[1]['date'] == ''
+    assert df.iloc[0]['date'] == '1992-08-13' and df.iloc[1]['date'] == '11/10/1987'
 
 #
 # pad

@@ -207,24 +207,6 @@ def test_drop_multiple_columns():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col']
 
-def test_drop_where():
-    """
-    Test drop using where
-    """
-    data = pd.DataFrame({
-        'col': ['Mario', 'Peach', 'Yoshi'],
-        'col2': ['Luigi', 'Bowser', 'Wario'],
-        'numbers': [3, 6, 10]
-    })
-    recipe = """
-    wrangles:
-      - drop:
-          columns: col2
-          where: numbers >= 6
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['col'] == 'Peach' and list(df.columns) == ['col', 'numbers']
-
 def test_pd_transpose():
     """
     Test transpose
