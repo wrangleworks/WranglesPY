@@ -29,6 +29,8 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
         df_temp = [{} if x == None else x for x in df[input]]
 
     exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
+    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+
     df[exploded_df.columns] = exploded_df
     return df
 

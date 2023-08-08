@@ -76,6 +76,27 @@ def test_dictionary_elem_default():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'][0] == '3'
 
+def test_dictionary_element_where():
+    """
+    Test select.dictionary_element using where
+    """
+    data = pd.DataFrame({
+    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+             {'colours': ['green', 'gold', 'yellow'], 'shapes': 'square', 'materials': 'titanium'},
+             {'colours': ['orange', 'purple', 'black'], 'shapes': 'triangular', 'materials': 'aluminum'}],
+    'numbers': [3, 6, 10]
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Prop
+          output: Shapes
+          element: shapes
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Shapes'] == 'square' and df.iloc[0]['Shapes'] == ''
+
 #
 # List Element
 #
@@ -124,7 +145,7 @@ def test_list_element_3():
     assert df.iloc[0]['Second Element'] == ''
     
 # if the input is multiple columns (a list)
-def test_list_element_3():
+def test_list_element_4():
     data = pd.DataFrame({
     'Col1': [['A One', 'A Two']],
     'Col2': [['Another here']],
@@ -144,7 +165,7 @@ def test_list_element_3():
     assert df.iloc[0]['Out1'] == 'A Two'
     
 # if the input and output are not the same type
-def test_list_element_4():
+def test_list_element_5():
     data = pd.DataFrame({
     'Col1': [['A One', 'A Two']],
     'Col2': [['Another here']],
@@ -161,6 +182,25 @@ def test_list_element_4():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
+
+def test_list_element_where():
+    """
+    Test list element using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']],
+        'numbers': [0, 4, 8]
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Second Element
+          element: 1
+          where: numbers != 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Second Element'] == 'B' and df.iloc[1]['Second Element'] ==''
     
 def test_list_elem_default_string():
     """
@@ -243,6 +283,29 @@ def test_highest_confidence_list_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Winner'] == 'C' and df.iloc[0]['Confidence'] == 0.99
+
+def test_highest_confidence_where():
+    """
+    Test select.highest_confidence using where
+    """
+    data = pd.DataFrame({
+    'Col1': [['A', .79], ['D', .88], ['G', .97]],
+    'Col2': [['B', .80], ['E', .33], ['H', .15]],
+    'Col3': [['C', .99], ['F', .89], ['I', .98]],
+    'numbers': [7, 8, 9]
+    })
+    recipe = """
+    wrangles:
+      - select.highest_confidence:
+          input:
+            - Col1
+            - Col2
+            - Col3
+          output: Winner
+          where: numbers > 7
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Winner'] == ['F', .89] and df.iloc[0]['Winner'] == ''
 
 #
 # Threshold
@@ -334,6 +397,28 @@ def test_threshold_5():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Top Words'] == 'B || .90'
+
+def test_threshold_where():
+    """
+    Test select.threshold using where
+    """
+    data = pd.DataFrame({
+    'Col1': [['A', .60], ['C', .88], ['E', .98]],
+    'Col2': [['B', .79], ['D', .97], ['F', .11]],
+    'numbers': [7, 9, 11]
+    })
+    recipe = """
+    wrangles:
+      - select.threshold:
+          input:
+            - Col1
+            - Col2
+          output: Top Words
+          threshold: .77
+          where: numbers >= 9
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Top Words'] == 'C' and df.iloc[0]['Top Words'] == ''
     
 #    
 # Left
@@ -372,6 +457,25 @@ def test_left_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'One T'
+
+def test_left_where():
+    """
+    Test slect.left using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input: Col1
+            output: Out1
+            length: 5
+            where: numbers = 7
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Out1'] == 'Five ' and df.iloc[0]['Out1'] == ''
 
 # Test the error with a list of inputs and a single output
 def test_left_multi_input_single_output():
@@ -454,6 +558,25 @@ def test_right_multi_input_single_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
+
+def test_right_where():
+    """
+    Test select.right using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input: Col1
+            output: Out1
+            length: 6
+            where: numbers > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['Out1'] == 'Twelve' and df.iloc[0]['Out1'] == ''
     
 #
 # Substring
@@ -518,3 +641,23 @@ def test_substring_multi_input_single_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
+
+def test_substring_where():
+    """
+    Test select.substring using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            output: Out1
+            start: 5
+            length: 4
+            where: numbers = 8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''

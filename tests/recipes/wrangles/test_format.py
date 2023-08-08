@@ -69,6 +69,24 @@ def test_remove_duplicates_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
+def test_remove_duplicates_where():
+    """
+    Test format.remove_duplicates using where
+    """
+    data = pd.DataFrame({
+        'duplicates': ['duplicate duplicate', 'and another and another', 'last one last one'],
+        'numbers': [32, 45, 67]
+    })
+    recipe = """
+    wrangles:
+    - format.remove_duplicates:
+        input: duplicates
+        output: Remove
+        where: numbers != 45
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Remove'] == 'duplicate' and df.iloc[1]['Remove'] == ''
+
 #
 # Trim
 #
@@ -95,6 +113,24 @@ def test_trim_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Trim'] == 'Wilson!'
+
+def test_trim_where():
+    """
+    Test trim using where
+    """
+    data = pd.DataFrame({
+        'column': ['         Wilson!         ', '     Where   ', 'are   ', '    you!?   '], 
+        'numbers': [3, 6, 9, 12]
+    })
+    recipe = """
+    wrangles:
+    - format.trim:
+        input: column
+        output: Trim
+        where: numbers > 5
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Trim'] == 'Where' and df.iloc[0]['Trim'] == ''
 
 # Test list of input and output columns
 def test_trim_list_to_list():
@@ -205,6 +241,25 @@ def test_prefix_4():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+
+def test_prefix_where():
+    """
+    Test format.prefix using where
+    """
+    data = pd.DataFrame({
+        'col': ['terrestrial', 'ordinary', 'califragilisticexpialidocious'],
+        'numbers': [5, 4, 3]
+    })
+    recipe = """
+    wrangles:
+      - format.prefix:
+          input: col
+          output: pre-col
+          value: extra-
+          where: numbers = 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['pre-col'] == '' and df.iloc[2]['pre-col'] == 'extra-califragilisticexpialidocious'
     
 #    
 # Suffix
@@ -277,12 +332,31 @@ def test_suffix_4():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+
+def test_suffix_where():
+    """
+    Test formart.suffix using where
+    """
+    data = pd.DataFrame({
+        'col': ['urgen', 'efficien', 'supercalifragilisticexpialidocious'],
+        'numbers': [3, 45, 99]
+    })
+    recipe = """
+    wrangles:
+      - format.suffix:
+          input: col
+          output: col-suf
+          value: -cy
+          where: numbers = 99
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col-suf'] == '' and df.iloc[2]['col-suf'] == 'supercalifragilisticexpialidocious-cy'
     
 #
 # date format
 #
 
-def test_data_format_1():
+def test_date_format_1():
     data = pd.DataFrame({
         'col': ['8/13/1992']
     })
@@ -295,6 +369,24 @@ def test_data_format_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col'] == '1992-08-13'
     
+def test_date_format_where():
+    """
+    Test format.date using where
+    """
+    data = pd.DataFrame({
+        'date': ['8/13/1992', '11/10/1987'],
+        'people': ['Mario', 'Thomas']
+    })
+    recipe = """
+    wrangles:
+      - format.dates:
+          input: date
+          format: "%Y-%m-%d"
+          where: people = 'Mario'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['date'] == '1992-08-13' and df.iloc[1]['date'] == '11/10/1987'
+
 #
 # pad
 #
@@ -380,3 +472,21 @@ def test_pad_list_to_single_output():
   with pytest.raises(ValueError) as info:
     raise wrangles.recipe.run(recipe, dataframe=data)
   assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_pad_where():
+  data = pd.DataFrame({
+    'col1': ['7', '5', '9'],
+    'numbers': [3, 4, 5]
+  })
+  recipe = """
+  wrangles:
+    - format.pad:
+        input: col1
+        output: out1
+        pad_length: 3
+        side: left
+        char: 0
+        where: numbers = 3
+  """
+  df = wrangles.recipe.run(recipe, dataframe=data)
+  assert df.iloc[0]['out1'] == '007' and df.iloc[2]['out1'] == ''

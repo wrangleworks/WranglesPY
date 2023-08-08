@@ -161,6 +161,24 @@ def test_case_sentence():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Data1'] == 'A string'
 
+def test_case_where():
+    """
+    Test converting to title case using where
+    """
+    data = pd.DataFrame({
+    'Col1': ['ball bearing', 'roller bearing', 'needle bearing'],
+    'number': [25, 31, 22]
+    })
+    recipe = """
+    wrangles:
+      - convert.case:
+          input: Col1
+          case: title
+          where: number > 22
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
+
 #
 # Data Type
 #
@@ -235,6 +253,24 @@ def test_data_single_input_multi_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_data_where():
+    """
+    Test convert.data_type using where
+    """
+    data = pd.DataFrame({
+    'number': [25, 31, 22]
+    })
+    recipe = """
+    wrangles:
+      - convert.data_type:
+          input: number
+          output: number string
+          data_type: str
+          where: number > 25
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
 
 #
 # JSON
@@ -312,6 +348,30 @@ def test_to_json_array_single_input_to_multi_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_to_json_array_where():
+    """
+    Test converting to a list to a JSON array using where
+    """
+    data = pd.DataFrame({
+        'header1': ['val1', 'val2', 'val3'],
+        'header2': ['val4', 'val5', 'val6'],
+        'numbers': [2, 7, 4]
+    })
+    recipe = """
+    wrangles:
+        - merge.to_list:
+            input:
+              - header1
+              - header2
+            output: headers
+        - convert.to_json:
+            input: headers
+            output: headers_json
+            where: numbers > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['headers_json'] == "" and df.iloc[1]['headers_json'] == '["val2", "val5"]'
 
 # Test convert.to_json using indent
 def test_to_json_array_indent():
@@ -423,6 +483,23 @@ def test_from_json_array_single_input_to_multi_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_from_json_array_where():
+    """
+    Test converting to a JSON array to a list using where
+    """
+    data = pd.DataFrame({
+        'header1': ['["val1", "val2"]', '["val3", "val4"]'],
+        'numbers': [5, 7]
+    })
+    recipe = """
+    wrangles:
+        - convert.from_json:
+            input: header1
+            where: numbers > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header1'] == '["val1", "val2"]' and isinstance(df.iloc[1]['header1'], list)
     
 #
 # Convert to datetime
@@ -442,6 +519,25 @@ def test_convert_to_datetime():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['date_type'].week == 51
     
+def test_convert_to_datetime_where():
+    """
+    Test using convert to datetime using where
+    """
+    data = pd.DataFrame({
+        'date': ['12/25/2050', '11/10/1987'],
+        'numbers': [4, 2]
+    })
+    recipe = """
+    wrangles:
+      - convert.data_type:
+          input: date
+          output: date_type
+          data_type: datetime
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
+
 #
 # Fractions
 #
@@ -521,3 +617,21 @@ def test_fraction_to_decimal_single_input_multi_output():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_fraction_to_decimal_where():
+    """
+    Test using fraction to decimal using where
+    """
+    data = pd.DataFrame({
+    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+    'numbers': [13, 12, 11]
+    })
+    recipe = """
+    wrangles:
+      - convert.fraction_to_decimal:
+          input: col1
+          output: out1
+          where: numbers > 11
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"

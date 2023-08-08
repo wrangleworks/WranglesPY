@@ -1110,3 +1110,59 @@ def test_column_spaces_in_kwargs():
     
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
+
+def test_row_function_where():
+    """
+    Test a custom function that applies to an
+    individual row using where
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+              where: val1 >= 3
+        """,
+        functions=[add_numbers],
+        dataframe=pd.DataFrame({
+            "val1": [1,2,3],
+            "val2": [2,4,6]
+        })
+    )
+    assert df['val3'][0] == "" and df['val3'][2] == 9
+
+def test_row_function_double_where():
+    """
+    Test a custom function that applies to an
+    individual row using two where conditions
+    for different rows
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    def subtract_numbers(val1, val2):
+        return val2 - val1
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+              where: val1 >= 3
+
+          - custom.subtract_numbers:
+              output: val3
+              where: val1 = 1
+        """,
+        functions=[add_numbers, subtract_numbers],
+        dataframe=pd.DataFrame({
+            "val1": [1,2,3],
+            "val2": [2,4,6]
+        })
+    )
+    assert (
+        df['val3'][0] == 1 and
+        df['val3'][1] == "" and
+        df['val3'][2] == 9
+    )

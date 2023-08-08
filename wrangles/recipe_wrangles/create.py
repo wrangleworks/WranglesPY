@@ -63,12 +63,13 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           if bins[0] == '-':
               bins[0] = -_math.inf
       
+      # Set to string in order to be able to fill NaN values when using where
       df[out_col] = _pd.cut(
           x=df[in_col],
           bins=bins,
           labels=labels,
           **kwargs
-      )
+      ).astype(str)
     
     return df
 
@@ -119,6 +120,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     for output_column, values_list in zip(output, value):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
+        data.set_index(df.index, inplace=True)  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
 

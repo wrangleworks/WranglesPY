@@ -660,7 +660,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         count = 0        
         for row in df[cols]:
             # If row contains objects, then convert to json
-            if isinstance(row, dict):
+            if isinstance(row, dict) or isinstance(row, list):
                 # Check if there is an object in the column and record column name to convert to json
                 cols_changed.append(cols)
                 break

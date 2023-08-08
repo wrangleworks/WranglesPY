@@ -15,6 +15,7 @@ import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+from .config import no_where_list
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -275,6 +276,21 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
             if params is None: params = {}
             _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
+            original_params = params.copy()
+            if 'where' in params.keys() and wrangle not in no_where_list:
+                df_original = df.copy()
+                
+                # Save original index, filter data, then restore index
+                df['original_index_ikdejsrvjazl'] = df.index
+                df = _filter_dataframe(
+                    df,
+                    where = params.pop('where'),
+                    where_params= params.pop('where_params', None)
+                )
+                df = df.set_index(df['original_index_ikdejsrvjazl'])
+                df = df.drop('original_index_ikdejsrvjazl', axis = 1)
+                df.index.names = [None]
+
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
                 # TODO: disallow any hidden methods
@@ -385,8 +401,68 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if wrangle == 'recipe':
                     params['functions'] = functions
 
-                # Execute the requested function and return the value
                 df = obj(df, **params)
+
+            # If the user specified a where, we need to merge this back to the original dataframe
+            if 'where' in original_params and wrangle not in no_where_list:
+                if 'output' in params.keys():
+                    # Wrangle explictly defined the output
+                    output_columns = (
+                        params['output']
+                        if isinstance(params['output'], list)
+                        else [params['output']]
+                    )
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left',
+                        suffixes=('_x',None)
+                    )
+                    for output_col in output_columns:
+                        if output_col + '_x' in df.columns:
+                            df = _recipe_wrangles.merge.coalesce(
+                                df,
+                                [output_col, output_col+'_x'],
+                                output_col
+                            )
+                            df.drop([output_col+'_x'], axis = 1, inplace=True)
+                elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                    # Wrangle overwrote the input
+                    output_columns = params['input']
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left',
+                        suffixes=('_x',None)
+                    )
+                    for input_col in params['input']:
+                        if input_col + '_x' in df.columns:
+                            df = _recipe_wrangles.merge.coalesce(
+                                df,
+                                [input_col, input_col+'_x'],
+                                input_col
+                            )
+                            df.drop([input_col+'_x'], axis = 1, inplace=True)
+                elif list(df.columns) != list(df_original.columns):
+                    # Wrangle added columns
+                    output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left'
+                    )
+
+            # Clean up NaN's
+            df.fillna('', inplace = True)
+            # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+            # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+            df.fillna('0', inplace = True)
 
     return df
 
