@@ -63,6 +63,7 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           if bins[0] == '-':
               bins[0] = -_math.inf
       
+      # Set to string in order to be able to fill NaN values when using where
       df[out_col] = _pd.cut(
           x=df[in_col],
           bins=bins,
