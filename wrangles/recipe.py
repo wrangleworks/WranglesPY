@@ -15,6 +15,7 @@ import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+from .config import no_where_list
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -270,8 +271,6 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Pandas Dataframe of the Wrangled data
     """
-    no_where_list = ['pandas.transpose', 'transpose', 'filter', 'rename', 'sql', 'drop']
-
     for step in wrangles_list:
         for wrangle, params in step.items():
             if params is None: params = {}
@@ -283,12 +282,13 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 
                 # Save original index, filter data, then restore index
                 df['original_index_ikdejsrvjazl'] = df.index
-                df = _filter_dataframe(df, where = params['where'])
+                df = _filter_dataframe(
+                    df,
+                    where = params.pop('where'),
+                    where_params= params.pop('where_params', None)
+                )
                 df = df.set_index(df['original_index_ikdejsrvjazl'])
                 df = df.drop('original_index_ikdejsrvjazl', axis = 1)
-                
-                # Pop where out to avoid errors
-                params.pop('where')        
 
             if wrangle.split('.')[0] == 'pandas':
                 # Execute a pandas method
