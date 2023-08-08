@@ -406,22 +406,43 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
             if 'where' in original_params and wrangle not in no_where_list:
                 if 'output' in params.keys() and wrangle not in ['split.list']:
                     # Wrangle explictly defined the output
-                    output_columns = (params['output'] if isinstance(params['output'], list) else [params['output']])
-                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
+                    output_columns = (
+                        params['output']
+                        if isinstance(params['output'], list)
+                        else [params['output']]
+                    )
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left',
+                        suffixes=('_x',None)
+                    )
+                    for output_col in output_columns:
+                        if output_col + '_x' in df.columns:
+                            df = _recipe_wrangles.merge.coalesce(df, [output_col, output_col+'_x'], output_col)
+                            df.drop([output_col+'_x'], axis = 1, inplace=True)
                 elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                     # Wrangle overwrote the input
                     output_columns = params['input']
-                    # df_original = df_original.drop(params['input'], axis = 1)
-                    df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
+                    df = _pandas.merge(
+                        df_original,
+                        df[output_columns],
+                        left_index=True,
+                        right_index=True,
+                        how='left',
+                        suffixes=('_x',None)
+                    )
                     for input_col in params['input']:
-                        df = _recipe_wrangles.merge.coalesce(df, [input_col+'_y', input_col+'_x'], input_col)
-                        df.drop([input_col+'_y', input_col+'_x'], axis = 1, inplace=True)
+                        if input_col + '_x' in df.columns:
+                            df = _recipe_wrangles.merge.coalesce(df, [input_col, input_col+'_x'], input_col)
+                            df.drop([input_col+'_x'], axis = 1, inplace=True)
                 elif list(df.columns) != list(df_original.columns):
                     # Wrangle added columns
                     output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
                     df = _pandas.merge(df_original, df[output_columns], left_index=True, right_index=True, how='left')
 
-                
             # Clean up NaN's
             df.fillna('', inplace = True)
             # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
