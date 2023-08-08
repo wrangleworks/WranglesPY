@@ -270,7 +270,9 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Pandas Dataframe of the Wrangled data
     """
-    no_where_list = ['pandas.transpose', 'transpose', 'filter', 'rename', 'sql']
+    no_where_list = ['pandas.transpose', 'transpose', 'filter', 'rename', 'sql', 'drop']
+    # the random string is to prevent this overlapping a user's column
+    merge_index_column = 'original_index_ikdejsrvjazl'
 
     for step in wrangles_list:
         for wrangle, params in step.items():
@@ -280,13 +282,13 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
             original_params = params.copy()
             if 'where' in params.keys() and wrangle not in no_where_list:
                 # Add original index to ensure no conflicts when merging
-                df['original index'] = df.index
+                df[merge_index_column] = df.index
                 df_original = df.copy()
 
                 df = _filter_dataframe(df, where = params['where'])
 
                 # Preserve original index for merging 
-                df = df.set_index(df['original index'])
+                df = df.set_index(df[merge_index_column])
                 df.index.names = [None]
                 
                 # Pop where out to avoid errors
@@ -406,20 +408,27 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             # If the user specified a where, we need to merge this back to the original dataframe
             if 'where' in original_params and wrangle not in no_where_list:
-                if list(df.columns) != list(df_original.columns): # should add a second check to this to get rid of the nested if statment below
+                if 'output' in params.keys() and wrangle not in ['split.list']:
+                    # Wrangle explictly defined the output
+                    output_columns = (params['output'] if isinstance(params['output'], list) else [params['output']])
+                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
+                elif list(df.columns) != list(df_original.columns):
+                    # Wrangle added columns
                     output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
-                    if output_columns != []:
-                        df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
-
+                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
                 elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                    # Wrangle overwrote the input
                     output_columns = params['input']
-                    df_original = df_original.drop(params['input'], axis = 1)
-                    df = _pandas.merge_ordered(df_original, df[output_columns + ['original index']], on = 'original index')
+                    # df_original = df_original.drop(params['input'], axis = 1)
+                    df = _pandas.merge_ordered(df_original, df[output_columns + [merge_index_column]], on = merge_index_column)
+                    for input_col in params['input']:
+                        df = _recipe_wrangles.merge.coalesce(df, [input_col+'_y', input_col+'_x'], input_col)
+                        df.drop([input_col+'_y', input_col+'_x'], axis = 1, inplace=True)
 
                 # Drop original index column    
-                df = df.drop('original index', axis = 1)
+                df = df.drop(merge_index_column, axis = 1)
                 
-            # Clean up NaN's and drop 'original index' column
+            # Clean up NaN's
             df.fillna('', inplace = True)
             # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
             # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
