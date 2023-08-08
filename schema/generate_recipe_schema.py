@@ -138,23 +138,34 @@ def getMethodDocs(schema_wrangles, obj, path):
 getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
 
+# Add common wrangle properties
+for wrangle in schema['wrangles']:
+    if (
+        'properties' in schema['wrangles'][wrangle] and
+        wrangle not in wrangles.config.no_where_list
+    ):
+        schema['wrangles'][wrangle]['properties']['where'] = {
+            "$ref": "#/$defs/wrangles/commonProperties/where"
+        }
+        schema['wrangles'][wrangle]['properties']['where_params'] = {
+            "$ref": "#/$defs/wrangles/commonProperties/where_params"
+        }
+    else:
+        print(wrangle)
+
 # Add common write properties
 for write in schema['write']:
     schema['write'][write]['properties']['columns'] = {
-        'type': ['array', 'string'],
-        'description': 'Specify a subset of the columns to write.\nAccepts wildcards using * or prefix with "regex:" to use a regex pattern.\nIf not provided, all columns will be included'
+        "$ref": "#/$defs/write/commonProperties/columns"
     }
     schema['write'][write]['properties']['not_columns'] = {
-        'type': ['array', 'string'],
-        'description': 'Specify a subset of the columns to ignore. Accepts wildcards using * or prefix with "regex:" to use a regex pattern. If not provided, all columns will be included'
+        "$ref": "#/$defs/write/commonProperties/not_columns"
     }
     schema['write'][write]['properties']['where'] = {
-        'type': 'string',
-        'description': 'Filter the data before writing using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456'
+        "$ref": "#/$defs/write/commonProperties/where"
     }
     schema['write'][write]['properties']['where_params'] = {
-        'type': ["array", "object"],
-        'description': "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
+        "$ref": "#/$defs/write/commonProperties/where_params"
     }
 
 # Construct final schema
