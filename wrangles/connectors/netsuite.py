@@ -135,7 +135,7 @@ _schema['read'] = """
 """
 
 
-def write(df, host, path, client_id, private_key, certificate_id, sublist=None):
+def write(df, host, path, client_id, private_key, certificate_id):
     """
     :param host: Hostname or IP of API
     :param path: name of record which which should be extract
