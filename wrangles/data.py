@@ -44,13 +44,12 @@ def model(id: str):
         raise RuntimeError(f'Something went wrong trying to access model {id}')
 
 
-def model_data(id: str) -> list:
+def model_content(id: str) -> list:
     """
     Get the training data for a model
 
     :param id: Model ID
-    :param purpose: classify, extract, standardize
-    :return: Model data as a list of lists
+    :return: Model data with Settings, Columns and Data as a 2D array
     """
     response = _requests.get(
         f'{_config.api_host}/model/content',
@@ -58,7 +57,7 @@ def model_data(id: str) -> list:
         headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
     )
     if response.ok:
-        return response.json()['Data']
+        return response.json()
     elif response.status_code in [401, 403]:
         raise RuntimeError(f'Access denied to model {id}')
     else:

@@ -13,18 +13,20 @@ class classify():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id)
+        tmp_data = _data.model_content(model_id)
 
-        if len(tmp_data[0]) == 2:
+        if 'Columns' in tmp_data:
+            columns = tmp_data['Columns']
+        elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data]
+            [x.append('') for x in tmp_data['Data']]
             columns = ['Example', 'Category', 'Notes']
-        elif len(tmp_data[0]) == 3:
+        elif len(tmp_data['Data'][0]) == 3:
             columns = ['Example', 'Category', 'Notes']
         else:
             raise ValueError("Classify Wrangle data should contain three columns. Check Wrangle data")
 
-        return _pd.DataFrame(tmp_data, columns=columns)
+        return _pd.DataFrame(tmp_data['Data'], columns=columns)
 
     _schema["read"] = """
         type: object
@@ -53,7 +55,7 @@ class classify():
         if columns is not None: df = df[columns]
 
         required_columns = ['Example', 'Category', 'Notes']
-        if not required_columns == list(df.columns):
+        if not required_columns == list(df.columns[:3]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.classify.")
 
         _train.classify(df[required_columns].values.tolist(), name, model_id)
@@ -84,18 +86,20 @@ class extract():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id)
+        tmp_data = _data.model_content(model_id)
 
-        if len(tmp_data[0]) == 2:
+        if 'Columns' in tmp_data:
+            columns = tmp_data['Columns']
+        elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data]
+            [x.append('') for x in tmp_data['Data']]
             columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        elif len(tmp_data[0]) == 3:
+        elif len(tmp_data['Data'][0]) == 3:
             columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
         else:
             raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
 
-        return _pd.DataFrame(tmp_data, columns=columns)
+        return _pd.DataFrame(tmp_data['Data'], columns=columns)
 
     _schema["read"] = """
         type: object
@@ -124,7 +128,7 @@ class extract():
         if columns is not None: df = df[columns]
 
         required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        if not required_columns == list(df.columns):
+        if not required_columns == list(df.columns[:3]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
         _train.extract(df[required_columns].values.tolist(), name, model_id)
@@ -155,18 +159,20 @@ class standardize():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id)
+        tmp_data = _data.model_content(model_id)
 
-        if len(tmp_data[0]) == 2:
+        if 'Columns' in tmp_data:
+            columns = tmp_data['Columns']
+        elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data]
+            [x.append('') for x in tmp_data['Data']]
             columns = ['Find', 'Replace', 'Notes']
-        elif len(tmp_data[0]) == 3:
+        elif len(tmp_data['Data'][0]) == 3:
             columns = ['Find', 'Replace', 'Notes']
         else:
             raise ValueError("Standardize Wrangle data should contain three columns. Check Wrangle data")
 
-        return _pd.DataFrame(tmp_data, columns=columns)
+        return _pd.DataFrame(tmp_data['Data'], columns=columns)
 
     _schema["read"] = """
         type: object
@@ -195,7 +201,7 @@ class standardize():
         if columns is not None: df = df[columns]
 
         required_columns = ['Find', 'Replace', 'Notes']
-        if not required_columns == list(df.columns):
+        if not required_columns == list(df.columns[:3]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.standardize.")
 
         _train.standardize(df[required_columns].values.tolist(), name, model_id)
