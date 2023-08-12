@@ -17,12 +17,10 @@ env:
   IMAGE_TAG: dev
 
 jobs:
-  build:
+  test1:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -48,12 +46,32 @@ jobs:
           CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
 
+  test2:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10.4
+
       - name: Test pip install
         run: |
           python -m pip install --upgrade pip
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
+  build:
+    runs-on: ubuntu-latest
+    needs: [test1, test2]
+    permissions:
+      contents: read
+      packages: write
+    steps:
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
