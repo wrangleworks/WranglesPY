@@ -1,10 +1,5 @@
 name: Build Dev
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 on:
   push:
     branches: [ dev ]
@@ -17,7 +12,7 @@ env:
   IMAGE_TAG: dev
 
 jobs:
-  test1:
+  pytest:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,7 +41,7 @@ jobs:
           CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
 
-  test2:
+  test-pip-install:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -72,6 +67,9 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
