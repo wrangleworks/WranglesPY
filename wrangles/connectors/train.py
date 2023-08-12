@@ -13,7 +13,7 @@ class classify():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id, 'classify')
+        tmp_data = _data.model_data(model_id)
 
         if len(tmp_data[0]) == 2:
             # Add a third column for Notes of empty strings
@@ -84,7 +84,7 @@ class extract():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id, 'extract')
+        tmp_data = _data.model_data(model_id)
 
         if len(tmp_data[0]) == 2:
             # Add a third column for Notes of empty strings
@@ -155,7 +155,7 @@ class standardize():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
-        tmp_data = _data.model_data(model_id, 'standardize')
+        tmp_data = _data.model_data(model_id)
 
         if len(tmp_data[0]) == 2:
             # Add a third column for Notes of empty strings
