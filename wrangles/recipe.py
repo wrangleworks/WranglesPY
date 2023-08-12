@@ -210,7 +210,8 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
         read_name = list(recipe)[0]
         params = recipe[read_name]
         df = functions[read_name[7:]](**params)
-
+        if not isinstance(df, _pandas.DataFrame):
+            raise RuntimeError(f"Function {read_name} did not return a dataframe")
     else:
         # Single source import
         import_type = list(recipe)[0]
@@ -314,6 +315,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if 'df' in fn_argspec.args:
                     # If user's first argument is df, pass them the whole dataframe
                     df = custom_function(df=df, **params)
+                    if not isinstance(df, _pandas.DataFrame):
+                        raise RuntimeError(f"Function {wrangle} did not return a dataframe")
 
                 # Dealing with no function_args
                 else:
