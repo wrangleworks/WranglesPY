@@ -291,8 +291,6 @@ def group_by(df, by = [], **kwargs):
     """
     type: object
     description: Group (also known as pivot) the data
-    required:
-      - input
     properties:
       by:
         type: array
