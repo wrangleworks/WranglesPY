@@ -361,7 +361,7 @@ def group_by(df, by = [], **kwargs):
         df['absjdkbatgg'] = 1
         by = ['absjdkbatgg']
 
-    # first, last, min, max, mean, median, nunqiue, count, any, all, std, sum
+    # Ensure by is a list
     if not isinstance(by, list): by = [by]
     # Invert kwargs to put column names as keys
     inverted_dict = {}
@@ -373,17 +373,20 @@ def group_by(df, by = [], **kwargs):
             else:
                 inverted_dict[column] = [operation]
 
+    # Group on by and agg columns
     df_grouped = df[by + list(inverted_dict.keys())].groupby(
         by = by,
         as_index=False,
         sort=False
     )
 
+    # If agg columns then aggregate else return grouped
     if kwargs:
         df = df_grouped.agg(inverted_dict)
     else:
         df = df_grouped.count()
 
+    # Remove faked column if it was needed
     if 'absjdkbatgg' in df.columns:
         df.drop('absjdkbatgg', inplace=True, axis=1)
 
