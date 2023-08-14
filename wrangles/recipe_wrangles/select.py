@@ -285,3 +285,108 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
     """
     df[output] = _select.confidence_threshold(df[input[0]].tolist(), df[input[1]].tolist(), threshold)
     return df
+
+
+def group_by(df, by = [], **kwargs):
+    """
+    type: object
+    description: Group (also known as pivot) the data
+    required:
+      - input
+    properties:
+      by:
+        type: array
+        description: List of the input columns to group on
+      first:
+        type:
+          - string
+          - array
+        description: The first value for these column(s)
+      last:
+        type:
+          - string
+          - array
+        description: The last value for these column(s)
+      min:
+        type:
+          - string
+          - array
+        description: The minimum value for these column(s)
+      max:
+        type:
+          - string
+          - array
+        description: The maximum value for these column(s)
+      mean:
+        type:
+          - string
+          - array
+        description: The mean (average) value for these column(s)
+      median:
+        type:
+          - string
+          - array
+        description: The median value for these column(s)
+      nunique:
+        type:
+          - string
+          - array
+        description: The count of unique values for these column(s)
+      count:
+        type:
+          - string
+          - array
+        description: The count of values for these column(s)
+      std:
+        type:
+          - string
+          - array
+        description: The standard deviation of values for these column(s)
+      sum:
+        type:
+          - string
+          - array
+        description: The total of values for these column(s)
+      any:
+        type:
+          - string
+          - array
+        description: Return true if any of the values for these column(s) are true
+      all:
+        type:
+          - string
+          - array
+        description: Return true if all of the values for these column(s) are true
+    """
+    # If by not specified, fake a column to allow it to be used
+    if not by:
+        df['absjdkbatgg'] = 1
+        by = ['absjdkbatgg']
+
+    # first, last, min, max, mean, median, nunqiue, count, any, all, std, sum
+    if not isinstance(by, list): by = [by]
+    # Invert kwargs to put column names as keys
+    inverted_dict = {}
+    for operation, columns in kwargs.items():
+        if not isinstance(columns, list): columns = [columns]
+        for column in columns:
+            if column in inverted_dict:
+                inverted_dict[column].append(operation)
+            else:
+                inverted_dict[column] = [operation]
+
+    df_grouped = df[by + list(inverted_dict.keys())].groupby(
+        by = by,
+        as_index=False,
+        sort=False
+    )
+
+    if kwargs:
+        df = df_grouped.agg(inverted_dict)
+    else:
+        df = df_grouped.count()
+
+    if 'absjdkbatgg' in df.columns:
+        df.drop('absjdkbatgg', inplace=True, axis=1)
+
+    return df
