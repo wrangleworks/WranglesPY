@@ -390,4 +390,7 @@ def group_by(df, by = [], **kwargs):
     if 'absjdkbatgg' in df.columns:
         df.drop('absjdkbatgg', inplace=True, axis=1)
 
+    # Flatting multilevel headings back to one
+    df.columns = df.columns.map('.'.join).str.strip('.')
+
     return df
