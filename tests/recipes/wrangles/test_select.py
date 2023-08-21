@@ -690,7 +690,7 @@ def test_group_by():
 
 def test_group_by_without_by():
     """
-    Test group by without any aggregations
+    Test group by with only aggregations
     """
     df = wrangles.recipe.run(
         """
@@ -735,7 +735,7 @@ def test_group_by_without_aggregations():
 
 def test_group_by_agg_lists():
     """
-    Test basic group by
+    Test with multiple aggregations
     """
     df = wrangles.recipe.run(
         """
@@ -756,4 +756,29 @@ def test_group_by_agg_lists():
     assert (
         list(df.values[0]) == ['a', 6, 18] and
         list(df.values[1]) == ['b', 4, 8]
+    )
+
+def test_group_by_same_column():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum: numbers
+              min: numbers
+              max: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "numbers": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 1, 3] and
+        list(df.values[1]) == ['b', 4, 4, 4]
     )
