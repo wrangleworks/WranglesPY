@@ -782,3 +782,27 @@ def test_group_by_same_column():
         list(df.values[0]) == ['a', 6, 1, 3] and
         list(df.values[1]) == ['b', 4, 4, 4]
     )
+
+def test_group_by_percentiles():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              p0: numbers
+              p1: numbers
+              p25: numbers
+              p50: numbers
+              p75: numbers
+              p90: numbers
+              p100: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "numbers": [i for i in range(101)]
+        })
+    )
+
+    assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]

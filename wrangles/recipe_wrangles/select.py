@@ -355,7 +355,20 @@ def group_by(df, by = [], **kwargs):
           - string
           - array
         description: Return true if all of the values for these column(s) are true
+      p75:
+        type:
+          - string
+          - array
+        description: >-
+          Get a percentile. Note, you can use any integer here
+          for the corresponding percentile.
     """
+    def percentile(n):
+        def percentile_(x):
+            return x.quantile(n)
+        percentile_.__name__ = f'p{int(n*100)}'
+        return percentile_
+
     # If by not specified, fake a column to allow it to be used
     if not by:
         df['absjdkbatgg'] = 1
@@ -366,6 +379,10 @@ def group_by(df, by = [], **kwargs):
     # Invert kwargs to put column names as keys
     inverted_dict = {}
     for operation, columns in kwargs.items():
+        # Interpret percentiles
+        if operation[0].lower() == "p" and operation[1:].isnumeric():
+            operation = percentile(int(operation[1:])/100)
+
         if not isinstance(columns, list): columns = [columns]
         for column in columns:
             if column in inverted_dict:
