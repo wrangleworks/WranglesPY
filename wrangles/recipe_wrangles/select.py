@@ -290,7 +290,7 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
 def group_by(df, by = [], **kwargs):
     """
     type: object
-    description: Group (also known as pivot) the data
+    description: Group and aggregate the data
     properties:
       by:
         type: array
