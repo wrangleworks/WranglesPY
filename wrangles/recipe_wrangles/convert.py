@@ -240,13 +240,14 @@ def to_json(
         type:
           - string
           - integer
-        description: If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+        description: >-
+          If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
           with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
           compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
           that string is used to indent each level.
       sort_keys:
         type: boolean
-        description: If sort_keys is true (default: False), then the output of dictionaries will be sorted by key.
+        description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
     """
     # Set output column as input if not provided
     if output is None: output = input

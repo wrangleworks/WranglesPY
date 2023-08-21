@@ -1166,3 +1166,51 @@ def test_row_function_double_where():
         df['val3'][1] == "" and
         df['val3'][2] == 9
     )
+
+def test_user_not_returned_dataframe_wrangle():
+    """
+    Check error returned if a user's custom function
+    does not return a dataframe correctly
+    """
+    def wrangle_stuff(df):
+        pass
+
+    with pytest.raises(RuntimeError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+
+            wrangles:
+            - custom.wrangle_stuff: {}
+            """,
+            functions=wrangle_stuff
+        )
+    assert (
+        info.typename == 'RuntimeError' and
+        "did not return a dataframe" in info.value.args[0]
+    )
+
+def test_user_not_returned_dataframe_read():
+    """
+    Check error returned if a user's custom function
+    does not return a dataframe correctly
+    """
+    def wrangle_stuff():
+        pass
+
+    with pytest.raises(RuntimeError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - custom.wrangle_stuff: {}
+            """,
+            functions=wrangle_stuff
+        )
+    assert (
+        info.typename == 'RuntimeError' and
+        "did not return a dataframe" in info.value.args[0]
+    )

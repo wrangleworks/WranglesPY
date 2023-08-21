@@ -25,7 +25,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent'
     ],
-    version = '1.4.0',
+    version = '1.4.1',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
@@ -34,4 +34,9 @@ setup(
     entry_points ={
         'console_scripts': ['wrangles.recipe = wrangles.console:recipe']
     },
+    project_urls = {
+        'Bug Tracker': 'https://github.com/wrangleworks/WranglesPy/issues',
+        'Documentation': 'https://wrangles.io/python',
+        'Source Code': 'https://github.com/wrangleworks/WranglesPy',
+    }
 )

@@ -582,7 +582,7 @@ def test_extract_regex_where():
         'col1': ['Pikachu', 'Stuff', 'Pikachu and Charizard'],
         'numbers': [23, 54, 75]
     })
-    recipe = """
+    recipe = r"""
     wrangles:
       - extract.regex:
           input: col1

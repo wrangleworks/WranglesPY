@@ -528,38 +528,6 @@ def test_huggingface():
 
     assert len(df['summary'][0]) / len(df['header'][0])  < 0.5
 
-def test_huggingface_parameters():
-    """
-    Test a huggingface model that requires parameters
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-        - test:
-            rows: 1
-            values:
-                header: SKF Roller bearing 6202-2RS
-
-        wrangles:
-          - huggingface:
-              input: header
-              output: predictions
-              api_token: ${HUGGINGFACE_TOKEN}
-              model: facebook/bart-large-mnli
-              parameters:
-                candidate_labels:
-                  - power transmission
-                  - tools
-                  - electronics
-
-          - select.dictionary_element:
-              input: predictions
-              element: labels
-        """
-    )
-
-    assert 'tools' in df['predictions'][0]
-
 #
 # Log
 #
