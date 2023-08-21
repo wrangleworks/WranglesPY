@@ -6,6 +6,7 @@ from typing import Union as _Union
 import re as _re
 import pandas as _pd
 from fractions import Fraction as _Fraction
+import yaml as _yaml
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -265,5 +266,107 @@ def to_json(
             _json.dumps(row, **kwargs) 
             for row in df[input_columns].values.tolist()
             ]
+        
+    return df
+
+
+def from_yaml(
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert a YAML representation into an object
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [
+            _yaml.safe_load(x, **kwargs)
+            for x in df[input_column]
+        ]
+    
+    return df
+
+
+def to_yaml(
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None, 
+    **kwargs
+) -> _pd.DataFrame:
+    r"""
+    type: object
+    description: Convert an object to a YAML representation.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+      indent:
+        type: integer
+        description: >-
+          Specify the number of spaces for indentation to 
+          specify nested elements
+      sort_keys:
+        type: boolean
+        description: >-
+          If sort_keys is true (default: False),
+          then the output of dictionaries will be sorted by key.
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+        
+    # Loop through and apply for all columns
+    for input_columns, output_column in zip(input, output):
+        df[output_column] = [
+            _yaml.dump(row, **kwargs) 
+            for row in df[input_columns].values.tolist()
+        ]
         
     return df
