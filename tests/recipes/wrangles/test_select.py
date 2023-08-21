@@ -661,3 +661,148 @@ def test_substring_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''
+
+def test_group_by():
+    """
+    Test basic group by
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 1, 3] and
+        list(df.values[1]) == ['b', 4, 4, 4]
+    )
+
+def test_group_by_without_by():
+    """
+    Test group by with only aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert list(df.values[0]) == [10, 1, 4]
+
+def test_group_by_without_aggregations():
+    """
+    Test group by without any aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a'] and
+        list(df.values[1]) == ['b']
+    )
+
+def test_group_by_agg_lists():
+    """
+    Test with multiple aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum:
+                - sum_me
+                - and_sum_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "sum_me": [1,2,3,4],
+            "and_sum_me": [5,6,7,8]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 18] and
+        list(df.values[1]) == ['b', 4, 8]
+    )
+
+def test_group_by_same_column():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum: numbers
+              min: numbers
+              max: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "numbers": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 1, 3] and
+        list(df.values[1]) == ['b', 4, 4, 4]
+    )
+
+def test_group_by_percentiles():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              p0: numbers
+              p1: numbers
+              p25: numbers
+              p50: numbers
+              p75: numbers
+              p90: numbers
+              p100: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "numbers": [i for i in range(101)]
+        })
+    )
+
+    assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
