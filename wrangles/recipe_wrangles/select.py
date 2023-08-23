@@ -423,7 +423,7 @@ def element(
     """
     type: object
     description: >-
-      Select elements of lists or dict
+      Select elements of lists or dicts
       using python syntax like col[0]['key']
     additionalProperties: false
     required:
@@ -435,7 +435,9 @@ def element(
           - array
         description: >-
           Name of the input column and sub elements
-          e.g. col[0]['key']
+          This permits by index for lists or dict
+          and by key for dicts
+          e.g. col[0]['key'] // [{"key":"val"}] -> "val"
       output:
         type:
           - string
@@ -504,7 +506,12 @@ def element(
                     if isinstance(row, list):
                         row = row[int(element)]
                     elif isinstance(row, dict):
-                        row = row.get(element, default)
+                        # Allow getting an element of a dict
+                        # using the index of the key
+                        if element not in row.keys() and element.isdigit():
+                            row = row[list(row.keys())[int(element)]]
+                        else:
+                            row = row.get(element, default)
                     else:
                         row = default
                 except:

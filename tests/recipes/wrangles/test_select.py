@@ -822,7 +822,6 @@ def test_element_list():
             "col": [["a", "b", "c"]]
         })
     )
-
     assert df["result"][0] == "a"
 
 def test_element_dict_without_quotes():
@@ -840,7 +839,6 @@ def test_element_dict_without_quotes():
             "col": [{"a": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == 1
 
 def test_element_dict_double_quotes():
@@ -859,7 +857,6 @@ def test_element_dict_double_quotes():
             "col": [{"a": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == 1
 
 def test_element_dict_single_quotes():
@@ -878,7 +875,6 @@ def test_element_dict_single_quotes():
             "col": [{"a": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == 1
 
 def test_element_dict_escape_quotes():
@@ -897,7 +893,6 @@ def test_element_dict_escape_quotes():
             "col": [{"a'": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == 1
 
 def test_element_dict_not_found():
@@ -916,7 +911,6 @@ def test_element_dict_not_found():
             "col": [{"a": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == ""
 
 def test_element_list_not_found():
@@ -935,7 +929,6 @@ def test_element_list_not_found():
             "col": [["a","b","c"]]
         })
     )
-
     assert df["result"][0] == ""
 
 def test_element_dict_default():
@@ -956,7 +949,6 @@ def test_element_dict_default():
             "col": [{"a": 1, "b": 2, "c": 3}]
         })
     )
-
     assert df["result"][0] == "x"
 
 def test_element_list_default():
@@ -977,7 +969,6 @@ def test_element_list_default():
             "col": [["a","b","c"]]
         })
     )
-
     assert df["result"][0] == "x"
 
 def test_element_multi_layer():
@@ -995,7 +986,6 @@ def test_element_multi_layer():
             "col": [[{"a": 1, "b": 2, "c": 3}]]
         })
     )
-
     assert df["result"][0] == 1
 
 def test_element_overwrite_input():
@@ -1012,7 +1002,6 @@ def test_element_overwrite_input():
             "col": [["a", "b", "c"]]
         })
     )
-
     assert df["col"][0] == "a"
 
 def test_element_multiple_io():
@@ -1035,8 +1024,25 @@ def test_element_multiple_io():
             "col2": [["x", "y", "z"]],
         })
     )
-
     assert (
         df["result1"][0] == "a" and
         df["result2"][0] == "z" 
     )
+
+def test_element_dict_by_index():
+    """
+    Test get element from a dict
+    by using the index position
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
