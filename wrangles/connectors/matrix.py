@@ -1,16 +1,30 @@
 """
-
+The matrix connector lets you use variables in a single write definition to
+automatically execute multiple writes that are based on the combinations of the variables. 
 """
 import re as _re
 import itertools as _itertools
 from collections import ChainMap as _chainmap
+from typing import Union as _Union
+import types as _types
 import wrangles as _wrangles
 import pandas as _pd
 import yaml as _yaml
 
 
-def write(df: _pd.DataFrame, variables: dict, write: list):
+
+_schema = {}
+
+
+def write(
+    df: _pd.DataFrame,
+    variables: dict,
+    write: list,
+    functions: _Union[_types.FunctionType, list] = []
+):
     """
+    The matrix write connector lets you use variables in a single write definition to
+    automatically execute multiple writes that are based on the combinations of the variables. 
     """
     permutations = []
 
@@ -42,19 +56,27 @@ def write(df: _pd.DataFrame, variables: dict, write: list):
         _wrangles.recipe.run(
             _yaml.dump({'write': write}),
             dataframe=df,
-            variables=permutation
+            variables=permutation,
+            functions=functions
         )
 
 
-"""
-write:
-  - matrix:
-      variables:
-        filename: set(header)
-        filename2: [a, b, c]
-      write:
-        - file:
-            name: ${filename}-${filename2}.csv
-            where: header = '${filename}'
-    
+_schema['write'] = """
+type: object
+description: Write data to a Microsoft SQL Server
+required:
+  - variables
+  - write
+properties:
+  variables:
+    type: object
+    description: >-
+      A list of variables. The write will be execute once for 
+      each combination of variables.
+  write:
+    type: array
+    description: The write to use
+    minItems: 1
+    items:
+      - $ref: "#/$defs/write/items"
 """

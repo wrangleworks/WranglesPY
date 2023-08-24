@@ -60,7 +60,8 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
             try:
                 replacement_value = variables[new_recipe_object[2:-1]]
             except:
-                raise ValueError(f"Variable {new_recipe_object} was not found.")
+                return new_recipe_object
+                # raise ValueError(f"Variable {new_recipe_object} was not found.")
 
             # Test if replacement is JSON
             if (isinstance(replacement_value, str)
@@ -554,7 +555,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 for element in export_type.split('.'):
                     obj = getattr(obj, element)
                 
-                if export_type == 'recipe':
+                if export_type in ['recipe', 'matrix']:
                     params['functions'] = functions
                 
                 getattr(obj, 'write')(df_temp, **params)
