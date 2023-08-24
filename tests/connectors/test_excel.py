@@ -1,7 +1,11 @@
+import time
 import wrangles
+from wrangles.connectors import memory
 
 
 def test_excel():
+    time.sleep(15)
+    memory.dataframes = []
     wrangles.recipe.run(
         """
         read:
@@ -15,14 +19,15 @@ def test_excel():
           - excel: {}
         """
     )
-
-    data = wrangles.connectors.excel.stored_dfs
+    data = memory.dataframes
     assert (
         data[0]["columns"] == ["header1", "header2"] and
-        len(data[0]["values"]) == 5
+        len(data[0]["data"]) == 5
     )
 
 def test_excel_args():
+    time.sleep(20)
+    memory.dataframes = []
     wrangles.recipe.run(
         """
         read:
@@ -38,8 +43,7 @@ def test_excel_args():
               row: 5
         """
     )
-
-    data = wrangles.connectors.excel.stored_dfs
+    data = memory.dataframes
     assert (
         data[0]["columns"] == ["header1", "header2"] and
         data[0]["sheet"] == "test" and
@@ -47,6 +51,8 @@ def test_excel_args():
     )
 
 def test_excel_multiple():
+    time.sleep(25)
+    memory.dataframes = []
     wrangles.recipe.run(
         """
         read:
@@ -64,8 +70,7 @@ def test_excel_multiple():
               sheet: test2
         """
     )
-
-    data = wrangles.connectors.excel.stored_dfs
+    data = memory.dataframes
     assert (
         data[0]["columns"] == ["header1", "header2"] and
         data[0]["sheet"] == "test1" and
