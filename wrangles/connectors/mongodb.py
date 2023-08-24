@@ -2,6 +2,7 @@ import pandas as _pd
 import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
+from urllib.parse import quote_plus
 
 _schema = {}
 
@@ -22,6 +23,10 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     """
     
     _logging.info(f": Importing Data :: {database}.{collection}")
+    
+    # Encoding password and username using percent encoding
+    user = quote_plus(user)
+    password = quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
@@ -79,7 +84,7 @@ properties:
 
 def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
     """
-    Write data into a monfoDB database
+    Write data into a mongoDB database
     
     >>> from wrangles.connectors import mongodb
     >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
@@ -95,6 +100,11 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     :param update: mongoDB query value to update, only valid when using UPDATE
     
     """
+    
+    # Encoding password and username using percent encoding
+    user = quote_plus(user)
+    password = quote_plus(password)
+    
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
     db = client[database]
@@ -114,7 +124,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
       pass
 _schema['write'] = """
 type: object
-description: insert, delete, or update data to a mongoDB Server
+description: Write data into a mongoDB database
 required:
   - user
   - password

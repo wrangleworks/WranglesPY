@@ -66,6 +66,27 @@ def test_classify_3():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
 
+def test_classify_extract_model_id():
+    """
+    Test error message when passing an extract model id into a classify wrangle
+    """
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Ball Bearing']
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+            output: 
+              - Class
+            model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.'
+
 def test_classify_invalid_model():
     """
     # Incorrect model_id missing "${ }" around value
@@ -114,6 +135,30 @@ def test_classify_invalid_variable_syntax():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+
+def test_classify_where():
+    """
+    Test classify using where
+    """
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing', 'Roller Bearing'],
+    'Col2': ['Ball Bearing', 'Needle Bearing'],
+    'number': [25, 31]
+    })
+    recipe = """
+    wrangles:
+        - classify:
+            input: 
+              - Col1
+              - Col2
+            output: 
+              - Class1
+              - Class2
+            model_id: c77839db-237a-476b
+            where: number > 25
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
     
 #
 # Filter
@@ -364,6 +409,42 @@ def test_filter_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df) == 1
 
+def test_filter_where_params():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = ?
+              where_params:
+                - Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
+def test_filter_where_params_dict():
+    """
+    Test a parameterized where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              where: Random = :var
+              where_params:
+                var: Apples
+        """,
+        dataframe= pd.DataFrame({
+            'Random': ['Apples', 'None', 'App', None],
+        })
+    )
+    assert len(df) == 1 and df['Random'][0] == 'Apples'
+
 def test_filter_where_or():
     data = pd.DataFrame({
         'Random': ['Apples', 'None', 'App', None],
@@ -446,38 +527,6 @@ def test_huggingface():
     )
 
     assert len(df['summary'][0]) / len(df['header'][0])  < 0.5
-
-def test_huggingface_parameters():
-    """
-    Test a huggingface model that requires parameters
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-        - test:
-            rows: 1
-            values:
-                header: SKF Roller bearing 6202-2RS
-
-        wrangles:
-          - huggingface:
-              input: header
-              output: predictions
-              api_token: ${HUGGINGFACE_TOKEN}
-              model: facebook/bart-large-mnli
-              parameters:
-                candidate_labels:
-                  - power transmission
-                  - tools
-                  - electronics
-
-          - select.dictionary_element:
-              input: predictions
-              element: labels
-        """
-    )
-
-    assert 'tools' in df['predictions'][0]
 
 #
 # Log
@@ -740,6 +789,34 @@ def test_remove_words_tokenize_case_sensitive():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].iloc[0] == 'Water Tank'
 
+def test_remove_words_where():
+    """
+    Test remove_words using where
+    """
+    data = pd.DataFrame({
+    'Description': [['Steel', 'Blue', 'Bottle'], ['Aluminum', 'Red', 'Can'], ['Rubber', 'Yellow', 'Tire']],
+    'Description2': [['Steel', 'Blue', 'Bottle'], ['Titanium', 'Blue', 'Pipe'], ['Iron', 'Brown', 'Plate']],
+    'Materials': [['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron'], ['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron'], ['Steel', 'Rubber', 'Aluminum', 'Titanium', 'Iron']],
+    'Colours': [['Blue', 'Red', 'Yellow', 'Brown'], ['Blue', 'Red', 'Yellow', 'Brown'], ['Blue', 'Red', 'Yellow', 'Brown']],
+    'numbers': [4, 3, 2]
+    })
+    recipe = """
+    wrangles:
+        - remove_words:
+            input:
+              - Description
+              - Description2
+            to_remove:
+              - Materials
+              - Colours
+            output: 
+              - Product1
+              - Product2
+            where: numbers >= 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Product1'] == 'Bottle' and df.iloc[1]['Product2'] == 'Pipe' and df.iloc[2]['Product1'] == ""
+
 #
 # Rename
 #
@@ -899,10 +976,10 @@ def test_standardize_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id in a standardize function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.'
     
 # Using classify model with standardize function
-def test_standardize_4():
+def test_standardize_5():
     data = pd.DataFrame({
     'Abbrev': ['ASAP'],
     })
@@ -915,7 +992,96 @@ def test_standardize_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id in a standardize function.'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id f7958bd2-af22-43b1 in a standardize function.'
+
+def test_standardize_where():
+    """
+    Test standardize function using a where clause
+    """
+    data = pd.DataFrame({
+    'Product': ['Wrench', 'Hammer', 'Pliers'],
+    'Price': [4.99, 9.99, 14.99]
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Product
+            output: Product Standardized
+            model_id: 6ca4ab44-8c66-40e8
+            where: Price > 10
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Product Standardized'] == "" and df.iloc[2]['Product Standardized'] == 'Pliers'
+
+
+# List of inputs to one output
+def test_standardize_multi_input_single_output():
+    """
+    Test error using multiple input columns and only one output
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['ASAP'],
+    'Abbrev2': ['RSVP']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: Abbreviations
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+# List of inputs and outputs single model_id
+def test_standardize_multi_io_single_model():
+    """
+    Test output using multiple input and output columns with a single model_id
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['ASAP'],
+    'Abbrev2': ['ETA']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbreviations1
+              - Abbreviations2
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
+
+# List of inputs and outputs single model_id with where
+def test_standardize_multi_io_single_model_where():
+    """
+    Test output using multiple input and output columns with a single model_id with a where filter
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['FOMO', 'IDK', 'ASAP', 'ETA'],
+    'Abbrev2': ['IDK', 'FOMO', 'ASAP', 'ETA']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbreviations1
+              - Abbreviations2
+            model_id: 6ca4ab44-8c66-40e8
+            where: Abbrev1 LIKE Abbrev2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
 
 def test_replace():
     """
@@ -979,6 +1145,26 @@ def test_replace_regex():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations'] == 'random found random'
 
+def test_replace_where():
+    """
+    Test replace using where
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['random ASAP random', 'random ETA random'],
+    'numbers': [1, 2]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: Abbrev
+            output: Abbreviations
+            find: ETA
+            replace: Estimated Time of Arrival
+            where: numbers > 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == "" and df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
+
 def test_replace_inconsistent_input():
     """
     Check error when the lists for input and output are inconsistent
@@ -1005,6 +1191,60 @@ def test_replace_inconsistent_input():
         info.typename == 'ValueError' and
         info.value.args[0].startswith('The lists for')
     )
+
+def test_replace_integer():
+    """
+    Test replace with integers
+    """
+    data = pd.DataFrame({
+    'numbers': [555, 252, 355]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: 5
+            replace: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['replaced numbers'] == '222'
+
+def test_replace_integer_with_string():
+    """
+    Test replacing integers with strings
+    """
+    data = pd.DataFrame({
+    'numbers': [555, 252, 355]
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: 5
+            replace: five
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['replaced numbers'] == 'fivefivefive'
+
+def test_replace_string_with_integer():
+    """
+    Test replacing a string with an integer
+    """
+    data = pd.DataFrame({
+    'numbers': ['five', 'fifty-five']
+    })
+    recipe = """
+    wrangles:
+        - replace:
+            input: numbers
+            output: replaced numbers
+            find: five
+            replace: 5
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['replaced numbers'] == 'fifty-5'
 
 #
 # Translate
@@ -1081,6 +1321,26 @@ def test_translate_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
     
+def test_translate_where():
+    """
+    Test translate using where
+    """
+    data = pd.DataFrame({
+    'Español': ['¡Hola Mundo!', 'Me llamo es Johnny Numero Cinco'],
+    'numbers': [3, 88]
+    })
+    recipe = """
+    wrangles:
+        - translate:
+            input: Español
+            output: English
+            source_language: Spanish
+            target_language: English
+            where: numbers > 70
+    """
+    df =  wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['English'] == "" and df.iloc[1]['English'] == 'My name is Johnny Number Five'
+
 #
 # Maths
 #
@@ -1115,6 +1375,24 @@ def test_math_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == 3
     
+def test_math_where():
+    """
+    Test math using where
+    """
+    data = pd.DataFrame({
+        'col1': [5, 9, 12],
+        'col2': [5, 3, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col1 + col2
+          output: result
+          where: col1 + col2 > 12
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == "" and df.iloc[2]['result'] == 14.0
+
 #
 # SQL
 #
@@ -1136,7 +1414,7 @@ def test_sql_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header1'] == 2
-    
+
 # Using an incorrect sql statement
 def test_sql_2():
     data = pd.DataFrame({
@@ -1173,6 +1451,28 @@ def test_sql_3():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header3'] == {"Object": "z"}
+
+def test_sql_params():
+    """
+    Test sql using params
+    """
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', 'z'],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            SELECT header1, header2
+            FROM df
+            WHERE header1 >= ($number)
+          params: 
+            number: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header1'] == 2
 
 #
 # Recipe as a wrangle. Recipe-ception
@@ -1277,3 +1577,85 @@ def test_date_calc_inconsistent_input():
         info.typename == 'ValueError' and
         info.value.args[0].startswith('The lists for')
     )
+
+# Test date_calculator using multiple input and output columns
+def test_date_calc_multi_io():
+    """
+    Check output when ran with multiple input and output columns
+    """
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input:
+            - date1
+            - date2
+          output:
+            - out1
+            - out2
+          operation: subtract
+          time_unit: days
+          time_value: 5
+    """
+    data = pd.DataFrame({
+                'date1': ['12/25/2022'],
+                'date2': ['7/4/2023']
+            })
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1']._date_repr == '2022-12-20' and df.iloc[0]['out2']._date_repr == '2023-06-29'
+
+def test_date_calc_where():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022', '12/31/2022'],
+        'number': [6, 12]
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+          where: number > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'
+
+def test_copy():
+    """
+    Test copying a column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 3
+              values:
+                col1: val1
+
+        wrangles:
+          - copy:
+              input: col1
+              output: col2
+        """
+    )
+    assert list(df['col2'].values) == ['val1', 'val1', 'val1']
+
+def test_copy_where():
+    """
+    Test copying a column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - copy:
+              input: col1
+              output: col3
+              where: col2 >= 2
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["val1", "val1", "val1"],
+            "col2": [1,2,3]
+        })
+    )
+    assert list(df['col3'].values) == ['', 'val1', 'val1']

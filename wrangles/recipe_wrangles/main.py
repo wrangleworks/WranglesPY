@@ -140,7 +140,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 def filter(
           df: _pd.DataFrame,
-          input: list = [],
+          input: _Union[str, list] = [],
           equal: _Union[str, list] = None,
           not_equal: _Union[str, list] = None,
           is_in: _Union[str, list] = None,
@@ -154,11 +154,12 @@ def filter(
           not_contains: str = None,
           is_null: bool = None,
           where: str = None,
+          where_params: _Union[list, dict] = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
     type: object
-    description: |
+    description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
       For complex filters, use the where parameter.
@@ -167,24 +168,30 @@ def filter(
       where:
         type: string
         description: Use a SQL WHERE clause to filter the data.
+      where_params:
+        type: 
+          - array
+          - dict
+        description: |-
+          Variables to use in conjunctions with where.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
       input:
         type:
           - string
           - array
-        description: |
+        description: |-
           Name of the column to filter on.
           If multiple are provided, all must match the criteria.
       equal:
         type:
           - string
-          - integer
-          - number
+          - array
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
-          - integer
-          - number
+          - array
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
@@ -237,7 +244,8 @@ def filter(
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            where_params
         )
 
     # If a string provided, convert to list
@@ -485,7 +493,7 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: _Union[str, list], output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: str, output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -493,6 +501,7 @@ def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: _Union[
     required:
       - input
       - to_remove
+      - output
     properties:
       input:
         type: 
@@ -613,13 +622,13 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
         raise ValueError('The lists for input and output must be the same length.')
     
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):  
-        df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
-    
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
+        
     return df
 
 
-def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -630,6 +639,14 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
       command:
         type: string
         description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+      params:
+        type: 
+          - array
+          - dict
+        description: |-
+          Variables to use in conjunctions with query.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
@@ -643,7 +660,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
         count = 0        
         for row in df[cols]:
             # If row contains objects, then convert to json
-            if isinstance(row, dict):
+            if isinstance(row, dict) or isinstance(row, list):
                 # Check if there is an object in the column and record column name to convert to json
                 cols_changed.append(cols)
                 break
@@ -658,7 +675,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db)
+    df = _pd.read_sql(command, db, params = params)
     db.close()
     
     # Change the columns back to an object
@@ -703,11 +720,26 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
     if isinstance(output, str): output = [output]
     if isinstance(model_id, str): model_id = [model_id]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # If Several model ids applied to a column in place
+    if all(len(x) == 1 for x in [input, output]) and isinstance(model_id, list):
+        tmp_output = input
+        df_copy = df.loc[:, [input[0]]]
+        for model in model_id:
+            for input_column, output_column in zip(input, tmp_output):
+                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model)
+        
+        # Adding the result of the df_copy to the original dataframe
+        df[output[0]] = df_copy[output_column]
+        return df
+
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
-
-
+            
     return df
 
 
@@ -731,14 +763,6 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - string
           - array
         description: Name of the output column
-      case:
-        type: string
-        description: Allow changing the case of the input prior to translation. lower, upper or title
-        enum:
-          - lower
-          - upper
-          - title
-          - sentence
       target_language:
         type: string
         description: Code of the language to translate to

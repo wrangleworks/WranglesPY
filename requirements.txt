@@ -3,10 +3,10 @@ pyyaml
 pandas
 openpyxl
 sqlalchemy<2.0
-pymssql
+pymssql<2.2.8
 psycopg2-binary
 pymysql
-fabric
+fabric==3.1.0
 apprise
 lorem
 pymongo[srv]

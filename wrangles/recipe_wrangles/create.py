@@ -17,7 +17,7 @@ from ..connectors.test import _generate_cell_values
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
     type: object
-    description: Creates a column that segment and sort data values into bins
+    description: Create a column that groups data into bins
     additionalProperties: false
     required:
       - input
@@ -48,6 +48,10 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
 
     for in_col, out_col in zip(input, output):
       # Dealing with positive infinity. At end of bins list
@@ -59,12 +63,13 @@ def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
           if bins[0] == '-':
               bins[0] = -_math.inf
       
+      # Set to string in order to be able to fill NaN values when using where
       df[out_col] = _pd.cut(
           x=df[in_col],
           bins=bins,
           labels=labels,
           **kwargs
-      )
+      ).astype(str)
     
     return df
 
@@ -115,6 +120,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     for output_column, values_list in zip(output, value):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
+        data.set_index(df.index, inplace=True)  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
 
@@ -168,7 +174,7 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
     return df
 
 
-def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: str = None) -> _pd.DataFrame:
+def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Output text using a jinja template
@@ -183,15 +189,13 @@ def jinja(df: _pd.DataFrame, template: dict, output: _Union[str, list], input: s
           Specify a name of column containing a dictionary of elements to be used in jinja template.
           Otherwise, the column headers will be used as keys.
       output:
-        type: 
-          - string
-          - array
+        type: string
         description: Name of the column to be output to.
       template:
         type: object
         description: |
           A dictionary which defines the template/location as well as the form which the template is input.
-          If any keys use a space, it must be replaced with an underscore.
+          If any keys use a space, they must be replaced with an underscore.
         additionalProperties: false
         properties:
           file:

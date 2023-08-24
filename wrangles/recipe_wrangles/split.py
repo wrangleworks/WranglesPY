@@ -6,9 +6,10 @@ from typing import Union as _Union
 from typing import List as _list
 import pandas as _pd
 from .. import format as _format
+import json as _json
 
 
-def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
+def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -19,8 +20,25 @@ def dictionary(df: _pd.DataFrame, input: str) -> _pd.DataFrame:
       input:
         type: string
         description: Name of the column to be split
-    """
-    exploded_df = _pd.json_normalize(df[input], max_level=1).fillna('')
+      default:
+        type: object
+        description: >-
+          Provide a set of default headings and values
+          if they are not found within the input
+    """ 
+    # storing data as df temp to prevent the original data to be changed
+    df_temp = df[input]
+    try:
+        df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
+    except:
+        df_temp = [{} if x == None else x for x in df[input]]
+
+    if default:
+        df_temp = [{**default, **x} for x in df_temp]
+
+    exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
+    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+
     df[exploded_df.columns] = exploded_df
     return df
 
@@ -172,6 +190,7 @@ def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     if not isinstance(input, _list): input = [input]
     if not isinstance(output, _list): output = [output]
 
+    # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     

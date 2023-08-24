@@ -98,6 +98,16 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "where": {
+          "type": "string",
+          "description": "Filter the data to only apply the wrangle to certain rows using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 'abc'"
+        },
+        "where_params": {
+          "type": ["array", "object"],
+          "description": "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
+        }
       }
     },
     "write": {
@@ -112,6 +122,24 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "columns": {
+          "type": ["array", "string"],
+          "description": "Specify a subset of the columns to write.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIf not provided, all columns will be included"
+        },
+        "not_columns": {
+          "type": ["array", "string"],
+          "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern. If not provided, all columns will be included"
+        },
+        "where": {
+          "type": "string",
+          "description": "Filter the data before writing using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456"
+        },
+        "where_params": {
+          "type": ["array", "object"],
+          "description": "Variables to use in conjunctions with where.\nThis allows the query to be parameterized.\nThis uses sqlite syntax (? or :name)"
+        }
       }
     },
     "run": {

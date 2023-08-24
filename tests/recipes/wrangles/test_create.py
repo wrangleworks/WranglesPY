@@ -15,6 +15,24 @@ def test_create_column_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert len(df.columns) == 3
+
+def test_create_column_where():
+    """
+    Test create.column using where
+    """
+    data = pd.DataFrame({
+        'col1': ['stuff', 'stuff', 'more stuff'],
+        'numbers': [4, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - create.column:
+            output: output
+            value: this is stuff
+            where: numbers > 6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == '' and df.iloc[1]['output'] == 'this is stuff'
     
 # Adding a value from test connector
 def test_create_columns_2():
@@ -120,6 +138,24 @@ def test_create_index_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[-1]['index_col'] == 3
 
+def test_create_index_where():
+    """
+    Test create.index using where
+    """
+    data = pd.DataFrame({
+        'col1': ['Stuff', 'More stuff', 'Even more stuff than before'],
+        'numbers': [3, 8, 12]
+    })
+    recipe = """
+        wrangles:
+            - create.index:
+                output: index_col
+                start: 1
+                where: numbers > 3
+        """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['index_col'] == '' and df.iloc[2]['index_col'] == 2.0
+
 #
 # GUID
 #
@@ -135,6 +171,19 @@ def test_guid_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'GUID Col' in list(df.columns)
 
+def test_guid_where():
+    data = pd.DataFrame({
+    'Product': ['A', 'B', 'C'],
+    'numbers': [4, 8, 10]
+    })
+    recipe = """
+    wrangles:
+        - create.guid:
+            output: GUID Col
+            where: numbers < 9
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['GUID Col'] == ''
 
 #
 # JINJA
@@ -337,6 +386,7 @@ def test_jinja_output_missing():
         info.value.args[0].startswith("jinja() missing")
     )
 
+
 def test_jinja_variable_with_space():
     """
     Tests variable with a space
@@ -355,6 +405,29 @@ def test_jinja_variable_with_space():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
+def test_jinja_where():
+    """
+    Tests create.jinja using where
+    """
+    data = pd.DataFrame({
+        'data column': [
+            {'type': 'phillips head', 'length': '3 inch'},
+            {'type': 'flat head', 'length': '6 inch'},
+            {'type': 'combination', 'length': '4 inch'}
+        ],
+        'numbers': [43, 12, 76]
+    })
+    recipe = """
+    wrangles:
+      - create.jinja:
+          input: data column
+          output: description
+          template: 
+            string: "This is a {{length}} {{type}} screwdriver"
+          where: numbers < 50
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver' and df.iloc[2]['description'] == ''
 
 #
 # UUID
@@ -371,6 +444,19 @@ def test_uuid_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'UUID Col' in list(df.columns)
     
+def test_uuid_where():
+    data = pd.DataFrame({
+    'Product': ['A', 'B', 'C'],
+    'numbers': [32, 65, 22]
+    })
+    recipe = """
+    wrangles:
+        - create.uuid:
+            output: UUID Col
+            where: numbers = 65
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['UUID Col'] == ''
     
 #
 # Bins
@@ -401,3 +487,136 @@ def test_create_bins_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Pricing'].iloc[0] == 'under 10'
+
+# Test create.bins with a list of input and output columns
+def test_create_bins_list_to_list():
+    """
+    Test create.bins using a list of input and output columns
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input:
+              - col1
+              - col2
+            output:
+              - Pricing1
+              - Pricing2
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Pricing1'].iloc[0] == 'under 10' and df['Pricing2'].iloc[0] == 'under 10'
+    
+# Test create.bins with a list of input and output columns
+def test_create_bins_list_to_single_output():
+    """
+    Test create.bins using a list of inputs and a single output column
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input:
+              - col1
+              - col2
+            output: Pricing1
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+# Test create.bins with a single input and a list of output columns
+def test_create_bins_single_input_multi_output():
+    """
+    Test create.bins using a single input and a list of output columns
+    """
+    data = pd.DataFrame({
+        'col1': [3, 13, 113],
+        'col2': [4, 14, 114]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input: col1
+            output: 
+              - Pricing1
+              - Pricing2
+            bins:
+              - '-'
+              - 10
+              - 20
+              - 50
+              - 70
+              - '+'
+            labels:
+              - 'under 10'
+              - '10-20'
+              - '20-40'
+              - '40-70'
+              - '100 and above'
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+
+def test_create_bins_where():
+    """
+    Test create bins using where
+    """
+    data = pd.DataFrame({
+        'col': [3, 13, 113]
+    })
+    recipe = """
+    wrangles:
+      - create.bins:
+            input: col
+            output: Pricing
+            bins:
+                - '-'
+                - 10
+                - 20
+                - 50
+                - 70
+                - '+'
+            labels:
+                - 'under 10'
+                - '10-20'
+                - '20-40'
+                - '40-70'
+                - '100 and above'
+            where: col > 10
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[1]['Pricing'] == '10-20' and df.iloc[0]['Pricing'] == ''
