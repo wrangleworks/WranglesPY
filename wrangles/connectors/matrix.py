@@ -12,7 +12,6 @@ import pandas as _pd
 import yaml as _yaml
 
 
-
 _schema = {}
 
 
@@ -63,7 +62,9 @@ def write(
 
 _schema['write'] = """
 type: object
-description: Write data to a Microsoft SQL Server
+description: >-
+  The matrix connector lets you use variables in a single write definition to
+  automatically execute multiple writes that are based on the combinations of the variables. 
 required:
   - variables
   - write
