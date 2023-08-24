@@ -2,6 +2,8 @@
 Functions to select data from within columns
 """
 from typing import Union as _Union
+import re as _re
+import json as _json
 import pandas as _pd
 from .. import select as _select
 
@@ -410,4 +412,113 @@ def group_by(df, by = [], **kwargs):
     # Flatting multilevel headings back to one
     df.columns = df.columns.map('.'.join).str.strip('.')
 
+    return df
+
+def element(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    default: any = ''
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Select elements of lists or dicts
+      using python syntax like col[0]['key']
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: 
+          - string
+          - array
+        description: >-
+          Name of the input column and sub elements
+          This permits by index for lists or dict
+          and by key for dicts
+          e.g. col[0]['key'] // [{"key":"val"}] -> "val"
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      default:
+        type: 
+          - string
+          - number
+          - array
+          - object
+          - boolean
+          - 'null'
+        description: Set the default value to return if the specified element doesn't exist.
+    """
+    def _extract_elements(input_string):
+        # Find all occurrences of '[...]' using regex
+        pattern = r'\[[^\]]*\]'
+        matches = _re.findall(pattern, input_string)
+
+        extracted_elements = []
+        for match in matches:
+            # Remove brackets and trim whitespace
+            element = match.strip('[]')
+
+            # Remove outer quotes if present
+            if element.startswith("'") and element.endswith("'"):
+                element = element[1:-1]
+            elif element.startswith('"') and element.endswith('"'):
+                element = element[1:-1]
+
+            # Handle escaped quotes within the element
+            element = element.replace("\\'", "'").replace('\\"', '"')
+
+            extracted_elements.append(element)
+
+        return extracted_elements
+
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for select.element')
+    
+    for in_col, out_col in zip(input, output):
+        # If user hasn't specified an output column
+        # strip the elements from the input column
+        if in_col == out_col:
+            out_col = out_col.split("[")[0]
+        
+        # Get the sequence of elements
+        elements = _extract_elements(in_col)
+        in_col = in_col.split('[')[0]
+        
+        output = []
+        for row in df[in_col].tolist():
+            if isinstance(row, str):
+                row = _json.loads(row)
+
+            for element in elements:
+                try:
+                    if isinstance(row, list):
+                        row = row[int(element)]
+                    elif isinstance(row, dict):
+                        # Allow getting an element of a dict
+                        # using the index of the key
+                        if element not in row.keys() and element.isdigit():
+                            row = row[list(row.keys())[int(element)]]
+                        else:
+                            row = row.get(element, default)
+                    else:
+                        row = default
+                except:
+                    row = default
+
+            output.append(row)
+
+        df[out_col] = output
+    
     return df
