@@ -135,7 +135,6 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         recipe_string = recipe
     else:
         with open(recipe, "r", encoding='utf-8') as f:
-        # with open(recipe, "r") as f:
             recipe_string = f.read()
     
     # Also add environment variables to list of placeholder variables
