@@ -180,7 +180,6 @@ def from_json(
     """
     type: object
     description: Convert a JSON representation into an object
-    additionalProperties: false
     required:
       - input
     properties:
@@ -217,12 +216,12 @@ def to_json(
         df: _pd.DataFrame, 
         input: _Union[str, list], 
         output: _Union[str, list] = None, 
+        ensure_ascii: bool = False,
         **kwargs
         ) -> _pd.DataFrame:
     r"""
     type: object
     description: Convert an object to a JSON representation.
-    additionalProperties: false
     required:
       - input
     properties:
@@ -248,6 +247,9 @@ def to_json(
       sort_keys:
         type: boolean
         description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
+      ensure_ascii:
+        type: boolean
+        description: If true, non-ASCII characters will be escaped. Default is false 
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -263,7 +265,7 @@ def to_json(
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
-            _json.dumps(row, **kwargs) 
+            _json.dumps(row, ensure_ascii=ensure_ascii, **kwargs) 
             for row in df[input_columns].values.tolist()
             ]
         
