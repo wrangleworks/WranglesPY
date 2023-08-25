@@ -415,7 +415,7 @@ def test_to_json_array_sort_keys():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['headers_json'] == '{"header1": "val1", "header2": "val2", "header3": "val3"}'
 
-def test_to_json_ensure_ascii():
+def test_to_json_ensure_ascii_true():
     """
     Test converting to a list to a JSON array using sort_keys
     """
@@ -440,6 +440,55 @@ def test_to_json_ensure_ascii():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column dict'] == '{"column": "this is a \\u00b0 symbol"}'
 
+def test_to_json_ensure_ascii_false():
+    """
+    Test converting to a list to a JSON array using sort_keys
+    """
+    data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
+    recipe = """
+    read:
+        - test:
+            rows: 5
+            values: 
+                column: this is a ° symbol
+    wrangles:
+        - merge.to_dict:
+            input:
+              - column
+            output: column dict
+
+        - convert.to_json:
+            input: column dict
+            output: column dict
+            ensure_ascii: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
+
+def test_to_json_ensure_ascii_default():
+    """
+    Test converting to a list to a JSON array using sort_keys
+    """
+    data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
+    recipe = """
+    read:
+        - test:
+            rows: 5
+            values: 
+                column: this is a ° symbol
+    wrangles:
+        - merge.to_dict:
+            input:
+              - column
+            output: column dict
+
+        - convert.to_json:
+            input: column dict
+            output: column dict
+            ensure_ascii: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
 
 def test_from_json_array():
     """
