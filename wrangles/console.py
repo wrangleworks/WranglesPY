@@ -23,6 +23,7 @@ def recipe():
 
     args = parser.parse_args()
 
+    ###### Move this to recipe.run for Reusable Recipes ######
     # If the user has specified a file of custom function, import those
     if args.functions is not None:
         custom_module = _ModuleType('custom_module')

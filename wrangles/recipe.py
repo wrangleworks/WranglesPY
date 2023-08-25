@@ -103,7 +103,7 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
 
     return new_recipe_object
 
-
+###### Make a copy of this for _load_functions for Reusable Recipes ######
 def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
@@ -128,6 +128,8 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
+
+    ###### Add a check (using a regex pattern) to see if recipe is input as a model id, then run using console.recipe?? ######
 
     # If recipe is a single line, it's probably a file path
     # Otherwise it's a recipe
@@ -574,6 +576,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
+    ###### Make sure you can pass a gist url to _load_recipe (url link needs to only contain the code, not any html) ######
     # Parse recipe
     recipe = _load_recipe(recipe, variables)
 
