@@ -485,7 +485,6 @@ def test_to_json_ensure_ascii_default():
         - convert.to_json:
             input: column dict
             output: column dict
-            ensure_ascii: False
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
