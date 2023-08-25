@@ -69,3 +69,11 @@ def test_wildcard_expansion_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == 'world'
+
+def test_recipe_special_character():
+    """
+    Tests special character encoding when reading a recipe containing special characters
+    """
+    recipe = 'tests/samples/recipe_special_character.wrgl.yml'
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0]['column'] == 'this is a ° symbol'
