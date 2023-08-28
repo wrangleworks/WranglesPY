@@ -114,39 +114,6 @@ def test_memory_write_multiple():
         data_2["key"] == "val2"
     )
 
-def test_variables():
-    """
-    Test that memory variables are passed
-    between functions
-    """
-    memory.variables["key"] = 1
-
-    def _test():
-        return pd.DataFrame({
-            "col1": [memory.variables["key"]] * 5
-        })
-    
-    df = wrangles.recipe.run(
-        """
-        read:
-          - custom._test: {}
-        """,
-        functions=_test
-    )
-    assert df["col1"][0] == 1 and len(df) == 5
-
-def test_queue():
-    """
-    Test the memory queue
-    """
-    memory.queue.append("a")
-    memory.queue.append("b")
-    memory.queue.append("c")
-    assert (
-        memory.queue.popleft() == "a" and
-        memory.queue.popleft() == "b"
-    )
-
 def test_memory_read_id():
     """
     Test memory connector
@@ -439,4 +406,37 @@ def test_memory_read_split_keys():
     assert (
         df["header1"][0] == "value1" and
         len(df) == 5
+    )
+
+def test_variables():
+    """
+    Test that memory variables are passed
+    between functions
+    """
+    memory.variables["key"] = 1
+
+    def _test():
+        return pd.DataFrame({
+            "col1": [memory.variables["key"]] * 5
+        })
+    
+    df = wrangles.recipe.run(
+        """
+        read:
+          - custom._test: {}
+        """,
+        functions=_test
+    )
+    assert df["col1"][0] == 1 and len(df) == 5
+
+def test_queue():
+    """
+    Test the memory queue
+    """
+    memory.queue.append("a")
+    memory.queue.append("b")
+    memory.queue.append("c")
+    assert (
+        memory.queue.popleft() == "a" and
+        memory.queue.popleft() == "b"
     )
