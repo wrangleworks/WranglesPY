@@ -90,9 +90,14 @@ def test_matrix_custom_function():
         }),
         functions=save_data
     )
-
-    lens = [len(v) for v in save_vals.values()]
-    assert lens == [3,2,1]
+    assert (
+        [
+            len(save_vals["a"]),
+            len(save_vals["b"]),
+            len(save_vals["c"])
+        ]
+        == [3,2,1]
+    )
 
 def test_matrix_variable_custom_function():
     """

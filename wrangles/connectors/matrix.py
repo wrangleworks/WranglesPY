@@ -7,6 +7,7 @@ import itertools as _itertools
 from collections import ChainMap as _chainmap
 from typing import Union as _Union
 import types as _types
+import concurrent.futures as _futures
 import wrangles as _wrangles
 import pandas as _pd
 import yaml as _yaml
@@ -58,13 +59,20 @@ def write(
         for permutation in permutations
     ]
 
-    for permutation in permutations:
-        _wrangles.recipe.run(
-            _yaml.dump({'write': write}),
-            dataframe=df,
-            variables=permutation,
-            functions=functions
-        )
+    with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
+        threads = [
+            executor.submit(
+                _wrangles.recipe.run,
+                recipe= _yaml.dump({'write': write}),
+                dataframe=df.copy(),
+                variables=permutation,
+                functions=functions
+            )
+            for permutation in permutations
+        ]
+
+        for thread in threads:
+            thread.result()
 
 
 _schema['write'] = """
