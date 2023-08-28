@@ -16,7 +16,7 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from .config import no_where_list
-from wrangles.data import model_content
+from wrangles.data import model_content as _model_content
 from types import ModuleType as _ModuleType
 from inspect import isfunction as _isfunction
 
@@ -107,7 +107,7 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
     return new_recipe_object
 
 ###### Make a copy of this for _load_functions for Reusable Recipes ######
-def _load_recipe(recipe: str, variables: dict = {}) -> dict:
+def _load_recipe(recipe: str) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
@@ -132,20 +132,45 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
 
-    ###### Add a check (using a regex pattern) to see if recipe is input as a model id, then run using console.recipe?? ######
-
     # If recipe is a single line, it's probably a file path
-    # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
+    # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
-        model = model_content(recipe)
+        model = _model_content(recipe)
         recipe_string = model['recipe']
-
+    # Otherwise it's a recipe
     else:
         with open(recipe, "r") as f:
             recipe_string = f.read()
+
+    return recipe_string
+
+def _load_functions(recipe: str):
+    """
+    Load yaml recipe file + replace any placeholder variables
+
+    :param recipe: YAML recipe or name of a YAML file to be parsed
+    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
+
+    :return: YAML Recipe converted to a dictionary
+    """
+    _logging.info(": Reading Functions ::")
     
+    functions = _model_content(recipe)['functions']
+
+    if functions != '':
+        custom_module = _ModuleType('custom_module')
+        exec(functions, custom_module.__dict__)
+        functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+        # getting only the functions
+        functions = [x for x in functions if _isfunction(x)]
+    else:
+        functions = []
+
+    return functions
+    
+def _interpret_recipe(recipe_string: str, variables: dict = {}):
     # Also add environment variables to list of placeholder variables
     # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
@@ -158,7 +183,6 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     return recipe_object
-
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
@@ -583,9 +607,14 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
-    ###### Make sure you can pass a gist url to _load_recipe (url link needs to only contain the code, not any html) ######
     # Parse recipe
-    recipe = _load_recipe(recipe, variables)
+    if _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        recipe_string = _load_recipe(recipe)
+        functions = _load_functions(recipe)
+    else:
+        recipe_string = _load_recipe(recipe)
+
+    recipe = _interpret_recipe(recipe_string, variables)
 
     try:
         # Format custom functions
