@@ -68,7 +68,6 @@ def write(
                 variables=permutation,
                 functions=functions
             )
-        executor.shutdown(wait=True)
 
 
 _schema['write'] = """
