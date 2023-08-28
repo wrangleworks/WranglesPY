@@ -417,7 +417,8 @@ def test_to_json_array_sort_keys():
 
 def test_to_json_ensure_ascii_true():
     """
-    Test converting to a list to a JSON array using sort_keys
+    Test uncommon characters that require UTF encoding.
+    With ascii as True these should show the encoded version.
     """
     data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
     recipe = """
@@ -442,7 +443,8 @@ def test_to_json_ensure_ascii_true():
 
 def test_to_json_ensure_ascii_false():
     """
-    Test converting to a list to a JSON array using sort_keys
+    Test uncommon characters that require UTF encoding.
+    With ascii as false, these should not be encoded.
     """
     data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
     recipe = """
@@ -467,7 +469,8 @@ def test_to_json_ensure_ascii_false():
 
 def test_to_json_ensure_ascii_default():
     """
-    Test converting to a list to a JSON array using sort_keys
+    Test uncommon characters that require UTF encoding.
+    With default settings, these should not be encoded.
     """
     data = pd.DataFrame([['val3', 'val1', 'val2']], columns=['header3', 'header1', 'header2'])
     recipe = """
