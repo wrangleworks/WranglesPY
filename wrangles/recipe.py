@@ -16,6 +16,9 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from .config import no_where_list
+from wrangles.data import model_content
+from types import ModuleType as _ModuleType
+from inspect import isfunction as _isfunction
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -135,6 +138,10 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
+    elif _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        model = model_content(recipe)
+        recipe_string = model['recipe']
+
     else:
         with open(recipe, "r") as f:
             recipe_string = f.read()
