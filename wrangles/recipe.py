@@ -28,23 +28,42 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
-def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _typing.Any:
+def _replace_templated_values(
+    recipe_object: _typing.Any,
+    variables: dict,
+    ignore_unknown_variables: bool = False
+) -> _typing.Any:
     """
     Replace templated values of the format ${} within a recipe.
     This function can be called recursively to iterate through an arbitrary number of levels within the main object
     
     :param recipe_object: Recipe object that may contain values to replace
     :param variables: List of variables that contain any templated values to update
+    :param ignore_unknown_variables: Do not raise an error for unrecognized variables from this point \
+        down the stack. e.g. for matrix which uses runtime variables.
     :return: Updated Recipe object with variables replaced by their corresponding values
     """
     if isinstance(recipe_object, list):
         # Iterate over all of the elements in a list recursively
-        new_recipe_object = [_replace_templated_values(element, variables) for element in recipe_object]
+        new_recipe_object = [
+            _replace_templated_values(element, variables, ignore_unknown_variables)
+            for element in recipe_object
+        ]
             
     elif isinstance(recipe_object, dict):
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
-            _replace_templated_values(key, variables) : _replace_templated_values(val, variables)
+            _replace_templated_values(
+                key,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
+            : 
+            _replace_templated_values(
+                val,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
             for key, val in recipe_object.items()
         }
 
@@ -60,8 +79,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
             try:
                 replacement_value = variables[new_recipe_object[2:-1]]
             except:
-                return new_recipe_object
-                # raise ValueError(f"Variable {new_recipe_object} was not found.")
+                if ignore_unknown_variables:
+                    return new_recipe_object
+                else:
+                    raise ValueError(f"Variable {new_recipe_object} was not found.")
 
             # Test if replacement is JSON
             if (isinstance(replacement_value, str)
@@ -85,7 +106,11 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                     # Replacement wasn't YAML
                     pass
 
-            new_recipe_object = _replace_templated_values(replacement_value, variables)
+            new_recipe_object = _replace_templated_values(
+                replacement_value,
+                variables,
+                ignore_unknown_variables
+            )
 
         # Variable is found within the string e.g. file-${number}.csv
         # Since this is within a string, the type is forced to also be a string
@@ -94,8 +119,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                 try:
                     replacement_value = variables[var[2:-1]]
                 except:
-                    replacement_value = var
-                    # raise ValueError(f"Variable {var} was not found.")
+                    if ignore_unknown_variables:
+                        replacement_value = var
+                    else:
+                        raise ValueError(f"Variable {var} was not found.")
 
                 new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
 
@@ -148,7 +175,7 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     recipe_object = _yaml.safe_load(recipe_string)
     
     # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
+    recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object
 
