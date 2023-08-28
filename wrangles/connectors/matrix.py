@@ -60,7 +60,7 @@ def write(
     ]
 
     with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
-        threads = [
+        for permutation in permutations:
             executor.submit(
                 _wrangles.recipe.run,
                 recipe= _yaml.dump({'write': write}),
@@ -68,11 +68,7 @@ def write(
                 variables=permutation,
                 functions=functions
             )
-            for permutation in permutations
-        ]
-
-        for thread in threads:
-            thread.result()
+        executor.shutdown(wait=True)
 
 
 _schema['write'] = """
