@@ -140,7 +140,7 @@ def _read_recipe(recipe: str):
         recipe_string = model['recipe']
     # Otherwise it's a recipe
     else:
-        with open(recipe, "r") as f:
+        with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
 
     return recipe_string

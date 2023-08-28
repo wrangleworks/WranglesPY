@@ -83,3 +83,10 @@ def test_recipe_sharing_gist():
     """
     df = wrangles.recipe.run(recipe='https://gist.githubusercontent.com/thomasstvr/a9f9f3e7a8da3f39b1cb26fafe87fa27/raw/01b7ec1ca4a1bab5db7ffb6861ed7d8f2a974825/test_recipe.wrgl.yml')
     assert df.iloc[0]['column title case'] == 'This Is A Test'
+def test_recipe_special_character():
+    """
+    Tests special character encoding when reading a recipe containing special characters
+    """
+    recipe = 'tests/samples/recipe_special_character.wrgl.yml'
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0]['column'] == 'this is a ° symbol'

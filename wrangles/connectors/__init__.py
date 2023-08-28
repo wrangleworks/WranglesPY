@@ -6,6 +6,7 @@ from . import akeneo
 from . import ckan
 from . import file
 from . import http
+from . import memory
 from . import mssql
 from . import mysql
 from . import notification
