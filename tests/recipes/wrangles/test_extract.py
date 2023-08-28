@@ -130,7 +130,7 @@ def test_attributes_span():
             responseContent: span
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
-    assert df.iloc[0]['Attributes'] == {'length': ['0.5m'], 'mass': ['5kg']}
+    assert df.iloc[0]['Attributes'] == {'length': ['0.5m'], 'weight': ['5kg']}
 
 # Testing Object
 def test_attributes_object():
@@ -142,7 +142,7 @@ def test_attributes_object():
             responseContent: object
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes)
-    assert df.iloc[0]['Attributes'] == {'length': [{'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'mass': [{'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
+    assert df.iloc[0]['Attributes'] == {'length': [{'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'weight': [{'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
 
 df_test_attributes_all = pd.DataFrame([['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']], columns=['Tools'])
 
@@ -238,7 +238,11 @@ def test_attributes_pressure():
     assert df.iloc[0]['Attributes'] == ['13psi']
 
 # Testing electric potential
-def test_attributes_voltage():
+def test_attributes_voltage_legacy():
+    """
+    Test voltage with new legacy name
+    (electric potential)
+    """
     recipe = """
     wrangles:
         - extract.attributes:
@@ -246,6 +250,21 @@ def test_attributes_voltage():
             output: Attributes
             responseContent: span
             attribute_type: electric potential
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
+    assert df.iloc[0]['Attributes'] == ['13V']
+
+def test_attributes_voltage():
+    """
+    Test voltage with new name
+    """
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            responseContent: span
+            attribute_type: voltage
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13V']
@@ -264,7 +283,10 @@ def test_attributes_volume():
     assert df.iloc[0]['Attributes'][0] in ['13m^3', '13cu m']
 
 # Testing mass
-def test_attributes_mass():
+def test_attributes_mass_legacy():
+    """
+    Test with legacy name for weight (mass)
+    """
     recipe = """
     wrangles:
         - extract.attributes:
@@ -275,7 +297,22 @@ def test_attributes_mass():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
     assert df.iloc[0]['Attributes'] == ['13kg']
-    
+
+def test_attributes_weight():
+    """
+    Test with new name for weight
+    """
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            responseContent: span
+            attribute_type: weight
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_attributes_all)
+    assert df.iloc[0]['Attributes'] == ['13kg']
+
 # min/mid/max attributes
 def test_attributes_MinMidMax():
     data = pd.DataFrame({

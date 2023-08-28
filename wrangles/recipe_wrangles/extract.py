@@ -89,7 +89,6 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - charge
           - current
           - data transfer rate
-          - electric potential
           - electrical conductance
           - electrical resistance
           - energy
@@ -99,7 +98,6 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - instance frequency
           - length
           - luminous flux
-          - mass
           - weight
           - power
           - pressure
@@ -107,6 +105,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - velocity
           - temperature
           - time
+          - voltage
           - volume
           - volumetric flow
       responseContent:
