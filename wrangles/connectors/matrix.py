@@ -23,7 +23,14 @@ def write(
 ):
     """
     The matrix write connector lets you use variables in a single write definition to
-    automatically execute multiple writes that are based on the combinations of the variables. 
+    automatically execute multiple writes that are based on the combinations of the variables.
+
+    :param df: The input dataframe
+    :param variables: A list of variables. The write will be execute once for \
+        each combination of variables.
+    :param write: The write portion of a recipe to execute for each \
+        combination of variables
+    :param functions: Custom functions to provide to the write recipes
     """
     permutations = []
 
@@ -37,7 +44,7 @@ def write(
 
         elif _re.fullmatch(r'custom.(.*)', val.strip()):
             # Run custom function
-            pass
+            vals = functions[val.strip()[7:]]()
         
         else:
             vals = [val]
@@ -76,7 +83,9 @@ properties:
       each combination of variables.
   write:
     type: array
-    description: The write to use
+    description: >-
+      The write portion of a recipe to execute for each
+      combination of variables
     minItems: 1
     items:
       - $ref: "#/$defs/write/items"

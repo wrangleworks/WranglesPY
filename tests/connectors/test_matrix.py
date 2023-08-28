@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+from wrangles.connectors import memory
 
 
 def test_matrix_column_set():
@@ -65,7 +66,7 @@ def test_matrix_list():
 
 def test_matrix_custom_function():
     """
-    Test using a custom function
+    Test using a custom function within the write
     """
     save_vals = {}
     def save_data(df, input):
@@ -92,3 +93,36 @@ def test_matrix_custom_function():
 
     lens = [len(v) for v in save_vals.values()]
     assert lens == [3,2,1]
+
+def test_matrix_variable_custom_function():
+    """
+    Test using a custom function to generate variables
+    """
+    def get_list():
+        return ["a","b","c"]
+
+    wrangles.recipe.run(
+        """
+        write:
+          - matrix:
+              variables:
+                key: custom.get_list
+              write:
+                - memory:
+                    id: variable_custom_functions_test_${key}
+                    where: col1 = ?
+                    where_params:
+                      - ${key}
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["a","a","a","b","b","c"]
+        }),
+        functions=get_list
+    )
+    
+    assert (
+        len(memory.dataframes["variable_custom_functions_test_a"]["data"]) == 3 and
+        len(memory.dataframes["variable_custom_functions_test_b"]["data"]) == 2 and
+        len(memory.dataframes["variable_custom_functions_test_c"]["data"]) == 1
+    )
+
