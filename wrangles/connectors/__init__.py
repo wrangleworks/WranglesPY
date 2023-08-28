@@ -4,7 +4,6 @@ Connectors to read/write from external systems
 
 from . import akeneo
 from . import ckan
-from . import excel
 from . import file
 from . import http
 from . import memory
