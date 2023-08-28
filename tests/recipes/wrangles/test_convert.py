@@ -1,8 +1,7 @@
 import wrangles
 import pandas as pd
-import re as _re
-from fractions import Fraction as _Fraction
 import pytest
+import json as _json
 
 
 #
@@ -635,3 +634,38 @@ def test_fraction_to_decimal_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
+
+def test_to_yaml():
+    """
+    Test converting an object to YAML
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_yaml:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [{"key": "val", "key2": ["list1", "list2"]}]
+        })
+    )
+    assert df['column'][0] == "key: val\nkey2:\n- list1\n- list2\n"
+
+def test_from_yaml():
+    """
+    Test converting a YAML to an object
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_yaml:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["key: val\nkey2:\n- list1\n- list2\n"]
+        })
+    )
+    assert (
+        _json.dumps(df['column'][0]) == 
+        _json.dumps({"key": "val", "key2": ["list1", "list2"]})
+    )

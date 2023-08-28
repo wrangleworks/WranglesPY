@@ -216,37 +216,83 @@ def test_split_list_2():
 #
 # Split from Dict
 #
-def test_split_dictionary_1():
-    data = pd.DataFrame({
-    'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
-    })
-    recipe = """
-    wrangles:
-      - split.dictionary:
-          input: col1
+def test_split_dictionary():
     """
-
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Col2'] == 'B'
+    Test splitting a dictionary
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
+        })
+    )
+    assert df['Col2'][0] == 'B'
     
+def test_split_dictionary_json():
+    """
+    Test splitting a dictionary that is 
+    actually a JSON string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['{"Col1": "A", "Col2": "B", "Col3": "C"}']
+        })
+    )
+    assert df['Col2'][0] == 'B'
+
 def test_split_dictionary_where():
     """
     Test split.dictionary using where
     """
-    data = pd.DataFrame({
-    'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}, {'Col1': 'D', 'Col2': 'E', 'Col3': 'F'}, {'Col1': 'G', 'Col2': 'H', 'Col3': 'I'}],
-    'numbers': [3, 4, 5]
-    })
-    recipe = """
-    wrangles:
-      - split.dictionary:
-          input: col1
-          where: numbers > 3
-    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              where: numbers > 3
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'},
+                {'Col1': 'D', 'Col2': 'E', 'Col3': 'F'},
+                {'Col1': 'G', 'Col2': 'H', 'Col3': 'I'}
+            ],
+            'numbers': [3, 4, 5]
+        })
+    )
+    assert df['Col2'][1] == 'E' and df['Col2'][0] == ''
 
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['Col2'] == 'E' and df.iloc[0]['Col2'] == ''
-    
+def test_split_dictionary_default():
+    """
+    Test splitting a dictionary with default values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              default:
+                Col2: X
+                Col4: D
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
+        })
+    )
+    assert (
+        df['Col2'][0] == 'B' and 
+        df['Col4'][0] == 'D'
+    )
+
 #
 # Tokenize List
 #

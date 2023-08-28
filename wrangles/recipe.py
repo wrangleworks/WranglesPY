@@ -434,7 +434,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
             else:
                 # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary'] and 'input' in params:
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
                     # Expand out any wildcards or regex in column names
                     params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                         
@@ -529,6 +529,17 @@ def _filter_dataframe(
     :param where: SQL where criteria to filter based on
     :param params: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     """
+    if where:
+        df = _recipe_wrangles.sql(
+            df,
+            f"""
+            SELECT *
+            FROM df
+            WHERE {where};
+            """,
+            where_params
+        )
+
     # Reduce to user chosen columns
     if columns:
         columns = _wildcard_expansion(df.columns.tolist(), columns)
@@ -540,17 +551,6 @@ def _filter_dataframe(
         # List comprehension is used below to preserve order of columns 
         remaining_columns = [column for column in list(df.columns) if column not in not_columns]
         df = df[remaining_columns]
-
-    if where:
-        df = _recipe_wrangles.sql(
-            df,
-            f"""
-            SELECT *
-            FROM df
-            WHERE {where};
-            """,
-            where_params
-        )
 
     return df
 

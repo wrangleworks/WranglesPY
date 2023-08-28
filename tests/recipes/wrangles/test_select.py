@@ -661,3 +661,388 @@ def test_substring_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''
+
+def test_group_by():
+    """
+    Test basic group by
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 1, 3] and
+        list(df.values[1]) == ['b', 4, 4, 4]
+    )
+
+def test_group_by_without_by():
+    """
+    Test group by with only aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert list(df.values[0]) == [10, 1, 4]
+
+def test_group_by_without_aggregations():
+    """
+    Test group by without any aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a'] and
+        list(df.values[1]) == ['b']
+    )
+
+def test_group_by_agg_lists():
+    """
+    Test with multiple aggregations
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum:
+                - sum_me
+                - and_sum_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "sum_me": [1,2,3,4],
+            "and_sum_me": [5,6,7,8]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 18] and
+        list(df.values[1]) == ['b', 4, 8]
+    )
+
+def test_group_by_same_column():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              sum: numbers
+              min: numbers
+              max: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "numbers": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 6, 1, 3] and
+        list(df.values[1]) == ['b', 4, 4, 4]
+    )
+
+def test_group_by_percentiles():
+    """
+    Test group by with different
+    aggregations on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              p0: numbers
+              p1: numbers
+              p25: numbers
+              p50: numbers
+              p75: numbers
+              p90: numbers
+              p100: numbers
+        """,
+        dataframe=pd.DataFrame({
+            "numbers": [i for i in range(101)]
+        })
+    )
+
+    assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
+
+def test_element_list():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [["a", "b", "c"]]
+        })
+    )
+    assert df["result"][0] == "a"
+
+def test_element_dict_without_quotes():
+    """
+    Test get element from a dict
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[a]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
+
+def test_element_dict_double_quotes():
+    """
+    Test get element from a dict
+    using double quotes
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col["a"]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
+
+def test_element_dict_single_quotes():
+    """
+    Test get element from a dict
+    using single quotes
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col['a']
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
+
+def test_element_dict_escape_quotes():
+    """
+    Test get element from a dict
+    using with an escaped quote
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col["a\'"]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a'": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
+
+def test_element_dict_not_found():
+    """
+    Test get element from a dict
+    where the element does not exist
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col["d"]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == ""
+
+def test_element_list_not_found():
+    """
+    Test get element from a dict
+    where the element does not exist
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[3]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [["a","b","c"]]
+        })
+    )
+    assert df["result"][0] == ""
+
+def test_element_dict_default():
+    """
+    Test get element from a dict
+    where the element does not exist
+    with a default value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col["d"]
+              output: result
+              default: x
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == "x"
+
+def test_element_list_default():
+    """
+    Test get element from a dict
+    where the element does not exist
+    with a default value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[3]
+              output: result
+              default: x
+        """,
+        dataframe=pd.DataFrame({
+            "col": [["a","b","c"]]
+        })
+    )
+    assert df["result"][0] == "x"
+
+def test_element_multi_layer():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]["a"]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[{"a": 1, "b": 2, "c": 3}]]
+        })
+    )
+    assert df["result"][0] == 1
+
+def test_element_overwrite_input():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+        """,
+        dataframe=pd.DataFrame({
+            "col": [["a", "b", "c"]]
+        })
+    )
+    assert df["col"][0] == "a"
+
+def test_element_multiple_io():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input:
+                - col1[0]
+                - col2[2]
+              output:
+                - result1
+                - result2
+        """,
+        dataframe=pd.DataFrame({
+            "col1": [["a", "b", "c"]],
+            "col2": [["x", "y", "z"]],
+        })
+    )
+    assert (
+        df["result1"][0] == "a" and
+        df["result2"][0] == "z" 
+    )
+
+def test_element_dict_by_index():
+    """
+    Test get element from a dict
+    by using the index position
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [{"a": 1, "b": 2, "c": 3}]
+        })
+    )
+    assert df["result"][0] == 1
