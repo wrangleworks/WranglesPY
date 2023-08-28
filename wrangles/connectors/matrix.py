@@ -21,7 +21,7 @@ def write(
     variables: dict,
     write: list,
     functions: _Union[_types.FunctionType, list] = [],
-    strategy: str = "permutations"
+    strategy: str = "loop"
 ):
     """
     The matrix write connector lets you use variables in a single write definition to
@@ -34,9 +34,8 @@ def write(
         combination of variables
     :param functions: Custom functions to provide to the write recipes
     :param strategy: Determines how to combine variables when there are multiple. \
-        permutations uses the combination of all variables against all other variables. \
-        loop iterates over each set of variables, repeating shorter lists until the longest \
-        is completed.
+        loop (default) iterates over each set of variables, repeating shorter lists until the longest \
+        is completed. permutations uses the combination of all variables against all other variables. \
     """
     def _zip_cycle(*iterables, empty_default=None):
         cycles = [_itertools.cycle(i) for i in iterables]
@@ -117,7 +116,7 @@ properties:
       - loop
     description: >-
       Determines how to combine variables when there are multiple.
-      permutations uses the combination of all variables against all other variables.
-      loop iterates over each set of variables, repeating shorter lists until the longest
-      is completed.
+      loop (default) iterates over each set of variables, repeating shorter lists 
+      until the longest is completed. permutations uses the combination of all 
+      variables against all other variables.
 """

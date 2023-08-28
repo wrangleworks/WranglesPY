@@ -135,7 +135,7 @@ def test_strategy_default():
     """
     Test using default strategy for multiple variables
     """
-    prefix = "matrix_strategy"
+    prefix = "matrix_strategy_default"
     wrangles.recipe.run(
         """
         write:
@@ -143,9 +143,10 @@ def test_strategy_default():
               variables:
                 key1: [a,b,c]
                 key2: [1,2]
+                key3: z
               write:
                 - memory:
-                    id: ${prefix}_${key1}_${key2}
+                    id: ${prefix}_${key1}_${key2}_${key3}
                     where: col1 = ?
                     where_params:
                       - ${key1}
@@ -155,14 +156,15 @@ def test_strategy_default():
         }),
         variables={"prefix":prefix}
     )
-    
+    dfs = [
+        x for x in memory.dataframes
+        if x.startswith(prefix)
+    ]
     assert (
-        len(memory.dataframes[f"{prefix}_a_1"]["data"]) == 3 and
-        len(memory.dataframes[f"{prefix}_b_1"]["data"]) == 2 and
-        len(memory.dataframes[f"{prefix}_c_1"]["data"]) == 1 and
-        len(memory.dataframes[f"{prefix}_a_2"]["data"]) == 3 and
-        len(memory.dataframes[f"{prefix}_b_2"]["data"]) == 2 and
-        len(memory.dataframes[f"{prefix}_c_2"]["data"]) == 1
+        len(memory.dataframes[f"{prefix}_a_1_z"]["data"]) == 3 and
+        len(memory.dataframes[f"{prefix}_b_2_z"]["data"]) == 2 and
+        len(memory.dataframes[f"{prefix}_c_1_z"]["data"]) == 1 and
+        len(dfs) == 3
     )
 
 def test_strategy_permutations():
