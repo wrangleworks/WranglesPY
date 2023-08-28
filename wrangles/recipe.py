@@ -106,15 +106,14 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
 
     return new_recipe_object
 
-###### Make a copy of this for _load_functions for Reusable Recipes ######
-def _load_recipe(recipe: str) -> dict:
+
+def _read_recipe(recipe: str):
     """
-    Load yaml recipe file + replace any placeholder variables
+    Read recipe from various methods (website or gist, file path, model id or string)
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
-    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
 
-    :return: YAML Recipe converted to a dictionary
+    :return: YAML Recipe as a string
     """
     _logging.info(": Reading Recipe ::")
     
@@ -146,7 +145,33 @@ def _load_recipe(recipe: str) -> dict:
 
     return recipe_string
 
-def _load_functions(recipe: str):
+def _load_functions(recipe: str, functions):
+    """
+    Loads functions when recipe is passed as a model id, passes functions through otherwise
+
+    :param recipe: YAML recipe, name of a YAML file to be parsed or recipe model id
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+
+    :return: functions read from model id or passed through 
+    """
+    _logging.info(": Loading Functions ::")
+
+    # Check that functions is an empty list and recipe is being passed as a model_id
+    if functions == [] and _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        # Read functions from model_id
+        functions = _model_content(recipe)['functions']
+        if functions != '':
+            custom_module = _ModuleType('custom_module')
+            exec(functions, custom_module.__dict__)
+            functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+            # getting only the functions
+            functions = [x for x in functions if _isfunction(x)]
+        else:
+            functions = []
+
+    return functions
+    
+def _interpret_recipe(recipe_string: str, variables: dict = {}) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
@@ -155,22 +180,6 @@ def _load_functions(recipe: str):
 
     :return: YAML Recipe converted to a dictionary
     """
-    _logging.info(": Reading Functions ::")
-    
-    functions = _model_content(recipe)['functions']
-
-    if functions != '':
-        custom_module = _ModuleType('custom_module')
-        exec(functions, custom_module.__dict__)
-        functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
-        # getting only the functions
-        functions = [x for x in functions if _isfunction(x)]
-    else:
-        functions = []
-
-    return functions
-    
-def _interpret_recipe(recipe_string: str, variables: dict = {}):
     # Also add environment variables to list of placeholder variables
     # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
@@ -607,13 +616,9 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
-    # Parse recipe
-    if _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
-        recipe_string = _load_recipe(recipe)
-        functions = _load_functions(recipe)
-    else:
-        recipe_string = _load_recipe(recipe)
-
+    # Load recipe and functions
+    recipe_string = _read_recipe(recipe)
+    functions = _load_functions(recipe, functions)
     recipe = _interpret_recipe(recipe_string, variables)
 
     try:
