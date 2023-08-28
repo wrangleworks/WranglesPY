@@ -131,3 +131,107 @@ def test_matrix_variable_custom_function():
         len(memory.dataframes["variable_custom_functions_test_c"]["data"]) == 1
     )
 
+def test_strategy_default():
+    """
+    Test using default strategy for multiple variables
+    """
+    prefix = "matrix_strategy"
+    wrangles.recipe.run(
+        """
+        write:
+          - matrix:
+              variables:
+                key1: [a,b,c]
+                key2: [1,2]
+              write:
+                - memory:
+                    id: ${prefix}_${key1}_${key2}
+                    where: col1 = ?
+                    where_params:
+                      - ${key1}
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["a","a","a","b","b","c"]
+        }),
+        variables={"prefix":prefix}
+    )
+    
+    assert (
+        len(memory.dataframes[f"{prefix}_a_1"]["data"]) == 3 and
+        len(memory.dataframes[f"{prefix}_b_1"]["data"]) == 2 and
+        len(memory.dataframes[f"{prefix}_c_1"]["data"]) == 1 and
+        len(memory.dataframes[f"{prefix}_a_2"]["data"]) == 3 and
+        len(memory.dataframes[f"{prefix}_b_2"]["data"]) == 2 and
+        len(memory.dataframes[f"{prefix}_c_2"]["data"]) == 1
+    )
+
+def test_strategy_permutations():
+    """
+    Test using permutations strategy for multiple variables
+    """
+    prefix = "matrix_strategy_permutations"
+    wrangles.recipe.run(
+        """
+        write:
+          - matrix:
+              variables:
+                key1: [a,b,c]
+                key2: [1,2]
+              strategy: permutations
+              write:
+                - memory:
+                    id: ${prefix}_${key1}_${key2}
+                    where: col1 = ?
+                    where_params:
+                      - ${key1}
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["a","a","a","b","b","c"]
+        }),
+        variables={"prefix":prefix}
+    )
+    assert (
+        len(memory.dataframes[f"{prefix}_a_1"]["data"]) == 3 and
+        len(memory.dataframes[f"{prefix}_b_1"]["data"]) == 2 and
+        len(memory.dataframes[f"{prefix}_c_1"]["data"]) == 1 and
+        len(memory.dataframes[f"{prefix}_a_2"]["data"]) == 3 and
+        len(memory.dataframes[f"{prefix}_b_2"]["data"]) == 2 and
+        len(memory.dataframes[f"{prefix}_c_2"]["data"]) == 1
+    )
+
+def test_strategy_loop():
+    """
+    Test using loop strategy for multiple variables
+    """
+    wrangles.recipe.run(
+        """
+        write:
+          - matrix:
+              variables:
+                key1: [a,b,c]
+                key2: [1,2]
+                key3: z
+              strategy: loop
+              write:
+                - memory:
+                    id: matrix_strategy_loop_${key1}_${key2}_${key3}
+                    where: col1 = ?
+                    where_params:
+                      - ${key1}
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["a","a","a","b","b","c"]
+        })
+    )
+    
+    dfs = [
+        x for x in memory.dataframes
+        if x.startswith("matrix_strategy_loop_")
+    ]
+
+    assert (
+        len(memory.dataframes["matrix_strategy_loop_a_1_z"]["data"]) == 3 and
+        len(memory.dataframes["matrix_strategy_loop_b_2_z"]["data"]) == 2 and
+        len(memory.dataframes["matrix_strategy_loop_c_1_z"]["data"]) == 1 and
+        len(dfs) == 3
+    )

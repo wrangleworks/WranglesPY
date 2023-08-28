@@ -20,7 +20,8 @@ def write(
     df: _pd.DataFrame,
     variables: dict,
     write: list,
-    functions: _Union[_types.FunctionType, list] = []
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "permutations"
 ):
     """
     The matrix write connector lets you use variables in a single write definition to
@@ -32,7 +33,16 @@ def write(
     :param write: The write portion of a recipe to execute for each \
         combination of variables
     :param functions: Custom functions to provide to the write recipes
+    :param strategy: Determines how to combine variables when there are multiple. \
+        permutations uses the combination of all variables against all other variables. \
+        loop iterates over each set of variables, repeating shorter lists until the longest \
+        is completed.
     """
+    def _zip_cycle(*iterables, empty_default=None):
+        cycles = [_itertools.cycle(i) for i in iterables]
+        for _ in _itertools.zip_longest(*iterables):
+            yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
+
     permutations = []
 
     for key, val in variables.items():
@@ -52,12 +62,20 @@ def write(
 
         permutations.append([{key: var} for var in vals])
 
-    # Calc all permutations
-    permutations = list(_itertools.product(*permutations))
-    permutations = [
-        dict(_chainmap(*permutation))
-        for permutation in permutations
-    ]
+    if strategy.lower() == "permutations":
+        # Calc all permutations
+        permutations = list(_itertools.product(*permutations))
+        permutations = [
+            dict(_chainmap(*permutation))
+            for permutation in permutations
+        ]
+    elif strategy.lower() == "loop":
+        permutations = [
+            permutation
+            for permutation in _zip_cycle(*permutations)
+        ]
+    else:
+        raise ValueError(f"Invalid setting {strategy} for strategy")
 
     with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
         for permutation in permutations:
@@ -92,4 +110,14 @@ properties:
     minItems: 1
     items:
       - $ref: "#/$defs/write/items"
+  strategy:
+    type: string
+    enum:
+      - permutations
+      - loop
+    description: >-
+      Determines how to combine variables when there are multiple.
+      permutations uses the combination of all variables against all other variables.
+      loop iterates over each set of variables, repeating shorter lists until the longest
+      is completed.
 """
