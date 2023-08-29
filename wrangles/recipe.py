@@ -136,14 +136,13 @@ def _replace_templated_values(
     return new_recipe_object
 
 
-def _load_recipe(recipe: str, variables: dict = {}) -> dict:
+def _read_recipe(recipe: str, variables: dict = {}) -> dict:
     """
-    Load yaml recipe file + replace any placeholder variables
+    Read recipe from various methods (website or gist, file path, model id or string)
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
-    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
 
-    :return: YAML Recipe converted to a dictionary
+    :return: YAML Recipe as a string
     """
     _logging.info(": Reading Recipe ::")
     
@@ -162,9 +161,13 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         recipe_string = response.text
 
     # If recipe is a single line, it's probably a file path
-    # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
+    # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
+    elif _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        model = _data.model_content(recipe)
+        recipe_string = model['recipe']
+    # Otherwise it's a recipe
     else:
         with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
@@ -655,7 +658,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Parse recipe
-    recipe = _load_recipe(recipe, variables)
+    recipe = _read_recipe(recipe, variables)
 
     try:
         # Format custom functions
