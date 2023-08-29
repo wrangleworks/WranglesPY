@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Wrangles Recipes",
-  "description": "Recipes to execute an automated sequence of Wrangles. Read, wrangle, write.",
+  "description": "Recipes execute an automated sequence of Wrangles. Read, wrangle, write.",
   "type": "object",
   "additionalProperties": false,
   "properties": {

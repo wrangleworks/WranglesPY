@@ -73,7 +73,7 @@ properties:
   params:
     type: 
       - array
-      - dict
+      - object
     description: |-
       List of parameters to pass to execute method.
       This may use %s or %(name)s syntax

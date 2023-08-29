@@ -156,16 +156,21 @@ for wrangle in schema['wrangles']:
 
 # Add common write properties
 for write in schema['write']:
-    schema['write'][write]['properties']['columns'] = {
+    if "properties" in schema['write'][write]:
+        write_properties = schema['write'][write]['properties']
+    else:
+        write_properties = schema['write'][write]['anyOf'][-1]['properties']
+
+    write_properties['columns'] = {
         "$ref": "#/$defs/write/commonProperties/columns"
     }
-    schema['write'][write]['properties']['not_columns'] = {
+    write_properties['not_columns'] = {
         "$ref": "#/$defs/write/commonProperties/not_columns"
     }
-    schema['write'][write]['properties']['where'] = {
+    write_properties['where'] = {
         "$ref": "#/$defs/write/commonProperties/where"
     }
-    schema['write'][write]['properties']['where_params'] = {
+    write_properties['where_params'] = {
         "$ref": "#/$defs/write/commonProperties/where_params"
     }
 

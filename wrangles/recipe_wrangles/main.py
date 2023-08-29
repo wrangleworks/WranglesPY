@@ -171,7 +171,7 @@ def filter(
       where_params:
         type: 
           - array
-          - dict
+          - object
         description: |-
           Variables to use in conjunctions with where.
           This allows the query to be parameterized.
@@ -464,21 +464,32 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
 
 
-def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, functions: _Union[_types.FunctionType, list] = []) -> _pd.DataFrame:
+def recipe(
+    df: _pd.DataFrame,
+    name: str = None,
+    variables = {},
+    output_columns = None,
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+) -> _pd.DataFrame:
     """
-    type: object
-    description: Run a recipe as a Wrangle. Recipe-ception,
-    additionalProperties: false
-    required:
-      - name
-    properties:
-      name:
-        type: string
-        description: file name of the recipe
-      variables:
-        type: object
-        description: A dictionary of variables to pass to the recipe
+    anyOf:
+      - "$ref": "#"
+      - type: object
+        description: Run a recipe as a Wrangle. Recipe-ception,
+        additionalProperties: false
+        required:
+          - name
+        properties:
+          name:
+            type: string
+            description: file name of the recipe
+          variables:
+            type: object
+            description: A dictionary of variables to pass to the recipe
     """
+    if not name: name = kwargs
+
     original_df = df.copy() # copy of the original df
     
     # Running recipe wrangle
@@ -642,7 +653,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
       params:
         type: 
           - array
-          - dict
+          - object
         description: |-
           Variables to use in conjunctions with query.
           This allows the query to be parameterized.

@@ -30,7 +30,7 @@ def write(
     :param df: The input dataframe
     :param variables: A list of variables. The write will be execute once for \
         each combination of variables.
-    :param write: The write portion of a recipe to execute for each \
+    :param write: The write section of a recipe to execute for each \
         combination of variables
     :param functions: Custom functions to provide to the write recipes
     :param strategy: Determines how to combine variables when there are multiple. \
@@ -99,12 +99,15 @@ properties:
   variables:
     type: object
     description: >-
-      A list of variables. The write will be execute once for 
-      each combination of variables.
+      A set of variables as key/values.
+      The write will be execute once for each combination of variables.\n
+      Values may be a single value or a list,
+      may use custom functions and may use the special syntax
+      set(column_name) to use the unique values from a column.
   write:
     type: array
     description: >-
-      The write portion of a recipe to execute for each
+      The write section of a recipe to execute for each
       combination of variables
     minItems: 1
     items:
