@@ -136,7 +136,7 @@ def _replace_templated_values(
     return new_recipe_object
 
 
-def _read_recipe(recipe: str, variables: dict = {}) -> dict:
+def _read_recipe(recipe: str, functions,  variables: dict = {}) -> dict:
     """
     Read recipe from various methods (website or gist, file path, model id or string)
 
@@ -183,7 +183,20 @@ def _read_recipe(recipe: str, variables: dict = {}) -> dict:
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
-    return recipe_object
+    # Check that functions is an empty list and recipe is being passed as a model_id
+    if functions == [] and _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        # Read functions from model_id
+        functions = _data.model_content(recipe)['functions']
+        if functions != '':
+            custom_module = _ModuleType('custom_module')
+            exec(functions, custom_module.__dict__)
+            functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+            # getting only the functions
+            functions = [x for x in functions if _isfunction(x)]
+        else:
+            functions = []
+
+    return recipe_object, functions
 
 def _load_functions(recipe: str, functions):
     """
@@ -657,7 +670,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Load recipe and functions
-    recipe = _read_recipe(recipe, variables)
+    recipe, functions = _read_recipe(recipe, functions, variables)
 
     try:
         # Format custom functions
