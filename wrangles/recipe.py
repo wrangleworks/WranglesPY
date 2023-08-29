@@ -303,198 +303,202 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     """
     for step in wrangles_list:
         for wrangle, params in step.items():
-            if params is None: params = {}
-            _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+            try:
+                if params is None: params = {}
+                _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
-            original_params = params.copy()
-            if 'where' in params.keys() and wrangle not in no_where_list:
-                df_original = df.copy()
-                
-                # Save original index, filter data, then restore index
-                df['original_index_ikdejsrvjazl'] = df.index
-                df = _filter_dataframe(
-                    df,
-                    where = params.pop('where'),
-                    where_params= params.pop('where_params', None)
-                )
-                df = df.set_index(df['original_index_ikdejsrvjazl'])
-                df = df.drop('original_index_ikdejsrvjazl', axis = 1)
-                df.index.names = [None]
-
-            if wrangle.split('.')[0] == 'pandas':
-                # Execute a pandas method
-                # TODO: disallow any hidden methods
-                # TODO: remove parameters, allow selecting in/out columns
-                try:
-                    df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
-                except:
-                    df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
-
-            elif wrangle.split('.')[0] == 'custom':
-                # Execute a user's custom function
-                try:
-                    custom_function = functions[wrangle[7:]]
-                except:
-                    raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
-
-                # Get user's function arguments
-                fn_argspec = _inspect.getfullargspec(custom_function)
-
-                # Check for function_args and df
-                if 'df' in fn_argspec.args:
-                    # If user's first argument is df, pass them the whole dataframe
-                    df = custom_function(df=df, **params)
-                    if not isinstance(df, _pandas.DataFrame):
-                        raise RuntimeError(f"Function {wrangle} did not return a dataframe")
-
-                # Dealing with no function_args
-                else:
-                    # Use a temp copy of dataframe as not to affect original
-                    df_temp = df
-
-                    # If user specifies an input, reduce dataframe down as required
-                    if 'input' in params:
-                        df_temp = df_temp[
-                            _wildcard_expansion(
-                                all_columns=df.columns.tolist(),
-                                selected_columns=params['input']
-                            )
-                        ]
-
-                    # If the user hasn't explicitly requested input or output
-                    # then remove them so they will not be included in kwargs
-                    params_temp = params.copy()
-                    for special_parameter in ['input', 'output']:
-                        if special_parameter in params_temp and special_parameter not in fn_argspec.args:
-                            params_temp.pop(special_parameter)
-
-                    # If the user's custom function does not have kwargs available
-                    # then we need to remove any unmatched function arguments
-                    # from the parameters or the columns
-                    if not fn_argspec.varkw:
-                        params_temp2 = params_temp.copy()
-                        for param in params_temp2.keys():
-                            if param not in fn_argspec.args:
-                                params_temp.pop(param)
-
-                        cols = df_temp.columns.to_list()
-                        cols_renamed = [col.replace(' ', '_') for col in cols]
-
-                        # Create a dictionary of columns with spaces and their replacement
-                        # with an underscore. Used in df_temp.rename
-                        colDict = {
-                            col: col.replace(' ', '_') for col in cols
-                            if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
-                        }
-
-                        df_temp.rename(columns=colDict, inplace=True)
-                        cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
-
-                        # Ensure we don't remove all columns
-                        # if user hasn't specified any
-                        if cols_renamed:
-                            df_temp = df_temp[cols_renamed]
+                original_params = params.copy()
+                if 'where' in params.keys() and wrangle not in no_where_list:
+                    df_original = df.copy()
                     
-                    # If user specifies multiple outputs, expand any list output
-                    # across the columns else return as a single column
-                    if isinstance(params['output'], list) and len(params['output']) > 1:
-                        result_type = 'expand'
-                    else:
-                        result_type = 'reduce'
+                    # Save original index, filter data, then restore index
+                    df['original_index_ikdejsrvjazl'] = df.index
+                    df = _filter_dataframe(
+                        df,
+                        where = params.pop('where'),
+                        where_params= params.pop('where_params', None)
+                    )
+                    df = df.set_index(df['original_index_ikdejsrvjazl'])
+                    df = df.drop('original_index_ikdejsrvjazl', axis = 1)
+                    df.index.names = [None]
 
-                    # {**x, **params_temp} deals with columns in 
-                    # function args and **params_temp without columns
-                    # There may be no columns in the case that the user
-                    # does not specify any columns in their function parameters
+                if wrangle.split('.')[0] == 'pandas':
+                    # Execute a pandas method
+                    # TODO: disallow any hidden methods
+                    # TODO: remove parameters, allow selecting in/out columns
                     try:
-                        df[params['output']] = df_temp.apply(
-                            lambda x: custom_function(**{**x, **params_temp}),
-                            axis=1,
-                            result_type=result_type
-                        )
+                        df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
                     except:
-                        df[params['output']] = df_temp.apply(
-                            lambda _: custom_function(**params_temp),
-                            axis=1,
-                            result_type=result_type
+                        df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+
+                elif wrangle.split('.')[0] == 'custom':
+                    # Execute a user's custom function
+                    try:
+                        custom_function = functions[wrangle[7:]]
+                    except:
+                        raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
+
+                    # Get user's function arguments
+                    fn_argspec = _inspect.getfullargspec(custom_function)
+
+                    # Check for function_args and df
+                    if 'df' in fn_argspec.args:
+                        # If user's first argument is df, pass them the whole dataframe
+                        df = custom_function(df=df, **params)
+                        if not isinstance(df, _pandas.DataFrame):
+                            raise RuntimeError(f"Function {wrangle} did not return a dataframe")
+
+                    # Dealing with no function_args
+                    else:
+                        # Use a temp copy of dataframe as not to affect original
+                        df_temp = df
+
+                        # If user specifies an input, reduce dataframe down as required
+                        if 'input' in params:
+                            df_temp = df_temp[
+                                _wildcard_expansion(
+                                    all_columns=df.columns.tolist(),
+                                    selected_columns=params['input']
+                                )
+                            ]
+
+                        # If the user hasn't explicitly requested input or output
+                        # then remove them so they will not be included in kwargs
+                        params_temp = params.copy()
+                        for special_parameter in ['input', 'output']:
+                            if special_parameter in params_temp and special_parameter not in fn_argspec.args:
+                                params_temp.pop(special_parameter)
+
+                        # If the user's custom function does not have kwargs available
+                        # then we need to remove any unmatched function arguments
+                        # from the parameters or the columns
+                        if not fn_argspec.varkw:
+                            params_temp2 = params_temp.copy()
+                            for param in params_temp2.keys():
+                                if param not in fn_argspec.args:
+                                    params_temp.pop(param)
+
+                            cols = df_temp.columns.to_list()
+                            cols_renamed = [col.replace(' ', '_') for col in cols]
+
+                            # Create a dictionary of columns with spaces and their replacement
+                            # with an underscore. Used in df_temp.rename
+                            colDict = {
+                                col: col.replace(' ', '_') for col in cols
+                                if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                            }
+
+                            df_temp.rename(columns=colDict, inplace=True)
+                            cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
+
+                            # Ensure we don't remove all columns
+                            # if user hasn't specified any
+                            if cols_renamed:
+                                df_temp = df_temp[cols_renamed]
+                        
+                        # If user specifies multiple outputs, expand any list output
+                        # across the columns else return as a single column
+                        if isinstance(params['output'], list) and len(params['output']) > 1:
+                            result_type = 'expand'
+                        else:
+                            result_type = 'reduce'
+
+                        # {**x, **params_temp} deals with columns in 
+                        # function args and **params_temp without columns
+                        # There may be no columns in the case that the user
+                        # does not specify any columns in their function parameters
+                        try:
+                            df[params['output']] = df_temp.apply(
+                                lambda x: custom_function(**{**x, **params_temp}),
+                                axis=1,
+                                result_type=result_type
+                            )
+                        except:
+                            df[params['output']] = df_temp.apply(
+                                lambda _: custom_function(**params_temp),
+                                axis=1,
+                                result_type=result_type
+                            )
+
+                else:
+                    # Blacklist of Wrangles not to allow wildcards for
+                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
+                        # Expand out any wildcards or regex in column names
+                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                            
+                    # Get the requested function from the recipe_wrangles module
+                    obj = _recipe_wrangles
+                    for element in wrangle.split('.'):
+                        obj = getattr(obj, element)
+
+                    if wrangle == 'recipe':
+                        params['functions'] = functions
+
+                    df = obj(df, **params)
+
+                # If the user specified a where, we need to merge this back to the original dataframe
+                if 'where' in original_params and wrangle not in no_where_list:
+                    if 'output' in params.keys():
+                        # Wrangle explictly defined the output
+                        output_columns = (
+                            params['output']
+                            if isinstance(params['output'], list)
+                            else [params['output']]
+                        )
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left',
+                            suffixes=('_x',None)
+                        )
+                        for output_col in output_columns:
+                            if output_col + '_x' in df.columns:
+                                df = _recipe_wrangles.merge.coalesce(
+                                    df,
+                                    [output_col, output_col+'_x'],
+                                    output_col
+                                )
+                                df.drop([output_col+'_x'], axis = 1, inplace=True)
+                    elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                        # Wrangle overwrote the input
+                        output_columns = params['input']
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left',
+                            suffixes=('_x',None)
+                        )
+                        for input_col in params['input']:
+                            if input_col + '_x' in df.columns:
+                                df = _recipe_wrangles.merge.coalesce(
+                                    df,
+                                    [input_col, input_col+'_x'],
+                                    input_col
+                                )
+                                df.drop([input_col+'_x'], axis = 1, inplace=True)
+                    elif list(df.columns) != list(df_original.columns):
+                        # Wrangle added columns
+                        output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left'
                         )
 
-            else:
-                # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
-                    # Expand out any wildcards or regex in column names
-                    params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                        
-                # Get the requested function from the recipe_wrangles module
-                obj = _recipe_wrangles
-                for element in wrangle.split('.'):
-                    obj = getattr(obj, element)
-
-                if wrangle == 'recipe':
-                    params['functions'] = functions
-
-                df = obj(df, **params)
-
-            # If the user specified a where, we need to merge this back to the original dataframe
-            if 'where' in original_params and wrangle not in no_where_list:
-                if 'output' in params.keys():
-                    # Wrangle explictly defined the output
-                    output_columns = (
-                        params['output']
-                        if isinstance(params['output'], list)
-                        else [params['output']]
-                    )
-                    df = _pandas.merge(
-                        df_original,
-                        df[output_columns],
-                        left_index=True,
-                        right_index=True,
-                        how='left',
-                        suffixes=('_x',None)
-                    )
-                    for output_col in output_columns:
-                        if output_col + '_x' in df.columns:
-                            df = _recipe_wrangles.merge.coalesce(
-                                df,
-                                [output_col, output_col+'_x'],
-                                output_col
-                            )
-                            df.drop([output_col+'_x'], axis = 1, inplace=True)
-                elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
-                    # Wrangle overwrote the input
-                    output_columns = params['input']
-                    df = _pandas.merge(
-                        df_original,
-                        df[output_columns],
-                        left_index=True,
-                        right_index=True,
-                        how='left',
-                        suffixes=('_x',None)
-                    )
-                    for input_col in params['input']:
-                        if input_col + '_x' in df.columns:
-                            df = _recipe_wrangles.merge.coalesce(
-                                df,
-                                [input_col, input_col+'_x'],
-                                input_col
-                            )
-                            df.drop([input_col+'_x'], axis = 1, inplace=True)
-                elif list(df.columns) != list(df_original.columns):
-                    # Wrangle added columns
-                    output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
-                    df = _pandas.merge(
-                        df_original,
-                        df[output_columns],
-                        left_index=True,
-                        right_index=True,
-                        how='left'
-                    )
-
-            # Clean up NaN's
-            df.fillna('', inplace = True)
-            # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
-            # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-            df.fillna('0', inplace = True)
+                # Clean up NaN's
+                df.fillna('', inplace = True)
+                # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+                # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+                df.fillna('0', inplace = True)
+            except Exception as e:
+                # Append name of wrangle to message and pass through exception
+                raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__)
 
     return df
 

@@ -329,7 +329,10 @@ def test_attributes_MinMidMax():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Invalid boundary setting. min, mid or max permitted.'
+    assert (
+        info.typename == 'ValueError' and
+        'Invalid boundary setting. min, mid or max permitted.' in info.value.args[0]
+    )
     
 # if the input is multiple columns (a list)
 def test_attributes_multi_col():
@@ -389,7 +392,10 @@ def test_attributes_single_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
+    assert (
+        info.typename == 'ValueError' and
+        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+    )
 
 def test_attributes_where():
     """
@@ -433,7 +439,10 @@ def test_codes_inconsistent_input_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
+    assert (
+        info.typename == 'ValueError' and
+        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+    )
 
 # Input is string
 df_test_codes = pd.DataFrame([['to gain access use Z1ON0101']], columns=['secret'])
@@ -509,7 +518,10 @@ def test_extract_codes_one_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Extract must output to a single column or equal amount of columns as input.'
+    assert (
+        info.typename == 'ValueError' and
+        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+    )
 
 #
 # Custom Extraction
@@ -572,7 +584,10 @@ def test_extract_custom_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    assert (
+        info.typename == 'ValueError' and
+        'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
+    )
 
 def test_extract_custom_labels():
     """
@@ -644,7 +659,10 @@ def test_extract_custom_6():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+    assert (
+        info.typename == 'ValueError' and
+        'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
+    )
 
 def test_extract_with_standardize_model_id():
     data = pd.DataFrame({
@@ -659,7 +677,10 @@ def test_extract_with_standardize_model_id():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.'
+    assert (
+        info.typename == 'ValueError' and
+        'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.' in info.value.args[0]
+    )
 
 # Input column is list
 df_test_custom_list = pd.DataFrame([[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]], columns=['Fact'])
@@ -1186,7 +1207,10 @@ def test_date_properties_2():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == '"millennium" not a valid date property.'
+    assert (
+        info.typename == 'ValueError' and
+        '"millennium" not a valid date property.' in info.value.args[0]
+    )
 
 # Multiple inputs to single output
 def test_date_properties_multi_input():
@@ -1288,4 +1312,7 @@ def test_date_range_2():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == '"millennium" not a valid frequency'
+    assert (
+        info.typename == 'ValueError' and
+        '"millennium" not a valid frequency' in info.value.args[0]
+    )

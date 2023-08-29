@@ -25,7 +25,7 @@ def test_function_not_found():
         )
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0] == 'Custom Wrangle function: "custom.does_not_exists" not found'
+        '"custom.does_not_exists" not found' in info.value.args[0]
     )
 
 
@@ -290,7 +290,7 @@ def test_pass_error():
 
     def handle_error(error):
         if (type(error).__name__ == 'TypeError' and
-            str(error) == "data type 'andksankdl' not understood"
+            "data type 'andksankdl' not understood" in str(error)
         ):
             global test_var_pass_error
             test_var_pass_error = True
@@ -329,7 +329,7 @@ def test_pass_error_with_params():
 
     def handle_error(error, param):
         if (type(error).__name__ == 'TypeError' and
-            str(error) == "data type 'andksankdl' not understood" and
+            "data type 'andksankdl' not understood" in str(error) and
             param == "value"
         ):
             global test_var_pass_error_params
@@ -599,7 +599,7 @@ def test_kwargs_dictionary_error():
     
     assert (
         info.typename == 'TypeError' and
-        info.value.args[0] == "unsupported operand type(s) for +: 'dict' and 'str'"
+        "unsupported operand type(s) for +: 'dict' and 'str'" in info.value.args[0]
     )
 
 def test_kwargs_only():

@@ -56,7 +56,10 @@ def test_dictionary_element_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.dictionary_element"
+    assert (
+        info.typename == 'ValueError' and
+        "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
+    )
 
 def test_dictionary_elem_default():
     """
@@ -181,7 +184,10 @@ def test_list_element_5():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "The list of inputs and outputs must be the same length for select.list_element"
+    assert (
+        info.typename == 'ValueError' and
+        "The list of inputs and outputs must be the same length for select.list_element" in info.value.args[0]
+    )
 
 def test_list_element_where():
     """
@@ -497,7 +503,10 @@ def test_left_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for input and output must be the same length." in info.value.args[0]
+    )
     
 #
 # Right
@@ -557,7 +566,10 @@ def test_right_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for input and output must be the same length." in info.value.args[0]
+    )
 
 def test_right_where():
     """
@@ -640,7 +652,10 @@ def test_substring_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == "The lists for input and output must be the same length."
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for input and output must be the same length." in info.value.args[0]
+    )
 
 def test_substring_where():
     """
