@@ -77,3 +77,17 @@ def test_recipe_special_character():
     recipe = 'tests/samples/recipe_special_character.wrgl.yml'
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['column'] == 'this is a ° symbol'
+
+def test_recipe_sharing_model_id():
+    """
+    Tests calling a recipe using a model id
+    """
+    df = wrangles.recipe.run(recipe = 'bb206e25-c7e4-46cc')
+    assert df.iloc[0]['output'] == 'this is a test, this is only a test' and df.iloc[0]['other output'] == 'This is the 0th row'
+
+def test_recipe_sharing_gist():
+    """
+    Tests calling a recipe using a gist url
+    """
+    df = wrangles.recipe.run(recipe='https://gist.githubusercontent.com/thomasstvr/a9f9f3e7a8da3f39b1cb26fafe87fa27/raw/01b7ec1ca4a1bab5db7ffb6861ed7d8f2a974825/test_recipe.wrgl.yml')
+    assert df.iloc[0]['column title case'] == 'This Is A Test'
