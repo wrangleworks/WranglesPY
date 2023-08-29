@@ -50,10 +50,10 @@ def test_recipe_from_url_not_found():
         info.value.args[0] == 'Error getting recipe from url: https://public.wrangle.works/tests/recipe.wrgl.yaaml\nReason: Not Found-404'
     )
 
-#
-# Wild card Expansion escape character
-#
 def test_wildcard_expansion_1():
+    """
+    Wild card Expansion escape character
+    """
     data = pd.DataFrame({
         'col1': ['HEllO'],
         'col*': ['WORLD'],
@@ -77,3 +77,13 @@ def test_recipe_special_character():
     recipe = 'tests/samples/recipe_special_character.wrgl.yml'
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['column'] == 'this is a ° symbol'
+
+def test_recipe_model():
+    """
+    Test running a recipe using a model ID
+    """
+    df = wrangles.recipe.run("1e13e845-bc3f-4b27")
+    assert (
+        len(df) == 15 and
+        list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
+    )
