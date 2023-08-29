@@ -16,7 +16,7 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from .config import no_where_list
-from wrangles.data import model_content as _model_content
+from . import data as _data
 from types import ModuleType as _ModuleType
 from inspect import isfunction as _isfunction
 
@@ -136,7 +136,7 @@ def _read_recipe(recipe: str):
         recipe_string = recipe
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
-        model = _model_content(recipe)
+        model = _data.model_content(recipe)
         recipe_string = model['recipe']
     # Otherwise it's a recipe
     else:
@@ -159,7 +159,7 @@ def _load_functions(recipe: str, functions):
     # Check that functions is an empty list and recipe is being passed as a model_id
     if functions == [] and _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
         # Read functions from model_id
-        functions = _model_content(recipe)['functions']
+        functions = _data.model_content(recipe)['functions']
         if functions != '':
             custom_module = _ModuleType('custom_module')
             exec(functions, custom_module.__dict__)
