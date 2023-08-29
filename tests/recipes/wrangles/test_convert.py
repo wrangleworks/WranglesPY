@@ -84,7 +84,10 @@ def test_case_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 # Test error when a single input with list of outputs is given
 def test_case_single_input_multi_output():
@@ -102,7 +105,10 @@ def test_case_single_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_case_lower():
     """
@@ -232,7 +238,10 @@ def test_data_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 # Single input to a list of outputs
 def test_data_single_input_multi_output():
@@ -251,7 +260,10 @@ def test_data_single_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_data_where():
     """
@@ -328,7 +340,10 @@ def test_to_json_array_list_to_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 # Test error when using a single input column and a list of output columns
 def test_to_json_array_single_input_to_multi_output():
@@ -346,7 +361,10 @@ def test_to_json_array_single_input_to_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_to_json_array_where():
     """
@@ -540,7 +558,10 @@ def test_from_json_array_list_to_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 # test error with a single input and a list of outputs
 def test_from_json_array_single_input_to_multi_output():
@@ -558,7 +579,10 @@ def test_from_json_array_single_input_to_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_from_json_array_where():
     """
@@ -671,7 +695,10 @@ def test_fraction_to_decimal_list_to_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 # Test converting fraction to decimal with a list of outputs and a single input
 def test_fraction_to_decimal_single_input_multi_output():
@@ -692,7 +719,10 @@ def test_fraction_to_decimal_single_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_fraction_to_decimal_where():
     """

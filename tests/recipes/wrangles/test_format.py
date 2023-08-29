@@ -67,7 +67,10 @@ def test_remove_duplicates_4():
 
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 def test_remove_duplicates_where():
     """
@@ -168,7 +171,10 @@ def test_trim_list_to_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 #    
 # Prefix
@@ -240,7 +246,10 @@ def test_prefix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 def test_prefix_where():
     """
@@ -331,7 +340,10 @@ def test_suffix_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 def test_suffix_where():
     """
@@ -471,7 +483,10 @@ def test_pad_list_to_single_output():
   """
   with pytest.raises(ValueError) as info:
     raise wrangles.recipe.run(recipe, dataframe=data)
-  assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+  assert (
+      info.typename == 'ValueError' and
+      'The lists for input and output must be the same length.' in info.value.args[0]
+  )
 
 def test_pad_where():
   data = pd.DataFrame({

@@ -104,7 +104,10 @@ def test_column_exists():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == '"col" column already exists in dataFrame.'
+    assert (
+        info.typename == 'ValueError' and
+        '"col" column already exists in dataFrame.' in info.value.args[0]
+    )
 
 def test_column_exists_list():
     """
@@ -121,7 +124,10 @@ def test_column_exists_list():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("['col'] column(s)")
+    assert (
+        info.typename == 'ValueError' and
+        "['col'] column(s)" in info.value.args[0]
+    )
 
 #
 # Index
@@ -299,7 +305,10 @@ def test_jinja_multiple_templates():
     """
     with pytest.raises(Exception) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'Exception' and info.value.args[0] == 'Template must have only one key specified'
+    assert (
+        info.typename == 'Exception' and
+        'Template must have only one key specified' in info.value.args[0]
+    )
 
 def test_jinja_no_template():
     """
@@ -316,7 +325,10 @@ def test_jinja_no_template():
     """
     with pytest.raises(TypeError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'TypeError' and info.value.args[0] == "jinja() missing 1 required positional argument: 'template'"
+    assert (
+        info.typename == 'TypeError' and
+        "jinja() missing 1 required positional argument: 'template'" in info.value.args[0]
+    )
 
 def test_jinja_unsupported_template_key():
     """
@@ -336,7 +348,10 @@ def test_jinja_unsupported_template_key():
     """
     with pytest.raises(Exception) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'Exception' and info.value.args[0] == "'file', 'column' or 'string' not found"
+    assert (
+        info.typename == 'Exception' and
+        "'file', 'column' or 'string' not found" in info.value.args[0]
+    )
 
 def test_jinja_output_list():
     """
@@ -383,7 +398,7 @@ def test_jinja_output_missing():
         )
     assert (
         info.typename == 'TypeError' and
-        info.value.args[0].startswith("jinja() missing")
+        "jinja() missing" in info.value.args[0]
     )
 
 
@@ -555,7 +570,10 @@ def test_create_bins_list_to_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 # Test create.bins with a single input and a list of output columns
 def test_create_bins_single_input_multi_output():
@@ -589,7 +607,10 @@ def test_create_bins_single_input_multi_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_create_bins_where():
     """

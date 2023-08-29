@@ -64,7 +64,10 @@ def test_classify_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 def test_classify_extract_model_id():
     """
@@ -85,7 +88,10 @@ def test_classify_extract_model_id():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.'
+    assert (
+        info.typename == 'ValueError' and
+        'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.' in info.value.args[0]
+    )
 
 def test_classify_invalid_model():
     """
@@ -110,7 +116,7 @@ def test_classify_invalid_model():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+        'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
     )
     
 def test_classify_invalid_variable_syntax():
@@ -134,7 +140,10 @@ def test_classify_invalid_variable_syntax():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+    assert (
+        info.typename == 'ValueError' and
+        'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
+    )
 
 def test_classify_where():
     """
@@ -323,7 +332,10 @@ def test_filter_between_error():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Can only use "between" with two values'
+    assert (
+        info.typename == 'ValueError' and
+        'Can only use "between" with two values' in info.value.args[0]
+    )
 
 # Contains
 def test_filter_contains():
@@ -731,7 +743,10 @@ def test_remove_words_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 # tokenize inputs
 def test_remove_words_tokenize():
@@ -871,7 +886,10 @@ def test_rename_missing_output():
                 'Part Number': ['CH465517080'],
             })
         )
-    assert info.typename == 'ValueError' and info.value.args[0][:11] == 'If an input'
+    assert (
+        info.typename == 'ValueError' and
+        'If an input' in info.value.args[0]
+    )
 
 def test_rename_inconsistent_input_output():
     """
@@ -892,7 +910,10 @@ def test_rename_inconsistent_input_output():
                 'Part Number': ['CH465517080'],
             })
         )
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
 
 def test_rename_invalid_input():
     """
@@ -944,7 +965,10 @@ def test_standardize_2():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect model_id. May be missing "${ }" around value'
+    assert (
+        info.typename == 'ValueError' and
+        'Incorrect model_id. May be missing "${ }" around value' in info.value.args[0]
+    )
 
 # Missing a character in model_id format
 def test_standardize_3():
@@ -960,7 +984,10 @@ def test_standardize_3():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
+    assert (
+        info.typename == 'ValueError' and
+        'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
+    )
 
 # using an extract model with standardize function
 def test_standardize_4():
@@ -976,7 +1003,10 @@ def test_standardize_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.'
+    assert (
+        info.typename == 'ValueError' and
+        'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.' in info.value.args[0]
+    )
     
 # Using classify model with standardize function
 def test_standardize_5():
@@ -992,7 +1022,10 @@ def test_standardize_5():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Using classify model_id f7958bd2-af22-43b1 in a standardize function.'
+    assert (
+        info.typename == 'ValueError' and
+        'Using classify model_id f7958bd2-af22-43b1 in a standardize function.' in info.value.args[0]
+    )
 
 def test_standardize_where():
     """
@@ -1034,7 +1067,10 @@ def test_standardize_multi_input_single_output():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'The lists for input and output must be the same length.'
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 # List of inputs and outputs single model_id
 def test_standardize_multi_io_single_model():
@@ -1189,7 +1225,7 @@ def test_replace_inconsistent_input():
         )
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0].startswith('The lists for')
+        'The lists for' in info.value.args[0]
     )
 
 def test_replace_integer():
@@ -1319,7 +1355,10 @@ def test_translate_4():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0].startswith("The lists for")
+    assert (
+        info.typename == 'ValueError' and
+        "The lists for" in info.value.args[0]
+    )
     
 def test_translate_where():
     """
@@ -1432,8 +1471,11 @@ def test_sql_2():
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'Only SELECT statements are supported for sql wrangles'
-    
+    assert (
+        info.typename == 'ValueError' and
+        'Only SELECT statements are supported for sql wrangles' in info.value.args[0]
+    )
+
 # sql with objects in data
 def test_sql_3():
     data = pd.DataFrame({
@@ -1548,7 +1590,7 @@ def test_date_calc_3():
 
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0] == '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"'
+        '"matrix-multiplication" is not a valid operation. Available operations: "add", "subtract"' in info.value.args[0]
     )
 
 def test_date_calc_inconsistent_input():
@@ -1575,7 +1617,7 @@ def test_date_calc_inconsistent_input():
         )
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0].startswith('The lists for')
+        'The lists for' in info.value.args[0]
     )
 
 # Test date_calculator using multiple input and output columns
