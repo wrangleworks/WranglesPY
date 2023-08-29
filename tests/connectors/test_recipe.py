@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+from wrangles.connectors import memory
 
 
 def test_read_recipe_connector():
@@ -93,3 +94,94 @@ def test_function_sub_recipe():
         ]
     )
     assert df['col1'][0] == 'MARIO'
+
+def test_read():
+    """
+    Test read defined within the recipe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - recipe:
+              read:
+                - test:
+                    rows: 5
+                    values:
+                      header1: value1
+              wrangles:
+                - convert.case:
+                    input: header1
+                    case: upper
+        """
+    )
+    assert df["header1"][0] == "VALUE1"
+
+def test_wrangles():
+    """
+    Test wrangles defined within the recipe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+        wrangles:
+          - recipe:
+              wrangles:
+                - convert.case:
+                    input: header1
+                    case: upper
+        """
+    )
+    assert df["header1"][0] == "VALUE1"
+
+def test_write():
+    """
+    Test write defined within the recipe
+    """
+    wrangles.recipe.run(
+        """
+        read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+        write:
+          - recipe:
+              wrangles:
+                - convert.case:
+                    input: header1
+                    case: upper
+              write:
+                - memory:
+                    id: recipe_write
+        """
+    )
+    assert memory.dataframes["recipe_write"]["data"][0][0] == "VALUE1"
+
+def test_run():
+    """
+    Test run defined within the recipe
+    """
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+          - recipe:
+              read:
+                - test:
+                    rows: 5
+                    values:
+                      header1: value1
+              wrangles:
+                - convert.case:
+                    input: header1
+                    case: upper
+              write:
+                - memory:
+                    id: recipe_run
+        """
+    )
+    assert memory.dataframes["recipe_run"]["data"][0][0] == "VALUE1"
