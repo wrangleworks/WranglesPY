@@ -35,9 +35,6 @@ _schema['run'] = """
 anyOf:
   - "$ref": "#"
   - type: object
-    description: >-
-      Run a recipe, from a recipe! Recipe-ception.
-      This will trigger another recipe.
     required:
       - name
     properties:
@@ -81,9 +78,6 @@ _schema['read'] = """
 anyOf:
   - "$ref": "#"
   - type: object
-    description: >-
-      Run a recipe, from a recipe! Recipe-ception.
-      This will read the output of another recipe.
     required:
       - name
     properties:
@@ -132,9 +126,6 @@ _schema['write'] = """
 anyOf:
   - "$ref": "#"
   - type: object
-    description: >-
-      Run a recipe, from a recipe! Recipe-ception.
-      This will trigger a new recipe with the contents of the current recipe.
     required:
       - name
     properties:
@@ -144,9 +135,4 @@ anyOf:
       variables:
         type: object
         description: A dictionary of variables to pass to the recipe
-      columns:
-        type: array
-        description: >-
-          (Optional) A list of the columns to pass to the recipe.
-          If omitted, all columns will be included.
 """
