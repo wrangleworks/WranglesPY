@@ -171,7 +171,7 @@ def filter(
       where_params:
         type: 
           - array
-          - dict
+          - object
         description: |-
           Variables to use in conjunctions with where.
           This allows the query to be parameterized.
@@ -653,7 +653,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
       params:
         type: 
           - array
-          - dict
+          - object
         description: |-
           Variables to use in conjunctions with query.
           This allows the query to be parameterized.
