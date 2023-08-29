@@ -136,7 +136,7 @@ def _replace_templated_values(
     return new_recipe_object
 
 
-def _read_recipe(recipe: str, variables: dict = {}) -> dict:
+def _read_recipe(recipe: str):
     """
     Read recipe from various methods (website or gist, file path, model id or string)
 
@@ -171,19 +171,8 @@ def _read_recipe(recipe: str, variables: dict = {}) -> dict:
     else:
         with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
-    
-    # Also add environment variables to list of placeholder variables
-    # Q: Should we exclude some?
-    for env_key, env_val in _os.environ.items():
-        if env_key not in variables.keys():
-            variables[env_key] = env_val
 
-    recipe_object = _yaml.safe_load(recipe_string)
-    
-    # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object, variables)
-
-    return recipe_object
+    return recipe_string
 
 def _load_functions(recipe: str, functions):
     """
@@ -232,7 +221,6 @@ def _interpret_recipe(recipe_string: str, variables: dict = {}) -> dict:
     recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
 
     return recipe_object
-
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
@@ -657,8 +645,10 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
-    # Parse recipe
-    recipe = _read_recipe(recipe, variables)
+    # Load recipe and functions
+    recipe_string = _read_recipe(recipe)
+    functions = _load_functions(recipe, functions)
+    recipe = _interpret_recipe(recipe_string, variables)
 
     try:
         # Format custom functions
