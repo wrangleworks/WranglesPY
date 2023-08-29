@@ -657,7 +657,7 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
     # Load recipe and functions
-    recipe = _read_recipe(recipe, functions, variables)
+    recipe = _read_recipe(recipe, variables)
 
     try:
         # Format custom functions
