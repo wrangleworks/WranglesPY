@@ -15,6 +15,7 @@ import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+from . import data as _data
 from .config import no_where_list
 
 
@@ -157,6 +158,10 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
+
+    # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
+    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
+        recipe_string = _data.model_content(recipe)['recipe']
 
     # If recipe is a single line, it's probably a file path
     # Otherwise it's a recipe
