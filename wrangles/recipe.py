@@ -208,6 +208,28 @@ def _load_functions(recipe: str, functions):
 
     return functions
 
+def _interpret_recipe(recipe_string: str, variables: dict = {}) -> dict:
+    """
+    Load yaml recipe file + replace any placeholder variables
+
+    :param recipe: YAML recipe or name of a YAML file to be parsed
+    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
+
+    :return: YAML Recipe converted to a dictionary
+    """
+    # Also add environment variables to list of placeholder variables
+    # Q: Should we exclude some?
+    for env_key, env_val in _os.environ.items():
+        if env_key not in variables.keys():
+            variables[env_key] = env_val
+
+    recipe_object = _yaml.safe_load(recipe_string)
+    
+    # Check if there are any templated valued to update
+    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
+
+    return recipe_object
+
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
