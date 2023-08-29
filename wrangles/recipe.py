@@ -182,6 +182,32 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
 
     return recipe_object
 
+def _load_functions(recipe: str, functions):
+    """
+    Loads functions when recipe is passed as a model id, passes functions through otherwise
+
+    :param recipe: YAML recipe, name of a YAML file to be parsed or recipe model id
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+
+    :return: functions read from model id or passed through 
+    """
+    _logging.info(": Loading Functions ::")
+
+    # Check that functions is an empty list and recipe is being passed as a model_id
+    if functions == [] and _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
+        # Read functions from model_id
+        functions = _data.model_content(recipe)['functions']
+        if functions != '':
+            custom_module = _ModuleType('custom_module')
+            exec(functions, custom_module.__dict__)
+            functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+            # getting only the functions
+            functions = [x for x in functions if _isfunction(x)]
+        else:
+            functions = []
+
+    return functions
+
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
