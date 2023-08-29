@@ -31,23 +31,42 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
-def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _typing.Any:
+def _replace_templated_values(
+    recipe_object: _typing.Any,
+    variables: dict,
+    ignore_unknown_variables: bool = False
+) -> _typing.Any:
     """
     Replace templated values of the format ${} within a recipe.
     This function can be called recursively to iterate through an arbitrary number of levels within the main object
     
     :param recipe_object: Recipe object that may contain values to replace
     :param variables: List of variables that contain any templated values to update
+    :param ignore_unknown_variables: Do not raise an error for unrecognized variables from this point \
+        down the stack. e.g. for matrix which uses runtime variables.
     :return: Updated Recipe object with variables replaced by their corresponding values
     """
     if isinstance(recipe_object, list):
         # Iterate over all of the elements in a list recursively
-        new_recipe_object = [_replace_templated_values(element, variables) for element in recipe_object]
+        new_recipe_object = [
+            _replace_templated_values(element, variables, ignore_unknown_variables)
+            for element in recipe_object
+        ]
             
     elif isinstance(recipe_object, dict):
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
-            _replace_templated_values(key, variables) : _replace_templated_values(val, variables)
+            _replace_templated_values(
+                key,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
+            : 
+            _replace_templated_values(
+                val,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
             for key, val in recipe_object.items()
         }
 
@@ -63,7 +82,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
             try:
                 replacement_value = variables[new_recipe_object[2:-1]]
             except:
-                raise ValueError(f"Variable {new_recipe_object} was not found.")
+                if ignore_unknown_variables:
+                    return new_recipe_object
+                else:
+                    raise ValueError(f"Variable {new_recipe_object} was not found.")
 
             # Test if replacement is JSON
             if (isinstance(replacement_value, str)
@@ -87,7 +109,11 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                     # Replacement wasn't YAML
                     pass
 
-            new_recipe_object = _replace_templated_values(replacement_value, variables)
+            new_recipe_object = _replace_templated_values(
+                replacement_value,
+                variables,
+                ignore_unknown_variables
+            )
 
         # Variable is found within the string e.g. file-${number}.csv
         # Since this is within a string, the type is forced to also be a string
@@ -96,7 +122,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                 try:
                     replacement_value = variables[var[2:-1]]
                 except:
-                    raise ValueError(f"Variable {var} was not found.")
+                    if ignore_unknown_variables:
+                        replacement_value = var
+                    else:
+                        raise ValueError(f"Variable {var} was not found.")
 
                 new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
 
@@ -107,13 +136,14 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
     return new_recipe_object
 
 
-def _read_recipe(recipe: str):
+def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     """
-    Read recipe from various methods (website or gist, file path, model id or string)
+    Load yaml recipe file + replace any placeholder variables
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
+    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
 
-    :return: YAML Recipe as a string
+    :return: YAML Recipe converted to a dictionary
     """
     _logging.info(": Reading Recipe ::")
     
@@ -132,54 +162,13 @@ def _read_recipe(recipe: str):
         recipe_string = response.text
 
     # If recipe is a single line, it's probably a file path
+    # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
-    # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
-    elif _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
-        model = _data.model_content(recipe)
-        recipe_string = model['recipe']
-    # Otherwise it's a recipe
     else:
         with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
-
-    return recipe_string
-
-def _load_functions(recipe: str, functions):
-    """
-    Loads functions when recipe is passed as a model id, passes functions through otherwise
-
-    :param recipe: YAML recipe, name of a YAML file to be parsed or recipe model id
-    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
-
-    :return: functions read from model id or passed through 
-    """
-    _logging.info(": Loading Functions ::")
-
-    # Check that functions is an empty list and recipe is being passed as a model_id
-    if functions == [] and _re.search(r"[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}", recipe):
-        # Read functions from model_id
-        functions = _data.model_content(recipe)['functions']
-        if functions != '':
-            custom_module = _ModuleType('custom_module')
-            exec(functions, custom_module.__dict__)
-            functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
-            # getting only the functions
-            functions = [x for x in functions if _isfunction(x)]
-        else:
-            functions = []
-
-    return functions
     
-def _interpret_recipe(recipe_string: str, variables: dict = {}) -> dict:
-    """
-    Load yaml recipe file + replace any placeholder variables
-
-    :param recipe: YAML recipe or name of a YAML file to be parsed
-    :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
-
-    :return: YAML Recipe converted to a dictionary
-    """
     # Also add environment variables to list of placeholder variables
     # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
@@ -189,9 +178,10 @@ def _interpret_recipe(recipe_string: str, variables: dict = {}) -> dict:
     recipe_object = _yaml.safe_load(recipe_string)
     
     # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
+    recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object
+
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
     # If user has entered a dictionary, convert to list
@@ -595,7 +585,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 for element in export_type.split('.'):
                     obj = getattr(obj, element)
                 
-                if export_type == 'recipe':
+                if export_type in ['recipe', 'matrix']:
                     params['functions'] = functions
                 
                 getattr(obj, 'write')(df_temp, **params)
@@ -616,10 +606,8 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
 
     :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
     """
-    # Load recipe and functions
-    recipe_string = _read_recipe(recipe)
-    functions = _load_functions(recipe, functions)
-    recipe = _interpret_recipe(recipe_string, variables)
+    # Parse recipe
+    recipe = _load_recipe(recipe, variables)
 
     try:
         # Format custom functions
