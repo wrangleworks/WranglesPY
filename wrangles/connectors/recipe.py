@@ -12,7 +12,12 @@ import pandas as _pd
 _schema = {}
 
 
-def run(name: str, variables: dict = {}, functions: _Union[_types.FunctionType, list] = []) -> None:
+def run(
+    name: str = None,
+    variables: dict = {},
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+) -> None:
     """
     Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
 
@@ -23,24 +28,35 @@ def run(name: str, variables: dict = {}, functions: _Union[_types.FunctionType, 
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if not name: name = kwargs
     _recipe.run(name, variables=variables, functions=functions)
 
 _schema['run'] = """
-type: object
-description: Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
-required:
-  - name
-properties:
-  name:
-    type: string
-    description: The name of the recipe to execute
-  variables:
-    type: object
-    description: A dictionary of variables to pass to the recipe
+anyOf:
+  - "$ref": "#"
+  - type: object
+    description: >-
+      Run a recipe, from a recipe! Recipe-ception.
+      This will trigger another recipe.
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the recipe to execute
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe
 """
 
 
-def read(name: str, variables: dict = {}, columns: list = None, functions: _Union[_types.FunctionType, list] = []) -> _pd.DataFrame:
+def read(
+    name: str = None,
+    variables: dict = {},
+    columns: list = None,
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+) -> _pd.DataFrame:
     """
     Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
 
@@ -52,6 +68,7 @@ def read(name: str, variables: dict = {}, columns: list = None, functions: _Unio
     :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if not name: name = kwargs
     df = _recipe.run(name, variables=variables, functions=functions)
 
     # Select only specific columns if user requests them
@@ -61,24 +78,37 @@ def read(name: str, variables: dict = {}, columns: list = None, functions: _Unio
 
 
 _schema['read'] = """
-type: object
-description: Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
-required:
-  - name
-properties:
-  name:
-    type: string
-    description: The name of the recipe to read from
-  variables:
-    type: object
-    description: A dictionary of variables to pass to the recipe
-  columns:
-    type: array
-    description: Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
+anyOf:
+  - "$ref": "#"
+  - type: object
+    description: >-
+      Run a recipe, from a recipe! Recipe-ception.
+      This will read the output of another recipe.
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the recipe to read from
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe
+      columns:
+        type: array
+        description: >-
+          Subset of the columns to include from the output of the recipe.
+          If not provided, all columns will be included.
 """
 
 
-def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = None, functions: _Union[_types.FunctionType, list] = []) -> None:
+def write(
+    df: _pd.DataFrame,
+    name: str = None,
+    variables: dict = {},
+    columns: list = None,
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+) -> None:
     """
     Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
 
@@ -91,6 +121,7 @@ def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = No
     :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if not name: name = kwargs
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
 
@@ -98,18 +129,24 @@ def write(df: _pd.DataFrame, name: str, variables: dict = {}, columns: list = No
 
 
 _schema['write'] = """
-type: object
-description: Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
-required:
-  - name
-properties:
-  name:
-    type: string
-    description: The name of the recipe to read from
-  variables:
-    type: object
-    description: A dictionary of variables to pass to the recipe
-  columns:
-    type: array
-    description: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
+anyOf:
+  - "$ref": "#"
+  - type: object
+    description: >-
+      Run a recipe, from a recipe! Recipe-ception.
+      This will trigger a new recipe with the contents of the current recipe.
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: The name of the recipe to read from
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe
+      columns:
+        type: array
+        description: >-
+          (Optional) A list of the columns to pass to the recipe.
+          If omitted, all columns will be included.
 """
