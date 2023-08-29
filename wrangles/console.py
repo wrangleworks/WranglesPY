@@ -23,6 +23,15 @@ def recipe():
 
     args = parser.parse_args()
 
+    # If the user has specified a file of custom function, import those
+    if args.functions is not None:
+        custom_module = _ModuleType('custom_module')
+        exec(args.functions.read(), custom_module.__dict__)
+        functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
+        # getting only the functions
+        functions = [x for x in functions if _isfunction(x)]
+    else:
+        functions = []
 
     # If the user has specified a file of custom variables, import those
     if args.variables is not None:
@@ -33,4 +42,4 @@ def recipe():
         variables = {}
 
     # Run the recipe
-    _recipe.run(args.recipe.read(), variables=variables)
+    _recipe.run(args.recipe.read(), functions=functions, variables=variables)
