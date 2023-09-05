@@ -151,22 +151,36 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
         raise ValueError('The lists for input and output must be the same length.')
     
     for in_col, out_col in zip(input, output):
-      results = []
-      for item in df[in_col].astype(str):
-          fractions = fractions = _re.finditer(r'\b\d+/\d+\b', item)
-          replacement_list = []
-          for match in fractions:
-              fraction_str = match.group()
-              fraction = _Fraction(fraction_str)
-              decimal = round(float(fraction), decimals)
-              replacement_list.append((fraction_str, str(decimal)))
-          for fraction, dec in replacement_list:
-              item = item.replace(fraction, dec)
-          
-          
-          results.append(item)
-          
-      df[out_col] = results
+        results = []
+        for item in df[in_col].astype(str):
+            fractions = fractions = _re.finditer(r'\b(\d+[\s-])?\d+/\d+\b', item)
+            replacement_list = []
+            for match in fractions:
+                fraction_str = match.group()
+                
+                # try to see if there is a whole number
+                if _re.findall(r'(\d+[\s-])', fraction_str):
+                    # remove the "-" from the whole number
+                    whole_number = _re.findall(r'(\d+[\s-])', fraction_str)[0].strip()
+                    whole_number = _re.sub(r'-', "", whole_number)
+                    whole_number = int(whole_number)
+                
+                # Get only the fraction part with or without whole number
+                fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
+                decimal = round(float(fraction), decimals)
+                
+                # if there is a whole number then add it to the decimal
+                if _re.findall(r'(\d+\s+)', fraction_str):
+                    decimal = whole_number + decimal
+                
+                replacement_list.append((fraction_str, str(decimal)))
+            for fraction, dec in replacement_list:
+                item = item.replace(fraction, dec)
+            
+            
+            results.append(item)
+            
+        df[out_col] = results
     
     return df
 
