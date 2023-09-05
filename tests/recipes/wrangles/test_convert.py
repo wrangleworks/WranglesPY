@@ -723,6 +723,34 @@ def test_fraction_to_decimal_single_input_multi_output():
         info.typename == 'ValueError' and
         'The lists for input and output must be the same length.' in info.value.args[0]
     )
+    
+def test_fraction_to_decimal_different_separators():
+    """
+    Testing different separators for mixed fractions
+    """
+    data = pd.DataFrame({
+        'input': [
+            '1-1/3',
+            '1-1/2 cups',
+            '1 1/2 cups',
+            '1 1/3',
+            'not range 1-1/4',
+            'e.g 1-3/4 - 2-1/2',
+            'fraction ranges 1/4 - 1/2'
+        ]
+    })
+    
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - convert.fraction_to_decimal:
+            input: input
+            output: out
+            decimals: 2
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == ['1.33', '1.5 cups', '1.5 cups', '1.33', 'not range 1.25', 'e.g 1.75 - 2.5', 'fraction ranges 0.25 - 0.5']
 
 def test_fraction_to_decimal_where():
     """

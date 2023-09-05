@@ -157,6 +157,10 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
             replacement_list = []
             for match in fractions:
                 fraction_str = match.group()
+                                
+                # Get only the fraction part with or without whole number
+                fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
+                decimal = round(float(fraction), decimals)
                 
                 # try to see if there is a whole number
                 if _re.findall(r'(\d+[\s-])', fraction_str):
@@ -164,13 +168,6 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
                     whole_number = _re.findall(r'(\d+[\s-])', fraction_str)[0].strip()
                     whole_number = _re.sub(r'-', "", whole_number)
                     whole_number = int(whole_number)
-                
-                # Get only the fraction part with or without whole number
-                fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
-                decimal = round(float(fraction), decimals)
-                
-                # if there is a whole number then add it to the decimal
-                if _re.findall(r'(\d+\s+)', fraction_str):
                     decimal = whole_number + decimal
                 
                 replacement_list.append((fraction_str, str(decimal)))
