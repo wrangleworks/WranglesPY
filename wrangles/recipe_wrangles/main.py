@@ -468,7 +468,8 @@ def python(
     df: _pd.DataFrame,
     command: str,
     output: _Union[str, list],
-    input: _Union[str, list] = None
+    input: _Union[str, list] = None,
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
@@ -480,7 +481,6 @@ def python(
       Refernce column values by using their name.
       Spaces within column names are replaced by underscores (_)
       Additionally, all columns are available as a dict named kwargs.
-    additionalProperties: false
     required:
       - command
       - output
@@ -519,7 +519,7 @@ def python(
     else:
         result_type = "reduce"
     
-    df[output] = df_temp.apply(lambda x: _apply_command(**x), axis=1, result_type=result_type)
+    df[output] = df_temp.apply(lambda x: _apply_command(**x, **kwargs), axis=1, result_type=result_type)
     return df
 
 

@@ -1867,3 +1867,24 @@ def test_python_multiple_output():
         """
     )
     assert df["result1"][0] == "a" and df["result2"][0] == "b"
+
+def test_python_params():
+    """
+    Test a simple python command
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: a
+                header2: b
+        wrangles:
+          - python:
+              command: header1 + " " + my_param
+              output: result
+              my_param: my_value
+        """
+    )
+    assert df["result"][0] == "a my_value"
