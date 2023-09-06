@@ -440,3 +440,11 @@ def test_queue():
         memory.queue.popleft() == "a" and
         memory.queue.popleft() == "b"
     )
+
+def test_clear():
+    time.sleep(20)
+    memory.queue.append("a")
+    memory.variables["placeholder"] = "value"
+    memory.dataframes["placeholder"] = "value"
+    memory.clear()
+    assert not any([memory.queue, memory.dataframes, memory.variables])

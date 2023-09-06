@@ -19,6 +19,17 @@ dataframes = {}
 variables = {}
 queue = _deque([])
 
+def clear():
+    """
+    Clear and reset any existing data
+    stored in the connector
+    """
+    global dataframes, variables, queue
+    dataframes = {}
+    variables = {}
+    queue = _deque([])
+
+
 def read(id: str = None, orient: str = "tight", **kwargs):
     """
     Read a dataframe previous saved in memory
