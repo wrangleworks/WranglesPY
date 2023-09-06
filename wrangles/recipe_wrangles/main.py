@@ -478,7 +478,7 @@ def python(
       Note, this evaluates the python command - be especially cautious including
       variables from untrusted sources within the command string.
       The python command will be evaluated once for each row and the result returned.
-      Refernce column values by using their name.
+      Reference column values by using their name.
       Spaces within column names are replaced by underscores (_)
       Additionally, all columns are available as a dict named kwargs.
     required:
