@@ -464,6 +464,65 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
 
 
+def python(
+    df: _pd.DataFrame,
+    command: str,
+    output: _Union[str, list],
+    input: _Union[str, list] = None
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: |-
+      Apply a simple single-line python command. For more complex python use a custom function.
+      Note, this evaluates the python command - be especially cautious including
+      variables from untrusted sources within the command string.
+      The python command will be evaluated once for each row and the result returned.
+      Refernce column values by using their name.
+      Spaces within column names are replaced by underscores (_)
+      Additionally, all columns are available as a dict named kwargs.
+    additionalProperties: false
+    required:
+      - command
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: |
+          Name or list of input column(s) to filter the data available
+          to the command. Useful in conjunction with kwargs to target
+          a variable range of columns.
+      output:
+        type:
+          - string
+          - array
+        description: |
+          Name or list of output column(s). To output multiple columns,
+          return a list of the corresponding length.
+      command:
+        type: string
+        description: Python command. This must return a value.
+    """
+    def _apply_command(**kwargs):
+        return eval(command, {}, {**kwargs, **{"kwargs": kwargs}})
+    
+    df_temp = df.copy()
+
+    if input:
+        df_temp = df_temp[input].copy()
+
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+
+    if isinstance(output, list) and len(output) > 1:
+        result_type = "expand"
+    else:
+        result_type = "reduce"
+    
+    df[output] = df_temp.apply(lambda x: _apply_command(**x), axis=1, result_type=result_type)
+    return df
+
+
 def recipe(
     df: _pd.DataFrame,
     name: str = None,
