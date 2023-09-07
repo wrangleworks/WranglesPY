@@ -563,7 +563,14 @@ def recipe(
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: str, output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    to_remove: str,
+    output: _Union[str, list] = None,
+    tokenize_to_remove: bool = False,
+    ignore_case: bool = True
+    ) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.

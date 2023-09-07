@@ -235,7 +235,7 @@ def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_c
             temp = []
             to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
             input_lower = [x.lower() for x  in input[item]]
-            temp = filter(None, [x.title() for x in input_lower if x not in to_remove_lower])
+            temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
             results.append(' '.join(temp))
             
     else:
