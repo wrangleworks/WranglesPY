@@ -2,8 +2,9 @@ import wrangles
 import pandas as pd
 
 data = pd.DataFrame({
-    'text': ['the green mile', 'the shawshank redemption', 'the matrix'],
-    'remove': ['Green', "Shawshank", "Matrix"]
+    'text': ['the GrEEn MiLe', ['the shawSHAnk redemptiOn'], 'THE matRIX'],
+    'remove': ['Green something mile', "Shawshank", "Matrix"],
+    'remove2': ['the', 'the', 'the']
 })
 
 df = wrangles.recipe.run(
@@ -14,8 +15,9 @@ df = wrangles.recipe.run(
           output: New Title
           to_remove:
             - remove
-          tokenize_to_remove: True
-          ignore_case: True
+            - remove2
+          tokenize_to_remove: False
+          case_sensitive: True
   """,
   dataframe=data
 )
