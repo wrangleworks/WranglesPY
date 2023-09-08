@@ -247,6 +247,9 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
             else:
                 text = _re.sub(r'\b' + remove + r'\b', '', text, flags=flags)
                 text = text.strip()
+            
+            # remove any double spaces
+            text = _re.sub(r'\s+', ' ', text)
         results.append(text)
     
     
