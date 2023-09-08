@@ -780,7 +780,7 @@ def test_remove_words_case_sensitive():
             - materials
           output: Out
           tokenize_to_remove: True
-          ignore_case: False
+          case_sensitive: True
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].iloc[0] == 'METAl WateR TaNk'
@@ -799,10 +799,10 @@ def test_remove_words_tokenize_case_sensitive():
             - materials
           output: Out
           tokenize_to_remove: True
-          ignore_case: True
+          case_sensitive: False
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'].iloc[0] == 'Water Tank'
+    assert df['Out'].iloc[0] == 'WateR TaNk'
 
 def test_remove_words_where():
     """
