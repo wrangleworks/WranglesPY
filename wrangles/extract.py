@@ -207,7 +207,7 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
 
 
 # SUPER MARIO
-def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, case_sensitive: bool):
+def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
     """
     Remove all the elements that occur in one list from another.
     
@@ -217,8 +217,8 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     :pram ignore_case: (Optional) ignore the case of input and to_remove
     """
         
-    # Deal with case_sensitive
-    if case_sensitive == False:
+    # Deal with ignore_case
+    if ignore_case == True:
         flags = _re.IGNORECASE
     else:
         flags = 0 # this is the default for _re.sub

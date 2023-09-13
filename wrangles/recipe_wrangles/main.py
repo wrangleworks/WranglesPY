@@ -569,7 +569,7 @@ def remove_words(
     to_remove: str,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = False,
-    case_sensitive: bool = True
+    ignore_case: bool = True
     ) -> _pd.DataFrame:
     """
     type: object
@@ -596,7 +596,7 @@ def remove_words(
       tokenize_to_remove:
         type: boolean
         description: Tokenize all to_remove inputs
-      case_sensitive:
+      ignore_case:
         type: boolean
         description: Ignore input and to_remove case
     """
@@ -613,7 +613,7 @@ def remove_words(
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, case_sensitive)
+        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
     
     return df
 
