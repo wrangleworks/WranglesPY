@@ -221,7 +221,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     if case_sensitive == False:
         flags = _re.IGNORECASE
     else:
-        flags = 0
+        flags = 0 # this is the default for _re.sub
     
     results = []
     for _in, _remove in zip(input, to_remove):
@@ -242,52 +242,17 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
                 for token_remove in [_re.split('\s|,', x) for x in _remove]:
                     for subtoken in token_remove:
                         subtoken = _re.escape(subtoken) # escape the special characters just in case
-                        text = _re.sub(r'' + subtoken + r'(?=\s|$)', '', text, flags=flags)
+                        text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)
                         text = text.strip()
                 
             else:
                 remove = _re.escape(remove) # escape the special characters just in case
-                text = _re.sub(r''+ remove + r'(?=\s|$)', '', text, flags=flags)
+                text = _re.sub(r''+ remove + ',?' + r'(?=\s|$)', '', text, flags=flags)
                 text = text.strip()
             
             # remove any double spaces
             text = _re.sub(r'\s+', ' ', text)
         results.append(text)
-    
-    
-    # # Tokenize to_remove values
-    # if tokenize_to_remove == True:
-    #     to_remove = [tokenize(to_remove[x]) for x in range(len(to_remove))]
-            
-    # # If Input is a string
-    # if isinstance(input[0], str):
-    #     input = [x.split() for x in input]
-    
-    # if case_sensitive == True:
-    #     """
-    #     Takes inputs and converts to lower
-    #     """
-    
-    #     results = []
-    #     for item in range(len(input)):
-    #         temp = []
-    #         to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-    #         input_lower = [x.lower() for x  in input[item]]
-    #         temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
-    #         results.append(' '.join(temp))
-            
-    # else:
-    #     """
-    #     Takes inputs as is (raw)
-    #     """
-    #     results = []
-    #     for item in range(len(input)):
-    #         temp = []
-    #         to_remove_lower = [item for sublist in to_remove[item] for item in sublist]
-    #         input_lower = [x for x  in input[item]]
-    #         temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
-    #         results.append(' '.join(temp))
-
     return results
 
 
