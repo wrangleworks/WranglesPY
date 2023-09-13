@@ -221,7 +221,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     if case_sensitive == False:
         flags = _re.IGNORECASE
     else:
-        flags = _re.NOFLAG
+        flags = 0
     
     results = []
     for _in, _remove in zip(input, to_remove):
