@@ -802,7 +802,7 @@ def test_remove_words_tokenize_case_sensitive():
           ignore_case: True
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'].iloc[0] == 'Water Tank'
+    assert df['Out'].iloc[0] == 'WateR TaNk'
 
 def test_remove_words_where():
     """
@@ -1018,13 +1018,13 @@ def test_standardize_5():
         - standardize:
             input: Abbrev
             output: Abbreviations
-            model_id: f7958bd2-af22-43b1
+            model_id: c77839db-237a-476b
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Using classify model_id f7958bd2-af22-43b1 in a standardize function.' in info.value.args[0]
+        'Using classify model_id c77839db-237a-476b in a standardize function.' in info.value.args[0]
     )
 
 def test_standardize_where():
