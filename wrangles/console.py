@@ -17,7 +17,7 @@ def recipe():
     parser = _argparse.ArgumentParser(prog="wrangles.recipe", description="Run a Wrangles Recipe")
   
     parser.add_argument("recipe", type=str, help = "The filename of the recipe")
-    parser.add_argument("--functions", "-f", type=open, help ="A file of custom functions")
+    parser.add_argument("--functions", "-f", type=str, help ="A file of custom functions")
     parser.add_argument("--variables", "-v", type=open, help ="A file containing custom variables")
     parser.add_argument(
         "--varDict",
@@ -38,6 +38,6 @@ def recipe():
     # Run the recipe
     _recipe.run(
         args.recipe,
-        functions=(args.functions.name if args.functions else None),
+        functions=args.functions,
         variables=variables
     )

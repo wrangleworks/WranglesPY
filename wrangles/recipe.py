@@ -663,7 +663,7 @@ def run(
     recipe: str,
     variables: dict = {},
     dataframe: _pandas.DataFrame = None,
-    functions: _Union[_types.FunctionType, list, dict, str] = []
+    functions: _Union[_types.FunctionType, list, dict, str] = None
 ) -> _pandas.DataFrame:
     """
     Execute a Wrangles Recipe. Recipes are written in YAML and allow 
@@ -687,7 +687,11 @@ def run(
     """
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id
-    recipe, functions = _load_recipe(recipe, variables, functions)
+    recipe, functions = _load_recipe(
+        recipe,
+        variables,
+        functions or {}
+    )
 
     try:
         # Run any actions required before the main recipe runs
