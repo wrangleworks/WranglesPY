@@ -1,5 +1,6 @@
 requests
 pyyaml
+numpy==1.25.2
 pandas
 openpyxl
 sqlalchemy<2.0
