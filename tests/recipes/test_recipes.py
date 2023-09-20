@@ -5,6 +5,7 @@ Specific tests for individual connectors or wrangles should be placed within
 a file for the respective wrangle/connector.
 """
 import wrangles
+from wrangles.connectors import memory
 import pandas as pd
 import pytest
 import time
@@ -114,3 +115,39 @@ def test_timeout():
         )
     
     assert info.typename == 'TimeoutError'
+
+def test_timeout_failure_actions():
+
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
+
+    def fail():
+        memory.variables["timeout fail action"] = "got here"
+    
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            run:
+              on_failure:
+                - custom.fail: {}
+
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=[sleep,fail],
+            timeout=5
+        )
+    
+    assert (
+        info.typename == 'TimeoutError' and
+        memory.variables["timeout fail action"] == "got here"
+    )
