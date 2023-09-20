@@ -11,6 +11,8 @@ import os as _os
 import inspect as _inspect
 import re as _re
 import warnings as _warnings
+import threading as _threading
+import concurrent.futures as _futures
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
@@ -599,7 +601,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     return df_return
 
 
-def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
+def _run_thread(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
     """
     Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
 
@@ -665,4 +667,42 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
         except:
             pass
 
+        raise
+
+
+def run(
+    recipe: str,
+    variables: dict = {},
+    dataframe: _pandas.DataFrame = None,
+    functions: _Union[_types.FunctionType, list, dict] = [],
+    timeout: float = None
+) -> _pandas.DataFrame:
+    """
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
+
+    >>> wrangles.recipe.run('recipe.wrgl.yml')
+    
+    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
+
+    :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
+    """
+    try:
+        with _futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(
+                _run_thread,
+                recipe,
+                variables,
+                dataframe,
+                functions
+            )
+            return future.result(timeout)
+        
+    except _futures._base.TimeoutError:
+        raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+
+    except:
         raise

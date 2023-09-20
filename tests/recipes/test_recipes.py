@@ -7,6 +7,7 @@ a file for the respective wrangle/connector.
 import wrangles
 import pandas as pd
 import pytest
+import time
 
 
 def test_recipe_from_file():
@@ -87,3 +88,29 @@ def test_recipe_model():
         len(df) == 15 and
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
+
+def test_timeout():
+
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
+
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=sleep,
+            timeout=5
+        )
+    
+    assert info.typename == 'TimeoutError'
