@@ -26,11 +26,12 @@ def test_recipe_from_url():
     """
     Testing reading a recipe from an https:// source
     """
-    data = pd.DataFrame({
-        'col1': ['hello world'],
-    })
-    recipe = "https://public.wrangle.works/tests/recipe.wrgl.yml"
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(
+        "https://public.wrangle.works/tests/recipe.wrgl.yml",
+        dataframe=pd.DataFrame({
+            'col1': ['hello world'],
+        })
+    )
     assert df.iloc[0]['out1'] == 'HELLO WORLD'
 
 def test_recipe_from_url_not_found():
@@ -74,8 +75,7 @@ def test_recipe_special_character():
     """
     Tests special character encoding when reading a recipe containing special characters
     """
-    recipe = 'tests/samples/recipe_special_character.wrgl.yml'
-    df = wrangles.recipe.run(recipe)
+    df = wrangles.recipe.run("tests/samples/recipe_special_character.wrgl.yml")
     assert df.iloc[0]['column'] == 'this is a ° symbol'
 
 def test_recipe_model():
