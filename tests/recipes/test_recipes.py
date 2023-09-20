@@ -91,7 +91,10 @@ def test_recipe_model():
     )
 
 def test_timeout():
-
+    """
+    Test that the timeout parameter triggers
+    an appropriate error
+    """
     def sleep(df, seconds):
         time.sleep(seconds)
         return df
@@ -111,20 +114,59 @@ def test_timeout():
             """
             ,
             functions=sleep,
-            timeout=5
+            timeout=2
         )
     
     assert info.typename == 'TimeoutError'
 
-def test_timeout_failure_actions():
+def test_timeout_time():
+    """
+    Test that the timeout parameter
+    stops the processing in an appropriate time
+    """
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
 
+    start = time.time()
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=sleep,
+            timeout=2
+        )
+    
+    stop = time.time()
+
+    assert (
+        info.typename == 'TimeoutError' and
+        stop - start < 2.5 and
+        stop - start > 1.5
+    )
+
+def test_timeout_failure_actions():
+    """
+    Test that on_failure actions
+    are run if the recipe times out
+    """
     def sleep(df, seconds):
         time.sleep(seconds)
         return df
 
     def fail():
         memory.variables["timeout fail action"] = "got here"
-    
+
     with pytest.raises(TimeoutError) as info:
         raise wrangles.recipe.run(
             """
@@ -144,9 +186,9 @@ def test_timeout_failure_actions():
             """
             ,
             functions=[sleep,fail],
-            timeout=5
+            timeout=2
         )
-    
+
     assert (
         info.typename == 'TimeoutError' and
         memory.variables["timeout fail action"] == "got here"

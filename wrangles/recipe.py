@@ -751,8 +751,8 @@ def run(
         functions or {}
     )
 
-    try:
-        with _futures.ThreadPoolExecutor(max_workers=1) as executor:
+    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
+        try:
             future = executor.submit(
                 _run_thread,
                 recipe,
@@ -762,20 +762,21 @@ def run(
             )
             return future.result(timeout)
         
-    except _futures._base.TimeoutError as e:
-        try:
-            # Run any actions requested if the recipe fails
-            if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions, e)
-        except:
-            pass
-        raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+        except _futures.TimeoutError as e:
+            try:
+                executor._threads.clear()
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
 
-    except Exception as e:
-        try:
-            # Run any actions requested if the recipe fails
-            if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions, e)
-        except:
-            pass
-        raise
+        except Exception as e:
+            try:
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise
