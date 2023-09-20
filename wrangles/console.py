@@ -3,7 +3,6 @@ Wrangles Package Console Functions
 """
 import argparse as _argparse
 from types import ModuleType as _ModuleType
-from inspect import isfunction as _isfunction
 from . import recipe as _recipe
 
 
@@ -12,26 +11,21 @@ def recipe():
     Enable console execution of a Wrangles recipe
 
     >>> wrangles.recipe recipe.wrgl.yml --functions custom_functions.py --variables custom_variables.py
+    >>> wrangles.recipe abcdef12-3456-7890
     """
     # Define console function
-    parser = _argparse.ArgumentParser(prog ='wrangles.recipe', description ='Run a Wrangles Recipe')
+    parser = _argparse.ArgumentParser(prog="wrangles.recipe", description="Run a Wrangles Recipe")
   
-    parser.add_argument('recipe', type = open, help = 'The filename of the recipe')
-    parser.add_argument('--functions', type=open, help ='A file of custom functions')
-    parser.add_argument('--variables', type=open, help ='A file containing custom variables')
-    parser.add_argument('--varDict', type=str, help ='The name of the dictionary within the custom variables file. Default variables.')
+    parser.add_argument("recipe", type=str, help = "The filename of the recipe")
+    parser.add_argument("--functions", "-f", type=str, help ="A file of custom functions")
+    parser.add_argument("--variables", "-v", type=open, help ="A file containing custom variables")
+    parser.add_argument(
+        "--varDict",
+        type=str,
+        help="The name of the dictionary within the custom variables file. Default variables."
+    )
 
     args = parser.parse_args()
-
-    # If the user has specified a file of custom function, import those
-    if args.functions is not None:
-        custom_module = _ModuleType('custom_module')
-        exec(args.functions.read(), custom_module.__dict__)
-        functions = [getattr(custom_module, method) for method in dir(custom_module) if not method.startswith('_')]
-        # getting only the functions
-        functions = [x for x in functions if _isfunction(x)]
-    else:
-        functions = []
 
     # If the user has specified a file of custom variables, import those
     if args.variables is not None:
@@ -42,4 +36,8 @@ def recipe():
         variables = {}
 
     # Run the recipe
-    _recipe.run(args.recipe.read(), functions=functions, variables=variables)
+    _recipe.run(
+        args.recipe,
+        functions=args.functions,
+        variables=variables
+    )
