@@ -15,8 +15,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install package + dependencies
 RUN pip install --no-cache-dir wheel
-# Special install for numpy to reduce size
-RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy
 # Regular install (without cache) for everything else
 RUN pip install --no-cache-dir /pkg
 
