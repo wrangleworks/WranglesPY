@@ -5,7 +5,9 @@ COPY . /pkg
 
 # Install compile requirements
 RUN apt-get update \
-    && apt-get install -y build-essential gcc gfortran python3-dev cmake autoconf --no-install-recommends
+    && apt-get install -y build-essential gcc \
+    gfortran python3-dev cmake automake autoconf \
+    --no-install-recommends
 
 # Create a virtual env
 RUN python -m venv /opt/venv
