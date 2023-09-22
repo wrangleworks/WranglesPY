@@ -6,7 +6,7 @@ COPY . /pkg
 # Install compile requirements
 RUN apt-get update \
     && apt-get install -y build-essential gcc \
-    gfortran python3-dev cmake automake autoconf \
+    gfortran python3-dev libxml2 libxslt1-dev \
     --no-install-recommends
 
 # Create a virtual env
@@ -15,6 +15,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install package + dependencies
 RUN pip install --no-cache-dir wheel
+# Special install for numpy & lxml to reduce size
+RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy==1.24.3 lxml
 # Regular install (without cache) for everything else
 RUN pip install --no-cache-dir /pkg
 
