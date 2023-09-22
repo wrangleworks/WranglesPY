@@ -12,7 +12,6 @@ import inspect as _inspect
 import importlib as _importlib 
 import re as _re
 import warnings as _warnings
-import threading as _threading
 import concurrent.futures as _futures
 import pandas as _pandas
 import requests as _requests
