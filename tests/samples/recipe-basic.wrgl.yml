@@ -1,6 +1,6 @@
 read:
   - test:
-      rows: 10
+      rows: 5
       values:
         header1: value1
         header2: value2

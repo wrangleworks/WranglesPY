@@ -5,8 +5,10 @@ Specific tests for individual connectors or wrangles should be placed within
 a file for the respective wrangle/connector.
 """
 import wrangles
+from wrangles.connectors import memory
 import pandas as pd
 import pytest
+import time
 
 
 def test_recipe_from_file():
@@ -86,4 +88,108 @@ def test_recipe_model():
     assert (
         len(df) == 15 and
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
+    )
+
+def test_timeout():
+    """
+    Test that the timeout parameter triggers
+    an appropriate error
+    """
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
+
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=sleep,
+            timeout=2
+        )
+    
+    assert info.typename == 'TimeoutError'
+
+def test_timeout_time():
+    """
+    Test that the timeout parameter
+    stops the processing in an appropriate time
+    """
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
+
+    start = time.time()
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=sleep,
+            timeout=2
+        )
+    
+    stop = time.time()
+
+    assert (
+        info.typename == 'TimeoutError' and
+        stop - start < 2.5 and
+        stop - start > 1.5
+    )
+
+def test_timeout_failure_actions():
+    """
+    Test that on_failure actions
+    are run if the recipe times out
+    """
+    def sleep(df, seconds):
+        time.sleep(seconds)
+        return df
+
+    def fail():
+        memory.variables["timeout fail action"] = "got here"
+
+    with pytest.raises(TimeoutError) as info:
+        raise wrangles.recipe.run(
+            """
+            run:
+              on_failure:
+                - custom.fail: {}
+
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+            
+            wrangles:
+            - custom.sleep:
+                seconds: 10
+            """
+            ,
+            functions=[sleep,fail],
+            timeout=2
+        )
+
+    assert (
+        info.typename == 'TimeoutError' and
+        memory.variables["timeout fail action"] == "got here"
     )

@@ -12,6 +12,7 @@ import inspect as _inspect
 import importlib as _importlib 
 import re as _re
 import warnings as _warnings
+import concurrent.futures as _futures
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
@@ -659,7 +660,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     return df_return
 
 
-def run(
+def _run_thread(
     recipe: str,
     variables: dict = {},
     dataframe: _pandas.DataFrame = None,
@@ -687,53 +688,97 @@ def run(
     """
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id
+    # Run any actions required before the main recipe runs
+    if 'on_start' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_start'], functions)
+
+    # Get requested data
+    if 'read' in recipe.keys():
+        # Execute requested data imports
+        if isinstance(recipe['read'], list):
+            df = _read_data_sources(recipe['read'][0], functions)
+        else:
+            df = _read_data_sources(recipe['read'], functions)
+    elif dataframe is not None:
+        # User has passed in a pre-created dataframe
+        df = dataframe
+    else:
+        # User hasn't provided anything - initialize empty dataframe
+        df = _pandas.DataFrame()
+
+    # Execute any Wrangles required (allow single or plural)
+    if 'wrangles' in recipe.keys():
+        df = _execute_wrangles(df, recipe['wrangles'], functions)
+    elif 'wrangle' in recipe.keys():
+        df = _execute_wrangles(df, recipe['wrangle'], functions)
+
+    # Execute requested data exports
+    if 'write' in recipe.keys():
+        df = _write_data(df, recipe['write'], functions)
+
+    # Run any actions required after the main recipe finishes
+    if 'on_success' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_success'], functions)
+
+    return df
+
+
+def run(
+    recipe: str,
+    variables: dict = {},
+    dataframe: _pandas.DataFrame = None,
+    functions: _Union[_types.FunctionType, list, dict] = [],
+    timeout: float = None
+) -> _pandas.DataFrame:
+    """
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
+
+    >>> wrangles.recipe.run('recipe.wrgl.yml')
+    
+    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
+
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
+    """
+    # Parse recipe
     recipe, functions = _load_recipe(
         recipe,
         variables,
         functions or {}
     )
 
-    try:
-        # Run any actions required before the main recipe runs
-        if 'on_start' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_start'], functions)
-
-        # Get requested data
-        if 'read' in recipe.keys():
-            # Execute requested data imports
-            if isinstance(recipe['read'], list):
-                df = _read_data_sources(recipe['read'][0], functions)
-            else:
-                df = _read_data_sources(recipe['read'], functions)
-        elif dataframe is not None:
-            # User has passed in a pre-created dataframe
-            df = dataframe
-        else:
-            # User hasn't provided anything - initialize empty dataframe
-            df = _pandas.DataFrame()
-
-        # Execute any Wrangles required (allow single or plural)
-        if 'wrangles' in recipe.keys():
-            df = _execute_wrangles(df, recipe['wrangles'], functions)
-        elif 'wrangle' in recipe.keys():
-            df = _execute_wrangles(df, recipe['wrangle'], functions)
-
-        # Execute requested data exports
-        if 'write' in recipe.keys():
-            df = _write_data(df, recipe['write'], functions)
-
-        # Run any actions required after the main recipe finishes
-        if 'on_success' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_success'], functions)
-
-        return df
-
-    except Exception as e:
+    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
         try:
-            # Run any actions requested if the recipe fails
-            if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions, e)
-        except:
-            pass
+            future = executor.submit(
+                _run_thread,
+                recipe,
+                variables,
+                dataframe,
+                functions
+            )
+            return future.result(timeout)
+        
+        except _futures.TimeoutError as e:
+            try:
+                executor._threads.clear()
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
 
-        raise
+        except Exception as e:
+            try:
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise

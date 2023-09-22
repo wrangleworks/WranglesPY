@@ -24,6 +24,12 @@ def recipe():
         type=str,
         help="The name of the dictionary within the custom variables file. Default variables."
     )
+    parser.add_argument(
+        "--timeout",
+        "-t",
+        type=open,
+        help="Set a timeout for the recipe in seconds. If not provided, the time is unlimited."
+    )
 
     args = parser.parse_args()
 
@@ -39,5 +45,6 @@ def recipe():
     _recipe.run(
         args.recipe,
         functions=args.functions,
-        variables=variables
+        variables=variables,
+        timeout=args.timeout
     )
