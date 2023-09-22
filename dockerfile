@@ -5,7 +5,9 @@ COPY . /pkg
 
 # Install compile requirements
 RUN apt-get update \
-    && apt-get install -y build-essential gcc gfortran python3-dev --no-install-recommends
+    && apt-get install -y build-essential gcc \
+    gfortran python3-dev \
+    --no-install-recommends
 
 # Create a virtual env
 RUN python -m venv /opt/venv
@@ -13,8 +15,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install package + dependencies
 RUN pip install --no-cache-dir wheel
-# Special install for numpy to reduce size
-RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy
+# Special install for numpy & lxml to reduce size
+RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy==1.24.3
 # Regular install (without cache) for everything else
 RUN pip install --no-cache-dir /pkg
 

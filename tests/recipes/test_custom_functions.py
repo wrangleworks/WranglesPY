@@ -1214,3 +1214,53 @@ def test_user_not_returned_dataframe_read():
         info.typename == 'RuntimeError' and
         "did not return a dataframe" in info.value.args[0]
     )
+
+def test_model_with_custom_functions():
+    """
+    Test a model that includes custom functions
+    """
+    df = wrangles.recipe.run("42f319a8-0849-4177")
+    assert (
+        df['header1'][0] == "value1" and
+        df['header2'][0] == "value2" and
+        df['header3'][0] == "VALUE2"
+    )
+
+def test_local_takes_priority():
+    """
+    Ensure a locally passed custom function overrides
+    a remote function of the same name
+    """
+    def convert_case(header2: str):
+        return header2.title()
+
+    df = wrangles.recipe.run(
+        "42f319a8-0849-4177",
+        functions=convert_case
+    )
+    assert (
+        df['header1'][0] == "value1" and
+        df['header2'][0] == "value2" and
+        df['header3'][0] == "Value2"
+    )
+
+def test_from_file():
+    """
+    Test getting custom functions from a file path
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        
+        wrangles:
+          - custom.convert_to_upper:
+              input: header1
+              output: header2
+        """,
+        functions="tests/samples/custom_functions.py"
+    )
+    assert df['header2'][0] == "VALUE1"

@@ -9,6 +9,7 @@ import types as _types
 import typing as _typing
 import os as _os
 import inspect as _inspect
+import importlib as _importlib 
 import re as _re
 import warnings as _warnings
 import pandas as _pandas
@@ -134,17 +135,26 @@ def _replace_templated_values(
     return new_recipe_object
 
 
-def _load_recipe(recipe: str, variables: dict = {}) -> dict:
+def _load_recipe(
+    recipe: str,
+    variables: dict = {},
+    functions: _Union[_types.FunctionType, list, dict, str] = []
+) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
     :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
+    :param functions: (Optional) function, list of functions or a file of functions.
 
     :return: YAML Recipe converted to a dictionary
     """
     _logging.info(": Reading Recipe ::")
     
+    # Dict to store functions stored within a model
+    model_functions = {}
+    
+    # Load the recipe from the various supported formats
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
@@ -161,18 +171,37 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
-        recipe_string = _data.model_content(recipe)['recipe']
+        model_contents = _data.model_content(recipe)
+        recipe_string = model_contents['recipe']
+        model_functions = model_contents.get('functions', {})
+        if model_functions:
+            spec = _importlib.util.spec_from_loader('custom_functions', loader=None)
+            module = _importlib.util.module_from_spec(spec)
+            exec(model_functions, module.__dict__)
+
+            model_functions = [
+                getattr(module, method)
+                for method in dir(module)
+                if not method.startswith('_')
+            ]
+            model_functions = {
+                x.__name__: x
+                for x in model_functions
+                if _inspect.isfunction(x)
+            }
+        else:
+            model_functions = {}
 
     # If recipe is a single line, it's probably a file path
-    # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
+
+    # Otherwise it's a recipe
     else:
         with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
     
     # Also add environment variables to list of placeholder variables
-    # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
         if env_key not in variables.keys():
             variables[env_key] = env_val
@@ -182,7 +211,37 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
 
-    return recipe_object
+    # Load the custom functions from the supported formats
+    # If user has passed in a single function, convert to a list
+    if callable(functions): functions = [functions]
+
+    # If the user has specified a file of custom function, import those
+    if isinstance(functions, str):
+        custom_module = _types.ModuleType('custom_module')
+        exec(open(functions, "r").read(), custom_module.__dict__)
+        functions = [
+            getattr(custom_module, method)
+            for method in dir(custom_module)
+            if not method.startswith('_')
+        ]
+        # getting only the functions
+        functions = [
+            x
+            for x in functions
+            if _inspect.isfunction(x)
+        ]
+
+    # Convert custom functions from a list to a dict using the name as a key
+    if isinstance(functions, list):
+        functions = {
+            custom_function.__name__: custom_function
+            for custom_function in functions
+        }
+
+    # Merge user input functions and any from remote model
+    functions = {**model_functions, **functions}
+
+    return recipe_object, functions
 
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
@@ -523,7 +582,8 @@ def _filter_dataframe(
     :param columns: List of columns to include
     :param not_columns: List of columns to exclude
     :param where: SQL where criteria to filter based on
-    :param params: List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
+    :param params: List of parameters to pass to execute method. \
+        The syntax used to pass parameters is database driver dependent.
     """
     if where:
         df = _recipe_wrangles.sql(
@@ -599,30 +659,41 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     return df_return
 
 
-def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
+def run(
+    recipe: str,
+    variables: dict = {},
+    dataframe: _pandas.DataFrame = None,
+    functions: _Union[_types.FunctionType, list, dict, str] = None
+) -> _pandas.DataFrame:
     """
-    Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
 
     >>> wrangles.recipe.run('recipe.wrgl.yml')
     
     :param recipe: YAML recipe or path to a YAML file containing the recipe
-    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
-    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
-    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param variables: (Optional) A dictionary of custom variables to \
+        override placeholders in the recipe. Variables can be indicated \
+        as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining \
+        a read section within the YAML
+    :param functions: (Optional) A function, list of functions or file path \
+        that can be called as part of the recipe. Functions can be referenced \
+        as custom.function_name
 
-    :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
     """
-    # Parse recipe
-    recipe = _load_recipe(recipe, variables)
+    # Parse recipe and custom functions from the various
+    # supported sources such as files, url, model id
+    recipe, functions = _load_recipe(
+        recipe,
+        variables,
+        functions or {}
+    )
 
     try:
-        # Format custom functions
-        # If user has passed in a single function, convert to a list
-        if callable(functions): functions = [functions]
-        # Convert custom functions from a list to a dict using the name as a key
-        if isinstance(functions, list):
-            functions = {custom_function.__name__: custom_function for custom_function in functions}
-
         # Run any actions required before the main recipe runs
         if 'on_start' in recipe.get('run', {}).keys():
             _run_actions(recipe['run']['on_start'], functions)
