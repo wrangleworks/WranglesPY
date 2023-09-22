@@ -185,3 +185,36 @@ def test_run():
         """
     )
     assert memory.dataframes["recipe_run"]["data"][0][0] == "VALUE1"
+
+def test_model_id():
+    """
+    Test reading a recipe with a model ID
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - recipe:
+              name: 1e13e845-bc3f-4b27
+        """
+    )
+    assert (
+        len(df) == 15 and
+        list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
+    )
+
+def test_model_with_custom_functions():
+    """
+    Test a model that includes custom functions
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - recipe:
+              name: 42f319a8-0849-4177
+        """
+    )
+    assert (
+        df['header1'][0] == "value1" and
+        df['header2'][0] == "value2" and
+        df['header3'][0] == "VALUE2"
+    )
