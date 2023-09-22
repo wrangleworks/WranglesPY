@@ -732,7 +732,9 @@ def run(
     timeout: float = None
 ) -> _pandas.DataFrame:
     """
-    Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
 
     >>> wrangles.recipe.run('recipe.wrgl.yml')
     
@@ -742,7 +744,8 @@ def run(
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
     :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
 
-    :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
     """
     # Parse recipe
     recipe, functions = _load_recipe(
