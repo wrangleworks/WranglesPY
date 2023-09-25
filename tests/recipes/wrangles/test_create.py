@@ -665,7 +665,7 @@ def test_create_embeddings():
         len(df["embedding"][0]) == 1536
     )
 
-def test_create_embeddings_chunking():
+def test_create_embeddings_batching():
     """
     Test generating openai embeddings
     """
@@ -686,7 +686,7 @@ def test_create_embeddings_chunking():
               input: text
               output: embedding
               api_key: ${OPENAI_API_KEY}
-              chunk_size: 20
+              batch_size: 20
         """
     )
     assert (

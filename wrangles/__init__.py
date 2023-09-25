@@ -20,6 +20,7 @@ from . import extract
 from .translate import translate
 from .standardize import standardize
 from . import format
+from . import openai
 
 from . import data
 from .train import train

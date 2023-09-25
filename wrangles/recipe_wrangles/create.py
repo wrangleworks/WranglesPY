@@ -13,7 +13,7 @@ from jinja2 import (
 )
 import requests as _requests
 from ..connectors.test import _generate_cell_values
-
+from .. import openai as _openai
 
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
@@ -133,7 +133,8 @@ def embeddings(
     input: str,
     api_key: str,
     output: str = None,
-    chunk_size: int = 100,
+    batch_size: int = 100,
+    threads: int = 10,
     model: str = "text-embedding-ada-002"
 ) -> _pd.DataFrame:
     """
@@ -153,38 +154,24 @@ def embeddings(
       api_key:
         type: string
         description: The OpenAI API key.
-      chunk_size:
+      batch_size:
         type: integer
         description: The number of rows to submit per individual request.
+      threads:
+        type: integer
+        description: >-
+          The number of requests to submit in parallel.
+          Each request contains the number of rows set as batch_size.
     """
-    def _divide_chunks(l, n):
-        """
-        Yield successive n-sized
-        chunks from l.
-        """
-        for i in range(0, len(l), n): 
-            yield l[i:i + n]
-
-    def openai_embedding(input_list):
-        response = _requests.post(
-            url="https://api.openai.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "model": model,
-                "input": input_list
-            }
-        )
-        return [row['embedding'] for row in response.json()['data']]
-
     if output is None: output = input
-    results = []
 
-    for chunk in _divide_chunks(df[input[0]].to_list(), chunk_size):
-        results += openai_embedding(chunk)
-
-    df[output] = results
+    df[output] = _openai.embeddings(
+        df[input[0]].to_list(),
+        api_key,
+        model,
+        batch_size,
+        threads
+    )
 
     return df
 
