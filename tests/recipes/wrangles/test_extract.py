@@ -1316,3 +1316,211 @@ def test_date_range_2():
         info.typename == 'ValueError' and
         '"millennium" not a valid frequency' in info.value.args[0]
     )
+
+def test_ai():
+    """
+    Test openai extrat with a single input and output
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 30
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+    assert (
+        df['length'][0] == '25mm' and
+        df['length'][1] == '6m' and
+        df['length'][2] == '3mm'
+    )
+
+def test_ai_multiple_output():
+    """
+    Test AI extract with multiple outputs
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 30
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+                type:
+                  type: string
+                  description: >-
+                    The type of item in the data
+                    such as spanner, cellphone, etc.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+    assert (
+        df['length'][0] == '25mm' and
+        df['length'][1] == '6m' and
+        df['length'][2] == '3mm' and
+        df['type'][0] == 'wrench' and
+        df['type'][1] == 'cable' and
+        df['type'][2] == 'screwdriver'
+    )
+
+
+def test_ai_multiple_input():
+    """
+    Test AI extract with multiple inputs
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 30
+              output:
+                text:
+                  type: string
+                  description: >-
+                    Concatenate the type and
+                    length to form a single output text
+                    e.g. bolt 5mm
+        """,
+        dataframe=pd.DataFrame({
+            "type": [
+                "wrench",
+                "cable",
+                "screwdriver"
+            ],
+            "length": [
+                "25mm",
+                "6m",
+                "3mm"
+            ]
+        })
+    )
+    assert (
+        df['text'][0] == 'wrench 25mm' and
+        df['text'][1] == 'cable 6m' and
+        df['text'][2] == 'screwdriver 3mm'
+    )
+
+def test_ai_enum():
+    """
+    Test AI extract with an enum defined
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 30
+              output:
+                sentiment:
+                  type: string
+                  description: >-
+                    Describe the sentiment of the text
+                  enum:
+                    - positive
+                    - negative
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "The best movie I've ever seen!",
+                "I almost threw up. I wouldn't go again.",
+                "I had a smile on my face all day."
+            ],
+        })
+    )
+    assert (
+        df["sentiment"][0] == "positive" and
+        df["sentiment"][1] == "negative" and
+        df["sentiment"][2] == "positive"
+    )
+
+def test_ai_timeout():
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 0.1
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+    assert (
+        df['length'][0] == 'Timed Out' and
+        df['length'][1] == 'Timed Out' and
+        df['length'][2] == 'Timed Out'
+    )
+
+def test_ai_timeout_multiple_output():
+    """
+    Test AI extract with multiple outputs
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              api_key: ${OPENAI_API_KEY}
+              timeout: 0.1
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+                type:
+                  type: string
+                  description: >-
+                    The type of item in the data
+                    such as spanner, cellphone, etc.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+    assert (
+        df['length'][0] == 'Timed Out' and
+        df['length'][1] == 'Timed Out' and
+        df['length'][2] == 'Timed Out' and
+        df['type'][0] == 'Timed Out' and
+        df['type'][1] == 'Timed Out' and
+        df['type'][2] == 'Timed Out'
+    )

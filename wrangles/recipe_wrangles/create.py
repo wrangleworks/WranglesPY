@@ -11,8 +11,9 @@ from jinja2 import (
     FileSystemLoader as _FileSystemLoader,
     BaseLoader as _BaseLoader
 )
+import requests as _requests
 from ..connectors.test import _generate_cell_values
-
+from .. import openai as _openai
 
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
@@ -123,6 +124,54 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         data.set_index(df.index, inplace=True)  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
+
+    return df
+
+
+def embeddings(
+    df: _pd.DataFrame,
+    input: str,
+    api_key: str,
+    output: str = None,
+    batch_size: int = 100,
+    threads: int = 10,
+    model: str = "text-embedding-ada-002"
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Create an embedding based on text input.
+    additionalProperties: false
+    required:
+      - input
+      - api_key
+    properties:
+      input:
+        type: string
+        description: The column of text to create the embeddings for.
+      output:
+        type: string
+        description: The output column the embeddings will be saved as.
+      api_key:
+        type: string
+        description: The OpenAI API key.
+      batch_size:
+        type: integer
+        description: The number of rows to submit per individual request.
+      threads:
+        type: integer
+        description: >-
+          The number of requests to submit in parallel.
+          Each request contains the number of rows set as batch_size.
+    """
+    if output is None: output = input
+
+    df[output] = _openai.embeddings(
+        df[input[0]].to_list(),
+        api_key,
+        model,
+        batch_size,
+        threads
+    )
 
     return df
 

@@ -641,3 +641,56 @@ def test_create_bins_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Pricing'] == '10-20' and df.iloc[0]['Pricing'] == ''
+
+def test_create_embeddings():
+    """
+    Test generating openai embeddings
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_batching():
+    """
+    Test generating openai embeddings
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 150
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.index:
+              output: index_col
+          - python:
+              command: text + " " + str(index_col)
+              output: text
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              batch_size: 20
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536 and
+        len(df) == 150
+    )

@@ -3,10 +3,12 @@ Functions to run extraction wrangles
 """
 from typing import Union as _Union
 import re as _re
+import concurrent.futures as _futures
 from collections import OrderedDict as _OrderedDict
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
+from .. import openai as _openai
 
 
 def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
@@ -57,6 +59,123 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
             df[output_column] = _extract.address(
                 df[input_column].astype(str).tolist(), dataType)
   
+    return df
+
+
+def ai(
+    df: _pd.DataFrame,
+    output: list,
+    api_key: str,
+    input: list = None,
+    model: str = "gpt-3.5-turbo",
+    threads: int = 10,
+    timeout: int = 15
+):
+    """
+    type: object
+    description: Extract data using an AI model.
+    additionalProperties: false
+    required:
+      - output
+      - api_key
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input columns.
+      output:
+        type: object
+        description: List and description of the output you want
+        patternProperties:
+          "^[a-zA-Z0-9]+$":
+            type: object
+            properties:
+              type:
+                type: string
+                description: The type of data you'd like the model to return.
+                enum:
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - null
+                  - object
+                  - array
+              description:
+                type: string
+                description: Description of the output you'd like the model to return.
+              enum:
+                type: array
+                description: List of possible values for the output.
+      api_key:
+        type: string
+        description: API Key for the model
+      model:
+        type: string
+        description: The name of the model
+      threads:
+        type: integer
+        description: The number of requests to send in parallel
+      timeout:
+        type: integer
+        description: The number of seconds to wait for a response before timing out
+    """
+    if input is not None:
+        if not isinstance(input, list):
+            input = [input]
+        df_temp = df[input]
+    else:
+        df_temp = df
+
+    messages = [
+        {
+            "role": "system",
+            "content": " ".join([
+                "You are a data analyst.",
+                "Your job is to extract and standardize information as provided by the user.",
+                "The data may be provided as a single value or as YAML syntax with keys and values."
+            ])
+        },
+        {
+            "role": "system",
+            "content": " ".join([
+                "Use the function parse_output to return the data to be submitted.",
+                "Only use the functions you have been provided with.",
+            ])
+        },
+    ]
+
+    settings = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0,
+        "functions": [
+            {
+                "name": "parse_output",
+                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
+                "parameters": {
+                    "type": "object",
+                    "properties": output,
+                    "required": list(output.keys())
+                }
+            }
+        ],
+        'function_call': {"name": "parse_output"}
+    }
+
+    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        results = list(executor.map(
+            _openai.chatGPT,
+            df_temp.to_dict(orient='records'), 
+            [api_key] * len(df),
+            [settings] * len(df),
+            [timeout] * len(df)
+        ))
+
+    exploded_df = _pd.json_normalize(results, max_level=0).fillna('')
+    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    df[list(output.keys())] = exploded_df
     return df
 
 
