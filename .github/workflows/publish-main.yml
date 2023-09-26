@@ -112,7 +112,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: [build]
     container:
-      image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+      image: ghcr.io/wrangleworks/wrangles:latest
     env:
       WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
       WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
