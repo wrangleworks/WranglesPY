@@ -175,7 +175,12 @@ def ai(
 
     exploded_df = _pd.json_normalize(results, max_level=0).fillna('')
     exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
-    df[list(output.keys())] = exploded_df
+    # Ensure all the required keys are included in the output,
+    # even if chatGPT doesn't preserve them
+    for col in output.keys():
+        if col not in exploded_df.columns:
+            exploded_df[col] = ""
+    df[list(output.keys())] = exploded_df[list(output.keys())]
     return df
 
 
