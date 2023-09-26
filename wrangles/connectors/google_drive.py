@@ -10,6 +10,8 @@ import io as _io
 import pandas as _pd
 import re as _re
 
+_schema = {}
+
 # More information regarding auth and keys
 # https://developers.google.com/identity/protocols/oauth2/service-account
 # be sure to also share the folder with the service account email address as Editor
@@ -119,7 +121,37 @@ def read(
         df = _file.read(f"{file_data['name']}", file_object=response)
 
     return df
-    
+
+_schema['read'] = """
+type: object
+description: Import data from a Google Drive file
+required:
+  - file_id
+  - project_id
+  - private_key_id
+  - private_key
+  - client_email
+  - client_id
+properties:
+  file_id:
+    type: string
+    description:  ID of the file that contains the desired data
+  project_id:
+    type: string
+    description: ID of the Google project
+  private_key_id:
+    type: string
+    description: Private key identification of the Google project
+  private_key:
+    type: string
+    description: Private key of the Google Project
+  client_email:
+    type: string
+    description: Email of the Service account (Project)
+  client_id:
+    type: string
+    description: Client ID of the Google Project
+"""
     
 def write(
         df: _pd.DataFrame,
@@ -239,3 +271,37 @@ def write(
         fields='id',
     ).execute()
 
+_schema['write'] = """
+type: object
+description: Export data to a Google Drive file
+required:
+  - folder_id
+  - file_name
+  - project_id
+  - private_key_id
+  - private_key
+  - client_email
+  - client_id
+properties:
+  folder_id:
+    type: string
+    description: Folder Id where the file will be placed
+  file_name:
+    type: string
+    description: Name to give the file
+  project_id:
+    type: string
+    description: ID of the Google project
+  private_key_id:
+    type: string
+    description: Private key identification of the Google project
+  private_key:
+    type: string
+    description: Private key of the Google Project
+  client_email:
+    type: string
+    description: Email of the Service account (Project)
+  client_id:
+    type: string
+    description: Client ID of the Google Project
+"""
