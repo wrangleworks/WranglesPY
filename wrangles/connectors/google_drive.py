@@ -17,7 +17,7 @@ _schema = {}
 # be sure to also share the folder with the service account email address as Editor
 
 def read(
-        file_id: str,
+        share_link: str,
         project_id: str,
         private_key_id: str,
         private_key: str,
@@ -28,7 +28,7 @@ def read(
     """
     Read a file from Google Drive using a Service Account
     
-    :param file_id: ID of the file that contains the desired data
+    :param share_link: ID of the file that contains the desired data or the sharable link
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
     :param private_key: Private key of the Google Project
@@ -37,6 +37,16 @@ def read(
     """
     # Remove extra back slashed from private key
     private_key = _re.sub("\\\\n", "\\n", private_key)
+    
+    # check if user provided sharable link or file id
+    if 'drive.google.com' in share_link or 'docs.google.com' in share_link:
+        parts = share_link.split('/')
+        for i, part in enumerate(parts):
+            if part == 'd':
+                file_id = parts[i + 1]
+                break
+    else :
+        file_id = share_link
     
     # Credentials information
     creds_dict = {
@@ -90,7 +100,7 @@ def read(
         )
         
     # For csv files
-    elif file_data['mimeType'] == 'text/csv':
+    elif file_data['mimeType'] == 'text/csv' or file_data['mimeType'] == 'application/csv':
         request = service.files().get_media(
             fileId=file_id,
         )
@@ -126,16 +136,16 @@ _schema['read'] = """
 type: object
 description: Import data from a Google Drive file
 required:
-  - file_id
+  - share_link
   - project_id
   - private_key_id
   - private_key
   - client_email
   - client_id
 properties:
-  file_id:
+  share_link:
     type: string
-    description:  ID of the file that contains the desired data
+    description: ID of the file that contains the desired data or the sharable link
   project_id:
     type: string
     description: ID of the Google project
@@ -155,7 +165,7 @@ properties:
     
 def write(
         df: _pd.DataFrame,
-        folder_id: str,
+        share_link: str,
         file_name: str,
         project_id: str,
         private_key_id: str,
@@ -169,7 +179,7 @@ def write(
     Write a file to Google Drive using a Service Account
     
     :param df: Dataframe to upload
-    :param folder_id: Folder Id where the file will be placed
+    :param share_link: Folder Id where the file will be placed or a folder sharable link
     :param file_name: Name to give the file
     :param to_sheets: (Optional) Convert an Excel file to Sheets. Only for Excel Files
     :param project_id: ID of the Google project
@@ -180,6 +190,19 @@ def write(
     """
     # Remove extra back slashed from private key
     private_key = _re.sub("\\\\n", "\\n", private_key)
+    
+    # check if user provided sharable link or folder id
+    if 'drive.google.com' in share_link:
+        parts = share_link.split('/')
+        for i, part in enumerate(parts):
+            if part == 'folders':
+                folder_id = parts[i + 1]
+                # check for any additional separators
+                if '?' in folder_id:
+                    folder_id = folder_id.split('?')[0]
+                break
+    else :
+        folder_id = share_link
     
     # Credentials information
     creds_dict = {
@@ -275,7 +298,7 @@ _schema['write'] = """
 type: object
 description: Export data to a Google Drive file
 required:
-  - folder_id
+  - share_link
   - file_name
   - project_id
   - private_key_id
@@ -283,7 +306,7 @@ required:
   - client_email
   - client_id
 properties:
-  folder_id:
+  share_link:
     type: string
     description: Folder Id where the file will be placed
   file_name:
