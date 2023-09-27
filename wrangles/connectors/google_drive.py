@@ -172,6 +172,7 @@ def write(
         private_key: str,
         client_email: str,
         client_id: str,
+        **kwargs
         ) -> None:
     """
     Write a file to Google Drive using a Service Account.
