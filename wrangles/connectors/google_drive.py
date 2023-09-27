@@ -172,16 +172,15 @@ def write(
         private_key: str,
         client_email: str,
         client_id: str,
-        to_sheets: bool=False,
-        **kwargs
         ) -> None:
     """
-    Write a file to Google Drive using a Service Account
+    Write a file to Google Drive using a Service Account.
+    Function returns a dictionary with the file ID.
+    {'id': '12345ABCD'}
     
     :param df: Dataframe to upload
     :param share_link: Folder Id where the file will be placed or a folder sharable link
     :param file_name: Name to give the file
-    :param to_sheets: (Optional) Convert an Excel file to Sheets. Only for Excel Files
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
     :param private_key: Private key of the Google Project
@@ -233,13 +232,18 @@ def write(
         
     # write file in memory
     memory_file = _io.BytesIO()
-    _file.write(df, name=file_name, file_object=memory_file)
+    # if file is gsheet, then write a temp xlsx file
+    if file_name.split('.')[1] == 'gsheet':
+        temp_tile = file_name.split('.')[0] + '.xlsx'
+    else:
+        temp_tile = file_name
+    _file.write(df, name=temp_tile, file_object=memory_file)
     memory_file.seek(0, 0)
     
     file_type = file_name.split('.')[1]
     
-    # Excel to Sheets
-    if file_type in ['xlsx'] and to_sheets == True:
+    # Google Sheets
+    if file_type in ['gsheet']:
         
         mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         file_metadata = {
@@ -249,7 +253,7 @@ def write(
         }
         
     # Excel file
-    elif file_type in ['xlsx'] and to_sheets == False:
+    elif file_type in ['xlsx']:
         
         mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         file_metadata = {
@@ -288,11 +292,13 @@ def write(
         resumable=True,
     )
     
-    service.files().create(
+    file = service.files().create(
         body=file_metadata,
         media_body=media,
         fields='id',
     ).execute()
+    
+    return file
 
 _schema['write'] = """
 type: object
@@ -311,7 +317,7 @@ properties:
     description: Folder Id where the file will be placed
   file_name:
     type: string
-    description: Name to give the file
+    description: Name to give the file (available extension: csv, xlsx, json, gsheet)
   project_id:
     type: string
     description: ID of the Google project
