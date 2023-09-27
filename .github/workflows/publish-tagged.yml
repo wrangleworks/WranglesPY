@@ -100,8 +100,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
-
-  deploy-pypi:
+  deploy-pypi-test:
     runs-on: ubuntu-latest
     needs: [build]
     permissions:
