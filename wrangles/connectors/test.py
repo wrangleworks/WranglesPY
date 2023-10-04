@@ -49,10 +49,10 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
         elif data_type == '<boolean>':
             return [bool(_random.getrandbits(1)) for _ in range(rows)]
         
-        elif 'random<[' in data_type:
+        elif '<random([' in data_type:
             try:
                 # return a random value from a list of values
-                random_list = _json.loads(_re.search(r'random<(.+)>', data_type).group(1))
+                random_list = _json.loads(_re.search(r'<random\((.+)\)>', data_type).group(1))
                 return [random_list[_random.randint(0, len(random_list) - 1)] for _ in range(rows)]
             except:
                 # return the string as is if it can't be parsed
@@ -124,7 +124,7 @@ def read(rows: int, values: dict = {}) -> _pd.DataFrame:
     <boolean> : Randomly True or False
     <number(2.718-3.141)> : Random numbers (2.718-3.141) sets the range and decimal places
     <int(1-10)> : Random integers (1-10) sets the range
-    <random<["one", "two", "three"]>> : Randomly select a value from a list
+    <random(["true", "false"])> : Randomly select a value from a list
 
     :param rows: Number of rows to include in the created dataframe
     :param values: Dictionary of header and values
