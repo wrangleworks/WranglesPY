@@ -83,3 +83,34 @@ def test_date_5():
     """
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['dates'].strftime("%Y") == '2022'
+    
+def test_order_list():
+    """
+    Test using an order lists of values
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 3
+          values:
+            order_list:
+              - apple
+              - orange
+              - banana
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0].tolist() == [['apple', 'orange', 'banana']]
+    
+def test_random_list():
+    """
+    Test using a random list (random<["true", "False"]>)
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 3
+          values:
+            random_list: random<["true", "false"]>
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0][0] == 'true' or df.iloc[0][0] == 'false'
