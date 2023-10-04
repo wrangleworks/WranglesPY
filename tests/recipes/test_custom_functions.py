@@ -25,7 +25,7 @@ def test_function_not_found():
         )
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0] == 'Custom Wrangle function: "custom.does_not_exists" not found'
+        '"custom.does_not_exists" not found' in info.value.args[0]
     )
 
 
@@ -290,7 +290,7 @@ def test_pass_error():
 
     def handle_error(error):
         if (type(error).__name__ == 'TypeError' and
-            str(error) == "data type 'andksankdl' not understood"
+            "data type 'andksankdl' not understood" in str(error)
         ):
             global test_var_pass_error
             test_var_pass_error = True
@@ -329,7 +329,7 @@ def test_pass_error_with_params():
 
     def handle_error(error, param):
         if (type(error).__name__ == 'TypeError' and
-            str(error) == "data type 'andksankdl' not understood" and
+            "data type 'andksankdl' not understood" in str(error) and
             param == "value"
         ):
             global test_var_pass_error_params
@@ -599,7 +599,7 @@ def test_kwargs_dictionary_error():
     
     assert (
         info.typename == 'TypeError' and
-        info.value.args[0] == "unsupported operand type(s) for +: 'dict' and 'str'"
+        "unsupported operand type(s) for +: 'dict' and 'str'" in info.value.args[0]
     )
 
 def test_kwargs_only():
@@ -1110,3 +1110,157 @@ def test_column_spaces_in_kwargs():
     
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
+
+def test_row_function_where():
+    """
+    Test a custom function that applies to an
+    individual row using where
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+              where: val1 >= 3
+        """,
+        functions=[add_numbers],
+        dataframe=pd.DataFrame({
+            "val1": [1,2,3],
+            "val2": [2,4,6]
+        })
+    )
+    assert df['val3'][0] == "" and df['val3'][2] == 9
+
+def test_row_function_double_where():
+    """
+    Test a custom function that applies to an
+    individual row using two where conditions
+    for different rows
+    """
+    def add_numbers(val1, val2):
+        return val1 + val2
+    def subtract_numbers(val1, val2):
+        return val2 - val1
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.add_numbers:
+              output: val3
+              where: val1 >= 3
+
+          - custom.subtract_numbers:
+              output: val3
+              where: val1 = 1
+        """,
+        functions=[add_numbers, subtract_numbers],
+        dataframe=pd.DataFrame({
+            "val1": [1,2,3],
+            "val2": [2,4,6]
+        })
+    )
+    assert (
+        df['val3'][0] == 1 and
+        df['val3'][1] == "" and
+        df['val3'][2] == 9
+    )
+
+def test_user_not_returned_dataframe_wrangle():
+    """
+    Check error returned if a user's custom function
+    does not return a dataframe correctly
+    """
+    def wrangle_stuff(df):
+        pass
+
+    with pytest.raises(RuntimeError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+
+            wrangles:
+            - custom.wrangle_stuff: {}
+            """,
+            functions=wrangle_stuff
+        )
+    assert (
+        info.typename == 'RuntimeError' and
+        "did not return a dataframe" in info.value.args[0]
+    )
+
+def test_user_not_returned_dataframe_read():
+    """
+    Check error returned if a user's custom function
+    does not return a dataframe correctly
+    """
+    def wrangle_stuff():
+        pass
+
+    with pytest.raises(RuntimeError) as info:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - custom.wrangle_stuff: {}
+            """,
+            functions=wrangle_stuff
+        )
+    assert (
+        info.typename == 'RuntimeError' and
+        "did not return a dataframe" in info.value.args[0]
+    )
+
+def test_model_with_custom_functions():
+    """
+    Test a model that includes custom functions
+    """
+    df = wrangles.recipe.run("42f319a8-0849-4177")
+    assert (
+        df['header1'][0] == "value1" and
+        df['header2'][0] == "value2" and
+        df['header3'][0] == "VALUE2"
+    )
+
+def test_local_takes_priority():
+    """
+    Ensure a locally passed custom function overrides
+    a remote function of the same name
+    """
+    def convert_case(header2: str):
+        return header2.title()
+
+    df = wrangles.recipe.run(
+        "42f319a8-0849-4177",
+        functions=convert_case
+    )
+    assert (
+        df['header1'][0] == "value1" and
+        df['header2'][0] == "value2" and
+        df['header3'][0] == "Value2"
+    )
+
+def test_from_file():
+    """
+    Test getting custom functions from a file path
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        
+        wrangles:
+          - custom.convert_to_upper:
+              input: header1
+              output: header2
+        """,
+        functions="tests/samples/custom_functions.py"
+    )
+    assert df['header2'][0] == "VALUE1"

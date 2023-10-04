@@ -232,7 +232,7 @@ def test_passed_as_environment_variable():
             - test:
                 rows: 1
                 values:
-                  header: ${USER}
+                  header: ${HOME}
         """
 
     df = wrangles.recipe.run(recipe)
@@ -259,10 +259,10 @@ def test_parameter_overrides_environment():
             - test:
                 rows: 1
                 values:
-                  header: ${USER}
+                  header: ${HOME}
         """
     df = wrangles.recipe.run(
         recipe,
-        variables={'USER':'success', 'USERNAME':'success'}
+        variables={'HOME':'success', 'USERNAME':'success'}
     )
     assert df.iloc[0]['header'] == 'success'

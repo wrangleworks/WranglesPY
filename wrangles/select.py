@@ -63,4 +63,3 @@ def dict_element(input, key, default=""):
     Select a named element of a dictionary
     """
     return [row.get(key, default) if isinstance(row, dict) else default for row in input]
-   

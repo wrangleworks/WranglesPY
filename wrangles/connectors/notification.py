@@ -8,17 +8,27 @@ from typing import Union as _Union
 _schema = {}
 
 
-def run(url: str, title: str, body: str):
+def run(
+    url: str,
+    title: str,
+    body: str,
+    attachment: _Union[str, list] = None
+):
     r"""
     Send a generic apprise notification.
 
     :param url: Apprise notification url. See https://github.com/caronc/apprise
     :param title: The title of the notification
     :param body: The body of the notification
+    :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
     app_object = _apprise.Apprise()
     app_object.add(url)
-    app_object.notify(body, title)
+    app_object.notify(
+       body,
+       title,
+       attach=attachment
+    )
 
 _schema['run'] = """
 type: object
@@ -37,6 +47,14 @@ properties:
   body:
     type: string
     description: The body of the notification
+  attachment:
+    type:
+      - string
+      - array
+    description: >-
+      A file path & name to attach to the message.
+      Supports a single file or a list of files.
+      Must be supported by the specific notification type.
 """
 
 
@@ -66,10 +84,24 @@ class telegram():
         body:
           type: string
           description: The body of the notification
+        attachment:
+          type:
+            - string
+            - array
+          description: >-
+            A file path & name to attach to the message.
+            Supports a single file or a list of files.
+            Must be supported by the specific notification type.
     """
   }
 
-  def run(bot_token: str, chat_id: str, title: str, body: str):
+  def run(
+    bot_token: str,
+    chat_id: str,
+    title: str,
+    body: str,
+    attachment: _Union[str, list] = None
+  ):
     """
     Send a telegram notification
 
@@ -79,9 +111,10 @@ class telegram():
     :param chat_id: The ID of the chat
     :param title: The title of the message
     :param body: The body of the message
+    :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
     url = f"tgram://{bot_token}/{chat_id}/"
-    run(url, title, body)
+    run(url, title, body, attachment)
 
 
 class email():
@@ -128,11 +161,30 @@ class email():
           description: The name to show the email as being from. If omitted, defaults to the user.
         domain:
           type: string
-          description: The domain to send the email under. If omitted, it will be inferred from the user    
+          description: The domain to send the email under. If omitted, it will be inferred from the user
+        attachment:
+          type:
+            - string
+            - array
+          description: >-
+            A file path & name to attach to the message.
+            Supports a single file or a list of files.
+            Must be supported by the specific notification type.
     """
   }
 
-  def run(user: str, password: str, subject: str, body: str, to: _Union[str, list] = None, cc: _Union[str, list] = None, domain: str = None, host: str = None, name: str = None):
+  def run(
+    user: str,
+    password: str,
+    subject: str,
+    body: str,
+    to: _Union[str, list] = None,
+    cc: _Union[str, list] = None,
+    domain: str = None,
+    host: str = None,
+    name: str = None,
+    attachment: _Union[str, list] = None
+  ):
     """
     Send an email
 
@@ -145,6 +197,7 @@ class email():
     :param domain: The domain to send the email under. If omitted, it will be inferred from the user
     :param host: The SMTP server for your service. This may be omitted for common services such as yahoo, gmail or hotmail but will be needed otherwise.
     :param name: The name to show the email as being from. If omitted, defaults to the user.
+    :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
     # Construct the Apprise URL.
     if user.split('@')[-1] in ['yahoo.com', 'hotmail.com', 'live.com', 'gmail.com', 'fastmail.com']:
@@ -168,7 +221,7 @@ class email():
         if isinstance(cc, str): cc = [cc]
         url = url + f"&cc={','.join(cc)}".replace('@', '%40')
 
-    run(url, subject, body)
+    run(url, subject, body, attachment)
     
     
 class slack():
@@ -193,11 +246,24 @@ class slack():
       message:
         type: string
         description: Message to send to Slack
+      attachment:
+        type:
+          - string
+          - array
+        description: >-
+          A file path & name to attach to the message.
+          Supports a single file or a list of files.
+          Must be supported by the specific notification type.
   """  
   }
   
-  def run(web_hook: str, title: str, message: str):
+  def run(
+      web_hook: str,
+      title: str,
+      message: str,
+      attachment: _Union[str, list] = None
+  ):
       # Apprise supports this Slack Webhook as-is (as of v0.7.7); 
       # you no longer need to parse the URL any further
-      run(web_hook, title, message)
+      run(web_hook, title, message, attachment)
       

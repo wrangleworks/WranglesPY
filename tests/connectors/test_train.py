@@ -77,8 +77,10 @@ def test_classify_error():
     
 # Wrangle that contains only two columns
 def test_classify_read_two_cols_wrgl(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    }
     recipe = """
     read:
       - train.classify:
@@ -89,8 +91,10 @@ def test_classify_read_two_cols_wrgl(mocker):
     
 # wrangles that does not contain 3 columns
 def test_classify_read_four_cols_error(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello']]
+    }
     recipe = """
     read:
       - train.classify:
@@ -156,8 +160,10 @@ def test_extract_write_2():
     
 # Wrangle that contains only two columns
 def test_extract_read_two_cols_wrgl(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    }
     recipe = """
     read:
       - train.extract:
@@ -168,8 +174,10 @@ def test_extract_read_two_cols_wrgl(mocker):
     
 # wrangles that does not contain 3 columns
 def test_extract_read_four_cols_error(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello']]
+    }
     recipe = """
     read:
       - train.extract:
@@ -252,8 +260,10 @@ def test_standardize_write_2():
     
 # Wrangle that contains only two columns
 def test_standardize_read_two_cols_wrgl(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
+    }
     recipe = """
     read:
       - train.standardize:
@@ -264,8 +274,10 @@ def test_standardize_read_two_cols_wrgl(mocker):
     
 # wrangles that does not contain 3 columns
 def test_standardize_read_four_cols_error(mocker):
-    m1 = mocker.patch("wrangles.data.model_data")
-    m1.return_value = [['Hello']]
+    m1 = mocker.patch("wrangles.data.model_content")
+    m1.return_value = {
+        "Data": [['Hello']]
+    }
     recipe = """
     read:
       - train.standardize:

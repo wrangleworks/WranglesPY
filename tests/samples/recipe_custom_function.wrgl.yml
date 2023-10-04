@@ -1,0 +1,13 @@
+read:
+  - test:
+      rows: 5
+      values:
+        header1: value1
+        header2: value2
+    
+wrangles:
+  - custom.convert_to_upper:
+      input: header2
+      output: header3
+
+  - log: {}

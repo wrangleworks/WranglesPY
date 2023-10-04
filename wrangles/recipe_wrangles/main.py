@@ -154,11 +154,12 @@ def filter(
           not_contains: str = None,
           is_null: bool = None,
           where: str = None,
+          where_params: _Union[list, dict] = None,
           **kwargs,
           ) -> _pd.DataFrame:
     """
     type: object
-    description: |
+    description: |-
       Filter the dataframe based on the contents.
       If multiple filters are specified, all must be correct.
       For complex filters, use the where parameter.
@@ -167,11 +168,19 @@ def filter(
       where:
         type: string
         description: Use a SQL WHERE clause to filter the data.
+      where_params:
+        type: 
+          - array
+          - object
+        description: |-
+          Variables to use in conjunctions with where.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
       input:
         type:
           - string
           - array
-        description: |
+        description: |-
           Name of the column to filter on.
           If multiple are provided, all must match the criteria.
       equal:
@@ -235,7 +244,8 @@ def filter(
             SELECT *
             FROM df
             WHERE {where};
-            """
+            """,
+            where_params
         )
 
     # If a string provided, convert to list
@@ -454,21 +464,91 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
 
 
-def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, functions: _Union[_types.FunctionType, list] = []) -> _pd.DataFrame:
+def python(
+    df: _pd.DataFrame,
+    command: str,
+    output: _Union[str, list],
+    input: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
-    description: Run a recipe as a Wrangle. Recipe-ception,
-    additionalProperties: false
+    description: |-
+      Apply a simple single-line python command. For more complex python use a custom function.
+      Note, this evaluates the python command - be especially cautious including
+      variables from untrusted sources within the command string.
+      The python command will be evaluated once for each row and the result returned.
+      Reference column values by using their name.
+      Spaces within column names are replaced by underscores (_)
+      Additionally, all columns are available as a dict named kwargs.
     required:
-      - name
+      - command
+      - output
     properties:
-      name:
+      input:
+        type:
+          - string
+          - array
+        description: |
+          Name or list of input column(s) to filter the data available
+          to the command. Useful in conjunction with kwargs to target
+          a variable range of columns.
+      output:
+        type:
+          - string
+          - array
+        description: |
+          Name or list of output column(s). To output multiple columns,
+          return a list of the corresponding length.
+      command:
         type: string
-        description: file name of the recipe
-      variables:
-        type: object
-        description: A dictionary of variables to pass to the recipe
+        description: Python command. This must return a value.
     """
+    def _apply_command(**kwargs):
+        return eval(command, {}, {**kwargs, **{"kwargs": kwargs}})
+    
+    df_temp = df.copy()
+
+    if input:
+        df_temp = df_temp[input].copy()
+
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+
+    if isinstance(output, list) and len(output) > 1:
+        result_type = "expand"
+    else:
+        result_type = "reduce"
+    
+    df[output] = df_temp.apply(lambda x: _apply_command(**x, **kwargs), axis=1, result_type=result_type)
+    return df
+
+
+def recipe(
+    df: _pd.DataFrame,
+    name: str = None,
+    variables = {},
+    output_columns = None,
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    anyOf:
+      - "$ref": "#"
+      - type: object
+        description: Run a recipe as a Wrangle. Recipe-ception,
+        additionalProperties: false
+        required:
+          - name
+        properties:
+          name:
+            type: string
+            description: file name of the recipe
+          variables:
+            type: object
+            description: A dictionary of variables to pass to the recipe
+    """
+    if not name: name = kwargs
+
     original_df = df.copy() # copy of the original df
     
     # Running recipe wrangle
@@ -483,7 +563,14 @@ def recipe(df: _pd.DataFrame, name, variables = {}, output_columns = None, funct
     return df
 
 
-def remove_words(df: _pd.DataFrame, input: _Union[str, list], to_remove: str, output: _Union[str, list] = None, tokenize_to_remove: bool = False, ignore_case: bool = True) -> _pd.DataFrame:
+def remove_words(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    to_remove: str,
+    output: _Union[str, list] = None,
+    tokenize_to_remove: bool = False,
+    ignore_case: bool = True
+    ) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -573,7 +660,7 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], find: str, replace: str) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -612,13 +699,13 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         raise ValueError('The lists for input and output must be the same length.')
     
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):  
-        df[output_column] = df[input_column].apply(lambda x: _re.sub(find, replace, x))
-    
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
+        
     return df
 
 
-def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
+def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -629,6 +716,14 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
       command:
         type: string
         description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+      params:
+        type: 
+          - array
+          - object
+        description: |-
+          Variables to use in conjunctions with query.
+          This allows the query to be parameterized.
+          This uses sqlite syntax (? or :name)
     """
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
@@ -642,7 +737,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
         count = 0        
         for row in df[cols]:
             # If row contains objects, then convert to json
-            if isinstance(row, dict):
+            if isinstance(row, dict) or isinstance(row, list):
                 # Check if there is an object in the column and record column name to convert to json
                 cols_changed.append(cols)
                 break
@@ -657,7 +752,7 @@ def sql(df: _pd.DataFrame, command: str) -> _pd.DataFrame:
     df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db)
+    df = _pd.read_sql(command, db, params = params)
     db.close()
     
     # Change the columns back to an object

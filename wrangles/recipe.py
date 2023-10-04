@@ -9,12 +9,16 @@ import types as _types
 import typing as _typing
 import os as _os
 import inspect as _inspect
+import importlib as _importlib 
 import re as _re
 import warnings as _warnings
+import concurrent.futures as _futures
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+from . import data as _data
+from .config import no_where_list
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -27,23 +31,42 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
-def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _typing.Any:
+def _replace_templated_values(
+    recipe_object: _typing.Any,
+    variables: dict,
+    ignore_unknown_variables: bool = False
+) -> _typing.Any:
     """
     Replace templated values of the format ${} within a recipe.
     This function can be called recursively to iterate through an arbitrary number of levels within the main object
     
     :param recipe_object: Recipe object that may contain values to replace
     :param variables: List of variables that contain any templated values to update
+    :param ignore_unknown_variables: Do not raise an error for unrecognized variables from this point \
+        down the stack. e.g. for matrix which uses runtime variables.
     :return: Updated Recipe object with variables replaced by their corresponding values
     """
     if isinstance(recipe_object, list):
         # Iterate over all of the elements in a list recursively
-        new_recipe_object = [_replace_templated_values(element, variables) for element in recipe_object]
+        new_recipe_object = [
+            _replace_templated_values(element, variables, ignore_unknown_variables)
+            for element in recipe_object
+        ]
             
     elif isinstance(recipe_object, dict):
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
-            _replace_templated_values(key, variables) : _replace_templated_values(val, variables)
+            _replace_templated_values(
+                key,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
+            : 
+            _replace_templated_values(
+                val,
+                variables,
+                any([ignore_unknown_variables, key in ["matrix"]])
+            )
             for key, val in recipe_object.items()
         }
 
@@ -59,7 +82,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
             try:
                 replacement_value = variables[new_recipe_object[2:-1]]
             except:
-                raise ValueError(f"Variable {new_recipe_object} was not found.")
+                if ignore_unknown_variables:
+                    return new_recipe_object
+                else:
+                    raise ValueError(f"Variable {new_recipe_object} was not found.")
 
             # Test if replacement is JSON
             if (isinstance(replacement_value, str)
@@ -83,7 +109,11 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                     # Replacement wasn't YAML
                     pass
 
-            new_recipe_object = _replace_templated_values(replacement_value, variables)
+            new_recipe_object = _replace_templated_values(
+                replacement_value,
+                variables,
+                ignore_unknown_variables
+            )
 
         # Variable is found within the string e.g. file-${number}.csv
         # Since this is within a string, the type is forced to also be a string
@@ -92,7 +122,10 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
                 try:
                     replacement_value = variables[var[2:-1]]
                 except:
-                    raise ValueError(f"Variable {var} was not found.")
+                    if ignore_unknown_variables:
+                        replacement_value = var
+                    else:
+                        raise ValueError(f"Variable {var} was not found.")
 
                 new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
 
@@ -103,17 +136,26 @@ def _replace_templated_values(recipe_object: _typing.Any, variables: dict) -> _t
     return new_recipe_object
 
 
-def _load_recipe(recipe: str, variables: dict = {}) -> dict:
+def _load_recipe(
+    recipe: str,
+    variables: dict = {},
+    functions: _Union[_types.FunctionType, list, dict, str] = []
+) -> dict:
     """
     Load yaml recipe file + replace any placeholder variables
 
     :param recipe: YAML recipe or name of a YAML file to be parsed
     :param variables: (Optional) dictionary of custom variables to override placeholders in the YAML file
+    :param functions: (Optional) function, list of functions or a file of functions.
 
     :return: YAML Recipe converted to a dictionary
     """
     _logging.info(": Reading Recipe ::")
     
+    # Dict to store functions stored within a model
+    model_functions = {}
+    
+    # Load the recipe from the various supported formats
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
@@ -128,16 +170,39 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
 
+    # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
+    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
+        model_contents = _data.model_content(recipe)
+        recipe_string = model_contents['recipe']
+        model_functions = model_contents.get('functions', {})
+        if model_functions:
+            spec = _importlib.util.spec_from_loader('custom_functions', loader=None)
+            module = _importlib.util.module_from_spec(spec)
+            exec(model_functions, module.__dict__)
+
+            model_functions = [
+                getattr(module, method)
+                for method in dir(module)
+                if not method.startswith('_')
+            ]
+            model_functions = {
+                x.__name__: x
+                for x in model_functions
+                if _inspect.isfunction(x)
+            }
+        else:
+            model_functions = {}
+
     # If recipe is a single line, it's probably a file path
-    # Otherwise it's a recipe
     elif "\n" in recipe:
         recipe_string = recipe
+
+    # Otherwise it's a recipe
     else:
-        with open(recipe, "r") as f:
+        with open(recipe, "r", encoding='utf-8') as f:
             recipe_string = f.read()
     
     # Also add environment variables to list of placeholder variables
-    # Q: Should we exclude some?
     for env_key, env_val in _os.environ.items():
         if env_key not in variables.keys():
             variables[env_key] = env_val
@@ -145,9 +210,39 @@ def _load_recipe(recipe: str, variables: dict = {}) -> dict:
     recipe_object = _yaml.safe_load(recipe_string)
     
     # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object=recipe_object, variables=variables)
+    recipe_object = _replace_templated_values(recipe_object, variables)
 
-    return recipe_object
+    # Load the custom functions from the supported formats
+    # If user has passed in a single function, convert to a list
+    if callable(functions): functions = [functions]
+
+    # If the user has specified a file of custom function, import those
+    if isinstance(functions, str):
+        custom_module = _types.ModuleType('custom_module')
+        exec(open(functions, "r").read(), custom_module.__dict__)
+        functions = [
+            getattr(custom_module, method)
+            for method in dir(custom_module)
+            if not method.startswith('_')
+        ]
+        # getting only the functions
+        functions = [
+            x
+            for x in functions
+            if _inspect.isfunction(x)
+        ]
+
+    # Convert custom functions from a list to a dict using the name as a key
+    if isinstance(functions, list):
+        functions = {
+            custom_function.__name__: custom_function
+            for custom_function in functions
+        }
+
+    # Merge user input functions and any from remote model
+    functions = {**model_functions, **functions}
+
+    return recipe_object, functions
 
 
 def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
@@ -209,7 +304,8 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
         read_name = list(recipe)[0]
         params = recipe[read_name]
         df = functions[read_name[7:]](**params)
-
+        if not isinstance(df, _pandas.DataFrame):
+            raise RuntimeError(f"Function {read_name} did not return a dataframe")
     else:
         # Single source import
         import_type = list(recipe)[0]
@@ -272,126 +368,214 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     """
     for step in wrangles_list:
         for wrangle, params in step.items():
-            if params is None: params = {}
-            _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+            try:
+                if params is None: params = {}
+                _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
-            if wrangle.split('.')[0] == 'pandas':
-                # Execute a pandas method
-                # TODO: disallow any hidden methods
-                # TODO: remove parameters, allow selecting in/out columns
-                try:
-                    df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
-                except:
-                    df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
-
-            elif wrangle.split('.')[0] == 'custom':
-                # Execute a user's custom function
-                try:
-                    custom_function = functions[wrangle[7:]]
-                except:
-                    raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
-
-                # Get user's function arguments
-                fn_argspec = _inspect.getfullargspec(custom_function)
-
-                # Check for function_args and df
-                if 'df' in fn_argspec.args:
-                    # If user's first argument is df, pass them the whole dataframe
-                    df = custom_function(df=df, **params)
-
-                # Dealing with no function_args
-                else:
-                    # Use a temp copy of dataframe as not to affect original
-                    df_temp = df
-
-                    # If user specifies an input, reduce dataframe down as required
-                    if 'input' in params:
-                        df_temp = df_temp[
-                            _wildcard_expansion(
-                                all_columns=df.columns.tolist(),
-                                selected_columns=params['input']
-                            )
-                        ]
-
-                    # If the user hasn't explicitly requested input or output
-                    # then remove them so they will not be included in kwargs
-                    params_temp = params.copy()
-                    for special_parameter in ['input', 'output']:
-                        if special_parameter in params_temp and special_parameter not in fn_argspec.args:
-                            params_temp.pop(special_parameter)
-
-                    # If the user's custom function does not have kwargs available
-                    # then we need to remove any unmatched function arguments
-                    # from the parameters or the columns
-                    if not fn_argspec.varkw:
-                        params_temp2 = params_temp.copy()
-                        for param in params_temp2.keys():
-                            if param not in fn_argspec.args:
-                                params_temp.pop(param)
-
-                        cols = df_temp.columns.to_list()
-                        cols_renamed = [col.replace(' ', '_') for col in cols]
-
-                        # Create a dictionary of columns with spaces and their replacement
-                        # with an underscore. Used in df_temp.rename
-                        colDict = {
-                            col: col.replace(' ', '_') for col in cols
-                            if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
-                        }
-
-                        df_temp.rename(columns=colDict, inplace=True)
-                        cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
-
-                        # Ensure we don't remove all columns
-                        # if user hasn't specified any
-                        if cols_renamed:
-                            df_temp = df_temp[cols_renamed]
+                original_params = params.copy()
+                if 'where' in params.keys() and wrangle not in no_where_list:
+                    df_original = df.copy()
                     
-                    # If user specifies multiple outputs, expand any list output
-                    # across the columns else return as a single column
-                    if isinstance(params['output'], list) and len(params['output']) > 1:
-                        result_type = 'expand'
-                    else:
-                        result_type = 'reduce'
+                    # Save original index, filter data, then restore index
+                    df['original_index_ikdejsrvjazl'] = df.index
+                    df = _filter_dataframe(
+                        df,
+                        where = params.pop('where'),
+                        where_params= params.pop('where_params', None)
+                    )
+                    df = df.set_index(df['original_index_ikdejsrvjazl'])
+                    df = df.drop('original_index_ikdejsrvjazl', axis = 1)
+                    df.index.names = [None]
 
-                    # {**x, **params_temp} deals with columns in 
-                    # function args and **params_temp without columns
-                    # There may be no columns in the case that the user
-                    # does not specify any columns in their function parameters
+                if wrangle.split('.')[0] == 'pandas':
+                    # Execute a pandas method
+                    # TODO: disallow any hidden methods
+                    # TODO: remove parameters, allow selecting in/out columns
                     try:
-                        df[params['output']] = df_temp.apply(
-                            lambda x: custom_function(**{**x, **params_temp}),
-                            axis=1,
-                            result_type=result_type
-                        )
+                        df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
                     except:
-                        df[params['output']] = df_temp.apply(
-                            lambda _: custom_function(**params_temp),
-                            axis=1,
-                            result_type=result_type
+                        df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+
+                elif wrangle.split('.')[0] == 'custom':
+                    # Execute a user's custom function
+                    try:
+                        custom_function = functions[wrangle[7:]]
+                    except:
+                        raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
+
+                    # Get user's function arguments
+                    fn_argspec = _inspect.getfullargspec(custom_function)
+
+                    # Check for function_args and df
+                    if 'df' in fn_argspec.args:
+                        # If user's first argument is df, pass them the whole dataframe
+                        df = custom_function(df=df, **params)
+                        if not isinstance(df, _pandas.DataFrame):
+                            raise RuntimeError(f"Function {wrangle} did not return a dataframe")
+
+                    # Dealing with no function_args
+                    else:
+                        # Use a temp copy of dataframe as not to affect original
+                        df_temp = df
+
+                        # If user specifies an input, reduce dataframe down as required
+                        if 'input' in params:
+                            df_temp = df_temp[
+                                _wildcard_expansion(
+                                    all_columns=df.columns.tolist(),
+                                    selected_columns=params['input']
+                                )
+                            ]
+
+                        # If the user hasn't explicitly requested input or output
+                        # then remove them so they will not be included in kwargs
+                        params_temp = params.copy()
+                        for special_parameter in ['input', 'output']:
+                            if special_parameter in params_temp and special_parameter not in fn_argspec.args:
+                                params_temp.pop(special_parameter)
+
+                        # If the user's custom function does not have kwargs available
+                        # then we need to remove any unmatched function arguments
+                        # from the parameters or the columns
+                        if not fn_argspec.varkw:
+                            params_temp2 = params_temp.copy()
+                            for param in params_temp2.keys():
+                                if param not in fn_argspec.args:
+                                    params_temp.pop(param)
+
+                            cols = df_temp.columns.to_list()
+                            cols_renamed = [col.replace(' ', '_') for col in cols]
+
+                            # Create a dictionary of columns with spaces and their replacement
+                            # with an underscore. Used in df_temp.rename
+                            colDict = {
+                                col: col.replace(' ', '_') for col in cols
+                                if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                            }
+
+                            df_temp.rename(columns=colDict, inplace=True)
+                            cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
+
+                            # Ensure we don't remove all columns
+                            # if user hasn't specified any
+                            if cols_renamed:
+                                df_temp = df_temp[cols_renamed]
+                        
+                        # If user specifies multiple outputs, expand any list output
+                        # across the columns else return as a single column
+                        if isinstance(params['output'], list) and len(params['output']) > 1:
+                            result_type = 'expand'
+                        else:
+                            result_type = 'reduce'
+
+                        # {**x, **params_temp} deals with columns in 
+                        # function args and **params_temp without columns
+                        # There may be no columns in the case that the user
+                        # does not specify any columns in their function parameters
+                        try:
+                            df[params['output']] = df_temp.apply(
+                                lambda x: custom_function(**{**x, **params_temp}),
+                                axis=1,
+                                result_type=result_type
+                            )
+                        except:
+                            df[params['output']] = df_temp.apply(
+                                lambda _: custom_function(**params_temp),
+                                axis=1,
+                                result_type=result_type
+                            )
+
+                else:
+                    # Blacklist of Wrangles not to allow wildcards for
+                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
+                        # Expand out any wildcards or regex in column names
+                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                            
+                    # Get the requested function from the recipe_wrangles module
+                    obj = _recipe_wrangles
+                    for element in wrangle.split('.'):
+                        obj = getattr(obj, element)
+
+                    if wrangle == 'recipe':
+                        params['functions'] = functions
+
+                    df = obj(df, **params)
+
+                # If the user specified a where, we need to merge this back to the original dataframe
+                if 'where' in original_params and wrangle not in no_where_list:
+                    if 'output' in params.keys():
+                        # Wrangle explictly defined the output
+                        output_columns = (
+                            params['output']
+                            if isinstance(params['output'], list)
+                            else [params['output']]
+                        )
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left',
+                            suffixes=('_x',None)
+                        )
+                        for output_col in output_columns:
+                            if output_col + '_x' in df.columns:
+                                df = _recipe_wrangles.merge.coalesce(
+                                    df,
+                                    [output_col, output_col+'_x'],
+                                    output_col
+                                )
+                                df.drop([output_col+'_x'], axis = 1, inplace=True)
+                    elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                        # Wrangle overwrote the input
+                        output_columns = params['input']
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left',
+                            suffixes=('_x',None)
+                        )
+                        for input_col in params['input']:
+                            if input_col + '_x' in df.columns:
+                                df = _recipe_wrangles.merge.coalesce(
+                                    df,
+                                    [input_col, input_col+'_x'],
+                                    input_col
+                                )
+                                df.drop([input_col+'_x'], axis = 1, inplace=True)
+                    elif list(df.columns) != list(df_original.columns):
+                        # Wrangle added columns
+                        output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
+                        df = _pandas.merge(
+                            df_original,
+                            df[output_columns],
+                            left_index=True,
+                            right_index=True,
+                            how='left'
                         )
 
-            else:
-                # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary'] and 'input' in params:
-                    # Expand out any wildcards or regex in column names
-                    params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                        
-                # Get the requested function from the recipe_wrangles module
-                obj = _recipe_wrangles
-                for element in wrangle.split('.'):
-                    obj = getattr(obj, element)
-
-                if wrangle == 'recipe':
-                    params['functions'] = functions
-
-                # Execute the requested function and return the value
-                df = obj(df, **params)
+                # Clean up NaN's
+                df.fillna('', inplace = True)
+                # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+                # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+                df.fillna('0', inplace = True)
+            except Exception as e:
+                # Append name of wrangle to message and pass through exception
+                raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__)
 
     return df
 
 
-def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: list = None, where: str = None, **_) -> _pandas.DataFrame:
+def _filter_dataframe(
+    df: _pandas.DataFrame,
+    columns: list = None,
+    not_columns: list = None,
+    where: str = None,
+    where_params: _Union[list, dict] = None, 
+    **_
+) -> _pandas.DataFrame:
     """
     Filter a DataFrame
 
@@ -399,7 +583,20 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
     :param columns: List of columns to include
     :param not_columns: List of columns to exclude
     :param where: SQL where criteria to filter based on
+    :param params: List of parameters to pass to execute method. \
+        The syntax used to pass parameters is database driver dependent.
     """
+    if where:
+        df = _recipe_wrangles.sql(
+            df,
+            f"""
+            SELECT *
+            FROM df
+            WHERE {where};
+            """,
+            where_params
+        )
+
     # Reduce to user chosen columns
     if columns:
         columns = _wildcard_expansion(df.columns.tolist(), columns)
@@ -411,16 +608,6 @@ def _filter_dataframe(df: _pandas.DataFrame, columns: list = None, not_columns: 
         # List comprehension is used below to preserve order of columns 
         remaining_columns = [column for column in list(df.columns) if column not in not_columns]
         df = df[remaining_columns]
-
-    if where:
-        df = _recipe_wrangles.sql(
-            df,
-            f"""
-            SELECT *
-            FROM df
-            WHERE {where};
-            """
-        )
 
     return df
 
@@ -447,7 +634,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
             # Filter the dataframe as requested before passing
             # to the desired write function
             df_temp = _filter_dataframe(df, **params)
-            for key in ['columns', 'not_columns', 'where']:
+            for key in ['columns', 'not_columns', 'where', 'where_params']:
                 if key in params:
                     params.pop(key)
 
@@ -465,7 +652,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 for element in export_type.split('.'):
                     obj = getattr(obj, element)
                 
-                if export_type == 'recipe':
+                if export_type in ['recipe', 'matrix']:
                     params['functions'] = functions
                 
                 getattr(obj, 'write')(df_temp, **params)
@@ -473,9 +660,80 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     return df_return
 
 
-def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, functions: _Union[_types.FunctionType, list, dict] = []) -> _pandas.DataFrame:
+def _run_thread(
+    recipe: str,
+    variables: dict = {},
+    dataframe: _pandas.DataFrame = None,
+    functions: _Union[_types.FunctionType, list, dict, str] = None
+) -> _pandas.DataFrame:
     """
-    Execute a Wrangles Recipe. Recipes are written in YAML and allow a set of steps to be run in an automated sequence. Read, wrangle, then write your data.
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
+
+    >>> wrangles.recipe.run('recipe.wrgl.yml')
+    
+    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param variables: (Optional) A dictionary of custom variables to \
+        override placeholders in the recipe. Variables can be indicated \
+        as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining \
+        a read section within the YAML
+    :param functions: (Optional) A function, list of functions or file path \
+        that can be called as part of the recipe. Functions can be referenced \
+        as custom.function_name
+
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
+    """
+    # Parse recipe and custom functions from the various
+    # supported sources such as files, url, model id
+    # Run any actions required before the main recipe runs
+    if 'on_start' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_start'], functions)
+
+    # Get requested data
+    if 'read' in recipe.keys():
+        # Execute requested data imports
+        if isinstance(recipe['read'], list):
+            df = _read_data_sources(recipe['read'][0], functions)
+        else:
+            df = _read_data_sources(recipe['read'], functions)
+    elif dataframe is not None:
+        # User has passed in a pre-created dataframe
+        df = dataframe
+    else:
+        # User hasn't provided anything - initialize empty dataframe
+        df = _pandas.DataFrame()
+
+    # Execute any Wrangles required (allow single or plural)
+    if 'wrangles' in recipe.keys():
+        df = _execute_wrangles(df, recipe['wrangles'], functions)
+    elif 'wrangle' in recipe.keys():
+        df = _execute_wrangles(df, recipe['wrangle'], functions)
+
+    # Execute requested data exports
+    if 'write' in recipe.keys():
+        df = _write_data(df, recipe['write'], functions)
+
+    # Run any actions required after the main recipe finishes
+    if 'on_success' in recipe.get('run', {}).keys():
+        _run_actions(recipe['run']['on_success'], functions)
+
+    return df
+
+
+def run(
+    recipe: str,
+    variables: dict = {},
+    dataframe: _pandas.DataFrame = None,
+    functions: _Union[_types.FunctionType, list, dict] = [],
+    timeout: float = None
+) -> _pandas.DataFrame:
+    """
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
 
     >>> wrangles.recipe.run('recipe.wrgl.yml')
     
@@ -483,60 +741,44 @@ def run(recipe: str, variables: dict = {}, dataframe: _pandas.DataFrame = None, 
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
     :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
 
-    :return: The result dataframe. The dataframe can be defined using write: - dataframe in the recipe.
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
     """
     # Parse recipe
-    recipe = _load_recipe(recipe, variables)
+    recipe, functions = _load_recipe(
+        recipe,
+        variables,
+        functions or {}
+    )
 
-    try:
-        # Format custom functions
-        # If user has passed in a single function, convert to a list
-        if callable(functions): functions = [functions]
-        # Convert custom functions from a list to a dict using the name as a key
-        if isinstance(functions, list):
-            functions = {custom_function.__name__: custom_function for custom_function in functions}
-
-        # Run any actions required before the main recipe runs
-        if 'on_start' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_start'], functions)
-
-        # Get requested data
-        if 'read' in recipe.keys():
-            # Execute requested data imports
-            if isinstance(recipe['read'], list):
-                df = _read_data_sources(recipe['read'][0], functions)
-            else:
-                df = _read_data_sources(recipe['read'], functions)
-        elif dataframe is not None:
-            # User has passed in a pre-created dataframe
-            df = dataframe
-        else:
-            # User hasn't provided anything - initialize empty dataframe
-            df = _pandas.DataFrame()
-
-        # Execute any Wrangles required (allow single or plural)
-        if 'wrangles' in recipe.keys():
-            df = _execute_wrangles(df, recipe['wrangles'], functions)
-        elif 'wrangle' in recipe.keys():
-            df = _execute_wrangles(df, recipe['wrangle'], functions)
-
-        # Execute requested data exports
-        if 'write' in recipe.keys():
-            df = _write_data(df, recipe['write'], functions)
-
-        # Run any actions required after the main recipe finishes
-        if 'on_success' in recipe.get('run', {}).keys():
-            _run_actions(recipe['run']['on_success'], functions)
-
-        return df
-
-    except Exception as e:
+    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
         try:
-            # Run any actions requested if the recipe fails
-            if 'on_failure' in recipe.get('run', {}).keys():
-                _run_actions(recipe['run']['on_failure'], functions, e)
-        except:
-            pass
+            future = executor.submit(
+                _run_thread,
+                recipe,
+                variables,
+                dataframe,
+                functions
+            )
+            return future.result(timeout)
+        
+        except _futures.TimeoutError as e:
+            try:
+                executor._threads.clear()
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
 
-        raise
+        except Exception as e:
+            try:
+                # Run any actions requested if the recipe fails
+                if 'on_failure' in recipe.get('run', {}).keys():
+                    _run_actions(recipe['run']['on_failure'], functions, e)
+            except:
+                pass
+            raise

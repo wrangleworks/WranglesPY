@@ -1,0 +1,5 @@
+read:
+  - test:
+      rows: 5
+      values: 
+        column: this is a ° symbol

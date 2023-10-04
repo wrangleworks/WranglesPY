@@ -39,7 +39,7 @@ def standardize(input: _Union[str, list], model_id: str) -> list:
     # Using model_id in wrong function
     purpose = model_properties['purpose']
     if purpose != 'standardize':
-        raise ValueError(f'Using {purpose} model_id in a standardize function.')
+        raise ValueError(f'Using {purpose} model_id {model_id} in a standardize function.')
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 

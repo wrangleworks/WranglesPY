@@ -119,12 +119,9 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     if isinstance(model_id, dict):
         raise ValueError('Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value')
     
-    # If the model_id is a list, then split the contents
-    if isinstance(model_id, str): model_id = [model_id]
-    for model in model_id:
-        # Checking to see if GUID format is correct
-        if [len(x) for x in model.split('-')] != [8, 4, 4]:
-            raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    # Checking to see if GUID format is correct
+    if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
+        raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
     params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels}
@@ -136,11 +133,9 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     # Using model_id in wrong function
     purpose = model_properties['purpose']
     if purpose != 'extract':
-        raise ValueError(f'Using {purpose} model_id in an extract function.')
+        raise ValueError(f'Using {purpose} model_id {model_id} in an extract function.')
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
-
-
 
     if first_element and not use_labels:
         results = [x[0] if len(x) >= 1 else "" for x in results]
@@ -212,7 +207,7 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
 
 
 # SUPER MARIO
-def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
+def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
     """
     Remove all the elements that occur in one list from another.
     
@@ -221,40 +216,43 @@ def remove_words(input: str, to_remove: list, tokenize_to_remove: bool, ignore_c
     :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
     :pram ignore_case: (Optional) ignore the case of input and to_remove
     """
-    
-    # Tokenize to_remove values
-    if tokenize_to_remove == True:
-        to_remove = [tokenize(to_remove[x]) for x in range(len(to_remove))]
-            
-    # If Input is a string
-    if isinstance(input[0], str):
-        input = [x.split() for x in input]
-    
+        
+    # Deal with ignore_case
     if ignore_case == True:
-        """
-        Takes inputs and converts to lower
-        """
-    
-        results = []
-        for item in range(len(input)):
-            temp = []
-            to_remove_lower = [item.lower() for sublist in to_remove[item] for item in sublist]
-            input_lower = [x.lower() for x  in input[item]]
-            temp = filter(None, [x.title() for x in input_lower if x not in to_remove_lower])
-            results.append(' '.join(temp))
-            
+        flags = _re.IGNORECASE
     else:
-        """
-        Takes inputs as is (raw)
-        """
-        results = []
-        for item in range(len(input)):
-            temp = []
-            to_remove_lower = [item for sublist in to_remove[item] for item in sublist]
-            input_lower = [x for x  in input[item]]
-            temp = filter(None, [x for x in input_lower if x not in to_remove_lower])
-            results.append(' '.join(temp))
-
+        flags = 0 # this is the default for _re.sub
+    
+    results = []
+    for _in, _remove in zip(input, to_remove):
+        
+        # Check if the input is a string or a list
+        if isinstance(_in, list):
+            # Make appropriate changes to the input to convert to a string
+            _in = ' '.join(_in)
+        
+        # check if the to_remove is a list of lists
+        if isinstance(_remove[0], list):
+            _remove = [item for sublist in _remove for item in sublist]
+        
+        text = _in
+        for remove in _remove:
+            # if Tokenize is true
+            if tokenize_to_remove == True:
+                for token_remove in [_re.split('\s|,', x) for x in _remove]:
+                    for subtoken in token_remove:
+                        subtoken = _re.escape(subtoken) # escape the special characters just in case
+                        text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)
+                        text = text.strip()
+                
+            else:
+                remove = _re.escape(remove) # escape the special characters just in case
+                text = _re.sub(r''+ remove + ',?' + r'(?=\s|$)', '', text, flags=flags)
+                text = text.strip()
+            
+            # remove any double spaces
+            text = _re.sub(r'\s+', ' ', text)
+        results.append(text)
     return results
 
 

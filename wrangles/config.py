@@ -24,3 +24,15 @@ class keycloak():
     host = 'https://sso.wrangle.works'
     realm = 'wrwx'
     client_id = 'services'
+
+# wrangles that don't work with where
+no_where_list = [
+    'pandas.transpose',
+    'transpose',
+    'filter',
+    'rename',
+    'sql',
+    'drop',
+    'split.list',
+    'reindex'
+]

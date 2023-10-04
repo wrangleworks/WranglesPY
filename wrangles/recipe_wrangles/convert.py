@@ -6,6 +6,7 @@ from typing import Union as _Union
 import re as _re
 import pandas as _pd
 from fractions import Fraction as _Fraction
+import yaml as _yaml
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -150,31 +151,46 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
         raise ValueError('The lists for input and output must be the same length.')
     
     for in_col, out_col in zip(input, output):
-      results = []
-      for item in df[in_col].astype(str):
-          fractions = fractions = _re.finditer(r'\b\d+/\d+\b', item)
-          replacement_list = []
-          for match in fractions:
-              fraction_str = match.group()
-              fraction = _Fraction(fraction_str)
-              decimal = round(float(fraction), decimals)
-              replacement_list.append((fraction_str, str(decimal)))
-          for fraction, dec in replacement_list:
-              item = item.replace(fraction, dec)
-          
-          
-          results.append(item)
-          
-      df[out_col] = results
+        results = []
+        for item in df[in_col].astype(str):
+            fractions = fractions = _re.finditer(r'\b(\d+[\s-])?\d+/\d+\b', item)
+            replacement_list = []
+            for match in fractions:
+                fraction_str = match.group()
+                                
+                # Get only the fraction part with or without whole number
+                fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
+                decimal = round(float(fraction), decimals)
+                
+                # try to see if there is a whole number
+                if _re.findall(r'(\d+[\s-])', fraction_str):
+                    # remove the "-" from the whole number
+                    whole_number = _re.findall(r'(\d+[\s-])', fraction_str)[0].strip()
+                    whole_number = _re.sub(r'-', "", whole_number)
+                    whole_number = int(whole_number)
+                    decimal = whole_number + decimal
+                
+                replacement_list.append((fraction_str, str(decimal)))
+            for fraction, dec in replacement_list:
+                item = item.replace(fraction, dec)
+            
+            
+            results.append(item)
+            
+        df[out_col] = results
     
     return df
 
 
-def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def from_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None,
+        **kwargs
+        ) -> _pd.DataFrame:
     """
     type: object
     description: Convert a JSON representation into an object
-    additionalProperties: false
     required:
       - input
     properties:
@@ -202,16 +218,21 @@ def from_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = [_json.loads(x) for x in df[input_column]]
+        df[output_column] = [_json.loads(x, **kwargs) for x in df[input_column]]
     
     return df
 
 
-def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
+def to_json(
+        df: _pd.DataFrame, 
+        input: _Union[str, list], 
+        output: _Union[str, list] = None, 
+        ensure_ascii: bool = False,
+        **kwargs
+        ) -> _pd.DataFrame:
+    r"""
     type: object
     description: Convert an object to a JSON representation.
-    additionalProperties: false
     required:
       - input
     properties:
@@ -225,6 +246,21 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - string
           - array
         description: Name of the output column. If omitted, the input column will be overwritten
+      indent:
+        type:
+          - string
+          - integer
+        description: >-
+          If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+          with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
+          compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
+          that string is used to indent each level.
+      sort_keys:
+        type: boolean
+        description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
+      ensure_ascii:
+        type: boolean
+        description: If true, non-ASCII characters will be escaped. Default is false 
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -239,6 +275,111 @@ def to_json(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
-        df[output_column] = [_json.dumps(row) for row in df[input_columns].values.tolist()]
+        df[output_column] = [
+            _json.dumps(row, ensure_ascii=ensure_ascii, **kwargs) 
+            for row in df[input_columns].values.tolist()
+            ]
+        
+    return df
+
+
+def from_yaml(
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Convert a YAML representation into an object
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+        
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = [
+            _yaml.safe_load(x, **kwargs)
+            for x in df[input_column]
+        ]
+    
+    return df
+
+
+def to_yaml(
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None, 
+    **kwargs
+) -> _pd.DataFrame:
+    r"""
+    type: object
+    description: Convert an object to a YAML representation.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+      indent:
+        type: integer
+        description: >-
+          Specify the number of spaces for indentation to 
+          specify nested elements
+      sort_keys:
+        type: boolean
+        description: >-
+          If sort_keys is true (default: True),
+          then the output of dictionaries will be sorted by key.
+    """
+    # Set output column as input if not provided
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+        
+    # Loop through and apply for all columns
+    for input_columns, output_column in zip(input, output):
+        df[output_column] = [
+            _yaml.dump(row, **kwargs) 
+            for row in df[input_columns].values.tolist()
+        ]
         
     return df

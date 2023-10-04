@@ -1,0 +1,10 @@
+read:
+  - test:
+      rows: 5
+      values:
+        header1: value1
+        header2: value2
+        header3: value3
+
+wrangles:
+  - log: {}
