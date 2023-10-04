@@ -84,7 +84,7 @@ def read(
     """
     Read a file from Google Drive using a Service Account
     
-    :param share_link: ID of the file that contains the desired data or the sharable link
+    :param share_link: ID of the file that contains the desired data or the sharable link or the file path
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
     :param private_key: Private key of the Google Project
@@ -209,7 +209,7 @@ required:
 properties:
   share_link:
     type: string
-    description: ID of the file that contains the desired data or the sharable link
+    description: ID of the file that contains the desired data or the sharable link or the file path
   project_id:
     type: string
     description: ID of the Google project
@@ -229,7 +229,7 @@ properties:
     
 def write(
         df: _pd.DataFrame,
-        share_link: str,
+        folder_share_link: str,
         project_id: str,
         private_key_id: str,
         private_key: str,
@@ -244,7 +244,7 @@ def write(
     {'id': '12345ABCD'}
     
     :param df: Dataframe to upload
-    :param share_link: Folder Id where the file will be placed or a folder sharable link
+    :param folder_share_link: Folder Id where the file will be placed or a folder sharable link or a file path
     :param file_name: Name to give the file
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
@@ -283,8 +283,8 @@ def write(
     )
     
     # check if user provided sharable link or folder id
-    if 'drive.google.com' in share_link:
-        parts = share_link.split('/')
+    if 'drive.google.com' in folder_share_link:
+        parts = folder_share_link.split('/')
         for i, part in enumerate(parts):
             if part == 'folders':
                 folder_id = parts[i + 1]
@@ -293,18 +293,18 @@ def write(
                     folder_id = folder_id.split('?')[0]
                 break
     
-    elif '/' in share_link and 'https://' not in share_link:
+    elif '/' in folder_share_link and 'https://' not in folder_share_link:
         # if file_name is none, then extract the name from the path
         if file_name == None:
-            file_name = share_link.split('/')[-1]
+            file_name = folder_share_link.split('/')[-1]
             # update the path to not include the file name
-            share_link = '/'.join(share_link.split('/')[:-1])
-        folder_id = _get_id_from_path(service, share_link, 'write')
+            folder_share_link = '/'.join(folder_share_link.split('/')[:-1])
+        folder_id = _get_id_from_path(service, folder_share_link, 'write')
         if folder_id == None:
-            raise ValueError(f"Invalid path: '{share_link}'") 
+            raise ValueError(f"Invalid path: '{folder_share_link}'") 
             
     else :
-        folder_id = share_link
+        folder_id = folder_share_link
         
     # write file in memory
     memory_file = _io.BytesIO()
@@ -394,7 +394,7 @@ _schema['write'] = """
 type: object
 description: Export data to a Google Drive file
 required:
-  - share_link
+  - folder_share_link
   - file_name
   - project_id
   - private_key_id
@@ -402,9 +402,9 @@ required:
   - client_email
   - client_id
 properties:
-  share_link:
+  folder_share_link:
     type: string
-    description: Folder Id where the file will be placed
+    description: Folder Id where the file will be placed or sharable link or file path
   file_name:
     type: string
     description: Name to give the file (available extension: csv, xlsx, json, gsheet)

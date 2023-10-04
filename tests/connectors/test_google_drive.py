@@ -107,7 +107,7 @@ def test_basic_write_to_sheets():
 
     file_info = write(
         df=data,
-        share_link= folder_share_link,
+        folder_share_link= folder_share_link,
         file_name='df_to_sheets.gsheet',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -130,7 +130,7 @@ def test_write_to_drive_xlsx():
 
     file_info = write(
         df=data,
-        share_link= folder_share_link,
+        folder_share_link= folder_share_link,
         file_name='df_to_sheets.xlsx',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -153,7 +153,7 @@ def test_write_to_drive_csv():
 
     file_info = write(
         df=data,
-        share_link= folder_share_link,
+        folder_share_link= folder_share_link,
         file_name='df_to_sheets.csv',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -176,7 +176,7 @@ def test_write_to_drive_json():
 
     file_info = write(
         df=data,
-        share_link= folder_share_link,
+        folder_share_link= folder_share_link,
         file_name='df_to_sheets.json',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -199,7 +199,7 @@ def test_writing_file_path():
     })
     file_info = write(
         df=data,
-        share_link= folder_path,
+        folder_share_link= folder_path,
         file_name='df_writing_path.json',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -221,7 +221,7 @@ def test_writing_file_path_with_file():
     })
     file_info = write(
         df=data,
-        share_link= folder_path,
+        folder_share_link= folder_path,
         project_id=project_id,
         private_key_id=private_key_id,
         private_key=private_key,
