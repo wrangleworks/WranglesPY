@@ -128,6 +128,103 @@ def test_column_exists_list():
         info.typename == 'ValueError' and
         "['col'] column(s)" in info.value.args[0]
     )
+    
+def test_create_column_succinct_1():
+    """
+    Create columns using a more succinct format. Dicts for output (col_name: value)
+    Value is not None
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: World
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value: THIS IS A TEST
+        """,
+        dataframe=data
+    )
+    assert len(df.iloc[0][3]) == 10
+    
+def test_create_column_succinct_2():
+    """
+    Create columns using a more succinct format. Dicts for output (col_name: value)
+    Value is None
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: 
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5: ""
+        """,
+        dataframe=data
+    )
+    assert df.iloc[0][2] == True or df.iloc[0][2] == False
+    
+def test_create_column_succinct_3():
+    """
+    Cannot mix dictionaries and strings in the output list with no value provided.
+    col2 and col5 are strings, the rest are dicts
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2 
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+        """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'create.column - Cannot mix dictionaries and strings in the output list with no value provided.'
+    )
+    
+def test_create_column_succinct_4():
+    """
+    Error if using dicts and value being a list
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: <boolean>
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value:
+                - <boolean>
+                - <boolean>
+                - <code(10)>
+                - ""
+        """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'create.column - When using mix dictionaries and strings in the output, Value must be a string'
+    )
 
 #
 # Index

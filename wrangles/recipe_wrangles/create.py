@@ -87,11 +87,31 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
           - array
-        description: Name or list of names of new columns
+          - object
+        description: Name or list of names of new columns or column_name: value pairs
       value:
         type: string
         description: (Optional) Value to add in the new column(s). If omitted, defaults to None.
-    """
+    """    
+    
+    # check if the output is a list and if there are any dictionaries in the list
+    if isinstance(output, list) and any(isinstance(x, dict) for x in output):
+
+        if value == None:
+            if any(isinstance(x, str) for x in output):
+                raise ValueError('Cannot mix dictionaries and strings in the output list with no value provided.')
+            # use all of the values in the dictionary (output dictionary)
+            value = [list(values.values())[0] for values in output]
+        else:
+            # check that value is not a list, if it is, raise an error to avoid confusion
+            if isinstance(value, list):
+                raise ValueError('When using mix dictionaries and strings in the output, Value must be a string')
+            # use the value provided by the user on any non dictionary elements
+            value = [value if isinstance(values, str) else list(values.values())[0] for values in output]
+        
+        output = [list(x.keys())[0] if isinstance(x, dict) else x for x in output]
+
+    
     # Get list of existing columns
     existing_column = df.columns
     
