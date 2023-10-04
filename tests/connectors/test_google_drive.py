@@ -210,3 +210,24 @@ def test_writing_file_path():
     
     assert isinstance(file_info['id'], str)
     
+def test_writing_file_path_with_file():
+    """
+    Writing data using a path with a file at the end
+    """
+    folder_path = "Google Connector Data/Python Tests Do not Delete/Created Files (DELETE Files)/df_writing_path2.xlsx"
+    data = _pd.DataFrame({
+        'col1': [1,2,3],
+        'col2': [4,5,6]
+    })
+    file_info = write(
+        df=data,
+        share_link= folder_path,
+        project_id=project_id,
+        private_key_id=private_key_id,
+        private_key=private_key,
+        client_email=client_email,
+        client_id=client_id,
+    )
+    
+    assert isinstance(file_info['id'], str)
+    

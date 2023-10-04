@@ -230,12 +230,12 @@ properties:
 def write(
         df: _pd.DataFrame,
         share_link: str,
-        file_name: str,
         project_id: str,
         private_key_id: str,
         private_key: str,
         client_email: str,
         client_id: str,
+        file_name: str = None,
         **kwargs
         ) -> None:
     """
@@ -294,6 +294,11 @@ def write(
                 break
     
     elif '/' in share_link and 'https://' not in share_link:
+        # if file_name is none, then extract the name from the path
+        if file_name == None:
+            file_name = share_link.split('/')[-1]
+            # update the path to not include the file name
+            share_link = '/'.join(share_link.split('/')[:-1])
         folder_id = _get_id_from_path(service, share_link, 'write')
         if folder_id == None:
             raise ValueError(f"Invalid path: '{share_link}'") 
