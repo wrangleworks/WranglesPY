@@ -193,3 +193,15 @@ def test_timeout_failure_actions():
         info.typename == 'TimeoutError' and
         memory.variables["timeout fail action"] == "got here"
     )
+    
+def test_invalid_recipe_file_extension():
+    """
+    Test that an invalid recipe file extension
+    throws an appropriate error
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'Error reading recipe file: "tests/samples/recipe_sample.wrgl.yaaml". Ensure the recipe file has the correct file extension.'
+    )

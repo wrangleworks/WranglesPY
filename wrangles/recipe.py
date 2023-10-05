@@ -199,9 +199,12 @@ def _load_recipe(
 
     # Otherwise it's a recipe
     else:
-        with open(recipe, "r", encoding='utf-8') as f:
-            recipe_string = f.read()
-    
+        # Check that recipe has "yaml" file extension
+        try:
+            with open(recipe, "r", encoding='utf-8') as f:
+                recipe_string = f.read()
+        except:
+            raise ValueError(f'Error reading recipe file: "{recipe}". Ensure the recipe file has the correct file extension.')
     # Also add environment variables to list of placeholder variables
     for env_key, env_val in _os.environ.items():
         if env_key not in variables.keys():
