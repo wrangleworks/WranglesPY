@@ -33,10 +33,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
     :param data_type: String or code to create random data
     :param rows: Number of rows to create
     """
-    if isinstance(data_type, list):
-        return [data_type for _ in range(rows)]
-        # return [data_type[_random.randint(0, len(data_type) - 1)] for _ in range(rows)]
-    elif isinstance(data_type, str):
+    if isinstance(data_type, str):
         if data_type == '<char>':
             return [_random.choice(_string.ascii_lowercase) for _ in range(rows)]
 

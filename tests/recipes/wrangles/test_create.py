@@ -191,12 +191,8 @@ def test_create_column_succinct_3():
                 - col4: <code(10)>
                 - col5
         """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        info.value.args[0] == 'create.column - Cannot mix dictionaries and strings in the output list with no value provided.'
-    )
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col2'][0] == '' and df['col5'][0] == ''
     
 def test_create_column_succinct_4():
     """
@@ -225,6 +221,28 @@ def test_create_column_succinct_4():
         info.typename == 'ValueError' and
         info.value.args[0] == 'create.column - When using mix dictionaries and strings in the output, Value must be a string'
     )
+    
+def test_create_column_succinct_5():
+    """
+    Testing the column that is not a dict and has no value
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: World
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value: THIS IS A TEST
+        """,
+        dataframe=data
+    )
+    assert df['col5'][0] == 'THIS IS A TEST'
 
 #
 # Index
