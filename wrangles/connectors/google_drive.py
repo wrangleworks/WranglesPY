@@ -73,7 +73,7 @@ def _get_id_from_path(service, path, type):
 
 
 def read(
-        share_link: str,
+        file: str,
         project_id: str,
         private_key_id: str,
         private_key: str,
@@ -84,7 +84,7 @@ def read(
     """
     Read a file from Google Drive using a Service Account
     
-    :param share_link: ID of the file that contains the desired data or the sharable link or the file path
+    :param file: ID of the file that contains the desired data or the sharable link or the file path
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
     :param private_key: Private key of the Google Project
@@ -122,22 +122,22 @@ def read(
         )
     
     # check if user provided sharable link or file id
-    if 'drive.google.com' in share_link or 'docs.google.com' in share_link:
-        parts = share_link.split('/')
+    if 'drive.google.com' in file or 'docs.google.com' in file:
+        parts = file.split('/')
         for i, part in enumerate(parts):
             if part == 'd':
                 file_id = parts[i + 1]
                 break
     
     # check if the share link is a path
-    elif '/' in share_link and 'https://' not in share_link:
-        file_id = _get_id_from_path(service, share_link, 'read')
+    elif '/' in file and 'https://' not in file:
+        file_id = _get_id_from_path(service, file, 'read')
         if file_id == None:
-            raise ValueError(f"Invalid path: '{share_link}'")
+            raise ValueError(f"Invalid path: '{file}'")
         
     # this is just the model id
     else :
-        file_id = share_link
+        file_id = file
     
     # Determine the mimeType based on file metadata
     file_data = service.files().get(
@@ -200,16 +200,16 @@ _schema['read'] = """
 type: object
 description: Import data from a Google Drive file
 required:
-  - share_link
+  - file
   - project_id
   - private_key_id
   - private_key
   - client_email
   - client_id
 properties:
-  share_link:
+  file:
     type: string
-    description: ID of the file that contains the desired data or the sharable link or the file path
+    description: ID of the file that contains the desired data or the sharable link or the Drive file path
   project_id:
     type: string
     description: ID of the Google project
@@ -229,7 +229,7 @@ properties:
     
 def write(
         df: _pd.DataFrame,
-        folder_share_link: str,
+        file: str,
         project_id: str,
         private_key_id: str,
         private_key: str,
@@ -244,8 +244,8 @@ def write(
     {'id': '12345ABCD'}
     
     :param df: Dataframe to upload
-    :param folder_share_link: Folder Id where the file will be placed or a folder sharable link or a file path
-    :param file_name: Name to give the file
+    :param file: Folder sharable link (File name required) or file sharable link or a file path
+    :param file_name: (Optional except when using a folder share link or folder path) Name to give the file
     :param project_id: ID of the Google project
     :param private_key_id: Private key identification of the Google project
     :param private_key: Private key of the Google Project
@@ -282,9 +282,14 @@ def write(
         credentials=creds
     )
     
-    # check if user provided sharable link or folder id
-    if 'drive.google.com' in folder_share_link:
-        parts = folder_share_link.split('/')
+    # user provided a folder sharable link
+    if 'drive.google.com' in file:
+        
+        # file_name is required when using a folder share link
+        if file_name == None:
+            raise ValueError('file_name is required when using a folder share link.')
+        
+        parts = file.split('/')
         for i, part in enumerate(parts):
             if part == 'folders':
                 folder_id = parts[i + 1]
@@ -293,18 +298,54 @@ def write(
                     folder_id = folder_id.split('?')[0]
                 break
     
-    elif '/' in folder_share_link and 'https://' not in folder_share_link:
+    # user provided a path with a file name
+    elif '/' in file and 'https://' not in file:
         # if file_name is none, then extract the name from the path
         if file_name == None:
-            file_name = folder_share_link.split('/')[-1]
+            file_name = file.split('/')[-1]
             # update the path to not include the file name
-            folder_share_link = '/'.join(folder_share_link.split('/')[:-1])
-        folder_id = _get_id_from_path(service, folder_share_link, 'write')
+            file = '/'.join(file.split('/')[:-1])
+        folder_id = _get_id_from_path(service, file, 'write')
         if folder_id == None:
-            raise ValueError(f"Invalid path: '{folder_share_link}'") 
-            
+            raise ValueError(f"Invalid path: '{file}'")
+    
+    # user provided a file sharable link -> use ID from link to make a quick update
+    elif 'docs.google.com' in file:
+        # get the file metadata from the link
+        parts = file.split('/')
+        for i, part in enumerate(parts):
+            if part == 'd':
+                folder_id = parts[i + 1]
+                break
+        # get the file_name from the id
+        file_metadata = service.files().get(
+            fileId=folder_id,
+        ).execute()
+        
+        file_name = f"{file_metadata['name']}.xlsx"
+        file_id = file_metadata['id']
+        file_mime_type = file_metadata['mimeType']
+        
+        # write file in memory
+        memory_file = _io.BytesIO()
+        _file.write(df, name=file_name, file_object=memory_file)
+        memory_file.seek(0, 0)
+        # Uploading the file to drive
+        media = _MediaIoBaseUpload(
+            memory_file,
+            mimetype=file_mime_type,
+        )
+        
+        file = service.files().update(
+            fileId=file_id,
+            media_body=media,
+        ).execute()
+        
+        return
+    
+    # user provided a folder id - should not be common
     else :
-        folder_id = folder_share_link
+        folder_id = file
         
     # write file in memory
     memory_file = _io.BytesIO()
@@ -388,26 +429,25 @@ def write(
             fields='id',
         ).execute()
     
-    return file
+    return
 
 _schema['write'] = """
 type: object
 description: Export data to a Google Drive file
 required:
-  - folder_share_link
-  - file_name
+  - file
   - project_id
   - private_key_id
   - private_key
   - client_email
   - client_id
 properties:
-  folder_share_link:
+  file:
     type: string
-    description: Folder Id where the file will be placed or sharable link or file path
+    description: Folder sharable link (File name required) or file sharable link or a file path
   file_name:
     type: string
-    description: Name to give the file (available extension: csv, xlsx, json, gsheet)
+    description: (Optional except when using a folder share link or folder path) Name to give the file
   project_id:
     type: string
     description: ID of the Google project
