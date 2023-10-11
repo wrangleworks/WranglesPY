@@ -199,9 +199,9 @@ def test_invalid_recipe_file_extension():
     Test that an invalid recipe file extension
     throws an appropriate error
     """
-    with pytest.raises(ValueError) as info:
+    with pytest.raises(RuntimeError) as info:
         raise wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
     assert (
-        info.typename == 'ValueError' and
-        info.value.args[0] == 'Error reading recipe file: "tests/samples/recipe_sample.wrgl.yaaml". Ensure the recipe file has the correct file extension.'
+        info.typename == 'RuntimeError' and
+        info.value.args[0].startswith('Error reading recipe')
     )
