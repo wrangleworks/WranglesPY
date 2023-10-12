@@ -199,9 +199,16 @@ def _load_recipe(
 
     # Otherwise it's a recipe
     else:
-        with open(recipe, "r", encoding='utf-8') as f:
-            recipe_string = f.read()
-    
+        # Read the recipe
+        try:
+            with open(recipe, "r", encoding='utf-8') as f:
+                recipe_string = f.read()
+        except:
+            raise RuntimeError(
+                f'Error reading recipe: "{recipe}". ' \
+                + 'The recipe should be a YAML file using utf-8 encoding.'
+            )
+
     # Also add environment variables to list of placeholder variables
     for env_key, env_val in _os.environ.items():
         if env_key not in variables.keys():
