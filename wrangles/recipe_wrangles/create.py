@@ -115,7 +115,9 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     output_dict = {}
     for out in output:
         if isinstance(out, dict):
-            output_dict.update(out)
+            # get the first key and value only and append dictionary to output_dict
+            temp_key, temp_value = list(out.items())[0]
+            output_dict.update({temp_key: temp_value})
         else:
             output_dict.update({out: value})
                 

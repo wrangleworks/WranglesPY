@@ -323,7 +323,27 @@ def test_create_column_succinct_7():
         dataframe=data
     )
     assert df['col2'][0] == 'World2'
-
+    
+def test_create_column_succinct_8():
+    """
+    Having a dictionary in the output with more than one key:value pair. Should only get the first value
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                  col2.5: Nothing here
+                - col3: <boolean>
+        """,
+        dataframe=data
+    )
+    assert list(df.columns) == ['col1', 'col2', 'col3']
+    
 #
 # Index
 #
