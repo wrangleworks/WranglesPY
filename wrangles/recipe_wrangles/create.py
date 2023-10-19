@@ -111,27 +111,20 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         raise ValueError(f'"{output}" column already exists in dataFrame.')
       output = [output]
     
-    values = []
-    outputs = []
-    # iterate over the list of output columns and check if they are dictionaries
+    # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
+    output_dict = {}
     for out in output:
         if isinstance(out, dict):
-            # get the value and append to the values list
-            values.append(list(out.values())[0])
-            # get the key and append to the outputs list
-            outputs.append(list(out.keys())[0])
+            output_dict.update(out)
         else:
-            # append the "value" to the list
-            values.append(value)
-            # append the output to the list
-            outputs.append(out)
-        
+            output_dict.update({out: value})
+                
     # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in outputs if x in existing_column]
+    check_list = [x for x in (output_dict.keys()) if x in existing_column]
     if len(check_list) > 0:
       raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
     
-    for output_column, values_list in zip(outputs, values):
+    for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
         data.set_index(df.index, inplace=True)  # use the same index as original to match rows

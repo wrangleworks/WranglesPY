@@ -284,6 +284,45 @@ def test_create_column_succinct_5():
         dataframe=data
     )
     assert df['col5'][0] == 'THIS IS A TEST'
+    
+def test_create_column_succinct_6():
+    """
+    Having a duplicate column in the creation process
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                - col2: World2
+        """,
+        dataframe=data
+    )
+    assert df['col2'][0] == 'World2'
+    
+def test_create_column_succinct_7():
+    """
+    Having a duplicate column in the creation process
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                - col2.5: Nothing here
+                - col2: World2
+        """,
+        dataframe=data
+    )
+    assert df['col2'][0] == 'World2'
 
 #
 # Index
