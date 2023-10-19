@@ -85,20 +85,21 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
                 length = 8
             return [''.join(_random.choice(_string.ascii_uppercase + _string.digits) for _ in range(length)) for _ in range(rows)]
         
-        elif data_type == '<date_today>':
+        elif data_type == '<date>':
             return [_pd.to_datetime('today').normalize() for _ in range(rows)]
         
         # Get a random date from a range of dates
-        elif _re.findall(r'<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
-            date_range_string = _re.findall(r'\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
-            start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
-            end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
-            return [_random_date(start_date, end_date) for _ in range(rows)]
-        
-        # Enter a date
-        elif _re.findall(r'<date\s\d+-\d+-\d+>', data_type):
-            date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
-            return [date for _ in range(rows)]
+        elif '<date(' in data_type:
+            # check if there is a "to" in the string
+            if 'to' in data_type:
+                date_range_string = _re.findall(r'\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
+                start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
+                end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
+                return [_random_date(start_date, end_date) for _ in range(rows)]
+            else:
+                # get the single date from the string =  <date(2020-01-01)> -> 2020-01-01
+                date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
+                return [date for _ in range(rows)]
         
         else:
             return [data_type for _ in range(rows)]

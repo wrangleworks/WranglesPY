@@ -51,27 +51,33 @@ def test_data_generation_2():
     
 # testing todays date
 def test_date_today_generation_3():
+    """
+    Get today's date
+    """
     recipe = """
     read:
       - test:
           rows: 1
           values:
-            date: <date_today>
+            date: <date>
     """
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['date'].date() == datetime.today().date()
     
 # testing date ranges
 def test_date_ranges_4():
+    """
+    Get a random date from a range of dates
+    """
     recipe = """
     read:
       - test:
-          rows: 2
+          rows: 10
           values:
-            date_range: <12-25-2022 to 12-31-2022>
+            date_range: <date(12-25-2022 to 12-31-2022)>
     """
     df = wrangles.recipe.run(recipe)
-    assert 1 # this will generate a random date. Testing that it works
+    assert df['date_range'][3].day <= 31 and df['date_range'][3].day >= 25
   
 def test_date_5():
     recipe = """
@@ -79,10 +85,24 @@ def test_date_5():
       - test:
           rows: 2
           values:
-            dates: <date 12-25-2022>
+            dates: <date(12-25-2022)>
     """
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['dates'].strftime("%Y") == '2022'
+    
+def test_date_6_():
+    """
+    This should be just the string <date 2006-06-06 >
+    """
+    recipe = """
+    read:
+        - test:
+            rows: 2
+            values:
+                dates: <date 2006-06-06>
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df['dates'][0] == '<date 2006-06-06>'
     
 def test_order_list():
     """
