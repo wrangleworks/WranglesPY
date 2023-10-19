@@ -87,34 +87,16 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
           - array
-          - object
         description: Name or list of names of new columns or column_name: value pairs.
       value:
         type:
           - string
-          - array
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
     """    
     
-    # check if the output is a list and if there are any dictionaries in the list
-    if isinstance(output, list) and any(isinstance(x, dict) for x in output):
-        
-        # if value is a list then raise and error
-        if isinstance(value, list):
-            raise ValueError('When using mix dictionaries and strings in the output, Value must be a string')
-
-        if value == None:
-            # Get values from dictionaries and use '' if no value provided
-            value = [list(x.values())[0] if isinstance(x, dict) else "" for x in output ]
-        else:
-            # check that value is not a list, if it is, raise an error to avoid confusion
-            if isinstance(value, list):
-                raise ValueError('When using mix dictionaries and strings in the output, Value must be a string')
-            # use the value provided by the user on any non dictionary elements
-            value = [value if isinstance(values, str) else list(values.values())[0] for values in output]
-        
-        output = [list(x.keys())[0] if isinstance(x, dict) else x for x in output]
-
+    # if value is a list then raise and error
+    if isinstance(value, list):
+        raise ValueError('Value must be a string and not a list')
     
     # Get list of existing columns
     existing_column = df.columns
@@ -129,20 +111,27 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         raise ValueError(f'"{output}" column already exists in dataFrame.')
       output = [output]
     
-    # Allow for user to enter either a list and/or a string in output and value and not error
-    if isinstance(value, list) and cols_created == 1:
-        value = [value[0] for _ in range(cols_created)]
-    elif isinstance(value, str):
-        value = [value for _ in range(cols_created)]
-    elif value == None:
-        value = ['' for _ in range(cols_created)]
+    values = []
+    outputs = []
+    # iterate over the list of output columns and check if they are dictionaries
+    for out in output:
+        if isinstance(out, dict):
+            # get the value and append to the values list
+            values.append(list(out.values())[0])
+            # get the key and append to the outputs list
+            outputs.append(list(out.keys())[0])
+        else:
+            # append the "value" to the list
+            values.append(value)
+            # append the output to the list
+            outputs.append(out)
         
     # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in output if x in existing_column]
+    check_list = [x for x in outputs if x in existing_column]
     if len(check_list) > 0:
       raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
     
-    for output_column, values_list in zip(output, value):
+    for output_column, values_list in zip(outputs, values):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
         data.set_index(df.index, inplace=True)  # use the same index as original to match rows

@@ -69,9 +69,7 @@ def test_create_columns_4():
             output:
               - column3
               - column4
-            value:
-              - <boolean>
-              - <number(1-3)>
+            value: <number(1-3)>
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column4'] in [1, 2, 3, 4]
@@ -84,8 +82,7 @@ def test_create_columns_5():
         - create.column:
             output:
               - column3
-            value:
-              - <boolean>
+            value: <boolean>
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column3'] in [True, False]
@@ -128,6 +125,50 @@ def test_column_exists_list():
         info.typename == 'ValueError' and
         "['col'] column(s)" in info.value.args[0]
     )
+
+def test_create_column_value_number():
+    """
+    Test create.column using a number as the value
+    """
+    data = pd.DataFrame({
+        'col1': ['stuff', 'stuff', 'more stuff'],
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2
+              value: ${value}
+        """,
+        variables={
+            "value": 1
+        },
+        dataframe=data
+    )
+    assert df['col2'][0] == 1
+    
+def test_create_column_value_boolean():
+    """
+    Test create.column using a boolean as the value
+    """
+    data = pd.DataFrame({
+        'col1': ['stuff', 'stuff', 'more stuff'],
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2
+              value: ${value}
+        """,
+        variables={
+            "value": True
+        },
+        dataframe=data
+    )
+    assert df['col2'][0] == True
     
 def test_create_column_succinct_1():
     """
@@ -165,7 +206,7 @@ def test_create_column_succinct_2():
         wrangles:
         - create.column:
             output:
-                - col2: 
+                - col2
                 - col3: <boolean>
                 - col4: <code(10)>
                 - col5: ""
@@ -196,7 +237,7 @@ def test_create_column_succinct_3():
     
 def test_create_column_succinct_4():
     """
-    Error if using dicts and value being a list
+    Error if using a list in value
     """
     data = pd.DataFrame({
         'col1': ['Hello']
@@ -219,7 +260,7 @@ def test_create_column_succinct_4():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        info.value.args[0] == 'create.column - When using mix dictionaries and strings in the output, Value must be a string'
+        info.value.args[0] == 'create.column - Value must be a string and not a list'
     )
     
 def test_create_column_succinct_5():
