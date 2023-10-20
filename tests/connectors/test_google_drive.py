@@ -83,7 +83,7 @@ def test_reading_json_file():
     assert df.iloc[106][2] == 'MEX'
     
 def test_reading_file_path():
-    reading_path = "Google Connector Data/Python Tests Do not Delete/Do_not_delete.xlsx"
+    reading_path = "PyTest/Do_not_delete.xlsx"
     df = read(
         file=reading_path,
         project_id=project_id,
@@ -197,7 +197,7 @@ def test_writing_file_path():
     """
     Write data using a folder path
     """
-    folder_path = "Google Connector Data/Python Tests Do not Delete/Created Files (DELETE Files)"
+    folder_path = "PyTest/Created Files (Can Be Deleted, Created Automatic)"
     data = _pd.DataFrame({
         'col1': [1,2,3],
         'col2': [4,5,6]
