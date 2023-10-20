@@ -22,9 +22,11 @@ def test_basic_read_id():
         client_id=client_id
     )
     assert df.iloc[106][2] == 'MEX'
-    
 def test_basic_read_link():
-    read_file_id = "https://docs.google.com/spreadsheets/d/11QLHUhnrNCRJLCARqurneAceXqlWh301/edit?usp=drive_link" # .xlsx file
+    """
+    Link obtained from the share button
+    """
+    read_file_id = "https://docs.google.com/spreadsheets/d/1q6nPa-iKJ4u8ezT59K3vp9ukSafzNce1/edit?usp=sharing&ouid=105051950944307201734&rtpof=true&sd=true" # .xlsx file
     df = read(
         file=read_file_id,
         project_id=project_id,
@@ -36,7 +38,10 @@ def test_basic_read_link():
     assert df.iloc[106][2] == 'MEX'
 
 def test_basic_read_url_link():
-    read_file_id = "https://docs.google.com/spreadsheets/d/11QLHUhnrNCRJLCARqurneAceXqlWh301/edit#gid=225914639" # .xlsx file
+    """
+    Link obtained from the url
+    """
+    read_file_id = "https://docs.google.com/spreadsheets/d/1q6nPa-iKJ4u8ezT59K3vp9ukSafzNce1/edit#gid=225914639" # .xlsx file
     df = read(
         file=read_file_id,
         project_id=project_id,
@@ -48,7 +53,10 @@ def test_basic_read_url_link():
     assert df.iloc[106][2] == 'MEX'
     
 def test_reading_csv_file():
-    read_file_id = "https://drive.google.com/file/d/1LuPWzzlXNwpDUHmxYmYZ4fXXoUzCA0F9/view?usp=drive_link"
+    """
+    Link obtained from share button
+    """
+    read_file_id = "https://drive.google.com/file/d/1bohcPdc2RcK0OE_XDg2DzCgPFy-VKEOa/view?usp=sharing" # .csv file
     df = read(
         file=read_file_id,
         project_id=project_id,
@@ -60,7 +68,10 @@ def test_reading_csv_file():
     assert df.iloc[106][2] == 'MEX'
     
 def test_reading_json_file():
-    read_file_id = "https://drive.google.com/file/d/1lxybaNym4U3jf5nHhCd5hQH044Ucpa8t/view?usp=drive_link"
+    """
+    Link obtained from share button
+    """
+    read_file_id = "https://drive.google.com/file/d/15VOuxdYEPtLN6f-OCsi30QHNghGoxSa7/view?usp=sharing" # .json file
     df = read(
         file=read_file_id,
         project_id=project_id,
@@ -89,7 +100,9 @@ def test_reading_file_path():
 # write to a folder
 #
 
-folder_share_link = "https://drive.google.com/drive/folders/1a6AXyn-4PAqjaVJasr9WtQC7XY5k1G3Y?usp=drive_link"
+# from share button
+folder_share_link = "https://drive.google.com/drive/folders/1v_gmRNQV918rb0rCOVHYQDJrIdtW6xCl?usp=sharing"
+
 
 def test_basic_write_to_sheets():
     """
@@ -103,6 +116,7 @@ def test_basic_write_to_sheets():
     write(
         df=data,
         file= folder_share_link,
+        # file= my_drive,
         file_name='df_to_sheets.gsheet',
         project_id=project_id,
         private_key_id=private_key_id,
@@ -205,7 +219,7 @@ def test_writing_file_path_with_file():
     """
     Writing data using a path with a file at the end
     """
-    folder_path = "Google Connector Data/Python Tests Do not Delete/Created Files (DELETE Files)/df_writing_path2.xlsx"
+    folder_path = "PyTest/Created Files (Can Be Deleted, Created Automatic)/df_writing_path2.xlsx"
     data = _pd.DataFrame({
         'col1': [1,2,3],
         'col2': [4,5,6]

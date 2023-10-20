@@ -27,7 +27,7 @@ def _get_id_from_path(service, path, type):
     
     # get the root folder id from the path
     query = f"mimeType = 'application/vnd.google-apps.folder' and name = '{folder_list[0]}' and trashed = false"
-    results = service.files().list(q=query, fields="files(id)").execute()
+    results = service.files().list(q=query, fields="files(id)", supportsAllDrives=True,  includeItemsFromAllDrives=True).execute()
     if results['files'] == []:
         raise ValueError(f"Folder '{folder_list[0]}' does not exist in Google Drive or does not have the correct Service Account permissions.""")
     root_id = results['files'][0]['id']
@@ -43,7 +43,7 @@ def _get_id_from_path(service, path, type):
         if part == path_list[-1] and type == 'read':
             # search for a file using the id_stack
             query = f"'{id_stack}' in parents and mimeType != 'application/vnd.google-apps.folder'"
-            results = service.files().list(q=query, fields="files(id, name)").execute()
+            results = service.files().list(q=query, fields="files(id, name)", supportsAllDrives=True,  includeItemsFromAllDrives=True).execute()
             
             # check if the file exists in last folder in the path
             if [x['name'] for x in results['files'] if x['name'] == file]:
@@ -52,7 +52,7 @@ def _get_id_from_path(service, path, type):
             
         elif part == path_list[-1] and type == 'write':
             query = f"'{id_stack}' in parents and mimeType = 'application/vnd.google-apps.folder'"
-            results = service.files().list(q=query, fields="files(id, name)").execute()
+            results = service.files().list(q=query, fields="files(id, name)", supportsAllDrives=True,  includeItemsFromAllDrives=True).execute()
             
             # check if the file exists in last folder in the path and get id
             if [x['name'] for x in results['files'] if x['name'] == part]:
@@ -62,7 +62,7 @@ def _get_id_from_path(service, path, type):
         else:
             # Keep iterating through the path/folders. using the folder id, check that the folder contains the sub folder
             query = f"'{id_stack}' in parents and mimeType = 'application/vnd.google-apps.folder'"
-            results = service.files().list(q=query, fields="files(id, name)").execute()
+            results = service.files().list(q=query, fields="files(id, name)", supportsAllDrives=True,  includeItemsFromAllDrives=True).execute()
             
             # check if the sub folder exists in the current folder
         if [x['name'] for x in results['files'] if x['name'] == part]:
@@ -427,6 +427,7 @@ def write(
             body=file_metadata,
             media_body=media,
             fields='id',
+            supportsAllDrives=True,
         ).execute()
     
     return
