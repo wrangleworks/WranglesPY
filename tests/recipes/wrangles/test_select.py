@@ -901,7 +901,6 @@ def test_group_by_to_list_multiple_by():
         list(df.values[2]) == ['b', 'b', [4]]
     )
 
-
 def test_group_by_to_list_multiple_list():
     """
     Test group by aggregating
@@ -926,6 +925,30 @@ def test_group_by_to_list_multiple_list():
     assert (
         list(df.values[0]) == ['a', [1,2,3], [5,6,7]] and
         list(df.values[1]) == ['b', [4], [8]]
+    )
+
+
+def test_group_by_where():
+    """
+    Test group by using where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list: to_list
+              where: agg <> 'b'
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "b", "c"],
+            "to_list": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2]] and
+        list(df.values[1]) == ['c', [4]]
     )
 
 def test_element_list():
