@@ -401,7 +401,15 @@ def group_by(df, by = [], **kwargs):
             else:
                 inverted_dict[column] = [operation]
 
-    # Group on by and agg columns
+    # If any of the columns to group by are also specified
+    # as an aggregate column this causes problems.
+    # Temporarily rename the column to avoid this.
+    if set(by).intersection(set(inverted_dict.keys())):
+        for i, val in enumerate(by):
+            if val in inverted_dict.keys():
+                df[val + ".grouped_asjkdbak"] = df[val]
+                by[i] = val + ".grouped_asjkdbak"
+
     df_grouped = df[by + list(inverted_dict.keys())].groupby(
         by = by,
         as_index=False,
@@ -420,6 +428,17 @@ def group_by(df, by = [], **kwargs):
 
     # Flatting multilevel headings back to one
     df.columns = df.columns.map('.'.join).str.strip('.')
+
+    # Rename columns back to original names if altered
+    df.rename(
+        {
+            col: col.replace(".grouped_asjkdbak", "")
+            for col in df.columns
+            if col.endswith(".grouped_asjkdbak")
+        },
+        axis=1,
+        inplace=True
+    )
 
     return df
 

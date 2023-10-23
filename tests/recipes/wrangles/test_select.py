@@ -951,6 +951,30 @@ def test_group_by_where():
         list(df.values[1]) == ['c', [4]]
     )
 
+def test_group_by_agg_same_column():
+    """
+    Test group by and aggregating
+    on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg
+              count:
+                - agg
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 3] and
+        list(df.values[1]) == ['b', 1]
+    )
+
 def test_element_list():
     """
     Test get element from a list
