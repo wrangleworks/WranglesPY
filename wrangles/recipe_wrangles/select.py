@@ -295,8 +295,15 @@ def group_by(df, by = [], **kwargs):
     description: Group and aggregate the data
     properties:
       by:
-        type: array
+        type:
+          - string
+          - array
         description: List of the input columns to group on
+      list:
+        type:
+          - string
+          - array
+        description: Group and return all values for these column(s) as a list
       first:
         type:
           - string
@@ -378,12 +385,17 @@ def group_by(df, by = [], **kwargs):
 
     # Ensure by is a list
     if not isinstance(by, list): by = [by]
+
     # Invert kwargs to put column names as keys
     inverted_dict = {}
     for operation, columns in kwargs.items():
         # Interpret percentiles
         if operation[0].lower() == "p" and operation[1:].isnumeric():
             operation = percentile(int(operation[1:])/100)
+
+        # Add option to group as a list
+        if operation == "list":
+            operation = list
 
         if not isinstance(columns, list): columns = [columns]
         for column in columns:
@@ -392,7 +404,16 @@ def group_by(df, by = [], **kwargs):
             else:
                 inverted_dict[column] = [operation]
 
-    # Group on by and agg columns
+    # If any of the columns to group by are also specified
+    # as an aggregate column this causes problems.
+    # Temporarily rename the column to avoid this.
+    if set(by).intersection(set(inverted_dict.keys())):
+        for i, val in enumerate(by):
+            if val in inverted_dict.keys():
+                df[val + ".grouped_asjkdbak"] = df[val]
+                by[i] = val + ".grouped_asjkdbak"
+
+    # Create group by object with by and aggregate columns
     df_grouped = df[by + list(inverted_dict.keys())].groupby(
         by = by,
         as_index=False,
@@ -411,6 +432,17 @@ def group_by(df, by = [], **kwargs):
 
     # Flatting multilevel headings back to one
     df.columns = df.columns.map('.'.join).str.strip('.')
+
+    # Rename columns back to original names if altered
+    df.rename(
+        {
+            col: col.replace(".grouped_asjkdbak", "")
+            for col in df.columns
+            if col.endswith(".grouped_asjkdbak")
+        },
+        axis=1,
+        inplace=True
+    )
 
     return df
 

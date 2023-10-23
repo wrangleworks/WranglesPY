@@ -380,7 +380,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
                 original_params = params.copy()
-                if 'where' in params.keys() and wrangle not in no_where_list:
+                if 'where' in params.keys():
                     df_original = df.copy()
                     
                     # Save original index, filter data, then restore index
@@ -509,6 +509,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df = obj(df, **params)
 
                 # If the user specified a where, we need to merge this back to the original dataframe
+                # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
+                # dataframe and do not make sense to merge back to the original
                 if 'where' in original_params and wrangle not in no_where_list:
                     if 'output' in params.keys():
                         # Wrangle explictly defined the output
