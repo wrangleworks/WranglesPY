@@ -703,6 +703,37 @@ def test_group_by():
         list(df.values[1]) == ['b', 4, 4, 4]
     )
 
+def test_group_by_multiple_by():
+    """
+    Test group by with multiple by
+    columns specified
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg1
+                - agg2
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg1": ["a", "a", "a", "b"],
+            "agg2": ["a", "a", "b", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 'a', 3, 1, 2] and
+        list(df.values[1]) == ['a', 'b', 3, 3, 3] and
+        list(df.values[2]) == ['b', 'b', 4, 4, 4]
+    )
+
 def test_group_by_without_by():
     """
     Test group by with only aggregations
@@ -821,6 +852,81 @@ def test_group_by_percentiles():
     )
 
     assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
+
+def test_group_by_to_list():
+    """
+    Test group by aggregating to a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list: to_list
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "to_list": [1,2,3,4],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2,3]] and
+        list(df.values[1]) == ['b', [4]]
+    )
+
+def test_group_by_to_list_multiple_by():
+    """
+    Test group by aggregating on multiple columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg1
+                - agg2
+              list: to_list
+        """,
+        dataframe=pd.DataFrame({
+            "agg1": ["a", "a", "a", "b"],
+            "agg2": ["a", "a", "b", "b"],
+            "to_list": [1,2,3,4],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 'a', [1,2]] and
+        list(df.values[1]) == ['a', 'b', [3]] and
+        list(df.values[2]) == ['b', 'b', [4]]
+    )
+
+
+def test_group_by_to_list_multiple_list():
+    """
+    Test group by aggregating
+    multiple columns to lists
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list:
+                - to_list1
+                - to_list2
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "to_list1": [1,2,3,4],
+            "to_list2": [5,6,7,8],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2,3], [5,6,7]] and
+        list(df.values[1]) == ['b', [4], [8]]
+    )
 
 def test_element_list():
     """

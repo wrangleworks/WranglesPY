@@ -297,6 +297,11 @@ def group_by(df, by = [], **kwargs):
       by:
         type: array
         description: List of the input columns to group on
+      list:
+        type:
+          - string
+          - array
+        description: Group and return all values for these column(s) as a list
       first:
         type:
           - string
@@ -370,7 +375,7 @@ def group_by(df, by = [], **kwargs):
             return x.quantile(n)
         percentile_.__name__ = f'p{int(n*100)}'
         return percentile_
-
+        
     # If by not specified, fake a column to allow it to be used
     if not by:
         df['absjdkbatgg'] = 1
@@ -384,6 +389,10 @@ def group_by(df, by = [], **kwargs):
         # Interpret percentiles
         if operation[0].lower() == "p" and operation[1:].isnumeric():
             operation = percentile(int(operation[1:])/100)
+
+        # Add option to group as a list
+        if operation == "list":
+            operation = list
 
         if not isinstance(columns, list): columns = [columns]
         for column in columns:
