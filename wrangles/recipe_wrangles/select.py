@@ -295,7 +295,9 @@ def group_by(df, by = [], **kwargs):
     description: Group and aggregate the data
     properties:
       by:
-        type: array
+        type:
+          - string
+          - array
         description: List of the input columns to group on
       list:
         type:
@@ -375,7 +377,7 @@ def group_by(df, by = [], **kwargs):
             return x.quantile(n)
         percentile_.__name__ = f'p{int(n*100)}'
         return percentile_
-        
+
     # If by not specified, fake a column to allow it to be used
     if not by:
         df['absjdkbatgg'] = 1
@@ -383,6 +385,7 @@ def group_by(df, by = [], **kwargs):
 
     # Ensure by is a list
     if not isinstance(by, list): by = [by]
+
     # Invert kwargs to put column names as keys
     inverted_dict = {}
     for operation, columns in kwargs.items():
@@ -410,6 +413,7 @@ def group_by(df, by = [], **kwargs):
                 df[val + ".grouped_asjkdbak"] = df[val]
                 by[i] = val + ".grouped_asjkdbak"
 
+    # Create group by object with by and aggregate columns
     df_grouped = df[by + list(inverted_dict.keys())].groupby(
         by = by,
         as_index=False,
