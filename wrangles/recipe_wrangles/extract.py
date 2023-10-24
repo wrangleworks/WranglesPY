@@ -245,6 +245,98 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - min
           - mid
           - max
+      desired_unit:
+        type: string
+        description: Convert the extracted unit to the desired unit
+    allOf:
+      - if:
+          properties:
+            attribute_type:
+              const: "area"
+        then:
+          properties:
+            desired_unit:
+              enum: ["square meters", "square yards", "square foot", "square inches"]
+      - if:
+          properties:
+            attribute_type:
+              const: "current"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kiloamps", "milliamps", "amps"]
+      - if:
+          properties:
+            attribute_type:
+              const: "force"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilonewtons", "newtons", pound force]
+      - if:
+          properties:
+            attribute_type:
+              const: "power"
+        then:
+          properties:
+            desired_unit:
+              enum: ["megawatts", "kilowatts", "watts", "horsepower"]
+      - if:
+          properties:
+            attribute_type:
+              const: "pressure"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilopascals", "pascals", "psi", "bar"]
+      - if:
+          properties:
+            attribute_type:
+              const: "temperature"
+        then:
+          properties:
+            desired_unit:
+              enum: ["celsius", "fahrenheit", "kelvin", "rankine"]
+      - if:
+          properties:
+            attribute_type:
+              const: "volume"
+        then:
+          properties:
+            desired_unit:
+              enum: ["liters", "milliliters", "gallons"]
+      - if:
+          properties:
+            attribute_type:
+              const: "volumetric flow"
+        then:
+          properties:
+            desired_unit:
+              enum: ["liter per minute", "gallon per minute", "cubic foot per minute"]
+      - if:
+          properties:
+            attribute_type:
+              const: "length"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilometers", "meters", "centimeters", "millimeters", "miles", "yards", "feet", "inches"]
+      - if:
+          properties:
+            attribute_type:
+              const: "weight"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilograms", "grams", "milligrams", "pounds"]
+      - if:
+          properties:
+            attribute_type:
+              const: "voltage"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilovolts", "volts", "millivolts"]
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
