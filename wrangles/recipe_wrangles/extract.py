@@ -337,6 +337,46 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           properties:
             desired_unit:
               enum: ["kilovolts", "volts", "millivolts"]
+      - if:
+          properties:
+            attribute_type:
+              const: "angle"
+        then:
+          properties:
+            desired_unit:
+              enum: ["degrees", "radians"]
+      - if:
+          properties:
+            attribute_type:
+              const: "capacitance"
+        then:
+          properties:
+            desired_unit:
+              enum: ["farads", "microfarads", "nanofarads"]
+      - if:
+          properties:
+            attribute_type:
+              const: "frequency"
+        then:
+          properties:
+            desired_unit:
+              enum: ["giga hertz", "mega hertz", "kilo hertz", "hertz"]
+      - if:
+          properties:
+            attribute_type:
+              const: "speed"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kph", "meters per second", "mph", "feet per second"]
+      - if:
+          properties:
+            attribute_type:
+              const: "velocity"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kph", "meters per second", "mph", "feet per second"]
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
