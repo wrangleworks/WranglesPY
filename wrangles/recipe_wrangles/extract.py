@@ -377,6 +377,54 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           properties:
             desired_unit:
               enum: ["kph", "meters per second", "mph", "feet per second"]
+      - if:
+          properties:
+            attribute_type:
+              const: "charge"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilocoulomb", "coulomb", "millicoulomb"]
+      - if:
+          properties:
+            attribute_type:
+              const: "data transfer rate"
+        then:
+          properties:
+            desired_unit:
+              enum: ["gigabit per second", "megabit per second", "kilobit per second", "bit per second"]
+      - if:
+          properties:
+            attribute_type:
+              const: "electrical conductance"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilosiemens", "siemens", "millisiemens"]
+      - if:
+          properties:
+            attribute_type:
+              const: "inductance"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilohenry", "henry", "millihenry"]
+      - if:
+          properties:
+            attribute_type:
+              const: "instance frequency"
+        then:
+          properties:
+            desired_unit:
+              enum: ["revolutions per minute", "cycles per second"]
+      - if:
+          properties:
+            attrbutie_type:
+              const: "luminous flux"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilolumens", "lumens", "millilumens"]
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
