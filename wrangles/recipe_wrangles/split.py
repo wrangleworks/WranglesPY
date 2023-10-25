@@ -45,25 +45,22 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) 
         df[exploded_df.columns] = exploded_df
 
     if isinstance(input, typing.List):
-        print()
-        df_temp = df
-        temp_list = []
         df_dict = {}
         for i in range(len(input)):
             try:
-                temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp[input[i]]]
+                df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
             except:
-                temp = [{} if x == None else x for x in df_temp[input[i]]]
+                df_temp = [{} if x == None else x for x in df[input[i]]]
             if default:
-                temp = [{**default, **x} for x in df_temp[input[i]]]
-                
-            df_dict['df{0}'.format(i)] = _pd.json_normalize(temp, max_level=0).fillna('')
-            # exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
+                df_temp = [{**default, **x} for x in df[input[i]]]
+
+            df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
             df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
 
+        # Works as intended but does not take into account overwriting columns
+        # that already exist in df_temp. Need a way to allow options for this
         for data in df_dict:
-            df_temp[df_dict[data].columns] = df_dict[data]
-        df = df_temp
+            df[df_dict[data].columns] = df_dict[data]
 
     return df
 
