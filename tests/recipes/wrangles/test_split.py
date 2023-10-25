@@ -293,6 +293,28 @@ def test_split_dictionary_default():
         df['Col4'][0] == 'D'
     )
 
+def test_split_dictionary_multiple():
+    """
+    Test splitting a list of dictionaries
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - col1
+                - col2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'col2': [{'Col4': 'D', 'Col5': 'E', 'Col6': 'F'}]
+        })
+    )
+    assert (
+        df['Col2'][0] == 'B' and 
+        df['Col4'][0] == 'D'
+    )
+
 #
 # Tokenize List
 #
