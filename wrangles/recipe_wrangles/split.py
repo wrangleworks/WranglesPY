@@ -7,9 +7,10 @@ from typing import List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
+import typing
 
 
-def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFrame:
+def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -18,7 +19,9 @@ def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFra
       - input
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - array
         description: Name of the column to be split
       default:
         type: object
@@ -28,18 +31,40 @@ def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFra
     """ 
     # storing data as df temp to prevent the original data to be changed
     df_temp = df[input]
-    try:
-        df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
-    except:
-        df_temp = [{} if x == None else x for x in df[input]]
+    if isinstance(input, str):
+        try:
+            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
+        except:
+            df_temp = [{} if x == None else x for x in df_temp]
 
-    if default:
-        df_temp = [{**default, **x} for x in df_temp]
+        if default:
+            df_temp = [{**default, **x} for x in df_temp]
+        
+        exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
+        exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+        df[exploded_df.columns] = exploded_df
 
-    exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
-    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    if isinstance(input, typing.List):
+        print()
+        df_temp = df
+        temp_list = []
+        df_dict = {}
+        for i in range(len(input)):
+            try:
+                temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp[input[i]]]
+            except:
+                temp = [{} if x == None else x for x in df_temp[input[i]]]
+            if default:
+                temp = [{**default, **x} for x in df_temp[input[i]]]
+                
+            df_dict['df{0}'.format(i)] = _pd.json_normalize(temp, max_level=0).fillna('')
+            # exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
+            df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
 
-    df[exploded_df.columns] = exploded_df
+        for data in df_dict:
+            df_temp[df_dict[data].columns] = df_dict[data]
+        df = df_temp
+
     return df
 
     
