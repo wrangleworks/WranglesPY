@@ -694,3 +694,26 @@ def test_create_embeddings_batching():
         len(df["embedding"][0]) == 1536 and
         len(df) == 150
     )
+
+def test_create_embeddings_empty():
+    """
+    Test generating openai embeddings with an empty string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: ""
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536
+    )
