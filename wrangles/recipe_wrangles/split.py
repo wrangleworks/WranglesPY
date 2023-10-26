@@ -1,16 +1,14 @@
 """
 Split a single column to multiple columns
 """
-from typing import Union as _Union
 # Rename List to _list to be able to use function name list without clashing
-from typing import List as _list
+from typing import Union as _Union, List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
-import typing
 
 
-def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) -> _pd.DataFrame:
+def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {}) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -22,7 +20,7 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) 
         type: 
           - string
           - array
-        description: Name of the column to be split
+        description: Name of the column(s) to be split
       default:
         type: object
         description: >-
@@ -44,7 +42,7 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) 
         exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
         df[exploded_df.columns] = exploded_df
 
-    if isinstance(input, typing.List):
+    if isinstance(input, _list):
         df_dict = {}
         for i in range(len(input)):
             try:
@@ -57,15 +55,14 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, list], default: dict = {}) 
             df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
             df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
 
-        # Works as intended but does not take into account overwriting columns
-        # that already exist in df_temp. Need a way to allow options for this
+        # Combine dataframes for output
         for data in df_dict:
             df[df_dict[data].columns] = df_dict[data]
 
     return df
 
     
-def list(df: _pd.DataFrame, input: str, output: _Union[str, list]) -> _pd.DataFrame:
+def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns.
@@ -103,7 +100,7 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, list]) -> _pd.DataFr
     return df
 
 
-def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
+def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
@@ -186,7 +183,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
     return df
 
 
-def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def tokenize(df: _pd.DataFrame, input: _Union[str, _list], output: _Union[str, _list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Tokenize elements in a list into individual tokens.
