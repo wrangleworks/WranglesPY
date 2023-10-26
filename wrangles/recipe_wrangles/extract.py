@@ -300,7 +300,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
       - if:
           properties:
             attribute_type:
-              const: "volume"
+              pattern: "^volume$"
         then:
           properties:
             desired_unit:
@@ -308,7 +308,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
       - if:
           properties:
             attribute_type:
-              const: "volumetric flow"
+              pattern: "^volumetric flow$"
         then:
           properties:
             desired_unit:
