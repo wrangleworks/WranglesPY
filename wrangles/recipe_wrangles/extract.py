@@ -419,12 +419,13 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
               enum: ["revolutions per minute", "cycles per second"]
       - if:
           properties:
-            attrbutie_type:
+            attribute_type:
               const: "luminous flux"
         then:
           properties:
             desired_unit:
               enum: ["kilolumens", "lumens", "millilumens"]
+
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
