@@ -93,7 +93,10 @@ def _embedding_thread(
         },
         json={
             "model": model,
-            "input": input_list
+            "input": [
+                val or " "
+                for val in input_list
+            ]
         }
     )
     return [row['embedding'] for row in response.json()['data']]
