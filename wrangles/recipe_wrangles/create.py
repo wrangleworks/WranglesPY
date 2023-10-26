@@ -165,8 +165,8 @@ def embeddings(
     """
     if output is None: output = input
     for i in range(len(df)):
-        if df[input][i] == '':
-            df[input][i] == ' '
+        if df[input[0]][i] == '':
+            df[input[0]][i] = ' '
             
     df[output] = _openai.embeddings(
         df[input[0]].to_list(),
