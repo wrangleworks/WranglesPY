@@ -256,7 +256,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["square meters", "square yards", "square foot", "square inches"]
+              enum: ["square meter", "square yard", "square foot", "square inch"]
       - if:
           properties:
             attribute_type:
@@ -264,7 +264,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kiloamps", "milliamps", "amps"]
+              enum: ["kiloamp", "milliamp", "amp"]
       - if:
           properties:
             attribute_type:
@@ -272,7 +272,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilonewtons", "newtons", pound force]
+              enum: ["kilonewton", "newton", pound force]
       - if:
           properties:
             attribute_type:
@@ -280,7 +280,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["megawatts", "kilowatts", "watts", "horsepower"]
+              enum: ["megawatt", "kilowatt", "watt", "horsepower"]
       - if:
           properties:
             attribute_type:
@@ -288,7 +288,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilopascals", "pascals", "psi", "bar"]
+              enum: ["kilopascal", "pascal", "psi", "bar"]
       - if:
           properties:
             attribute_type:
@@ -304,7 +304,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["liters", "milliliters", "gallons"]
+              enum: ["liter", "milliliter", "gallon"]
       - if:
           properties:
             attribute_type:
@@ -320,7 +320,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilometers", "meters", "centimeters", "millimeters", "miles", "yards", "feet", "inches"]
+              enum: ["kilometer", "meter", "centimeter", "millimeter", "mile", "yard", "foot", "inch"]
       - if:
           properties:
             attribute_type:
@@ -328,7 +328,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilograms", "grams", "milligrams", "pounds"]
+              enum: ["kilogram", "gram", "milligram", "pound"]
       - if:
           properties:
             attribute_type:
@@ -336,7 +336,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilovolts", "volts", "millivolts"]
+              enum: ["kilovolt", "volt", "millivolt"]
       - if:
           properties:
             attribute_type:
@@ -344,7 +344,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["degrees", "radians"]
+              enum: ["degree", "radian"]
       - if:
           properties:
             attribute_type:
@@ -352,7 +352,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["farads", "microfarads", "nanofarads"]
+              enum: ["farad", "microfarad", "nanofarad"]
       - if:
           properties:
             attribute_type:
@@ -368,7 +368,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kph", "meters per second", "mph", "feet per second"]
+              enum: ["kph", "meter per second", "mph", "foot per second"]
       - if:
           properties:
             attribute_type:
@@ -376,7 +376,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kph", "meters per second", "mph", "feet per second"]
+              enum: ["kph", "meter per second", "mph", "foot per second"]
       - if:
           properties:
             attribute_type:
@@ -424,7 +424,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilolumens", "lumens", "millilumens"]
+              enum: ["kilolumen", "lumen", "millilumen"]
       - if:
           properties:
             attribute_type:
@@ -432,7 +432,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["kilojoules", "joules", "millijoules", "Calorie", "british thermal unit", "kWh"]
+              enum: ["kilojoule", "joule", "millijoule", "Calorie", "british thermal unit", "kWh"]
       - if:
           properties:
             attribute_type:
