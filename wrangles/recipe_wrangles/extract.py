@@ -360,7 +360,7 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         then:
           properties:
             desired_unit:
-              enum: ["giga hertz", "mega hertz", "kilo hertz", "hertz"]
+              enum: ["gigahertz", "megahertz", "kilohertz", "hertz"]
       - if:
           properties:
             attribute_type:
@@ -425,6 +425,14 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           properties:
             desired_unit:
               enum: ["kilolumens", "lumens", "millilumens"]
+      - if:
+          properties:
+            attribute_type:
+              const: "energy"
+        then:
+          properties:
+            desired_unit:
+              enum: ["kilojoules", "joules", "millijoules", "Calorie", "british thermal unit", "kWh"]
 
     """
     # If output is not specified, overwrite input columns in place
