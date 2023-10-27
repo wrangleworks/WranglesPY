@@ -248,3 +248,331 @@ def test_weight_conversion_1():
         dataframe=data
     )
     assert df['out'].tolist() == [['220 lb'], ['100 lb'], ['100 lb'], ['100 lb'], ['2.2 lb'], ['22.0 lb'], ['220 lb'], ['0.22 lb']]
+    
+    
+def test_voltage_conversion_1():
+    """
+    Test multiple units of voltage
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 millivolts', '1000 mV', '1000 mV DC', '13 V AC']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: voltage
+              desired_unit: volts
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1.0 V'], ['1.0 V'], ['1.0 V'], ['13.0 V']]
+    
+#
+# degree
+#
+
+def test_degree_conversion_1():
+    """
+    Test multiple units of degree
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 radian', '1000 radian']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: angle
+              desired_unit: degrees
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['57300 °'], ['57300 °']]
+    
+        
+
+#
+# Capacitance
+#
+
+def test_capacitance_conversion_1():
+    """
+    Test multiple units of capacitance
+    """
+    data = pd.DataFrame(
+        {'col': ['100000 microFarad', '100000 µF', '10 Farad', '10 farad']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: capacitance
+              desired_unit: farads
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['0.1 F'], ['0.1 F'], ['10.0 F'], ['10.0 F']]
+    
+    
+#
+# Frequency
+#
+
+
+def test_frequency_conversion_1():
+    """
+    Test multiple units of frequency
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 hertz', '1000 Hz', '100 kHz', '0.1 MHz']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: frequency
+              desired_unit: kilohertz
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1.0 kHz'], ['1.0 kHz'], ['100 kHz'], ['100 kHz']]
+
+
+#
+# Speed/Velocity
+#
+
+def test_speed_conversion_1():
+    """
+    Test multiple units of speed
+    """
+    data = pd.DataFrame(
+        {'col': ['100 mph', '100 kph', '100 meters per second', '100 m/s', '100 feet per second', '100 ft/s']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: speed
+              desired_unit: meters per second
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['44.7 mps'], ['27.8 mps'], ['100 mps'], ['100 mps'], ['30.5 mps'], ['30.5 mps']]
+
+
+#
+# Charge
+#
+
+def test_charge_conversion_1():
+    """
+    Test multiple units of charge
+    """
+    data = pd.DataFrame(
+        {'col': ['10 coulomb', '10000 mC']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: charge
+              desired_unit: coulomb
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['10.0 C'], ['10.0 C']]
+
+
+#
+# Data transfer rate
+#
+
+
+def test_data_transfer_rate_conversion_1():
+    """
+    Test multiple units of data transfer rate
+    """
+    data = pd.DataFrame(
+        {'col': ['10000000 bps', '1000 kbps', '1 gbps']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: data transfer rate
+              desired_unit: gigabit per second
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['0.01 Gbps'], ['0.001 Gbps'], ['1.0 Gbps']]
+    
+
+#
+# Electrical conductance
+#
+
+
+def test_electrical_conductance_conversion_1():
+    """
+    Test multiple units of electrical conductance. Be sure to update to have kilo and milli
+    """
+    data = pd.DataFrame(
+        {'col': ['100 siemens']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: electrical conductance
+              desired_unit: siemens
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['100 S']]
+    
+    
+#
+# Inductance
+#
+
+
+def test_inductance_conversion_1():
+    """
+    Test multiple units of inductance. Be sure to update to have kilo and milli
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 henry', '1000 H']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: inductance
+              desired_unit: henry
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1000 H'], ['1000 H']]
+
+
+#
+# intance frequency
+#
+
+
+def test_frequency_conversion_2():
+    """
+    Test multiple units of frequency. Be sure to update to have kilo and milli
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 rpm', '1000 cps']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: instance frequency
+              desired_unit: revolutions per minute
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1000 rpm'], ['60000 rpm']]
+    
+    
+    
+#
+# luminous intensity
+#
+
+
+def test_lumens_conversion_1():
+    """
+    Test multiple units of Lumens. Be sure to update to have kilo and milli
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 lumens', '1000 lm']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: luminous flux
+              desired_unit: lumens
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1000 lm'], ['1000 lm']]
+    
+    
+#
+# electrical resistance
+#
+
+def test_ohms_conversion_1():
+    """
+    Test multiple units of Lumens
+    """
+    data = pd.DataFrame(
+        {'col': ['10 ohms', '10 Ω', '10000 milliohms', '10000 mΩ', '1 kΩ']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: electrical resistance
+              desired_unit: ohms
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['10.0 Ω'], ['10.0 Ω'], ['10.0 Ω'], ['10.0 Ω'], ['1000 Ω']]
+    
+
+#
+# Energy
+#
+
+def test_energy_conversion_1():
+    """
+    Test multiple units of Lumens, be sure to add BTU and Calories are all kilocalories
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 joules', '1000 J', '10 kilojoules', '1 kwh']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: energy
+              desired_unit: joules
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [['1000 J'], ['1000 J'], ['10000 J'], ['3600000 J']]
