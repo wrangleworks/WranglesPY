@@ -433,6 +433,14 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           properties:
             desired_unit:
               enum: ["kilojoules", "joules", "millijoules", "Calorie", "british thermal unit", "kWh"]
+      - if:
+          properties:
+            attribute_type:
+              const: "time"
+        then:
+          properties:
+            desired_unit:
+              enum: ["year", "month", "week", "day", "hour", "minute", "second"]
 
     """
     # If output is not specified, overwrite input columns in place
