@@ -8,6 +8,7 @@ import logging as _logging
 from typing import Union as _Union
 import sqlite3 as _sqlite3
 import re as _re
+import threading as _threading
 import numexpr as _ne
 import requests as _requests
 import pandas as _pd
@@ -20,6 +21,41 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+
+
+def asynch(
+    df,
+    wrangles: list,
+    variables = {},
+    functions: _Union[_types.FunctionType, list] = []
+) -> _pd.DataFrame:
+    """
+    type: array
+    description: A list of wrangles to run. These will be run in parallel.
+    minItems: 1
+    items:
+      $ref: "#/$defs/wrangles/items"
+    """
+    threads = [
+        _threading.Thread(
+            target=_recipe.run,
+            kwargs={
+                "recipe": {"wrangles": [wrangle]},
+                "dataframe": df,
+                "variables": variables,
+                "functions": functions
+            }
+        )
+        for wrangle in wrangles
+    ]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    return df
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:

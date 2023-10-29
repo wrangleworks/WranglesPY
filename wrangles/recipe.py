@@ -376,6 +376,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
     for step in wrangles_list:
         for wrangle, params in step.items():
             try:
+                if wrangle == "async":
+                    # Modify to allow async to be a list
+                    params = {"wrangles": params}
+                    # async is a reserved keyword alter to allow using it
+                    wrangle = "asynch"
+
                 if params is None: params = {}
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
@@ -503,7 +509,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     for element in wrangle.split('.'):
                         obj = getattr(obj, element)
 
-                    if wrangle == 'recipe':
+                    # Pass functions to wrangles that may use them
+                    if wrangle in ["recipe", "asynch"]:
                         params['functions'] = functions
 
                     df = obj(df, **params)

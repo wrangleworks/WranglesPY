@@ -1,7 +1,8 @@
 import pytest
 import wrangles
 import pandas as pd
-import logging
+import time
+from datetime import datetime
 
 #
 # Classify
@@ -1840,3 +1841,51 @@ def test_python_params():
         """
     )
     assert df["result"][0] == "a my_value"
+
+def test_async():
+    """
+    Test async behaviour
+    Ensure values are updated independently
+    and are processed in parallel
+    """
+    def _test(df, input, val):
+        df[input] = val
+        time.sleep(5)
+        return df
+
+    start_time = datetime.now()
+
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 5
+            values:
+                heading1: value1
+                heading2: value2
+        
+        wrangles:
+        - async:
+            - custom._test:
+                input: heading1
+                val: new_val1
+
+            - recipe:
+                wrangles:
+                  - custom._test:
+                      input: heading2
+                      val: new_val2
+
+                  - convert.case:
+                      input: heading2
+                      case: upper
+        """,
+        functions=_test
+    )
+
+    time_taken = (datetime.now() - start_time).seconds
+
+    assert (
+        df.values[0].tolist() == ["new_val1", "NEW_VAL2"]
+        and time_taken == 5
+    )
