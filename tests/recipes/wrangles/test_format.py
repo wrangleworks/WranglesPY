@@ -522,7 +522,7 @@ def test_sigFigs_1():
     df = wrangles.recipe.run(
         recipe="""
         wrangles:
-        - format.significant_figures:
+        - format.sigFigs:
             input: col1
             output: out1
         """,

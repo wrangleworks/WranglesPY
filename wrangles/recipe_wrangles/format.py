@@ -257,7 +257,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+def sigFigs(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Round to a specified number of significant figures
