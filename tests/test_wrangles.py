@@ -302,4 +302,4 @@ def test_sigFigs():
     """
     vals = ['13.45644 ft', 'length: 34453.3323ft', '34.234234', 'nothing here', 13.4565, 134234, '']
     res = wrangles.format.sigFigs(vals, 3)
-    assert res == ['13.5 ft', 'length: 34500.0ft', '34.2', 'nothing here', 13.5, 134000.0, '']
+    assert res == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 134000, '']

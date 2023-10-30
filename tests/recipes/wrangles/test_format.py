@@ -528,4 +528,4 @@ def test_sigFigs_1():
         """,
         dataframe=data
     )
-    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500.0ft', '34.2', 'nothing here', '13.5', '1130000.0', '']
+    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', '13.5', '1130000', '']

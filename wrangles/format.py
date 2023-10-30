@@ -153,6 +153,9 @@ def sigFigs(input_list: list, sig_figs: int = 3) -> list:
     # Convert numbers to the appropriate significant figures
     def _replace_match(match):
         number_value = float('%.{}g'.format(sig_figs) % float(match[0]))
+        # if the number of significant figures is less than the length of the integer, convert to integer -> aka remove trailing zeros
+        if sig_figs <= len(str(int(number_value))):
+            number_value = int(number_value)
         return str(number_value)
     
     number_regex = r'(\d+\.\d+)|(\.\d+)|(\d+)|(\d+(\.\d+)?e[+-]\d+)'
