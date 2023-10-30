@@ -142,7 +142,7 @@ def tokenize(input):
     
     return results
 
-def sigFigs(input_list: list, sig_figs: int = 3) -> list:
+def significant_figures(input_list: list, sig_figs: int = 3) -> list:
     """
     Format digits in text or standalone to the selected significant figures
     :param input_str: The input list of values to format

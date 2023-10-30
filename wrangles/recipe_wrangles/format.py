@@ -257,10 +257,10 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def sigFigs(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Round to a specified number of significant figures
+    description: Format a vlue to a scpecific number of significant figures
     additionalProperties: false
     required:
       - input
@@ -277,9 +277,8 @@ def sigFigs(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, outpu
         description: Name of the output column
       sigfigs:
         type:
-          - string
-          - number
-        description: Number of significant figures to round to
+          - integer
+        description: Number of significant figures to format to. Default is 3.
     """
     if output is None: output = input
     
@@ -287,16 +286,15 @@ def sigFigs(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, outpu
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
     
-    # Ensure that sifigs is an integer
-    sigfigs = int(sigfigs)
-    
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
     
+    # Make sure that the sigFigs
+    
     # Loop through all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _format.sigFigs(df[input_column].astype(str).to_list(), sigfigs)
+        df[output_column] = _format.significant_figures(df[input_column].to_list(), sigfigs)
         
     return df
     

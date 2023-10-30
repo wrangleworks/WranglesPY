@@ -301,5 +301,5 @@ def test_sigFigs():
     Test sigfigs calling as a python function
     """
     vals = ['13.45644 ft', 'length: 34453.3323ft', '34.234234', 'nothing here', 13.4565, 134234, '']
-    res = wrangles.format.sigFigs(vals, 3)
+    res = wrangles.format.significant_figures(vals, 3)
     assert res == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 134000, '']

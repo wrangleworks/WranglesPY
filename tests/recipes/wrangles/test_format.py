@@ -522,10 +522,10 @@ def test_sigFigs_1():
     df = wrangles.recipe.run(
         recipe="""
         wrangles:
-        - format.sigFigs:
+        - format.significant_figures:
             input: col1
             output: out1
         """,
         dataframe=data
     )
-    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', '13.5', '1130000', '']
+    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 1130000, '']
