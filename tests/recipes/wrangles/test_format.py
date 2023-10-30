@@ -505,3 +505,27 @@ def test_pad_where():
   """
   df = wrangles.recipe.run(recipe, dataframe=data)
   assert df.iloc[0]['out1'] == '007' and df.iloc[2]['out1'] == ''
+  
+#
+# Significant Figures
+#
+
+def test_sigFigs_1():
+    """
+    Test converting multiple number types to desired significant figures
+    default is 3
+    """
+    data = pd.DataFrame({
+        'col1': ['13.45644 ft', 'length: 34453.3323ft', '34.234234', 'nothing here', 13.4565, 1132424, '']
+    })
+    
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - format.significant_figures:
+            input: col1
+            output: out1
+        """,
+        dataframe=data
+    )
+    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500.0ft', '34.2', 'nothing here', '13.5', '1130000.0', '']
