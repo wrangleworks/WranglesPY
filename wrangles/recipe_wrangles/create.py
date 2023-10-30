@@ -87,11 +87,17 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
           - array
-        description: Name or list of names of new columns
+        description: Name or list of names of new columns or column_name: value pairs.
       value:
-        type: string
-        description: (Optional) Value to add in the new column(s). If omitted, defaults to None.
-    """
+        type:
+          - string
+        description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
+    """    
+    
+    # if value is a list then raise and error
+    if isinstance(value, list):
+        raise ValueError('Value must be a string and not a list')
+    
     # Get list of existing columns
     existing_column = df.columns
     
@@ -105,20 +111,22 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         raise ValueError(f'"{output}" column already exists in dataFrame.')
       output = [output]
     
-    # Allow for user to enter either a list and/or a string in output and value and not error
-    if isinstance(value, list) and cols_created == 1:
-        value = [value[0] for _ in range(cols_created)]
-    elif isinstance(value, str):
-        value = [value for _ in range(cols_created)]
-    elif value == None:
-        value = ['' for _ in range(cols_created)]
-        
+    # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
+    output_dict = {}
+    for out in output:
+        if isinstance(out, dict):
+            # get the first key and value only and append dictionary to output_dict
+            temp_key, temp_value = list(out.items())[0]
+            output_dict.update({temp_key: temp_value})
+        else:
+            output_dict.update({out: value})
+                
     # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in output if x in existing_column]
+    check_list = [x for x in (output_dict.keys()) if x in existing_column]
     if len(check_list) > 0:
       raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
     
-    for output_column, values_list in zip(output, value):
+    for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
         data.set_index(df.index, inplace=True)  # use the same index as original to match rows
