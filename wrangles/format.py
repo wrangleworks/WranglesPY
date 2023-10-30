@@ -141,3 +141,34 @@ def tokenize(input):
             
     
     return results
+
+def sigFigs(input_list: list, sig_figs: int = 3) -> list:
+    """
+    Format digits in text or standalone to the selected significant figures
+    :param input_str: The input list of values to format
+    :param sig_figs: The number of significant figures to format to
+    :return: The formatted string with the specified number of significant figures
+    """
+    
+    # Convert numbers to the appropriate significant figures
+    def _replace_match(match):
+        number_value = float('%.{}g'.format(sig_figs) % float(match[0]))
+        return str(number_value)
+    
+    number_regex = r'(\d+\.\d+)|(\.\d+)|(\d+)|(\d+(\.\d+)?e[+-]\d+)'
+    results = []
+    for input in input_list:
+        
+        output = _re.sub(number_regex, _replace_match, str(input))
+        
+        # if the input is a number, then convert back to float
+        if isinstance(input, (int, float)):
+            output = float(output)
+        
+        results.append(output)
+    
+    
+
+    return results
+    
+    

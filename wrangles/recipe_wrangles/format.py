@@ -257,6 +257,50 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
+def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Round to a specified number of significant figures
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      sigfigs:
+        type:
+          - string
+          - number
+        description: Number of significant figures to round to
+    """
+    if output is None: output = input
+    
+    # If a string provided, convert to list
+    if isinstance(input, str): input = [input]
+    if isinstance(output, str): output = [output]
+    
+    # Ensure that sifigs is an integer
+    sigfigs = int(sigfigs)
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through all requested columns
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _format.sigFigs(df[input_column].astype(str).to_list(), sigfigs)
+        
+    return df
+    
+
 # Undocumented
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
     """
