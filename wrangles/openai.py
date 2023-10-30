@@ -86,6 +86,7 @@ def _embedding_thread(
     api_key: str,
     model: str
 ):
+    
     response = _requests.post(
         url="https://api.openai.com/v1/embeddings",
         headers={
@@ -94,7 +95,7 @@ def _embedding_thread(
         json={
             "model": model,
             "input": [
-                val or " "
+                str(val) if val != "" else " " 
                 for val in input_list
             ]
         }
