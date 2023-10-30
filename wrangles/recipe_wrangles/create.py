@@ -164,7 +164,6 @@ def embeddings(
           Each request contains the number of rows set as batch_size.
     """
     if output is None: output = input
-
     df[output] = _openai.embeddings(
         df[input[0]].to_list(),
         api_key,
