@@ -257,7 +257,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Format a vlue to a scpecific number of significant figures
@@ -275,7 +275,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: in
           - string
           - array
         description: Name of the output column
-      sigfigs:
+      significant_figures:
         type:
           - integer
         description: Number of significant figures to format to. Default is 3.
@@ -294,7 +294,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, list], sigfigs: in
     
     # Loop through all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _format.significant_figures(df[input_column].to_list(), sigfigs)
+        df[output_column] = _format.significant_figures(df[input_column].to_list(), significant_figures)
         
     return df
     
