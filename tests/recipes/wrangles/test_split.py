@@ -315,6 +315,27 @@ def test_split_dictionary_multiple():
         df['Col4'][0] == 'D'
     )
 
+def test_split_dictionary_multiple_duplicates():
+    """
+    Test splitting a list of dictionaries with duplicate keys
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - col1
+                - col2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'col2': [{'Col3': 'D', 'Col4': 'E', 'Col5': 'F'}]
+        })
+    )
+    assert (
+        df['Col3'][0] == 'D'
+    )
+
 #
 # Tokenize List
 #
