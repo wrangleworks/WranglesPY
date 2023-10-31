@@ -29,35 +29,26 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {})
     """ 
     # storing data as df temp to prevent the original data to be changed
     df_temp = df[input]
-    if isinstance(input, str):
+
+    # Ensure input is passed as a list
+    if not isinstance(input, _list):
+        input = [input]
+
+    df_dict = {}
+    for i in range(len(input)):
         try:
-            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
+            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
         except:
-            df_temp = [{} if x == None else x for x in df_temp]
-
+            df_temp = [{} if x == None else x for x in df[input[i]]]
         if default:
-            df_temp = [{**default, **x} for x in df_temp]
-        
-        exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
-        exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
-        df[exploded_df.columns] = exploded_df
+            df_temp = [{**default, **x} for x in df[input[i]]]
 
-    if isinstance(input, _list):
-        df_dict = {}
-        for i in range(len(input)):
-            try:
-                df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
-            except:
-                df_temp = [{} if x == None else x for x in df[input[i]]]
-            if default:
-                df_temp = [{**default, **x} for x in df[input[i]]]
+        df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
+        df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
 
-            df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
-            df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
-
-        # Combine dataframes for output
-        for data in df_dict:
-            df[df_dict[data].columns] = df_dict[data]
+    # Combine dataframes for output
+    for data in df_dict:
+        df[df_dict[data].columns] = df_dict[data]
 
     return df
 
