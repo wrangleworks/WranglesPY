@@ -174,9 +174,9 @@ def test_classify_where():
 # Cosine Similarity
 #
 
-def test_cosine_similarity():
+def test_similarity_cosine():
     """
-    Test cosine similarity of a 5 dimension vector
+    Test cosine similarity of a 5 dimension vector using cosine similarity
     """
     data = pd.DataFrame({
         'col1': [[1,2,3,4,5], [6,7,8,9,10]],
@@ -188,13 +188,14 @@ def test_cosine_similarity():
             input1: col1
             input2: col2
             output: Cos Sim
+            type: cosine
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Cos Sim'] != 1.0 and df.iloc[1]['Cos Sim'] == 1.0
 
-def test_cosine_similarity_1_D():
+def test_similarity_cosine_1_D():
     """
-    Test cosine similarity of a 1 dimension vector/integer
+    Test cosine similarity of a 1 dimension vector/integer using cosine similarity
     """
     data = pd.DataFrame({
         'col1': [1, 9],
@@ -206,11 +207,12 @@ def test_cosine_similarity_1_D():
             input1: col1
             input2: col2
             output: Cos Sim
+            type: cosine
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
 
-def test_cosine_similarity_different_size():
+def test_similarity_cosine_different_size():
     """
     Test error when passing vectors of different dimension
     """
@@ -224,6 +226,7 @@ def test_cosine_similarity_different_size():
             input1: col1
             input2: col2
             output: Cos Sim
+            type: cosine
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
@@ -232,7 +235,7 @@ def test_cosine_similarity_different_size():
         'Vectors must be of the same dimension' in info.value.args[0]
     )
 
-def test_cosine_similarity_string():
+def test_similarity_cosine_string():
     """
     Test error when passing an invalid data type (string)
     """
@@ -246,6 +249,7 @@ def test_cosine_similarity_string():
             input1: col1
             input2: col2
             output: Cos Sim
+            type: cosine
     """
     with pytest.raises(TypeError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
