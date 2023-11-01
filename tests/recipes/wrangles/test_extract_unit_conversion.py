@@ -1,5 +1,135 @@
 import pandas as pd
 import wrangles
+import pytest
+
+
+#
+# misc
+#
+
+def test_no_unit():
+    """
+    Test no unit to convert
+    """
+    data = pd.DataFrame(
+        {'col': ['area 13 sqr yard', '26 sqr feet', '1300 square inches', '13 sqr meters']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: force
+              desired_unit: newtown
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [[], [], [], []]
+    
+def test_no_unit_object():
+    """
+    Test no unit to convert object
+    """
+    data = pd.DataFrame(
+        {'col': ['area 13 sqr yard', '26 sqr feet', '1300 square inches', '13 sqr meters']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: force
+              desired_unit: newtown
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [[], [], [], []]
+    
+    
+def test_non_existing_unit():
+    """
+    Test a desired unit that does not exists, should return error
+    """
+    data = pd.DataFrame(
+    {'col': ['1000 W', '1000 watts', '.01 MW', '1 kW', '1 hp']}
+    )
+    with pytest.raises(ValueError) as info:
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - extract.attributes:
+                input: col
+                output: out
+                attribute_type: power
+                desired_unit: SuperMegaWatts
+            """,
+            dataframe=data
+        )
+    assert info.typename == 'ValueError' and info.value.args[0] == 'extract.attributes - Status Code: 400 - Bad Request. {"ValueError":"Invalid desiredUnit provided"}\n \n'
+
+def test_wrong_match_1():
+    """
+    miss match of attribute type and unit
+    """
+    data = pd.DataFrame(
+        {'col': ['100000 microFarad', '100000 µF', '10 kilograms', '10 ft']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: capacitance
+              desired_unit: foot
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [[], [], [], []]
+    
+def test_wrong_match_2():
+    """
+    miss match of attribute type and unit
+    """
+    data = pd.DataFrame(
+        {'col': ['100000 microFarad', '100000 µF', '10 kilograms', '10 ft']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: length
+              desired_unit: farad
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [[], [], [], []]
+    
+def test_very_similar_units():
+    """
+    Testing volume and volumetric flow rate
+    """
+    data = pd.DataFrame(
+        {'col': ['10 liter per minute', '10 liter', '20 liters per minute', '20 liters']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: volume
+              desired_unit: gallons
+        """,
+        dataframe=data
+    )
+    assert df['out'].tolist() == [[], ['2.64 gal'], [], ['5.28 gal']]
+    
 
 #
 # area
@@ -26,6 +156,28 @@ def test_area_conversion_1():
     assert df['out'].tolist() == [['10.9 sq m'], ['2.42 sq m'], ['0.839 sq m'], ['13.0 sq m']]
     
 
+def test_area_conversion_2():
+    """
+    Testing multiple units of area object
+    """
+    data = pd.DataFrame(
+        {'col': ['area 13 sqr yard', '26 sqr feet', '1300 square inches', '13 sqr meters']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: area
+              desired_unit: square meters
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][0] == [{'symbol': 'sq m', 'unit': 'square metre', 'value': 10.9}]
+    
+
 #
 # current
 #
@@ -49,7 +201,29 @@ def test_current_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'kA', 'unit': 'kiloampere', 'value': '1.3'}]
+    assert df['out'][0] == [{'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
+    
+
+def test_current_conversion_2_obj():
+    """
+    Test object of current
+    """
+    data = pd.DataFrame(
+        {'col': ['something 1300 amps something']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: current
+              desired_unit: kiloamps
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][0] == [{'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
     
     
 #
@@ -76,6 +250,27 @@ def test_multile_forces():
     )
     assert df['out'][1] == [] and df['out'][2] == ['5.78 kN'] and df['out'][0] == ['1.3 kN']
     
+    
+def test_multile_forces_2():
+    """
+    Test multiple units, one being close to force but not quite (pounds) object
+    """
+    data = pd.DataFrame(
+        {'col': ['something 1300 newtons something', 'something 1300 pounds something', 'something 1300 lbf']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: force
+              desired_unit: kilonewtons
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][0] == [{'symbol': 'kN', 'unit': 'kilonewton', 'value': 1.3}]
 
 #
 # power
@@ -102,6 +297,28 @@ def test_power_conversion_1():
     assert df['out'].tolist() == [['1.0 kW'], ['1.0 kW'], ['10.0 kW'], ['1.0 kW'], ['0.746 kW']]
     
     
+def test_power_conversion_2_obj():
+    """
+    Test multiple units of power
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 W', '1000 watts', '.01 MW', '1 kW', '1 hp']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: power
+              desired_unit: kilowatts
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][3] == [{'symbol': 'kW', 'unit': 'kilowatt', 'value': 1.0}] 
+    
+    
 #
 # pressure
 #
@@ -125,6 +342,27 @@ def test_pressure_conversion_1():
         dataframe=data
     )
     assert df['out'].tolist() == [['1.0 kPa'], ['1.0 kPa'], ['10.0 kPa'], ['1.0 kPa'], ['100 kPa'], ['6.89 kPa'], ['0.133 kPa']]
+    
+def test_pressure_conversion_2_obj():
+    """
+    Test multiple units of pressure
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 Pa', '1000 pascals', '.01 MPa', '1 kPa', '1 bar', '1 psi', '1 torr']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: pressure
+              desired_unit: kilopascals
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][3] == [{'symbol': 'kPa', 'unit': 'kilopascal', 'value': 1.0}]
     
 
 #
@@ -150,6 +388,28 @@ def test_temperature_conversion_1():
         dataframe=data
     )
     assert df['out'].tolist() == [['-173 C'], ['-218 C'], ['100 C'], ['100 C'], ['37.8 C'], ['37.8 C']]
+    
+
+def test_temperature_conversion_2_obj():
+    """
+    Test multiple units of temperature
+    """
+    data = pd.DataFrame(
+        {'col': ['100 Kelvin', '100 rankine', '100 celsius', '100 °C', '100 °F', '100 fahrenheit']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: temperature
+              desired_unit: celsius
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][3] == [{'symbol': 'C', 'unit': 'degree Celsius', 'value': 100}]
 
 
 #
@@ -175,6 +435,27 @@ def test_volume_conversion_1():
         dataframe=data
     )
     assert df['out'].tolist() == [['379 l'], ['1.0 l'], ['100 l'], ['100 l'], ['379 l'], ['100 l']]
+    
+def test_volume_conversion_2_obj():
+    """
+    Test multiple units of volume
+    """
+    data = pd.DataFrame(
+        {'col': ['100 gallons', '1000 mL', '100 liters', '100 l', '100 gal', '100 liter']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: volume
+              desired_unit: liters
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][2] == [{'symbol': 'l', 'unit': 'litre', 'value': 100}]
     
 #
 # volumetric flow rate
@@ -293,6 +574,27 @@ def test_degree_conversion_1():
         dataframe=data
     )
     assert df['out'].tolist() == [['57300 °'], ['57300 °']]
+    
+def test_degree_conversion_2():
+    """
+    Test multiple units of degree- object
+    """
+    data = pd.DataFrame(
+        {'col': ['1000 radian', '1000 radian']}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: angle
+              desired_unit: degrees
+              responseContent: object
+        """,
+        dataframe=data
+    )
+    assert df['out'][0] == [{'symbol': '°', 'unit': 'degree angle', 'value': 57300}]
     
         
 
