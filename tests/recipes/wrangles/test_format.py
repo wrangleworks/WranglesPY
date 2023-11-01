@@ -543,6 +543,7 @@ def test_sig_figs():
             1130000,
             ''
         ]
+    )
 
 def test_sig_figs_with_value():
     """
