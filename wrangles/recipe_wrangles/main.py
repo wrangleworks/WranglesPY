@@ -69,7 +69,7 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     return df
 
 
-def cosine_similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str) -> _pd.DataFrame:
+def similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str, type: str) -> _pd.DataFrame:
     """
     type: object
     description: Calculate the cosine similarity of two vectors
@@ -88,18 +88,30 @@ def cosine_similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str)
       output:
         type: string
         description: Name of the output column.
+      type:
+        type: string
+        description: The type of similarity to calculate (cosine or euclidean)
     """
-    similarity_list = []
-    for i in list(df.index):
-        
-        # Check that embeddings are of the same length
-        if isinstance(df[input1][i], list) and isinstance(df[input2][i], list) and len(df[input1][i]) != len(df[input2][i]):
-            raise ValueError('Vectors must be of the same dimension')
+    if type == 'cosine':
+        similarity_list = []
+        for i in list(df.index):
+            
+            # Check that embeddings are of the same length
+            if isinstance(df[input1][i], list) and isinstance(df[input2][i], list) and len(df[input1][i]) != len(df[input2][i]):
+                raise ValueError('Vectors must be of the same dimension')
 
-        cos_sim = dot(df[input1][i], df[input2][i])/(norm(df[input1][i])*norm(df[input2][i]))
-        cos_sim_normalized = 1-_math.acos(cos_sim)
-        similarity_list.append(cos_sim_normalized)
-    df[output] = similarity_list
+            cos_sim = dot(df[input1][i], df[input2][i])/(norm(df[input1][i])*norm(df[input2][i]))
+            cos_sim_normalized = 1-_math.acos(cos_sim)
+            similarity_list.append(cos_sim_normalized)
+        df[output] = similarity_list
+
+    if type == 'euclidean':
+        similarity_list = []
+        for i in list(df.index):
+            euclidean_dist = _math.sqrt(sum(pow(a-b,2) for a, b in zip(df[input1][i], df[input2][i])))
+            similarity_list.append(euclidean_dist)
+        df[output] = similarity_list
+
     return df
 
 
