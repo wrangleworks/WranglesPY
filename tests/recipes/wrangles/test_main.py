@@ -168,6 +168,70 @@ def test_classify_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
+
+
+#
+# Cosine Similarity
+#
+
+def test_cosine_similarity():
+    """
+    Test cosine similarity of a 5 dimension vector
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - cosine_similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] != 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_cosine_similarity_1_D():
+    """
+    Test cosine similarity of a 1 dimension vector/integer
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - cosine_similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_cosine_similarity_different_size():
+    """
+    Test error when passing vectors of different dimension
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - cosine_similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'Vectors must be of the same dimension' in info.value.args[0]
+    )
+
     
 #
 # Filter
