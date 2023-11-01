@@ -579,4 +579,4 @@ def test_sig_figs_with_value():
             1132000,
             ''
         ]
-
+    )
