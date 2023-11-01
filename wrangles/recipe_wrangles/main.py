@@ -13,6 +13,9 @@ import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
 import yaml as _yaml
+from numpy import dot
+from numpy.linalg import norm
+import math as _math
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -63,6 +66,21 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     for input_column, output_column in zip(input, output):
         df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
         
+    return df
+
+
+def cosine_similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str):
+    similarity_list = []
+    for i in list(df.index):
+        
+        # Check that embeddings are of the same length
+        if isinstance(df[input1][i], list) and isinstance(df[input2][i], list) and len(df[input1][i]) != len(df[input2][i]):
+            raise ValueError('Vectors must be of the same dimension')
+
+        cos_sim = dot(df[input1][i], df[input2][i])/(norm(df[input1][i])*norm(df[input2][i]))
+        cos_sim_normalized = 1-_math.acos(cos_sim)
+        similarity_list.append(cos_sim_normalized)
+    df[output] = similarity_list
     return df
 
 
