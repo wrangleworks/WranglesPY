@@ -505,3 +505,79 @@ def test_pad_where():
   """
   df = wrangles.recipe.run(recipe, dataframe=data)
   assert df.iloc[0]['out1'] == '007' and df.iloc[2]['out1'] == ''
+  
+#
+# Significant Figures
+#
+def test_sig_figs():
+    """
+    Test converting multiple number types to desired
+    significant figures using default settings
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - format.significant_figures:
+            input: col1
+            output: out1
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                '13.45644 ft',
+                'length: 34453.3323ft',
+                '34.234234',
+                'nothing here',
+                13.4565,
+                1132424,
+                ''
+            ]
+        })
+    )
+    assert (
+        df['out1'].to_list() == [
+            '13.5 ft',
+            'length: 34500ft',
+            '34.2',
+            'nothing here',
+            13.5,
+            1130000,
+            ''
+        ]
+    )
+
+def test_sig_figs_with_value():
+    """
+    Test converting multiple number types to desired
+    significant figures with a specified value
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - format.significant_figures:
+            input: col1
+            output: out1
+            significant_figures: 4
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                '13.45644 ft',
+                'length: 34453.3323ft',
+                '34.234234',
+                'nothing here',
+                13.4565,
+                1132424,
+                ''
+            ]
+        })
+    )
+    assert (
+        df['out1'].to_list() == [
+            '13.46 ft',
+            'length: 34450ft',
+            '34.23',
+            'nothing here',
+            13.46,
+            1132000,
+            ''
+        ]
+    )

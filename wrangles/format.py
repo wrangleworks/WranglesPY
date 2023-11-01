@@ -119,6 +119,37 @@ def remove_duplicates(input_list: list) -> list:
     
     return results
 
+def significant_figures(input_list: list, sig_figs: int = 3) -> list:
+    """
+    Format digits in text or standalone to the selected significant figures
+    :param input_str: The input list of values to format
+    :param sig_figs: The number of significant figures to format to
+    :return: The formatted string with the specified number of significant figures
+    """
+    
+    # Convert numbers to the appropriate significant figures
+    def _replace_match(match):
+        number_value = float('%.{}g'.format(sig_figs) % float(match[0]))
+        # if the number of significant figures is less than the length of the integer, convert to integer -> aka remove trailing zeros
+        if sig_figs <= len(str(int(number_value))):
+            number_value = int(number_value)
+        return str(number_value)
+    
+    number_regex = r'(\d+\.\d+)|(\.\d+)|(\d+)|(\d+(\.\d+)?e[+-]\d+)'
+    results = []
+    for input in input_list:
+        
+        output = _re.sub(number_regex, _replace_match, str(input))
+        
+        # if the input is a number, preserve the data type
+        if isinstance(input, float):
+            output = float(output)
+        if isinstance(input, int):
+            output = int(output)
+        
+        results.append(output)
+
+    return results
 
 # Super Mario function
 def tokenize(input):
