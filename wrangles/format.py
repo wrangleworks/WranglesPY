@@ -119,29 +119,6 @@ def remove_duplicates(input_list: list) -> list:
     
     return results
 
-
-# Super Mario function
-def tokenize(input):
-    """
-    Tokenizes everything in a list that has spaces
-    Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
-    Ex: 'Cookie Monster -> ['Cookie', 'Monster']
-    """
-    
-    results = []
-    for item in input:
-        if isinstance(item, list):
-            temp1 = [x.split() for x in item]
-            temp2 = [item for sublist in temp1 for item in sublist]
-            results.append(temp2)
-            
-        elif isinstance(item, str):
-            temp = list(filter(None, item.split()))
-            results.append(temp)
-            
-    
-    return results
-
 def significant_figures(input_list: list, sig_figs: int = 3) -> list:
     """
     Format digits in text or standalone to the selected significant figures
@@ -164,14 +141,34 @@ def significant_figures(input_list: list, sig_figs: int = 3) -> list:
         
         output = _re.sub(number_regex, _replace_match, str(input))
         
-        # if the input is a number, then convert back to float
-        if isinstance(input, (int, float)):
+        # if the input is a number, preserve the data type
+        if isinstance(input, float):
             output = float(output)
+        if isinstance(input, int):
+            output = int(output)
         
         results.append(output)
-    
-    
 
     return results
+
+# Super Mario function
+def tokenize(input):
+    """
+    Tokenizes everything in a list that has spaces
+    Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
+    Ex: 'Cookie Monster -> ['Cookie', 'Monster']
+    """
     
+    results = []
+    for item in input:
+        if isinstance(item, list):
+            temp1 = [x.split() for x in item]
+            temp2 = [item for sublist in temp1 for item in sublist]
+            results.append(temp2)
+            
+        elif isinstance(item, str):
+            temp = list(filter(None, item.split()))
+            results.append(temp)
+            
     
+    return results

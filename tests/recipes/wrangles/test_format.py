@@ -509,16 +509,11 @@ def test_pad_where():
 #
 # Significant Figures
 #
-
-def test_sigFigs_1():
+def test_sig_figs():
     """
-    Test converting multiple number types to desired significant figures
-    default is 3
+    Test converting multiple number types to desired
+    significant figures using default settings
     """
-    data = pd.DataFrame({
-        'col1': ['13.45644 ft', 'length: 34453.3323ft', '34.234234', 'nothing here', 13.4565, 1132424, '']
-    })
-    
     df = wrangles.recipe.run(
         recipe="""
         wrangles:
@@ -526,6 +521,62 @@ def test_sigFigs_1():
             input: col1
             output: out1
         """,
-        dataframe=data
+        dataframe=pd.DataFrame({
+            'col1': [
+                '13.45644 ft',
+                'length: 34453.3323ft',
+                '34.234234',
+                'nothing here',
+                13.4565,
+                1132424,
+                ''
+            ]
+        })
     )
-    assert df['out1'].to_list() == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 1130000, '']
+    assert (
+        df['out1'].to_list() == [
+            '13.5 ft',
+            'length: 34500ft',
+            '34.2',
+            'nothing here',
+            13.5,
+            1130000,
+            ''
+        ]
+
+def test_sig_figs_with_value():
+    """
+    Test converting multiple number types to desired
+    significant figures with a specified value
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - format.significant_figures:
+            input: col1
+            output: out1
+            significant_figures: 4
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                '13.45644 ft',
+                'length: 34453.3323ft',
+                '34.234234',
+                'nothing here',
+                13.4565,
+                1132424,
+                ''
+            ]
+        })
+    )
+    assert (
+        df['out1'].to_list() == [
+            '13.46 ft',
+            'length: 34450ft',
+            '34.23',
+            'nothing here',
+            13.46,
+            1132000,
+            ''
+        ]
+
