@@ -69,7 +69,26 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     return df
 
 
-def cosine_similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str):
+def cosine_similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Calculate the cosine similarity of two vectors
+    additionalProperties: false
+    required:
+      - input1
+      - input2
+      - output
+    properties:
+      input1:
+        type: string
+        description: Name of the first input column consisting of integers/floats, or a list of such.
+      input2:
+        type: string
+        description: Name of the first input column consisting of integers/floats, or a list of such.
+      output:
+        type: string
+        description: Name of the output column.
+    """
     similarity_list = []
     for i in list(df.index):
         
