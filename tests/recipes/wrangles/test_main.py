@@ -232,7 +232,28 @@ def test_cosine_similarity_different_size():
         'Vectors must be of the same dimension' in info.value.args[0]
     )
 
-    
+def test_cosine_similarity_string():
+    """
+    Test error when passing an invalid data type (string)
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - cosine_similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+
 #
 # Filter
 #
