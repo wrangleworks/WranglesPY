@@ -749,6 +749,11 @@ def similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str, type: 
     if type == 'euclidean':
         similarity_list = []
         for i in list(df.index):
+            
+            # Check that embeddings are of the same length
+            if isinstance(array1[i], list) and isinstance(array2[i], list) and len(array1[i]) != len(array2[i]):
+                raise ValueError('Vectors must be of the same dimension')
+            
             euclidean_dist = _math.sqrt(sum(pow(a-b,2) for a, b in zip(array1[i], array2[i])))
             similarity_list.append(euclidean_dist)
         df[output] = similarity_list
