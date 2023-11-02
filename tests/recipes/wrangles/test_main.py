@@ -913,7 +913,7 @@ def test_similarity_cosine():
 
 def test_similarity_cosine_1_D():
     """
-    Test cosine similarity of a 1 dimension vector/integer using cosine similarity
+    Test similarity of a 1 dimension vector/integer using cosine similarity
     """
     data = pd.DataFrame({
         'col1': [1, 9],
@@ -932,7 +932,7 @@ def test_similarity_cosine_1_D():
 
 def test_similarity_cosine_different_size():
     """
-    Test error when passing vectors of different dimension
+    Test error when passing vectors of different dimension using cosine similarity
     """
     data = pd.DataFrame({
         'col1': [[1,2,3,4], [6,7,8,9]],
@@ -955,7 +955,7 @@ def test_similarity_cosine_different_size():
 
 def test_similarity_cosine_string():
     """
-    Test error when passing an invalid data type (string)
+    Test error when passing an invalid data type (string) while using cosine similarity
     """
     data = pd.DataFrame({
         'col1': ['apple', 'orange'],
@@ -968,6 +968,89 @@ def test_similarity_cosine_string():
             input2: col2
             output: Cos Sim
             type: cosine
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_euclidean():
+    """
+    Test cosine similarity of a 5 dimension vector using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input1: col1
+            input2: col2
+            output: Euc Sim
+            type: euclidean
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 6.324555320336759 and df.iloc[1]['Euc Sim'] == 0.0
+
+def test_similarity_euclidean_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using euclidean similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input1: col1
+            input2: col2
+            output: Euc Sim
+            type: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 1.0 and df.iloc[1]['Euc Sim'] == 1.0
+
+def test_similarity_euclidean_different_size():
+    """
+    Test error when passing vectors of different dimension using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+            type: euclidean
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'Vectors must be of the same dimension' in info.value.args[0]
+    )
+
+def test_similarity_euclidean_string():
+    """
+    Test error when passing an invalid data type (string) while using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input1: col1
+            input2: col2
+            output: Cos Sim
+            type: euclidean
     """
     with pytest.raises(TypeError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
