@@ -157,331 +157,333 @@
         "properties": {}
       }
     },
-    "unit_entity_map": {
-      "allOf": [
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "area" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "square meter",
-                  "square yard",
-                  "square foot",
-                  "square inch"
-                ]
+    "misc": {
+      "unit_entity_map": {
+          "allOf": [
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "area" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "square meter",
+                      "square yard",
+                      "square foot",
+                      "square inch"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "current" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": { "enum": ["kiloamp", "milliamp", "amp"] }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "force" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilonewton", "newton", "pound force"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "power" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["megawatt", "kilowatt", "watt", "horsepower"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "pressure" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilopascal", "pascal", "psi", "bar"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "temperature" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["celsius", "fahrenheit", "kelvin", "rankine"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "pattern": "^volume$" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["liter", "milliliter", "gallon"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "attribute_type": { "pattern": "^volumetric flow$" }
+                }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "liter per minute",
+                      "gallon per minute",
+                      "cubic foot per minute"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "length" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "kilometer",
+                      "meter",
+                      "centimeter",
+                      "millimeter",
+                      "mile",
+                      "yard",
+                      "foot",
+                      "inch"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "weight" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilogram", "gram", "milligram", "pound"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "voltage" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilovolt", "volt", "millivolt"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "angle" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": { "enum": ["degree", "radian"] }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "capacitance" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["farad", "microfarad", "nanofarad"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "frequency" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["gigahertz", "megahertz", "kilohertz", "hertz"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "speed" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "kph",
+                      "meter per second",
+                      "mph",
+                      "foot per second"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "velocity" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "kph",
+                      "meter per second",
+                      "mph",
+                      "foot per second"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "charge" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilocoulomb", "coulomb", "millicoulomb"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "attribute_type": { "const": "data transfer rate" }
+                }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "gigabit per second",
+                      "megabit per second",
+                      "kilobit per second",
+                      "bit per second"
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "attribute_type": { "const": "electrical conductance" }
+                }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilosiemens", "siemens", "millisiemens"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "inductance" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilohenry", "henry", "millihenry"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "attribute_type": { "const": "instance frequency" }
+                }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["revolutions per minute", "cycles per second"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "attribute_type": { "const": "luminous flux" }
+                }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": ["kilolumen", "lumen", "millilumen"]
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "attribute_type": { "const": "energy" } }
+              },
+              "then": {
+                "properties": {
+                  "desired_unit": {
+                    "enum": [
+                      "kilojoule",
+                      "joule",
+                      "millijoule",
+                      "Calorie",
+                      "british thermal unit",
+                      "kWh"
+                    ]
+                  }
+                }
               }
             }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "current" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": { "enum": ["kiloamp", "milliamp", "amp"] }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "force" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilonewton", "newton", "pound force"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "power" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["megawatt", "kilowatt", "watt", "horsepower"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "pressure" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilopascal", "pascal", "psi", "bar"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "temperature" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["celsius", "fahrenheit", "kelvin", "rankine"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "pattern": "^volume$" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["liter", "milliliter", "gallon"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "attribute_type": { "pattern": "^volumetric flow$" }
-            }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "liter per minute",
-                  "gallon per minute",
-                  "cubic foot per minute"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "length" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "kilometer",
-                  "meter",
-                  "centimeter",
-                  "millimeter",
-                  "mile",
-                  "yard",
-                  "foot",
-                  "inch"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "weight" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilogram", "gram", "milligram", "pound"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "voltage" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilovolt", "volt", "millivolt"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "angle" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": { "enum": ["degree", "radian"] }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "capacitance" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["farad", "microfarad", "nanofarad"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "frequency" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["gigahertz", "megahertz", "kilohertz", "hertz"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "speed" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "kph",
-                  "meter per second",
-                  "mph",
-                  "foot per second"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "velocity" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "kph",
-                  "meter per second",
-                  "mph",
-                  "foot per second"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "charge" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilocoulomb", "coulomb", "millicoulomb"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "attribute_type": { "const": "data transfer rate" }
-            }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "gigabit per second",
-                  "megabit per second",
-                  "kilobit per second",
-                  "bit per second"
-                ]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "attribute_type": { "const": "electrical conductance" }
-            }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilosiemens", "siemens", "millisiemens"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "inductance" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilohenry", "henry", "millihenry"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "attribute_type": { "const": "instance frequency" }
-            }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["revolutions per minute", "cycles per second"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "attribute_type": { "const": "luminous flux" }
-            }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": ["kilolumen", "lumen", "millilumen"]
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "attribute_type": { "const": "energy" } }
-          },
-          "then": {
-            "properties": {
-              "desired_unit": {
-                "enum": [
-                  "kilojoule",
-                  "joule",
-                  "millijoule",
-                  "Calorie",
-                  "british thermal unit",
-                  "kWh"
-                ]
-              }
-            }
-          }
-        }
-      ]
+          ]
+      }
     }
   }
 }
