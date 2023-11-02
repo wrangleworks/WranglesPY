@@ -245,6 +245,10 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - min
           - mid
           - max
+      desired_unit:
+        type: string
+        description: Convert the extracted unit to the desired unit
+    $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
