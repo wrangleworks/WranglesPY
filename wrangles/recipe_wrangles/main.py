@@ -13,8 +13,7 @@ import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
 import yaml as _yaml
-from numpy import dot
-from numpy.linalg import norm
+import numpy as np
 import math as _math
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -66,52 +65,6 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     for input_column, output_column in zip(input, output):
         df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
         
-    return df
-
-
-def similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str, type: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Calculate the cosine similarity of two vectors
-    additionalProperties: false
-    required:
-      - input1
-      - input2
-      - output
-    properties:
-      input1:
-        type: string
-        description: Name of the first input column consisting of integers/floats, or a list of such.
-      input2:
-        type: string
-        description: Name of the first input column consisting of integers/floats, or a list of such.
-      output:
-        type: string
-        description: Name of the output column.
-      type:
-        type: string
-        description: The type of similarity to calculate (cosine or euclidean)
-    """
-    if type == 'cosine':
-        similarity_list = []
-        for i in list(df.index):
-            
-            # Check that embeddings are of the same length
-            if isinstance(df[input1][i], list) and isinstance(df[input2][i], list) and len(df[input1][i]) != len(df[input2][i]):
-                raise ValueError('Vectors must be of the same dimension')
-
-            cos_sim = dot(df[input1][i], df[input2][i])/(norm(df[input1][i])*norm(df[input2][i]))
-            cos_sim_normalized = 1-_math.acos(cos_sim)
-            similarity_list.append(cos_sim_normalized)
-        df[output] = similarity_list
-
-    if type == 'euclidean':
-        similarity_list = []
-        for i in list(df.index):
-            euclidean_dist = _math.sqrt(sum(pow(a-b,2) for a, b in zip(df[input1][i], df[input2][i])))
-            similarity_list.append(euclidean_dist)
-        df[output] = similarity_list
-
     return df
 
 
@@ -751,6 +704,55 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
         
+    return df
+
+
+def similarity(df: _pd.DataFrame, input1: str, input2: str,  output: str, type: str) -> _pd.DataFrame:
+    """
+    type: object
+    description: Calculate the cosine similarity of two vectors
+    additionalProperties: false
+    required:
+      - input1
+      - input2
+      - output
+    properties:
+      input1:
+        type: string
+        description: Name of the first input column consisting of integers/floats, or a list of such.
+      input2:
+        type: string
+        description: Name of the first input column consisting of integers/floats, or a list of such.
+      output:
+        type: string
+        description: Name of the output column.
+      type:
+        type: string
+        description: The type of similarity to calculate (cosine or euclidean)
+    """
+    # convert columns to numpy arrays in order to speed things up
+    array1 = np.array(df[input1])
+    array2 = np.array(df[input2])
+    if type == 'cosine':
+        similarity_list = []
+        for i in range(len(array1)):
+            
+            # Check that embeddings are of the same length
+            if isinstance(array1[i], list) and isinstance(array2[i], list) and len(array1[i]) != len(array2[i]):
+                raise ValueError('Vectors must be of the same dimension')
+
+            cos_sim = np.dot(array1[i], array2[i])/(np.linalg.norm(array1[i])*np.linalg.norm(array2[i]))
+            cos_sim_normalized = 1-_math.acos(cos_sim)
+            similarity_list.append(cos_sim_normalized)
+        df[output] = similarity_list
+
+    if type == 'euclidean':
+        similarity_list = []
+        for i in list(df.index):
+            euclidean_dist = _math.sqrt(sum(pow(a-b,2) for a, b in zip(array1[i], array2[i])))
+            similarity_list.append(euclidean_dist)
+        df[output] = similarity_list
+
     return df
 
 
