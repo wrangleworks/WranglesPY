@@ -885,10 +885,34 @@ def test_rename_invalid_input():
             })
         )
     assert info.typename == 'KeyError'
-    
+
 def test_rename_into_existing_column():
     """
-    reanme a column with a name that already exists into a column.
+    Rename a column to a name that already exists as a column.
+    This should overwrite the existing column.
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+
+    recipe = 
+    df = wrangles.recipe.run(
+        """
+        wrangles:        
+          - rename:
+              col2: col1
+        """,
+        dataframe=data
+    )
+    assert (
+        df["col1"].values.tolist() == [444, 555, 666, 444] and
+        df.columns.tolist() == ["col1"]
+    )
+
+def test_rename_into_existing_column_dict():
+    """
+    Rename a column to a name that already exists as a column.
     This should make sure that all columns are pandas Series
     """
     data = pd.DataFrame({
@@ -912,9 +936,9 @@ def test_rename_into_existing_column():
     df = wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
-def test_rename_into_existing_column_2():
+def test_rename_into_existing_column_input():
     """
-    reanme a column with a name that already exists into a column.
+    Rename a column to a name that already exists as a column.
     This should make sure that all columns are pandas Series. Using input/output
     """
     data = pd.DataFrame({
@@ -941,8 +965,9 @@ def test_rename_into_existing_column_2():
     """
     df = wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
-    
-    
+
+
+
 #
 # Standardize
 #
