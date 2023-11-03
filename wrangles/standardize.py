@@ -4,7 +4,7 @@ from . import data as _data
 from . import batching as _batching
 
 
-def standardize(input: _Union[str, list], model_id: str, caseSensitive: bool = False) -> list:
+def standardize(input: _Union[str, list], model_id: str, case_sensitive: bool = False) -> list:
     """
     Standardize text - Standardize Wrangles can replace words with alternatives,
     in addition to using regex patterns for more complex replacements.
@@ -12,7 +12,7 @@ def standardize(input: _Union[str, list], model_id: str, caseSensitive: bool = F
 
     :param input: A string or list of strings to be standardized.
     :param model_id: The model to be used.
-    :param caseSensitive: Allows setting the model to be case sensitive
+    :param case_sensitive: Allows setting the model to be case sensitive
     :return: A string or list with the updated text.
     """
     if isinstance(input, str): 
@@ -31,7 +31,7 @@ def standardize(input: _Union[str, list], model_id: str, caseSensitive: bool = F
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/standardize'
-    params = {'responseFormat': 'array', 'model_id': model_id, 'caseSensitive': caseSensitive}
+    params = {'responseFormat': 'array', 'model_id': model_id, 'caseSensitive': case_sensitive}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')

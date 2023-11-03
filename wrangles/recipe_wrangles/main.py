@@ -765,7 +765,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
     return df
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, caseSensitive: bool = False) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, case_sensitive: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
@@ -788,7 +788,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
-      caseSensitive:
+      case_sensitive:
         type: bool
         description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
@@ -810,7 +810,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         df_copy = df.loc[:, [input[0]]]
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
-                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model)
+                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model, case_sensitive)
         
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
@@ -818,7 +818,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
-            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model, caseSensitive)
+            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model, case_sensitive)
             
     return df
 
