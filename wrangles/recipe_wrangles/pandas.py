@@ -133,4 +133,31 @@ def reindex(
     df = df.reindex(**parameters)
     
     return df
+
+
+def explode(df: _pd.DataFrame, column: _Union[str, list]) -> _pd.DataFrame:
+    """
+    type: object
+    description: Explode a column of lists into rows
+    additionalProperties: false
+    required:
+      - column
+    properties:
+        column:
+            type:
+            - string
+            - array
+            description: Name of the column(s) to explode
+    """    
+    # If a string provided, convert to list
+    if not isinstance(column, list): column = [column]
+    
+    # Check if there are any columns not in df
+    if not set(column).issubset(df.columns):
+        raise ValueError(f"Columns {column} not in DataFrame")
+    
+    for col in column:
+        df = df.explode(col)
+    
+    return df
     

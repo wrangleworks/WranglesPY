@@ -3,6 +3,7 @@ Tests for passthrough pandas capabilities
 """
 import wrangles
 import pandas as pd
+import pytest
 
 #
 # PASSTHROUGH
@@ -333,3 +334,100 @@ def test_reindex():
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
     assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
+
+
+def test_explode_1():
+    """
+    Test explode basic function
+    """
+    data = pd.DataFrame({'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                   'B': 1,
+                   'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]})
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              column:
+                - C
+        """,
+        dataframe=data
+    )
+    assert df['C'].tolist() == ['a', 'b', 'c', 'NAN', '', 'd', 'e']
+    
+
+def test_explode_2():
+    """
+    Test explode basic function
+    """
+    data = pd.DataFrame({'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                   'B': 1,
+                   'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]})
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              column:
+                - A
+        """,
+        dataframe=data
+    )
+    assert df['A'].tolist() == [0, 1, 2, 'foo', '', 3, 4]
+    
+def test_explode_3():
+    """
+    Test explode multiple cols
+    """
+    data = pd.DataFrame({'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                   'B': 1,
+                   'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]})
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              column:
+                - A
+                - C
+        """,
+        dataframe=data
+    )
+    assert len(df['A'].tolist()) == 15
+    
+def test_explode_non_existent_col():
+    """
+    Test explode function with a col that does not exists in df
+    """
+    data = pd.DataFrame({'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                   'B': 1,
+                   'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]})
+    with pytest.raises(ValueError) as info:
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - explode:
+                column:
+                    - AA
+            """,
+            dataframe=data
+        )
+    assert info.typename == 'ValueError' and "explode - Columns ['AA'] not in DataFrame"
+    
+def test_explode_non_existent_col_2():
+    """
+    Test explode function with multiple cols that does not exists in df
+    """
+    data = pd.DataFrame({'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                   'B': 1,
+                   'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]})
+    with pytest.raises(ValueError) as info:
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - explode:
+                column:
+                    - AA
+                    - BB
+                    - A
+            """,
+            dataframe=data
+        )
+    assert info.typename == 'ValueError' and "explode - Columns ['AA', 'BB'] not in DataFrame"
