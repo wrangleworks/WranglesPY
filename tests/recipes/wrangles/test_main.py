@@ -1200,8 +1200,8 @@ def test_standardize_case_sensitive_multi_model():
             output: output
             case_sensitive: true
             model_id: 
-              - 6ca4ab44-8c66-40e8
               - fc7d46e3-057f-47bd
+              - 6ca4ab44-8c66-40e8
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == 'asap' and df.iloc[3]['output'] == 'OMW'
@@ -1220,8 +1220,8 @@ def test_standardize_case_insensitive_multi_model():
             output: output
             case_sensitive: false
             model_id: 
-              - 6ca4ab44-8c66-40e8
               - fc7d46e3-057f-47bd
+              - 6ca4ab44-8c66-40e8
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
