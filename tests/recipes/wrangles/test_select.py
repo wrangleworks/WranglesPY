@@ -1214,3 +1214,74 @@ def test_element_dict_by_index():
         })
     )
     assert df["result"][0] == 1
+    
+def test_select_columns_basic():
+    """
+    Test select.columns using basic inputs
+    The original df will be 5 columns and want to select only 2 column
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+        'Col3': [4, 5, 6],
+        'Col4': [7, 8, 9],
+        'Col5': [10, 11, 12]
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input:
+                - Col1
+                - Col5
+
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df.columns) == 2 and df['Col1'][0] == 'One Two Three Four' and df['Col5'][0] == 10
+
+
+def test_select_column_widlcard():
+    """
+    Test select.column using a wilcard
+    Select only cols that have a number
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+        'Random1': [4, 5, 6],
+        'Col4': [7, 8, 9],
+        'Random2': [10, 11, 12]
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input: Col*
+        - convert.case:
+            input: Col1
+            case: upper
+
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df.columns) == 3 and [x for x in df.columns] == ['Col1', 'Col2', 'Col4']
+    
+def test_select_column_with_non_existing_cols():
+    """
+    Test outputing a column(s) that do not exists. This will trigger wildcard error
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input: YOLO
+        - convert.case:
+            input: Col1
+            case: upper
+    """
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
+    
+    
+    
