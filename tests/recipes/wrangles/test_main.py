@@ -1071,6 +1071,161 @@ def test_standardize_multi_io_single_model_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
 
+def test_standardize_case_sensitive():
+    """
+    Test standardize with case sensitivity
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'asap' and df.iloc[1]['Abbreviations'] == 'eta'
+
+def test_standardize_case_insensitive():
+    """
+    Test standardize with case insensitivity
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            case_sensitive: false
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+def test_standardize_case_default():
+    """
+    Test standardize with case default
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+def test_standardize_case_sensitive_multiple_rows():
+    """
+    Test standardize with case sensitive and multiple inputs and outputs
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['asap'],
+    'Abbrev2': ['eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbrev1 output
+              - Abbrev2 output
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbrev1 output'] == 'asap' and df.iloc[0]['Abbrev2 output'] == 'eta'
+
+def test_standardize_case_sensitive_in_place():
+    """
+    Test standardize with case sensitive and no output
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbrev'] == 'asap' and df.iloc[1]['Abbrev'] == 'eta'
+
+def test_standardize_case_sensitive_invalid_bool():
+    """
+    Test standardize with case sensitive with an invalid boolean
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: Huh?
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
+    )
+
+def test_standardize_case_sensitive_multi_model():
+    """
+    Test standardize with case sensitive with multiple models
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: true
+            model_id: 
+              - 6ca4ab44-8c66-40e8
+              - fc7d46e3-057f-47bd
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == 'asap' and df.iloc[3]['output'] == 'OMW'
+
+def test_standardize_case_insensitive_multi_model():
+    """
+    Test standardize with case insensitive with multiple models
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: false
+            model_id: 
+              - 6ca4ab44-8c66-40e8
+              - fc7d46e3-057f-47bd
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
+
 def test_replace():
     """
     Test replace
