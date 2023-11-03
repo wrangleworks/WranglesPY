@@ -840,7 +840,7 @@ def test_extract_custom_case_sensitive():
             - col1
             - col2
           output: Output
-          caseSensitive: true
+          case_sensitive: true
           model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
@@ -861,7 +861,7 @@ def test_extract_custom_case_insensitive():
             - col1
             - col2
           output: Output
-          caseSensitive: false
+          case_sensitive: false
           model_id: 1eddb7e8-1b2b-4a52
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
@@ -902,15 +902,55 @@ def test_extract_custom_case_invalid_bool():
             - col1
             - col2
           output: Output
-          caseSensitive: You Tell Me
+          case_sensitive: You Tell Me
           model_id: 1eddb7e8-1b2b-4a52
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
+        'Non-boolean parameter in case_sensitive. Use True/False' in info.value.args[0]
     )
+
+def test_extract_custom_case_sensitive_in_place():
+    """
+    Test extract.custom with case sensitivity and no output
+    """
+    data = pd.DataFrame({
+        'col1': ['Charizard'],
+        'col2': ['not charizard']
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: 
+            - col1
+            - col2 
+          case_sensitive: true
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col1'] == ['Charizard'] and df.iloc[0]['col2'] == []
+
+def test_extract_custom_case_sensitive_multi_model():
+    """
+    Test extract.custom with case sensitivity using multiple models
+    """
+    data = pd.DataFrame({
+        'col1': ['Charizard', 'not charizard', 'not agent smith'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          case_sensitive: true
+          model_id: 
+            - 1eddb7e8-1b2b-4a52
+            - 05f6bb73-de04-4cb6
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == ['Charizard'] and df.iloc[2]['output'] == []
 
 
 # combinations of use_labels and first_element begins
