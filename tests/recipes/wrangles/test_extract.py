@@ -909,7 +909,7 @@ def test_extract_custom_case_invalid_bool():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Non-boolean parameter in case_sensitive. Use True/False' in info.value.args[0]
+        '{"Error":"Non-boolean parameter in caseSensitive. Use True/False"}' in info.value.args[0]
     )
 
 def test_extract_custom_case_sensitive_in_place():
