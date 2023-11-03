@@ -873,7 +873,7 @@ def test_create_embeddings():
           - create.embeddings:
               input: text
               output: embedding
-              api_key: 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
+              api_key: ${OPENAI_API_KEY}
         """
     )
     assert (
@@ -949,7 +949,7 @@ def test_create_embeddings_python_list():
           - create.embeddings:
               input: text
               output: embedding
-              api_key: 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
+              api_key: ${OPENAI_API_KEY}
               output_type: python list
         """
     )
@@ -973,7 +973,7 @@ def test_create_embeddings_np_array():
           - create.embeddings:
               input: text
               output: embedding
-              api_key: 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
+              api_key: ${OPENAI_API_KEY}
               output_type: numpy array
         """
     )
@@ -996,7 +996,7 @@ def test_create_embeddings_invalid_output_type():
           - create.embeddings:
               input: text
               output: embedding
-              api_key: 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
+              api_key: ${OPENAI_API_KEY}
               output_type: Something here is not right
     """
     with pytest.raises(ValueError) as info:
