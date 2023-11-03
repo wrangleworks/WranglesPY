@@ -737,6 +737,10 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     # Check to see that two columns were passed through input
     if len(input) != 2:
         raise ValueError('Input must consist of a list of two columns')
+    
+    # Ensure method is of a valid type
+    if method not in ['cosine', 'adjusted cosine', 'euclidean']:
+        raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
 
     if method == 'cosine':
         similarity_list = [
