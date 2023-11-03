@@ -1,6 +1,7 @@
 import wrangles
 import pandas as pd
 import pytest
+import numpy as np
 
 
 #
@@ -872,7 +873,7 @@ def test_create_embeddings():
           - create.embeddings:
               input: text
               output: embedding
-              api_key: ${OPENAI_API_KEY}
+              api_key: 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
         """
     )
     assert (
@@ -931,4 +932,76 @@ def test_create_embeddings_empty():
     assert (
         isinstance(df["embedding"][0], list) and
         len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_python_list():
+    """
+    Test generating openai embeddings as a python list
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: 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
+              output_type: python list
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_np_array():
+    """
+    Test generating openai embeddings as a numpy array
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: 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
+              output_type: numpy array
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], (np.ndarray, np.generic) ) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_invalid_output_type():
+    """
+    Test generating openai embeddings as a numpy array
+    """
+    recipe = """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: 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
+              output_type: Something here is not right
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert (
+        info.typename == 'ValueError' and
+        'Output_type must be of value "numpy array" or "python list"' in info.value.args[0]
     )
