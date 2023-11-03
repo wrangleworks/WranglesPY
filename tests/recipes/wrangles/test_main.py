@@ -895,8 +895,6 @@ def test_rename_into_existing_column():
     'col1': [1, 2, 3, 4],
     'col2': [444, 555, 666, 444],
     })
-
-    recipe = 
     df = wrangles.recipe.run(
         """
         wrangles:        
