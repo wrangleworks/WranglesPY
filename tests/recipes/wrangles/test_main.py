@@ -886,6 +886,86 @@ def test_rename_invalid_input():
         )
     assert info.typename == 'KeyError'
 
+def test_rename_into_existing_column():
+    """
+    Rename a column to a name that already exists as a column.
+    This should overwrite the existing column.
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:        
+          - rename:
+              col2: col1
+        """,
+        dataframe=data
+    )
+    assert (
+        df["col1"].values.tolist() == [444, 555, 666, 444] and
+        df.columns.tolist() == ["col1"]
+    )
+
+def test_rename_into_existing_column_dict():
+    """
+    Rename a column to a name that already exists as a column.
+    This should make sure that all columns are pandas Series
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+
+    recipe = """
+    wrangles:
+    - copy:
+        input: col1
+        output: col1_copy
+        
+    - create.column:
+        output: col2_copy
+        
+    - rename:
+        col2_copy: col1_copy
+        col2: newCol2
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+def test_rename_into_existing_column_input():
+    """
+    Rename a column to a name that already exists as a column.
+    This should make sure that all columns are pandas Series. Using input/output
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+
+    recipe = """
+    wrangles:
+    - copy:
+        input: col1
+        output: col1_copy
+        
+    - create.column:
+        output: col2_copy
+        
+    - rename:
+        input:
+            - col2_copy
+            - col2
+        output:
+            - col1_copy
+            - newCol2
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+
+
 #
 # Standardize
 #

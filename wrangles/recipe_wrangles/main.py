@@ -640,6 +640,8 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
         rename_cols = list(kwargs.keys())
         for x in rename_cols:
             if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
+        # Check if the new column names exist if so drop them
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns])
         
         rename_dict = kwargs
     else:
@@ -653,6 +655,9 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
         # Ensure input and output are equal lengths
         if len(input) != len(output):
             raise ValueError('The lists for input and output must be the same length.')
+        
+        # Check that the output columns don't already exist if so drop them
+        df = df.drop(columns=[x for x in output if x in df.columns])
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))

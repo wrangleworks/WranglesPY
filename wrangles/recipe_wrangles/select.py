@@ -554,3 +554,25 @@ def element(
         df[out_col] = output
     
     return df
+
+
+def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
+    """
+    type: object
+    description: Select columns from the dataframe
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to select
+    """
+    if not isinstance(input, list): input = [input]
+    
+    # Missing column should be caught by _wildcard_expansion
+    
+    return df[input]    
+
