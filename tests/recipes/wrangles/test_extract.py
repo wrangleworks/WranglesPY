@@ -1397,7 +1397,7 @@ def test_ai_multiple_input():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
-              timeout: 30
+              timeout: 60
               output:
                 text:
                   type: string
