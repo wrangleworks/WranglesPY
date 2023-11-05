@@ -135,29 +135,28 @@ def reindex(
     return df
 
 
-def explode(df: _pd.DataFrame, column: _Union[str, list]) -> _pd.DataFrame:
+def explode(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Explode a column of lists into rows
     additionalProperties: false
     required:
-      - column
+      - input
     properties:
-        column:
-            type:
+        input:
+          type:
             - string
             - array
-            description: Name of the column(s) to explode
+          description: >-
+            Name of the column(s) to explode. If multiple
+            columns are included they must contain lists
+            of the same length
     """    
     # If a string provided, convert to list
-    if not isinstance(column, list): column = [column]
+    if not isinstance(input, list): input = [input]
     
     # Check if there are any columns not in df
-    if not set(column).issubset(df.columns):
-        raise ValueError(f"Columns {column} not in DataFrame")
-    
-    for col in column:
-        df = df.explode(col)
-    
-    return df
-    
+    if not set(input).issubset(df.columns):
+        raise ValueError(f"Columns {input} not in DataFrame")
+
+    return df.explode(input)
