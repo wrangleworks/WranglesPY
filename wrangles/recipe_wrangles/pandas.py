@@ -135,7 +135,11 @@ def reindex(
     return df
 
 
-def explode(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
+def explode(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    reset_index: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Explode a column of lists into rows
@@ -151,6 +155,9 @@ def explode(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
             Name of the column(s) to explode. If multiple
             columns are included they must contain lists
             of the same length
+        reset_index:
+          type: boolean
+          description: Reset the index after exploding. Default False.
     """    
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -159,4 +166,4 @@ def explode(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
     if not set(input).issubset(df.columns):
         raise ValueError(f"Columns {input} not in DataFrame")
 
-    return df.explode(input)
+    return df.explode(input, reset_index)
