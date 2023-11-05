@@ -204,9 +204,9 @@ def embeddings(
             threads
         )
 
-        if output_type == 'numpy array':
+        if output_type == 'python list':
             df[output_col] = [
-                _np.array(row, dtype=_np.float32)
+                list(row)
                 for row in df[output_col].values
             ]
 

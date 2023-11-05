@@ -1,9 +1,11 @@
+import base64 as _base64
 import yaml as _yaml
 import json as _json
 import copy as _copy
 import concurrent.futures as _futures
 from itertools import chain as _chain
 import requests as _requests
+import numpy as _np
 
 def chatGPT(
   data: any,
@@ -94,13 +96,21 @@ def _embedding_thread(
         },
         json={
             "model": model,
+            "encoding_format": "base64",
             "input": [
                 str(val) if val != "" else " " 
                 for val in input_list
             ]
         }
     )
-    return [row['embedding'] for row in response.json()['data']]
+
+    return [
+        _np.frombuffer(
+            _base64.b64decode(row['embedding']),
+            dtype=_np.float32
+        )
+        for row in response.json()['data']
+    ]
 
 def embeddings(
     input_list,
