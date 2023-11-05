@@ -143,6 +143,7 @@ def embeddings(
     output: str = None,
     batch_size: int = 100,
     threads: int = 10,
+    output_type: str = "python list",
     model: str = "text-embedding-ada-002"
 ) -> _pd.DataFrame:
     """
@@ -154,10 +155,14 @@ def embeddings(
       - api_key
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: The column of text to create the embeddings for.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: The output column the embeddings will be saved as.
       api_key:
         type: string
@@ -170,15 +175,40 @@ def embeddings(
         description: >-
           The number of requests to submit in parallel.
           Each request contains the number of rows set as batch_size.
+      output_type:
+        type: string
+        description: >-
+          Output the embeddings as a numpy array or a python list
+          Default - python list.
+        enum:
+          - numpy array
+          - python list
     """
     if output is None: output = input
-    df[output] = _openai.embeddings(
-        df[input[0]].to_list(),
-        api_key,
-        model,
-        batch_size,
-        threads
-    )
+
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    if output_type not in ["python list", "numpy array"]:
+        raise ValueError('Output_type must be of value "numpy array" or "python list"')
+
+    for input_col, output_col in zip(input, output):
+        df[output_col] = _openai.embeddings(
+            df[input_col].to_list(),
+            api_key,
+            model,
+            batch_size,
+            threads
+        )
+
+        if output_type == 'python list':
+            df[output_col] = [
+                list(row)
+                for row in df[output_col].values
+            ]
 
     return df
 
