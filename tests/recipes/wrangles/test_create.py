@@ -978,7 +978,7 @@ def test_create_embeddings_np_array():
         """
     )
     assert (
-        isinstance(df["embedding"][0], (np.ndarray, np.generic) ) and
+        isinstance(df["embedding"][0], (np.ndarray, np.float32)) and
         len(df["embedding"][0]) == 1536
     )
 
@@ -1004,4 +1004,35 @@ def test_create_embeddings_invalid_output_type():
     assert (
         info.typename == 'ValueError' and
         'Output_type must be of value "numpy array" or "python list"' in info.value.args[0]
+    )
+
+def test_create_embeddings_multi_column():
+    """
+    Test generating openai embeddings
+    with multiple inputs/outputs
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text1: "This is a test"
+                text2: "Something else"
+        wrangles:
+          - create.embeddings:
+              input:
+                - text1
+                - text2
+              output:
+                - embedding1
+                - embedding2
+              api_key: ${OPENAI_API_KEY}
+        """
+    )
+    assert (
+        isinstance(df["embedding1"][0], list) and
+        len(df["embedding1"][0]) == 1536 and
+        isinstance(df["embedding2"][0], list) and
+        len(df["embedding2"][0]) == 1536
     )
