@@ -713,55 +713,65 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     description: Calculate the cosine similarity of two vectors
     additionalProperties: false
     required:
-      - input1
-      - input2
+      - input
       - output
     properties:
-      input1:
-        type: string
-        description: Name of the first input column consisting of integers/floats, or a list of such.
-      input2:
-        type: string
-        description: Name of the first input column consisting of integers/floats, or a list of such.
+      input:
+        type: array
+        description: Two columns of vectors to compare the similarity of.
       output:
         type: string
         description: Name of the output column.
       method:
         type: string
-        description: The type of similarity to calculate (cosine or euclidean)
+        description: >-
+          The type of similarity to calculate (cosine or euclidean).
+          Adjusted cosine adjusts the default cosine calculation
+          to cover a range of 0-1 for typical comparisons.
         enum:
           - cosine
           - adjusted cosine
           - euclidean
     """
     # Check to see that two columns were passed through input
-    if len(input) != 2:
+    if not isinstance(input, list) or len(input) != 2:
         raise ValueError('Input must consist of a list of two columns')
-    
-    # Ensure method is of a valid type
-    if method not in ['cosine', 'adjusted cosine', 'euclidean']:
-        raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
 
     if method == 'cosine':
         similarity_list = [
-            _np.dot(df[input[0]].values[i], df[input[1]].values[i])/(_np.linalg.norm(df[input[0]].values[i])*_np.linalg.norm(df[input[1]].values[i])) 
-            for i in range(len(df))
+            _np.dot(x, y)
+            /
+            (_np.linalg.norm(x) * _np.linalg.norm(y)) 
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
         df[output] = similarity_list
 
-    if method == 'adjusted cosine': # Normalizes output from 0-1
+    elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
-            1-_math.acos(_np.dot(df[input[0]].values[i], df[input[1]].values[i])/(_np.linalg.norm(df[input[0]].values[i])*_np.linalg.norm(df[input[1]].values[i]))) 
-            for i in range(len(df))
+            1 - _math.acos(
+                _np.dot(x, y)
+                /
+                (_np.linalg.norm(x) * _np.linalg.norm(y)) 
+            )
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
         df[output] = similarity_list
 
-    if method == 'euclidean':
+    elif method == 'euclidean':
         similarity_list = [
-            _math.sqrt(sum(pow(a-b,2) for a, b in zip(df[input[0]].values[i], df[input[1]].values[i])))
-            for i in range(len(df))
+            _math.sqrt(
+                sum(
+                    pow(a -b, 2)
+                    for a, b in zip(x, y)
+                )
+            )
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
         df[output] = similarity_list
+
+    else:
+        # Ensure method is of a valid type
+        raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
 
     return df
 
