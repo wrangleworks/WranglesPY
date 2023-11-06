@@ -87,7 +87,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
           - array
-        description: Name or list of names of new columns or column_name: value pairs.
+        description: "Name or list of names of new columns or column_name: value pairs."
       value:
         type:
           - string
