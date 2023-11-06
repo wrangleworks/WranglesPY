@@ -125,7 +125,7 @@ def ai(
         type: integer
         description: >-
           The number of times to retry if the request fails.
-          This will apply exponential backoff to help with rate limiting
+          This will apply exponential backoff to help with rate limiting.
     """
     if input is not None:
         if not isinstance(input, list):

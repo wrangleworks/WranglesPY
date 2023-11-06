@@ -106,38 +106,59 @@ def _divide_batches(l, n):
 def _embedding_thread(
     input_list: list,
     api_key: str,
-    model: str
+    model: str,
+    retries: int = 0
 ):
-    
-    response = _requests.post(
-        url="https://api.openai.com/v1/embeddings",
-        headers={
-            "Authorization": f"Bearer {api_key}"
-        },
-        json={
-            "model": model,
-            "encoding_format": "base64",
-            "input": [
-                str(val) if val != "" else " " 
-                for val in input_list
-            ]
-        }
-    )
+    """
+    Get embeddings 
 
-    return [
-        _np.frombuffer(
-            _base64.b64decode(row['embedding']),
-            dtype=_np.float32
+    :param input_list: List of strings to generate embeddings for
+    :param api_key: API key for the provider
+    :param model: Specific model to use
+    :param retries: Number of times to retry. This will exponentially backoff.
+    """
+    response = None
+
+    while (retries + 1):
+        response = _requests.post(
+            url="https://api.openai.com/v1/embeddings",
+            headers={
+                "Authorization": f"Bearer {api_key}"
+            },
+            json={
+                "model": model,
+                "encoding_format": "base64",
+                "input": [
+                    str(val) if val != "" else " " 
+                    for val in input_list
+                ]
+            }
         )
-        for row in response.json()['data']
-    ]
+
+        if response and response.ok:
+            break
+
+        retries -=1
+
+
+    if response and response.ok:
+        return [
+            _np.frombuffer(
+                _base64.b64decode(row['embedding']),
+                dtype=_np.float32
+            )
+            for row in response.json()['data']
+        ]
+    else:
+        return ['Error' for _ in input_list]
 
 def embeddings(
     input_list,
     api_key,
     model: str = "text-embedding-ada-002",
     batch_size: int = 100,
-    threads: int = 10
+    threads: int = 10,
+    retries: int = 0
 ) -> list:
     """
     Generate embeddings for a list of strings.
@@ -153,7 +174,8 @@ def embeddings(
     :param batch_size: (Optional, default 100) The number of rows to submit per individual request.
     :param threads: (Optional, default 10) The number of requests to submit in parallel. \
           Each request contains the number of rows set as batch_size.
-
+    :param retries: The number of times to retry. This will exponentially \
+          backoff to assist with rate limiting
     :return: A list of embeddings corresponding to the input
     """
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -162,7 +184,8 @@ def embeddings(
             _embedding_thread,
             batches,
             [api_key] * len(batches),
-            [model] * len(batches)
+            [model] * len(batches),
+            [retries] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))

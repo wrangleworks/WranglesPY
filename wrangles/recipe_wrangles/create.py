@@ -144,7 +144,8 @@ def embeddings(
     batch_size: int = 100,
     threads: int = 10,
     output_type: str = "python list",
-    model: str = "text-embedding-ada-002"
+    model: str = "text-embedding-ada-002",
+    retries: int = 0
 ) -> _pd.DataFrame:
     """
     type: object
@@ -183,6 +184,11 @@ def embeddings(
         enum:
           - numpy array
           - python list
+      retries:
+        type: integer
+        description: >-
+          The number of times to retry if the request fails.
+          This will apply exponential backoff to help with rate limiting.
     """
     if output is None: output = input
 
@@ -201,7 +207,8 @@ def embeddings(
             api_key,
             model,
             batch_size,
-            threads
+            threads,
+            retries
         )
 
         if output_type == 'python list':
