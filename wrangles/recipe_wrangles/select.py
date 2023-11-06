@@ -428,7 +428,7 @@ def group_by(df, by = [], **kwargs):
 
     # Remove faked column if it was needed
     if 'absjdkbatgg' in df.columns:
-        df.drop('absjdkbatgg', inplace=True, axis=1)
+        df = df.drop('absjdkbatgg', axis=1, level=0)
 
     # Flatting multilevel headings back to one
     df.columns = df.columns.map('.'.join).str.strip('.')

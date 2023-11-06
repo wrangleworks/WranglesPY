@@ -566,10 +566,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         )
 
                 # Clean up NaN's
-                df.fillna('', inplace = True)
+                df = df.fillna('')
                 # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
                 # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-                df.fillna('0', inplace = True)
+                df = df.fillna('0')
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__)
