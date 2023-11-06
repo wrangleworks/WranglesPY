@@ -239,7 +239,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
         for remove in _remove:
             # if Tokenize is true
             if tokenize_to_remove == True:
-                for token_remove in [_re.split('\s|,', x) for x in _remove]:
+                for token_remove in [_re.split(r'\s|,', x) for x in _remove]:
                     for subtoken in token_remove:
                         subtoken = _re.escape(subtoken) # escape the special characters just in case
                         text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)
