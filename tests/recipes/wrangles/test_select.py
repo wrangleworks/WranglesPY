@@ -1283,5 +1283,35 @@ def test_select_column_with_non_existing_cols():
         raise wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
     
-    
-    
+
+def test_head():
+    """
+    Test using head to return n rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.head:
+              n: 3
+        """,
+        dataframe=pd.DataFrame({
+            "heading": [1,2,3,4,5,6]
+        })
+    )
+    assert df["heading"].values.tolist() == [1,2,3]
+
+def test_tail():
+    """
+    Test using tail to return n rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.tail:
+              n: 3
+        """,
+        dataframe=pd.DataFrame({
+            "heading": [1,2,3,4,5,6]
+        })
+    )
+    assert df["heading"].values.tolist() == [4,5,6]

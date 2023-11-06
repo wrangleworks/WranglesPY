@@ -8,6 +8,27 @@ import pandas as _pd
 from .. import select as _select
 
 
+def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
+    """
+    type: object
+    description: Select columns from the dataframe
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to select
+    """
+    if not isinstance(input, list): input = [input]
+    
+    # Missing column should be caught by _wildcard_expansion
+    
+    return df[input]    
+
+
 def dictionary_element(
     df: _pd.DataFrame,
     input: _Union[str, list],
@@ -61,6 +82,289 @@ def dictionary_element(
     
     return df
 
+
+def element(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    default: any = ''
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Select elements of lists or dicts
+      using python syntax like col[0]['key']
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: 
+          - string
+          - array
+        description: >-
+          Name of the input column and sub elements
+          This permits by index for lists or dict
+          and by key for dicts
+          e.g. col[0]['key'] // [{"key":"val"}] -> "val"
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      default:
+        type: 
+          - string
+          - number
+          - array
+          - object
+          - boolean
+          - 'null'
+        description: Set the default value to return if the specified element doesn't exist.
+    """
+    def _extract_elements(input_string):
+        # Find all occurrences of '[...]' using regex
+        pattern = r'\[[^\]]*\]'
+        matches = _re.findall(pattern, input_string)
+
+        extracted_elements = []
+        for match in matches:
+            # Remove brackets and trim whitespace
+            element = match.strip('[]')
+
+            # Remove outer quotes if present
+            if element.startswith("'") and element.endswith("'"):
+                element = element[1:-1]
+            elif element.startswith('"') and element.endswith('"'):
+                element = element[1:-1]
+
+            # Handle escaped quotes within the element
+            element = element.replace("\\'", "'").replace('\\"', '"')
+
+            extracted_elements.append(element)
+
+        return extracted_elements
+
+    if output is None: output = input
+    
+    # Ensure input and outputs are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The list of inputs and outputs must be the same length for select.element')
+    
+    for in_col, out_col in zip(input, output):
+        # If user hasn't specified an output column
+        # strip the elements from the input column
+        if in_col == out_col:
+            out_col = out_col.split("[")[0]
+        
+        # Get the sequence of elements
+        elements = _extract_elements(in_col)
+        in_col = in_col.split('[')[0]
+        
+        output = []
+        for row in df[in_col].tolist():
+            if isinstance(row, str):
+                row = _json.loads(row)
+
+            for element in elements:
+                try:
+                    if isinstance(row, list):
+                        row = row[int(element)]
+                    elif isinstance(row, dict):
+                        # Allow getting an element of a dict
+                        # using the index of the key
+                        if element not in row.keys() and element.isdigit():
+                            row = row[list(row.keys())[int(element)]]
+                        else:
+                            row = row.get(element, default)
+                    else:
+                        row = default
+                except:
+                    row = default
+
+            output.append(row)
+
+        df[out_col] = output
+    
+    return df
+
+
+def group_by(df, by = [], **kwargs):
+    """
+    type: object
+    description: Group and aggregate the data
+    properties:
+      by:
+        type:
+          - string
+          - array
+        description: List of the input columns to group on
+      list:
+        type:
+          - string
+          - array
+        description: Group and return all values for these column(s) as a list
+      first:
+        type:
+          - string
+          - array
+        description: The first value for these column(s)
+      last:
+        type:
+          - string
+          - array
+        description: The last value for these column(s)
+      min:
+        type:
+          - string
+          - array
+        description: The minimum value for these column(s)
+      max:
+        type:
+          - string
+          - array
+        description: The maximum value for these column(s)
+      mean:
+        type:
+          - string
+          - array
+        description: The mean (average) value for these column(s)
+      median:
+        type:
+          - string
+          - array
+        description: The median value for these column(s)
+      nunique:
+        type:
+          - string
+          - array
+        description: The count of unique values for these column(s)
+      count:
+        type:
+          - string
+          - array
+        description: The count of values for these column(s)
+      std:
+        type:
+          - string
+          - array
+        description: The standard deviation of values for these column(s)
+      sum:
+        type:
+          - string
+          - array
+        description: The total of values for these column(s)
+      any:
+        type:
+          - string
+          - array
+        description: Return true if any of the values for these column(s) are true
+      all:
+        type:
+          - string
+          - array
+        description: Return true if all of the values for these column(s) are true
+      p75:
+        type:
+          - string
+          - array
+        description: >-
+          Get a percentile. Note, you can use any integer here
+          for the corresponding percentile.
+    """
+    def percentile(n):
+        def percentile_(x):
+            return x.quantile(n)
+        percentile_.__name__ = f'p{int(n*100)}'
+        return percentile_
+
+    # If by not specified, fake a column to allow it to be used
+    if not by:
+        df['absjdkbatgg'] = 1
+        by = ['absjdkbatgg']
+
+    # Ensure by is a list
+    if not isinstance(by, list): by = [by]
+
+    # Invert kwargs to put column names as keys
+    inverted_dict = {}
+    for operation, columns in kwargs.items():
+        # Interpret percentiles
+        if operation[0].lower() == "p" and operation[1:].isnumeric():
+            operation = percentile(int(operation[1:])/100)
+
+        # Add option to group as a list
+        if operation == "list":
+            operation = list
+
+        if not isinstance(columns, list): columns = [columns]
+        for column in columns:
+            if column in inverted_dict:
+                inverted_dict[column].append(operation)
+            else:
+                inverted_dict[column] = [operation]
+
+    # If any of the columns to group by are also specified
+    # as an aggregate column this causes problems.
+    # Temporarily rename the column to avoid this.
+    if set(by).intersection(set(inverted_dict.keys())):
+        for i, val in enumerate(by):
+            if val in inverted_dict.keys():
+                df[val + ".grouped_asjkdbak"] = df[val]
+                by[i] = val + ".grouped_asjkdbak"
+
+    # Create group by object with by and aggregate columns
+    df_grouped = df[by + list(inverted_dict.keys())].groupby(
+        by = by,
+        as_index=False,
+        sort=False
+    )
+
+    # If agg columns then aggregate else return grouped
+    if kwargs:
+        df = df_grouped.agg(inverted_dict)
+    else:
+        df = df_grouped.count()
+
+    # Remove faked column if it was needed
+    if 'absjdkbatgg' in df.columns:
+        df.drop('absjdkbatgg', inplace=True, axis=1)
+
+    # Flatting multilevel headings back to one
+    df.columns = df.columns.map('.'.join).str.strip('.')
+
+    # Rename columns back to original names if altered
+    df.rename(
+        {
+            col: col.replace(".grouped_asjkdbak", "")
+            for col in df.columns
+            if col.endswith(".grouped_asjkdbak")
+        },
+        axis=1,
+        inplace=True
+    )
+
+    return df
+
+
+def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return the first n rows
+    required:
+      - n
+    properties:
+      n:
+        type: integer
+        description: Number of rows to return
+    """
+    if not isinstance(n, int) or n <= 0:
+        raise ValueError("n must be a positive integer")
+    return df.head(n)
 
 def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]) -> _pd.DataFrame:
     """
@@ -263,6 +567,22 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
     return df
 
 
+def tail(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return the last n rows
+    required:
+      - n
+    properties:
+      n:
+        type: integer
+        description: Number of rows to return
+    """
+    if not isinstance(n, int) or n <= 0:
+        raise ValueError("n must be a positive integer")
+    return df.tail(n)
+
+
 def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> _pd.DataFrame:
     """
     type: object
@@ -287,292 +607,3 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
     """
     df[output] = _select.confidence_threshold(df[input[0]].tolist(), df[input[1]].tolist(), threshold)
     return df
-
-
-def group_by(df, by = [], **kwargs):
-    """
-    type: object
-    description: Group and aggregate the data
-    properties:
-      by:
-        type:
-          - string
-          - array
-        description: List of the input columns to group on
-      list:
-        type:
-          - string
-          - array
-        description: Group and return all values for these column(s) as a list
-      first:
-        type:
-          - string
-          - array
-        description: The first value for these column(s)
-      last:
-        type:
-          - string
-          - array
-        description: The last value for these column(s)
-      min:
-        type:
-          - string
-          - array
-        description: The minimum value for these column(s)
-      max:
-        type:
-          - string
-          - array
-        description: The maximum value for these column(s)
-      mean:
-        type:
-          - string
-          - array
-        description: The mean (average) value for these column(s)
-      median:
-        type:
-          - string
-          - array
-        description: The median value for these column(s)
-      nunique:
-        type:
-          - string
-          - array
-        description: The count of unique values for these column(s)
-      count:
-        type:
-          - string
-          - array
-        description: The count of values for these column(s)
-      std:
-        type:
-          - string
-          - array
-        description: The standard deviation of values for these column(s)
-      sum:
-        type:
-          - string
-          - array
-        description: The total of values for these column(s)
-      any:
-        type:
-          - string
-          - array
-        description: Return true if any of the values for these column(s) are true
-      all:
-        type:
-          - string
-          - array
-        description: Return true if all of the values for these column(s) are true
-      p75:
-        type:
-          - string
-          - array
-        description: >-
-          Get a percentile. Note, you can use any integer here
-          for the corresponding percentile.
-    """
-    def percentile(n):
-        def percentile_(x):
-            return x.quantile(n)
-        percentile_.__name__ = f'p{int(n*100)}'
-        return percentile_
-
-    # If by not specified, fake a column to allow it to be used
-    if not by:
-        df['absjdkbatgg'] = 1
-        by = ['absjdkbatgg']
-
-    # Ensure by is a list
-    if not isinstance(by, list): by = [by]
-
-    # Invert kwargs to put column names as keys
-    inverted_dict = {}
-    for operation, columns in kwargs.items():
-        # Interpret percentiles
-        if operation[0].lower() == "p" and operation[1:].isnumeric():
-            operation = percentile(int(operation[1:])/100)
-
-        # Add option to group as a list
-        if operation == "list":
-            operation = list
-
-        if not isinstance(columns, list): columns = [columns]
-        for column in columns:
-            if column in inverted_dict:
-                inverted_dict[column].append(operation)
-            else:
-                inverted_dict[column] = [operation]
-
-    # If any of the columns to group by are also specified
-    # as an aggregate column this causes problems.
-    # Temporarily rename the column to avoid this.
-    if set(by).intersection(set(inverted_dict.keys())):
-        for i, val in enumerate(by):
-            if val in inverted_dict.keys():
-                df[val + ".grouped_asjkdbak"] = df[val]
-                by[i] = val + ".grouped_asjkdbak"
-
-    # Create group by object with by and aggregate columns
-    df_grouped = df[by + list(inverted_dict.keys())].groupby(
-        by = by,
-        as_index=False,
-        sort=False
-    )
-
-    # If agg columns then aggregate else return grouped
-    if kwargs:
-        df = df_grouped.agg(inverted_dict)
-    else:
-        df = df_grouped.count()
-
-    # Remove faked column if it was needed
-    if 'absjdkbatgg' in df.columns:
-        df.drop('absjdkbatgg', inplace=True, axis=1)
-
-    # Flatting multilevel headings back to one
-    df.columns = df.columns.map('.'.join).str.strip('.')
-
-    # Rename columns back to original names if altered
-    df.rename(
-        {
-            col: col.replace(".grouped_asjkdbak", "")
-            for col in df.columns
-            if col.endswith(".grouped_asjkdbak")
-        },
-        axis=1,
-        inplace=True
-    )
-
-    return df
-
-def element(
-    df: _pd.DataFrame,
-    input: _Union[str, list],
-    output: _Union[str, list] = None,
-    default: any = ''
-) -> _pd.DataFrame:
-    """
-    type: object
-    description: >-
-      Select elements of lists or dicts
-      using python syntax like col[0]['key']
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: 
-          - string
-          - array
-        description: >-
-          Name of the input column and sub elements
-          This permits by index for lists or dict
-          and by key for dicts
-          e.g. col[0]['key'] // [{"key":"val"}] -> "val"
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      default:
-        type: 
-          - string
-          - number
-          - array
-          - object
-          - boolean
-          - 'null'
-        description: Set the default value to return if the specified element doesn't exist.
-    """
-    def _extract_elements(input_string):
-        # Find all occurrences of '[...]' using regex
-        pattern = r'\[[^\]]*\]'
-        matches = _re.findall(pattern, input_string)
-
-        extracted_elements = []
-        for match in matches:
-            # Remove brackets and trim whitespace
-            element = match.strip('[]')
-
-            # Remove outer quotes if present
-            if element.startswith("'") and element.endswith("'"):
-                element = element[1:-1]
-            elif element.startswith('"') and element.endswith('"'):
-                element = element[1:-1]
-
-            # Handle escaped quotes within the element
-            element = element.replace("\\'", "'").replace('\\"', '"')
-
-            extracted_elements.append(element)
-
-        return extracted_elements
-
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The list of inputs and outputs must be the same length for select.element')
-    
-    for in_col, out_col in zip(input, output):
-        # If user hasn't specified an output column
-        # strip the elements from the input column
-        if in_col == out_col:
-            out_col = out_col.split("[")[0]
-        
-        # Get the sequence of elements
-        elements = _extract_elements(in_col)
-        in_col = in_col.split('[')[0]
-        
-        output = []
-        for row in df[in_col].tolist():
-            if isinstance(row, str):
-                row = _json.loads(row)
-
-            for element in elements:
-                try:
-                    if isinstance(row, list):
-                        row = row[int(element)]
-                    elif isinstance(row, dict):
-                        # Allow getting an element of a dict
-                        # using the index of the key
-                        if element not in row.keys() and element.isdigit():
-                            row = row[list(row.keys())[int(element)]]
-                        else:
-                            row = row.get(element, default)
-                    else:
-                        row = default
-                except:
-                    row = default
-
-            output.append(row)
-
-        df[out_col] = output
-    
-    return df
-
-
-def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select columns from the dataframe
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - array
-        description: Name of the column(s) to select
-    """
-    if not isinstance(input, list): input = [input]
-    
-    # Missing column should be caught by _wildcard_expansion
-    
-    return df[input]    
-
