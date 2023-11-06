@@ -69,7 +69,8 @@ def ai(
     input: list = None,
     model: str = "gpt-3.5-turbo",
     threads: int = 10,
-    timeout: int = 15
+    timeout: int = 15,
+    retries: int = 0
 ):
     """
     type: object
@@ -120,6 +121,11 @@ def ai(
       timeout:
         type: integer
         description: The number of seconds to wait for a response before timing out
+      retries:
+        type: integer
+        description: >-
+          The number of times to retry if the request fails.
+          This will apply exponential backoff to help with rate limiting
     """
     if input is not None:
         if not isinstance(input, list):
@@ -170,7 +176,8 @@ def ai(
             df_temp.to_dict(orient='records'), 
             [api_key] * len(df),
             [settings] * len(df),
-            [timeout] * len(df)
+            [timeout] * len(df),
+            [retries] * len(df),
         ))
 
     exploded_df = _pd.json_normalize(results, max_level=0).fillna('')

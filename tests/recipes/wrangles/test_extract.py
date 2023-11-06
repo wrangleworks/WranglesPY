@@ -1453,7 +1453,8 @@ def test_ai():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
-              timeout: 30
+              timeout: 60
+              retries: 2
               output:
                 length:
                   type: string
@@ -1484,7 +1485,8 @@ def test_ai_multiple_output():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
-              timeout: 30
+              timeout: 60
+              retries: 2
               output:
                 length:
                   type: string
@@ -1525,6 +1527,7 @@ def test_ai_multiple_input():
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
               timeout: 60
+              retries: 2
               output:
                 text:
                   type: string
@@ -1561,7 +1564,8 @@ def test_ai_enum():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
-              timeout: 30
+              timeout: 60
+              retries: 2
               output:
                 sentiment:
                   type: string
@@ -1592,6 +1596,7 @@ def test_ai_timeout():
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
               timeout: 0.1
+              retries: 0
               output:
                 length:
                   type: string
@@ -1623,6 +1628,7 @@ def test_ai_timeout_multiple_output():
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
               timeout: 0.1
+              retries: 0
               output:
                 length:
                   type: string

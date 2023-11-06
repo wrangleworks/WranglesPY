@@ -6,18 +6,23 @@ import concurrent.futures as _futures
 from itertools import chain as _chain
 import requests as _requests
 import numpy as _np
+import time as _time
 
 def chatGPT(
-  data: any,
-  api_key: str,
-  settings: dict,
-  timeout: int = 15
+    data: any,
+    api_key: str,
+    settings: dict,
+    timeout: int = None,
+    retries: int = 0,
 ):
     """
     Submit a request to openAI chatGPT.
 
     :param data: Dict with the data for that row
     :param api_key: OpenAI API Key
+    :param settings: Custom model settings
+    :param timeout: Time limit to apply to the request
+    :param retries: Number of times to retry if the request fails
     """
     if len(data) == 1:
         content = list(data.values())[0]
@@ -32,33 +37,48 @@ def chatGPT(
         }
     )
 
-    try:
-        response = _requests.post(
-            url = "https://api.openai.com/v1/chat/completions",
-            headers = {
-                "Authorization": f"Bearer {api_key}"
-            },
-            json = settings_local,
-            timeout=timeout
-        )
-    except _requests.exceptions.ReadTimeout:
-        if settings_local.get("functions", []):
-            return {
-                param: "Timed Out"
-                for param in 
-                settings_local.get("functions", [])[0]["parameters"]["required"]
-            }
-        else:
-            return "Timed Out"
-    except Exception as e:
-        if settings_local.get("functions", []):
-            return {
-                param: e
-                for param in 
-                settings_local.get("functions", [])[0]["parameters"]["required"]
-            }
-        else:
-            return e
+    if not isinstance(retries, int) or retries < 0:
+        raise ValueError("Retries must be a positive integer")
+    
+    response = None
+    backoff_time = 5
+    while (retries + 1):
+        try:
+            response = _requests.post(
+                url = "https://api.openai.com/v1/chat/completions",
+                headers = {
+                    "Authorization": f"Bearer {api_key}"
+                },
+                json = settings_local,
+                timeout=timeout
+            )
+        except _requests.exceptions.ReadTimeout:
+            if retries == 0:
+                if settings_local.get("functions", []):
+                    return {
+                        param: "Timed Out"
+                        for param in 
+                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                    }
+                else:
+                    return "Timed Out"
+        except Exception as e:
+            if retries == 0:
+                if settings_local.get("functions", []):
+                    return {
+                        param: e
+                        for param in 
+                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                    }
+                else:
+                    return e
+
+        if response and response.ok:
+            break
+ 
+        retries -=1
+        _time.sleep(backoff_time)
+        backoff_time *= 2
 
     if response.ok:
         try:
