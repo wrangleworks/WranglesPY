@@ -874,6 +874,7 @@ def test_create_embeddings():
               input: text
               output: embedding
               api_key: ${OPENAI_API_KEY}
+              retries: 1
         """
     )
     assert (
@@ -903,6 +904,7 @@ def test_create_embeddings_batching():
               output: embedding
               api_key: ${OPENAI_API_KEY}
               batch_size: 20
+              retries: 1
         """
     )
     assert (
@@ -927,6 +929,7 @@ def test_create_embeddings_empty():
               input: text
               output: embedding
               api_key: ${OPENAI_API_KEY}
+              retries: 1
         """
     )
     assert (
@@ -951,6 +954,7 @@ def test_create_embeddings_python_list():
               output: embedding
               api_key: ${OPENAI_API_KEY}
               output_type: python list
+              retries: 1
         """
     )
     assert (
@@ -975,6 +979,7 @@ def test_create_embeddings_np_array():
               output: embedding
               api_key: ${OPENAI_API_KEY}
               output_type: numpy array
+              retries: 1
         """
     )
     assert (
@@ -1028,6 +1033,7 @@ def test_create_embeddings_multi_column():
                 - embedding1
                 - embedding2
               api_key: ${OPENAI_API_KEY}
+              retries: 1
         """
     )
     assert (
