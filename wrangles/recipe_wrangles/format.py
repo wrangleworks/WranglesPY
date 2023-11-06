@@ -183,7 +183,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
 def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Format a vlue to a scpecific number of significant figures
+    description: Format a value to a specific number of significant figures
     additionalProperties: false
     required:
       - input
