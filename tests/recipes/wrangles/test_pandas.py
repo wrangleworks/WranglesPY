@@ -3,6 +3,7 @@ Tests for passthrough pandas capabilities
 """
 import wrangles
 import pandas as pd
+import pytest
 
 #
 # PASSTHROUGH
@@ -333,3 +334,206 @@ def test_reindex():
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
     assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
+
+
+def test_explode():
+    """
+    Test explode basic function
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input:
+                - C
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df['C'].tolist() == ['a', 'b', 'c', 'NAN', '', 'd', 'e']
+    
+
+def test_explode_string():
+    """
+    Test explode with input as a string
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input: A
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df['A'].tolist() == [0, 1, 2, 'foo', '', 3, 4]
+
+def test_explode_nothing_to_explode():
+    """
+    Test explode where there's nothing to change
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input: B
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df['A'].tolist() == [[0, 1, 2], 'foo', [], [3, 4]]
+
+def test_explode_multiple_columns():
+    """
+    Test explode with multiple columns
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input:
+                - A
+                - C
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert len(df['A']) == 7
+    
+def test_explode_non_existent_col():
+    """
+    Test explode function with a col that does not exists in df
+    """
+    with pytest.raises(KeyError) as info:
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - explode:
+                input:
+                  - AA
+            """,
+            dataframe=pd.DataFrame({
+                'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                'B': 1,
+                'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+            })
+        )
+    assert info.typename == 'KeyError'
+
+def test_explode_multiple_columns_wildcard():
+    """
+    Test explode multiple columns defined
+    using a wildcard
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input: A*
+        """,
+        dataframe=pd.DataFrame({
+            'A1': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'A2': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert (
+        df['A1'].tolist() == [0, 1, 2, 'foo', '', 3, 4] and
+        df['A2'].tolist() == ['a', 'b', 'c', 'NAN', '', 'd', 'e']
+    )
+
+def test_explode_multiple_inconsistent():
+    """
+    Test explode multiple with columns
+    but the columns are inconsistent lengths
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - explode:
+                input:
+                    - A
+                    - C
+            """,
+            dataframe=pd.DataFrame({
+                'A': [[0, 1, 2], 'foo', [], [3, 4]],
+                'B': 1,
+                'C': [['a', 'b'], 'NAN', [], ['d', 'e']]
+            })
+        )
+    assert (
+        info.typename == "ValueError" and 
+        str(info.value) == "explode - columns must have matching element counts"
+    )
+
+def test_explode_reset_index_default():
+    """
+    Test explode with reset index as default
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input:
+                - C
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df.index.to_list() == [0, 0, 0, 1, 2, 3, 3]
+
+def test_explode_reset_index_false():
+    """
+    Test explode with reset index as false
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input:
+                - C
+              reset_index: false
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df.index.to_list() == [0, 0, 0, 1, 2, 3, 3]
+
+def test_explode_reset_index_true():
+    """
+    Test explode with reset index as true
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input:
+                - C
+              reset_index: true
+        """,
+        dataframe=pd.DataFrame({
+            'A': [[0, 1, 2], 'foo', [], [3, 4]],
+            'B': 1,
+            'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
+        })
+    )
+    assert df.index.to_list() == [0, 1, 2, 3, 4, 5, 6]
