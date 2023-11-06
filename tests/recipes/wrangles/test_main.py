@@ -2,6 +2,7 @@ import pytest
 import wrangles
 import pandas as pd
 import logging
+import numpy as np
 
 #
 # Classify
@@ -168,7 +169,8 @@ def test_classify_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
-    
+
+
 #
 # Filter
 #
@@ -964,6 +966,365 @@ def test_rename_into_existing_column_input():
     df = wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
+
+
+
+#
+# Cosine Similarity
+#
+
+def test_similarity_cosine():
+    """
+    Test cosine similarity of a 5 dimension vector using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] != 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_np_array():
+    """
+    Test similarity of a two numpy arrays
+    """
+    data = pd.DataFrame({
+        'col1': [np.array([1,2,3,4,5]), np.array([6,7,8,9,10])],
+        'col2': [np.array([5,4,3,2,1]), np.array([6,7,8,9,10])]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.6363636363636364 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_different_size():
+    """
+    Test error when passing vectors of different dimension using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+    )
+
+def test_similarity_cosine_string():
+    """
+    Test error when passing an invalid data type (string) while using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_euclidean():
+    """
+    Test cosine similarity of a 5 dimension vector using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Euc Sim
+            method: euclidean
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 6.324555320336759 and df.iloc[1]['Euc Sim'] == 0.0
+
+def test_similarity_euclidean_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using euclidean similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Euc Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 1.0 and df.iloc[1]['Euc Sim'] == 1.0
+
+def test_similarity_euclidean_different_size():
+    """
+    Test error when passing vectors of different dimension using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: euclidean
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError' and
+        'exceptions must derive from BaseException' in info.value.args[0]
+    )
+
+def test_similarity_euclidean_string():
+    """
+    Test error when passing an invalid data type (string) while using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: euclidean
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_adjusted_cosine():
+    """
+    Test cosine similarity of a 5 dimension vector using adjusted cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.11897867399060302 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using adjusted cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_different_size():
+    """
+    Test error when passing vectors of different dimension using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+    )
+
+def test_similarity_adjusted_cosine_string():
+    """
+    Test error when passing an invalid data type (string) while using adjusted cosine
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_one_column():
+    """
+    Test similarity error when only passing one column
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: col1
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and 
+        'Input must consist of a list of two columns' in info.value.args[0]
+    )
+
+def test_similarity_three_columns():
+    """
+    Test similarity error when passing three columns to input
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]],
+        'col3': [[4,5,6,7,8], [3,4,5,6,7]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: 
+              - col1
+              - col2
+              - col3
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and 
+        'Input must consist of a list of two columns' in info.value.args[0]
+    )
+
+def test_similarity_invalid_method():
+    """
+    Test similarity error when passing the invalid method
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: 
+              - col1
+              - col2
+            output: Tan Sim
+            method: tangent
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError' and 
+        'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
+    )
 
 
 #
