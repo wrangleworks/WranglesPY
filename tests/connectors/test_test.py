@@ -133,7 +133,7 @@ def test_random_list():
             random_list: <random(["true", "false"])>
     """
     df = wrangles.recipe.run(recipe)
-    assert df.iloc[0][0] == 'true' or df.iloc[0][0] == 'false'
+    assert df["random_list"][0] == 'true' or df["random_list"][0] == 'false'
     
 def test_random_list_objects():
     """
@@ -147,7 +147,7 @@ def test_random_list_objects():
                 random_list: <random([{"a":1}, {"b":2}])>
     """
     df = wrangles.recipe.run(recipe)
-    assert df.iloc[0][0] == {'a': 1} or df.iloc[0][0] == {'b': 2}
+    assert df["random_list"][0] == {'a': 1} or df["random_list"][0] == {'b': 2}
     
 def test_random_list_true_false():
     """
@@ -161,7 +161,7 @@ def test_random_list_true_false():
             random_list: <random([true, false])>
     """
     df = wrangles.recipe.run(recipe)
-    assert df.iloc[0][0] == True or df.iloc[0][0] == False
+    assert df["random_list"][0] == True or df["random_list"][0] == False
     
 def test_random_list_numbers():
     """
@@ -175,4 +175,4 @@ def test_random_list_numbers():
             random_list: <random([1, 2])>
     """
     df = wrangles.recipe.run(recipe)
-    assert df.iloc[0][0] == 1 or df.iloc[0][0] == 2
+    assert df["random_list"][0] == 1 or df["random_list"][0] == 2

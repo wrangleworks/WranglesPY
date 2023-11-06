@@ -192,7 +192,7 @@ def test_create_column_succinct_1():
         """,
         dataframe=data
     )
-    assert len(df.iloc[0][3]) == 10
+    assert len(df["col4"][0]) == 10
     
 def test_create_column_succinct_2():
     """
@@ -214,7 +214,7 @@ def test_create_column_succinct_2():
         """,
         dataframe=data
     )
-    assert df.iloc[0][2] == True or df.iloc[0][2] == False
+    assert df["col3"][0] == True or df["col3"][0] == False
     
 def test_create_column_succinct_3():
     """
