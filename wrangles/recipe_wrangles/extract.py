@@ -11,7 +11,7 @@ from .. import format as _format
 from .. import openai as _openai
 
 
-def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
@@ -38,6 +38,9 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - cities
           - regions
           - countries
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -57,7 +60,7 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.address(
-                df[input_column].astype(str).tolist(), dataType)
+                df[input_column].astype(str).tolist(), dataType, first_element=first_element)
   
     return df
 
@@ -191,7 +194,14 @@ def ai(
     return df
 
 
-def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+def attributes(df: _pd.DataFrame,
+            input: _Union[str, list],
+            output: _Union[str, list],
+            responseContent: str = 'span',
+            attribute_type: str = None,
+            desired_unit: str = None,
+            bound: str = 'mid',
+            first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -255,6 +265,9 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
       desired_unit:
         type: string
         description: Convert the extracted unit to the desired unit
+      first_element:
+        type: boolean
+        description: Get the first element from results
     $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
@@ -284,13 +297,14 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
                 responseContent,
                 attribute_type,
                 desired_unit,
-                bound
+                bound,
+                first_element
         )
         
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -309,6 +323,9 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
           - string
           - array
         description: Name of the output columns
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -326,12 +343,12 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), first_element)
 
     return df
 
 
-def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
+def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
@@ -350,6 +367,9 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
           - string
           - array
         description: Name or list of output columns
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -367,7 +387,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.codes(df[input_column].astype(str).tolist())
+            df[output_column] = _extract.codes(df[input_column].astype(str).tolist(), first_element)
 
     return df
 
@@ -620,7 +640,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
-def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract elements from strings containing html. Requires WrangleWorks Account.
@@ -646,6 +666,9 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
         enum:
           - text
           - links
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -660,12 +683,18 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
+        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type, first_element=first_element)
             
     return df
 
 
-def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
+def properties(
+            df: _pd.DataFrame,
+            input: _Union[str, list],
+            output: _Union[str, list],
+            property_type: str = None,
+            return_data_type: str = 'list',
+            first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
@@ -698,6 +727,9 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         enum:
           - list
           - string
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -711,11 +743,11 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type)
+        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type, first_element=first_element)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type, first_element=first_element)
     
     return df
 
