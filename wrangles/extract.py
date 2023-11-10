@@ -9,7 +9,7 @@ from . import batching as _batching
 from .format import tokenize
 
 
-def address(input: _Union[str, list], dataType: str) -> list:
+def address(input: _Union[str, list], dataType: str, first_element: bool = False) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
     Requires WrangleWorks Account.
@@ -31,12 +31,15 @@ def address(input: _Union[str, list], dataType: str) -> list:
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
+
     if isinstance(input, str): results = results[0]
     
     return results
 
     
-def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None, bound: str = 'mid') -> _Union[dict, list]:
+def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None, bound: str = 'mid', first_element: bool = False) -> _Union[dict, list]:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
     Requires WrangleWorks Account.
@@ -68,13 +71,16 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     batch_size = 1000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
     
     if isinstance(input, str): results = results[0]
 
     return results
 
 
-def codes(input: _Union[str, list]) -> list:
+def codes(input: _Union[str, list], first_element: bool = False) -> list:
     """
     Extract alphanumeric codes from unstructured text.
     Requires WrangleWorks Account.
@@ -92,6 +98,9 @@ def codes(input: _Union[str, list]) -> list:
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
 
     if isinstance(input, str): results = results[0]
     
@@ -149,7 +158,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     return results
 
 
-def html(input: _Union[str, list], dataType: str) -> list:
+def html(input: _Union[str, list], dataType: str, first_element: bool = False) -> list:
     """
     Extract specific html elements from strings containing html.
     Requires WrangleWorks Account.
@@ -169,12 +178,15 @@ def html(input: _Union[str, list], dataType: str) -> list:
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
+
     if isinstance(input, str): results = results[0]
     
     return results
 
     
-def properties(input: _Union[str, list], type: str = None, return_data_type: str = 'list') -> _Union[dict, list]:
+def properties(input: _Union[str, list], type: str = None, return_data_type: str = 'list', first_element: bool = False) -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
     Requires WrangleWorks Account.
@@ -198,6 +210,9 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+    
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
 
     if isinstance(input, str): results = results[0]
     
