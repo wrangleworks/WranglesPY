@@ -55,7 +55,7 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType)
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType, first_element=first_element)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -288,7 +288,8 @@ def attributes(df: _pd.DataFrame,
               responseContent,
               attribute_type,
               desired_unit,
-              bound)
+              bound,
+              first_element)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
