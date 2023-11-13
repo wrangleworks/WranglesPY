@@ -114,6 +114,22 @@ def test_address_multi_input():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == ['221 B Baker St.']
 
+# Probably should remove first_element from extract.address because it will always return one match anyway due to it's regex pattern
+# def test_address_first_element():
+#     data = pd.DataFrame({
+#         'col1': ['221 B Baker St. blah blah blah, 742 Evergreen St randomness, 1600 Pennsylvania Avenue more nonsense, other nonsense']
+#     })
+#     recipe = """
+#     wrangles:
+#       - extract.address:
+#           input: col1
+#           output: out1
+#           dataType: streets
+#           first_element: True
+#     """
+#     df = wrangles.recipe.run(recipe, dataframe=data)
+#     assert df.iloc[0]['out1'][0] == '742 Evergreen St'
+
 #
 # Attributes
 #
@@ -145,6 +161,41 @@ def test_attributes_object():
     assert df.iloc[0]['Attributes'] == {'length': [{'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'weight': [{'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
 
 df_test_attributes_all = pd.DataFrame([['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']], columns=['Tools'])
+
+def test_attributes_first_element():
+    """
+    Tests using first_element with extract.attributes (only works when attribute_type is specified)
+    """
+    data = pd.DataFrame([['hammer 5kg, screwdriver 1kg, wrench 2kg']], columns=['Tools'])
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            attribute_type: weight
+            first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Attributes'] == '5kg'
+
+def test_attributes_first_element_without_attribute_type():
+    """
+    Tests error when using first_element without attribute_type
+    """
+    data = pd.DataFrame([['hammer 5kg, screwdriver 12in, wrench 12v']], columns=['Tools'])
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            first_element: True
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError' and
+        'first_element must be used with a specified attribute_type' in info.value.args[0]
+    )
 
 # Testing Angle
 def test_attributes_angle():
@@ -522,6 +573,40 @@ def test_extract_codes_one_input_multi_output():
         info.typename == 'ValueError' and
         'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
     )
+
+def test_extract_codes_first_element():
+    """
+    Test extract.codes using first_element
+    """
+    data = pd.DataFrame({
+        'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
+    })
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: col1
+          output: code
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['code'] == 'Z1ON0101'
+
+def test_extract_codes_first_element_lowercase_true():
+    """
+    Test extract.codes using first_element with true input as lowercase
+    """
+    data = pd.DataFrame({
+        'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
+    })
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: col1
+          output: code
+          first_element: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['code'] == 'Z1ON0101'
 
 #
 # Custom Extraction
@@ -1105,6 +1190,39 @@ def test_extract_colours():
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     check_list = ['Blue', 'Red', 'White']
     assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
+
+def test_extract_colours_first_element():
+    """
+    Test extract.properties using property_type and first_element
+    """
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: colours
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Blue'
+
+def test_extract_colours_first_element_without_property_type():
+    """
+    Test error using first_element without property_type
+    """
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        first_element: True
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert (
+        info.typename == 'TypeError' and
+        'first_element must be used with a specified property_type' in info.value.args[0]
+    )
     
 def test_extract_materials():
     recipe = """
@@ -1209,6 +1327,25 @@ def test_extract_html_links():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+
+def test_extract_html_links_first_element():
+    """
+    Test extract.html links with first_element
+    """
+    data = pd.DataFrame({
+        'HTML': [r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>, <a href="https://www.wrangles.io/">Data Wrangles!</a>']
+    })
+    recipe = """
+    wrangles:
+      - extract.html:
+          input: HTML
+          output: 
+            - Text
+          data_type: links
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Text'] == 'https://www.wrangleworks.com/'
     
 #
 # Brackets
