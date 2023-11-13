@@ -72,8 +72,11 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if first_element:
+    if first_element and type:
         results = [x[0] if len(x) >= 1 else "" for x in results]
+
+    if first_element and not type:
+        raise TypeError('first_element must be used with a specified attribute_type')
     
     if isinstance(input, str): results = results[0]
 
@@ -211,8 +214,11 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
     
-    if first_element:
+    if first_element and type:
         results = [x[0] if len(x) >= 1 else "" for x in results]
+
+    if first_element and not type:
+        raise TypeError('first_element must be used with a specified property_type')
 
     if isinstance(input, str): results = results[0]
     
