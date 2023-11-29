@@ -26,6 +26,7 @@ def test_default_write():
         for _, v in memory.dataframes.items()
         if v.get("wranglesxl_connector") == "excel.sheet.write"
     ][0]
+    memory.clear()
     assert (
         data["columns"] == ["header1", "header2"] and
         len(data["data"]) == 5
