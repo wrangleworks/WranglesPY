@@ -15,7 +15,7 @@ setup(
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
-    description = 'Wrangle your data into shape with machine learning',
+    description = 'Wrangle your data into shape with AI',
     long_description = long_description,
     long_description_content_type = 'text/markdown',
     license_files = ('LICENSE.txt',),
