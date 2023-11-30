@@ -10,7 +10,7 @@ class sheet():
     def write(df: _pd.DataFrame, **kwargs):
         memory.write(
             df,
-            wranglesxl_connector = "excel.sheet.write",
+            connector = "excel.sheet.write",
             orient="split",
             **kwargs
         )

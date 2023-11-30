@@ -24,7 +24,7 @@ def test_default_write():
     data = [
         v
         for _, v in memory.dataframes.items()
-        if v.get("wranglesxl_connector") == "excel.sheet.write"
+        if v.get("connector") == "excel.sheet.write"
     ][0]
     memory.clear()
     assert (
