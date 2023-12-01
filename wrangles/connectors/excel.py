@@ -2,13 +2,13 @@
 Only for use by the WranglesXL application
 """
 import pandas as _pd
-from . import memory
+from . import memory as _memory
 
 class sheet():
     _schema = {}
 
     def write(df: _pd.DataFrame, **kwargs):
-        memory.write(
+        _memory.write(
             df,
             connector = "excel.sheet.write",
             orient="split",
@@ -30,10 +30,21 @@ class sheet():
             description: >-
               The top left cell to write the data from.
               Default A1.
+          action:
+            type: string
+            description: |-
+              Action to take when writing the data if the sheet already exists. Default append.
+              append - add to the existing sheet.
+              increment - add a new sheet with an incrementing number.
+              overwrite - replace existing sheet.
+            enum:
+              - overwrite
+              - append
+              - increment
           freezepanes:
             type: boolean
-            description: If true, will freeze the first row.
+            description: If true, will freeze the first row. Default false.
           as_table:
             type: boolean
-            description: If true, will write the data as an Excel table.
+            description: If true, will write the data as an Excel table. Default true.
         """
