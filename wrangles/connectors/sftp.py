@@ -106,7 +106,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     """
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
-    _file.write(df, name=file, file_object=tempFile, **kwargs)
+    _file.write(df, name=file.split("/")[-1], file_object=tempFile, **kwargs)
     tempFile.seek(0)  # Reset file to start
 
     # Export to SFTP server
