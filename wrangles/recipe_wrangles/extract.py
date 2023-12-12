@@ -100,7 +100,7 @@ def ai(
                   - number
                   - integer
                   - boolean
-                  - null
+                  - "null"
                   - object
                   - array
               description:
@@ -109,6 +109,19 @@ def ai(
               enum:
                 type: array
                 description: List of possible values for the output.
+              default:
+                type:
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                  - object
+                  - array
+                description: A default value to return.
+              examples:
+                type: array
+                description: Provide examples of typical values to return.
       api_key:
         type: string
         description: API Key for the model
