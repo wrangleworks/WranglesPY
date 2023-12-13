@@ -1,4 +1,4 @@
-name: Push to Dev
+name: Push to Main
 
 on:
   push:
