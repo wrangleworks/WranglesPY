@@ -9,7 +9,7 @@ from . import batching as _batching
 from .format import tokenize
 
 
-def address(input: _Union[str, list], dataType: str, first_element: bool = False) -> list:
+def address(input: _Union[str, list], dataType: str) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
     Requires WrangleWorks Account.
