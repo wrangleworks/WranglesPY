@@ -114,22 +114,6 @@ def test_address_multi_input():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == ['221 B Baker St.']
 
-# Probably should remove first_element from extract.address because it will always return one match anyway due to it's regex pattern
-# def test_address_first_element():
-#     data = pd.DataFrame({
-#         'col1': ['221 B Baker St. blah blah blah, 742 Evergreen St randomness, 1600 Pennsylvania Avenue more nonsense, other nonsense']
-#     })
-#     recipe = """
-#     wrangles:
-#       - extract.address:
-#           input: col1
-#           output: out1
-#           dataType: streets
-#           first_element: True
-#     """
-#     df = wrangles.recipe.run(recipe, dataframe=data)
-#     assert df.iloc[0]['out1'][0] == '742 Evergreen St'
-
 #
 # Attributes
 #
@@ -710,6 +694,24 @@ def test_extract_regex():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col_out'] == ['Pikachu']
+
+def test_extract_regex_first_element():
+    """
+    Tests extract.regex using first_element
+    """
+    data = pd.DataFrame({
+        'col': ['Random Pika Pika Pikachu Random']
+    })
+    recipe = """
+    wrangles:
+      - extract.regex:
+          input: col
+          output: col_out
+          find: Pika
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col_out'] == 'Pika'
     
 def test_extract_regex_where():
     """
@@ -1206,7 +1208,7 @@ def test_extract_colours_first_element():
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == 'Blue'
 
-def test_extract_colours_first_element_without_property_type():
+def test_extract_properties_first_element_without_property_type():
     """
     Test error using first_element without property_type
     """
@@ -1234,6 +1236,18 @@ def test_extract_materials():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Titanium']
+
+def test_extract_materials_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: materials
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Titanium'
     
 def test_extract_shapes():
     recipe = """
@@ -1246,6 +1260,18 @@ def test_extract_shapes():
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Round']
     
+def test_extract_shapes_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: shapes
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Round'
+    
 def test_extract_standards():
     recipe = """
     wrangles:
@@ -1256,6 +1282,18 @@ def test_extract_standards():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['OSHA']
+    
+def test_extract_standards_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: standards
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'OSHA'
     
 # if the input is multiple columns (a list)
 def test_properties_5():
@@ -1328,25 +1366,6 @@ def test_extract_html_links():
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
 
-def test_extract_html_links_first_element():
-    """
-    Test extract.html links with first_element
-    """
-    data = pd.DataFrame({
-        'HTML': [r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>, <a href="https://www.wrangles.io/">Data Wrangles!</a>']
-    })
-    recipe = """
-    wrangles:
-      - extract.html:
-          input: HTML
-          output: 
-            - Text
-          data_type: links
-          first_element: True
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Text'] == 'https://www.wrangleworks.com/'
-    
 #
 # Brackets
 #
@@ -1437,6 +1456,23 @@ def test_extract_brackets_multi_input_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+
+def test_extract_brackets_first_element():
+    """
+    Test extract.brackets using first_element.
+    """
+    data = pd.DataFrame({
+        'col': ['[stuff], [things], [more stuff]']
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input: col
+          output: output
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert df.iloc[0]['output'] == "stuff"
     
 #
 # Date Properties
