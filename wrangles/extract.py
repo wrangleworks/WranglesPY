@@ -31,9 +31,6 @@ def address(input: _Union[str, list], dataType: str) -> list:
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if first_element:
-        results = [x[0] if len(x) >= 1 else "" for x in results]
-
     if isinstance(input, str): results = results[0]
     
     return results
