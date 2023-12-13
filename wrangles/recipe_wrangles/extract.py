@@ -641,7 +641,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
-def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None, first_element: bool = False) -> _pd.DataFrame:
+def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract elements from strings containing html. Requires WrangleWorks Account.
@@ -684,7 +684,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type, first_element=first_element)
+        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
             
     return df
 
@@ -753,7 +753,7 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list]) -> _pd.DataFrame:
+def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract single values using regex
@@ -789,6 +789,9 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
+        if first_element:
+            df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x)[0])
+        else:
+            df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
     
     return df
