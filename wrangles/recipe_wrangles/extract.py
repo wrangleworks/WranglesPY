@@ -11,7 +11,7 @@ from .. import format as _format
 from .. import openai as _openai
 
 
-def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str, first_element: bool = False) -> _pd.DataFrame:
+def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
@@ -55,12 +55,12 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType, first_element=first_element)
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.address(
-                df[input_column].astype(str).tolist(), dataType, first_element=first_element)
+                df[input_column].astype(str).tolist(), dataType)
   
     return df
 
