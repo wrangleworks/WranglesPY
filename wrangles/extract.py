@@ -161,7 +161,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
     return results
 
 
-def html(input: _Union[str, list], dataType: str, first_element: bool = False) -> list:
+def html(input: _Union[str, list], dataType: str) -> list:
     """
     Extract specific html elements from strings containing html.
     Requires WrangleWorks Account.
@@ -180,9 +180,6 @@ def html(input: _Union[str, list], dataType: str, first_element: bool = False) -
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
-
-    if first_element:
-        results = [x[0] if len(x) >= 1 else "" for x in results]
 
     if isinstance(input, str): results = results[0]
     
@@ -277,7 +274,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     return results
 
 
-def brackets(input: str) -> list:
+def brackets(input: str, first_element: bool = False) -> list:
     """
     Extract values in brackets, [], {}
     
@@ -289,6 +286,9 @@ def brackets(input: str) -> list:
         re = _re.findall(r'\[.*?\]|{.*?}|\(.*?\)|<.*?>', item)
         re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
         
-        results.append(', '.join(re))
+        if first_element:
+            results.append(re[0])
+        else:
+            results.append(', '.join(re))
         
     return results
