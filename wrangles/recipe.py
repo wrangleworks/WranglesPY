@@ -352,13 +352,23 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
-        if str(column).lower().startswith('regex:'):
-            result_columns.update(dict.fromkeys(list(filter(_re.compile(column[6:].strip()).fullmatch, all_columns)))) # Read Note below
+        if column.lower().startswith('regex:'):
+            result_columns.update(dict.fromkeys(list(
+                filter(_re.compile(column[6:].strip()).fullmatch, all_columns)
+            ))) # Read Note below
         else:
+            # Check if a column is indicated as
+            # optional with column_name?
+            optional_column = False
+            if column[-1] == "?" and column not in all_columns:
+                column = column[:-1]
+                optional_column = True
+
             if column in all_columns:
                 result_columns[column] = None
             else:
-                raise KeyError(f'Column {column} does not exist')
+                if not optional_column:
+                    raise KeyError(f'Column {column} does not exist')
     
     # Return, preserving original order
     return list(result_columns.keys())
