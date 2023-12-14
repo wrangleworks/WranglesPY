@@ -45,6 +45,11 @@ jobs:
           CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_PROJECT_ID: "drive-connector-361914"
+          GOOGLE_CLIENT_ID: "112123640790185424876"
+          GOOGLE_CLIENT_EMAIL: "drive-connector@drive-connector-361914.iam.gserviceaccount.com"
+          GOOGLE_PRIVATE_KEY_ID: "4cd1686b2da8ab0c9ea30dc608f070b7ade78d28"
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
 
   test-pip-install:
     runs-on: ${{ matrix.os }}
@@ -136,6 +141,11 @@ jobs:
           CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_PROJECT_ID: "drive-connector-361914"
+          GOOGLE_CLIENT_ID: "112123640790185424876"
+          GOOGLE_CLIENT_EMAIL: "drive-connector@drive-connector-361914.iam.gserviceaccount.com"
+          GOOGLE_PRIVATE_KEY_ID: "4cd1686b2da8ab0c9ea30dc608f070b7ade78d28"
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
 
       - name: Run Recipe
         run: cd tests/samples && wrangles.recipe recipe-basic.wrgl.yml
