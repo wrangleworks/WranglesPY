@@ -343,7 +343,7 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
         # If column contains * without escape
-        if _re.search(r'[^\\]?\*', selected_columns[i]) and not selected_columns[i].lower().startswith('regex:'):
+        if _re.search(r'[^\\]?\*', str(selected_columns[i])) and not str(selected_columns[i]).lower().startswith('regex:'):
             selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
 
     # Using a dict to preserve insert order.
