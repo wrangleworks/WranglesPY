@@ -199,9 +199,16 @@ def _load_recipe(
 
     # Otherwise it's a recipe
     else:
-        with open(recipe, "r", encoding='utf-8') as f:
-            recipe_string = f.read()
-    
+        # Read the recipe
+        try:
+            with open(recipe, "r", encoding='utf-8') as f:
+                recipe_string = f.read()
+        except:
+            raise RuntimeError(
+                f'Error reading recipe: "{recipe}". ' \
+                + 'The recipe should be a YAML file using utf-8 encoding.'
+            )
+
     # Also add environment variables to list of placeholder variables
     for env_key, env_val in _os.environ.items():
         if env_key not in variables.keys():
@@ -336,7 +343,7 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
         # If column contains * without escape
-        if _re.search(r'[^\\]?\*', selected_columns[i]) and not selected_columns[i].lower().startswith('regex:'):
+        if _re.search(r'[^\\]?\*', str(selected_columns[i])) and not str(selected_columns[i]).lower().startswith('regex:'):
             selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
 
     # Using a dict to preserve insert order.
@@ -345,7 +352,7 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
-        if column.lower().startswith('regex:'):
+        if str(column).lower().startswith('regex:'):
             result_columns.update(dict.fromkeys(list(filter(_re.compile(column[6:].strip()).fullmatch, all_columns)))) # Read Note below
         else:
             if column in all_columns:
@@ -373,7 +380,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
                 original_params = params.copy()
-                if 'where' in params.keys() and wrangle not in no_where_list:
+                if 'where' in params.keys():
                     df_original = df.copy()
                     
                     # Save original index, filter data, then restore index
@@ -502,6 +509,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df = obj(df, **params)
 
                 # If the user specified a where, we need to merge this back to the original dataframe
+                # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
+                # dataframe and do not make sense to merge back to the original
                 if 'where' in original_params and wrangle not in no_where_list:
                     if 'output' in params.keys():
                         # Wrangle explictly defined the output
@@ -557,10 +566,10 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         )
 
                 # Clean up NaN's
-                df.fillna('', inplace = True)
+                df = df.fillna('')
                 # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
                 # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-                df.fillna('0', inplace = True)
+                df = df.fillna('0')
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__)

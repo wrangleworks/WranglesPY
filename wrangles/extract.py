@@ -98,7 +98,7 @@ def codes(input: _Union[str, list]) -> list:
     return results
 
 
-def custom(input: _Union[str, list], model_id: str, first_element: bool = False, use_labels: bool = False) -> list:
+def custom(input: _Union[str, list], model_id: str, first_element: bool = False, use_labels: bool = False, case_sensitive: bool = False) -> list:
 
     """
     Extract entities using a custom model.
@@ -124,7 +124,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
-    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels}
+    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels, 'caseSensitive': case_sensitive}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -239,7 +239,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
         for remove in _remove:
             # if Tokenize is true
             if tokenize_to_remove == True:
-                for token_remove in [_re.split('\s|,', x) for x in _remove]:
+                for token_remove in [_re.split(r'\s|,', x) for x in _remove]:
                     for subtoken in token_remove:
                         subtoken = _re.escape(subtoken) # escape the special characters just in case
                         text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)

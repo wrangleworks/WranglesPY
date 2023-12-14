@@ -1,6 +1,7 @@
 import wrangles
 import pandas as pd
 import pytest
+import numpy as np
 
 
 #
@@ -69,9 +70,7 @@ def test_create_columns_4():
             output:
               - column3
               - column4
-            value:
-              - <boolean>
-              - <number(1-3)>
+            value: <number(1-3)>
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column4'] in [1, 2, 3, 4]
@@ -84,8 +83,7 @@ def test_create_columns_5():
         - create.column:
             output:
               - column3
-            value:
-              - <boolean>
+            value: <boolean>
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column3'] in [True, False]
@@ -129,6 +127,224 @@ def test_column_exists_list():
         "['col'] column(s)" in info.value.args[0]
     )
 
+def test_create_column_value_number():
+    """
+    Test create.column using a number as the value
+    """
+    data = pd.DataFrame({
+        'col1': ['stuff', 'stuff', 'more stuff'],
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2
+              value: ${value}
+        """,
+        variables={
+            "value": 1
+        },
+        dataframe=data
+    )
+    assert df['col2'][0] == 1
+    
+def test_create_column_value_boolean():
+    """
+    Test create.column using a boolean as the value
+    """
+    data = pd.DataFrame({
+        'col1': ['stuff', 'stuff', 'more stuff'],
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2
+              value: ${value}
+        """,
+        variables={
+            "value": True
+        },
+        dataframe=data
+    )
+    assert df['col2'][0] == True
+    
+def test_create_column_succinct_1():
+    """
+    Create columns using a more succinct format. Dicts for output (col_name: value)
+    Value is not None
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: World
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value: THIS IS A TEST
+        """,
+        dataframe=data
+    )
+    assert len(df["col4"][0]) == 10
+    
+def test_create_column_succinct_2():
+    """
+    Create columns using a more succinct format. Dicts for output (col_name: value)
+    Value is None
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5: ""
+        """,
+        dataframe=data
+    )
+    assert df["col3"][0] == True or df["col3"][0] == False
+    
+def test_create_column_succinct_3():
+    """
+    Cannot mix dictionaries and strings in the output list with no value provided.
+    col2 and col5 are strings, the rest are dicts
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2 
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+        """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col2'][0] == '' and df['col5'][0] == ''
+    
+def test_create_column_succinct_4():
+    """
+    Error if using a list in value
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: <boolean>
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value:
+                - <boolean>
+                - <boolean>
+                - <code(10)>
+                - ""
+        """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        info.value.args[0] == 'create.column - Value must be a string and not a list'
+    )
+    
+def test_create_column_succinct_5():
+    """
+    Testing the column that is not a dict and has no value
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - create.column:
+            output:
+                - col2: World
+                - col3: <boolean>
+                - col4: <code(10)>
+                - col5
+            value: THIS IS A TEST
+        """,
+        dataframe=data
+    )
+    assert df['col5'][0] == 'THIS IS A TEST'
+    
+def test_create_column_succinct_6():
+    """
+    Having a duplicate column in the creation process
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                - col2: World2
+        """,
+        dataframe=data
+    )
+    assert df['col2'][0] == 'World2'
+    
+def test_create_column_succinct_7():
+    """
+    Having a duplicate column in the creation process
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                - col2.5: Nothing here
+                - col2: World2
+        """,
+        dataframe=data
+    )
+    assert df['col2'][0] == 'World2'
+    
+def test_create_column_succinct_8():
+    """
+    Having a dictionary in the output with more than one key:value pair. Should only get the first value
+    """
+    data = pd.DataFrame({
+        'col1': ['Hello']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - create.column:
+              output:
+                - col2: World
+                  col2.5: Nothing here
+                - col3: <boolean>
+        """,
+        dataframe=data
+    )
+    assert list(df.columns) == ['col1', 'col2', 'col3']
+    
 #
 # Index
 #
@@ -658,6 +874,7 @@ def test_create_embeddings():
               input: text
               output: embedding
               api_key: ${OPENAI_API_KEY}
+              retries: 1
         """
     )
     assert (
@@ -687,10 +904,141 @@ def test_create_embeddings_batching():
               output: embedding
               api_key: ${OPENAI_API_KEY}
               batch_size: 20
+              retries: 1
         """
     )
     assert (
         isinstance(df["embedding"][0], list) and
         len(df["embedding"][0]) == 1536 and
         len(df) == 150
+    )
+
+def test_create_embeddings_empty():
+    """
+    Test generating openai embeddings with an empty string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: ""
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              retries: 1
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_python_list():
+    """
+    Test generating openai embeddings as a python list
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              output_type: python list
+              retries: 1
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_np_array():
+    """
+    Test generating openai embeddings as a numpy array
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              output_type: numpy array
+              retries: 1
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], (np.ndarray, np.float32)) and
+        len(df["embedding"][0]) == 1536
+    )
+
+def test_create_embeddings_invalid_output_type():
+    """
+    Test generating openai embeddings as a numpy array
+    """
+    recipe = """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              output_type: Something here is not right
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe)
+    assert (
+        info.typename == 'ValueError' and
+        'Output_type must be of value "numpy array" or "python list"' in info.value.args[0]
+    )
+
+def test_create_embeddings_multi_column():
+    """
+    Test generating openai embeddings
+    with multiple inputs/outputs
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text1: "This is a test"
+                text2: "Something else"
+        wrangles:
+          - create.embeddings:
+              input:
+                - text1
+                - text2
+              output:
+                - embedding1
+                - embedding2
+              api_key: ${OPENAI_API_KEY}
+              retries: 1
+        """
+    )
+    assert (
+        isinstance(df["embedding1"][0], list) and
+        len(df["embedding1"][0]) == 1536 and
+        isinstance(df["embedding2"][0], list) and
+        len(df["embedding2"][0]) == 1536
     )

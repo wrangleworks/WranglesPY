@@ -69,7 +69,8 @@ def ai(
     input: list = None,
     model: str = "gpt-3.5-turbo",
     threads: int = 10,
-    timeout: int = 15
+    timeout: int = 15,
+    retries: int = 0
 ):
     """
     type: object
@@ -99,7 +100,7 @@ def ai(
                   - number
                   - integer
                   - boolean
-                  - null
+                  - "null"
                   - object
                   - array
               description:
@@ -108,6 +109,19 @@ def ai(
               enum:
                 type: array
                 description: List of possible values for the output.
+              default:
+                type:
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                  - object
+                  - array
+                description: A default value to return.
+              examples:
+                type: array
+                description: Provide examples of typical values to return.
       api_key:
         type: string
         description: API Key for the model
@@ -120,6 +134,11 @@ def ai(
       timeout:
         type: integer
         description: The number of seconds to wait for a response before timing out
+      retries:
+        type: integer
+        description: >-
+          The number of times to retry if the request fails.
+          This will apply exponential backoff to help with rate limiting.
     """
     if input is not None:
         if not isinstance(input, list):
@@ -170,12 +189,18 @@ def ai(
             df_temp.to_dict(orient='records'), 
             [api_key] * len(df),
             [settings] * len(df),
-            [timeout] * len(df)
+            [timeout] * len(df),
+            [retries] * len(df),
         ))
 
     exploded_df = _pd.json_normalize(results, max_level=0).fillna('')
     exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
-    df[list(output.keys())] = exploded_df
+    # Ensure all the required keys are included in the output,
+    # even if chatGPT doesn't preserve them
+    for col in output.keys():
+        if col not in exploded_df.columns:
+            exploded_df[col] = ""
+    df[list(output.keys())] = exploded_df[list(output.keys())]
     return df
 
 
@@ -240,6 +265,10 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
           - min
           - mid
           - max
+      desired_unit:
+        type: string
+        description: Convert the extracted unit to the desired unit
+    $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -362,7 +391,8 @@ def custom(
         model_id: _Union[str, list],
         output: _Union[str, list] = None,
         use_labels: bool = False,
-        first_element: bool = False
+        first_element: bool = False,
+        case_sensitive: bool = False
         ) -> _pd.DataFrame:
     """
     type: object
@@ -393,6 +423,9 @@ def custom(
       first_element:
         type: boolean
         description: Get the first element from results
+      case_sensitive:
+        type: boolean
+        description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     if output is None: output = input
     
@@ -405,16 +438,16 @@ def custom(
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels)
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels)
+        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
     
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels)
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
         
     return df
 

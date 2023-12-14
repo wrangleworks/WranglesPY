@@ -703,6 +703,37 @@ def test_group_by():
         list(df.values[1]) == ['b', 4, 4, 4]
     )
 
+def test_group_by_multiple_by():
+    """
+    Test group by with multiple by
+    columns specified
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg1
+                - agg2
+              sum: sum_me
+              min: min_me
+              max: max_me
+        """,
+        dataframe=pd.DataFrame({
+            "agg1": ["a", "a", "a", "b"],
+            "agg2": ["a", "a", "b", "b"],
+            "min_me": [1,2,3,4],
+            "max_me": [1,2,3,4],
+            "sum_me": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 'a', 3, 1, 2] and
+        list(df.values[1]) == ['a', 'b', 3, 3, 3] and
+        list(df.values[2]) == ['b', 'b', 4, 4, 4]
+    )
+
 def test_group_by_without_by():
     """
     Test group by with only aggregations
@@ -821,6 +852,128 @@ def test_group_by_percentiles():
     )
 
     assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
+
+def test_group_by_to_list():
+    """
+    Test group by aggregating to a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list: to_list
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "to_list": [1,2,3,4],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2,3]] and
+        list(df.values[1]) == ['b', [4]]
+    )
+
+def test_group_by_to_list_multiple_by():
+    """
+    Test group by aggregating on multiple columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg1
+                - agg2
+              list: to_list
+        """,
+        dataframe=pd.DataFrame({
+            "agg1": ["a", "a", "a", "b"],
+            "agg2": ["a", "a", "b", "b"],
+            "to_list": [1,2,3,4],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 'a', [1,2]] and
+        list(df.values[1]) == ['a', 'b', [3]] and
+        list(df.values[2]) == ['b', 'b', [4]]
+    )
+
+def test_group_by_to_list_multiple_list():
+    """
+    Test group by aggregating
+    multiple columns to lists
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list:
+                - to_list1
+                - to_list2
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+            "to_list1": [1,2,3,4],
+            "to_list2": [5,6,7,8],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2,3], [5,6,7]] and
+        list(df.values[1]) == ['b', [4], [8]]
+    )
+
+
+def test_group_by_where():
+    """
+    Test group by using where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by: agg
+              list: to_list
+              where: agg <> 'b'
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "b", "c"],
+            "to_list": [1,2,3,4]
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', [1,2]] and
+        list(df.values[1]) == ['c', [4]]
+    )
+
+def test_group_by_agg_same_column():
+    """
+    Test group by and aggregating
+    on the same column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.group_by:
+              by:
+                - agg
+              count:
+                - agg
+        """,
+        dataframe=pd.DataFrame({
+            "agg": ["a", "a", "a", "b"],
+        })
+    )
+
+    assert (
+        list(df.values[0]) == ['a', 3] and
+        list(df.values[1]) == ['b', 1]
+    )
 
 def test_element_list():
     """
@@ -1061,3 +1214,104 @@ def test_element_dict_by_index():
         })
     )
     assert df["result"][0] == 1
+    
+def test_select_columns_basic():
+    """
+    Test select.columns using basic inputs
+    The original df will be 5 columns and want to select only 2 column
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+        'Col3': [4, 5, 6],
+        'Col4': [7, 8, 9],
+        'Col5': [10, 11, 12]
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input:
+                - Col1
+                - Col5
+
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df.columns) == 2 and df['Col1'][0] == 'One Two Three Four' and df['Col5'][0] == 10
+
+
+def test_select_column_widlcard():
+    """
+    Test select.column using a wilcard
+    Select only cols that have a number
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+        'Random1': [4, 5, 6],
+        'Col4': [7, 8, 9],
+        'Random2': [10, 11, 12]
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input: Col*
+        - convert.case:
+            input: Col1
+            case: upper
+
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df.columns) == 3 and [x for x in df.columns] == ['Col1', 'Col2', 'Col4']
+    
+def test_select_column_with_non_existing_cols():
+    """
+    Test outputing a column(s) that do not exists. This will trigger wildcard error
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input: YOLO
+        - convert.case:
+            input: Col1
+            case: upper
+    """
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
+    
+
+def test_head():
+    """
+    Test using head to return n rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.head:
+              n: 3
+        """,
+        dataframe=pd.DataFrame({
+            "heading": [1,2,3,4,5,6]
+        })
+    )
+    assert df["heading"].values.tolist() == [1,2,3]
+
+def test_tail():
+    """
+    Test using tail to return n rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.tail:
+              n: 3
+        """,
+        dataframe=pd.DataFrame({
+            "heading": [1,2,3,4,5,6]
+        })
+    )
+    assert df["heading"].values.tolist() == [4,5,6]

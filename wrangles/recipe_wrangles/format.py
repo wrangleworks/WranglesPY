@@ -180,6 +180,46 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
     return df
 
 
+def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+    """
+    type: object
+    description: Format a value to a specific number of significant figures
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      significant_figures:
+        type:
+          - integer
+        description: Number of significant figures to format to. Default is 3.
+    """
+    if output is None: output = input
+    
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    # Loop through all requested columns and apply sig figs
+    for input_column, output_column in zip(input, output):
+        df[output_column] = _format.significant_figures(df[input_column].to_list(), significant_figures)
+        
+    return df
+
+
 def suffix(df: _pd.DataFrame, input: _Union[str, list], value: _Union[str, list], output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -242,9 +282,9 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     """
     if output is None: output = input
 
-    # If a string provided, convert to list
-    if isinstance(input, str): input = [input]
-    if isinstance(output, str): output = [output]
+    # If a single input, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
@@ -255,7 +295,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
         df[output_column] = df[input_column].str.strip()
 
     return df
-
+    
 
 # Undocumented
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover

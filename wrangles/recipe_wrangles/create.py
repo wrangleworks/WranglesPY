@@ -87,11 +87,17 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
           - array
-        description: Name or list of names of new columns
+        description: "Name or list of names of new columns or column_name: value pairs."
       value:
-        type: string
-        description: (Optional) Value to add in the new column(s). If omitted, defaults to None.
-    """
+        type:
+          - string
+        description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
+    """    
+    
+    # if value is a list then raise and error
+    if isinstance(value, list):
+        raise ValueError('Value must be a string and not a list')
+    
     # Get list of existing columns
     existing_column = df.columns
     
@@ -105,20 +111,22 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         raise ValueError(f'"{output}" column already exists in dataFrame.')
       output = [output]
     
-    # Allow for user to enter either a list and/or a string in output and value and not error
-    if isinstance(value, list) and cols_created == 1:
-        value = [value[0] for _ in range(cols_created)]
-    elif isinstance(value, str):
-        value = [value for _ in range(cols_created)]
-    elif value == None:
-        value = ['' for _ in range(cols_created)]
-        
+    # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
+    output_dict = {}
+    for out in output:
+        if isinstance(out, dict):
+            # get the first key and value only and append dictionary to output_dict
+            temp_key, temp_value = list(out.items())[0]
+            output_dict.update({temp_key: temp_value})
+        else:
+            output_dict.update({out: value})
+                
     # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in output if x in existing_column]
+    check_list = [x for x in (output_dict.keys()) if x in existing_column]
     if len(check_list) > 0:
       raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
     
-    for output_column, values_list in zip(output, value):
+    for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
         # Data to generate
         data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
         data.set_index(df.index, inplace=True)  # use the same index as original to match rows
@@ -135,7 +143,9 @@ def embeddings(
     output: str = None,
     batch_size: int = 100,
     threads: int = 10,
-    model: str = "text-embedding-ada-002"
+    output_type: str = "python list",
+    model: str = "text-embedding-ada-002",
+    retries: int = 0
 ) -> _pd.DataFrame:
     """
     type: object
@@ -146,10 +156,14 @@ def embeddings(
       - api_key
     properties:
       input:
-        type: string
+        type:
+          - string
+          - array
         description: The column of text to create the embeddings for.
       output:
-        type: string
+        type:
+          - string
+          - array
         description: The output column the embeddings will be saved as.
       api_key:
         type: string
@@ -162,16 +176,46 @@ def embeddings(
         description: >-
           The number of requests to submit in parallel.
           Each request contains the number of rows set as batch_size.
+      output_type:
+        type: string
+        description: >-
+          Output the embeddings as a numpy array or a python list
+          Default - python list.
+        enum:
+          - numpy array
+          - python list
+      retries:
+        type: integer
+        description: >-
+          The number of times to retry if the request fails.
+          This will apply exponential backoff to help with rate limiting.
     """
     if output is None: output = input
 
-    df[output] = _openai.embeddings(
-        df[input[0]].to_list(),
-        api_key,
-        model,
-        batch_size,
-        threads
-    )
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    if output_type not in ["python list", "numpy array"]:
+        raise ValueError('Output_type must be of value "numpy array" or "python list"')
+
+    for input_col, output_col in zip(input, output):
+        df[output_col] = _openai.embeddings(
+            df[input_col].to_list(),
+            api_key,
+            model,
+            batch_size,
+            threads,
+            retries
+        )
+
+        if output_type == 'python list':
+            df[output_col] = [
+                list(row)
+                for row in df[output_col].values
+            ]
 
     return df
 

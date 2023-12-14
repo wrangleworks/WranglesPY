@@ -8,6 +8,7 @@ import random as _random
 import string as _string
 from typing import Union as _Union
 import re as _re
+import json as _json
 
 
 _lorem = _TextLorem()
@@ -32,9 +33,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
     :param data_type: String or code to create random data
     :param rows: Number of rows to create
     """
-    if isinstance(data_type, list):
-        return [data_type[_random.randint(0, len(data_type) - 1)] for _ in range(rows)]
-    elif isinstance(data_type, str):
+    if isinstance(data_type, str):
         if data_type == '<char>':
             return [_random.choice(_string.ascii_lowercase) for _ in range(rows)]
 
@@ -46,6 +45,15 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
 
         elif data_type == '<boolean>':
             return [bool(_random.getrandbits(1)) for _ in range(rows)]
+        
+        elif '<random([' in data_type:
+            try:
+                # return a random value from a list of values
+                random_list = _json.loads(_re.search(r'<random\((.+)\)>', data_type).group(1))
+                return [random_list[_random.randint(0, len(random_list) - 1)] for _ in range(rows)]
+            except:
+                # return the string as is if it can't be parsed
+                return [data_type for _ in range(rows)]
 
         elif _re.match(r'^\<int(\(\d+-\d+\))?\>$', data_type):
             # Match <int(1-10)> -> where (1-10) sets the range
@@ -77,20 +85,21 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
                 length = 8
             return [''.join(_random.choice(_string.ascii_uppercase + _string.digits) for _ in range(length)) for _ in range(rows)]
         
-        elif data_type == '<date_today>':
+        elif data_type == '<date>':
             return [_pd.to_datetime('today').normalize() for _ in range(rows)]
         
         # Get a random date from a range of dates
-        elif _re.findall(r'<\d+-\d+-\d+\sto\s\d+-\d+-\d+>', data_type):
-            date_range_string = _re.findall(r'\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
-            start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
-            end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
-            return [_random_date(start_date, end_date) for _ in range(rows)]
-        
-        # Enter a date
-        elif _re.findall(r'<date\s\d+-\d+-\d+>', data_type):
-            date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
-            return [date for _ in range(rows)]
+        elif '<date(' in data_type:
+            # check if there is a "to" in the string
+            if 'to' in data_type:
+                date_range_string = _re.findall(r'\d+-\d+-\d+\sto\s\d+-\d+-\d+', data_type)[0] 
+                start_date = _pd.to_datetime(date_range_string.split(' to ')[0])
+                end_date = _pd.to_datetime(date_range_string.split(' to ')[1])
+                return [_random_date(start_date, end_date) for _ in range(rows)]
+            else:
+                # get the single date from the string =  <date(2020-01-01)> -> 2020-01-01
+                date = _pd.to_datetime(_re.findall(r'\d+-\d+-\d+', data_type)[0])
+                return [date for _ in range(rows)]
         
         else:
             return [data_type for _ in range(rows)]
@@ -113,6 +122,7 @@ def read(rows: int, values: dict = {}) -> _pd.DataFrame:
     <boolean> : Randomly True or False
     <number(2.718-3.141)> : Random numbers (2.718-3.141) sets the range and decimal places
     <int(1-10)> : Random integers (1-10) sets the range
+    <random(["true", "false"])> : Randomly select a value from a list
 
     :param rows: Number of rows to include in the created dataframe
     :param values: Dictionary of header and values

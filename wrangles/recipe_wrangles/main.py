@@ -13,6 +13,8 @@ import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
 import yaml as _yaml
+import numpy as _np
+import math as _math
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -640,6 +642,8 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
         rename_cols = list(kwargs.keys())
         for x in rename_cols:
             if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
+        # Check if the new column names exist if so drop them
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns])
         
         rename_dict = kwargs
     else:
@@ -653,6 +657,9 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
         # Ensure input and output are equal lengths
         if len(input) != len(output):
             raise ValueError('The lists for input and output must be the same length.')
+        
+        # Check that the output columns don't already exist if so drop them
+        df = df.drop(columns=[x for x in output if x in df.columns])
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
@@ -702,6 +709,75 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
         
+    return df
+
+
+def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosine') -> _pd.DataFrame:
+    """
+    type: object
+    description: Calculate the cosine similarity of two vectors
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type: array
+        description: Two columns of vectors to compare the similarity of.
+      output:
+        type: string
+        description: Name of the output column.
+      method:
+        type: string
+        description: >-
+          The type of similarity to calculate (cosine or euclidean).
+          Adjusted cosine adjusts the default cosine calculation
+          to cover a range of 0-1 for typical comparisons.
+        enum:
+          - cosine
+          - adjusted cosine
+          - euclidean
+    """
+    # Check to see that two columns were passed through input
+    if not isinstance(input, list) or len(input) != 2:
+        raise ValueError('Input must consist of a list of two columns')
+
+    if method == 'cosine':
+        similarity_list = [
+            _np.dot(x, y)
+            /
+            (_np.linalg.norm(x) * _np.linalg.norm(y)) 
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
+        ]
+        df[output] = similarity_list
+
+    elif method == 'adjusted cosine': # Normalizes output from 0-1
+        similarity_list = [
+            1 - _math.acos(
+                _np.dot(x, y)
+                /
+                (_np.linalg.norm(x) * _np.linalg.norm(y)) 
+            )
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
+        ]
+        df[output] = similarity_list
+
+    elif method == 'euclidean':
+        similarity_list = [
+            _math.sqrt(
+                sum(
+                    pow(a -b, 2)
+                    for a, b in zip(x, y)
+                )
+            )
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
+        ]
+        df[output] = similarity_list
+
+    else:
+        # Ensure method is of a valid type
+        raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
+
     return df
 
 
@@ -765,7 +841,7 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
     return df
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, case_sensitive: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
@@ -788,6 +864,9 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - string
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
+      case_sensitive:
+        type: bool
+        description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
@@ -807,7 +886,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         df_copy = df.loc[:, [input[0]]]
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
-                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model)
+                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model, case_sensitive)
         
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
@@ -815,7 +894,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
-            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model)
+            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model, case_sensitive)
             
     return df
 

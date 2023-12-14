@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: 3.10.4
+          python-version: "3.10"
 
       - name: Install Dependencies
         run: |
@@ -56,7 +56,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: 3.10.4
+          python-version: "3.10"
 
       - name: Test pip install
         run: |
@@ -105,11 +105,12 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy-pypi:
+  deploy-pypi-test:
     runs-on: ubuntu-latest
     needs: [build]
     permissions:
       contents: read
+      id-token: write
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -138,5 +139,40 @@ jobs:
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+
+  deploy-pypi:
+    runs-on: ubuntu-latest
+    needs: [deploy-pypi-test]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install build
+        run: >-
+          python3 -m
+          pip install
+          build
+          --user
+
+      - name: Build package
+        run: >-
+          python3 -m
+          build
+          --sdist
+          --wheel
+          --outdir dist/
+          .
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        

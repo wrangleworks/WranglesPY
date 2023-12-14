@@ -34,5 +34,6 @@ no_where_list = [
     'sql',
     'drop',
     'split.list',
-    'reindex'
+    'reindex',
+    'select.group_by'
 ]

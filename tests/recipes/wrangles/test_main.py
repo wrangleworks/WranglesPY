@@ -2,6 +2,7 @@ import pytest
 import wrangles
 import pandas as pd
 import logging
+import numpy as np
 
 #
 # Classify
@@ -168,7 +169,8 @@ def test_classify_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
-    
+
+
 #
 # Filter
 #
@@ -886,6 +888,445 @@ def test_rename_invalid_input():
         )
     assert info.typename == 'KeyError'
 
+def test_rename_into_existing_column():
+    """
+    Rename a column to a name that already exists as a column.
+    This should overwrite the existing column.
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:        
+          - rename:
+              col2: col1
+        """,
+        dataframe=data
+    )
+    assert (
+        df["col1"].values.tolist() == [444, 555, 666, 444] and
+        df.columns.tolist() == ["col1"]
+    )
+
+def test_rename_into_existing_column_dict():
+    """
+    Rename a column to a name that already exists as a column.
+    This should make sure that all columns are pandas Series
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+
+    recipe = """
+    wrangles:
+    - copy:
+        input: col1
+        output: col1_copy
+        
+    - create.column:
+        output: col2_copy
+        
+    - rename:
+        col2_copy: col1_copy
+        col2: newCol2
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+def test_rename_into_existing_column_input():
+    """
+    Rename a column to a name that already exists as a column.
+    This should make sure that all columns are pandas Series. Using input/output
+    """
+    data = pd.DataFrame({
+    'col1': [1, 2, 3, 4],
+    'col2': [444, 555, 666, 444],
+    })
+
+    recipe = """
+    wrangles:
+    - copy:
+        input: col1
+        output: col1_copy
+        
+    - create.column:
+        output: col2_copy
+        
+    - rename:
+        input:
+            - col2_copy
+            - col2
+        output:
+            - col1_copy
+            - newCol2
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+
+
+
+#
+# Cosine Similarity
+#
+
+def test_similarity_cosine():
+    """
+    Test cosine similarity of a 5 dimension vector using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] != 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_np_array():
+    """
+    Test similarity of a two numpy arrays
+    """
+    data = pd.DataFrame({
+        'col1': [np.array([1,2,3,4,5]), np.array([6,7,8,9,10])],
+        'col2': [np.array([5,4,3,2,1]), np.array([6,7,8,9,10])]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.6363636363636364 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_cosine_different_size():
+    """
+    Test error when passing vectors of different dimension using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+    )
+
+def test_similarity_cosine_string():
+    """
+    Test error when passing an invalid data type (string) while using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_euclidean():
+    """
+    Test cosine similarity of a 5 dimension vector using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Euc Sim
+            method: euclidean
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 6.324555320336759 and df.iloc[1]['Euc Sim'] == 0.0
+
+def test_similarity_euclidean_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using euclidean similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Euc Sim
+            method: cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Euc Sim'] == 1.0 and df.iloc[1]['Euc Sim'] == 1.0
+
+def test_similarity_euclidean_different_size():
+    """
+    Test error when passing vectors of different dimension using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: euclidean
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError' and
+        'exceptions must derive from BaseException' in info.value.args[0]
+    )
+
+def test_similarity_euclidean_string():
+    """
+    Test error when passing an invalid data type (string) while using euclidean distance
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: euclidean
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_adjusted_cosine():
+    """
+    Test cosine similarity of a 5 dimension vector using adjusted cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.11897867399060302 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_1_D():
+    """
+    Test similarity of a 1 dimension vector/integer using adjusted cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [1, 9],
+        'col2': [5, 9]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 1.0 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_different_size():
+    """
+    Test error when passing vectors of different dimension using cosine similarity
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4], [6,7,8,9]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+    )
+
+def test_similarity_adjusted_cosine_string():
+    """
+    Test error when passing an invalid data type (string) while using adjusted cosine
+    """
+    data = pd.DataFrame({
+        'col1': ['apple', 'orange'],
+        'col2': ['orange', 'apple']
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError'
+    )
+
+def test_similarity_one_column():
+    """
+    Test similarity error when only passing one column
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: col1
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and 
+        'Input must consist of a list of two columns' in info.value.args[0]
+    )
+
+def test_similarity_three_columns():
+    """
+    Test similarity error when passing three columns to input
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]],
+        'col3': [[4,5,6,7,8], [3,4,5,6,7]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: 
+              - col1
+              - col2
+              - col3
+            output: Cos Sim
+            method: cosine
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and 
+        'Input must consist of a list of two columns' in info.value.args[0]
+    )
+
+def test_similarity_invalid_method():
+    """
+    Test similarity error when passing the invalid method
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input: 
+              - col1
+              - col2
+            output: Tan Sim
+            method: tangent
+    """
+    with pytest.raises(TypeError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'TypeError' and 
+        'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
+    )
+
+
 #
 # Standardize
 #
@@ -1070,6 +1511,161 @@ def test_standardize_multi_io_single_model_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
+
+def test_standardize_case_sensitive():
+    """
+    Test standardize with case sensitivity
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'asap' and df.iloc[1]['Abbreviations'] == 'eta'
+
+def test_standardize_case_insensitive():
+    """
+    Test standardize with case insensitivity
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            case_sensitive: false
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+def test_standardize_case_default():
+    """
+    Test standardize with case default
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: Abbreviations
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+def test_standardize_case_sensitive_multiple_rows():
+    """
+    Test standardize with case sensitive and multiple inputs and outputs
+    """
+    data = pd.DataFrame({
+    'Abbrev1': ['asap'],
+    'Abbrev2': ['eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: 
+              - Abbrev1
+              - Abbrev2
+            output: 
+              - Abbrev1 output
+              - Abbrev2 output
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbrev1 output'] == 'asap' and df.iloc[0]['Abbrev2 output'] == 'eta'
+
+def test_standardize_case_sensitive_in_place():
+    """
+    Test standardize with case sensitive and no output
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            case_sensitive: true
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Abbrev'] == 'asap' and df.iloc[1]['Abbrev'] == 'eta'
+
+def test_standardize_case_sensitive_invalid_bool():
+    """
+    Test standardize with case sensitive with an invalid boolean
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta']
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: Huh?
+            model_id: 6ca4ab44-8c66-40e8
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
+    )
+
+def test_standardize_case_sensitive_multi_model():
+    """
+    Test standardize with case sensitive with multiple models
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: true
+            model_id: 
+              - fc7d46e3-057f-47bd
+              - 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == 'asap' and df.iloc[3]['output'] == 'OMW'
+
+def test_standardize_case_insensitive_multi_model():
+    """
+    Test standardize with case insensitive with multiple models
+    """
+    data = pd.DataFrame({
+    'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+    })
+    recipe = """
+    wrangles:
+        - standardize:
+            input: Abbrev
+            output: output
+            case_sensitive: false
+            model_id: 
+              - fc7d46e3-057f-47bd
+              - 6ca4ab44-8c66-40e8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
 
 def test_replace():
     """

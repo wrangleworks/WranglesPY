@@ -15,7 +15,7 @@ setup(
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
-    description = 'Wrangle your data into shape with machine learning',
+    description = 'Wrangle your data into shape with AI',
     long_description = long_description,
     long_description_content_type = 'text/markdown',
     license_files = ('LICENSE.txt',),
@@ -25,7 +25,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent'
     ],
-    version = '1.5.0',
+    version = '1.7.2',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',
