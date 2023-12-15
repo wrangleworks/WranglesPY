@@ -89,3 +89,62 @@ def test_join_files():
     """
     df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 4
+
+def test_read_with_where():
+    """
+    Test a read that includes a where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1000
+              values:
+                header1: <int>
+              where: '"header1" > ?'
+              where_params:
+                - 50
+        """
+    )
+    assert (
+        len(df) < 1000
+        and df["header1"].min() > 50
+    )
+
+def test_read_with_columns():
+    """
+    Test a read that includes a columns condition
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+                header3: value3
+              columns:
+                - header1
+                - header2
+        """
+    )
+    assert list(df.columns) == ["header1","header2"]
+
+def test_read_with_not_columns():
+    """
+    Test a read that includes a not_columns condition
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+                header3: value3
+              not_columns: header3
+        """
+    )
+    assert list(df.columns) == ["header1","header2"]

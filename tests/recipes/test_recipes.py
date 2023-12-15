@@ -373,19 +373,13 @@ def test_non_optional_read_columns():
         wrangles.recipe.run(
             """
             read:
-              - test:
-                  rows: 5
-                  values:
-                    header1: value1
-                    header2: value2
-
-            write:
               - memory:
                   id: test_non_optional_read_columns
                   columns:
                     - header1
                     - header2
                     - header3
+                  orient: split
             """
         )
     assert "Column header3 does not exist" in error.value.args[0]

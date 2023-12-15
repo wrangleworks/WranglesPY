@@ -289,45 +289,83 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
+    read_type = list(recipe)[0]
+    read_params = recipe[read_type]
+
+    # Divide parameters into general and specific to that type of read
+    params_general = ['columns', 'not_columns', 'where', 'where_params']
+    params_specific = {
+        key: read_params[key]
+        for key in read_params
+        if key not in params_general
+    }
+    params_general = {
+        key: read_params[key]
+        for key in params_general
+        if key in read_params
+    }
+
     # Allow blended imports
-    if list(recipe)[0] in ['join', 'concatenate', 'union']:
+    if read_type in ['join', 'concatenate', 'union']:
         dfs = []
-        for source in recipe[list(recipe)[0]]['sources']:
+        # Recursively call sub-reads
+        for source in params_specific['sources']:
             dfs.append(_read_data_sources(source, functions))
-        
-        recipe_temp = recipe[list(recipe)[0]]
-        recipe_temp.pop('sources')
+        params_specific.pop('sources')
 
-        if list(recipe)[0] == 'join':
-            df = _pandas.merge(dfs[0], dfs[1], **recipe['join'])
-        elif list(recipe)[0] == 'union':
-            df = _pandas.concat(dfs, **recipe['union'])
-        elif list(recipe)[0] == 'concatenate':
-            recipe['concatenate']['axis'] = 1
-            df = _pandas.concat(dfs, **recipe['concatenate'])
-
-    elif list(recipe)[0].split('.')[0] == 'custom':
-        # Execute a user's custom function
-        read_name = list(recipe)[0]
-        params = recipe[read_name]
-        df = functions[read_name[7:]](**params)
-        if not isinstance(df, _pandas.DataFrame):
-            raise RuntimeError(f"Function {read_name} did not return a dataframe")
+        if read_type == 'join':
+            df = _pandas.merge(dfs[0], dfs[1], **params_specific)
+        elif read_type == 'union':
+            df = _pandas.concat(dfs, **params_specific)
+        elif read_type == 'concatenate':
+            params_specific['axis'] = 1
+            df = _pandas.concat(dfs, **params_specific)
+        df = df.reset_index(drop=True)
     else:
-        # Single source import
-        import_type = list(recipe)[0]
-        params = recipe[import_type]
+        # If custom, search within custom functions,
+        # else look within the default connectors
+        if read_type.split('.')[0] == 'custom':
+            obj = {"custom": functions}
+        else:
+            obj = _connectors
+        
+        # Get the requested function
+        for element in read_type.split('.'):
+            if isinstance(obj, dict):
+                obj = obj[element]
+            elif isinstance(obj, _types.ModuleType):
+                obj = getattr(obj, element)
+            else:
+                raise ValueError(f"Unrecognized object for {read_type}")
 
-        # Get read function of requested connector and pass user defined params
-        obj = _connectors
-        for element in import_type.split('.'):
-            obj = getattr(obj, element)
+        if read_type.split('.')[0] != 'custom':
+            # Default connectors have the method as read
+            obj = getattr(obj, 'read')
 
-        if import_type == 'recipe':
-            params['functions'] = functions
+            # Pass down functions for recipes
+            if read_type == 'recipe':
+                params_specific['functions'] = functions
+        else:
+            # Allow custom functions to access
+            # general params if they are requested
+            params_specific = {
+                **params_specific,
+                **{
+                    k: v
+                    for k, v in params_general.items()
+                    if k in _inspect.getfullargspec(obj).args
+                }
+            }
 
-        df = getattr(obj, 'read')(**params)
-    
+        df = obj(**params_specific)
+
+    # Ensure the response is a dataframe
+    if not isinstance(df, _pandas.DataFrame):
+        raise RuntimeError(f"Function {read_type} did not return a dataframe")
+
+    # Filter the response
+    df = _filter_dataframe(df, **params_general)
+
     return df
 
    

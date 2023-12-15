@@ -104,6 +104,10 @@
           "type": "string",
           "description": "Filter the data to only apply the wrangle to certain rows using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 'abc'"
         },
+        "where_special": {
+          "type": "string",
+          "description": "Filter the data prior to transforming it using a SQL-style where criteria, such as column1 = 123 OR column2 = 'abc'\nNote: due to the nature of this wrangle, this will remove rows from the output."
+        },
         "where_params": {
           "type": ["array", "object"],
           "description": "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
@@ -126,15 +130,15 @@
       "commonProperties": {
         "columns": {
           "type": ["array", "string"],
-          "description": "Specify a subset of the columns to write.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIf not provided, all columns will be included"
+          "description": "Specify a subset of the columns to include.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "not_columns": {
           "type": ["array", "string"],
-          "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern. If not provided, all columns will be included"
+          "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "where": {
           "type": "string",
-          "description": "Filter the data before writing using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456"
+          "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456"
         },
         "where_params": {
           "type": ["array", "object"],
