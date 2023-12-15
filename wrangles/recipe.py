@@ -322,6 +322,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
                 raise ValueError('Join requires exactly two sources')
             df = _pandas.merge(dfs[0], dfs[1], **params_specific)
         elif read_type == 'union':
+            params_specific['axis'] = 0
             df = _pandas.concat(dfs, **params_specific)
         elif read_type == 'concatenate':
             params_specific['axis'] = 1
