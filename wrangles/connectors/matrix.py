@@ -15,6 +15,60 @@ import yaml as _yaml
 
 _schema = {}
 
+def _zip_cycle(*iterables, empty_default=None):
+    cycles = [_itertools.cycle(i) for i in iterables]
+    for _ in _itertools.zip_longest(*iterables):
+        yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
+
+def read(
+    variables: dict,
+    read: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "loop"
+) -> list[_pd.DataFrame]:
+    """
+    The matrix read connector lets you use variables in a single read definition to
+    automatically execute multiple reads that are based on the combinations of the variables.
+    """
+    permutations = []
+
+    for key, val in variables.items():
+        if isinstance(val, list):
+            vals = val
+        elif _re.fullmatch(r'custom.(.*)', val.strip()):
+            # Run custom function
+            vals = functions[val.strip()[7:]]()
+        else:
+            vals = [val]
+
+        permutations.append([{key: var} for var in vals])
+
+    if strategy.lower() == "permutations":
+        # Calc all permutations
+        permutations = list(_itertools.product(*permutations))
+        permutations = [
+            dict(_chainmap(*permutation))
+            for permutation in permutations
+        ]
+    elif strategy.lower() == "loop":
+        permutations = [
+            permutation
+            for permutation in _zip_cycle(*permutations)
+        ]
+    else:
+        raise ValueError(f"Invalid setting {strategy} for strategy")
+
+    with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
+        results = list(executor.map(
+            _wrangles.recipe.run,
+            [_yaml.dump({'read': read})] * len(permutations),
+            permutations,
+            [None] * len(permutations),
+            [functions] * len(permutations),
+        ))
+
+    return results
+
 
 def write(
     df: _pd.DataFrame,
@@ -37,11 +91,6 @@ def write(
         loop (default) iterates over each set of variables, repeating shorter lists until the longest \
         is completed. permutations uses the combination of all variables against all other variables. \
     """
-    def _zip_cycle(*iterables, empty_default=None):
-        cycles = [_itertools.cycle(i) for i in iterables]
-        for _ in _itertools.zip_longest(*iterables):
-            yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
-
     permutations = []
 
     for key, val in variables.items():

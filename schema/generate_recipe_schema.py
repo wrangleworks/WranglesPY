@@ -84,8 +84,8 @@ schema['read']['union'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: Two or more data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """
@@ -99,8 +99,8 @@ schema['read']['concatenate'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: Two or more data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """

@@ -310,10 +310,16 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
         dfs = []
         # Recursively call sub-reads
         for source in params_specific['sources']:
-            dfs.append(_read_data_sources(source, functions))
+            sources = _read_data_sources(source, functions)
+            if isinstance(sources, list):
+                dfs.extend(sources)
+            else:
+                dfs.append(sources)
         params_specific.pop('sources')
 
         if read_type == 'join':
+            if len(dfs) != 2:
+                raise ValueError('Join requires exactly two sources')
             df = _pandas.merge(dfs[0], dfs[1], **params_specific)
         elif read_type == 'union':
             df = _pandas.concat(dfs, **params_specific)
@@ -343,7 +349,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
             obj = getattr(obj, 'read')
 
             # Pass down functions for recipes
-            if read_type == 'recipe':
+            if read_type in ["recipe", "matrix"]:
                 params_specific['functions'] = functions
         else:
             # Allow custom functions to access
@@ -360,13 +366,15 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
         df = obj(**params_specific)
 
     # Ensure the response is a dataframe
-    if not isinstance(df, _pandas.DataFrame):
+    if isinstance(df, _pandas.DataFrame):
+        return _filter_dataframe(df, **params_general)
+    elif (
+        isinstance(df, list)
+        and all(isinstance(x, _pandas.DataFrame) for x in df)
+    ):
+        return [_filter_dataframe(x, **params_general) for x in df]
+    else:
         raise RuntimeError(f"Function {read_type} did not return a dataframe")
-
-    # Filter the response
-    df = _filter_dataframe(df, **params_general)
-
-    return df
 
    
 def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
@@ -719,7 +727,6 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
 
 def _run_thread(
     recipe: str,
-    variables: dict = {},
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict, str] = None
 ) -> _pandas.DataFrame:
@@ -753,31 +760,45 @@ def _run_thread(
     if 'read' in recipe.keys():
         # Execute requested data imports
         if isinstance(recipe['read'], list):
-            df = _read_data_sources(recipe['read'][0], functions)
+            dfs = [
+                _read_data_sources(read, functions)
+                for read in recipe['read']
+            ]
         else:
-            df = _read_data_sources(recipe['read'], functions)
+            dfs = _read_data_sources(recipe['read'], functions)
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
-        df = dataframe
+        dfs = dataframe
     else:
         # User hasn't provided anything - initialize empty dataframe
-        df = _pandas.DataFrame()
+        dfs = _pandas.DataFrame()
 
-    # Execute any Wrangles required (allow single or plural)
-    if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'], functions)
-    elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'], functions)
+    # Ensure dfs is a list
+    if isinstance(dfs, _pandas.DataFrame):
+        dfs = [dfs]
+    
+    results = []
+    for df in dfs:
+        # Execute any Wrangles required (allow single or plural)
+        if 'wrangles' in recipe.keys():
+            df = _execute_wrangles(df, recipe['wrangles'], functions)
+        elif 'wrangle' in recipe.keys():
+            df = _execute_wrangles(df, recipe['wrangle'], functions)
 
-    # Execute requested data exports
-    if 'write' in recipe.keys():
-        df = _write_data(df, recipe['write'], functions)
+        # Execute requested data exports
+        if 'write' in recipe.keys():
+            df = _write_data(df, recipe['write'], functions)
+
+        results.append(df)
 
     # Run any actions required after the main recipe finishes
     if 'on_success' in recipe.get('run', {}).keys():
         _run_actions(recipe['run']['on_success'], functions)
 
-    return df
+    if isinstance(results, list) and len(results) == 1:
+        return results[0]
+    else:
+        return results
 
 
 def run(
@@ -815,7 +836,6 @@ def run(
             future = executor.submit(
                 _run_thread,
                 recipe,
-                variables,
                 dataframe,
                 functions
             )

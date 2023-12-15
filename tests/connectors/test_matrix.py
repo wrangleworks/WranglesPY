@@ -237,3 +237,109 @@ def test_strategy_loop():
         len(memory.dataframes["matrix_strategy_loop_c_1_z"]["data"]) == 1 and
         len(dfs) == 3
     )
+
+def test_matrix_read_union():
+    """
+    Test using union of multiple reads
+    defined with a matrix
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - union:
+              sources:
+                - matrix:
+                    variables:
+                      key: [a,b,c]
+                    read:
+                      - test:
+                          rows: 5
+                          values:
+                            header1: ${key}
+        """
+    )
+    assert (
+        len(df) == 15 and
+        len(df["header1"].unique()) == 3
+    )
+
+def test_matrix_read_concatenate():
+    """
+    Test using concatate of multiple reads
+    defined with a matrix
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - concatenate:
+              sources:
+                - matrix:
+                    variables:
+                      key: [a,b,c]
+                    read:
+                      - test:
+                          rows: 5
+                          values:
+                            ${key}: "a"
+        """
+    )
+    assert (
+        list(df.columns) == ["a","b","c"] and
+        len(df) == 5
+    )
+
+def test_matrix_read_custom_function():
+    """
+    Test using union of multiple reads
+    with variables defined by a custom function
+    """
+    def get_vars():
+        return ["a","b","c"]
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - union:
+              sources:
+                - matrix:
+                    variables:
+                      key: custom.get_vars
+                    read:
+                      - test:
+                          rows: 5
+                          values:
+                            header1: ${key}
+        """,
+        functions=get_vars
+    )
+    assert (
+        len(df) == 15 and
+        len(df["header1"].unique()) == 3
+    )
+
+
+def test_matrix_where():
+    """
+    Test using where with a matrix
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - union:
+              sources:
+                - matrix:
+                    where: header2 > 50
+                    variables:
+                      key: [a,b,c]
+                    read:
+                      - test:
+                          rows: 100
+                          values:
+                            header1: ${key}
+                            header2: <int>
+        """
+    )
+    assert (
+        len(df) < 300 and
+        df["header2"].min() > 50
+    )

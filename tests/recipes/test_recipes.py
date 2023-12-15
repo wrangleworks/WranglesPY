@@ -410,3 +410,29 @@ def test_column_with_question_mark():
         """
     )
     assert df["result"][0] == "value1,value2,value3"
+
+def test_generator():
+    """
+    Test to using a generator as the source of the dataframes
+    """
+    def _generator():
+        for x in ["a","b","c"]:
+            yield pd.DataFrame({
+                'col1': [x],
+            })
+
+    dfs = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.case:
+              input: col1
+              case: upper
+        """,
+        dataframe=_generator()
+    )
+    assert (
+        len(dfs) == 3
+        and dfs[0]['col1'][0] == "A"
+        and dfs[1]['col1'][0] == "B"
+        and dfs[2]['col1'][0] == "C"
+    )
