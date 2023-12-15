@@ -320,6 +320,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
         elif read_type == 'concatenate':
             params_specific['axis'] = 1
             df = _pandas.concat(dfs, **params_specific)
+        df = df.reset_index(drop=True)
     else:
         # If custom, search within custom functions,
         # else look within the default connectors
