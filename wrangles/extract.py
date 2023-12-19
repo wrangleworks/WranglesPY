@@ -104,7 +104,7 @@ def custom(
     first_element: bool = False,
     use_labels: bool = False,
     case_sensitive: bool = False,
-    use_spellcheck= bool = False
+    use_spellcheck: bool = False
     ) -> list:
 
     """
