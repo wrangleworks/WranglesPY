@@ -14,6 +14,8 @@ from .. import format as _format
 from .. import openai as _openai
 
 
+@_format_input_output()
+@_first_element_option()
 def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
@@ -42,12 +44,6 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - regions
           - countries
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -65,6 +61,8 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     return df
 
 
+@_format_input_output()
+@_first_element_option()
 def ai(
     df: _pd.DataFrame,
     output: list,
@@ -207,7 +205,18 @@ def ai(
     return df
 
 
-def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+@_format_input_output()
+@_first_element_option()
+def attributes(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    responseContent: str = 'span',
+    attribute_type: str = None,
+    desired_unit: str = None,
+    bound: str = 'mid',
+    first_element: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
@@ -271,14 +280,14 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
       desired_unit:
         type: string
         description: Convert the extracted unit to the desired unit
+      first_element:
+        type: boolean
+        description: >-
+          If true, will only return the first result.
+          If false, will return all results as a list.
+        default: false
     $ref: "#/$defs/misc/unit_entity_map"
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -306,7 +315,9 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+@_format_input_output()
+@_first_element_option()
+def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -325,13 +336,13 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
           - string
           - array
         description: Name of the output columns
+      first_element:
+        type: boolean
+        description: >-
+          If true, will only return the first result.
+          If false, will return all results as a list.
+        default: false
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -393,6 +404,8 @@ def codes(
     return df
 
 
+@_format_input_output()
+@_first_element_option()
 def custom(
         df: _pd.DataFrame,
         input: _Union[str, list],
@@ -438,28 +451,28 @@ def custom(
     if output is None: output = input
     
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
     if not isinstance(model_id, list): model_id = [model_id]
     
     if len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, use_labels=use_labels, case_sensitive=case_sensitive)
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], use_labels=use_labels, case_sensitive=case_sensitive)
     
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, use_labels=use_labels, case_sensitive=case_sensitive)
         
     return df
 
 
+@_format_input_output()
+@_first_element_option()
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -492,12 +505,6 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
           - week_year
           - quarter
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -641,6 +648,8 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
+@_format_input_output()
+@_first_element_option()
 def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
@@ -668,12 +677,6 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
           - text
           - links
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -756,7 +759,15 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list]) -> _pd.DataFrame:
+@_format_input_output()
+@_first_element_option()
+def regex(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    find: str,
+    output: _Union[str, list],
+    first_element: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract single values using regex
@@ -778,13 +789,13 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
           - string
           - array
         description: Pattern to find using regex
+    first_element:
+        type: boolean
+        description: >-
+          If true, will only return the first result.
+          If false, will return all results as a list.
+        default: false
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
