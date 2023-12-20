@@ -18,8 +18,13 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     """
     Import a file as defined by user parameters.
 
-    Supports Excel (.xlsx, .xlsx, .xlsm), CSV (.csv, .txt) and JSON (.json) files.
-    JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be decompressed.
+    Supports:
+      - Excel (.xlsx, .xlsx, .xlsm)
+      - CSV (.csv, .txt)
+      - JSON (.json), JSONL (.jsonl)
+      - Pickle (.pkl, .pickle) files.
+
+    JSON, JSONL, CSV and Pickle files may also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.
 
     >>> df = wrangles.connectors.file.read('myfile.csv')
 
@@ -49,6 +54,11 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
         # Only records orientation is supported for JSONL
         kwargs['orient'] = 'records'
         df = _pd.read_json(file_object, **kwargs).fillna('')
+    elif (
+        name.split('.')[-1] in ['pkl', "pickle"] or 
+        (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
+    ):
+        df = _pd.read_pickle(file_object, **kwargs).fillna('')
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
@@ -109,8 +119,13 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     """
     Output a file to the local file system as defined by the parameters.
 
-    Supports Excel (.xlsx, .xls), CSV (.csv, .txt) and JSON (.json) files.
-    JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be compressed.
+    Supports:
+    - Excel (.xlsx, .xls)
+    - CSV (.csv, .txt)
+    - JSON (.json), JSONL (.jsonl)
+    - Pickle (.pkl, .pickle)
+    
+    JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
 
     :param df: Dataframe to be written to a file
     :param name: Name of the output file
@@ -159,6 +174,11 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         kwargs['orient'] = 'records'
         df.to_json(file_object, **kwargs)
 
+    elif (
+        name.split('.')[-1] in ['pkl', "pickle"] or 
+        (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
+    ):
+        df.to_pickle(file_object, **kwargs)
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
