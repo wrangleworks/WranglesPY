@@ -1,7 +1,9 @@
 """
 Test the file connector for reading and writing files to the local file system.
 """
+import uuid as _uuid
 import wrangles
+import pandas as _pd
 import pytest
 
 def test_read_csv():
@@ -271,3 +273,97 @@ def test_write_with_index():
     """
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
+
+def test_write_pickle():
+    """
+    Test writing a pickle file
+    """
+    filename = str(_uuid.uuid4())
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        write:
+          - file:
+              name: tests/temp/${filename}.pkl
+        """,
+        variables={"filename": filename}
+    )
+    df = _pd.read_pickle(f"tests/temp/{filename}.pkl")
+    assert (
+        df["header1"][0] == "value1"
+        and len(df) == 5
+    )
+
+def test_write_pickle_gzip():
+    """
+    Test writing a pickle file that's gzipped
+    """
+    filename = str(_uuid.uuid4())
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        write:
+          - file:
+              name: tests/temp/${filename}.pkl.gz
+        """,
+        variables={"filename": filename}
+    )
+    df = _pd.read_pickle(f"tests/temp/{filename}.pkl.gz")
+    assert (
+        df["header1"][0] == "value1"
+        and len(df) == 5
+    )
+
+def test_read_pickle():
+    """
+    Test reading a pickle file
+    """
+    filename = str(_uuid.uuid4())
+    _pd.DataFrame(
+        {"header1": ["value1", "value2", "value3"]}
+    ).to_pickle(f"tests/temp/{filename}.pkl")
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - file:
+              name: tests/temp/${filename}.pkl
+        """,
+        variables={"filename": filename}
+    )
+    
+    assert (
+        df["header1"][0] == "value1"
+        and len(df) == 3
+    )
+
+def test_read_pickle_gzip():
+    """
+    Test reading a pickle file that's gzipped
+    """
+    filename = str(_uuid.uuid4())
+    _pd.DataFrame(
+        {"header1": ["value1", "value2", "value3"]}
+    ).to_pickle(f"tests/temp/{filename}.pkl.gz")
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - file:
+              name: tests/temp/${filename}.pkl.gz
+        """,
+        variables={"filename": filename}
+    )
+    
+    assert (
+        df["header1"][0] == "value1"
+        and len(df) == 3
+    )
