@@ -4,8 +4,11 @@ Functions to run extraction wrangles
 from typing import Union as _Union
 import re as _re
 import concurrent.futures as _futures
-from collections import OrderedDict as _OrderedDict
 import pandas as _pd
+from wrangles.decorators import (
+    format_input_output as _format_input_output,
+    first_element_option as _first_element_option
+)
 from .. import extract as _extract
 from .. import format as _format
 from .. import openai as _openai
@@ -344,14 +347,20 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
 
 
-def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
+@_format_input_output()
+@_first_element_option()
+def codes(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    first_element: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
         type:
@@ -363,14 +372,13 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
           - string
           - array
         description: Name or list of output columns
+      first_element:
+        type: boolean
+        description: >-
+          If true, will only return the first result.
+          If false, will return all results as a list.
+        default: false
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
@@ -678,14 +686,22 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     return df
 
 
-def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
+@_format_input_output()
+@_first_element_option()
+def properties(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    property_type: str = None,
+    return_data_type: str = 'list',
+    first_element: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
         type:
@@ -711,25 +727,32 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         enum:
           - list
           - string
+      first_element:
+        type: boolean
+        description: >-
+          If true, will only return the first result.
+          If false, will return all results as a list.
+        default: false
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type)
+        df[output[0]] = _extract.properties(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            type=property_type,
+            return_data_type=return_data_type
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
-    
+            df[output_column] = _extract.properties(
+                df[input_column].astype(str).tolist(),
+                type=property_type,
+                return_data_type=return_data_type
+            )
+
     return df
 
 

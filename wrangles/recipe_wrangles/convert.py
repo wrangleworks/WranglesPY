@@ -7,9 +7,16 @@ import re as _re
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+from ..decorators import format_input_output as _format_input_output
 
 
-def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
+@_format_input_output(require_consistent_length=True)
+def case(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    case: str = "lower"
+) -> _pd.DataFrame:
     """
     type: object
     description: Change the case of the input.
@@ -37,19 +44,8 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
           - title
           - sentence
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
     # Get the requested case, default lower
     desired_case = case.lower()
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -65,7 +61,14 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
+@_format_input_output(require_consistent_length=True)
+def data_type(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    data_type: str = 'str',
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -94,22 +97,10 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - bool
           - datetime
     """
-    # If output is not specified, overwrite input columns in place
-    if output is None: output = input
-
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-
     # If the datatype is datetime
     if data_type == 'datetime':
         temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
         df[output] = temp
-
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -118,7 +109,13 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     return df
 
 
-def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None) -> _pd.DataFrame:
+@_format_input_output(require_consistent_length=True)
+def fraction_to_decimal(
+    df: _pd.DataFrame,
+    input: str,
+    decimals: int = 4,
+    output = None
+) -> _pd.DataFrame:
     """
     type: object
     description: Convert fractions to decimals
@@ -139,17 +136,6 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
           - number
         description: Number of decimals to round fraction
     """
-    # Set the output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
     for in_col, out_col in zip(input, output):
         results = []
         for item in df[in_col].astype(str):
@@ -157,11 +143,11 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
             replacement_list = []
             for match in fractions:
                 fraction_str = match.group()
-                                
+        
                 # Get only the fraction part with or without whole number
                 fraction = _Fraction(_re.findall(r'\d+\/\d+', fraction_str)[0])
                 decimal = round(float(fraction), decimals)
-                
+
                 # try to see if there is a whole number
                 if _re.findall(r'(\d+[\s-])', fraction_str):
                     # remove the "-" from the whole number
@@ -169,25 +155,25 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
                     whole_number = _re.sub(r'-', "", whole_number)
                     whole_number = int(whole_number)
                     decimal = whole_number + decimal
-                
+
                 replacement_list.append((fraction_str, str(decimal)))
             for fraction, dec in replacement_list:
                 item = item.replace(fraction, dec)
-            
-            
+
             results.append(item)
-            
+
         df[out_col] = results
-    
+
     return df
 
 
+@_format_input_output(require_consistent_length=True)
 def from_json(
-        df: _pd.DataFrame, 
-        input: _Union[str, list], 
-        output: _Union[str, list] = None,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Convert a JSON representation into an object
@@ -205,31 +191,21 @@ def from_json(
           - array
         description: Name of the output column. If omitted, the input column will be overwritten
     """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = [_json.loads(x, **kwargs) for x in df[input_column]]
-    
+
     return df
 
 
+@_format_input_output(require_consistent_length=True)
 def to_json(
-        df: _pd.DataFrame, 
-        input: _Union[str, list], 
-        output: _Union[str, list] = None, 
-        ensure_ascii: bool = False,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None, 
+    ensure_ascii: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     r"""
     type: object
     description: Convert an object to a JSON representation.
@@ -262,27 +238,17 @@ def to_json(
         type: boolean
         description: If true, non-ASCII characters will be escaped. Default is false 
     """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
             _json.dumps(row, ensure_ascii=ensure_ascii, **kwargs) 
             for row in df[input_columns].values.tolist()
-            ]
-        
+        ]
+
     return df
 
 
+@_format_input_output(require_consistent_length=True)
 def from_yaml(
     df: _pd.DataFrame, 
     input: _Union[str, list], 
@@ -308,27 +274,17 @@ def from_yaml(
           Name of the output column.
           If omitted, the input column will be overwritten
     """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = [
             _yaml.safe_load(x, **kwargs)
             for x in df[input_column]
         ]
-    
+
     return df
 
 
+@_format_input_output(require_consistent_length=True)
 def to_yaml(
     df: _pd.DataFrame, 
     input: _Union[str, list], 
@@ -364,22 +320,11 @@ def to_yaml(
           If sort_keys is true (default: True),
           then the output of dictionaries will be sorted by key.
     """
-    # Set output column as input if not provided
-    if output is None: output = input
-    
-    # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
             _yaml.dump(row, **kwargs) 
             for row in df[input_columns].values.tolist()
         ]
-        
+
     return df
