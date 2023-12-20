@@ -1373,7 +1373,7 @@ def test_extract_brackets_1():
           output: no_brackets
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['no_brackets'] == '1234'
+    assert df.iloc[0]['no_brackets'] == ['1234']
     
 # if the input is multi column (a list)
 def test_extract_brackets_2():
@@ -1392,7 +1392,7 @@ def test_extract_brackets_2():
             - no_brackets2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['no_brackets2'] == '1234'
+    assert df.iloc[0]['no_brackets2'] == ['1234']
     
 # if the input and output are not the same type
 def test_extract_brackets_3():
@@ -1409,7 +1409,7 @@ def test_extract_brackets_3():
           output: output
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == '12345, 1234'
+    assert df.iloc[0]['output'] == ['12345', '1234']
 
 # if the input and output are not the same type
 def test_extract_brackets_multi_input():
@@ -1426,7 +1426,7 @@ def test_extract_brackets_multi_input():
           output: output
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == '12345, 6789'
+    assert df.iloc[0]['output'] == ['12345', '6789']
 
 def test_extract_brackets_multi_input_where():
     """
@@ -1447,7 +1447,7 @@ def test_extract_brackets_multi_input_where():
           where: numbers > 4
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+    assert df.iloc[0]['output'] == '' and df.iloc[1]['output'] == ['this is in brackets'] and df.iloc[2]['output'] == ['more stuff in brackets', 'But this is']
 
 def test_extract_brackets_first_element():
     """
