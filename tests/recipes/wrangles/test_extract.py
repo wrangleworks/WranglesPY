@@ -146,6 +146,37 @@ def test_attributes_object():
 
 df_test_attributes_all = pd.DataFrame([['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']], columns=['Tools'])
 
+def test_attributes_first_element():
+    """
+    Tests using first_element with extract.attributes (only works when attribute_type is specified)
+    """
+    data = pd.DataFrame([['hammer 5kg, screwdriver 1kg, wrench 2kg']], columns=['Tools'])
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            attribute_type: weight
+            first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Attributes'] == '5kg'
+
+def test_attributes_first_element_without_attribute_type():
+    """
+    Tests error when using first_element without attribute_type
+    """
+    data = pd.DataFrame([['hammer 6in 5kg, screwdriver 12in 10kg, wrench 12v 2in']], columns=['Tools'])
+    recipe = """
+    wrangles:
+        - extract.attributes:
+            input: Tools
+            output: Attributes
+            first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Attributes'] == {'length': '12in', 'voltage': '12V', 'weight': '10kg'}
+
 # Testing Angle
 def test_attributes_angle():
     recipe = """
@@ -523,6 +554,40 @@ def test_extract_codes_one_input_multi_output():
         'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
     )
 
+def test_extract_codes_first_element():
+    """
+    Test extract.codes using first_element
+    """
+    data = pd.DataFrame({
+        'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
+    })
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: col1
+          output: code
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['code'] == 'Z1ON0101'
+
+def test_extract_codes_first_element_lowercase_true():
+    """
+    Test extract.codes using first_element with true input as lowercase
+    """
+    data = pd.DataFrame({
+        'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
+    })
+    recipe = """
+    wrangles:
+      - extract.codes:
+          input: col1
+          output: code
+          first_element: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['code'] == 'Z1ON0101'
+
 #
 # Custom Extraction
 #
@@ -625,6 +690,24 @@ def test_extract_regex():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col_out'] == ['Pikachu']
+
+def test_extract_regex_first_element():
+    """
+    Tests extract.regex using first_element
+    """
+    data = pd.DataFrame({
+        'col': ['Random Pika Pika Pikachu Random']
+    })
+    recipe = """
+    wrangles:
+      - extract.regex:
+          input: col
+          output: col_out
+          find: Pika
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['col_out'] == 'Pika'
     
 def test_extract_regex_where():
     """
@@ -1105,6 +1188,35 @@ def test_extract_colours():
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     check_list = ['Blue', 'Red', 'White']
     assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
+
+def test_extract_colours_first_element():
+    """
+    Test extract.properties using property_type and first_element
+    """
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: colours
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Blue'
+
+def test_extract_properties_first_element_without_property_type():
+    """
+    Test error using first_element without property_type
+    """
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == {'Colours': 'Blue', 'Materials': 'Titanium', 'Shapes': 'Round', 'Standards': 'OSHA'}
     
 def test_extract_materials():
     recipe = """
@@ -1116,6 +1228,18 @@ def test_extract_materials():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Titanium']
+
+def test_extract_materials_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: materials
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Titanium'
     
 def test_extract_shapes():
     recipe = """
@@ -1127,6 +1251,18 @@ def test_extract_shapes():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['Round']
+
+def test_extract_shapes_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: shapes
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'Round'
     
 def test_extract_standards():
     recipe = """
@@ -1138,6 +1274,18 @@ def test_extract_standards():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
     assert df.iloc[0]['prop'] == ['OSHA']
+
+def test_extract_standards_first_element():
+    recipe = """
+    wrangles:
+    - extract.properties:
+        input: Tool
+        output: prop
+        property_type: standards
+        first_element: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+    assert df.iloc[0]['prop'] == 'OSHA'
     
 # if the input is multiple columns (a list)
 def test_properties_5():
@@ -1300,7 +1448,24 @@ def test_extract_brackets_multi_input_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
-    
+
+def test_extract_brackets_first_element():
+    """
+    Test extract.brackets using first_element.
+    """
+    data = pd.DataFrame({
+        'col': ['[stuff], [things], [more stuff]']
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input: col
+          output: output
+          first_element: True
+    """
+    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert df.iloc[0]['output'] == "stuff"
+   
 #
 # Date Properties
 #
