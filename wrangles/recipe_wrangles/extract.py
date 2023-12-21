@@ -14,7 +14,7 @@ from .. import format as _format
 from .. import openai as _openai
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
@@ -44,10 +44,6 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
           - regions
           - countries
     """
-
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
@@ -205,7 +201,7 @@ def ai(
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def attributes(
     df: _pd.DataFrame,
@@ -288,10 +284,6 @@ def attributes(
         default: false
     $ref: "#/$defs/misc/unit_entity_map"
     """
-
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     if len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
@@ -315,7 +307,7 @@ def attributes(
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = False) -> _pd.DataFrame:
     """
@@ -344,10 +336,6 @@ def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = F
         default: false
     """
 
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
     else:
@@ -358,7 +346,7 @@ def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = F
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def codes(
     df: _pd.DataFrame,
@@ -390,9 +378,6 @@ def codes(
           If false, will return all results as a list.
         default: false
     """
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.codes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
@@ -404,7 +389,7 @@ def codes(
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def custom(
         df: _pd.DataFrame,
@@ -414,7 +399,7 @@ def custom(
         use_labels: bool = False,
         first_element: bool = False,
         case_sensitive: bool = False
-        ) -> _pd.DataFrame:
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -471,7 +456,7 @@ def custom(
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
@@ -505,10 +490,6 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
           - week_year
           - quarter
     """
-
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     if len(output) == 1 and len(input) > 1:
         output = [output[0] for i in range(len(input))]
@@ -648,7 +629,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
@@ -677,10 +658,6 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
           - text
           - links
     """
-
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -689,7 +666,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def properties(
     df: _pd.DataFrame,
@@ -737,9 +714,6 @@ def properties(
           If false, will return all results as a list.
         default: false
     """
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.properties(
@@ -759,7 +733,7 @@ def properties(
     return df
 
 
-@_format_input_output()
+@_format_input_output(require_consistent_length=True)
 @_first_element_option()
 def regex(
     df: _pd.DataFrame,
@@ -796,10 +770,6 @@ def regex(
           If false, will return all results as a list.
         default: false
     """
-
-    # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
