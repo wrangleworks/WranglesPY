@@ -15,7 +15,6 @@ from .. import openai as _openai
 
 
 @_format_input_output(require_consistent_length=True)
-@_first_element_option()
 def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
     """
     type: object
@@ -57,8 +56,6 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
     return df
 
 
-@_format_input_output()
-@_first_element_option()
 def ai(
     df: _pd.DataFrame,
     output: list,
@@ -457,7 +454,6 @@ def custom(
 
 
 @_format_input_output(require_consistent_length=True)
-@_first_element_option()
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
     """
     type: object
@@ -630,7 +626,6 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
 
 
 @_format_input_output(require_consistent_length=True)
-@_first_element_option()
 def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
