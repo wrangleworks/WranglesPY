@@ -34,6 +34,7 @@ def format_input_output(require_consistent_length=False):
             if (
                 require_consistent_length
                 and len(arguments["input"]) != len(arguments["output"])
+                and len(arguments["output"]) > 1
             ):
                 raise ValueError("The lists for input and output must be the same length.")
             
