@@ -421,11 +421,12 @@ def test_attributes_single_input_multi_output():
             responseContent: span
             attribute_type: mass
     """
+    # df = wrangles.recipe.run(recipe, dataframe=data)
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+        'The lists for input and output must be the same length.' in info.value.args[0]
     )
 
 def test_attributes_where():
@@ -472,7 +473,7 @@ def test_codes_inconsistent_input_output():
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+        'The lists for input and output must be the same length.' in info.value.args[0]
     )
 
 # Input is string
@@ -551,7 +552,7 @@ def test_extract_codes_one_input_multi_output():
         raise wrangles.recipe.run(recipe, dataframe=df_test_codes_multi_input)
     assert (
         info.typename == 'ValueError' and
-        'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+        'The lists for input and output must be the same length.' in info.value.args[0]
     )
 
 def test_extract_codes_first_element():
@@ -727,6 +728,33 @@ def test_extract_regex_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
+
+def test_extract_regex_inconsistent_input_output():
+    """
+    Test error message with inconsistent input and output lengths.
+    """
+    data = pd.DataFrame({
+        'col1': ['Random Pikachu Random', 'Random', 'Random Random Pikachu'],
+        'col2': ['Not Pikachu', 'Charizard beat Pikachu', 'Stuff Pikachu']
+    })
+    recipe = """
+    wrangles:
+      - extract.regex:
+          input: 
+            - col1
+            - col2
+          output: 
+            - output1
+            - output2
+            - output3
+          find: P\w+u
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 # incorrect model_id - forget to use ${}
 def test_extract_custom_6():
@@ -818,6 +846,29 @@ def test_extract_custom_mulit_input_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
     assert df.iloc[0]['Fact2'] == ['Charizard']
+    
+def test_extract_custom_inconsistent_input_output():
+    """
+    Test error message with inconsistent input and output lengths.
+    """
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input:
+            - col1
+            - col2
+          output:
+            - Fact1
+            - Fact2
+            - Fact3
+          model_id: 1eddb7e8-1b2b-4a52
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=df_test_custom_multi_input)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 def test_extract_custom_where():
     """
@@ -1307,6 +1358,33 @@ def test_properties_5():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out2'] == ['Blue']
     
+def test_properties_inconsistent_input_output():
+    """
+    Test error message with inconsistent input and output lengths.
+    """
+    data = pd.DataFrame({
+        'col1': ['Why is the sky blue?'],
+        'col2': ['Temperature of a star if it looks blue'],
+    })
+    recipe = """
+    wrangles:
+      - extract.properties:
+          input:
+            - col1
+            - col2
+          output:
+            - out1
+            - out2
+            - out3
+          property_type: colours
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
+    
 # if the input and output are not the same type
 def test_properties_6():
     data = pd.DataFrame({
@@ -1344,6 +1422,34 @@ def test_extract_html_text():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Text'] == 'Wrangle Works!'
+
+def test_extract_html_inconsistent_input_output():
+    """
+    Test error message with inconsistent input and output lengths.
+    """
+    data = pd.DataFrame({
+        'col1': ['<a href="https://www.wrangleworks.com/">Wrangle Works!</a>',],
+        'col2': ['<a href="https://www.wrangles.io/">Wrangles Documentation!</a>',],
+        'col3': ['<a href="https://www.regex101.com/">Regular Expressions!</a>',],
+    })
+    recipe = """
+    wrangles:
+      - extract.html:
+          input:
+            - col1
+            - col2
+            - col3
+          output: 
+            - output1
+            - output2
+          data_type: text
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
     
 # Links
 def test_extract_html_links():
@@ -1449,6 +1555,35 @@ def test_extract_brackets_multi_input_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == '' and df.iloc[1]['output'] == ['this is in brackets'] and df.iloc[2]['output'] == ['more stuff in brackets', 'But this is']
 
+def test_extract_brackets_inconsistent_input_output():
+    """
+    Test the error when input and output are not the same length.
+    """
+    data = pd.DataFrame({
+        'col': ['[12345]'],
+        'col2': ['[6789]'],
+        'col3': ['[5678]']
+    })
+    recipe = """
+    wrangles:
+      - extract.brackets:
+          input:
+            - col
+            - col2
+            - col3
+          output: 
+            - output1
+            - output2
+    """
+    # df = wrangles.recipe.run(recipe, dataframe=data)
+    # assert df.iloc[0]['output'] == ['12345', '6789']
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
+
 def test_extract_brackets_first_element():
     """
     Test extract.brackets using first_element.
@@ -1541,6 +1676,34 @@ def test_date_properties_multi_input_multi_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == 'Sunday' and df.iloc[0]['out2'] == 'Monday'
+
+def test_date_properties_inconsistent_input_output():
+    """
+    Test the error when input and output are not the same length.
+    """
+    data = pd.DataFrame({
+        'col1': ['12/24/2000'],
+        'col2': ['4/24/2023'],
+        'col3': ['7/17/1907']
+    })
+    recipe = """
+    wrangles:
+      - extract.date_properties:
+          input: 
+            - col1
+            - col2
+            - col3
+          output: 
+            - out1
+            - out2
+          property: week_day_name
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        'The lists for input and output must be the same length.' in info.value.args[0]
+    )
 
 def test_date_properties_multi_input_multi_output_where():
     """
