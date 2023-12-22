@@ -437,7 +437,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3.  Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
@@ -459,7 +461,9 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3. Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
@@ -505,7 +509,8 @@ def python(
           - array
         description: |
           Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.
+          return a list of the corresponding length.  Note: spaces within
+           column names are replaced by underscores (_).
       command:
         type: string
         description: Python command. This must return a value.

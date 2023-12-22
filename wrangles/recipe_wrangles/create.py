@@ -288,7 +288,8 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
         type: object
         description: |
           A dictionary which defines the template/location as well as the form which the template is input.
-          If any keys use a space, they must be replaced with an underscore.
+          If any keys use a space, they must be replaced with an underscore.  Note: spaces within column names
+          are replaced by underscores (_).
         additionalProperties: false
         properties:
           file:
