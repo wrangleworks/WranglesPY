@@ -442,7 +442,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
@@ -462,7 +464,9 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
