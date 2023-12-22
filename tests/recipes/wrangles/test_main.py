@@ -1946,6 +1946,20 @@ def test_maths_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == 3
+
+def test_maths_column_spaces():
+    data = pd.DataFrame({
+        'col 1': [1, 1, 1],
+        'col 2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col_1 + col_2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
     
 # US spelling of maths
 def test_math_1():
@@ -1979,6 +1993,21 @@ def test_math_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == "" and df.iloc[2]['result'] == 14.0
+
+def test_math_column_spaces():
+    data = pd.DataFrame({
+        'col 1': [1, 1, 1],
+        'col 2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col_1 + col_2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
+    
 
 #
 # SQL
