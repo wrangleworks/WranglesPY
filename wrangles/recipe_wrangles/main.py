@@ -437,12 +437,16 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3.  Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
@@ -457,12 +461,16 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3. Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
@@ -501,7 +509,8 @@ def python(
           - array
         description: |
           Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.
+          return a list of the corresponding length.  Note: spaces within
+           column names are replaced by underscores (_).
       command:
         type: string
         description: Python command. This must return a value.
