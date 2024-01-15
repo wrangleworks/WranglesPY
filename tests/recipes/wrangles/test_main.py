@@ -786,6 +786,78 @@ def test_remove_words_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Product1'] == 'Bottle' and df.iloc[1]['Product2'] == 'Pipe' and df.iloc[2]['Product1'] == ""
 
+def test_remove_words_mixed_to_remove():
+    """
+    Having a list and strings in to_remove
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round"]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+          output: Out
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand 186 T18 Crown Staples, 333 Pack'
+    
+def test_remove_words_mixed_to_remove_2():
+    """
+    Having a list and numbers in to_remove
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round"],
+        'rem3': [333],
+        'rem4': [[186]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+          output: Out
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand T18 Crown Staples, Pack'
+    
+def test_remove_words_mixed_to_remove_3():
+    """
+    remove a mix of strings and numbers and lists using tokenize
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack express'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round Crown Staples"],
+        'rem3': [333],
+        'rem4': [[186]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand T18 Pack express'
+
 #
 # Rename
 #
