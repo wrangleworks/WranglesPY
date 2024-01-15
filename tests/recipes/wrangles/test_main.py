@@ -857,6 +857,63 @@ def test_remove_words_mixed_to_remove_3():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].iloc[0] == 'Brand T18 Pack express'
+    
+def test_remove_words_mixed_to_remove_4():
+    """
+    Make sure parts of words are not cut off
+    """
+    data = pd.DataFrame({
+        'col': ['Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'],
+        'rem1': [['us']],
+        'rem2': ["Data"],
+        'rem3': [2],
+        'rem4': [["Rela"]],
+        'rem5': [["String"]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+            - rem5
+          output: Out
+          tokenize_to_remove: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+    
+def test_remove_words_mixed_to_remove_5():
+    """
+    Make sure parts of words are not cut off using tokenize
+    """
+    data = pd.DataFrame({
+        'col': ['Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'],
+        'rem1': [['us']],
+        'rem2': ["Data"],
+        'rem3': [2],
+        'rem4': [["Rela"]],
+        'rem5': [["String"]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+            - rem5
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+    
 
 #
 # Rename

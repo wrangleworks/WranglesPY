@@ -234,6 +234,9 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
         # flatten the _remove lists if necessary
         _remove = flatten_lists(_remove)
         
+        #Custom word boundary that considers a space, the start of the string, or the end of the string as a boundary
+        boundary = r'(?:\s|,|^|$)'
+        
         text = _in
         for remove in _remove:
             # Convert to string since _re.escape only accepts strings
@@ -244,15 +247,23 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
                 # Tokenize                        
                 token_remove = _re.split(r'\s|,', remove)
                 for subtoken in token_remove:
-                    subtoken = _re.escape(subtoken) # escape the special characters just in case
-                    text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)
-                    text = text.strip()
+                    subtoken = _re.escape(subtoken)  # escape the special characters just in case
+
+                    # Use the custom word boundary in the regex pattern
+                    pattern = r'{}{}{}'.format(boundary, subtoken, boundary)
+
+                    # Use re.sub with the custom pattern, and remove extra spaces
+                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
             else:
                 remove = _re.escape(remove) # escape the special characters just in case
-                text = _re.sub(r''+ remove + ',?' + r'(?=\s|$)', '', text, flags=flags)
-                text = text.strip()
-            
+                
+                # Use the custom word boundary in the regex pattern
+                pattern = r'{}{}{}'.format(boundary, remove, boundary)
+                
+                # Use re.sub with the custom pattern, and remove extra spaces
+                text = _re.sub(pattern, ' ', text, flags=flags).strip()
+                
             # remove any double spaces
             text = _re.sub(r'\s+', ' ', text)
         results.append(text)
