@@ -1314,7 +1314,27 @@ def test_similarity_adjusted_cosine():
             method: adjusted cosine
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Cos Sim'] == 0.11897867399060302 and df.iloc[1]['Cos Sim'] == 1.0
+    assert df.iloc[0]['Cos Sim'] == 0.119 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_min():
+    """
+    Ensure adjusted cosine does not go below 0
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,-5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.0 and df.iloc[1]['Cos Sim'] == 1.0
 
 def test_similarity_adjusted_cosine_1_D():
     """
