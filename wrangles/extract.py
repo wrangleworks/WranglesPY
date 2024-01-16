@@ -6,7 +6,7 @@ from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-from .format import tokenize
+from .format import tokenize, flatten_lists
 
 
 def address(input: _Union[str, list], dataType: str) -> list:
@@ -231,25 +231,39 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
             # Make appropriate changes to the input to convert to a string
             _in = ' '.join(_in)
         
-        # check if the to_remove is a list of lists
-        if isinstance(_remove[0], list):
-            _remove = [item for sublist in _remove for item in sublist]
+        # flatten the _remove lists if necessary
+        _remove = flatten_lists(_remove)
+        
+        #Custom word boundary that considers a space, the start of the string, or the end of the string as a boundary
+        boundary = r'(?:\s|,|^|$)'
         
         text = _in
         for remove in _remove:
+            # Convert to string since _re.escape only accepts strings
+            remove = str(remove)
+            
             # if Tokenize is true
             if tokenize_to_remove == True:
-                for token_remove in [_re.split(r'\s|,', x) for x in _remove]:
-                    for subtoken in token_remove:
-                        subtoken = _re.escape(subtoken) # escape the special characters just in case
-                        text = _re.sub(r'' + subtoken + ',?' + r'(?=\s|$)', '', text, flags=flags)
-                        text = text.strip()
+                # Tokenize                        
+                token_remove = _re.split(r'\s|,', remove)
+                for subtoken in token_remove:
+                    subtoken = _re.escape(subtoken)  # escape the special characters just in case
+
+                    # Use the custom word boundary in the regex pattern
+                    pattern = r'{}{}{}'.format(boundary, subtoken, boundary)
+
+                    # Use re.sub with the custom pattern, and remove extra spaces
+                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
             else:
                 remove = _re.escape(remove) # escape the special characters just in case
-                text = _re.sub(r''+ remove + ',?' + r'(?=\s|$)', '', text, flags=flags)
-                text = text.strip()
-            
+                
+                # Use the custom word boundary in the regex pattern
+                pattern = r'{}{}{}'.format(boundary, remove, boundary)
+                
+                # Use re.sub with the custom pattern, and remove extra spaces
+                text = _re.sub(pattern, ' ', text, flags=flags).strip()
+                
             # remove any double spaces
             text = _re.sub(r'\s+', ' ', text)
         results.append(text)

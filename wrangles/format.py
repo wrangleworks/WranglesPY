@@ -9,6 +9,8 @@ def join_list(input_list, join_char):
     results = [join_char.join(x) for x in input_list]
     return results
 
+def flatten_lists(lst):
+    return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
 
 def concatenate(data_list, concat_char):
     """
