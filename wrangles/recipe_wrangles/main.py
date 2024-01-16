@@ -762,11 +762,15 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
 
     elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
-            1 - _math.acos(
-                _np.dot(x, y)
-                /
-                (_np.linalg.norm(x) * _np.linalg.norm(y)) 
-            )
+            round(max(min(
+              1 - _math.acos(
+                  round(
+                    _np.dot(x, y)
+                    /
+                    (_np.linalg.norm(x) * _np.linalg.norm(y)),
+                    3
+                  )
+            ), 1), 0), 3)
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
         df[output] = similarity_list
