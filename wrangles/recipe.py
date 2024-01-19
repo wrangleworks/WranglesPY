@@ -150,7 +150,10 @@ def _load_recipe(
 
     :return: YAML Recipe converted to a dictionary
     """
-    _logging.info(": Reading Recipe ::")
+    if isinstance(recipe, str) and "\n" not in recipe:
+        _logging.info(f": Reading Recipe :: {recipe}")
+    else:
+        _logging.info(": Reading Recipe :: inline")
     
     # Dict to store functions stored within a model
     model_functions = {}
