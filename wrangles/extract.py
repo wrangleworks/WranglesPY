@@ -98,7 +98,14 @@ def codes(input: _Union[str, list]) -> list:
     return results
 
 
-def custom(input: _Union[str, list], model_id: str, first_element: bool = False, use_labels: bool = False, case_sensitive: bool = False) -> list:
+def custom(
+        input: _Union[str, list],
+        model_id: str,
+        first_element: bool = False,
+        use_labels: bool = False,
+        case_sensitive: bool = False,
+        extract_raw: bool = False
+        ) -> list:
 
     """
     Extract entities using a custom model.
@@ -124,7 +131,7 @@ def custom(input: _Union[str, list], model_id: str, first_element: bool = False,
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
-    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels, 'caseSensitive': case_sensitive}
+    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels, 'caseSensitive': case_sensitive, 'extract_raw': extract_raw}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')

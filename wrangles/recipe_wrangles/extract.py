@@ -392,7 +392,8 @@ def custom(
         output: _Union[str, list] = None,
         use_labels: bool = False,
         first_element: bool = False,
-        case_sensitive: bool = False
+        case_sensitive: bool = False,
+        extract_raw: bool = False
         ) -> _pd.DataFrame:
     """
     type: object
@@ -426,6 +427,9 @@ def custom(
       case_sensitive:
         type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
+      extract_raw:
+        type: boolean
+        description: Extract the raw data from the wrangle
     """
     if output is None: output = input
     
@@ -438,16 +442,37 @@ def custom(
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+            df[out_col] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                extract_raw=extract_raw
+                )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+        df[output[0]] = _extract.custom(
+            _format.concatenate(df[input].astype(str).values.tolist(), ' '),
+            model_id=model_id[0],
+            first_element=first_element,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            extract_raw=extract_raw
+            )
     
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+            df[out_col] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                extract_raw=extract_raw
+                )
         
     return df
 
