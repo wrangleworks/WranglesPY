@@ -520,7 +520,7 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     return df
 
 
-def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Return characters from the middle of text.
@@ -559,10 +559,22 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Set start and end parameters
+    if start is None:
+        start = 1
+        start_param = None
+    else:
+        start_param = start - 1
+    
+    if length is None:
+        end_param = None
+    else:
+        end_param = start + length - 1
 
     # Loop through and get the substring requested for all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[start-1:start+length-1]
+        df[output_column] = df[input_column].str[start_param:end_param]
 
     return df
 
