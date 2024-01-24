@@ -631,6 +631,40 @@ def test_substring_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == ' Two'
 
+def test_substring_no_length():
+    """
+    Test select.substring with no length
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            start: 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == ' Two Three Four'
+
+def test_substring_no_start():
+    """
+    Test select.substring with no start
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            length: 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'One '
+
 # Test the error with a list of inputs and a single output
 def test_substring_multi_input_single_output():
     """
