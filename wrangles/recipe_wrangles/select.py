@@ -542,11 +542,14 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
         description: Name of the output column(s)
       start:
         type: integer
-        description: The position of the first character to select
+        description: The position of the first character to select.
+          If ommited will start from the beginning and length must 
+          be provided.
         minimum: 1
       length:
         type: integer
-        description: The length of the string to select
+        description: The length of the string to select. If ommited
+          will select to the end of the string and start must be provided.
         minimum: 1
     """
     # If user hasn't provided an output, replace input
@@ -559,6 +562,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Ensure start or length have been provided
+    if start is None and length is None:
+        raise ValueError('Either start or length must be provided.')
     
     # Set start and end parameters
     if start is None:
