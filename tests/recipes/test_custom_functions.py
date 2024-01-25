@@ -1264,3 +1264,79 @@ def test_from_file():
         functions="tests/samples/custom_functions.py"
     )
     assert df['header2'][0] == "VALUE1"
+
+def test_variable_function():
+    """
+    Test a custom function for variables
+    that does not have any arguments
+    """
+    def func():
+        return 5
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: ${key}
+              values:
+                header1: value1
+        """,
+        variables={
+            "key": "custom.func"
+        },
+        functions=func
+    )
+
+    assert len(df) == 5
+
+def test_variable_function_with_arg():
+    """
+    Test a custom function for variables
+    that takes an argument
+    """
+    def func(variables):
+        return variables["var"] + 1
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: ${key}
+              values:
+                header1: value1
+        """,
+        variables={
+            "var": 5,
+            "key": "custom.func"
+        },
+        functions=func
+    )
+
+    assert len(df) == 6
+
+def test_variable_function_invalid_args():
+    """
+    Test a custom function for variables
+    that does not have the correct arguments
+    """
+    def func(a, b):
+        return 5
+
+    with pytest.raises(TypeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func"
+            },
+            functions=func
+        )
+    assert (
+        error.typename == 'TypeError' and
+        "must have 0 or 1 arguments" in error.value.args[0]
+    )
