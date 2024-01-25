@@ -4,6 +4,7 @@ Functions to convert data formats and representations
 import json as _json
 from typing import Union as _Union
 import re as _re
+import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
@@ -262,6 +263,14 @@ def to_json(
         type: boolean
         description: If true, non-ASCII characters will be escaped. Default is false 
     """
+    def handle_unusual_datatypes(o):
+        if isinstance(o, _np.ndarray):
+            return o.tolist()
+        if isinstance(o, (_np.integer, _np.floating)):
+            return o.item()
+        else:
+            return o.__str__()
+
     # Set output column as input if not provided
     if output is None: output = input
     
@@ -276,9 +285,14 @@ def to_json(
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
-            _json.dumps(row, ensure_ascii=ensure_ascii, **kwargs) 
-            for row in df[input_columns].values.tolist()
-            ]
+            _json.dumps(
+                row,
+                ensure_ascii=ensure_ascii,
+                default=handle_unusual_datatypes,
+                **kwargs
+            ) 
+            for row in df[input_columns].values
+        ]
         
     return df
 

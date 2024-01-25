@@ -1042,3 +1042,33 @@ def test_create_embeddings_multi_column():
         isinstance(df["embedding2"][0], list) and
         len(df["embedding2"][0]) == 1536
     )
+
+def test_create_embeddings_np_array_with_where():
+    """
+    Test using where with a numpy array
+    created by create.embeddings
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              output_type: numpy array
+              retries: 1
+
+          - convert.case:
+              input: text
+              where: "text LIKE '%not%'"
+              case: upper
+        """,
+        dataframe=pd.DataFrame({
+            "text": ["This is a test", "This is not a test"]
+        })
+    )
+    assert (
+        isinstance(df["embedding"][0], (np.ndarray, np.float32)) and
+        len(df["embedding"][0]) == 1536 and
+        df["text"].values.tolist() == ['This is a test', 'THIS IS NOT A TEST']
+    )
