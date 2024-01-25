@@ -542,13 +542,15 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
         description: Name of the output column(s)
       start:
         type: integer
-        description: The position of the first character to select.
+        description: |
+          The position of the first character to select.
           If ommited will start from the beginning and length must 
           be provided.
         minimum: 1
       length:
         type: integer
-        description: The length of the string to select. If ommited
+        description: |
+          The length of the string to select. If ommited
           will select to the end of the string and start must be provided.
         minimum: 1
     """
