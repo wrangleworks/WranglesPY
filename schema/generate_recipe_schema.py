@@ -131,7 +131,7 @@ def getMethodDocs(schema_wrangles, obj, path):
     else:
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
-            if 'type' in schema_wrangle.keys():
+            if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
                 schema_wrangles[path[1:]] = schema_wrangle
         except Exception as e:
             logging.warning(f'{obj} description={e}')
