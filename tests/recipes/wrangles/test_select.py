@@ -665,6 +665,26 @@ def test_substring_no_start():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'One '
 
+def test_substring_no_start_no_length():
+    """
+    Test select.substring error with no start or length
+    """
+    data = pd.DataFrame({
+    'Col1': ['One Two Three Four'],
+    'Col2': ['A B C D']
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+    """
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        "Either start or length must be provided." in info.value.args[0]
+    )
+
 # Test the error with a list of inputs and a single output
 def test_substring_multi_input_single_output():
     """
