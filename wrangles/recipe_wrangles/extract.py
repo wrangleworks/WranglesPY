@@ -87,7 +87,10 @@ def ai(
         type:
           - string
           - array
-        description: Name or list of input columns.
+        description: |-
+          Name or list of input columns to give to the AI
+          to use to determine the output. If not specified, all
+          columns will be used.
       output:
         type: object
         description: List and description of the output you want
