@@ -1161,6 +1161,52 @@ def test_rename_column_named_functions():
     )
     assert df.columns.tolist() == ["renamed"]
 
+def test_rename_wrangles_columns_missing_error():
+    """
+    If user doesn't return a column named columns
+    ensure an appropriate error is show
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - rename:
+                        columns: cause_error
+            """
+        )
+    assert "column named 'columns' must be returned" in error.value.args[0]
+
+def test_rename_wrangles_filtered_error():
+    """
+    When renaming, if the user changes the length of the output columns
+    by wrangling then ensure an appropriate error is returned.
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - filter:
+                        where: columns = 'header1'
+            """
+        )
+    assert "same length as the input" in error.value.args[0]
+
 #
 # Cosine Similarity
 #
