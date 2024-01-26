@@ -227,7 +227,11 @@ def ai(
             [retries] * len(df),
         ))
 
-    exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+    try:
+      exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+    except:
+      raise RuntimeError("Unable to parse response from AI model")
+
     # Ensure all the required keys are included in the output,
     # even if chatGPT doesn't preserve them
     for col in output.keys():
