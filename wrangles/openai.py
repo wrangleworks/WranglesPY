@@ -108,7 +108,8 @@ def _embedding_thread(
     api_key: str,
     model: str,
     url: str,
-    retries: int = 0
+    retries: int = 0,
+    request_params: dict = {}
 ):
     """
     Get embeddings 
@@ -116,7 +117,9 @@ def _embedding_thread(
     :param input_list: List of strings to generate embeddings for
     :param api_key: API key for the provider
     :param model: Specific model to use
+    :param url: Set the URL. Must implement the OpenAI embeddings API.
     :param retries: Number of times to retry. This will exponentially backoff.
+    :param request_params: Additional request parameters to pass to the backend.
     """
     response = None
     backoff_time = 5
@@ -132,7 +135,8 @@ def _embedding_thread(
                 "input": [
                     str(val) if val != "" else " " 
                     for val in input_list
-                ]
+                ],
+                **request_params
             }
         )
 
@@ -161,7 +165,8 @@ def embeddings(
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,
-    url: str = "https://api.openai.com/v1/embeddings"
+    url: str = "https://api.openai.com/v1/embeddings",
+    **kwargs
 ) -> list:
     """
     Generate embeddings for a list of strings.
@@ -190,7 +195,8 @@ def embeddings(
             [api_key] * len(batches),
             [model] * len(batches),
             [url] * len(batches),
-            [retries] * len(batches)
+            [retries] * len(batches),
+            [kwargs] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))

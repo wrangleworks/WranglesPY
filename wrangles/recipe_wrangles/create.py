@@ -146,12 +146,12 @@ def embeddings(
     output_type: str = "python list",
     model: str = "text-embedding-ada-002",
     retries: int = 0,
-    url: str = "https://api.openai.com/v1/embeddings"
+    url: str = "https://api.openai.com/v1/embeddings",
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
     description: Create an embedding based on text input.
-    additionalProperties: false
     required:
       - input
       - api_key
@@ -215,7 +215,8 @@ def embeddings(
             batch_size,
             threads,
             retries,
-            url
+            url,
+            **kwargs
         )
 
         if output_type == 'python list':
