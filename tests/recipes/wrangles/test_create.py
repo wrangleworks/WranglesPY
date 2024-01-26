@@ -348,17 +348,52 @@ def test_create_column_succinct_8():
 #
 # Index
 #
-def test_create_index_1():
-    data = pd.DataFrame([['one', 'two'], ['une', 'deux'], ['uno', 'dos']], columns=['column1', 'column2'])
-    recipe = """
-        wrangles:
-            - create.index:
-                output: index_col
-                start: 1
-                
+def test_create_index():
+    df = wrangles.recipe.run(
         """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[-1]['index_col'] == 3
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+        """
+    )
+    assert df["index_col"].values.tolist() == [1,2,3]
+
+def test_create_index_start():
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+              start: 0
+        """
+    )
+    assert df["index_col"].values.tolist() == [0,1,2]
+
+def test_create_index_step():
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+              step: 2
+        """
+    )
+    assert df["index_col"].values.tolist() == [1,3,5]
 
 def test_create_index_where():
     """
@@ -372,11 +407,67 @@ def test_create_index_where():
         wrangles:
             - create.index:
                 output: index_col
-                start: 1
                 where: numbers > 3
         """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['index_col'] == '' and df.iloc[2]['index_col'] == 2.0
+    assert df.iloc[0]['index_col'] == '' and df.iloc[2]['index_col'] == 2
+
+def test_create_index_by_columns():
+    """
+    Test an index clustered by multiple columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by:
+                - column1
+                - column2
+        """,
+        dataframe=pd.DataFrame({
+            "column1": ["a","a","b","b","a","b"],
+            "column2": ["a","a","b","c","a","b"],
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [1,2,1,1,3,2]
+
+def test_create_index_by_column():
+    """
+    Test an index clustered by a column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["a","a","b","b","a"]
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [1,2,1,2,3]
+
+def test_create_index_by_column_start_step():
+    """
+    Test an index clustered by a column
+    with start and step
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by: column
+              start: 0
+              step: 2
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["a","a","b","b","a"]
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [0,2,0,2,4]
 
 #
 # GUID

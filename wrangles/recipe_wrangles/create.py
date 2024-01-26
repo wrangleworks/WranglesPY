@@ -237,10 +237,16 @@ def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     return uuid(df, output)
 
 
-def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: int = 1) -> _pd.DataFrame:
+def index(
+    df: _pd.DataFrame,
+    output: _Union[str, list],
+    start: int = 1,
+    step: int = 1,
+    by = None,
+) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with an incremental index.
+    description: Create column(s) with an incremental index. e.g. 1,2,3...
     additionalProperties: false
     required:
       - output
@@ -256,13 +262,37 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
       step:
         type: integer
         description: (Optional; default 1) Step between successive rows
+      by:
+        type:
+          - string
+          - array
+        description: Optional. Cluster the created indexes by one or more columns
     """
+    # Ensure by is a list
+    if by != None and not isinstance(by, list):
+        by = [by]
+
     # If a string provided, convert to list
     if isinstance(output, str): output = [output]
 
+    if by == None:
+        # Quickly create a sequence using numpy
+        index_values = _np.arange(start, len(df) * step + start, step=step)
+    else:
+        # Track incrementing values for each column in by
+        idx_map = {}
+        index_values = []
+        for x in df[by].values:
+            row_tuple = tuple(x.tolist())
+            if row_tuple in idx_map:
+                idx_map[row_tuple] = idx_map[row_tuple] + step
+            else:
+                idx_map[row_tuple] = start
+            index_values.append(idx_map[row_tuple])
+
     # Loop through and create incremental index
     for output_column in output:
-        df[output_column] = _np.arange(start, len(df) * step + start, step=step)
+        df[output_column] = index_values
 
     return df
 
