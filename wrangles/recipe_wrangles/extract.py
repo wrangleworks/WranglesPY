@@ -69,7 +69,7 @@ def ai(
     input: list = None,
     model: str = "gpt-3.5-turbo",
     threads: int = 10,
-    timeout: int = 15,
+    timeout: int = 25,
     retries: int = 0,
     messages: list = [],
     url: str = "https://api.openai.com/v1/chat/completions",
