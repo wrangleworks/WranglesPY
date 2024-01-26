@@ -629,7 +629,13 @@ def remove_words(
     return df
 
 
-def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def rename(
+    df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+    wrangles: list = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Rename a column or list of columns.
@@ -644,7 +650,26 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
           - string
           - array
         description: Name or list of output columns.
+      wrangles:
+        type: array
+        description: |-
+          Use wrangles to transform the column names. The input is named 'columns'
+          This can only be used instead of the standard rename.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
     """
+    # Allow using wrangles to manipulate the column names
+    if wrangles:
+        input = df.columns.tolist()
+        output = _wrangles.recipe.run(
+            {"wrangles": wrangles},
+            dataframe=_pd.DataFrame({
+                "columns": df.columns.tolist()
+            }),
+            functions=kwargs.get("functions", {})
+        )["columns"].tolist()
+
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists

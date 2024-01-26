@@ -1096,7 +1096,70 @@ def test_rename_into_existing_column_input():
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
 
+def test_rename_wrangles():
+    """
+    Use wrangles to rename columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: upper
+        """
+    )
+    assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+def test_rename_custom_function():
+    """
+    Test that a custom function for rename wrangles works correctly
+    """
+    def func(columns):
+        return columns + "_1"
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - custom.func:
+                    output: columns
+        """,
+        functions=func
+    )
+    assert df.columns.tolist() == ["header1_1","header2_1"]
+
+def test_rename_column_named_functions():
+    """
+    Test that a column named functions is still
+    renamed correctly.
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 5
+            values:
+                functions: value
+        wrangles:
+        - rename:
+            functions: renamed
+        """
+    )
+    assert df.columns.tolist() == ["renamed"]
 
 #
 # Cosine Similarity
