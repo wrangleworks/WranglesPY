@@ -73,8 +73,18 @@ def chatGPT(
                 else:
                     return e
 
-        if response and response.ok:
+        if response.ok:
             break
+        else:
+            try:
+                error_message = response.json().get('error').get('message')
+            except:
+                error_message = ""
+            if error_message:
+                if "Invalid schema" in error_message:
+                    raise ValueError("The schema submitted for output is not valid.")
+                if "Incorrect API key" in error_message:
+                    raise ValueError("API Key provided is missing or invalid.")
  
         retries -=1
         _time.sleep(backoff_time)

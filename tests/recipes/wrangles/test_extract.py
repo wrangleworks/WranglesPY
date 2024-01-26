@@ -1746,3 +1746,55 @@ def test_ai_array_item_type_specified():
         })
     )
     assert df['count'][0] == [3,5,2]
+
+def test_ai_bad_schema():
+    """
+    Test that an appropriate error is returned
+    if the schema is not valid
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: ${OPENAI_API_KEY}
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: invalid
+                    description: >-
+                        Any lengths found in the data
+                        such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm"],
+            })
+        )
+    assert "schema submitted for output is not valid" in error.value.args[0]
+
+def test_ai_invalid_apikey():
+    """
+    Test that an appropriate error is returned
+    if the api key is invalid
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: abc123
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: invalid
+                    description: >-
+                        Any lengths found in the data
+                        such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm"],
+            })
+        )
+    assert "API Key" in error.value.args[0]
