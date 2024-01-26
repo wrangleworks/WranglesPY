@@ -665,7 +665,84 @@ def test_from_json_array_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header1'] == '["val1", "val2"]' and isinstance(df.iloc[1]['header1'], list)
-    
+
+def test_from_json_error():
+    """
+    Test that bad values return an appropriate error
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input: header1
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]']
+            })
+        )
+    assert "Unable to load all rows as JSON" in error.value.args[0]
+
+def test_from_json_default_array():
+    """
+    Test that a default applies correctly for error values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - convert.from_json:
+            input: header1
+            default: []
+        """,
+        dataframe=pd.DataFrame({
+            "header1": ["", '[1,2,3]']
+        })
+    )
+    assert (
+        df["header1"][0] == [] and
+        df["header1"][1] == [1,2,3]
+    )
+
+def test_from_json_default_dict_empty():
+    """
+    Test that a default applies correctly for empty values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - convert.from_json:
+            input: header1
+            default: {}
+        """,
+        dataframe=pd.DataFrame({
+            "header1": ["", '[1,2,3]']
+        })
+    )
+    assert (
+        df["header1"][0] == {} and
+        df["header1"][1] == [1,2,3]
+    )
+
+def test_from_json_default_dict_error():
+    """
+    Test that a default applies correctly for error values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - convert.from_json:
+            input: header1
+            default: {}
+        """,
+        dataframe=pd.DataFrame({
+            "header1": ['{"a":"b":"c"}', '[1,2,3]']
+        })
+    )
+    assert (
+        df["header1"][0] == {} and
+        df["header1"][1] == [1,2,3]
+    )
+
 #
 # Convert to datetime
 #
@@ -868,4 +945,70 @@ def test_from_yaml():
     assert (
         _json.dumps(df['column'][0]) == 
         _json.dumps({"key": "val", "key2": ["list1", "list2"]})
+    )
+
+def test_from_yaml_empty_default_list():
+    """
+    Test converting a YAML to an object
+    with a default for empty values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_yaml:
+              input: column
+              default: []
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
+        })
+    )
+    assert (
+        df["column"][0] == [] and
+        df["column"][1]["key"] == "val"
+    )
+
+def test_from_yaml_empty_default_dict():
+    """
+    Test converting a YAML to an object
+    with a default for empty values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_yaml:
+              input: column
+              default: {}
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
+        })
+    )
+    assert (
+        df["column"][0] == {} and
+        df["column"][1]["key"] == "val"
+    )
+
+def test_from_yaml_error_default_dict():
+    """
+    Test converting YAML to an object
+    with a default for error values
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_yaml:
+              input: column
+              default: {}
+        """,
+        dataframe=pd.DataFrame({
+            "column": [
+                " key: val\nkey2:\n- list1\n- list2\n",
+                "key: val\nkey2:\n- list1\n- list2\n"
+            ]
+        })
+    )
+    assert (
+        df["column"][0] == {} and
+        df["column"][1]["key"] == "val"
     )
