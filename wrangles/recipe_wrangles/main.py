@@ -629,7 +629,13 @@ def remove_words(
     return df
 
 
-def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def rename(
+    df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+    wrangles: list = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Rename a column or list of columns.
@@ -644,7 +650,41 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
           - string
           - array
         description: Name or list of output columns.
+      wrangles:
+        type: array
+        description: |-
+          Use wrangles to transform the column names.
+          The input is named 'columns' and the final result
+          must also include the column named 'columns'.
+          This can only be used instead of the standard rename.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
     """
+    # Allow using wrangles to manipulate the column names
+    if wrangles:
+        input = df.columns.tolist()
+        try:
+            output = _wrangles.recipe.run(
+                {"wrangles": wrangles},
+                dataframe=_pd.DataFrame({
+                    "columns": input
+                }),
+                functions=kwargs.get("functions", {})
+            )["columns"].tolist()
+        except:
+            raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
+    
+        if len(input) != len(output):
+            raise RuntimeError(
+                "If using wrangles to rename columns, " +
+                "the results must be the same length as the input columns."
+            )
+    else:
+        # Drop functions if not needed
+        if isinstance(kwargs["functions"], dict):
+            del kwargs["functions"]
+
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists
