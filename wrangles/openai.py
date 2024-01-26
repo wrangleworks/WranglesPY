@@ -107,6 +107,7 @@ def _embedding_thread(
     input_list: list,
     api_key: str,
     model: str,
+    url: str,
     retries: int = 0
 ):
     """
@@ -118,10 +119,10 @@ def _embedding_thread(
     :param retries: Number of times to retry. This will exponentially backoff.
     """
     response = None
-
+    backoff_time = 5
     while (retries + 1):
         response = _requests.post(
-            url="https://api.openai.com/v1/embeddings",
+            url=url,
             headers={
                 "Authorization": f"Bearer {api_key}"
             },
@@ -139,7 +140,8 @@ def _embedding_thread(
             break
 
         retries -=1
-
+        _time.sleep(backoff_time)
+        backoff_time *= 2
 
     if response and response.ok:
         return [
@@ -158,7 +160,8 @@ def embeddings(
     model: str = "text-embedding-ada-002",
     batch_size: int = 100,
     threads: int = 10,
-    retries: int = 0
+    retries: int = 0,
+    url: str = "https://api.openai.com/v1/embeddings"
 ) -> list:
     """
     Generate embeddings for a list of strings.
@@ -176,6 +179,7 @@ def embeddings(
           Each request contains the number of rows set as batch_size.
     :param retries: The number of times to retry. This will exponentially \
           backoff to assist with rate limiting
+    :param url: Set the URL. Must implement the OpenAI embeddings API.
     :return: A list of embeddings corresponding to the input
     """
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -185,6 +189,7 @@ def embeddings(
             batches,
             [api_key] * len(batches),
             [model] * len(batches),
+            [url] * len(batches),
             [retries] * len(batches)
         ))
 
