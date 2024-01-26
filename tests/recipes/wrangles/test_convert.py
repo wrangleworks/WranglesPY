@@ -2,6 +2,7 @@ import wrangles
 import pandas as pd
 import pytest
 import json as _json
+import numpy as _np
 
 
 #
@@ -509,6 +510,70 @@ def test_to_json_ensure_ascii_default():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
+
+def test_to_json_numpy_array():
+    """
+    Test converting a numpy array to json
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_json:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [_np.array([1, "a"], dtype=object)]
+        })
+    )
+    assert df['column'][0] == '[1, "a"]'
+
+def test_to_json_datetime():
+    """
+    Test converting a datetime to json
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_json:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [pd.Timestamp('2020-01-01')]
+        })
+    )
+    assert df['column'][0][:22] == '"2020-01-01T00:00:00.0'
+
+def test_to_json_numpy_float():
+    """
+    Test converting a numpy float to json
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_json:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [[_np.float32(1)]]
+        }, dtype=object)
+    )
+    assert df['column'][0] == '[1.0]'
+
+def test_to_json_numpy_int():
+    """
+    Test converting a numpy float to json
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_json:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [[_np.int32(1)]]
+        }, dtype=object)
+    )
+    assert df['column'][0] == '[1]'
 
 def test_from_json_array():
     """
