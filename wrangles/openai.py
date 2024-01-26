@@ -12,6 +12,7 @@ def chatGPT(
     data: any,
     api_key: str,
     settings: dict,
+    url: str = "https://api.openai.com/v1/chat/completions",
     timeout: int = None,
     retries: int = 0,
 ):
@@ -45,7 +46,7 @@ def chatGPT(
     while (retries + 1):
         try:
             response = _requests.post(
-                url = "https://api.openai.com/v1/chat/completions",
+                url = url,
                 headers = {
                     "Authorization": f"Bearer {api_key}"
                 },

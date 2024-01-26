@@ -72,6 +72,7 @@ def ai(
     timeout: int = 15,
     retries: int = 0,
     messages: list = [],
+    url: str = "https://api.openai.com/v1/chat/completions",
     **kwargs
 ):
     """
@@ -141,6 +142,11 @@ def ai(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      url:
+        type: string
+        description: |-
+          Overall the default url for the AI endpoint.
+          Must use the OpenAI chat completions API.
       messages:
         type:
           - string
@@ -213,6 +219,7 @@ def ai(
             df_temp.to_dict(orient='records'), 
             [api_key] * len(df),
             [settings] * len(df),
+            [url] * len(df),
             [timeout] * len(df),
             [retries] * len(df),
         ))
