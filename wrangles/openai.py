@@ -12,6 +12,7 @@ def chatGPT(
     data: any,
     api_key: str,
     settings: dict,
+    url: str = "https://api.openai.com/v1/chat/completions",
     timeout: int = None,
     retries: int = 0,
 ):
@@ -45,7 +46,7 @@ def chatGPT(
     while (retries + 1):
         try:
             response = _requests.post(
-                url = "https://api.openai.com/v1/chat/completions",
+                url = url,
                 headers = {
                     "Authorization": f"Bearer {api_key}"
                 },
@@ -73,8 +74,19 @@ def chatGPT(
                 else:
                     return e
 
-        if response and response.ok:
+        if response.ok:
             break
+        else:
+            try:
+                error_message = response.json().get('error').get('message')
+            except:
+                error_message = ""
+            # Raise errors for fatal errors rather than continuing
+            if error_message:
+                if "Invalid schema" in error_message:
+                    raise ValueError("The schema submitted for output is not valid.")
+                if "Incorrect API key" in error_message:
+                    raise ValueError("API Key provided is missing or invalid.")
  
         retries -=1
         _time.sleep(backoff_time)
@@ -85,15 +97,20 @@ def chatGPT(
             function_call = response.json()['choices'][0]['message']['function_call']
             return _json.loads(function_call['arguments'])
         except:
-            try:
-                return response.json()['choices']
-            except:
-                return response.text
-    else:
-        try:
-            return response.json()['error']['message']
-        except:
-            return 'Failed'
+            pass
+
+    # Attempt to get a useful error message
+    try:
+        error_message = response.json()['error']['message']
+    except:
+        error_message = "Failed"
+    
+    # Return error for each requested column
+    return {
+        param: error_message
+        for param in 
+        settings_local.get("functions", [])[0]["parameters"]["required"]
+    }
 
 def _divide_batches(l, n):
     """
