@@ -1369,3 +1369,118 @@ def test_tail():
         })
     )
     assert df["heading"].values.tolist() == [4,5,6]
+
+def test_sample_integer():
+    """
+    Test selecting a sample with a whole number 
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: 2
+        """
+    )
+    assert len(df) == 2
+
+def test_sample_fraction():
+    """
+    Test selecting a sample with a fraction
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 10
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: 0.2
+        """
+    )
+    assert len(df) == 2
+
+def test_sample_bad_value():
+    """
+    Test selecting a sample with
+    an invalid number for rows
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: <word>
+            wrangles:
+            - select.sample:
+                rows: -1
+            """
+        )
+    assert "must be a positive" in error.value.args[0]
+
+def test_sample_bad_type():
+    """
+    Test selecting a sample with
+    an invalid value for rows
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: <word>
+            wrangles:
+            - select.sample:
+                rows: a
+            """
+        )
+    assert "must be a positive" in error.value.args[0]
+
+def test_sample_greater_than_rows():
+    """
+    Test selecting a sample with a whole number
+    that is greater than the number of rows.
+    This should return the same number as
+    the original dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: 10
+        """
+    )
+    assert len(df) == 5
+
+def test_sample_where():
+    """
+    Test selecting a sample with a where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.sample:
+              rows: 2
+              where: header1 = 'a'
+        """,
+        dataframe=pd.DataFrame({
+            "header1": ["a","a","a","b","b","b"],
+            "header2": [-1,-2,-3,1,2,3]
+        })
+    )
+    assert len(df) == 2 and df["header2"][0] < 0
