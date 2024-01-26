@@ -1446,7 +1446,7 @@ def test_date_range_2():
 
 def test_ai():
     """
-    Test openai extrat with a single input and output
+    Test openai extract with a single input and output
     """
     df = wrangles.recipe.run(
         """
@@ -1657,3 +1657,92 @@ def test_ai_timeout_multiple_output():
         df['type'][1] == 'Timed Out' and
         df['type'][2] == 'Timed Out'
     )
+
+def test_ai_messages():
+    """
+    Test openai extract with a header level prompt
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              timeout: 60
+              retries: 2
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+              messages: All response text should be in upper case.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+    assert (
+        df['length'][0] == '25MM' and
+        df['length'][1] == '6M' and
+        df['length'][2] == '3MM'
+    )
+
+def test_ai_array_no_items():
+    """
+    Test openai extract with array but items type is
+    not specified. Defaults to string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              timeout: 60
+              retries: 2
+              output:
+                fruits:
+                  type: array
+                  description: >-
+                    Return the names of any fruits
+                    that are yellow
+              model: gpt-4-1106-preview
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+        })
+    )
+    assert df['fruits'][0] == ['bananas', 'lemons']
+
+def test_ai_array_item_type_specified():
+    """
+    Test openai extract with array where
+    the items type is specified
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              timeout: 60
+              retries: 2
+              output:
+                count:
+                  type: array
+                  items:
+                    type: integer
+                  description: >-
+                    Get all numbers from the input
+              model: gpt-4-1106-preview
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+        })
+    )
+    assert df['count'][0] == [3,5,2]

@@ -70,7 +70,9 @@ def ai(
     model: str = "gpt-3.5-turbo",
     threads: int = 10,
     timeout: int = 15,
-    retries: int = 0
+    retries: int = 0,
+    messages: list = [],
+    **kwargs
 ):
     """
     type: object
@@ -139,6 +141,11 @@ def ai(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      messages:
+        type:
+          - string
+          - array
+        description: Optional. Provide additional overall instructions for the AI.
     """
     if input is not None:
         if not isinstance(input, list):
@@ -147,7 +154,23 @@ def ai(
     else:
         df_temp = df
 
+    # Add a default for type array if not already specified.
+    # ChatGPT appears to need this to function correctly.
+    for k, v in output.items():
+        if v.get("type") == "array" and "items" not in v:
+            output[k]["items"] = {"type": "string"}
+
+    # Format any user submitted header messages
+    if not isinstance(messages, list): messages = [messages]
     messages = [
+        {
+            "role": "user",
+            "content": message
+        }
+        for message in messages
+    ]
+
+    system_messages = [
         {
             "role": "system",
             "content": " ".join([
@@ -163,11 +186,11 @@ def ai(
                 "Only use the functions you have been provided with.",
             ])
         },
-    ]
+    ] + messages
 
     settings = {
         "model": model,
-        "messages": messages,
+        "messages": system_messages,
         "temperature": 0,
         "functions": [
             {
@@ -180,7 +203,8 @@ def ai(
                 }
             }
         ],
-        'function_call': {"name": "parse_output"}
+        'function_call': {"name": "parse_output"},
+        **kwargs
     }
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -193,8 +217,7 @@ def ai(
             [retries] * len(df),
         ))
 
-    exploded_df = _pd.json_normalize(results, max_level=0).fillna('')
-    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
     # Ensure all the required keys are included in the output,
     # even if chatGPT doesn't preserve them
     for col in output.keys():
