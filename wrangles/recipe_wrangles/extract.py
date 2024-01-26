@@ -148,7 +148,7 @@ def ai(
       url:
         type: string
         description: |-
-          Overall the default url for the AI endpoint.
+          Override the default url for the AI endpoint.
           Must use the OpenAI chat completions API.
       messages:
         type:
