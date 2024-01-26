@@ -520,6 +520,37 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     return df
 
 
+def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return a random sample of the rows
+    required:
+      - rows
+    properties:
+      rows:
+        type:
+          - integer
+          - number
+        description: |-
+          If a whole number, will select that number of rows.
+          If a decimal between 0 and 1 will select that fraction 
+          of the rows e.g. 0.1 => 10% of rows will be returned
+        exclusiveMinimum: 0
+    """
+    if not isinstance(rows, (int, float)) or rows <= 0:
+        raise ValueError(
+            "rows must be a positive integer or a decimal between 0 and 1"
+        )
+
+    if rows >= 1:
+        if rows > len(df):
+            return df.sample(n=len(df), ignore_index=True, **kwargs)
+        else:
+            return df.sample(n=int(rows), ignore_index=True, **kwargs)
+    else:
+        return df.sample(frac=rows, ignore_index=True, **kwargs)
+
+
 def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
