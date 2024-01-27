@@ -55,21 +55,21 @@ def chatGPT(
             )
         except _requests.exceptions.ReadTimeout:
             if retries == 0:
-                if settings_local.get("functions", []):
+                if settings_local.get("tools", []):
                     return {
                         param: "Timed Out"
                         for param in 
-                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return "Timed Out"
         except Exception as e:
             if retries == 0:
-                if settings_local.get("functions", []):
+                if settings_local.get("tools", []):
                     return {
                         param: e
                         for param in 
-                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                        settings_local.get("tolls", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return e
@@ -94,8 +94,9 @@ def chatGPT(
 
     if response.ok:
         try:
-            function_call = response.json()['choices'][0]['message']['function_call']
-            return _json.loads(function_call['arguments'])
+            return _json.loads(
+                response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
+            )
         except:
             pass
 
@@ -109,7 +110,7 @@ def chatGPT(
     return {
         param: error_message
         for param in 
-        settings_local.get("functions", [])[0]["parameters"]["required"]
+        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
     }
 
 def _divide_batches(l, n):

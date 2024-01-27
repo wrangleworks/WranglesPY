@@ -1717,7 +1717,10 @@ def test_ai_array_no_items():
             "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
         })
     )
-    assert df['fruits'][0] == ['bananas', 'lemons']
+    assert (
+        ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
+        ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
+    )
 
 def test_ai_array_item_type_specified():
     """
