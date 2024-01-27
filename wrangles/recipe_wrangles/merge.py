@@ -29,7 +29,13 @@ def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
     return df
 
 
-def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: str = ',') -> _pd.DataFrame:
+def concatenate(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: str,
+    char: str = ',',
+    skip_empty: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Concatenate a list of columns or a list within a single column.
@@ -50,6 +56,10 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
       char:
         type: string
         description: (Optional) Character to add between successive values
+      skip_empty:
+        type: boolean
+        desription: Whether to skip empty values
+        default: false
     """
     if output is None: output = input
     
@@ -58,9 +68,9 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
     if not isinstance(output, list): output = [output]
 
     if len(input) == 1:
-        df[output[0]] = _format.concatenate(df[input[0]].values, char)
+        df[output[0]] = _format.concatenate(df[input[0]].values, char, skip_empty)
     else:
-        df[output[0]] = _format.concatenate(df[input].astype(str).values, char)
+        df[output[0]] = _format.concatenate(df[input].astype(str).values, char, skip_empty)
 
     return df
 

@@ -6,14 +6,20 @@ def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
 
 
-def concatenate(data_list, concat_char):
+def concatenate(data_list, concat_char, skip_empty: bool=False):
     """
     Concatenate a list of columns
     """
-    return [
-        concat_char.join([str(x) for x in row])
-        for row in data_list
-    ]
+    if skip_empty:
+        return [
+            concat_char.join([str(x) for x in row if x])
+            for row in data_list
+        ]
+    else:
+        return [
+            concat_char.join([str(x) for x in row])
+            for row in data_list
+        ]
 
 
 # Super Mario Function

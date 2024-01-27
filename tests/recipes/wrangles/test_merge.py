@@ -129,6 +129,83 @@ def test_concatenate_integer():
     )
     assert df["result"][0] == 'a1'
 
+def test_concatenate_skip_empty_true():
+    """
+    Test skipping empty values as true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: a
+                header2: ""
+                header3: b
+        wrangles:
+          - merge.concatenate:
+              input:
+                - header1
+                - header2
+                - header3
+              output: result
+              char: '-'
+              skip_empty: true
+        """
+    )
+    assert df["result"][0] == 'a-b'
+
+def test_concatenate_skip_empty_false():
+    """
+    Test skipping empty values set as false
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: a
+                header2: ""
+                header3: b
+        wrangles:
+          - merge.concatenate:
+              input:
+                - header1
+                - header2
+                - header3
+              output: result
+              char: '-'
+              skip_empty: false
+        """
+    )
+    assert df["result"][0] == 'a--b'
+
+def test_concatenate_skip_empty_default():
+    """
+    Test skipping empty values not provided
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: a
+                header2: ""
+                header3: b
+        wrangles:
+          - merge.concatenate:
+              input:
+                - header1
+                - header2
+                - header3
+              output: result
+              char: '-'
+        """
+    )
+    assert df["result"][0] == 'a--b'
+
 #
 # Lists
 #
