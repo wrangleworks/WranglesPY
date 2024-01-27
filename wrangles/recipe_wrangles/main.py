@@ -367,7 +367,15 @@ def huggingface(
     return df
 
 
-def log(df: _pd.DataFrame, columns: list = None, write: list = None):
+def log(
+    df: _pd.DataFrame,
+    columns: list = None,
+    write: list = None,
+    error: str = None,
+    warning: str = None,
+    info: str = None,
+    log_data: bool = True
+):
     """
     type: object
     description: Log the current status of the dataframe.
@@ -382,8 +390,19 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         minItems: 1
         items: 
           "$ref": "#/$defs/write/items"
-    """ 
-
+      error:
+        type: string
+        description: Log an error to the console
+      warning:
+        type: string
+        description: Log a warning to the console
+      info:
+        type: string
+        description: Log info to the console
+      log_data:
+        type: boolean
+        description: Whether to log a sample of the contents of the dataframe. Default True.
+    """
     if columns is not None:
 
         # Get the wildcards
@@ -417,11 +436,20 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
     else:
         df_tolog = df
 
-    _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
+    if error:
+        _logging.error(error)
+    if warning:
+        _logging.warning(warning)
+    if info:
+        _logging.info(info)
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
-    if write is not None:
-        write = _yaml.dump({'write': write})
-        _wrangles.recipe.run(write, dataframe=df)
+    if write:
+        _wrangles.recipe.run(
+            {'write': write},
+            dataframe=df
+        )
 
     return df
 
