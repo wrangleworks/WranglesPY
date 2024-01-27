@@ -108,6 +108,27 @@ def test_concatenate_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Join Col'] == 'A, B, C' and df.iloc[2]['Join Col'] == ''
 
+def test_concatenate_integer():
+    """
+    Test that a non-string doesn't
+    break the concatenation
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: ["a", 1]
+        wrangles:
+          - merge.concatenate:
+              input: header1
+              output: result
+              char: ''
+        """
+    )
+    assert df["result"][0] == 'a1'
+
 #
 # Lists
 #

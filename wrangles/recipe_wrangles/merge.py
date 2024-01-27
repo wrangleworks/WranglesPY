@@ -58,9 +58,9 @@ def concatenate(df: _pd.DataFrame, input: _Union[str, list], output: str, char: 
     if not isinstance(output, list): output = [output]
 
     if len(input) == 1:
-        df[output[0]] = _format.join_list(df[input[0]].tolist(), char)
+        df[output[0]] = _format.concatenate(df[input[0]].values, char)
     else:
-        df[output[0]] = _format.concatenate(df[input].astype(str).values.tolist(), char)
+        df[output[0]] = _format.concatenate(df[input].astype(str).values, char)
 
     return df
 
