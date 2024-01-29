@@ -55,26 +55,26 @@ def chatGPT(
             )
         except _requests.exceptions.ReadTimeout:
             if retries == 0:
-                if settings_local.get("functions", []):
+                if settings_local.get("tools", []):
                     return {
                         param: "Timed Out"
                         for param in 
-                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return "Timed Out"
         except Exception as e:
             if retries == 0:
-                if settings_local.get("functions", []):
+                if settings_local.get("tools", []):
                     return {
                         param: e
                         for param in 
-                        settings_local.get("functions", [])[0]["parameters"]["required"]
+                        settings_local.get("tolls", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return e
 
-        if response.ok:
+        if response and response.ok:
             break
         else:
             try:
@@ -92,10 +92,11 @@ def chatGPT(
         _time.sleep(backoff_time)
         backoff_time *= 2
 
-    if response.ok:
+    if response and response.ok:
         try:
-            function_call = response.json()['choices'][0]['message']['function_call']
-            return _json.loads(function_call['arguments'])
+            return _json.loads(
+                response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
+            )
         except:
             pass
 
@@ -109,7 +110,7 @@ def chatGPT(
     return {
         param: error_message
         for param in 
-        settings_local.get("functions", [])[0]["parameters"]["required"]
+        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
     }
 
 def _divide_batches(l, n):
@@ -124,7 +125,9 @@ def _embedding_thread(
     input_list: list,
     api_key: str,
     model: str,
-    retries: int = 0
+    url: str,
+    retries: int = 0,
+    request_params: dict = {}
 ):
     """
     Get embeddings 
@@ -132,13 +135,15 @@ def _embedding_thread(
     :param input_list: List of strings to generate embeddings for
     :param api_key: API key for the provider
     :param model: Specific model to use
+    :param url: Set the URL. Must implement the OpenAI embeddings API.
     :param retries: Number of times to retry. This will exponentially backoff.
+    :param request_params: Additional request parameters to pass to the backend.
     """
     response = None
-
+    backoff_time = 5
     while (retries + 1):
         response = _requests.post(
-            url="https://api.openai.com/v1/embeddings",
+            url=url,
             headers={
                 "Authorization": f"Bearer {api_key}"
             },
@@ -148,7 +153,8 @@ def _embedding_thread(
                 "input": [
                     str(val) if val != "" else " " 
                     for val in input_list
-                ]
+                ],
+                **request_params
             }
         )
 
@@ -156,7 +162,8 @@ def _embedding_thread(
             break
 
         retries -=1
-
+        _time.sleep(backoff_time)
+        backoff_time *= 2
 
     if response and response.ok:
         return [
@@ -175,7 +182,9 @@ def embeddings(
     model: str = "text-embedding-ada-002",
     batch_size: int = 100,
     threads: int = 10,
-    retries: int = 0
+    retries: int = 0,
+    url: str = "https://api.openai.com/v1/embeddings",
+    **kwargs
 ) -> list:
     """
     Generate embeddings for a list of strings.
@@ -193,6 +202,7 @@ def embeddings(
           Each request contains the number of rows set as batch_size.
     :param retries: The number of times to retry. This will exponentially \
           backoff to assist with rate limiting
+    :param url: Set the URL. Must implement the OpenAI embeddings API.
     :return: A list of embeddings corresponding to the input
     """
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -202,7 +212,9 @@ def embeddings(
             batches,
             [api_key] * len(batches),
             [model] * len(batches),
-            [retries] * len(batches)
+            [url] * len(batches),
+            [retries] * len(batches),
+            [kwargs] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))

@@ -145,12 +145,13 @@ def embeddings(
     threads: int = 10,
     output_type: str = "python list",
     model: str = "text-embedding-ada-002",
-    retries: int = 0
+    retries: int = 0,
+    url: str = "https://api.openai.com/v1/embeddings",
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
     description: Create an embedding based on text input.
-    additionalProperties: false
     required:
       - input
       - api_key
@@ -167,7 +168,10 @@ def embeddings(
         description: The output column the embeddings will be saved as.
       api_key:
         type: string
-        description: The OpenAI API key.
+        description: The API key.
+      model:
+        type: string
+        description: The specific model to use to generate the embeddings.
       batch_size:
         type: integer
         description: The number of rows to submit per individual request.
@@ -189,6 +193,11 @@ def embeddings(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      url:
+        type: string
+        description: |-
+          Override the default url for the AI endpoint.
+          Must use the OpenAI embeddings API.
     """
     if output is None: output = input
 
@@ -208,7 +217,9 @@ def embeddings(
             model,
             batch_size,
             threads,
-            retries
+            retries,
+            url,
+            **kwargs
         )
 
         if output_type == 'python list':

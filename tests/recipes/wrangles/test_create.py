@@ -1163,3 +1163,30 @@ def test_create_embeddings_np_array_with_where():
         len(df["embedding"][0]) == 1536 and
         df["text"].values.tolist() == ['This is a test', 'THIS IS NOT A TEST']
     )
+
+def test_create_embeddings_kwargs():
+    """
+    Test passing through any unspecified
+    params works correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              retries: 1
+              model: text-embedding-3-small
+              dimensions: 256
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 256
+    )
