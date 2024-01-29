@@ -74,7 +74,7 @@ def chatGPT(
                 else:
                     return e
 
-        if response.ok:
+        if response and response.ok:
             break
         else:
             try:
@@ -92,7 +92,7 @@ def chatGPT(
         _time.sleep(backoff_time)
         backoff_time *= 2
 
-    if response.ok:
+    if response and response.ok:
         try:
             return _json.loads(
                 response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
