@@ -235,35 +235,7 @@ def test_create_column_succinct_3():
         """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col2'][0] == '' and df['col5'][0] == ''
-    
-def test_create_column_succinct_4():
-    """
-    Error if using a list in value
-    """
-    data = pd.DataFrame({
-        'col1': ['Hello']
-    })
-    recipe="""
-        wrangles:
-        - create.column:
-            output:
-                - col2: <boolean>
-                - col3: <boolean>
-                - col4: <code(10)>
-                - col5
-            value:
-                - <boolean>
-                - <boolean>
-                - <code(10)>
-                - ""
-        """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        info.value.args[0] == 'create.column - Value must be a string and not a list'
-    )
-    
+
 def test_create_column_succinct_5():
     """
     Testing the column that is not a dict and has no value
@@ -344,7 +316,32 @@ def test_create_column_succinct_8():
         dataframe=data
     )
     assert list(df.columns) == ['col1', 'col2', 'col3']
-    
+
+def test_create_column_list_value():
+    """
+    Test creating a column with a list as the value
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        wrangles:
+          - create.column:
+              output: column
+              value:
+                - a
+                - b
+                - c
+        """
+    )
+    assert (
+        isinstance(df["column"][0], list) and
+        len(df["column"][0]) == 3
+    )
+
 #
 # Index
 #
