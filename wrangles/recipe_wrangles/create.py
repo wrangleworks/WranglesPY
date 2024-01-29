@@ -168,7 +168,10 @@ def embeddings(
         description: The output column the embeddings will be saved as.
       api_key:
         type: string
-        description: The OpenAI API key.
+        description: The API key.
+      model:
+        type: string
+        description: The specific model to use to generate the embeddings.
       batch_size:
         type: integer
         description: The number of rows to submit per individual request.

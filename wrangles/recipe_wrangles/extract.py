@@ -201,8 +201,9 @@ def ai(
         "model": model,
         "messages": system_messages,
         "temperature": 0,
-        "functions": [
-            {
+        "tools": [{
+            "type": "function",
+            "function": {
                 "name": "parse_output",
                 "description": "Submit the output corresponding to the extracted data in the form the user requires.",
                 "parameters": {
@@ -211,8 +212,8 @@ def ai(
                     "required": list(output.keys())
                 }
             }
-        ],
-        'function_call': {"name": "parse_output"},
+        }],
+        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
         **kwargs
     }
 
