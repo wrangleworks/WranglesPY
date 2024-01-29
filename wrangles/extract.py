@@ -105,8 +105,7 @@ def custom(
     use_labels: bool = False,
     case_sensitive: bool = False,
     use_spellcheck: bool = False
-    ) -> list:
-
+) -> list:
     """
     Extract entities using a custom model.
     Requires WrangleWorks Account and Subscription.
@@ -131,7 +130,13 @@ def custom(
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
-    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels, 'caseSensitive': case_sensitive, 'useSpellcheck': use_spellcheck}
+    params = {
+        'responseFormat': 'array',
+        'model_id': model_id,
+        'use_labels': use_labels,
+        'caseSensitive': case_sensitive,
+        'useSpellcheck': use_spellcheck
+    }
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')

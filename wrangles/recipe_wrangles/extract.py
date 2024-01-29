@@ -386,15 +386,15 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 
 
 def custom(
-        df: _pd.DataFrame,
-        input: _Union[str, list],
-        model_id: _Union[str, list],
-        output: _Union[str, list] = None,
-        use_labels: bool = False,
-        first_element: bool = False,
-        case_sensitive: bool = False,
-        use_spellcheck: bool = False
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    model_id: _Union[str, list],
+    output: _Union[str, list] = None,
+    use_labels: bool = False,
+    first_element: bool = False,
+    case_sensitive: bool = False,
+    use_spellcheck: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -443,37 +443,37 @@ def custom(
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
             df[out_col] = _extract.custom(
-              df[in_col].astype(str).tolist(),
-              model_id=model,
-              first_element=first_element,
-              use_labels=use_labels,
-              case_sensitive=case_sensitive,
-              use_spellcheck=use_spellcheck
-              )
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                use_spellcheck=use_spellcheck
+            )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
         df[output[0]] = _extract.custom(
-          _format.concatenate(df[input].astype(str).values.tolist(), ' '),
-          model_id=model_id[0],
-          first_element=first_element,
-          use_labels=use_labels,
-          case_sensitive=case_sensitive,
-          use_spellcheck=use_spellcheck
-          )
+            _format.concatenate(df[input].astype(str).values.tolist(), ' '),
+            model_id=model_id[0],
+            first_element=first_element,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            use_spellcheck=use_spellcheck
+        )
     
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
             df[out_col] = _extract.custom(
-              df[in_col].astype(str).tolist(),
-              model_id=model,
-              first_element=first_element,
-              use_labels=use_labels,
-              case_sensitive=case_sensitive,
-              use_spellcheck=use_spellcheck
-              )
-        
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                use_spellcheck=use_spellcheck
+            )
+
     return df
 
 
