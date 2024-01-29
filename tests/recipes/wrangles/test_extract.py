@@ -1453,6 +1453,7 @@ def test_ai():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1485,6 +1486,7 @@ def test_ai_multiple_output():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1526,6 +1528,7 @@ def test_ai_multiple_input():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1564,6 +1567,7 @@ def test_ai_enum():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1595,6 +1599,7 @@ def test_ai_timeout():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 0.1
               retries: 0
               output:
@@ -1627,6 +1632,7 @@ def test_ai_timeout_multiple_output():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 0.1
               retries: 0
               output:
@@ -1668,6 +1674,7 @@ def test_ai_messages():
           - extract.ai:
               model: gpt-4-1106-preview
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1703,6 +1710,7 @@ def test_ai_array_no_items():
           - extract.ai:
               model: gpt-4-1106-preview
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1733,6 +1741,7 @@ def test_ai_array_item_type_specified():
           - extract.ai:
               model: gpt-4-1106-preview
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1761,6 +1770,7 @@ def test_ai_bad_schema():
             wrangles:
             - extract.ai:
                 api_key: ${OPENAI_API_KEY}
+                seed: 1
                 timeout: 60
                 retries: 2
                 output:
@@ -1787,6 +1797,7 @@ def test_ai_invalid_apikey():
             wrangles:
             - extract.ai:
                 api_key: abc123
+                seed: 1
                 timeout: 60
                 retries: 2
                 output:
