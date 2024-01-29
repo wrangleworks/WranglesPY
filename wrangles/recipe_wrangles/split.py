@@ -1,15 +1,14 @@
 """
 Split a single column to multiple columns
 """
-from typing import Union as _Union
 # Rename List to _list to be able to use function name list without clashing
-from typing import List as _list
+from typing import Union as _Union, List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
 
 
-def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFrame:
+def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {}) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -18,8 +17,10 @@ def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFra
       - input
     properties:
       input:
-        type: string
-        description: Name of the column to be split
+        type: 
+          - string
+          - array
+        description: Name of the column(s) to be split
       default:
         type: object
         description: >-
@@ -28,22 +29,31 @@ def dictionary(df: _pd.DataFrame, input: str, default: dict = {}) -> _pd.DataFra
     """ 
     # storing data as df temp to prevent the original data to be changed
     df_temp = df[input]
-    try:
-        df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df_temp]
-    except:
-        df_temp = [{} if x == None else x for x in df[input]]
 
-    if default:
-        df_temp = [{**default, **x} for x in df_temp]
+    # Ensure input is passed as a list
+    if not isinstance(input, _list):
+        input = [input]
 
-    exploded_df = _pd.json_normalize(df_temp, max_level=0).fillna('')
-    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    df_dict = {}
+    for i in range(len(input)):
+        try:
+            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
+        except:
+            df_temp = [{} if x == None else x for x in df[input[i]]]
+        if default:
+            df_temp = [{**default, **x} for x in df[input[i]]]
 
-    df[exploded_df.columns] = exploded_df
+        df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
+        df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
+
+    # Combine dataframes for output
+    for data in df_dict:
+        df[df_dict[data].columns] = df_dict[data]
+
     return df
 
     
-def list(df: _pd.DataFrame, input: str, output: _Union[str, list]) -> _pd.DataFrame:
+def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns.
@@ -81,7 +91,7 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, list]) -> _pd.DataFr
     return df
 
 
-def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
+def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
@@ -164,7 +174,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, list], char: str = '
     return df
 
 
-def tokenize(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def tokenize(df: _pd.DataFrame, input: _Union[str, _list], output: _Union[str, _list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Tokenize elements in a list into individual tokens.
