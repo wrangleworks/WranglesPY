@@ -544,7 +544,7 @@ def python(
         description: Python command. This must return a value.
     """
     def _apply_command(**kwargs):
-        return eval(command, {}, {**kwargs, **{"kwargs": kwargs}})
+        return eval(command, {**kwargs, **{"kwargs": kwargs}}, {})
     
     df_temp = df.copy()
 
