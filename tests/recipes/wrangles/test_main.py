@@ -2723,3 +2723,29 @@ def test_python_params():
         """
     )
     assert df["result"][0] == "a my_value"
+
+def test_python_kwargs_scope():
+    """
+    Test to ensure variables
+    are correctly declared in scope
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        wrangles:
+          - python:
+              output: test
+              command: |-
+                {
+                  k: kwargs[k]
+                  for k in ["header1"]
+                }
+        """
+    )
+    assert df["test"][0]["header1"] == "value1"
