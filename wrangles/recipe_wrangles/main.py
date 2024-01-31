@@ -710,7 +710,10 @@ def rename(
             )
     else:
         # Drop functions if not needed
-        if isinstance(kwargs["functions"], dict):
+        if (
+            "functions" in kwargs and
+            isinstance(kwargs["functions"], dict)
+        ):
             del kwargs["functions"]
 
     # If short form of paired names is provided, use that
