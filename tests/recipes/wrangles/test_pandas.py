@@ -537,3 +537,48 @@ def test_explode_reset_index_true():
         })
     )
     assert df.index.to_list() == [0, 1, 2, 3, 4, 5, 6]
+
+def test_sort():
+    """
+    Test default sort
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 100
+              values:
+                column: <number(1.00-1000.00)>
+        wrangles:
+          - sort:
+              by: column
+        """
+    )
+
+    assert (
+        df["column"][0] <= df["column"][1]
+        and df["column"].tolist()[-2] <= df["column"].tolist()[-1]
+    )
+
+def test_sort_descending():
+    """
+    Test sort with a single column descending
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 100
+              values:
+                column: <number(1.00-1000.00)>
+        wrangles:
+          - sort:
+              by: column
+              ascending: false
+        """
+    )
+
+    assert (
+        df["column"][0] >= df["column"][1]
+        and df["column"].tolist()[-2] >= df["column"].tolist()[-1]
+    )
