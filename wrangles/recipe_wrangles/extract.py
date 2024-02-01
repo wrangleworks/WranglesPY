@@ -804,19 +804,20 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     required:
       - input
       - output
+      - find
     properties:
       input:
         type: 
           - string
           - array
-        description: Name of the input column.
-    output:
-      type: string
-      description: Name of the output column.
-      find:
-        type: 
+        description: Name of the input column(s).
+      output:
+        type:
           - string
           - array
+        description: Name of the output column(s).
+      find:
+        type: string
         description: Pattern to find using regex
     """
     # If output is not specified, overwrite input columns in place
