@@ -23,8 +23,6 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
 
 
 def split(input_list, split_char, output, pad=False):
-    if isinstance(split_char, list):
-        split_char = '|'.join(split_char)
     if pad:
         # Pad to be as long as the longest result
         max_len = max([len(x.split(split_char)) for x in input_list])
