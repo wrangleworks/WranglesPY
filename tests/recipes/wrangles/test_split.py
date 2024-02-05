@@ -64,10 +64,7 @@ def test_split_text_4():
         - split.text:
             input: col1
             output: out1
-            char:
-              - '@'
-              - '&'
-              - '\$'
+            char: '@|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
@@ -82,10 +79,7 @@ def test_split_text_5():
         - split.text:
             input: col1
             output: out*
-            char:
-              - '@'
-              - '&'
-              - '\$'
+            char: '@|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
