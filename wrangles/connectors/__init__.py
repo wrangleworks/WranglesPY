@@ -23,3 +23,4 @@ from . import recipe
 from . import s3
 from . import train
 from . import jinja
+from . import google_drive
