@@ -520,7 +520,38 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     return df
 
 
-def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFrame:
+    """
+    type: object
+    description: Return a random sample of the rows
+    required:
+      - rows
+    properties:
+      rows:
+        type:
+          - integer
+          - number
+        description: |-
+          If a whole number, will select that number of rows.
+          If a decimal between 0 and 1 will select that fraction 
+          of the rows e.g. 0.1 => 10% of rows will be returned
+        exclusiveMinimum: 0
+    """
+    if not isinstance(rows, (int, float)) or rows <= 0:
+        raise ValueError(
+            "rows must be a positive integer or a decimal between 0 and 1"
+        )
+
+    if rows >= 1:
+        if rows > len(df):
+            return df.sample(n=len(df), ignore_index=True, **kwargs)
+        else:
+            return df.sample(n=int(rows), ignore_index=True, **kwargs)
+    else:
+        return df.sample(frac=rows, ignore_index=True, **kwargs)
+
+
+def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Return characters from the middle of text.
@@ -542,11 +573,16 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
         description: Name of the output column(s)
       start:
         type: integer
-        description: The position of the first character to select
+        description: |
+          The position of the first character to select.
+          If ommited will start from the beginning and length must 
+          be provided.
         minimum: 1
       length:
         type: integer
-        description: The length of the string to select
+        description: |
+          The length of the string to select. If ommited
+          will select to the end of the string and start must be provided.
         minimum: 1
     """
     # If user hasn't provided an output, replace input
@@ -559,10 +595,26 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int, length: i
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Ensure start or length have been provided
+    if start is None and length is None:
+        raise ValueError('Either start or length must be provided.')
+    
+    # Set start and end parameters
+    if start is None:
+        start = 1
+        start_param = None
+    else:
+        start_param = start - 1
+    
+    if length is None:
+        end_param = None
+    else:
+        end_param = start + length - 1
 
     # Loop through and get the substring requested for all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[start-1:start+length-1]
+        df[output_column] = df[input_column].str[start_param:end_param]
 
     return df
 

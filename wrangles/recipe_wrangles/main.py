@@ -367,7 +367,15 @@ def huggingface(
     return df
 
 
-def log(df: _pd.DataFrame, columns: list = None, write: list = None):
+def log(
+    df: _pd.DataFrame,
+    columns: list = None,
+    write: list = None,
+    error: str = None,
+    warning: str = None,
+    info: str = None,
+    log_data: bool = True
+):
     """
     type: object
     description: Log the current status of the dataframe.
@@ -382,8 +390,19 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
         minItems: 1
         items: 
           "$ref": "#/$defs/write/items"
-    """ 
-
+      error:
+        type: string
+        description: Log an error to the console
+      warning:
+        type: string
+        description: Log a warning to the console
+      info:
+        type: string
+        description: Log info to the console
+      log_data:
+        type: boolean
+        description: Whether to log a sample of the contents of the dataframe. Default True.
+    """
     if columns is not None:
 
         # Get the wildcards
@@ -417,11 +436,20 @@ def log(df: _pd.DataFrame, columns: list = None, write: list = None):
     else:
         df_tolog = df
 
-    _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
+    if error:
+        _logging.error(error)
+    if warning:
+        _logging.warning(warning)
+    if info:
+        _logging.info(info)
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
-    if write is not None:
-        write = _yaml.dump({'write': write})
-        _wrangles.recipe.run(write, dataframe=df)
+    if write:
+        _wrangles.recipe.run(
+            {'write': write},
+            dataframe=df
+        )
 
     return df
 
@@ -437,12 +465,16 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3.  Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
@@ -457,12 +489,16 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     properties:
       input:
         type: string
-        description: The mathematical expression using column names. e.g. column1 * column2 + column3
+        description: |
+          The mathematical expression using column names. e.g. column1 * column2
+          + column3. Note: spaces within column names are replaced by underscores (_).
       output:
         type: string
         description: The column to output the results to
     """
-    df[output] = _ne.evaluate(input, df.to_dict(orient='list'))
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(' ', '_')
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
     return df
 
 
@@ -501,13 +537,14 @@ def python(
           - array
         description: |
           Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.
+          return a list of the corresponding length.  Note: spaces within
+           column names are replaced by underscores (_).
       command:
         type: string
         description: Python command. This must return a value.
     """
     def _apply_command(**kwargs):
-        return eval(command, {}, {**kwargs, **{"kwargs": kwargs}})
+        return eval(command, {**kwargs, **{"kwargs": kwargs}}, {})
     
     df_temp = df.copy()
 
@@ -620,7 +657,13 @@ def remove_words(
     return df
 
 
-def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def rename(
+    df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+    wrangles: list = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Rename a column or list of columns.
@@ -635,7 +678,44 @@ def rename(df: _pd.DataFrame, input: _Union[str, list] = None, output: _Union[st
           - string
           - array
         description: Name or list of output columns.
+      wrangles:
+        type: array
+        description: |-
+          Use wrangles to transform the column names.
+          The input is named 'columns' and the final result
+          must also include the column named 'columns'.
+          This can only be used instead of the standard rename.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
     """
+    # Allow using wrangles to manipulate the column names
+    if wrangles:
+        input = df.columns.tolist()
+        try:
+            output = _wrangles.recipe.run(
+                {"wrangles": wrangles},
+                dataframe=_pd.DataFrame({
+                    "columns": input
+                }),
+                functions=kwargs.get("functions", {})
+            )["columns"].tolist()
+        except:
+            raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
+    
+        if len(input) != len(output):
+            raise RuntimeError(
+                "If using wrangles to rename columns, " +
+                "the results must be the same length as the input columns."
+            )
+    else:
+        # Drop functions if not needed
+        if (
+            "functions" in kwargs and
+            isinstance(kwargs["functions"], dict)
+        ):
+            del kwargs["functions"]
+
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists
@@ -753,11 +833,15 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
 
     elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
-            1 - _math.acos(
-                _np.dot(x, y)
-                /
-                (_np.linalg.norm(x) * _np.linalg.norm(y)) 
-            )
+            round(max(min(
+              1 - _math.acos(
+                  round(
+                    _np.dot(x, y)
+                    /
+                    (_np.linalg.norm(x) * _np.linalg.norm(y)),
+                    3
+                  )
+            ), 1), 0), 3)
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
         df[output] = similarity_list

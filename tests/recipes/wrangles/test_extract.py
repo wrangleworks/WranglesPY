@@ -1619,13 +1619,14 @@ def test_date_range_2():
 
 def test_ai():
     """
-    Test openai extrat with a single input and output
+    Test openai extract with a single input and output
     """
     df = wrangles.recipe.run(
         """
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1658,6 +1659,7 @@ def test_ai_multiple_output():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1699,6 +1701,7 @@ def test_ai_multiple_input():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1737,6 +1740,7 @@ def test_ai_enum():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 60
               retries: 2
               output:
@@ -1768,6 +1772,7 @@ def test_ai_timeout():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 0.1
               retries: 0
               output:
@@ -1800,6 +1805,7 @@ def test_ai_timeout_multiple_output():
         wrangles:
           - extract.ai:
               api_key: ${OPENAI_API_KEY}
+              seed: 1
               timeout: 0.1
               retries: 0
               output:
@@ -1830,3 +1836,156 @@ def test_ai_timeout_multiple_output():
         df['type'][1] == 'Timed Out' and
         df['type'][2] == 'Timed Out'
     )
+
+def test_ai_messages():
+    """
+    Test openai extract with a header level prompt
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              seed: 1
+              timeout: 60
+              retries: 2
+              output:
+                length:
+                  type: string
+                  description: >-
+                    Any lengths found in the data
+                    such as cm, m, ft, etc.
+              messages: All response text should be in upper case.
+        """,
+        dataframe=pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+        })
+    )
+
+    # This is temperamental, and sometimes GPT returns lowercase
+    # Score as 2/3 as good enough for test to pass
+    matches = sum([
+        df['length'][0] == '25MM',
+        df['length'][1] == '6M',
+        df['length'][2] == '3MM'
+    ])
+    assert matches >= 2
+
+def test_ai_array_no_items():
+    """
+    Test openai extract with array but items type is
+    not specified. Defaults to string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              seed: 1
+              timeout: 60
+              retries: 2
+              output:
+                fruits:
+                  type: array
+                  description: >-
+                    Return the names of any fruits
+                    that are yellow
+              model: gpt-4-1106-preview
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+        })
+    )
+    assert (
+        ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
+        ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
+    )
+
+def test_ai_array_item_type_specified():
+    """
+    Test openai extract with array where
+    the items type is specified
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.ai:
+              model: gpt-4-1106-preview
+              api_key: ${OPENAI_API_KEY}
+              seed: 1
+              timeout: 60
+              retries: 2
+              output:
+                count:
+                  type: array
+                  items:
+                    type: integer
+                  description: >-
+                    Get all numbers from the input
+              model: gpt-4-1106-preview
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+        })
+    )
+    assert df['count'][0] == [3,5,2]
+
+def test_ai_bad_schema():
+    """
+    Test that an appropriate error is returned
+    if the schema is not valid
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: invalid
+                    description: >-
+                        Any lengths found in the data
+                        such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm"],
+            })
+        )
+    assert "schema submitted for output is not valid" in error.value.args[0]
+
+def test_ai_invalid_apikey():
+    """
+    Test that an appropriate error is returned
+    if the api key is invalid
+    """
+    with pytest.raises(ValueError) as error:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: abc123
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: invalid
+                    description: >-
+                        Any lengths found in the data
+                        such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm"],
+            })
+        )
+    assert "API Key" in error.value.args[0]

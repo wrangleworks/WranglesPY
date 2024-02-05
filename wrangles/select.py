@@ -52,7 +52,7 @@ def list_element(input, n, default = ""):
     def check_if_possible(element, index):
         try:
             return element[index]
-        except IndexError:
+        except:
             return default
         
     return [check_if_possible(row, n) for row in input]

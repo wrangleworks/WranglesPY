@@ -131,7 +131,7 @@ def getMethodDocs(schema_wrangles, obj, path):
     else:
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
-            if 'type' in schema_wrangle.keys():
+            if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
                 schema_wrangles[path[1:]] = schema_wrangle
         except Exception as e:
             logging.warning(f'{obj} description={e}')
@@ -141,18 +141,20 @@ getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
 # Add common wrangle properties
 for wrangle in schema['wrangles']:
-    if (
-        'properties' in schema['wrangles'][wrangle] and
-        wrangle not in wrangles.config.no_where_list
-    ):
+    if "properties" not in schema['wrangles'][wrangle]:
+        schema['wrangles'][wrangle]["properties"] = {}
+
+    if wrangle not in wrangles.config.no_where_list:
         schema['wrangles'][wrangle]['properties']['where'] = {
             "$ref": "#/$defs/wrangles/commonProperties/where"
         }
-        schema['wrangles'][wrangle]['properties']['where_params'] = {
-            "$ref": "#/$defs/wrangles/commonProperties/where_params"
-        }
     else:
-        print(wrangle)
+        schema['wrangles'][wrangle]['properties']['where'] = {
+            "$ref": "#/$defs/wrangles/commonProperties/where_special"
+        }
+    schema['wrangles'][wrangle]['properties']['where_params'] = {
+        "$ref": "#/$defs/wrangles/commonProperties/where_params"
+    }
 
 # Add common write properties
 for write in schema['write']:
@@ -171,6 +173,26 @@ for write in schema['write']:
         "$ref": "#/$defs/write/commonProperties/where"
     }
     write_properties['where_params'] = {
+        "$ref": "#/$defs/write/commonProperties/where_params"
+    }
+
+# Add common write properties
+for read in schema['read']:
+    if "properties" in schema['read'][read]:
+        read_properties = schema['read'][read]['properties']
+    else:
+        read_properties = schema['read'][read]['anyOf'][-1]['properties']
+
+    read_properties['columns'] = {
+        "$ref": "#/$defs/write/commonProperties/columns"
+    }
+    read_properties['not_columns'] = {
+        "$ref": "#/$defs/write/commonProperties/not_columns"
+    }
+    read_properties['where'] = {
+        "$ref": "#/$defs/write/commonProperties/where"
+    }
+    read_properties['where_params'] = {
         "$ref": "#/$defs/write/commonProperties/where_params"
     }
 

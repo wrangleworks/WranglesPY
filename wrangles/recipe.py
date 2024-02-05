@@ -150,7 +150,10 @@ def _load_recipe(
 
     :return: YAML Recipe converted to a dictionary
     """
-    _logging.info(": Reading Recipe ::")
+    if isinstance(recipe, str) and "\n" not in recipe:
+        _logging.info(f": Reading Recipe :: {recipe}")
+    else:
+        _logging.info(": Reading Recipe :: inline")
     
     # Dict to store functions stored within a model
     model_functions = {}
@@ -209,16 +212,6 @@ def _load_recipe(
                 + 'The recipe should be a YAML file using utf-8 encoding.'
             )
 
-    # Also add environment variables to list of placeholder variables
-    for env_key, env_val in _os.environ.items():
-        if env_key not in variables.keys():
-            variables[env_key] = env_val
-
-    recipe_object = _yaml.safe_load(recipe_string)
-    
-    # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object, variables)
-
     # Load the custom functions from the supported formats
     # If user has passed in a single function, convert to a list
     if callable(functions): functions = [functions]
@@ -248,6 +241,31 @@ def _load_recipe(
 
     # Merge user input functions and any from remote model
     functions = {**model_functions, **functions}
+
+    # Also add environment variables to list of placeholder variables
+    for env_key, env_val in _os.environ.items():
+        if env_key not in variables.keys():
+            variables[env_key] = env_val
+
+    # Interpret any variables defined by a custom function
+    for k, v in variables.items():
+        if isinstance(v, str) and v.lower().startswith("custom."):
+            if v[7:] in functions.keys():
+                func = functions[v[7:]]
+                fn_argspec = _inspect.getfullargspec(func)
+                if len(fn_argspec.args) == 0:
+                    variables[k] = func()
+                elif len(fn_argspec.args) == 1:
+                    variables[k] = func(variables)
+                else:
+                    raise TypeError(
+                        f"Custom function {v[7:]} must have 0 or 1 arguments"
+                    )
+
+    recipe_object = _yaml.safe_load(recipe_string)
+
+    # Check if there are any templated valued to update
+    recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object, functions
 
@@ -289,45 +307,83 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
+    read_type = list(recipe)[0]
+    read_params = recipe[read_type]
+
+    # Divide parameters into general and specific to that type of read
+    params_general = ['columns', 'not_columns', 'where', 'where_params']
+    params_specific = {
+        key: read_params[key]
+        for key in read_params
+        if key not in params_general
+    }
+    params_general = {
+        key: read_params[key]
+        for key in params_general
+        if key in read_params
+    }
+
     # Allow blended imports
-    if list(recipe)[0] in ['join', 'concatenate', 'union']:
+    if read_type in ['join', 'concatenate', 'union']:
         dfs = []
-        for source in recipe[list(recipe)[0]]['sources']:
+        # Recursively call sub-reads
+        for source in params_specific['sources']:
             dfs.append(_read_data_sources(source, functions))
-        
-        recipe_temp = recipe[list(recipe)[0]]
-        recipe_temp.pop('sources')
+        params_specific.pop('sources')
 
-        if list(recipe)[0] == 'join':
-            df = _pandas.merge(dfs[0], dfs[1], **recipe['join'])
-        elif list(recipe)[0] == 'union':
-            df = _pandas.concat(dfs, **recipe['union'])
-        elif list(recipe)[0] == 'concatenate':
-            recipe['concatenate']['axis'] = 1
-            df = _pandas.concat(dfs, **recipe['concatenate'])
-
-    elif list(recipe)[0].split('.')[0] == 'custom':
-        # Execute a user's custom function
-        read_name = list(recipe)[0]
-        params = recipe[read_name]
-        df = functions[read_name[7:]](**params)
-        if not isinstance(df, _pandas.DataFrame):
-            raise RuntimeError(f"Function {read_name} did not return a dataframe")
+        if read_type == 'join':
+            df = _pandas.merge(dfs[0], dfs[1], **params_specific)
+        elif read_type == 'union':
+            df = _pandas.concat(dfs, **params_specific)
+        elif read_type == 'concatenate':
+            params_specific['axis'] = 1
+            df = _pandas.concat(dfs, **params_specific)
+        df = df.reset_index(drop=True)
     else:
-        # Single source import
-        import_type = list(recipe)[0]
-        params = recipe[import_type]
+        # If custom, search within custom functions,
+        # else look within the default connectors
+        if read_type.split('.')[0] == 'custom':
+            obj = {"custom": functions}
+        else:
+            obj = _connectors
+        
+        # Get the requested function
+        for element in read_type.split('.'):
+            if isinstance(obj, dict):
+                obj = obj[element]
+            elif isinstance(obj, _types.ModuleType):
+                obj = getattr(obj, element)
+            else:
+                raise ValueError(f"Unrecognized object for {read_type}")
 
-        # Get read function of requested connector and pass user defined params
-        obj = _connectors
-        for element in import_type.split('.'):
-            obj = getattr(obj, element)
+        if read_type.split('.')[0] != 'custom':
+            # Default connectors have the method as read
+            obj = getattr(obj, 'read')
 
-        if import_type == 'recipe':
-            params['functions'] = functions
+            # Pass down functions for recipes
+            if read_type == 'recipe':
+                params_specific['functions'] = functions
+        else:
+            # Allow custom functions to access
+            # general params if they are requested
+            params_specific = {
+                **params_specific,
+                **{
+                    k: v
+                    for k, v in params_general.items()
+                    if k in _inspect.getfullargspec(obj).args
+                }
+            }
 
-        df = getattr(obj, 'read')(**params)
-    
+        df = obj(**params_specific)
+
+    # Ensure the response is a dataframe
+    if not isinstance(df, _pandas.DataFrame):
+        raise RuntimeError(f"Function {read_type} did not return a dataframe")
+
+    # Filter the response
+    df = _filter_dataframe(df, **params_general)
+
     return df
 
    
@@ -343,7 +399,7 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
         # If column contains * without escape
-        if _re.search(r'[^\\]?\*', selected_columns[i]) and not selected_columns[i].lower().startswith('regex:'):
+        if _re.search(r'[^\\]?\*', str(selected_columns[i])) and not str(selected_columns[i]).lower().startswith('regex:'):
             selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
 
     # Using a dict to preserve insert order.
@@ -353,12 +409,22 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
         if column.lower().startswith('regex:'):
-            result_columns.update(dict.fromkeys(list(filter(_re.compile(column[6:].strip()).fullmatch, all_columns)))) # Read Note below
+            result_columns.update(dict.fromkeys(list(
+                filter(_re.compile(column[6:].strip()).fullmatch, all_columns)
+            ))) # Read Note below
         else:
+            # Check if a column is indicated as
+            # optional with column_name?
+            optional_column = False
+            if column[-1] == "?" and column not in all_columns:
+                column = column[:-1]
+                optional_column = True
+
             if column in all_columns:
                 result_columns[column] = None
             else:
-                raise KeyError(f'Column {column} does not exist')
+                if not optional_column:
+                    raise KeyError(f'Column {column} does not exist')
     
     # Return, preserving original order
     return list(result_columns.keys())
@@ -494,7 +560,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 else:
                     # Blacklist of Wrangles not to allow wildcards for
-                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
+                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
                         # Expand out any wildcards or regex in column names
                         params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                             
@@ -502,9 +568,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     obj = _recipe_wrangles
                     for element in wrangle.split('.'):
                         obj = getattr(obj, element)
-
-                    if wrangle == 'recipe':
-                        params['functions'] = functions
+                    
+                    # Pass on custom functions to wrangles that may need it
+                    if wrangle in ["recipe", "rename"]:
+                        if "functions" not in params:
+                            params['functions'] = functions
 
                     df = obj(df, **params)
 

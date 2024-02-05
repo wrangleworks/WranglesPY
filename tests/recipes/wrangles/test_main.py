@@ -786,6 +786,135 @@ def test_remove_words_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Product1'] == 'Bottle' and df.iloc[1]['Product2'] == 'Pipe' and df.iloc[2]['Product1'] == ""
 
+def test_remove_words_mixed_to_remove():
+    """
+    Having a list and strings in to_remove
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round"]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+          output: Out
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand 186 T18 Crown Staples, 333 Pack'
+    
+def test_remove_words_mixed_to_remove_2():
+    """
+    Having a list and numbers in to_remove
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round"],
+        'rem3': [333],
+        'rem4': [[186]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+          output: Out
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand T18 Crown Staples, Pack'
+    
+def test_remove_words_mixed_to_remove_3():
+    """
+    remove a mix of strings and numbers and lists using tokenize
+    """
+    data = pd.DataFrame({
+        'col': ['Brand 186 T18 Round Crown Staples, 3/8" x 7/16", 333 Pack express'],
+        'rem1': [['3/8" x 7/16"']],
+        'rem2': ["Round Crown Staples"],
+        'rem3': [333],
+        'rem4': [[186]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Brand T18 Pack express'
+    
+def test_remove_words_mixed_to_remove_4():
+    """
+    Make sure parts of words are not cut off
+    """
+    data = pd.DataFrame({
+        'col': ['Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'],
+        'rem1': [['us']],
+        'rem2': ["Data"],
+        'rem3': [2],
+        'rem4': [["Rela"]],
+        'rem5': [["String"]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+            - rem5
+          output: Out
+          tokenize_to_remove: False
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+    
+def test_remove_words_mixed_to_remove_5():
+    """
+    Make sure parts of words are not cut off using tokenize
+    """
+    data = pd.DataFrame({
+        'col': ['Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'],
+        'rem1': [['us']],
+        'rem2': ["Data"],
+        'rem3': [2],
+        'rem4': [["Rela"]],
+        'rem5': [["String"]]
+    })
+    recipe="""
+    wrangles:
+      - remove_words:
+          input: col
+          to_remove:
+            - rem1
+            - rem2
+            - rem3
+            - rem4
+            - rem5
+          output: Out
+          tokenize_to_remove: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+    
+
 #
 # Rename
 #
@@ -967,7 +1096,116 @@ def test_rename_into_existing_column_input():
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
 
+def test_rename_wrangles():
+    """
+    Use wrangles to rename columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: upper
+        """
+    )
+    assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+def test_rename_custom_function():
+    """
+    Test that a custom function for rename wrangles works correctly
+    """
+    def func(columns):
+        return columns + "_1"
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - custom.func:
+                    output: columns
+        """,
+        functions=func
+    )
+    assert df.columns.tolist() == ["header1_1","header2_1"]
+
+def test_rename_column_named_functions():
+    """
+    Test that a column named functions is still
+    renamed correctly.
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 5
+            values:
+                functions: value
+        wrangles:
+        - rename:
+            functions: renamed
+        """
+    )
+    assert df.columns.tolist() == ["renamed"]
+
+def test_rename_wrangles_columns_missing_error():
+    """
+    If user doesn't return a column named columns
+    ensure an appropriate error is show
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - rename:
+                        columns: cause_error
+            """
+        )
+    assert "column named 'columns' must be returned" in error.value.args[0]
+
+def test_rename_wrangles_filtered_error():
+    """
+    When renaming, if the user changes the length of the output columns
+    by wrangling then ensure an appropriate error is returned.
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - filter:
+                        where: columns = 'header1'
+            """
+        )
+    assert "same length as the input" in error.value.args[0]
 
 #
 # Cosine Similarity
@@ -1185,7 +1423,27 @@ def test_similarity_adjusted_cosine():
             method: adjusted cosine
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Cos Sim'] == 0.11897867399060302 and df.iloc[1]['Cos Sim'] == 1.0
+    assert df.iloc[0]['Cos Sim'] == 0.119 and df.iloc[1]['Cos Sim'] == 1.0
+
+def test_similarity_adjusted_cosine_min():
+    """
+    Ensure adjusted cosine does not go below 0
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,-5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: adjusted cosine
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == 0.0 and df.iloc[1]['Cos Sim'] == 1.0
 
 def test_similarity_adjusted_cosine_1_D():
     """
@@ -1946,6 +2204,20 @@ def test_maths_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == 3
+
+def test_maths_column_spaces():
+    data = pd.DataFrame({
+        'col 1': [1, 1, 1],
+        'col 2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col_1 + col_2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
     
 # US spelling of maths
 def test_math_1():
@@ -1979,6 +2251,21 @@ def test_math_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == "" and df.iloc[2]['result'] == 14.0
+
+def test_math_column_spaces():
+    data = pd.DataFrame({
+        'col 1': [1, 1, 1],
+        'col 2': [2, 2, 2]
+    })
+    recipe = """
+    wrangles:
+      - math:
+          input: col_1 + col_2
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['result'] == 3
+    
 
 #
 # SQL
@@ -2436,3 +2723,29 @@ def test_python_params():
         """
     )
     assert df["result"][0] == "a my_value"
+
+def test_python_kwargs_scope():
+    """
+    Test to ensure variables
+    are correctly declared in scope
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        wrangles:
+          - python:
+              output: test
+              command: |-
+                {
+                  k: kwargs[k]
+                  for k in ["header1"]
+                }
+        """
+    )
+    assert df["test"][0]["header1"] == "value1"

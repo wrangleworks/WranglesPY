@@ -72,8 +72,11 @@ def ai(
     input: list = None,
     model: str = "gpt-3.5-turbo",
     threads: int = 10,
-    timeout: int = 15,
-    retries: int = 0
+    timeout: int = 25,
+    retries: int = 0,
+    messages: list = [],
+    url: str = "https://api.openai.com/v1/chat/completions",
+    **kwargs
 ):
     """
     type: object
@@ -87,7 +90,10 @@ def ai(
         type:
           - string
           - array
-        description: Name or list of input columns.
+        description: |-
+          Name or list of input columns to give to the AI
+          to use to determine the output. If not specified, all
+          columns will be used.
       output:
         type: object
         description: List and description of the output you want
@@ -142,6 +148,16 @@ def ai(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      url:
+        type: string
+        description: |-
+          Override the default url for the AI endpoint.
+          Must use the OpenAI chat completions API.
+      messages:
+        type:
+          - string
+          - array
+        description: Optional. Provide additional overall instructions for the AI.
     """
     if input is not None:
         if not isinstance(input, list):
@@ -150,7 +166,23 @@ def ai(
     else:
         df_temp = df
 
+    # Add a default for type array if not already specified.
+    # ChatGPT appears to need this to function correctly.
+    for k, v in output.items():
+        if v.get("type") == "array" and "items" not in v:
+            output[k]["items"] = {"type": "string"}
+
+    # Format any user submitted header messages
+    if not isinstance(messages, list): messages = [messages]
     messages = [
+        {
+            "role": "user",
+            "content": message
+        }
+        for message in messages
+    ]
+
+    system_messages = [
         {
             "role": "system",
             "content": " ".join([
@@ -166,14 +198,15 @@ def ai(
                 "Only use the functions you have been provided with.",
             ])
         },
-    ]
+    ] + messages
 
     settings = {
         "model": model,
-        "messages": messages,
+        "messages": system_messages,
         "temperature": 0,
-        "functions": [
-            {
+        "tools": [{
+            "type": "function",
+            "function": {
                 "name": "parse_output",
                 "description": "Submit the output corresponding to the extracted data in the form the user requires.",
                 "parameters": {
@@ -182,8 +215,9 @@ def ai(
                     "required": list(output.keys())
                 }
             }
-        ],
-        'function_call': {"name": "parse_output"}
+        }],
+        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
+        **kwargs
     }
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -192,12 +226,16 @@ def ai(
             df_temp.to_dict(orient='records'), 
             [api_key] * len(df),
             [settings] * len(df),
+            [url] * len(df),
             [timeout] * len(df),
             [retries] * len(df),
         ))
 
-    exploded_df = _pd.json_normalize(results, max_level=0).fillna('')
-    exploded_df.set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    try:
+      exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+    except:
+      raise RuntimeError("Unable to parse response from AI model")
+
     # Ensure all the required keys are included in the output,
     # even if chatGPT doesn't preserve them
     for col in output.keys():
@@ -407,14 +445,15 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
 
 
 def custom(
-        df: _pd.DataFrame,
-        input: _Union[str, list],
-        model_id: _Union[str, list],
-        output: _Union[str, list] = None,
-        use_labels: bool = False,
-        first_element: bool = False,
-        case_sensitive: bool = False
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    model_id: _Union[str, list],
+    output: _Union[str, list] = None,
+    use_labels: bool = False,
+    first_element: bool = False,
+    case_sensitive: bool = False,
+    use_spellcheck: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
@@ -447,6 +486,9 @@ def custom(
       case_sensitive:
         type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
+      use_spellcheck:
+        type: boolean
+        description: Use spellcheck to correct spelling mistakes in the input
     """
     if output is None: output = input
     
@@ -459,17 +501,38 @@ def custom(
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+            df[out_col] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                use_spellcheck=use_spellcheck
+            )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(_format.concatenate(df[input].astype(str).values.tolist(), ' '), model_id=model_id[0], first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
+        df[output[0]] = _extract.custom(
+            _format.concatenate(df[input].astype(str).values.tolist(), ' '),
+            model_id=model_id[0],
+            first_element=first_element,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            use_spellcheck=use_spellcheck
+        )
     
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(df[in_col].astype(str).tolist(), model_id=model, first_element=first_element, use_labels=use_labels, case_sensitive=case_sensitive)
-        
+            df[out_col] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=model,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                use_spellcheck=use_spellcheck
+            )
+
     return df
 
 
@@ -774,19 +837,20 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     required:
       - input
       - output
+      - find
     properties:
       input:
         type: 
           - string
           - array
-        description: Name of the input column.
-    output:
-      type: string
-      description: Name of the output column.
-      find:
-        type: 
+        description: Name of the input column(s).
+      output:
+        type:
           - string
           - array
+        description: Name of the output column(s).
+      find:
+        type: string
         description: Pattern to find using regex
     """
     # If output is not specified, overwrite input columns in place

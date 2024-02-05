@@ -92,25 +92,13 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         type:
           - string
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
-    """    
-    
-    # if value is a list then raise and error
-    if isinstance(value, list):
-        raise ValueError('Value must be a string and not a list')
-    
-    # Get list of existing columns
-    existing_column = df.columns
-    
-    # Get number of rows in df
-    rows = len(df)
-    # Get number of columns created
-    cols_created = len(output)
+    """
     # If a string provided, convert to list
     if isinstance(output, str):
-      if output in existing_column:
+      if output in df.columns:
         raise ValueError(f'"{output}" column already exists in dataFrame.')
       output = [output]
-    
+
     # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
     output_dict = {}
     for out in output:
@@ -120,16 +108,17 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
             output_dict.update({temp_key: temp_value})
         else:
             output_dict.update({out: value})
-                
+
     # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in (output_dict.keys()) if x in existing_column]
+    check_list = [x for x in (output_dict.keys()) if x in df.columns]
     if len(check_list) > 0:
       raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
-    
+
     for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
         # Data to generate
-        data = _pd.DataFrame(_generate_cell_values(values_list, rows), columns=[output_column])
-        data.set_index(df.index, inplace=True)  # use the same index as original to match rows
+        data = _pd.DataFrame({
+            output_column: _generate_cell_values(values_list, len(df))
+        }).set_index(df.index)  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
 
@@ -145,12 +134,13 @@ def embeddings(
     threads: int = 10,
     output_type: str = "python list",
     model: str = "text-embedding-ada-002",
-    retries: int = 0
+    retries: int = 0,
+    url: str = "https://api.openai.com/v1/embeddings",
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
     description: Create an embedding based on text input.
-    additionalProperties: false
     required:
       - input
       - api_key
@@ -167,7 +157,10 @@ def embeddings(
         description: The output column the embeddings will be saved as.
       api_key:
         type: string
-        description: The OpenAI API key.
+        description: The API key.
+      model:
+        type: string
+        description: The specific model to use to generate the embeddings.
       batch_size:
         type: integer
         description: The number of rows to submit per individual request.
@@ -189,6 +182,11 @@ def embeddings(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      url:
+        type: string
+        description: |-
+          Override the default url for the AI endpoint.
+          Must use the OpenAI embeddings API.
     """
     if output is None: output = input
 
@@ -208,7 +206,9 @@ def embeddings(
             model,
             batch_size,
             threads,
-            retries
+            retries,
+            url,
+            **kwargs
         )
 
         if output_type == 'python list':
@@ -237,10 +237,16 @@ def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     return uuid(df, output)
 
 
-def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: int = 1) -> _pd.DataFrame:
+def index(
+    df: _pd.DataFrame,
+    output: _Union[str, list],
+    start: int = 1,
+    step: int = 1,
+    by = None,
+) -> _pd.DataFrame:
     """
     type: object
-    description: Create column(s) with an incremental index.
+    description: Create column(s) with an incremental index. e.g. 1,2,3...
     additionalProperties: false
     required:
       - output
@@ -256,13 +262,37 @@ def index(df: _pd.DataFrame, output: _Union[str, list], start: int = 1, step: in
       step:
         type: integer
         description: (Optional; default 1) Step between successive rows
+      by:
+        type:
+          - string
+          - array
+        description: Optional. Cluster the created indexes by one or more columns
     """
+    # Ensure by is a list
+    if by != None and not isinstance(by, list):
+        by = [by]
+
     # If a string provided, convert to list
     if isinstance(output, str): output = [output]
 
+    if by == None:
+        # Quickly create a sequence using numpy
+        index_values = _np.arange(start, len(df) * step + start, step=step)
+    else:
+        # Track incrementing values for each column in by
+        idx_map = {}
+        index_values = []
+        for x in df[by].values:
+            row_tuple = tuple(x.tolist())
+            if row_tuple in idx_map:
+                idx_map[row_tuple] = idx_map[row_tuple] + step
+            else:
+                idx_map[row_tuple] = start
+            index_values.append(idx_map[row_tuple])
+
     # Loop through and create incremental index
     for output_column in output:
-        df[output_column] = _np.arange(start, len(df) * step + start, step=step)
+        df[output_column] = index_values
 
     return df
 
@@ -288,7 +318,8 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
         type: object
         description: |
           A dictionary which defines the template/location as well as the form which the template is input.
-          If any keys use a space, they must be replaced with an underscore.
+          If any keys use a space, they must be replaced with an underscore.  Note: spaces within column names
+          are replaced by underscores (_).
         additionalProperties: false
         properties:
           file:

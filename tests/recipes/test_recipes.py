@@ -205,3 +205,208 @@ def test_invalid_recipe_file_extension():
         info.typename == 'RuntimeError' and
         info.value.args[0].startswith('Error reading recipe')
     )
+
+# Optional columns
+def test_optional_wrangles_input():
+    """
+    Test a column indicated as optional
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        wrangles:
+          - merge.concatenate:
+              input:
+                - header1
+                - header2
+                - header3?
+              output: result
+              char: ","
+        """
+    )
+    assert df["result"][0] == "value1,value2"
+
+def test_non_optional_wrangles_input():
+    """
+    Test a missing column not indicated
+    as optional fails appropriately
+    """
+    with pytest.raises(KeyError) as error:
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+
+            wrangles:
+            - merge.concatenate:
+                input:
+                    - header1
+                    - header2
+                    - header3
+                output: result
+                char: ","
+            """
+        )
+    assert "Column header3 does not exist" in error.value.args[0]
+
+def test_optional_write_columns():
+    """
+    Test writing an optional column that isn't present
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        write:
+          - memory:
+              id: test_optional_write_columns
+              columns:
+                - header1
+                - header2
+                - header3?
+        """
+    )
+    assert memory.dataframes["test_optional_write_columns"]["columns"] == ["header1","header2"]
+
+def test_optional_write_not_columns():
+    """
+    Test writing an optional not column that isn't present
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        write:
+          - memory:
+              id: test_optional_write_not_columns
+              columns:
+                - header1
+                - header2
+              not_columns:
+                - header3?
+        """
+    )
+    assert memory.dataframes["test_optional_write_not_columns"]["columns"] == ["header1","header2"]
+
+def test_non_optional_write_columns():
+    """
+    Test a missing column not indicated
+    as optional fails appropriately
+    """
+    with pytest.raises(KeyError) as error:
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+                    header2: value2
+
+            write:
+              - memory:
+                  id: test_non_optional_write_columns
+                  columns:
+                    - header1
+                    - header2
+                    - header3
+            """
+        )
+    assert "Column header3 does not exist" in error.value.args[0]
+
+def test_optional_read_columns():
+    """
+    Test reading an optional column that isn't present
+    """
+    memory.dataframes["test_optional_read_columns"] = {
+        "index": [0, 1],
+        "columns": ["header1", "header2"],
+        "data": [["value1", "value2"], ["value1", "value2"]]
+    }
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - memory:
+              id: test_optional_read_columns
+              columns:
+                - header1
+                - header2
+                - header3?
+              orient: split
+        """
+    )
+    assert list(df.columns) == ["header1","header2"]
+
+def test_non_optional_read_columns():
+    """
+    Test a missing column not indicated
+    as optional fails appropriately
+    """
+    memory.dataframes["test_non_optional_read_columns"] = {
+        "index": [0, 1],
+        "columns": ["header1", "header2"],
+        "data": [["value1", "value2"], ["value1", "value2"]]
+    }
+
+    with pytest.raises(KeyError) as error:
+        wrangles.recipe.run(
+            """
+            read:
+              - memory:
+                  id: test_non_optional_read_columns
+                  columns:
+                    - header1
+                    - header2
+                    - header3
+                  orient: split
+            """
+        )
+    assert "Column header3 does not exist" in error.value.args[0]
+
+def test_column_with_question_mark():
+    """
+    Test that a column ending with a
+    question mark still works correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+                header?: value3
+
+        wrangles:
+          - merge.concatenate:
+              input:
+                - header1
+                - header2
+                - header?
+              output: result
+              char: ","
+        """
+    )
+    assert df["result"][0] == "value1,value2,value3"
