@@ -595,11 +595,57 @@ def test_transform():
       - transform:
           input: Col1
           output: Col2
-          parameters:
-            arg:
-              One: Eleven
-              Two: Twelve
-              Four: Fourteen
+          arg:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'Eleven' and df.iloc[1]['Col2'] == 'Twelve'
+
+def test_transform_multiple():
+    """
+    Test transform function with multiple columns
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+        'Col2': ['Four', 'Three', 'Two', 'One']
+    })
+    recipe = """
+    wrangles:
+      - transform:
+          input: 
+            - Col1
+            - Col2
+          output: 
+            - Col3
+            - Col4
+          arg:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col3'] == 'Eleven' and df.iloc[2]['Col4'] == 'Twelve'
+
+def test_transform_no_output():
+    """
+    Test transform function without an output
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+        'Col2': ['Four', 'Three', 'Two', 'One']
+    })
+    recipe = """
+    wrangles:
+      - transform:
+          input: 
+            - Col1
+            - Col2
+          arg:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'Eleven' and df.iloc[2]['Col2'] == 'Twelve'
