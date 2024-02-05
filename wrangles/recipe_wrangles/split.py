@@ -120,40 +120,24 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = 
           - string
         description: (Optional) Select a specific element or range after splitting
     """
-    # If char is a list -> split on multiple chars using regex
-    if isinstance(char, _list) and '*' not in output:
-      df[output] = _format.split(df[input].astype(str).tolist(), char, output)
-      return df
-      
-    # Wildcard with multiple split and multiple char
-    if isinstance(output, str) and '*' in output and isinstance(char, _list):
-        # If user has entered a wildcard in the output column name
-        # then add results to that with an incrementing index for each column
-        # column * -> column 1, column 2, column 3...
-        results = _format.split(df[input].astype(str).tolist(), char, output)
-        output_headers = []
-        for i in range(1, len(results[0]) + 1):
-            output_headers.append(output.replace('*', str(i)))
-        df[output_headers] = results
-        return df
-        
-    # Wildcard with multiple splits 
+    # If output is a list, then pad to a consistent length
+    if isinstance(output, str) and '*' in output or isinstance(output, _list):
+        pad = True
+
+    results = _format.split(df[input].astype(str).tolist(), char, output, pad)
+
     if isinstance(output, str) and '*' in output:
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
         # column * -> column 1, column 2, column 3...
-        results = _format.split(df[input].astype(str).tolist(), char, output, pad=True)
         output_headers = []
         for i in range(1, len(results[0]) + 1):
             output_headers.append(output.replace('*', str(i)))
         df[output_headers] = results
 
-    elif isinstance(output, str) and not pad:
+    else:
         # User has given a single column - return as a list within that column
-        df[output] = _format.split(df[input].astype(str).tolist(), char, output)
-
-    elif isinstance(output, _list) or pad:
-        df[output] = _format.split(df[input].astype(str).tolist(), char, output, pad=True)
+        df[output] = results
         
     # Specific element of the output list
     if isinstance(element, int):
