@@ -25,8 +25,12 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
 def split(input_list, split_char, output, pad=False):
     if pad:
         # Pad to be as long as the longest result
-        max_len = max([len(x.split(split_char)) for x in input_list])
-        results = [_re.split(split_char, x) + [''] * (max_len - len(_re.split(split_char, x))) for x in input_list]
+        if split_char[:7] == 'regex: ':
+            max_len = max([len(_re.split(split_char[7:], x)) for x in input_list])
+            results = [_re.split(split_char[7:], x) + [''] * (max_len - len(_re.split(split_char, x))) for x in input_list]
+        else:
+            max_len = max([len(x.split(split_char)) for x in input_list])
+            results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
         
         # trimming list to appropriate output columns number
         if len(output) <= max_len and isinstance(output, list):
@@ -35,8 +39,10 @@ def split(input_list, split_char, output, pad=False):
         elif len(output) >= max_len and isinstance(output, list):
             results = [x + [''] * (len(output) - len(x)) for x in results] 
     else:
-        # results = [x.split(split_char) for x in input_list]
-        results = [_re.split(split_char, x) for x in input_list]
+        if split_char[:7] == 'regex: ':
+            results = [_re.split(split_char[7:], x) for x in input_list]
+        else:
+            results = [x.split(split_char) for x in input_list]
     return results
     
 
