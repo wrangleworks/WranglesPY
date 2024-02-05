@@ -64,7 +64,7 @@ def test_split_text_4():
         - split.text:
             input: col1
             output: out1
-            char: '@|&|\$'
+            char: 'regex: @|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
@@ -79,7 +79,7 @@ def test_split_text_5():
         - split.text:
             input: col1
             output: out*
-            char: '@|&|\$'
+            char: 'regex: @|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
@@ -419,3 +419,39 @@ def test_tokenize_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['out1'][0] == 'Titanium' and df.iloc[0]['out1'] == ''
+
+def test_split_text_inclusive():
+    """
+    Tests split.text with inclusive set to True
+    """
+    data = pd.DataFrame({
+    # 'col1': ['Hello, Wrangles!']
+    'col1': ['80ga']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: out1
+            char: 'ga'
+            inclusive: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out1'].iloc[0][1] == ', '
+
+def test_split_text_regex():
+    """
+    Tests split.text using regex
+    """
+    data = pd.DataFrame({
+    'col1': ['Hello, Wrangles!']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: out1
+            char: 'regex: (,|!)'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out1'].iloc[0][1] == ',' and len(df['out1'].iloc[0]) == 5
