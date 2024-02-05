@@ -109,9 +109,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = 
           - array
         description: Name of the output column
       char:
-        type: 
-          - string
-          - array
+        type: string
         description: (Optional) Set the character(s) to split on. Default comma (,)
       pad:
         type: boolean
@@ -124,7 +122,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = 
     """
     # If char is a list -> split on multiple chars using regex
     if isinstance(char, _list) and '*' not in output:
-      df[output] = _format.split_re(df[input].astype(str).tolist(), char, output)
+      df[output] = _format.split(df[input].astype(str).tolist(), char, output)
       return df
       
     # Wildcard with multiple split and multiple char
@@ -132,7 +130,7 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = 
         # If user has entered a wildcard in the output column name
         # then add results to that with an incrementing index for each column
         # column * -> column 1, column 2, column 3...
-        results = _format.split_re(df[input].astype(str).tolist(), char, output)
+        results = _format.split(df[input].astype(str).tolist(), char, output)
         output_headers = []
         for i in range(1, len(results[0]) + 1):
             output_headers.append(output.replace('*', str(i)))
