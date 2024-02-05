@@ -197,3 +197,8 @@ def explode(
         raise ValueError(f"Columns {input} not in DataFrame")
 
     return df.explode(input, reset_index)
+
+
+def transform(df, input, output, parameters):
+    df[output] = df.loc[:, input[0]].map(parameters['arg'])
+    return df
