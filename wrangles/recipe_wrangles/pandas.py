@@ -199,6 +199,44 @@ def explode(
     return df.explode(input, reset_index)
 
 
-def transform(df, input, output, parameters):
-    df[output] = df.loc[:, input[0]].map(parameters['arg'])
+def transform(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    arg: dict,
+    output: _Union[str, list] = None,
+    na_action: str = None
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Drop (Delete) selected column(s)
+    additionalProperties: true
+    required:
+      - input
+      - arg
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) transform.
+      arg:
+        type: object
+        description: The transformation to apply to the column(s)
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      na_action:
+        type: string
+        description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
+    """
+    if output is None: output = input
+
+    # Ensure input and output are lists
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    for i in range(len(input)):
+        df[output[i]] = df.loc[:, input[i]].map(arg=arg, na_action=na_action)
     return df
