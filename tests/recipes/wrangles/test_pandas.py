@@ -582,3 +582,24 @@ def test_sort_descending():
         df["column"][0] >= df["column"][1]
         and df["column"].tolist()[-2] >= df["column"].tolist()[-1]
     )
+
+def test_transform():
+    """
+    Test transform function
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+    })
+    recipe = """
+    wrangles:
+      - transform:
+          input: Col1
+          output: Col2
+          parameters:
+            arg:
+              One: Eleven
+              Two: Twelve
+              Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col2'] == 'Eleven' and df.iloc[1]['Col2'] == 'Twelve'
