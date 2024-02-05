@@ -91,7 +91,15 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
     return df
 
 
-def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = ',', pad: bool = False, element: _Union[str, int] = None) -> _pd.DataFrame:
+def text(
+        df: _pd.DataFrame,
+        input: str,
+        output: _Union[str, _list],
+        char: str = ',',
+        pad: bool = False,
+        element: _Union[int, str] = None,
+        inclusive: bool = False
+    ) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
@@ -123,6 +131,9 @@ def text(df: _pd.DataFrame, input: str, output: _Union[str, _list], char: str = 
     # If output is a list, then pad to a consistent length
     if isinstance(output, str) and '*' in output or isinstance(output, _list):
         pad = True
+
+    if inclusive and char[:7] != 'regex: ':
+        char = 'regex: (' + char + ')'
 
     results = _format.split(df[input].astype(str).tolist(), char, output, pad)
 
