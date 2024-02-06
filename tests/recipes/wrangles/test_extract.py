@@ -952,6 +952,61 @@ def test_extract_custom_case_sensitive_multi_model():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == ['Charizard'] and df.iloc[2]['output'] == []
 
+def test_extract_custom_raw():
+    """
+    Test extract.custom using extract_raw
+    """
+    data = pd.DataFrame({
+        'col1': ['The first one is blue small', 'Second is green size medium', 'Third is black and the size is small'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          extract_raw: True
+          model_id: 829c1a73-1bfd-4ac0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == ['blue', 'small'] and df.iloc[2]['output'] == ['black', 'small']
+
+def test_extract_custom_raw_first_element():
+    """
+    Test extract.custom using extract_raw and first_element
+    """
+    data = pd.DataFrame({
+        'col1': ['The first one is blue small', 'Second is green size medium', 'Third is black and the size is small'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          extract_raw: True
+          first_element: True
+          model_id: 829c1a73-1bfd-4ac0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == 'blue' and df.iloc[2]['output'] == 'black' 
+
+def test_extract_custom_raw_case_sensitive():
+    """
+    Test extract.custom using extract_raw and case sensitive
+    """
+    data = pd.DataFrame({
+        'col1': ['The first one is Blue small', 'Second is green size medium', 'Third is black and the size is Small'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          extract_raw: True
+          case_sensitive: True
+          model_id: 829c1a73-1bfd-4ac0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == ['small'] and df.iloc[2]['output'] == ['black'] 
 
 # combinations of use_labels and first_element begins
 def test_use_labels_true_and_first_element_true():
