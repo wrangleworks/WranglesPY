@@ -1008,6 +1008,43 @@ def test_extract_custom_raw_case_sensitive():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == ['small'] and df.iloc[2]['output'] == ['black'] 
 
+def test_extract_custom_use_spellcheck():
+    """
+    Test extract.custom with use_spellcheck
+    """
+    data = pd.DataFrame({
+        'col1': ['The first one is smal', 'Second is size medum', 'Third is coton'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          use_spellcheck: True
+          model_id: 829c1a73-1bfd-4ac0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == ['size: small'] and df.iloc[2]['output'] == ['cotton'] 
+
+def test_extract_custom_use_spellcheck_extract_raw():
+    """
+    Test extract.custom with use_spellcheck and extract_raw
+    """
+    data = pd.DataFrame({
+        'col1': ['The first one is smal', 'Second is size medum', 'Third is coton'],
+    })
+    recipe = """
+    wrangles:
+      - extract.custom:
+          input: col1 
+          output: output
+          use_spellcheck: True
+          extract_raw: True
+          model_id: 829c1a73-1bfd-4ac0
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['output'] == ['small'] and df.iloc[1]['output'] == ['medium'] 
+
 # combinations of use_labels and first_element begins
 def test_use_labels_true_and_first_element_true():
     """
