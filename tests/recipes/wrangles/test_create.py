@@ -235,35 +235,7 @@ def test_create_column_succinct_3():
         """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col2'][0] == '' and df['col5'][0] == ''
-    
-def test_create_column_succinct_4():
-    """
-    Error if using a list in value
-    """
-    data = pd.DataFrame({
-        'col1': ['Hello']
-    })
-    recipe="""
-        wrangles:
-        - create.column:
-            output:
-                - col2: <boolean>
-                - col3: <boolean>
-                - col4: <code(10)>
-                - col5
-            value:
-                - <boolean>
-                - <boolean>
-                - <code(10)>
-                - ""
-        """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        info.value.args[0] == 'create.column - Value must be a string and not a list'
-    )
-    
+
 def test_create_column_succinct_5():
     """
     Testing the column that is not a dict and has no value
@@ -344,21 +316,81 @@ def test_create_column_succinct_8():
         dataframe=data
     )
     assert list(df.columns) == ['col1', 'col2', 'col3']
-    
+
+def test_create_column_list_value():
+    """
+    Test creating a column with a list as the value
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        wrangles:
+          - create.column:
+              output: column
+              value:
+                - a
+                - b
+                - c
+        """
+    )
+    assert (
+        isinstance(df["column"][0], list) and
+        len(df["column"][0]) == 3
+    )
+
 #
 # Index
 #
-def test_create_index_1():
-    data = pd.DataFrame([['one', 'two'], ['une', 'deux'], ['uno', 'dos']], columns=['column1', 'column2'])
-    recipe = """
-        wrangles:
-            - create.index:
-                output: index_col
-                start: 1
-                
+def test_create_index():
+    df = wrangles.recipe.run(
         """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[-1]['index_col'] == 3
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+        """
+    )
+    assert df["index_col"].values.tolist() == [1,2,3]
+
+def test_create_index_start():
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+              start: 0
+        """
+    )
+    assert df["index_col"].values.tolist() == [0,1,2]
+
+def test_create_index_step():
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value
+        wrangles:
+          - create.index:
+              output: index_col
+              step: 2
+        """
+    )
+    assert df["index_col"].values.tolist() == [1,3,5]
 
 def test_create_index_where():
     """
@@ -372,11 +404,67 @@ def test_create_index_where():
         wrangles:
             - create.index:
                 output: index_col
-                start: 1
                 where: numbers > 3
         """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['index_col'] == '' and df.iloc[2]['index_col'] == 2.0
+    assert df.iloc[0]['index_col'] == '' and df.iloc[2]['index_col'] == 2
+
+def test_create_index_by_columns():
+    """
+    Test an index clustered by multiple columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by:
+                - column1
+                - column2
+        """,
+        dataframe=pd.DataFrame({
+            "column1": ["a","a","b","b","a","b"],
+            "column2": ["a","a","b","c","a","b"],
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [1,2,1,1,3,2]
+
+def test_create_index_by_column():
+    """
+    Test an index clustered by a column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["a","a","b","b","a"]
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [1,2,1,2,3]
+
+def test_create_index_by_column_start_step():
+    """
+    Test an index clustered by a column
+    with start and step
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.index:
+              output: grouped_index
+              by: column
+              start: 0
+              step: 2
+        """,
+        dataframe=pd.DataFrame({
+            "column": ["a","a","b","b","a"]
+        })
+    )
+    assert df["grouped_index"].values.tolist() == [0,2,0,2,4]
 
 #
 # GUID
@@ -1041,4 +1129,61 @@ def test_create_embeddings_multi_column():
         len(df["embedding1"][0]) == 1536 and
         isinstance(df["embedding2"][0], list) and
         len(df["embedding2"][0]) == 1536
+    )
+
+def test_create_embeddings_np_array_with_where():
+    """
+    Test using where with a numpy array
+    created by create.embeddings
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              output_type: numpy array
+              retries: 1
+
+          - convert.case:
+              input: text
+              where: "text LIKE '%not%'"
+              case: upper
+        """,
+        dataframe=pd.DataFrame({
+            "text": ["This is a test", "This is not a test"]
+        })
+    )
+    assert (
+        isinstance(df["embedding"][0], (np.ndarray, np.float32)) and
+        len(df["embedding"][0]) == 1536 and
+        df["text"].values.tolist() == ['This is a test', 'THIS IS NOT A TEST']
+    )
+
+def test_create_embeddings_kwargs():
+    """
+    Test passing through any unspecified
+    params works correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                text: "This is a test"
+        wrangles:
+          - create.embeddings:
+              input: text
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              retries: 1
+              model: text-embedding-3-small
+              dimensions: 256
+        """
+    )
+    assert (
+        isinstance(df["embedding"][0], list) and
+        len(df["embedding"][0]) == 256
     )

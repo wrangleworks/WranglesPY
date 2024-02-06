@@ -1096,7 +1096,116 @@ def test_rename_into_existing_column_input():
     assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
 
+def test_rename_wrangles():
+    """
+    Use wrangles to rename columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: upper
+        """
+    )
+    assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+def test_rename_custom_function():
+    """
+    Test that a custom function for rename wrangles works correctly
+    """
+    def func(columns):
+        return columns + "_1"
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+        wrangles:
+          - rename:
+              wrangles:
+                - custom.func:
+                    output: columns
+        """,
+        functions=func
+    )
+    assert df.columns.tolist() == ["header1_1","header2_1"]
+
+def test_rename_column_named_functions():
+    """
+    Test that a column named functions is still
+    renamed correctly.
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 5
+            values:
+                functions: value
+        wrangles:
+        - rename:
+            functions: renamed
+        """
+    )
+    assert df.columns.tolist() == ["renamed"]
+
+def test_rename_wrangles_columns_missing_error():
+    """
+    If user doesn't return a column named columns
+    ensure an appropriate error is show
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - rename:
+                        columns: cause_error
+            """
+        )
+    assert "column named 'columns' must be returned" in error.value.args[0]
+
+def test_rename_wrangles_filtered_error():
+    """
+    When renaming, if the user changes the length of the output columns
+    by wrangling then ensure an appropriate error is returned.
+    """
+    with pytest.raises(RuntimeError) as error:
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - filter:
+                        where: columns = 'header1'
+            """
+        )
+    assert "same length as the input" in error.value.args[0]
 
 #
 # Cosine Similarity
@@ -2614,3 +2723,29 @@ def test_python_params():
         """
     )
     assert df["result"][0] == "a my_value"
+
+def test_python_kwargs_scope():
+    """
+    Test to ensure variables
+    are correctly declared in scope
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+                header2: value2
+
+        wrangles:
+          - python:
+              output: test
+              command: |-
+                {
+                  k: kwargs[k]
+                  for k in ["header1"]
+                }
+        """
+    )
+    assert df["test"][0]["header1"] == "value1"

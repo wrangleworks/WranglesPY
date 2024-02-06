@@ -212,16 +212,6 @@ def _load_recipe(
                 + 'The recipe should be a YAML file using utf-8 encoding.'
             )
 
-    # Also add environment variables to list of placeholder variables
-    for env_key, env_val in _os.environ.items():
-        if env_key not in variables.keys():
-            variables[env_key] = env_val
-
-    recipe_object = _yaml.safe_load(recipe_string)
-    
-    # Check if there are any templated valued to update
-    recipe_object = _replace_templated_values(recipe_object, variables)
-
     # Load the custom functions from the supported formats
     # If user has passed in a single function, convert to a list
     if callable(functions): functions = [functions]
@@ -251,6 +241,31 @@ def _load_recipe(
 
     # Merge user input functions and any from remote model
     functions = {**model_functions, **functions}
+
+    # Also add environment variables to list of placeholder variables
+    for env_key, env_val in _os.environ.items():
+        if env_key not in variables.keys():
+            variables[env_key] = env_val
+
+    # Interpret any variables defined by a custom function
+    for k, v in variables.items():
+        if isinstance(v, str) and v.lower().startswith("custom."):
+            if v[7:] in functions.keys():
+                func = functions[v[7:]]
+                fn_argspec = _inspect.getfullargspec(func)
+                if len(fn_argspec.args) == 0:
+                    variables[k] = func()
+                elif len(fn_argspec.args) == 1:
+                    variables[k] = func(variables)
+                else:
+                    raise TypeError(
+                        f"Custom function {v[7:]} must have 0 or 1 arguments"
+                    )
+
+    recipe_object = _yaml.safe_load(recipe_string)
+
+    # Check if there are any templated valued to update
+    recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object, functions
 
@@ -545,7 +560,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
 
                 else:
                     # Blacklist of Wrangles not to allow wildcards for
-                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'split.dictionary', 'select.element'] and 'input' in params:
+                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
                         # Expand out any wildcards or regex in column names
                         params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
                             
@@ -553,9 +568,11 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     obj = _recipe_wrangles
                     for element in wrangle.split('.'):
                         obj = getattr(obj, element)
-
-                    if wrangle == 'recipe':
-                        params['functions'] = functions
+                    
+                    # Pass on custom functions to wrangles that may need it
+                    if wrangle in ["recipe", "rename"]:
+                        if "functions" not in params:
+                            params['functions'] = functions
 
                     df = obj(df, **params)
 

@@ -2,24 +2,24 @@ import re as _re
 import pandas as _pandas
 
 
-def join_list(input_list, join_char):
-    """
-    Join a python list with a specified char
-    """
-    results = [join_char.join(x) for x in input_list]
-    return results
-
 def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
 
-def concatenate(data_list, concat_char):
+
+def concatenate(data_list, concat_char, skip_empty: bool=False):
     """
     Concatenate a list of columns
     """
-    results = []
-    for row in data_list:
-        results.append(concat_char.join(row))            
-    return results
+    if skip_empty:
+        return [
+            concat_char.join([str(x) for x in row if x])
+            for row in data_list
+        ]
+    else:
+        return [
+            concat_char.join([str(x) for x in row])
+            for row in data_list
+        ]
 
 
 # Super Mario Function

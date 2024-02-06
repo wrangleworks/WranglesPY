@@ -4,6 +4,7 @@ Functions to convert data formats and representations
 import json as _json
 from typing import Union as _Union
 import re as _re
+import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
@@ -183,11 +184,12 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
 
 
 def from_json(
-        df: _pd.DataFrame, 
-        input: _Union[str, list], 
-        output: _Union[str, list] = None,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None,
+    default = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Convert a JSON representation into an object
@@ -204,7 +206,27 @@ def from_json(
           - string
           - array
         description: Name of the output column. If omitted, the input column will be overwritten
+      default:
+        type: ["string","array","object","number","boolean","null"]
+        description: Value to return if the row is empty or fails to be parsed as JSON
     """
+    def _load_with_fallback(value):
+        """
+        Attempt to load JSON.
+        If fails and user has provided a default, return that.
+        If no default, raise an error.
+        """
+        try:
+            return _json.loads(value, **kwargs)
+        except:
+            if default != None:
+                return default
+            else:
+                raise ValueError(
+                    "Unable to load all rows as JSON. " +
+                    "Set a default to set a value if the row is empty or fails to parse."
+                )
+
     # Set output column as input if not provided
     if output is None: output = input
     
@@ -218,7 +240,10 @@ def from_json(
         
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = [_json.loads(x, **kwargs) for x in df[input_column]]
+        df[output_column] = [
+            _load_with_fallback(x)
+            for x in df[input_column]
+        ]
     
     return df
 
@@ -262,6 +287,14 @@ def to_json(
         type: boolean
         description: If true, non-ASCII characters will be escaped. Default is false 
     """
+    def handle_unusual_datatypes(o):
+        if isinstance(o, _np.ndarray):
+            return o.tolist()
+        if isinstance(o, (_np.integer, _np.floating)):
+            return o.item()
+        else:
+            return o.__str__()
+
     # Set output column as input if not provided
     if output is None: output = input
     
@@ -276,9 +309,14 @@ def to_json(
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
-            _json.dumps(row, ensure_ascii=ensure_ascii, **kwargs) 
-            for row in df[input_columns].values.tolist()
-            ]
+            _json.dumps(
+                row,
+                ensure_ascii=ensure_ascii,
+                default=handle_unusual_datatypes,
+                **kwargs
+            ) 
+            for row in df[input_columns].values
+        ]
         
     return df
 
@@ -287,6 +325,7 @@ def from_yaml(
     df: _pd.DataFrame, 
     input: _Union[str, list], 
     output: _Union[str, list] = None,
+    default = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -307,7 +346,27 @@ def from_yaml(
         description: >-
           Name of the output column.
           If omitted, the input column will be overwritten
+      default:
+        type: ["string","array","object","number","boolean","null"]
+        description: Value to return if the row is empty or fails to be parsed as JSON
     """
+    def _load_with_fallback(value):
+        """
+        Attempt to load JSON.
+        If fails and user has provided a default, return that.
+        If no default, raise an error.
+        """
+        try:
+            return _yaml.safe_load(value, **kwargs) or default
+        except:
+            if default != None:
+                return default
+            else:
+                raise ValueError(
+                    "Unable to load all rows as YAML. " +
+                    "Set a default to set a value if the row is empty or fails to parse."
+                )
+
     # Set output column as input if not provided
     if output is None: output = input
     
@@ -322,7 +381,7 @@ def from_yaml(
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = [
-            _yaml.safe_load(x, **kwargs)
+            _load_with_fallback(x)
             for x in df[input_column]
         ]
     

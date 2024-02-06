@@ -58,6 +58,36 @@ def transpose(df: _pd.DataFrame) -> _pd.DataFrame:
     return df.transpose()
 
 
+def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
+    """
+    type: object
+    description: Sort the data
+    additionalProperties: true
+    required:
+      - by
+    properties:
+      by:
+        type:
+          - string
+          - array
+        description: Name or list of the column(s) to sort by
+      ascending:
+        type:
+          - boolean
+          - array
+        items:
+          type: boolean
+        description: >-
+          Sort ascending vs. descending.
+          Specify a list to sort multiple columns in different orders.
+          If this is a list of bools then it must match the length of the by.
+    """
+    return df.sort_values(
+        ignore_index=ignore_index,
+        **kwargs
+    )
+
+
 def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
