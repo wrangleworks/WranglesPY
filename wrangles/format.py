@@ -22,7 +22,27 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
         ]
 
 
-def split(input_list, split_char, output, pad=False):
+def split(input_list, split_char, output, pad=False, inclusive=False):
+    if split_char[:6] == 'regex:':
+            split_char = split_char[6:].strip()
+            results = [_re.split(split_char, x) for x in input_list]
+    else:
+        results = [x.split(split_char) for x in input_list]
+
+    if inclusive:
+        # Get the split stuff
+        inclusive_results = [_re.findall(split_char, x) for x in input_list]
+
+        # 'zip' together
+        merged_results = []
+        for i in range(len(results)):
+            temp = [None]*(len(results[i]) + len(inclusive_results[i]))
+            temp[::2] = results[i]
+            temp[1::2] = inclusive_results[i]
+            merged_results.append(temp)
+        
+        results = merged_results
+
     if pad:
         # Pad to be as long as the longest result
         if split_char[:7] == 'regex: ':
@@ -38,11 +58,21 @@ def split(input_list, split_char, output, pad=False):
         # if more columns than number of splits, then add '' in extra columns
         elif len(output) >= max_len and isinstance(output, list):
             results = [x + [''] * (len(output) - len(x)) for x in results] 
-    else:
-        if split_char[:7] == 'regex: ':
-            results = [_re.split(split_char[7:], x) for x in input_list]
-        else:
-            results = [x.split(split_char) for x in input_list]
+    # else:
+    #     if split_char[:7] == 'regex: ':
+    #         results = [_re.split(split_char[7:], x) for x in input_list]
+    #         ['a', 'b', 'c'], ['|', ',']
+    #     else:
+    #         results = [x.split(split_char) for x in input_list]
+
+    # if inclusive:
+    #     # get the split stuff
+    #     # 'zip' together
+
+    if pad:
+        # go through, get max length, pad
+        pass
+
     return results
     
 

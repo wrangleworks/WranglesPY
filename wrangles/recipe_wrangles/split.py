@@ -132,10 +132,10 @@ def text(
     if isinstance(output, str) and '*' in output or isinstance(output, _list):
         pad = True
 
-    if inclusive and char[:7] != 'regex: ':
-        char = 'regex: (' + char + ')'
+    # if inclusive and char[:6] != 'regex:':
+    #     char = 'regex: (' + char + ')'
 
-    results = _format.split(df[input].astype(str).tolist(), char, output, pad)
+    results = _format.split(df[input].astype(str).tolist(), char, output, pad, inclusive)
 
     if isinstance(output, str) and '*' in output:
         # If user has entered a wildcard in the output column name
