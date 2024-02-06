@@ -92,14 +92,14 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
 
 
 def text(
-        df: _pd.DataFrame,
-        input: str,
-        output: _Union[str, _list],
-        char: str = ',',
-        pad: bool = False,
-        element: _Union[int, str] = None,
-        inclusive: bool = False
-    ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: str,
+    output: _Union[str, _list],
+    char: str = ',',
+    pad: bool = False,
+    element: _Union[int, str] = None,
+    inclusive: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Split a string to multiple columns or a list.
