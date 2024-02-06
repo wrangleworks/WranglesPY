@@ -393,7 +393,8 @@ def custom(
         use_labels: bool = False,
         first_element: bool = False,
         case_sensitive: bool = False,
-        extract_raw: bool = False
+        extract_raw: bool = False,
+        use_spellcheck: bool = False
         ) -> _pd.DataFrame:
     """
     type: object
@@ -430,6 +431,9 @@ def custom(
       extract_raw:
         type: boolean
         description: Extract the raw data from the wrangle
+      use_spellcheck:
+        type: boolean
+        description: Use spellcheck to also find minor mispellings compared to the reference data
     """
     if output is None: output = input
     
@@ -448,7 +452,8 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
-                extract_raw=extract_raw
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck
                 )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
@@ -459,7 +464,8 @@ def custom(
             first_element=first_element,
             use_labels=use_labels,
             case_sensitive=case_sensitive,
-            extract_raw=extract_raw
+            extract_raw=extract_raw,
+            use_spellcheck=use_spellcheck
             )
     
     else:
@@ -471,7 +477,8 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
-                extract_raw=extract_raw
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck
                 )
         
     return df
