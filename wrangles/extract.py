@@ -104,7 +104,8 @@ def custom(
         first_element: bool = False,
         use_labels: bool = False,
         case_sensitive: bool = False,
-        extract_raw: bool = False
+        extract_raw: bool = False,
+        use_spellcheck: bool = False
         ) -> list:
 
     """
@@ -131,7 +132,14 @@ def custom(
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     url = f'{_config.api_host}/wrangles/extract/custom'
-    params = {'responseFormat': 'array', 'model_id': model_id, 'use_labels': use_labels, 'caseSensitive': case_sensitive, 'extract_raw': extract_raw}
+    params = {
+        'responseFormat': 'array',
+        'model_id': model_id,
+        'use_labels': use_labels,
+        'caseSensitive': case_sensitive,
+        'extract_raw': extract_raw,
+        'use_spellcheck': use_spellcheck
+        }
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
