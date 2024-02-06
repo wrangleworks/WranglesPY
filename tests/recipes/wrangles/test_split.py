@@ -442,8 +442,7 @@ def test_split_text_inclusive():
     Tests split.text with inclusive set to True
     """
     data = pd.DataFrame({
-    # 'col1': ['Hello, Wrangles!']
-    'col1': ['80ga']
+    'col1': ['80ga 90ga 100ga']
     })
     recipe = """
     wrangles:
@@ -454,7 +453,7 @@ def test_split_text_inclusive():
             inclusive: True
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out1'].iloc[0][1] == 'ga'
+    assert df['out1'].iloc[0] == ['80', 'ga', ' 90', 'ga', ' 100', 'ga', '']
 
 def test_split_text_regex():
     """
