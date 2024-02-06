@@ -237,6 +237,10 @@ def transform(
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
     for i in range(len(input)):
         df[output[i]] = df.loc[:, input[i]].map(arg=arg, na_action=na_action)
     return df
