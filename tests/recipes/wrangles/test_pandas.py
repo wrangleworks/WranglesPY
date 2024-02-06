@@ -649,3 +649,30 @@ def test_transform_no_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Eleven' and df.iloc[2]['Col2'] == 'Twelve'
+
+def test_transform_io_mismatch():
+    """
+    Test transform function with one input and multiple outputs
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four']
+    })
+    recipe = """
+    wrangles:
+      - transform:
+          input: Col1
+          output:
+            - Col3
+            - Col4
+          arg:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(recipe, dataframe=data)
+
+    assert (
+        info.typename == "ValueError" and 
+        str(info.value) == "transform - The lists for input and output must be the same length."
+    )
