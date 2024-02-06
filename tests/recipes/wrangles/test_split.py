@@ -155,6 +155,23 @@ def test_split_text_9():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out5'].iloc[0] == ''
 
+def test_split_text_uneven_lengths():
+    """
+    Test split.text with uneven split/output lengths
+    """
+    data = pd.DataFrame({
+    'col1': ['Wrangles, are, very, cool', 'There, is, a, wrangle, for, that']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: output*
+            char: ', '
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['output7'].iloc[0] == '' and df['output7'].iloc[1] == 'that'
+
 def test_split_text_where():
     """
     Test split.text using where
@@ -437,7 +454,7 @@ def test_split_text_inclusive():
             inclusive: True
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['out1'].iloc[0][1] == ', '
+    assert df['out1'].iloc[0][1] == 'ga'
 
 def test_split_text_regex():
     """
