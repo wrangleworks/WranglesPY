@@ -457,6 +457,61 @@ def test_split_dictionary_prefix_and_suffix_list():
     )
     assert df['prefix2_Col2_suffix2'][0] == 'E'
 
+def test_split_dictionary_prefix_preservation():
+    """
+    Test the preservation of original data while splitting a dictionary 
+    with a prefix
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: column1
+              prefix: prefix1_
+        """, 
+        dataframe=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
+        })
+    )
+    assert df['column1'][0] == {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}
+
+def test_split_dictionary_suffix_preservation():
+    """
+    Test the preservation of original data while splitting a dictionary 
+    with a suffix
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: column1
+              suffix: _suffix1
+        """, 
+        dataframe=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
+        })
+    )
+    assert df['column1'][0] == {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}
+
+def test_split_dictionary_prefix_and_suffix_preservation():
+    """
+    Test the preservation of original data while splitting a dictionary 
+    with a suffix
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: column1
+              prefix: prefix1_
+              suffix: _suffix1
+        """, 
+        dataframe=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}]
+        })
+    )
+    assert df['column1'][0] == {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}
+
 #
 # Tokenize List
 #
