@@ -6,9 +6,16 @@ from typing import Union as _Union, List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
+import copy as copy
 
 
-def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {}) -> _pd.DataFrame:
+def dictionary(
+    df: _pd.DataFrame,
+    input: _Union[str, _list],
+    default: dict = {},
+    prefix: _Union[str, list] = [],
+    suffix: _Union[str, list] = []
+) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -28,20 +35,36 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {})
           if they are not found within the input
     """ 
     # storing data as df temp to prevent the original data to be changed
-    df_temp = df[input]
+    df_copy = df[input].copy(deep=True)
 
-    # Ensure input is passed as a list
+    # Ensure input, prefix and suffix are passed as lists
     if not isinstance(input, _list):
         input = [input]
+    if not isinstance(prefix, _list):
+        prefix = [prefix]
+    if not isinstance(suffix, _list):
+        suffix = [suffix]
 
     df_dict = {}
     for i in range(len(input)):
         try:
-            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
+            df_temp = [_json.loads('{}') if x == '' else _json.loads(x.copy()) for x in df_copy[input[i]]]
         except:
-            df_temp = [{} if x == None else x for x in df[input[i]]]
+            # df_temp = [{} if x == None else x.copy() for x in df_copy[input[i]]]
+            df_temp = [{} if x == None else x for x in df_copy[input[i]]]
         if default:
-            df_temp = [{**default, **x} for x in df[input[i]]]
+            df_temp = [{**default, **x.copy()} for x in df_copy[input[i]]]
+        
+        # for dict in df_temp:
+        #     for key in dict:
+        #         if prefix and not suffix:
+        #             dict[prefix[i] + str(key)] = dict.pop(key)
+        #         if suffix and not prefix:
+        #             dict[str(key) + suffix[i]] = dict.pop(key)
+        #         if prefix and suffix:
+        #             dict[prefix[i] + str(key) + suffix[i]] = dict.pop(key)
+        #         if not prefix and not suffix:
+        #             dict[key] = dict.pop(key)
 
         df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
         df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
