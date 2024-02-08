@@ -50,6 +50,11 @@ def dictionary(
     
     if len(suffix) > 1 and len(suffix) != len(input):
         raise ValueError('Length of suffix must be equal to one or the length of input')
+    
+    if prefix and len(prefix) != len(input):
+        prefix = [prefix[0]] * len(input)
+    if suffix and len(suffix) != len(input):
+        suffix = [suffix[0]] * len(input)
 
     df_dict = {}
     for i in range(len(input)):
