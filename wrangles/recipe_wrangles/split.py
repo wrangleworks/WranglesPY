@@ -45,28 +45,36 @@ def dictionary(
     if not isinstance(suffix, _list):
         suffix = [suffix]
 
+    if len(prefix) > 1 and len(prefix) != len(input):
+        raise ValueError('Length of prefix must be equal to one or the length of input')
+    
+    if len(suffix) > 1 and len(suffix) != len(input):
+        raise ValueError('Length of suffix must be equal to one or the length of input')
+
     df_dict = {}
     for i in range(len(input)):
         try:
-            df_temp = [_json.loads('{}') if x == '' else _json.loads(x.copy()) for x in df_copy[input[i]]]
+            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) if isinstance(x, dict) else _json.loads(x) for x in df_copy[input[i]]]
         except:
-            # df_temp = [{} if x == None else x.copy() for x in df_copy[input[i]]]
             df_temp = [{} if x == None else x for x in df_copy[input[i]]]
         if default:
-            df_temp = [{**default, **x.copy()} for x in df_copy[input[i]]]
+            df_temp = [{**default, **x} for x in df_copy[input[i]]]
         
-        # for dict in df_temp:
-        #     for key in dict:
-        #         if prefix and not suffix:
-        #             dict[prefix[i] + str(key)] = dict.pop(key)
-        #         if suffix and not prefix:
-        #             dict[str(key) + suffix[i]] = dict.pop(key)
-        #         if prefix and suffix:
-        #             dict[prefix[i] + str(key) + suffix[i]] = dict.pop(key)
-        #         if not prefix and not suffix:
-        #             dict[key] = dict.pop(key)
+        new_df = []
+        for dictionary in df_temp:
+            temp_dict = {}
+            for key in dictionary.keys():
+                if prefix and not suffix:
+                    temp_dict[prefix[i] + str(key)] = dictionary[key]
+                if suffix and not prefix:
+                    temp_dict[str(key) + suffix[i]] = dictionary[key]
+                if prefix and suffix:
+                    temp_dict[prefix[i] + str(key) + suffix[i]] = dictionary[key]
+                if not prefix and not suffix:
+                    temp_dict[key] = dictionary[key]
+            new_df.append(temp_dict)
 
-        df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
+        df_dict['df{0}'.format(i)] = _pd.json_normalize(new_df, max_level=0).fillna('')
         df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
 
     # Combine dataframes for output
