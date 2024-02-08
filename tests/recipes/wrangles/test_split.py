@@ -457,6 +457,46 @@ def test_split_dictionary_prefix_and_suffix_list():
     )
     assert df['prefix2_Col2_suffix2'][0] == 'E'
 
+def test_split_dictionary_prefix_input_list():
+    """
+    Test splitting a dictionary with one prefix and multiple inputs
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - column1
+                - column2
+              prefix: prefix1_
+        """, 
+        dataframe=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'column2': [{'Col4': 'D', 'Col5': 'E', 'Col6': 'F'}]
+        })
+    )
+    assert df['prefix1_Col5'][0] == 'E'
+
+def test_split_dictionary_suffix_input_list():
+    """
+    Test splitting a dictionary with one suffix and multiple inputs
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - column1
+                - column2
+              suffix: _suffix1
+        """, 
+        dataframe=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'column2': [{'Col4': 'D', 'Col5': 'E', 'Col6': 'F'}]
+        })
+    )
+    assert df['Col5_suffix1'][0] == 'E'
+
 def test_split_dictionary_prefix_preservation():
     """
     Test the preservation of original data while splitting a dictionary 
