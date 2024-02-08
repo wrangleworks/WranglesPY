@@ -512,6 +512,62 @@ def test_split_dictionary_prefix_and_suffix_preservation():
     )
     assert df['column1'][0] == {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}
 
+def test_split_dictionary_prefix_list_mismatch():
+    """
+    Test the error when splitting a dictionary with a list of 
+    prefixes of different length than the input
+    """
+    recipe = """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - column1
+                - column2
+              prefix: 
+                - prefix1_
+                - prefix2_
+                - prefix3_
+        """
+    data=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'column2': [{'Col1': 'D', 'Col2': 'E', 'Col3': 'F'}]
+        })
+
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        "Length of prefix must be equal to one or the length of input" in info.value.args[0]
+    )
+
+def test_split_dictionary_suffix_list_mismatch():
+    """
+    Test the error when splitting a dictionary with a list of 
+    suffixes of different length than the input
+    """
+    recipe = """
+        wrangles:
+          - split.dictionary:
+              input: 
+                - column1
+                - column2
+              suffix: 
+                - _suffix1
+                - _suffix2
+                - _suffix3
+        """
+    data=pd.DataFrame({
+            'column1': [{'Col1': 'A', 'Col2': 'B', 'Col3': 'C'}],
+            'column2': [{'Col1': 'D', 'Col2': 'E', 'Col3': 'F'}]
+        })
+
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' and
+        "Length of suffix must be equal to one or the length of input" in info.value.args[0]
+    )
+
 #
 # Tokenize List
 #
