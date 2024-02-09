@@ -199,10 +199,10 @@ def explode(
     return df.explode(input, reset_index)
 
 
-def transform(
+def lookup(
     df: _pd.DataFrame,
     input: _Union[str, list],
-    arg: dict,
+    reference: dict,
     output: _Union[str, list] = None,
     na_action: str = None
 ) -> _pd.DataFrame:
@@ -212,16 +212,16 @@ def transform(
     additionalProperties: true
     required:
       - input
-      - arg
+      - reference
     properties:
       input:
         type:
           - string
           - array
-        description: Name of the column(s) transform.
-      arg:
+        description: Name of the column(s) to lookup.
+      reference:
         type: object
-        description: The transformation to apply to the column(s)
+        description: The lookup to apply to the column(s)
       output:
         type:
           - string
@@ -242,5 +242,5 @@ def transform(
         raise ValueError('The lists for input and output must be the same length.')
 
     for i in range(len(input)):
-        df[output[i]] = df.loc[:, input[i]].map(arg=arg, na_action=na_action)
+        df[output[i]] = df.loc[:, input[i]].map(arg=reference, na_action=na_action)
     return df

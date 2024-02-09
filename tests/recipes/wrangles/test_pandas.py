@@ -583,19 +583,19 @@ def test_sort_descending():
         and df["column"].tolist()[-2] >= df["column"].tolist()[-1]
     )
 
-def test_transform():
+def test_lookup():
     """
-    Test transform function
+    Test lookup function
     """
     data = pd.DataFrame({
         'Col1': ['One', 'Two', 'Three', 'Four'],
     })
     recipe = """
     wrangles:
-      - transform:
+      - lookup:
           input: Col1
           output: Col2
-          arg:
+          reference:
             One: Eleven
             Two: Twelve
             Four: Fourteen
@@ -603,9 +603,9 @@ def test_transform():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'Eleven' and df.iloc[1]['Col2'] == 'Twelve'
 
-def test_transform_multiple():
+def test_lookup_multiple():
     """
-    Test transform function with multiple columns
+    Test lookup function with multiple columns
     """
     data = pd.DataFrame({
         'Col1': ['One', 'Two', 'Three', 'Four'],
@@ -613,14 +613,14 @@ def test_transform_multiple():
     })
     recipe = """
     wrangles:
-      - transform:
+      - lookup:
           input: 
             - Col1
             - Col2
           output: 
             - Col3
             - Col4
-          arg:
+          reference:
             One: Eleven
             Two: Twelve
             Four: Fourteen
@@ -628,9 +628,9 @@ def test_transform_multiple():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col3'] == 'Eleven' and df.iloc[2]['Col4'] == 'Twelve'
 
-def test_transform_no_output():
+def test_lookup_no_output():
     """
-    Test transform function without an output
+    Test lookup function without an output
     """
     data = pd.DataFrame({
         'Col1': ['One', 'Two', 'Three', 'Four'],
@@ -638,11 +638,11 @@ def test_transform_no_output():
     })
     recipe = """
     wrangles:
-      - transform:
+      - lookup:
           input: 
             - Col1
             - Col2
-          arg:
+          reference:
             One: Eleven
             Two: Twelve
             Four: Fourteen
@@ -650,21 +650,21 @@ def test_transform_no_output():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Eleven' and df.iloc[2]['Col2'] == 'Twelve'
 
-def test_transform_io_mismatch():
+def test_lookup_io_mismatch():
     """
-    Test transform function with one input and multiple outputs
+    Test lookup function with one input and multiple outputs
     """
     data = pd.DataFrame({
         'Col1': ['One', 'Two', 'Three', 'Four']
     })
     recipe = """
     wrangles:
-      - transform:
+      - lookup:
           input: Col1
           output:
             - Col3
             - Col4
-          arg:
+          reference:
             One: Eleven
             Two: Twelve
             Four: Fourteen
@@ -674,5 +674,5 @@ def test_transform_io_mismatch():
 
     assert (
         info.typename == "ValueError" and 
-        str(info.value) == "transform - The lists for input and output must be the same length."
+        str(info.value) == "lookup - The lists for input and output must be the same length."
     )
