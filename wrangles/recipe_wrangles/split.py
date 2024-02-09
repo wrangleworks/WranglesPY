@@ -127,13 +127,13 @@ def text(
           - integer
           - string
         description: (Optional) Select a specific element or range after splitting
+      inclusive:
+        type: boolean
+        description: (Optional) Include the split character in the output. Default False
     """
     # If output is a list, then pad to a consistent length
     if isinstance(output, str) and '*' in output or isinstance(output, _list):
         pad = True
-
-    # if inclusive and char[:6] != 'regex:':
-    #     char = 'regex: (' + char + ')'
 
     results = _format.split(df[input].astype(str).tolist(), char, output, pad, inclusive)
 
