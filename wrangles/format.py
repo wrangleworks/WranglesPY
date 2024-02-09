@@ -45,12 +45,8 @@ def split(input_list, split_char, output, pad=False, inclusive=False):
 
     if pad:
         # Pad to be as long as the longest result
-        if split_char[:7] == 'regex: ':
-            max_len = max([len(_re.split(split_char[7:], x)) for x in input_list])
-            results = [_re.split(split_char[7:], x) + [''] * (max_len - len(_re.split(split_char, x))) for x in input_list]
-        else:
-            max_len = max([len(x.split(split_char)) for x in input_list])
-            results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
+        max_len = max([len(x) for x in results])
+        results = [x + [''] * (max_len - len(x)) for x in results]
         
         # trimming list to appropriate output columns number
         if len(output) <= max_len and isinstance(output, list):
@@ -58,21 +54,7 @@ def split(input_list, split_char, output, pad=False, inclusive=False):
         # if more columns than number of splits, then add '' in extra columns
         elif len(output) >= max_len and isinstance(output, list):
             results = [x + [''] * (len(output) - len(x)) for x in results] 
-    # else:
-    #     if split_char[:7] == 'regex: ':
-    #         results = [_re.split(split_char[7:], x) for x in input_list]
-    #         ['a', 'b', 'c'], ['|', ',']
-    #     else:
-    #         results = [x.split(split_char) for x in input_list]
-
-    # if inclusive:
-    #     # get the split stuff
-    #     # 'zip' together
-
-    if pad:
-        # go through, get max length, pad
-        pass
-
+            
     return results
     
 
