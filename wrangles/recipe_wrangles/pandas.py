@@ -204,7 +204,8 @@ def lookup(
     input: str,
     reference: dict,
     output: _Union[str, list] = None,
-    na_action: str = None
+    na_action: str = None,
+    default: str = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -230,6 +231,9 @@ def lookup(
       na_action:
         type: string
         description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
+      default:
+        type: string
+        description: The default value to use if the input is not found in the reference.
     """
     if output is None: output = input
 
@@ -241,4 +245,8 @@ def lookup(
 
     for i in range(len(output)):
         df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+
+    if default:
+        df[output] = df[output].fillna(default)
+    
     return df
