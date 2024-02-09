@@ -201,7 +201,7 @@ def explode(
 
 def lookup(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: str,
     reference: dict,
     output: _Union[str, list] = None,
     na_action: str = None
@@ -233,14 +233,12 @@ def lookup(
     """
     if output is None: output = input
 
-    # Ensure input and output are lists
-    if not isinstance(input, list): input = [input]
+    # Ensure input is a string and output is a list
+    if len(input) > 1: raise ValueError('The input must be a string.')
     if not isinstance(output, list): output = [output]
 
-    # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+    input = input[0]
 
-    for i in range(len(input)):
-        df[output[i]] = df.loc[:, input[i]].map(arg=reference, na_action=na_action)
+    for i in range(len(output)):
+        df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
     return df
