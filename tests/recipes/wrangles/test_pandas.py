@@ -675,3 +675,24 @@ def test_lookup_no_output():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Eleven'
+    
+def test_lookup_default():
+    """
+    Test lookup function without an output
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four']
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: Col1
+          output: Col2
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+          default: This is a default
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['Col2'] == 'This is a default'
