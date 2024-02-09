@@ -154,6 +154,26 @@ def test_split_text_9():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out5'].iloc[0] == ''
+    
+def test_split_text_more_splits_than_output():
+    """
+    Test split.text with more splits than output columns
+    """
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool, I tell you whut!']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: 
+              - Out1
+              - Out2
+              - Out3
+            char: ' '
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert list(df.columns) == ['col1', 'Out1', 'Out2', 'Out3'] and df['Out3'].iloc[0] == 'very'
 
 def test_split_text_uneven_lengths():
     """
@@ -170,7 +190,7 @@ def test_split_text_uneven_lengths():
             char: ', '
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['output7'].iloc[0] == '' and df['output7'].iloc[1] == 'that'
+    assert df['output6'].iloc[0] == '' and df['output6'].iloc[1] == 'that'
 
 def test_split_text_where():
     """
