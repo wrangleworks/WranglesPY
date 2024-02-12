@@ -341,15 +341,18 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     else:
         input_list = df.to_dict(orient='records')
 
-    # Replace any spaces in keys with underscores
+    breaking_chars = [
+        ' ', '.', '-', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '+', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '?', '/', '`', '~'
+        ]
+
+    # Replace any breaking_chars in keys with underscores
     input_list = [
         {
-            key.replace(' ', '_'): val
+            ''.join('_' if char in breaking_chars else char for char in key): val
             for key, val in row.items()
         }
         for row in input_list
     ]
-
     if len(template) > 1:
         raise Exception('Template must have only one key specified')
 
