@@ -678,7 +678,7 @@ def test_lookup_no_output():
     
 def test_lookup_default():
     """
-    Test lookup function without an output
+    Test lookup function using a default
     """
     data = pd.DataFrame({
         'Col1': ['One', 'Two', 'Three', 'Four']
