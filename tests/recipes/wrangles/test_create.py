@@ -503,7 +503,7 @@ def test_jinja_from_columns():
     Tests functionality with template given as a string
     """
     data = pd.DataFrame({
-        'type': ['phillips head', 'flat head'],
+        "type": ['phillips head', 'flat head'],
         'length': ['3 inch', '6 inch']
     })
     recipe = """
@@ -747,6 +747,24 @@ def test_jinja_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['description'][0] == 'This is a 3 inch phillips head screwdriver' and df.iloc[2]['description'] == ''
+
+def test_jinja_breaking_chars():
+    """
+    Tests functionality with breaking characters included in column name
+    """
+    data = pd.DataFrame({
+        "t .-!@#$%^&*()+=[]|\:;'<>,?/`~est": ['phillips head', 'flat head'],
+        '"': ['3 inch', '6 inch']
+    })
+    recipe = """
+    wrangles:
+      - create.jinja:
+          output: description
+          template: 
+            string: This is a {{_}} {{t_____________________________est}} screwdriver
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
 #
 # UUID
