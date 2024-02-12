@@ -172,6 +172,51 @@ def test_pd_copy_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col-copy'] == 'SuperMario' and df.iloc[1]['col-copy'] == ''
+    
+def test_pd_copy_one_to_many():
+    """
+    Test a single input with multiple outputs (list)
+    """
+    data = pd.DataFrame({
+        'col': ['Mario']
+    })
+    recipe = """
+    wrangles:
+      - copy:
+          input: col
+          output:
+            - col-copy1
+            - col-copy2
+            - col-copy3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert list(df.columns) == ['col', 'col-copy1', 'col-copy2', 'col-copy3'] and df.iloc[0]['col-copy3'] == 'Mario'
+    
+def test_pd_copy_len_mismatch():
+    """
+    Test the error when input and output lengths do not match
+    """
+    data = pd.DataFrame({
+        'col': ['Mario'],
+        'col2': ['Luigi']
+    })
+    recipe = """
+    wrangles:
+      - copy:
+          input: 
+            - col
+            - col2
+          output:
+            - col-copy1
+            - col-copy2
+            - col-copy3
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(recipe=recipe, dataframe=data)
+    assert (
+        info.typename == "ValueError" and 
+        str(info.value) == "copy - Input and output must be the same length"
+    )
 
 def test_drop_one_column():
     """
