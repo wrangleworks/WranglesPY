@@ -25,6 +25,14 @@ def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list])
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
+
+    # If input is a single column and output is multiple columns, repeat input
+    if len(input) == 1 and len(output) > 1:
+        input = input * len(output)
+
+    # If input is not the same length as output, raise error
+    if len(input) != len(output):
+        raise ValueError("Input and output must be the same length")
     
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].copy()
