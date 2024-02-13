@@ -64,10 +64,7 @@ def test_split_text_4():
         - split.text:
             input: col1
             output: out1
-            char:
-              - '@'
-              - '&'
-              - '\$'
+            char: 'regex: @|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == ['Wrangles', 'are', 'very', 'cool']
@@ -82,10 +79,7 @@ def test_split_text_5():
         - split.text:
             input: col1
             output: out*
-            char:
-              - '@'
-              - '&'
-              - '\$'
+            char: 'regex: @|&|\$'
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out4'] == 'cool'
@@ -160,6 +154,43 @@ def test_split_text_9():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out5'].iloc[0] == ''
+    
+def test_split_text_more_splits_than_output():
+    """
+    Test split.text with more splits than output columns
+    """
+    data = pd.DataFrame({
+    'col1': ['Wrangles are very cool, I tell you whut!']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: 
+              - Out1
+              - Out2
+              - Out3
+            char: ' '
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert list(df.columns) == ['col1', 'Out1', 'Out2', 'Out3'] and df['Out3'].iloc[0] == 'very'
+
+def test_split_text_uneven_lengths():
+    """
+    Test split.text with uneven split/output lengths
+    """
+    data = pd.DataFrame({
+    'col1': ['Wrangles, are, very, cool', 'There, is, a, wrangle, for, that']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: output*
+            char: ', '
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['output6'].iloc[0] == '' and df['output6'].iloc[1] == 'that'
 
 def test_split_text_where():
     """
@@ -425,3 +456,38 @@ def test_tokenize_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['out1'][0] == 'Titanium' and df.iloc[0]['out1'] == ''
+
+def test_split_text_inclusive():
+    """
+    Tests split.text with inclusive set to True
+    """
+    data = pd.DataFrame({
+    'col1': ['80ga 90ga 100ga']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: out1
+            char: 'ga'
+            inclusive: True
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out1'].iloc[0] == ['80', 'ga', ' 90', 'ga', ' 100', 'ga', '']
+
+def test_split_text_regex():
+    """
+    Tests split.text using regex
+    """
+    data = pd.DataFrame({
+    'col1': ['Hello, Wrangles!']
+    })
+    recipe = """
+    wrangles:
+        - split.text:
+            input: col1
+            output: out1
+            char: 'regex: (,|!)'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['out1'].iloc[0][1] == ',' and len(df['out1'].iloc[0]) == 5

@@ -22,21 +22,31 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
         ]
 
 
-# Super Mario Function
-def split_re(input_list, split_char, output):
-    # split char is a list of characters -> Joining them
-    if isinstance(split_char, list):
-        split_char = '|'.join(split_char)
-    
-    results = [_re.split(split_char, x) for x in input_list]
-    return results
+def split(input_list, split_char, output, pad=False, inclusive=False):
+    if split_char[:6] == 'regex:':
+            split_char = split_char[6:].strip()
+            results = [_re.split(split_char, x) for x in input_list]
+    else:
+        results = [x.split(split_char) for x in input_list]
 
+    if inclusive:
+        # Get the split stuff
+        inclusive_results = [_re.findall(split_char, x) for x in input_list]
 
-def split(input_list, split_char, output, pad=False):
+        # 'zip' together
+        merged_results = []
+        for i in range(len(results)):
+            temp = [None]*(len(results[i]) + len(inclusive_results[i]))
+            temp[::2] = results[i]
+            temp[1::2] = inclusive_results[i]
+            merged_results.append(temp)
+        
+        results = merged_results
+
     if pad:
         # Pad to be as long as the longest result
-        max_len = max([len(x.split(split_char)) for x in input_list])
-        results = [x.split(split_char) + [''] * (max_len - len(x.split(split_char))) for x in input_list]
+        max_len = max([len(x) for x in results])
+        results = [x + [''] * (max_len - len(x)) for x in results]
         
         # trimming list to appropriate output columns number
         if len(output) <= max_len and isinstance(output, list):
@@ -44,8 +54,7 @@ def split(input_list, split_char, output, pad=False):
         # if more columns than number of splits, then add '' in extra columns
         elif len(output) >= max_len and isinstance(output, list):
             results = [x + [''] * (len(output) - len(x)) for x in results] 
-    else:
-        results = [x.split(split_char) for x in input_list]
+            
     return results
     
 
