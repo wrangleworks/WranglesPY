@@ -431,6 +431,7 @@ def custom(
     use_labels: bool = False,
     first_element: bool = False,
     case_sensitive: bool = False,
+    extract_raw: bool = False,
     use_spellcheck: bool = False
 ) -> _pd.DataFrame:
     """
@@ -465,9 +466,12 @@ def custom(
       case_sensitive:
         type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
+      extract_raw:
+        type: boolean
+        description: Extract the raw data from the wrangle
       use_spellcheck:
         type: boolean
-        description: Use spellcheck to correct spelling mistakes in the input
+        description: Use spellcheck to also find minor mispellings compared to the reference data
     """
     if output is None: output = input
     
@@ -486,6 +490,7 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
+                extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck
             )
     
@@ -497,6 +502,7 @@ def custom(
             first_element=first_element,
             use_labels=use_labels,
             case_sensitive=case_sensitive,
+            extract_raw=extract_raw,
             use_spellcheck=use_spellcheck
         )
     
@@ -509,6 +515,7 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
+                extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck
             )
 

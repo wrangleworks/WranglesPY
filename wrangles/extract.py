@@ -104,6 +104,7 @@ def custom(
     first_element: bool = False,
     use_labels: bool = False,
     case_sensitive: bool = False,
+    extract_raw: bool = False,
     use_spellcheck: bool = False
 ) -> list:
     """
@@ -135,7 +136,8 @@ def custom(
         'model_id': model_id,
         'use_labels': use_labels,
         'caseSensitive': case_sensitive,
-        'useSpellcheck': use_spellcheck
+        'extract_raw': extract_raw,
+        'use_spellcheck': use_spellcheck
     }
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
