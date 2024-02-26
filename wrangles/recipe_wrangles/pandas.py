@@ -209,7 +209,7 @@ def lookup(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Drop (Delete) selected column(s)
+    description: Lookup values in a reference dictionary
     additionalProperties: true
     required:
       - input
@@ -237,14 +237,12 @@ def lookup(
     """
     if output is None: output = input
 
-    # Ensure input is a string and output is a list
-    if len(input) > 1: raise ValueError('The input must be a string.')
+    # Ensure output is a list that is the same length as input
     if not isinstance(output, list): output = [output]
+    if len(input) != len(output): raise ValueError('The input and output must be the same length.')
 
-    input = input[0]
-
-    for i in range(len(output)):
-        df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+    for i in range(len(input)):
+        df[output[i]] = df.loc[:, input[i]].map(arg=reference, na_action=na_action)
 
     if default:
         df[output] = df[output].fillna(default)
