@@ -627,3 +627,117 @@ def test_sort_descending():
         df["column"][0] >= df["column"][1]
         and df["column"].tolist()[-2] >= df["column"].tolist()[-1]
     )
+
+def test_lookup():
+    """
+    Test lookup function
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: Col1
+          output: Col2
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col2'] == 'Eleven' and df.iloc[1]['Col2'] == 'Twelve'
+
+def test_lookup_multiple_outputs():
+    """
+    Test lookup function with multiple output columns
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+        'Col2': ['Four', 'Three', 'Two', 'One']
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: Col1
+          output: 
+            - Col3
+            - Col4
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col3'] == 'Eleven' and df.iloc[2]['Col4'] == ''
+
+def test_lookup_multiple_inputs_error():
+    """
+    Test error when attempting to pass multiple input columns
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+        'Col2': ['Four', 'Three', 'Two', 'One']
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: 
+            - Col1
+            - Col2
+          output: 
+            - Col3
+            - Col4
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(recipe, dataframe=data)
+
+    assert (
+        info.typename == "ValueError" and 
+        str(info.value) == "lookup - The input must be a string."
+    )
+
+def test_lookup_no_output():
+    """
+    Test lookup function without an output
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four'],
+        'Col2': ['Four', 'Three', 'Two', 'One']
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: Col1
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Col1'] == 'Eleven'
+    
+def test_lookup_default():
+    """
+    Test lookup function using a default
+    """
+    data = pd.DataFrame({
+        'Col1': ['One', 'Two', 'Three', 'Four']
+    })
+    recipe = """
+    wrangles:
+      - lookup:
+          input: Col1
+          output: Col2
+          reference:
+            One: Eleven
+            Two: Twelve
+            Four: Fourteen
+          default: This is a default
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[2]['Col2'] == 'This is a default'

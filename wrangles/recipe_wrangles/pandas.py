@@ -205,3 +205,56 @@ def explode(
         raise ValueError(f"Columns {input} not in DataFrame")
 
     return df.explode(input, reset_index)
+
+
+def lookup(
+    df: _pd.DataFrame,
+    input: str,
+    reference: dict,
+    output: _Union[str, list] = None,
+    na_action: str = None,
+    default: str = None
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Lookup values in a reference dictionary
+    additionalProperties: true
+    required:
+      - input
+      - reference
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to lookup.
+      reference:
+        type: object
+        description: The lookup to apply to the column(s)
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      na_action:
+        type: string
+        description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
+      default:
+        type: string
+        description: The default value to use if the input is not found in the reference.
+    """
+    if output is None: output = input
+
+    # Ensure input is a string and output is a list
+    if len(input) > 1: raise ValueError('The input must be a string.')
+    if not isinstance(output, list): output = [output]
+
+    input = input[0]
+
+    for i in range(len(output)):
+        df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+
+    if default:
+        df[output] = df[output].fillna(default)
+    
+    return df
