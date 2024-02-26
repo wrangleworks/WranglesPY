@@ -6,9 +6,16 @@ from typing import Union as _Union, List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
+import copy as copy
 
 
-def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {}) -> _pd.DataFrame:
+def dictionary(
+    df: _pd.DataFrame,
+    input: _Union[str, _list],
+    default: dict = {},
+    prefix: _Union[str, list] = '',
+    suffix: _Union[str, list] = ''
+) -> _pd.DataFrame:
     """
     type: object
     description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
@@ -28,23 +35,51 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {})
           if they are not found within the input
     """ 
     # storing data as df temp to prevent the original data to be changed
-    df_temp = df[input]
+    df_copy = df[input]
 
-    # Ensure input is passed as a list
+    # Ensure input, prefix and suffix are passed as lists
     if not isinstance(input, _list):
         input = [input]
+    if not isinstance(prefix, _list):
+        prefix = [prefix]
+    if not isinstance(suffix, _list):
+        suffix = [suffix]
+
+    if len(prefix) > 1 and len(prefix) != len(input):
+        raise ValueError('Length of prefix must be equal to one or the length of input')
+    
+    if len(suffix) > 1 and len(suffix) != len(input):
+        raise ValueError('Length of suffix must be equal to one or the length of input')
+    
+    if prefix and len(prefix) != len(input):
+        prefix = [prefix[0]] * len(input)
+    if suffix and len(suffix) != len(input):
+        suffix = [suffix[0]] * len(input)
+
+    # Function to handle the different types of input and add prefix and suffix
+    def _dictionary_handling(val, pre, suf, default = {}):
+        if isinstance(val, dict):
+            val = {**default, **val}
+        else:
+            try:
+                val = {**default, **_json.loads(val)}
+            except:
+                pass
+        if pre:
+            val = {pre + k: v for k, v in val.items()} 
+        if suf:
+            val = {k + suf: v for k, v in val.items()}
+        return val 
 
     df_dict = {}
-    for i in range(len(input)):
-        try:
-            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
-        except:
-            df_temp = [{} if x == None else x for x in df[input[i]]]
-        if default:
-            df_temp = [{**default, **x} for x in df[input[i]]]
-
+    i = 0
+    for pre, suf, val in zip(prefix, suffix, input):
+        df_temp = [_dictionary_handling(x, pre, suf, default) for x in df_copy[val]]
+        # Add df_temp to df_dict while filling nan with empty string
         df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
-        df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
+        # Restore index to ensure rows match
+        df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)
+        i += 1
 
     # Combine dataframes for output
     for data in df_dict:
