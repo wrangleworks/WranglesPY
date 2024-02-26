@@ -237,12 +237,14 @@ def lookup(
     """
     if output is None: output = input
 
-    # Ensure output is a list that is the same length as input
+    # Ensure input is a string and output is a list
+    if len(input) > 1: raise ValueError('The input must be a string.')
     if not isinstance(output, list): output = [output]
-    if len(input) != len(output): raise ValueError('The input and output must be the same length.')
 
-    for i in range(len(input)):
-        df[output[i]] = df.loc[:, input[i]].map(arg=reference, na_action=na_action)
+    input = input[0]
+
+    for i in range(len(output)):
+        df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
 
     if default:
         df[output] = df[output].fillna(default)
