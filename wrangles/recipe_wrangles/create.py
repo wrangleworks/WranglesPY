@@ -6,6 +6,7 @@ from typing import Union as _Union
 import math as _math
 import pandas as _pd
 import numpy as _np
+import regex as _re
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
@@ -341,18 +342,14 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     else:
         input_list = df.to_dict(orient='records')
 
-    breaking_chars = [
-        ' ', '.', '-', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '+', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '?', '/', '`', '~'
-        ]
-
-    # Replace any breaking_chars in keys with underscores
+    # Replace special characters in column names with underscores
     input_list = [
         {
-            ''.join('_' if char in breaking_chars else char for char in key): val
-            for key, val in row.items()
+            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val for key, val in row.items()
         }
         for row in input_list
     ]
+
     if len(template) > 1:
         raise Exception('Template must have only one key specified')
 
