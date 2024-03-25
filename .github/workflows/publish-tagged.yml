@@ -59,9 +59,34 @@ jobs:
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
+  test-generate-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install jsonschema
+
+      - name: Generate and Test Schema
+        run: cd schema && python generate_recipe_schema.py
+
+      - name: Save Schema as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema
+          path: schema/schema.json
+
   build:
     runs-on: ubuntu-latest
-    needs: [pytest, test-pip-install]
+    needs: [pytest, test-pip-install, test-generate-schema]
     permissions:
       contents: read
       packages: write
