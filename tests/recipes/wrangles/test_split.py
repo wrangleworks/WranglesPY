@@ -211,6 +211,60 @@ def test_split_text_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['output'] == ['Hola', 'Mundo!'] and df.iloc[0]['output'] == ''
 
+def test_split_text_string():
+    """
+    Test a string passed into the element parameter
+    """
+    data = pd.DataFrame({
+        'col1': ['Wrangles are very cool']
+    })
+    recipe="""
+    wrangles:
+      - split.text:
+          input: col1
+          output: Out
+          char: ' '
+          element: '1'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == 'are'
+
+def test_split_text_slice_start():
+    """
+    Test a string slice passed into the element parameter
+    """
+    data = pd.DataFrame({
+        'col1': ['Wrangles are very cool and super fun to work with']
+    })
+    recipe="""
+    wrangles:
+      - split.text:
+          input: col1
+          output: Out
+          char: ' '
+          element: ':3'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == ['Wrangles', 'are','very']
+
+def test_split_text_slice_end():
+    """
+    Test a string slice passed into the element parameter
+    """
+    data = pd.DataFrame({
+        'col1': ['Wrangles are very cool and super fun to work with']
+    })
+    recipe="""
+    wrangles:
+      - split.text:
+          input: col1
+          output: Out
+          char: ' '
+          element: '3:'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['Out'].iloc[0] == ['cool', 'and', 'super', 'fun', 'to', 'work', 'with']
+
 #
 # Split from List
 #

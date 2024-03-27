@@ -149,20 +149,31 @@ def text(
     else:
         # User has given a single column - return as a list within that column
         df[output] = results
-        
-    # Specific element of the output list
-    if isinstance(element, int):
+
+    def _get_element(values, element):
+        """
+        Get a specific element from a list
+        If the element is not found or list is too short, return an empty string
+        """
         element_list = []
-        for x in df[output]:
+        for x in values:
             try:
                 element_list.append(x[element])
             except(IndexError):
                 element_list.append('')
-        df[output] = element_list
+        return element_list
+        
+    # Specific element of the output list
+    if isinstance(element, int):
+        df[output] = _get_element(df[output].values.tolist(), element)
         
     elif isinstance(element, str):
-        slice_values = [int(x) for x in element.split(':')]
-        df[output] = df[output].apply(lambda x: x[slice_values[0]:slice_values[1]])
+        if ':' in element:
+          start, end = map(lambda x: int(x) if x else None, element.split(':'))
+          df[output] = df[output].apply(lambda x: x[start:end])
+        else:
+          df[output] = _get_element(df[output].values.tolist(), int(element))
+
         
     return df
 
