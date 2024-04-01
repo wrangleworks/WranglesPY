@@ -2749,3 +2749,420 @@ def test_python_kwargs_scope():
         """
     )
     assert df["test"][0]["header1"] == "value1"
+
+def test_accordion():
+    """
+    Test a basic accordion that overwrites the input column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    case: upper
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column"][0] == ["A","B","C"]
+    )
+
+def test_accordion_new_output():
+    """
+    Test an accordion that creates a new output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+
+        wrangles:
+          - accordion:
+              input: list_column
+              output: list_column_out
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    output: list_column_out
+                    case: upper
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column"][0] == ["a","b","c"] and
+        df["list_column_out"][0] == ["A","B","C"]
+    )
+
+def test_accordion_two_columns():
+    """
+    Test an accordion that modifies two columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column_1:
+                  - a
+                  - b
+                  - c
+                list_column_2:
+                  - d
+                  - e
+                  - f
+
+        wrangles:
+          - accordion:
+              input:
+                - list_column_1
+                - list_column_2
+              wrangles:
+                - convert.case:
+                    input:
+                      - list_column_1
+                      - list_column_2
+                    case: upper
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column_1"][0] == ["A","B","C"] and
+        df["list_column_2"][0] == ["D","E","F"]
+    )
+
+def test_accordion_wildcard():
+    """
+    Test an accordion that uses a wildcard
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column_1:
+                  - a
+                  - b
+                  - c
+                list_column_2:
+                  - d
+                  - e
+                  - f
+
+        wrangles:
+          - accordion:
+              input:
+                - list_column_*
+              wrangles:
+                - convert.case:
+                    input:
+                      - list_column_*
+                    case: upper
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column_1"][0] == ["A","B","C"] and
+        df["list_column_2"][0] == ["D","E","F"]
+    )
+
+def test_accordion_extended_length():
+    """
+    Test an accordion with a wrangle that extends the
+    length of the column to be different from the input column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+
+        wrangles:
+          - accordion:
+              input: list_column
+              output: final_column
+              wrangles:
+                - create.column:
+                    output: new_column
+                    value:
+                      - a
+                      - b
+                - explode:
+                    input: new_column
+                - merge.concatenate:
+                    input:
+                      - list_column
+                      - new_column
+                    output: final_column
+                    char: ""
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["final_column"][0] == ["aa","ab","ba","bb","ca","cb"]
+    )
+
+def test_accordion_reduce_length():
+    """
+    Test an accordion with a wrangle that reduces the
+    length of the column to be different from the input column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - filter:
+                    input: list_column
+                    equal: a
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column"][0] == ["a"]
+    )
+
+def test_accordion_propagate_one_column():
+    """
+    Test an accordion that passes through
+    non-list columns for use by the wrangles
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+                scalar_column: z
+
+        wrangles:
+          - accordion:
+              input:
+                - list_column
+              propagate: scalar_column
+              output: final_column
+              wrangles:
+                - merge.concatenate:
+                    input:
+                      - list_column
+                      - scalar_column
+                    output: final_column
+                    char: ""
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["final_column"][0] == ["az","bz","cz"]
+    )
+
+def test_accordion_propagate_two_columns():
+    """
+    Test an accordion that passes through
+    non-list columns for use by the wrangles
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+                scalar_column_1: y
+                scalar_column_2: z
+
+        wrangles:
+          - accordion:
+              input:
+                - list_column
+              propagate:
+                - scalar_column_1
+                - scalar_column_2
+              output: final_column
+              wrangles:
+                - merge.concatenate:
+                    input:
+                      - list_column
+                      - scalar_column_1
+                      - scalar_column_2
+                    output: final_column
+                    char: ""
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["final_column"][0] == ["ayz","byz","cyz"]
+    )
+
+def test_accordion_custom_function():
+    """
+    Test an accordion passed through custom functions correctly
+    """
+    def test_fn(list_column):
+        return list_column.upper()
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - a
+                  - b
+                  - c
+
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - custom.test_fn:
+                    output: list_column
+        """,
+        functions=test_fn
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column"][0] == ["A","B","C"]
+    )
+
+def test_accordion_invalid_wrangles_column():
+    """
+    Test for a clear error if it looks like the user hasn't
+    passed the correct column to the wrangles
+    """
+    with pytest.raises(KeyError) as err:
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column_1
+                        case: upper
+            """
+        )
+    assert (
+        err.typename == 'KeyError' and
+        'accordion - "Did you forget' in err.value.args[0]
+    )
+
+def test_accordion_invalid_wrangles_column_output():
+    """
+    Test for a clear error if it looks like the user hasn't
+    passed the correct column output from the wrangles
+    """
+    with pytest.raises(KeyError) as err:
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column
+                        output: list_column_out
+                        case: upper
+                    - drop:
+                        columns: list_column
+            """
+        )
+    assert (
+        err.typename == 'KeyError' and
+        "accordion - \'Did you forget" in err.value.args[0]
+    )
+
+def test_accordion_inconsistent_lengths():
+    """
+    Test for a clear error if the user passes in lists
+    that are not consistent lengths
+    """
+    with pytest.raises(ValueError) as err:
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                  list_column_1:
+                    - a
+                    - b
+                    - c
+                  list_column_2:
+                    - y
+                    - z
+
+            wrangles:
+            - accordion:
+                input:
+                  - list_column_1
+                  - list_column_2
+                wrangles:
+                    - convert.case:
+                        input: list_column_1
+                        case: upper
+            """
+        )
+    assert (
+        err.typename == 'ValueError' and
+        'matching element counts' in err.value.args[0]
+    )

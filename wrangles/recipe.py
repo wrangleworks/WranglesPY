@@ -570,7 +570,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         obj = getattr(obj, element)
                     
                     # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename"]:
+                    if wrangle in ["recipe", "rename", "accordion"]:
                         if "functions" not in params:
                             params['functions'] = functions
 

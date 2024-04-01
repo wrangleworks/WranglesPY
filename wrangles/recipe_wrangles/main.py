@@ -24,6 +24,102 @@ from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 
 
+def accordion(
+    df: _pd.DataFrame,
+    wrangles: list,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    propagate: _Union[str, list] = [],
+    functions: _Union[_types.FunctionType, list] = [],
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Apply a series of wrangles to column(s) containing lists.
+      The wrangles will be applied to each element in the list
+      and the results will be returned back as a list.
+    additionalProperties: false
+    required:
+      - input
+      - wrangles
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: >-
+          The column(s) containing the list(s) that the
+          wrangles will be applied to.
+      propagate:
+        type:
+          - string
+          - array
+        description: >-
+          These column(s) will be available to the wrangles
+          but replicated for each element in the corresponding
+          list(s) as identified in input.
+      output:
+        type:
+          - string
+          - array
+        description: Output of the wrangles to save back to the dataframe.
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+    if not isinstance(propagate, list): propagate = [propagate]
+
+    # Deep copy the dataframe to avoid modifying the original
+    df_temp = df[input + propagate].copy()
+
+    # Save temporary index to be able to merge back later
+    df_temp["index_asbjdbasjk"] = df_temp.index
+    
+    try:
+        df_temp = _wrangles.recipe.run(
+            {"wrangles": [{"explode": {"input": input}}] + wrangles},
+            dataframe=df_temp,
+            functions=functions
+        )
+    except KeyError as e:
+        e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        raise e
+
+    try:
+        df_temp = _wrangles.recipe.run(
+            {"wrangles": [
+                {"select.group_by": {"by": "index_asbjdbasjk", "list": output}},
+                {"rename": {x + ".list": x for x in output}}
+            ]},
+            dataframe=df_temp,
+            functions=functions
+        )
+    except KeyError as e:
+        e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
+        raise e
+
+    df_temp = df_temp.set_index("index_asbjdbasjk")[output]
+
+    df = df.merge(
+        df_temp,
+        left_index=True,
+        right_index=True,
+        how="left",
+        suffixes=("_TOBEDROPPED", None)).filter(regex='^(?!.*_TOBEDROPPED)'
+    )
+
+    return df
+
+
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
     """
     type: object
