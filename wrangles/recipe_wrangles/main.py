@@ -6,6 +6,7 @@ These will be called directly, without belonging to a parent module
 import types as _types
 import logging as _logging
 from typing import Union as _Union
+import random as _random
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
@@ -29,7 +30,7 @@ def accordion(
     wrangles: list,
     input: _Union[str, list],
     output: _Union[str, list] = None,
-    propagate: _Union[str, list] = [],
+    propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
 ) -> _pd.DataFrame:
     """
@@ -49,15 +50,17 @@ def accordion(
           - array
         description: >-
           The column(s) containing the list(s) that the
-          wrangles will be applied to.
+          wrangles will be applied to the elements of.
       propagate:
         type:
           - string
           - array
         description: >-
-          These column(s) will be available to the wrangles
-          but replicated for each element in the corresponding
-          list(s) as identified in input.
+          Limit the column(s) that will be available to the
+          wrangles and replicated for each element.
+          If not specified, all columns will be propogated.
+          This may be useful to limit the memory use
+          for large datasets.
       output:
         type:
           - string
@@ -76,17 +79,25 @@ def accordion(
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-    if not isinstance(propagate, list): propagate = [propagate]
 
+    if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
+    if not isinstance(propagate, list): propagate = [propagate]
+    
     # Deep copy the dataframe to avoid modifying the original
     df_temp = df[input + propagate].copy()
 
     # Save temporary index to be able to merge back later
-    df_temp["index_asbjdbasjk"] = df_temp.index
+    random_str = str(_random.randint(0,999999999))
+    df_temp[f"index_asbjdbasjk_{random_str}"] = df_temp.index
     
     try:
         df_temp = _wrangles.recipe.run(
-            {"wrangles": [{"explode": {"input": input}}] + wrangles},
+            {
+                "wrangles": [
+                    {"explode": {"input": input}},
+                    {"pandas.reset_index": {"parameters": {"drop": True}}},
+                ] + wrangles
+            },
             dataframe=df_temp,
             functions=functions
         )
@@ -97,7 +108,7 @@ def accordion(
     try:
         df_temp = _wrangles.recipe.run(
             {"wrangles": [
-                {"select.group_by": {"by": "index_asbjdbasjk", "list": output}},
+                {"select.group_by": {"by": f"index_asbjdbasjk_{random_str}", "list": output}},
                 {"rename": {x + ".list": x for x in output}}
             ]},
             dataframe=df_temp,
@@ -107,16 +118,25 @@ def accordion(
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
         raise e
 
-    df_temp = df_temp.set_index("index_asbjdbasjk")[output]
+    df_temp = df_temp.set_index(f"index_asbjdbasjk_{random_str}")[output]
+
+    original_columns = df.columns.to_list()
 
     df = df.merge(
         df_temp,
         left_index=True,
         right_index=True,
         how="left",
-        suffixes=("_TOBEDROPPED", None)).filter(regex='^(?!.*_TOBEDROPPED)'
-    )
+        suffixes=("_TOBEDROPPED", None)
+    ).filter(regex='^(?!.*_TOBEDROPPED)')
 
+    # Ensure output columns are in the same order as the original columns
+    all_columns = original_columns + [
+        col
+        for col in df.columns.to_list()
+        if col not in original_columns
+    ]
+    df = df[all_columns]
     return df
 
 
