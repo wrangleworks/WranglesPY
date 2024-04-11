@@ -199,13 +199,16 @@ def explode(
     return df.explode(input, reset_index)
 
 
+from ..lookup import lookup as _lookup
+from ..data import model as _model
+
 def lookup(
     df: _pd.DataFrame,
     input: str,
-    reference: dict,
+    reference: dict = None,
     output: _Union[str, list] = None,
-    na_action: str = None,
-    default: str = None
+    default: str = None,
+    model_id: str = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -213,14 +216,11 @@ def lookup(
     additionalProperties: true
     required:
       - input
-      - reference
     properties:
       input:
-        type:
-          - string
-          - array
+        type: string
         description: Name of the column(s) to lookup.
-      reference:
+      overrides:
         type: object
         description: The lookup to apply to the column(s)
       output:
@@ -235,18 +235,45 @@ def lookup(
         type: string
         description: The default value to use if the input is not found in the reference.
     """
+    # Ensure input is only 1 value
+    if isinstance(input, list):
+        if len(input) == 1:
+            input = input[0]
+        else:
+            raise ValueError('Input only allows one column.')
+    
     if output is None: output = input
 
-    # Ensure input is a string and output is a list
-    if len(input) > 1: raise ValueError('The input must be a string.')
+    # Ensure output is a list
     if not isinstance(output, list): output = [output]
 
-    input = input[0]
+    # If user specified a model_id, use it to lookup values
+    if model_id:
+        metadata = _model(model_id)
+        if metadata.get('message', None) == 'error':
+            raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
 
-    for i in range(len(output)):
-        df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+        if all([col in metadata["settings"]["columns"] for col in output]):
+            # User specified all columns from the wrangle
+            # Add respective columns to the dataframe
+            data = _lookup(df[input].values.tolist(), model_id, columns=output)
+            df[output] = data
+        elif not any([col in metadata["settings"]["columns"] for col in output]):
+            # User specified no columns from the wrangle
+            # Add dict of all values to those columns
+            data = _lookup(df[input].values.tolist(), model_id)
+            for out in output:
+                df[out] = data
+        else:
+            # User specified a mixture of unrecognized columns and columns from the wrangle
+            raise ValueError('Lookup may only contain all named or unnamed columns.')
 
-    if default:
-        df[output] = df[output].fillna(default)
+    # input = input[0]
+
+    # for i in range(len(output)):
+    #     df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+
+    # if default:
+    #     df[output] = df[output].fillna(default)
     
     return df

@@ -696,3 +696,87 @@ def test_lookup_default():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Col2'] == 'This is a default'
+
+
+def test_lookup_model_unrecognized_column():
+    """
+    Test lookup using a saved lookup wrangle
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output: Col2
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['Col2'][0] == {"Value": 1}
+
+def test_lookup_model_named_column():
+    """
+    Test lookup using a saved lookup wrangle
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output: Value
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['Value'][0] == 1
+
+def test_lookup_model_input_list():
+    """
+    Test lookup using a single named output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input:
+              - Col1
+            output: Value
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['Value'][0] == 1
+
+def test_lookup_model_named_columns():
+    """
+    Test lookup using multiple named output columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output:
+             - Value1
+             - Value2
+            model_id: 6e97bb6c-bfab-402b
+        """
+    )
+    assert df['Value1'][0] == 1 and df['Value2'][0] == "z"
