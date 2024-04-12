@@ -2987,6 +2987,38 @@ def test_accordion_reduce_length():
         df["list_column"][0] == ["a"]
     )
 
+def test_accordion_filter_all():
+    """
+    Test an accordion with a wrangle that removes
+    all of the elements from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column:
+                  - ["a","b","c"]
+                  - ["x","y","z"]
+
+        wrangles:
+          - explode:
+              input: list_column
+          - accordion:
+              input: list_column
+              wrangles:
+                - filter:
+                    input: list_column
+                    equal: z
+        """
+    )
+    assert (
+        len(df) == 10 and
+        df["list_column"][0] == [] and
+        df["list_column"][1] == ["z"]
+    )
+
 def test_accordion_propagate_one_column():
     """
     Test an accordion that passes through

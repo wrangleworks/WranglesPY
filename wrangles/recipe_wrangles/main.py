@@ -83,6 +83,9 @@ def accordion(
     if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
     if not isinstance(propagate, list): propagate = [propagate]
     
+    if not df.index.is_unique:
+        raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
+
     # Deep copy the dataframe to avoid modifying the original
     df_temp = df[input + propagate].copy()
 
@@ -129,6 +132,9 @@ def accordion(
         how="left",
         suffixes=("_TOBEDROPPED", None)
     ).filter(regex='^(?!.*_TOBEDROPPED)')
+
+    # Ensure output columns contain empty lists if no data remaining
+    df[output] = df[output].applymap(lambda d: d if isinstance(d, list) else [])
 
     # Ensure output columns are in the same order as the original columns
     all_columns = original_columns + [
