@@ -780,3 +780,117 @@ def test_lookup_model_named_columns():
         """
     )
     assert df['Value1'][0] == 1 and df['Value2'][0] == "z"
+
+def test_lookup_rename_outputs_single():
+    """
+    Test renaming a single output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output:
+              Value: XYZ_Value
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['XYZ_Value'][0] == 1
+
+def test_lookup_rename_outputs_list_all():
+    """
+    Test renaming multiple output columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output:
+             - Value1: XYZ_Value1
+             - Value2: XYZ_Value2
+            model_id: 6e97bb6c-bfab-402b
+        """
+    )
+    assert (
+        df['XYZ_Value1'][0] == 1
+        and "Value1" not in df.columns
+        and df['XYZ_Value2'][0] == "z"
+        and "Value2" not in df.columns
+    )
+
+def test_lookup_rename_outputs_list_partial():
+    """
+    Test renaming some of multiple output columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: a
+        wrangles:
+        - lookup:
+            input: Col1
+            output:
+             - Value1: XYZ_Value1
+             - Value2
+            model_id: 6e97bb6c-bfab-402b
+        """
+    )
+    assert (
+        df['XYZ_Value1'][0] == 1
+        and "Value1" not in df.columns
+        and df['Value2'][0] == "z"
+    )
+
+def test_lookup_model_unrecognized_value_unnamed_column():
+    """
+    Test lookup using a saved lookup wrangle
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: aaa
+        wrangles:
+        - lookup:
+            input: Col1
+            output: Col2
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['Col2'][0] == {"Value": ""}
+
+def test_lookup_model_unrecognized_value_named_column():
+    """
+    Test lookup using a saved lookup wrangle
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                Col1: aaa
+        wrangles:
+        - lookup:
+            input: Col1
+            output: Value
+            model_id: fe730444-1bda-4fcd
+        """
+    )
+    assert df['Value'][0] == ""

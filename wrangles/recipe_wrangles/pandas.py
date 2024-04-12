@@ -220,14 +220,17 @@ def lookup(
       input:
         type: string
         description: Name of the column(s) to lookup.
-      overrides:
-        type: object
-        description: The lookup to apply to the column(s)
+      model_id:
+        type: string
+        description: The model_id to use lookup against
       output:
         type:
           - string
           - array
         description: Name of the output column(s)
+      overrides:
+        type: object
+        description: The lookup to apply to the column(s)
       na_action:
         type: string
         description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
@@ -252,13 +255,23 @@ def lookup(
         metadata = _model(model_id)
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+        
+        # Split input/output if user differentiated e.g. "wrangle_column: output_column"
+        wrangle_output = [
+            list(val.keys())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
+        output = [
+            list(val.values())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
 
-        if all([col in metadata["settings"]["columns"] for col in output]):
+        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
-            data = _lookup(df[input].values.tolist(), model_id, columns=output)
+            data = _lookup(df[input].values.tolist(), model_id, columns=wrangle_output)
             df[output] = data
-        elif not any([col in metadata["settings"]["columns"] for col in output]):
+        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified no columns from the wrangle
             # Add dict of all values to those columns
             data = _lookup(df[input].values.tolist(), model_id)
@@ -267,8 +280,6 @@ def lookup(
         else:
             # User specified a mixture of unrecognized columns and columns from the wrangle
             raise ValueError('Lookup may only contain all named or unnamed columns.')
-
-    # input = input[0]
 
     # for i in range(len(output)):
     #     df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
