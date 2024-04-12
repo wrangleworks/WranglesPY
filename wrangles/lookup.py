@@ -55,7 +55,7 @@ def lookup(input: _Union[str, list], model_id: str, columns: _Union[str, list] =
         f'{_config.api_host}/wrangles/lookup',
         {
             "model_id": model_id,
-            "valueToFind": _json.dumps(columns or metadata["settings"]["columns"])
+            "columns": _json.dumps(columns or metadata["settings"]["columns"])
         },
         input,
         batch_size
