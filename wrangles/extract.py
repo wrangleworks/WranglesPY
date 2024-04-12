@@ -149,12 +149,27 @@ def custom(
     
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if first_element and not use_labels:
-        results = [x[0] if len(x) >= 1 else "" for x in results]
-    
-    if use_labels and first_element:
-        results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
-    
+    if isinstance(results, dict) and "data" in results and "columns" in results:
+        if len(results["columns"]) == 1:
+            results = [
+                row[0]
+                for row in results["data"]
+            ]
+        else:
+            results = [
+                {results["columns"][i]: row[i] for i in range(len(row))}
+                for row in results["data"]
+            ]
+
+    if isinstance(results, list):
+        if first_element and not use_labels:
+            results = [x[0] if len(x) >= 1 else "" for x in results]
+        
+        if use_labels and first_element:
+            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+    else:
+        raise ValueError(f'API Response did not return an expected format for model {model_id}')
+
 
     if isinstance(input, str): results = results[0]
     
