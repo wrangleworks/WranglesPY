@@ -1,7 +1,16 @@
-import wrangles
+import sys
+import os
 import json
 import logging
 import yaml
+import requests
+import jsonschema
+
+# Get the parent directory of the current file
+# and add it to the path so we can import the wrangles module
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
+import wrangles
 
 schema = {
     'run': {},
@@ -11,7 +20,7 @@ schema = {
 }
 
 # Load base recipe
-with open('schema/recipe_base_schema.json', 'r') as f:
+with open('recipe_base_schema.json', 'r') as f:
   recipe_schema = json.load(f)
 
 def getConnectorDocs(schema_wrangles, obj, path):
@@ -202,6 +211,9 @@ recipe_schema['$defs']['write']['items']['properties'] = schema['write']
 recipe_schema['$defs']['run']['items']['properties'] = schema['run']
 recipe_schema['$defs']['wrangles']['items']['properties'] = schema['wrangles']
 
+# Validate the generated schema
+jsonschema.validate(recipe_schema, requests.get('http://json-schema.org/draft-07/schema#').json())
+
 # Write final schema
-with open('schema_dev.json', 'w') as f:
+with open('schema.json', 'w') as f:
     json.dump(recipe_schema, f)
