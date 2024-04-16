@@ -311,7 +311,7 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     read_params = recipe[read_type]
 
     # Divide parameters into general and specific to that type of read
-    params_general = ['columns', 'not_columns', 'where', 'where_params']
+    params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by']
     params_specific = {
         key: read_params[key]
         for key in read_params
@@ -650,7 +650,8 @@ def _filter_dataframe(
     columns: list = None,
     not_columns: list = None,
     where: str = None,
-    where_params: _Union[list, dict] = None, 
+    where_params: _Union[list, dict] = None,
+    order_by: str = None,
     **_
 ) -> _pandas.DataFrame:
     """
@@ -660,19 +661,21 @@ def _filter_dataframe(
     :param columns: List of columns to include
     :param not_columns: List of columns to exclude
     :param where: SQL where criteria to filter based on
-    :param params: List of parameters to pass to execute method. \
+    :param where_params: List of parameters to pass to execute method. \
         The syntax used to pass parameters is database driver dependent.
+    :param order_by: SQL order by criteria to sort based on
     """
-    if where:
-        df = _recipe_wrangles.sql(
-            df,
+    if where or order_by:
+        sql = (
             f"""
             SELECT *
             FROM df
-            WHERE {where};
-            """,
-            where_params
+            {("WHERE " + where if where else "")}
+            {("ORDER BY " + order_by if order_by else "")}
+            ;
+            """
         )
+        df = _recipe_wrangles.sql(df, sql, where_params)
 
     # Reduce to user chosen columns
     if columns:
@@ -711,7 +714,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
             # Filter the dataframe as requested before passing
             # to the desired write function
             df_temp = _filter_dataframe(df, **params)
-            for key in ['columns', 'not_columns', 'where', 'where_params']:
+            for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by']:
                 if key in params:
                     params.pop(key)
 
