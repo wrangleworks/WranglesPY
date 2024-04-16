@@ -176,7 +176,7 @@ def reindex(
 def explode(
     df: _pd.DataFrame,
     input: _Union[str, list],
-    reset_index: bool = False
+    reset_index: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -195,7 +195,7 @@ def explode(
             of the same length
         reset_index:
           type: boolean
-          description: Reset the index after exploding. Default False.
+          description: Reset the index after exploding. Default True.
     """    
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
