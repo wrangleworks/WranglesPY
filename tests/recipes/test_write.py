@@ -208,3 +208,108 @@ def test_multiple():
         len(df2) == 3 and
         df2['Column2'][0] == 'bbb'
     )
+
+def test_order_by():
+    """
+    Test writing and ordering by a column
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+        - dataframe: 
+            order_by: col1
+        """,
+        dataframe=pd.DataFrame({'col1': [3,2,1]})
+    )
+    assert df['col1'].values.tolist() == [1, 2, 3]
+
+def test_order_by_desc():
+    """
+    Test writing and ordering by a column in descending order
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+        - dataframe: 
+            order_by: col1 DESC
+        """,
+        dataframe=pd.DataFrame({'col1': [1,2,3]})
+    )
+    assert df['col1'].values.tolist() == [3, 2, 1]
+
+def test_order_two_column():
+    """
+    Test writing and ordering by two columns
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+        - dataframe: 
+            order_by: col1 DESC, col2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [1,1,2,2],
+            'col2': ["b","a","d","c"]
+        })
+    )
+    assert (
+        df['col1'].values.tolist() == [2,2,1,1] and
+        df['col2'].values.tolist() == ['c', 'd', 'a', 'b']
+    )
+
+def test_order_by_column_with_space():
+    """
+    Test writing and ordering by a column
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+        - dataframe: 
+            order_by: '"col 1"'
+        """,
+        dataframe=pd.DataFrame({'col 1': [3,2,1]})
+    )
+    assert df['col 1'].values.tolist() == [1, 2, 3]
+
+def test_order_by_independence():
+    """
+    Test 2 writes maintain independence when ordered
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+        - memory:
+            id: test_independence_ordered
+            order_by: col1
+        - memory:
+            id: test_independence_unordered
+        """,
+        dataframe=pd.DataFrame({'col1': [3,2,1]})
+    )
+    assert (
+        wrangles.connectors.memory.dataframes["test_independence_unordered"]["data"] == [[3], [2], [1]] and
+        wrangles.connectors.memory.dataframes["test_independence_ordered"]["data"] == [[1], [2], [3]]
+    )
+
+def test_write_order_by_and_where():
+    """
+    Test a writes that includes an order by and a where condition
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 10000
+              values:
+                header: <number(0-100)>
+        write:
+          - dataframe:
+              where: header > 50
+              order_by: header
+        """
+    )
+    assert (
+        df.tail(1)["header"].iloc[0] == max(df["header"].values) and
+        df.head(1)["header"].iloc[0] == min(df["header"].values) and
+        df.head(1)["header"].iloc[0] > 50
+    )

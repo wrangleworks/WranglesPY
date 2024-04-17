@@ -172,38 +172,22 @@ for write in schema['write']:
     else:
         write_properties = schema['write'][write]['anyOf'][-1]['properties']
 
-    write_properties['columns'] = {
-        "$ref": "#/$defs/write/commonProperties/columns"
-    }
-    write_properties['not_columns'] = {
-        "$ref": "#/$defs/write/commonProperties/not_columns"
-    }
-    write_properties['where'] = {
-        "$ref": "#/$defs/write/commonProperties/where"
-    }
-    write_properties['where_params'] = {
-        "$ref": "#/$defs/write/commonProperties/where_params"
-    }
+    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+        write_properties[x] = {
+            "$ref": f"#/$defs/write/commonProperties/{x}"
+        }
 
-# Add common write properties
+# Add common read properties
 for read in schema['read']:
     if "properties" in schema['read'][read]:
         read_properties = schema['read'][read]['properties']
     else:
         read_properties = schema['read'][read]['anyOf'][-1]['properties']
 
-    read_properties['columns'] = {
-        "$ref": "#/$defs/write/commonProperties/columns"
-    }
-    read_properties['not_columns'] = {
-        "$ref": "#/$defs/write/commonProperties/not_columns"
-    }
-    read_properties['where'] = {
-        "$ref": "#/$defs/write/commonProperties/where"
-    }
-    read_properties['where_params'] = {
-        "$ref": "#/$defs/write/commonProperties/where_params"
-    }
+    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+        read_properties[x] = {
+            "$ref": f"#/$defs/write/commonProperties/{x}"
+        }
 
 # Construct final schema
 recipe_schema['$defs']['read']['items']['properties'] = schema['read']
