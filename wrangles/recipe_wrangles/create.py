@@ -345,7 +345,8 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     # Replace special characters in column names with underscores
     input_list = [
         {
-            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val for key, val in row.items()
+            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val
+            for key, val in row.items()
         }
         for row in input_list
     ]
