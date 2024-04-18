@@ -1122,36 +1122,38 @@ def test_element_dict_not_found():
     Test get element from a dict
     where the element does not exist
     """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - select.element:
-              input: col["d"]
-              output: result
-        """,
-        dataframe=pd.DataFrame({
-            "col": [{"a": 1, "b": 2, "c": 3}]
-        })
-    )
-    assert df["result"][0] == ""
+    with pytest.raises(KeyError) as info:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - select.element:
+                input: col["d"]
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "col": [{"a": 1, "b": 2, "c": 3}]
+            })
+        )
+    assert info.typename == 'KeyError' and "not found" in info.value.args[0]
 
 def test_element_list_not_found():
     """
     Test get element from a dict
     where the element does not exist
     """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - select.element:
-              input: col[3]
-              output: result
-        """,
-        dataframe=pd.DataFrame({
-            "col": [["a","b","c"]]
-        })
-    )
-    assert df["result"][0] == ""
+    with pytest.raises(KeyError) as info:
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.element:
+                input: col[3]
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "col": [["a","b","c"]]
+            })
+        )
+    assert info.typename == 'KeyError' and "not found" in info.value.args[0]
 
 def test_element_dict_default():
     """
@@ -1268,7 +1270,130 @@ def test_element_dict_by_index():
         })
     )
     assert df["result"][0] == 1
-    
+
+def test_element_string():
+    """
+    Test getting an element from a string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[1]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": ["1234567"]
+        })
+    )
+    assert df["result"][0] == "2"
+
+def test_element_string_slice():
+    """
+    Test getting a slice from a string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[1:3]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": ["1234567"]
+        })
+    )
+    assert df["result"][0] == "23"
+
+def test_element_slice():
+    """
+    Test getting a slice from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[1:3]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[1,2,3,4,5]]
+        })
+    )
+    assert df["result"][0] == [2,3]
+
+def test_element_slice_start_only():
+    """
+    Test getting a slice from a list
+    with only a start value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[2:]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[1,2,3,4,5]]
+        })
+    )
+    assert df["result"][0] == [3,4,5]
+
+def test_element_slice_end_only():
+    """
+    Test getting a slice from a list
+    with only a start value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[:2]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[1,2,3,4,5]]
+        })
+    )
+    assert df["result"][0] == [1,2]
+
+def test_element_slice_step_only():
+    """
+    Test getting a slice from a list
+    with only a start value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[::2]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[1,2,3,4,5]]
+        })
+    )
+    assert df["result"][0] == [1,3,5]
+
+def test_element_slice_start_end_step():
+    """
+    Test getting a slice from a list
+    with only a start value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[1:5:2]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": [[1,2,3,4,5,6,7]]
+        })
+    )
+    assert df["result"][0] == [2,4]
+
 def test_select_columns_basic():
     """
     Test select.columns using basic inputs

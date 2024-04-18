@@ -87,7 +87,7 @@ def element(
     df: _pd.DataFrame,
     input: _Union[str, list],
     output: _Union[str, list] = None,
-    default: any = ''
+    default: any = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -119,8 +119,8 @@ def element(
           - array
           - object
           - boolean
-          - 'null'
         description: Set the default value to return if the specified element doesn't exist.
+        default: ""
     """
     def _extract_elements(input_string):
         # Find all occurrences of '[...]' using regex
@@ -155,6 +155,15 @@ def element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.element')
     
+    def _int_or_none(val):
+        try:
+            return int(val)
+        except:
+            if val:
+                raise ValueError(f"{val} is not a valid index to slice on")
+            else:
+                return None
+    
     for in_col, out_col in zip(input, output):
         # If user hasn't specified an output column
         # strip the elements from the input column
@@ -167,24 +176,45 @@ def element(
         
         output = []
         for row in df[in_col].tolist():
-            if isinstance(row, str):
-                row = _json.loads(row)
+            if isinstance(row, str) and (row.startswith("{") or row.startswith("[")):
+                try:
+                    row = _json.loads(row)
+                except:
+                    pass
 
             for element in elements:
                 try:
-                    if isinstance(row, list):
-                        row = row[int(element)]
-                    elif isinstance(row, dict):
-                        # Allow getting an element of a dict
-                        # using the index of the key
-                        if element not in row.keys() and element.isdigit():
-                            row = row[list(row.keys())[int(element)]]
+                    if isinstance(row, (list, str)):
+                        if ":" in element:
+                            row = row[slice(*map(_int_or_none, element.split(":")))]
                         else:
-                            row = row.get(element, default)
+                            row = row[int(element)]
+                    elif isinstance(row, dict):
+                        if element in row.keys():
+                            row = row[element]
+                        else:
+                            if element.isdigit() and int(element) < len(row):
+                                # Allow getting an element of a dict
+                                # using the index of the key
+                                row = row[list(row.keys())[int(element)]]
+                            else:
+                                if default is not None:
+                                    row = default
+                                    break
+                                else:
+                                    raise KeyError()
                     else:
-                        row = default
+                        if default is not None:
+                            row = default
+                            break
+                        else:
+                            raise KeyError()
                 except:
-                    row = default
+                    if default is not None:
+                        row = default
+                        break
+                    else:
+                        raise KeyError(f"Element {element} not found in {row}") from None
 
             output.append(row)
 
