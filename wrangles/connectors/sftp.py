@@ -32,7 +32,13 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
-    _fabric.Connection(host, user=user, port=port, connect_kwargs={'password': password}).get(file, local=tempFile)
+    with _fabric.Connection(
+        host,
+        user=user,
+        port=port,
+        connect_kwargs={'password': password}
+    ) as conn:
+        conn.get(file, local=tempFile)
     tempFile.seek(0)
     
     # Read the data using the file connector
@@ -112,7 +118,13 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
 
     # Export to SFTP server
     _logging.info(f": Exporting data via SFTP :: {host}")
-    _fabric.Connection(host, user=user, port=port, connect_kwargs={'password': password}).put(tempFile, remote=file)
+    with _fabric.Connection(
+        host,
+        user=user,
+        port=port,
+        connect_kwargs={'password': password}
+    ) as conn:
+        conn.put(tempFile, remote=file)
 
 
 _schema['write'] = """
@@ -233,13 +245,14 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
-        for f, l in zip(files, local):
-            _fabric.Connection(
-                host,
-                user=user,
-                port=port,
-                connect_kwargs={'password': password}
-            ).get(remote=f, local=l)
+        with _fabric.Connection(
+            host,
+            user=user,
+            port=port,
+            connect_kwargs={'password': password}
+        ) as conn:
+            for f, l in zip(files, local):
+                conn.get(remote=f, local=l)
 
 class upload_files:
     """
@@ -321,10 +334,11 @@ class upload_files:
                 "If provided, the lists of files and remote files must be the same length"
             )
 
-        for f, r in zip(files, remote):
-            _fabric.Connection(
-                host,
-                user=user,
-                port=port,
-                connect_kwargs={'password': password}
-            ).put(local=f, remote=r)
+        with _fabric.Connection(
+            host,
+            user=user,
+            port=port,
+            connect_kwargs={'password': password}
+        ) as conn:
+            for f, r in zip(files, remote):
+                conn.put(local=f, remote=r)
