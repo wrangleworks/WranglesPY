@@ -38,7 +38,11 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
         port=port,
         connect_kwargs={'password': password}
     ) as conn:
-        conn.get(file, local=tempFile)
+        try:
+            conn.get(file, local=tempFile)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File not found on SFTP server :: {file}") from None
+
     tempFile.seek(0)
     
     # Read the data using the file connector
@@ -252,7 +256,10 @@ class download_files:
             connect_kwargs={'password': password}
         ) as conn:
             for f, l in zip(files, local):
-                conn.get(remote=f, local=l)
+                try:
+                    conn.get(remote=f, local=l)
+                except FileNotFoundError:
+                    raise FileNotFoundError(f"File not found on SFTP server :: {f}") from None
 
 class upload_files:
     """
