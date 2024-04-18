@@ -6,7 +6,7 @@ from typing import Union as _Union
 import math as _math
 import pandas as _pd
 import numpy as _np
-import regex as _re
+import re as _re
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
