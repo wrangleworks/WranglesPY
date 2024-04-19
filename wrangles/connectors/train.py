@@ -76,6 +76,7 @@ class classify():
             description: Columns to submit
         """
 
+
 class extract():
     _schema = {}
 
@@ -148,6 +149,70 @@ class extract():
             type: array
             description: Columns to submit
         """
+
+
+class lookup():
+    _schema = {}
+
+    def read(model_id: str) -> _pd.DataFrame:
+        """
+        Read the training data for a Lookup Wrangle.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's training data
+        """
+        content = _data.model_content(model_id)
+        return _pd.DataFrame(content['Data'], columns=content['Columns'])
+
+    # _schema["read"] = """
+    #     type: object
+    #     description: Read the training data for a Lookup Wrangle
+    #     additionalProperties: false
+    #     required:
+    #       - model_id
+    #     properties:
+    #       model_id:
+    #         type: string
+    #         description: Specific model to read
+    #     """
+
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}) -> None:
+        """
+        Train a new or existing lookup wrangle
+
+        :param df: DataFrame to be written to a file
+        :param name: Name to give to a new Wrangle that will be created
+        :param model_id: Model to be updated. Either this or name must be provided
+        :param settings: Specific settings to apply to the wrangle
+        """
+        _logging.info(": Training Lookup Wrangle")
+
+        _train.lookup(
+            {
+                k.title(): v
+                for k, v in df.to_dict(orient="tight").items()
+                if k in ["columns", "data"]
+            },
+            name,
+            model_id,
+            settings
+        )
+
+    # _schema["write"] = """
+    #     type: object
+    #     description: Train a new or existing Classify Wrangle
+    #     additionalProperties: false
+    #     properties:
+    #       name:
+    #         type: string
+    #         description: Name to give to a new Wrangle that will be created
+    #       model_id:
+    #         type: string
+    #         description: Model to be updated. Either this or a name must be provided
+    #       columns:
+    #         type: array
+    #         description: Columns to submit
+    #     """
 
 class standardize():
     _schema = {}
