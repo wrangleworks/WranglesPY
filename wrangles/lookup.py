@@ -4,9 +4,13 @@ from . import data as _data
 from . import batching as _batching
 import json as _json
 
-def lookup(input: _Union[str, list], model_id: str, columns: _Union[str, list] = None) -> _Union[str, list]:
+def lookup(
+    input: _Union[str, list],
+    model_id: str,
+    columns: _Union[str, list] = None
+) -> _Union[str, list]:
     """
-    Find values from a lookup wrangle. Requires WrangleWorks Account.
+    Find information using a lookup wrangle. Requires WrangleWorks Account.
     
     :param input: A value or list of values to be looked up.
     :param model_id: The model to be used.

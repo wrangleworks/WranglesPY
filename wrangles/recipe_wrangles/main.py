@@ -19,6 +19,8 @@ import math as _math
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
+from ..data import model as _model
+from ..lookup import lookup as _lookup
 from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
@@ -573,6 +575,94 @@ def log(
             dataframe=df
         )
 
+    return df
+
+
+def lookup(
+    df: _pd.DataFrame,
+    input: str,
+    reference: dict = None,
+    output: _Union[str, list] = None,
+    default: str = None,
+    model_id: str = None
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Lookup values in a reference dictionary
+    additionalProperties: true
+    required:
+      - input
+    properties:
+      input:
+        type: string
+        description: Name of the column(s) to lookup.
+      model_id:
+        type: string
+        description: The model_id to use lookup against
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      overrides:
+        type: object
+        description: The lookup to apply to the column(s)
+      na_action:
+        type: string
+        description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
+      default:
+        type: string
+        description: The default value to use if the input is not found in the reference.
+    """
+    # Ensure input is only 1 value
+    if isinstance(input, list):
+        if len(input) == 1:
+            input = input[0]
+        else:
+            raise ValueError('Input only allows one column.')
+    
+    if output is None: output = input
+
+    # Ensure output is a list
+    if not isinstance(output, list): output = [output]
+
+    # If user specified a model_id, use it to lookup values
+    if model_id:
+        metadata = _model(model_id)
+        if metadata.get('message', None) == 'error':
+            raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+        
+        # Split input/output if user differentiated e.g. "wrangle_column: output_column"
+        wrangle_output = [
+            list(val.keys())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
+        output = [
+            list(val.values())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
+
+        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+            # User specified all columns from the wrangle
+            # Add respective columns to the dataframe
+            data = _lookup(df[input].values.tolist(), model_id, columns=wrangle_output)
+            df[output] = data
+        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+            # User specified no columns from the wrangle
+            # Add dict of all values to those columns
+            data = _lookup(df[input].values.tolist(), model_id)
+            for out in output:
+                df[out] = data
+        else:
+            # User specified a mixture of unrecognized columns and columns from the wrangle
+            raise ValueError('Lookup may only contain all named or unnamed columns.')
+
+    # for i in range(len(output)):
+    #     df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
+
+    # if default:
+    #     df[output] = df[output].fillna(default)
+    
     return df
 
 
