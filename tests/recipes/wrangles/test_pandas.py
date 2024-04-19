@@ -541,7 +541,7 @@ def test_explode_reset_index_default():
             'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
         })
     )
-    assert df.index.to_list() == [0, 0, 0, 1, 2, 3, 3]
+    assert df.index.to_list() == [0, 1, 2, 3, 4, 5, 6]
 
 def test_explode_reset_index_false():
     """

@@ -148,3 +148,22 @@ def test_read_with_not_columns():
         """
     )
     assert list(df.columns) == ["header1","header2"]
+
+def test_read_order_by():
+    """
+    Test a read that includes an order by condition
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 100
+              values:
+                header: <number>
+              order_by: header
+        """
+    )
+    assert (
+        df.tail(1)["header"].iloc[0] == max(df["header"].values)
+        and df.head(1)["header"].iloc[0] == min(df["header"].values)
+    )

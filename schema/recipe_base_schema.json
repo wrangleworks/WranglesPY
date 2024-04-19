@@ -138,11 +138,15 @@
         },
         "where": {
           "type": "string",
-          "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456"
+          "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 'a'"
         },
         "where_params": {
           "type": ["array", "object"],
           "description": "Variables to use in conjunctions with where.\nThis allows the query to be parameterized.\nThis uses sqlite syntax (? or :name)"
+        },
+        "order_by": {
+          "type": "string",
+          "description": "Order the data by one or more columns.\nUse a comma to separate multiple columns.\nUse DESC to sort in descending order.\nExample: column1 DESC, column2\nColumns with spaces should be enclosed in double quotes."
         }
       }
     },
