@@ -6,6 +6,7 @@ from typing import Union as _Union
 import math as _math
 import pandas as _pd
 import numpy as _np
+import re as _re
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
@@ -341,10 +342,10 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     else:
         input_list = df.to_dict(orient='records')
 
-    # Replace any spaces in keys with underscores
+    # Replace special characters in column names with underscores
     input_list = [
         {
-            key.replace(' ', '_'): val
+            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val
             for key, val in row.items()
         }
         for row in input_list
