@@ -1,6 +1,7 @@
 """
 Train new models
 """
+from typing import Union as _Union
 import requests as _requests
 from . import config as _config
 from . import auth as _auth
@@ -65,6 +66,66 @@ class train():
         else:
             raise ValueError('Either a name or a model id must be provided')
 
+        return response
+
+    def lookup(
+        data: _Union[dict, list],
+        name: str = None,
+        model_id: str = None,
+        settings: dict = {}
+    ):
+        """
+        Train a lookup model. This can be used as reference data to look values up from.
+
+        Requires WrangleWorks Account and Subscription.
+        
+        :param training_data: 2D array of training data. Must contain the column Key as the first column.
+        :param name: If provided, will create a new model with this name.
+        :param model_id: If provided, will update this model.
+        :param settings: Specific settings to apply to the lookup wrangle.
+        """
+        # Validate input
+        if isinstance(data, list):
+            if len(data) < 2:
+                raise ValueError("Lookup: The data must contain at least 1 header row and 1 row of contents")
+            
+            if not isinstance(data[0], list):
+                raise ValueError("Lookup: The data must be a 2D array.")
+
+            if not data[0][0] == "Key":
+                raise ValueError("Lookup: Column 1 must be named Key")
+            
+        elif isinstance(data, dict):
+            if not "Columns" in data or not "Data" in data:
+                raise ValueError(
+                    "Lookup: The data must be a dictionary of the format {'Data': [[]], 'Columns': [], 'Settings': {}}"
+                )
+            
+        if name is not None and settings.get("variant", "") not in ["key", "embedding", "fuzzy", "recipe"]:
+            raise ValueError(
+                "A new lookup must contain a value for setting/variant."
+            )
+
+        if name:
+            response = _requests.post(
+                f'{_config.api_host}/model/content',
+                params={'type':'lookup', 'name': name, **settings},
+                headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                json=data
+            )
+        elif model_id:
+            response = _requests.put(
+                f'{_config.api_host}/model/content',
+                params={'type':'lookup', 'model_id': model_id, **settings},
+                headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                json=data
+            )
+        else:
+            raise ValueError('Either a name or a model id must be provided')
+
+        if not response.ok:
+            raise RuntimeError(f"Training Lookup Failed. {response.status_code} : {response.text}")
+        
         return response
 
     def standardize(training_data: list, name: str = None, model_id: str = None):

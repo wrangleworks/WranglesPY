@@ -311,3 +311,46 @@ def test_sig_figs():
     ]
     res = wrangles.format.significant_figures(vals, 3)
     assert res == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 134000, '']
+
+### Lookup
+def test_lookup_single_value_no_columns():
+    """
+    Test lookup with a single value and no columns specified
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd")
+    assert result == {"Value": 1}
+
+def test_lookup_list_value_no_columns():
+    """
+    Test lookup with list of values and no columns specified
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd")
+    assert result == [{"Value": 1}]
+
+def test_lookup_single_value_single_column():
+    """
+    Test lookup with a single input value and a single result column
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd", "Value")
+    assert result == 1
+
+def test_lookup_single_value_list_column():
+    """
+    Test lookup with a single input value and a list of result columns
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd", ["Value"])
+    assert result == [1]
+
+def test_lookup_list_value_single_column():
+    """
+    Test lookup with a list of input values and a single result column
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", "Value")
+    assert result == [1]
+
+def test_lookup_list_value_list_column():
+    """
+    Test lookup with a list of input values and a list of result columns
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", ["Value"])
+    assert result == [[1]]

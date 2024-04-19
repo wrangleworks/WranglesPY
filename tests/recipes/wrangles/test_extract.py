@@ -1045,6 +1045,51 @@ def test_extract_custom_use_spellcheck_extract_raw():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == ['small'] and df.iloc[1]['output'] == ['medium'] 
 
+def test_extract_custom_ai_single_output():
+    """
+    Test extract.custom with AI that produces
+    only a single column output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: example 1 2 3 4 5
+        wrangles:
+          - extract.custom:
+              input: header
+              output: results
+              model_id: 8e4ce4c6-9908-4f67
+        """
+    )
+    assert df["results"][0] == '["1", "2", "3", "4", "5"]'
+
+def test_extract_custom_ai_multiple_output():
+    """
+    Test extract.custom with AI that produces
+    a multi column output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: example 1 2 3 4 5 word
+        wrangles:
+          - extract.custom:
+              input: header
+              output: results
+              model_id: 1f3ba62b-ce20-486e
+        """
+    )
+    assert (
+        "Words" in df["results"][0] and
+        "Numbers" in df["results"][0]
+    )
+
 # combinations of use_labels and first_element begins
 def test_use_labels_true_and_first_element_true():
     """
