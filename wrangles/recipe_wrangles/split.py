@@ -6,12 +6,21 @@ from typing import Union as _Union, List as _list
 import pandas as _pd
 from .. import format as _format
 import json as _json
+import itertools as _itertools
 
 
-def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {}) -> _pd.DataFrame:
+def dictionary(
+    df: _pd.DataFrame,
+    input: _Union[str, _list],
+    output: _Union[str, _list] = None,
+    default: dict = {}
+) -> _pd.DataFrame:
     """
     type: object
-    description: Split a dictionary into columns. The dictionary keys will be used as the new column headers.
+    description: |-
+      Split one or more dictionaries into columns.
+      The dictionary keys will be returned as the new column headers.
+      If the dictionaries contain overlapping values, the last value will be returned.
     additionalProperties: false
     required:
       - input
@@ -20,35 +29,72 @@ def dictionary(df: _pd.DataFrame, input: _Union[str, _list], default: dict = {})
         type: 
           - string
           - array
-        description: Name of the column(s) to be split
+        description: |-
+          Name or lists of the column(s) containing dictionaries to be split.
+          If providing multiple dictionaries and the dictionaries
+          contain overlapping values, the last value will be returned.
+      output:
+        type: 
+          - string
+          - array
+        description: |-
+          (Optional) Subset of keys to extract from the dictionary.
+          If not provided, all keys will be returned.
+          Columns can be renamed with the following syntax:
+          output:
+            - key1: new_column_name1
+            - key2: new_column_name2
       default:
         type: object
         description: >-
           Provide a set of default headings and values
           if they are not found within the input
     """ 
-    # storing data as df temp to prevent the original data to be changed
-    df_temp = df[input]
-
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
 
-    df_dict = {}
-    for i in range(len(input)):
-        try:
-            df_temp = [_json.loads('{}') if x == '' else _json.loads(x) for x in df[input[i]]]
-        except:
-            df_temp = [{} if x == None else x for x in df[input[i]]]
-        if default:
-            df_temp = [{**default, **x} for x in df[input[i]]]
+    def _parse_dict_or_json(val):
+        if isinstance(val, dict):
+            return val.items()
+        elif isinstance(val, str) and val.startswith('{') and val.endswith('}'):
+            try:
+                return _json.loads(val).items()
+            except:
+                pass
+        raise ValueError(f'{val} is not a valid Dictionary') from None
+        
 
-        df_dict['df{0}'.format(i)] = _pd.json_normalize(df_temp, max_level=0).fillna('')
-        df_dict['df{0}'.format(i)].set_index(df.index, inplace=True)  # Restore index to ensure rows match
+    # Generate new columns for each key in the dictionary
+    df_temp = _pd.DataFrame([
+        dict(_itertools.chain.from_iterable(_parse_dict_or_json(d) for d in ([default] + row.tolist())))
+        for row in df[input].values
+    ])
 
-    # Combine dataframes for output
-    for data in df_dict:
-        df[df_dict[data].columns] = df_dict[data]
+    # If user has defined how they'd like the output columns
+    if output is not None:
+        # Ensure output is a list
+        if not isinstance(output, _list):
+            output = [output]
+        
+        # Rename the columns if any dictionary are provided
+        rename_dict = dict(
+            _itertools.chain.from_iterable(
+                [x.items() for x in output if isinstance(x, dict)]
+            )
+        )
+        if rename_dict:
+            df_temp = df_temp.rename(columns=rename_dict)
+
+        # Get the output names from either the unmodified
+        # strings or the renamed dictionary values
+        output = [
+            v for item in output
+            for v in (item.values() if isinstance(item, dict) else [item])
+        ]
+        df_temp = df_temp[output]
+
+    df[df_temp.columns] = df_temp.values
 
     return df
 

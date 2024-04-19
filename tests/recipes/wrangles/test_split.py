@@ -367,6 +367,117 @@ def test_split_dictionary_multiple_duplicates():
         df['Col3'][0] == 'D'
     )
 
+def test_split_dictionary_output_single():
+    """
+    Test splitting a dictionary and
+    specifying a single key to output
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output: Out1
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert df.columns.tolist() == ["col1", "Out1"] and df['Out1'][0] == 'A'
+
+def test_split_dictionary_output_list():
+    """
+    Test splitting a dictionary and
+    specifying a list of keys to output
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - Out1
+                - Out2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Out1", "Out2"] and
+        df['Out1'][0] == 'A' and
+        df['Out2'][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename():
+    """
+    Test splitting a dictionary and
+    specifying a list of keys to output
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - Out1: Renamed1
+                - Out2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1", "Out2"] and
+        df['Renamed1'][0] == 'A' and
+        df['Out2'][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename():
+    """
+    Test splitting a dictionary and
+    renaming an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - Out1: Renamed1
+                - Out2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1", "Out2"] and
+        df['Renamed1'][0] == 'A' and
+        df['Out2'][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename_single():
+    """
+    Test splitting a dictionary and
+    renaming the output column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                Out1: Renamed1
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1"] and
+        df['Renamed1'][0] == 'A'
+    )
 #
 # Tokenize List
 #
