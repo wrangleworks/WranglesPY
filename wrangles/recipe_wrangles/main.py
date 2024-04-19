@@ -581,38 +581,35 @@ def log(
 def lookup(
     df: _pd.DataFrame,
     input: str,
-    reference: dict = None,
     output: _Union[str, list] = None,
+    reference: dict = None,
     default: str = None,
     model_id: str = None
 ) -> _pd.DataFrame:
     """
-    type: object
-    description: Lookup values in a reference dictionary
-    additionalProperties: true
-    required:
-      - input
-    properties:
-      input:
-        type: string
-        description: Name of the column(s) to lookup.
-      model_id:
-        type: string
-        description: The model_id to use lookup against
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      overrides:
-        type: object
-        description: The lookup to apply to the column(s)
-      na_action:
-        type: string
-        description: If 'ignore' propagate NaN values, without passing them to the mapping correspondence.
-      default:
-        type: string
-        description: The default value to use if the input is not found in the reference.
+    # type: object
+    # description: Lookup values in a reference dictionary
+    # additionalProperties: true
+    # required:
+    #   - input
+    # properties:
+    #   input:
+    #     type: string
+    #     description: Name of the column(s) to lookup.
+    #   model_id:
+    #     type: string
+    #     description: The model_id to use lookup against
+    #   output:
+    #     type:
+    #       - string
+    #       - array
+    #     description: Name of the output column(s)
+    #   overrides:
+    #     type: object
+    #     description: The lookup to apply to the column(s)
+    #   default:
+    #     type: string
+    #     description: The default value to use if the input is not found in the reference.
     """
     # Ensure input is only 1 value
     if isinstance(input, list):
