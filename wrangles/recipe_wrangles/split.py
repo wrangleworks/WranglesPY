@@ -7,7 +7,7 @@ import pandas as _pd
 from .. import format as _format
 import json as _json
 import itertools as _itertools
-
+from ..utils import wildcard_expansion_dict
 
 def dictionary(
     df: _pd.DataFrame,
@@ -76,23 +76,25 @@ def dictionary(
         # Ensure output is a list
         if not isinstance(output, _list):
             output = [output]
-        
-        # Rename the columns if any dictionary are provided
-        rename_dict = dict(
+
+        # Convert output to a dict of
+        # {"in_col": "out_col", "unchanged": "unchanged"}
+        # and rename as required
+        output = dict(
             _itertools.chain.from_iterable(
-                [x.items() for x in output if isinstance(x, dict)]
+                [
+                    x.items() if isinstance(x, dict)
+                    else {x: x}.items()
+                    for x in output
+                ]
             )
         )
-        if rename_dict:
-            df_temp = df_temp.rename(columns=rename_dict)
+        # Expand wildcard and regex defined columns to match the actual columns
+        output = wildcard_expansion_dict(df_temp.columns, output)
+        df_temp = df_temp.rename(columns=output)
 
-        # Get the output names from either the unmodified
-        # strings or the renamed dictionary values
-        output = [
-            v for item in output
-            for v in (item.values() if isinstance(item, dict) else [item])
-        ]
-        df_temp = df_temp[output]
+        # Return only the named output columns
+        df_temp = df_temp[output.values()]
 
     df[df_temp.columns] = df_temp.values
 
