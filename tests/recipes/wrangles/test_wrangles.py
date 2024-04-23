@@ -146,3 +146,25 @@ def test_where_unsupported_sql_type():
         type(df["col3"][0]).__name__ == "ndarray" and
         list(df["col3"][0]) == [1,2,3]
     )
+
+def test_where_data_types_preserved():
+    """
+    Test that data types are preserved when using where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - math:
+            input: (Column2 - Column1)/Column1
+            output: Column3
+            where: NULLIF(Column1, '') IS NOT NULL
+        """,
+        dataframe= pd.DataFrame({
+            'Column1': [65, 72, '', 92, 87, 79],
+            'Column2': [2, 5, 4, 2, 1, 6]
+        })
+    )
+    assert (
+        df["Column1"].values.tolist() == [65, 72, '', 92, 87, 79] and
+        df["Column3"][2] == ""
+    )
