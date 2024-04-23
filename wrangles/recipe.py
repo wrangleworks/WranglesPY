@@ -675,7 +675,8 @@ def _filter_dataframe(
             ;
             """
         )
-        df = _recipe_wrangles.sql(df, sql, where_params)
+        # Use SQL to get the indexes of preserved rows and filter the dataframe
+        df = df.loc[_recipe_wrangles.sql(df, sql, where_params).index.to_list()]
 
     # Reduce to user chosen columns
     if columns:

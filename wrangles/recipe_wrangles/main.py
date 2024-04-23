@@ -265,24 +265,24 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 
 def filter(
-          df: _pd.DataFrame,
-          input: _Union[str, list] = [],
-          equal: _Union[str, list] = None,
-          not_equal: _Union[str, list] = None,
-          is_in: _Union[str, list] = None,
-          not_in: _Union[str, list] = None,
-          greater_than: _Union[int, float] = None,
-          greater_than_equal_to: _Union[int, float] = None,
-          less_than: _Union[int, float] = None,
-          less_than_equal_to: _Union[int, float] = None,
-          between: list = None,
-          contains: str = None,
-          not_contains: str = None,
-          is_null: bool = None,
-          where: str = None,
-          where_params: _Union[list, dict] = None,
-          **kwargs,
-          ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, list] = [],
+    equal: _Union[str, list] = None,
+    not_equal: _Union[str, list] = None,
+    is_in: _Union[str, list] = None,
+    not_in: _Union[str, list] = None,
+    greater_than: _Union[int, float] = None,
+    greater_than_equal_to: _Union[int, float] = None,
+    less_than: _Union[int, float] = None,
+    less_than_equal_to: _Union[int, float] = None,
+    between: list = None,
+    contains: str = None,
+    not_contains: str = None,
+    is_null: bool = None,
+    where: str = None,
+    where_params: _Union[list, dict] = None,
+    **kwargs,
+) -> _pd.DataFrame:
     """
     type: object
     description: |-
@@ -364,15 +364,20 @@ def filter(
         description: Select rows where the input does not contain the value. Allows regular expressions.
     """
     if where != None:
-        df = sql(
-            df,
-            f"""
-            SELECT *
-            FROM df
-            WHERE {where};
-            """,
-            where_params
-        )
+        # Filter the dataframe based on the where clause
+        # and use the index to filter the dataframe
+        # to prevent any side effects from passing through the DB
+        df = df.loc[
+            sql(
+                df,
+                f"""
+                SELECT *
+                FROM df
+                WHERE {where};
+                """,
+                where_params
+            ).index.to_list()
+        ]
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1118,15 +1123,25 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
             # If the column is in cols_changed then convert to json
             _to_json(df=df, input=cols)
     
-    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
+    # Copy to ensure the index of the original dataframe isn't mutated
+    df = df.copy()
+    
+    # Preserve original index and replace with an distinctive name
+    index_names = list(df.index.names)
+    df.index.names = ["temp_index_ajsdbasjkda"]
+
+    # Write the dataframe to the database
+    df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
     
     # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db, params = params)
+    df = _pd.read_sql(command, db, params = params, index_col="temp_index_ajsdbasjkda")
+
+    # Restore the original index names
+    df.index.names = index_names
     db.close()
     
     # Change the columns back to an object
     for new_cols in df.columns:
-        
         if new_cols in cols_changed:
             # If the column is in cols changed, then change back to an object
             _from_json(df=df, input=new_cols)

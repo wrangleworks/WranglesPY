@@ -4,6 +4,7 @@ to an individual wrangle
 """
 import wrangles
 import pandas as pd
+import numpy as np
 
 
 def test_double_where_input():
@@ -121,3 +122,27 @@ def test_where_params_variable():
         variables={'var': 1}
     )
     assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'WoRlD'
+
+def test_where_unsupported_sql_type():
+    """
+    Test using a value that isn't supported by SQL
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.case:
+              input: col2
+              case: upper
+              where: col1 = 1
+        """,
+        dataframe= pd.DataFrame({
+            'col1': [1, 2],
+            'col2': ['HeLlO', 'WoRlD'],
+            "col3": [np.array([1,2,3]), np.array([4,5,6])]
+        }),
+        variables={'var': 1}
+    )
+    assert (
+        type(df["col3"][0]).__name__ == "ndarray" and
+        list(df["col3"][0]) == [1,2,3]
+    )

@@ -167,6 +167,26 @@ def test_specify_where_params_dict():
     )
     assert df['col2'][0] == "vala" and len(df) == 1
 
+def test_where_no_results():
+    """
+    Test a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+          - dataframe:
+              where: col1 = 3
+        """,
+        dataframe= pd.DataFrame({
+            'col1': [1, 2],
+            'col2': ['HeLlO', 'WoRlD'],
+        })
+    )
+    assert (
+        df.columns.tolist() == ['col1', 'col2'] and
+        len(df) == 0
+    )
+
 def test_multiple():
     """
     Test writing more than one output
