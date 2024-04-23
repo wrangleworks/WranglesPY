@@ -1,5 +1,7 @@
 import re as _re
 import pandas as _pandas
+from . import batching as _batching
+from typing import Union as _Union
 
 
 def flatten_lists(lst):
@@ -182,4 +184,61 @@ def tokenize(input):
             results.append(temp)
             
     
+    return results
+
+
+# Temp location... will be moved later...?
+def attributes(
+        input: _Union[str, list],
+        type: str = None,
+        desiredUnit: str = None,
+        bound: str = 'mid'
+    ) -> _Union[dict, list]:
+    """
+    Remove or standardize attributes in a string or list of strings.
+    Requires WrangleWorks Account.
+    """
+    if isinstance(input, str):
+        json_data = [input]
+    else:
+        json_data = input
+    url = 'http://127.0.0.1:5000/standardize'
+    params = {'responseFormat': 'array'}
+    if desiredUnit:
+        params['desiredUnit'] = desiredUnit
+    if type: 
+        params['attributeType'] = type
+
+    if bound in ['min', 'mid', 'max']:
+        params['bound'] = bound
+    else:
+        raise ValueError('Invalid boundary setting. min, mid or max permitted.')
+    
+    batch_size = 1000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if isinstance(input, str): results = results[0]
+
+    return results
+
+# Temp location... will be moved later...?
+def remove_attributes(input: _Union[str, list]) -> _Union[dict, list]:
+    """
+    Remove or standardize attributes in a string or list of strings.
+    Requires WrangleWorks Account.
+    """
+    if isinstance(input, str):
+        json_data = [input]
+    else:
+        json_data = input
+    url = 'http://127.0.0.1:5000/standardize'
+    params = {'responseFormat': 'array', 'removeAttributes': True}
+    
+    batch_size = 1000
+
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if isinstance(input, str): results = results[0]
+
     return results

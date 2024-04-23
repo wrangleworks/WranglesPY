@@ -304,3 +304,75 @@ def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel:
     """
     df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
     return df
+
+
+def attributes(
+        df: _pd.DataFrame,
+        input: _Union[str, list],
+        output: _Union[str, list] = None,
+        responseContent: str = 'span',
+        attribute_type: str = None,
+        desired_unit: str = None,
+        bound: str = 'mid'
+        ) -> _pd.DataFrame:
+    """
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+    
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _format.attributes(
+            df[input].astype(str).aggregate('  AAA  '.join, axis=1).tolist(),
+            responseContent,
+            attribute_type,
+            desired_unit,
+            bound
+        )
+    else:
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _format.attributes(
+                df[input_column].astype(str).tolist(),
+                attribute_type,
+                desired_unit,
+                bound
+            )
+
+    return df
+
+def remove_attributes(
+        df: _pd.DataFrame,
+        input: _Union[str, list],
+        output: _Union[str, list] = None,
+    ) -> _pd.DataFrame:
+    """
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+    
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _format.remove_attributes(
+            df[input].astype(str).aggregate('  AAA  '.join, axis=1).tolist(),
+        )
+    else:
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _format.remove_attributes(
+                df[input_column].astype(str).tolist(),
+            )
+    
+    return df
