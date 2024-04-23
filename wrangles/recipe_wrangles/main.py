@@ -1013,6 +1013,8 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
       input:
         type: array
         description: Two columns of vectors to compare the similarity of.
+        minItems: 2
+        maxItems: 2
       output:
         type: string
         description: Name of the output column.
@@ -1038,8 +1040,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             (_np.linalg.norm(x) * _np.linalg.norm(y)) 
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
             round(max(min(
@@ -1053,8 +1053,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             ), 1), 0), 3)
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'euclidean':
         similarity_list = [
             _math.sqrt(
@@ -1065,11 +1063,15 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             )
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     else:
         # Ensure method is of a valid type
         raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
+
+    # Ensure values are python float
+    df[output] = [
+        float(x)
+        for x in similarity_list
+    ]
 
     return df
 
