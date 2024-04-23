@@ -478,6 +478,213 @@ def test_split_dictionary_output_rename_single():
         df.columns.tolist() == ["col1", "Renamed1"] and
         df['Renamed1'][0] == 'A'
     )
+
+def test_split_dictionary_output_wildcard():
+    """
+    Test splitting a dictionary and
+    setting the output columns using a wildcard
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output: Out*
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'NotOut3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Out1", "Out2"] and
+        df['Out1'][0] == 'A' and
+        df['Out2'][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename_wildcard():
+    """
+    Test splitting a dictionary and
+    renaming the output columns using wildcards
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - Out*: Renamed*
+                - NotModified
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'NotModified': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1", "Renamed2", "NotModified"] and
+        df['Renamed1'][0] == 'A' and
+        df['Renamed2'][0] == 'B' and
+        df['NotModified'][0] == 'C'
+    )
+
+def test_split_dictionary_output_rename_suffix():
+    """
+    Test splitting a dictionary and
+    renaming the output columns using wildcards
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - "*": "*_SUFFIX"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Out1_SUFFIX", "Out2_SUFFIX"] and
+        df["Out1_SUFFIX"][0] == 'A' and
+        df["Out2_SUFFIX"][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename_all_wildcard():
+    """
+    Test splitting a dictionary and
+    using a wildcard to select all other columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - Out*: Renamed*
+                - "*"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'NotModified': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1", "Renamed2", "NotModified"] and
+        df['Renamed1'][0] == 'A' and
+        df['Renamed2'][0] == 'B' and
+        df['NotModified'][0] == 'C'
+    )
+
+def test_split_dictionary_output_multiple_wildcards():
+    """
+    Test splitting a dictionary and
+    setting the output columns using
+    a string with multiple wildcards
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output: "*_Out_*"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'1_Out_1': 'A', '2_Out_2': 'B', 'NotOut3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "1_Out_1", "2_Out_2"] and
+        df['1_Out_1'][0] == 'A' and
+        df['2_Out_2'][0] == 'B'
+    )
+
+def test_split_dictionary_output_rename_multiple_wildcards():
+    """
+    Test splitting a dictionary and
+    renaming the columns using multiple wildcards
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - "*_Out_*": "*_Renamed_*"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'1_Out_2': 'A', '3_Out_4': 'B', 'NotOut3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "1_Renamed_2", "3_Renamed_4"] and
+        df['1_Renamed_2'][0] == 'A' and
+        df['3_Renamed_4'][0] == 'B'
+    )
+
+def test_split_dictionary_output_regex():
+    """
+    Test splitting a dictionary and
+    setting the output columns using regex
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output: "regex:Out[1-2]"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Out1", "Out2"] and
+        df["Out1"][0] == 'A' and
+        df["Out2"][0] == 'B'
+    )
+
+def test_split_dictionary_output_regex_rename():
+    """
+    Test splitting a dictionary and
+    renaming column using regex
+    """
+    df = wrangles.recipe.run(
+        r"""
+        wrangles:
+          - split.dictionary:
+              input: col1
+              output:
+                - "regex:Out([1-2])": "Renamed\\1"
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+        })
+    )
+    assert (
+        df.columns.tolist() == ["col1", "Renamed1", "Renamed2"] and
+        df["Renamed1"][0] == 'A' and
+        df["Renamed2"][0] == 'B'
+    )
+
+def test_split_dictionary_output_regex_missing_capture():
+    """
+    Test splitting a dictionary and
+    setting the output columns using regex
+    """
+    with pytest.raises(ValueError, match="capture group"):
+        wrangles.recipe.run(
+            r"""
+            wrangles:
+            - split.dictionary:
+                input: col1
+                output:
+                    - "regex:Out[1-2]": "Renamed\\1"
+            """, 
+            dataframe=pd.DataFrame({
+                'col1': [{'Out1': 'A', 'Out2': 'B', 'Out3': 'C'}]
+            })
+        )
+
+
 #
 # Tokenize List
 #

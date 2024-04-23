@@ -410,3 +410,155 @@ def test_column_with_question_mark():
         """
     )
     assert df["result"][0] == "value1,value2,value3"
+
+def test_wildcard_expansion():
+    """
+    Test basic wildcard expansion
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        "col1"
+    )
+    assert columns == ["col1"]
+
+def test_wildcard_expansion_list():
+    """
+    Test wildcard expansion
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        ["col1", "col2"]
+    )
+    assert columns == ["col1", "col2"]
+
+def test_wildcard_expansion_star():
+    """
+    Test wildcard expansion with star
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        "col*"
+    )
+    assert columns == ["col1","col2","col3"]
+
+def test_wildcard_expansion_regex():
+    """
+    Test wildcard expansion with regex
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        "regex:col[1-2]"
+    )
+    assert columns == ["col1","col2"]
+
+def test_wildcard_expansion_regex_space():
+    """
+    Test wildcard expansion with "regex: "
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        "regex: col[1-2]"
+    )
+    assert columns == ["col1","col2"]
+
+def test_wildcard_expansion_regex_case_insensitive():
+    """
+    Test that regex: isn't case sensitive
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        "REGEX:col[1-2]"
+    )
+    assert columns == ["col1","col2"]
+
+def test_wildcard_expansion_missing_column_error():
+    """
+    Test wildcard expansion raises an appropriate error
+    for a missing column
+    """
+    with pytest.raises(KeyError, match="does not exist"):
+        raise wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "col4"
+        )
+
+def test_wildcard_expansion_missing_column_error():
+    """
+    Test wildcard expansion raises an appropriate error
+    for a missing column
+    """
+    with pytest.raises(KeyError, match="does not exist"):
+        raise wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "col4"
+        )
+
+def test_wildcard_expansion_optional_column():
+    """
+    Test that wildcard doesn't error on an
+    optional column that doesn't exist
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        ["col1", "col4?"]
+    )
+    assert columns == ["col1"]
+
+def test_wildcard_expansion_overlap():
+    """
+    Test wildcard expansion on overlapping searches
+    """
+    columns = wrangles.recipe._wildcard_expansion(
+        ["col1","col2","col3"],
+        ["col1", "col*"]
+    )
+    assert columns == ["col1", "col2", "col3"]
+
+def test_wildcard_expansion_dict():
+    """
+    Test wildcard expansion on a dict
+    """
+    columns = wrangles.utils.wildcard_expansion_dict(
+        ["col1","col2","col3"],
+        {"col1": "col1"}
+    )
+    assert columns == {"col1": "col1"}
+
+def test_wildcard_expansion_dict_rename():
+    """
+    Test wildcard expansion on a dict
+    """
+    columns = wrangles.utils.wildcard_expansion_dict(
+        ["col1","col2","col3"],
+        {"col1": "new_col1"}
+    )
+    assert columns == {"col1": "new_col1"}
+
+def test_wildcard_expansion_dict_wildcard():
+    """
+    Test wildcard expansion on a dict
+    with a wildcard for input and output names
+    """
+    columns = wrangles.utils.wildcard_expansion_dict(
+        ["col_1","col_2","col_3"],
+        {"col_*": "new_*"}
+    )
+    assert columns == {
+        "col_1": "new_1",
+        "col_2": "new_2",
+        "col_3": "new_3"
+    }
+
+def test_wildcard_expansion_dict_regex():
+    """
+    Test wildcard expansion on a dict on input: output columns
+    with regex
+    """
+    columns = wrangles.utils.wildcard_expansion_dict(
+        ["col1","col2","col3"],
+        {"regex:col([1-2])": r"new_\1"}
+    )
+    assert columns == {
+        "col1": "new_1",
+        "col2": "new_2"
+    }
