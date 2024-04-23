@@ -160,6 +160,15 @@ def _embedding_thread(
 
         if response and response.ok:
             break
+        else:
+            try:
+                error_message = response.json().get('error').get('message')
+            except:
+                error_message = ""
+            # Raise errors for fatal errors rather than continuing
+            if error_message:
+                if "Incorrect API key" in error_message:
+                    raise ValueError("API Key provided is missing or invalid.")
 
         retries -=1
         _time.sleep(backoff_time)
@@ -174,7 +183,13 @@ def _embedding_thread(
             for row in response.json()['data']
         ]
     else:
-        return ['Error' for _ in input_list]
+        try:
+            error_msg = response.json().get('error').get('message')
+        except:
+            error_msg = 'Unknown error'
+        raise RuntimeError(
+            f"Failed to get embeddings: {error_msg}. Consider raising the number of retries."
+        )
 
 def embeddings(
     input_list,
