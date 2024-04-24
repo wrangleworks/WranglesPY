@@ -1,6 +1,10 @@
 """
 Select subsets of input data
 """
+from typing import Union as _Union
+import itertools as _itertools
+from .utils import wildcard_expansion_dict
+
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
@@ -58,8 +62,56 @@ def list_element(input, n, default = ""):
     return [check_if_possible(row, n) for row in input]
 
 
-def dict_element(input, key, default=""):
+def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
     """
-    Select a named element of a dictionary
+    Select an element or elements of a dictionary
     """
-    return [row.get(key, default) if isinstance(row, dict) else default for row in input]
+    # Ensure input is a list
+    single_input = False
+    if not isinstance(input, list):
+        input = [input]
+        single_input = True
+    
+    if isinstance(key, list):
+        key = dict(
+            _itertools.chain.from_iterable(
+                [
+                    x.items() if isinstance(x, dict)
+                    else {x: x}.items()
+                    for x in key
+                ]
+            )
+        )
+        results = []
+        for row in input:
+            if isinstance(default, dict):
+                row = {**default, **row}
+            else:
+                row = {
+                    **{
+                        k: default
+                        for k in key.keys()
+                        if (
+                            "regex:" not in k.lower() and
+                            "*" not in k
+                        )
+                    },
+                    **row
+                }
+            rename_dict = wildcard_expansion_dict(row.keys(), key)
+            results.append({
+                rename_dict[k]: row.get(k, default)
+                for k in rename_dict
+            })
+    else:
+        results = [
+            row.get(key, default)
+            if isinstance(row, dict)
+            else default
+            for row in input
+        ]
+
+    if single_input:
+        return results[0]
+    else:
+        return results

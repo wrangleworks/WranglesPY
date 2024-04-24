@@ -38,7 +38,7 @@ def dictionary_element(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Select a named element of a dictionary.
+    description: Select one or more element of a dictionary.
     additionalProperties: false
     required:
       - input
@@ -53,10 +53,18 @@ def dictionary_element(
         type:
           - string
           - array
-        description: Name of the output column
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be replaced.
       element:
-        type: string
-        description: The key from the dictionary to select.
+        type:
+          - string
+          - array
+        description: |- 
+          The key or keys from the dictionary to select.
+          If a single key is provided, the value will be returned
+          If a lists of keys are selected,
+          the result will be a new dictionary.
       default:
         type: 
           - string
@@ -65,7 +73,9 @@ def dictionary_element(
           - object
           - boolean
           - 'null'
-        description: Set the default value to return if the specified element doesn't exist.
+        description: |-
+          Set the default value to return if the specified element doesn't exist.
+          If selecting multiple elements, a dict of defaults can be set.
     """
     if output is None: output = input
     
@@ -76,7 +86,7 @@ def dictionary_element(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
-    
+
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     
