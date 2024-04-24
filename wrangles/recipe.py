@@ -450,15 +450,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df_original = df.copy()
                     
                     # Save original index, filter data, then restore index
-                    df['original_index_ikdejsrvjazl'] = df.index
                     df = _filter_dataframe(
                         df,
                         where = params.pop('where'),
-                        where_params= params.pop('where_params', None)
+                        where_params= params.pop('where_params', None),
+                        preserve_index=True
                     )
-                    df = df.set_index(df['original_index_ikdejsrvjazl'])
-                    df = df.drop('original_index_ikdejsrvjazl', axis = 1)
-                    df.index.names = [None]
 
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
@@ -652,6 +649,7 @@ def _filter_dataframe(
     where: str = None,
     where_params: _Union[list, dict] = None,
     order_by: str = None,
+    preserve_index: bool = False,
     **_
 ) -> _pandas.DataFrame:
     """
@@ -664,6 +662,7 @@ def _filter_dataframe(
     :param where_params: List of parameters to pass to execute method. \
         The syntax used to pass parameters is database driver dependent.
     :param order_by: SQL order by criteria to sort based on
+    :param preserve_index: Whether the maintain the index after filtering or reset to the default order
     """
     if where or order_by:
         sql = (
@@ -685,6 +684,8 @@ def _filter_dataframe(
                 preserve_index=True
             ).index.to_list()
         ]
+        if not preserve_index:
+            df = df.reset_index(drop=True)
 
     # Reduce to user chosen columns
     if columns:
