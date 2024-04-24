@@ -375,7 +375,8 @@ def filter(
                 FROM df
                 WHERE {where};
                 """,
-                where_params
+                where_params,
+                preserve_index=True
             ).index.to_list()
         ]
 
@@ -1079,7 +1080,12 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     return df
 
 
-def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def sql(
+    df: _pd.DataFrame,
+    command: str,
+    params: _Union[list, dict] = None,
+    preserve_index: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -1099,6 +1105,9 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
     """
+    # Copy to ensure the index of the original dataframe isn't mutated
+    df = df.copy()
+
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
 
@@ -1122,22 +1131,26 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         if cols in cols_changed:
             # If the column is in cols_changed then convert to json
             _to_json(df=df, input=cols)
-    
-    # Copy to ensure the index of the original dataframe isn't mutated
-    df = df.copy()
-    
-    # Preserve original index and replace with an distinctive name
-    index_names = list(df.index.names)
-    df.index.names = ["temp_index_ajsdbasjkda"]
 
-    # Write the dataframe to the database
-    df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
-    
-    # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db, params = params, index_col="temp_index_ajsdbasjkda")
+    if preserve_index:
+        # Preserve original index and replace with an distinctive name
+        index_names = list(df.index.names)
+        df.index.names = ["wrwx_sql_temp_index"]
 
-    # Restore the original index names
-    df.index.names = index_names
+        # Write the dataframe to the database
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        
+        # Execute the user's query against the database and return the results
+        df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
+
+        # Restore the original index names
+        df.index.names = index_names
+    else:
+        # Write the dataframe to the database
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        # Execute the user's query against the database and return the results
+        df = _pd.read_sql(command, db, params = params)
+
     db.close()
     
     # Change the columns back to an object
