@@ -5,7 +5,10 @@ import pytest
 #
 # Dictionary Element
 #
-def test_dictionary_element_1():
+def test_dictionary_element_one_input():
+    """
+    Default select.dictionary_element test
+    """
     data = pd.DataFrame({
     'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}]
     })
@@ -19,8 +22,10 @@ def test_dictionary_element_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes'] == 'round'
     
-# if the input is multiple columns (a list)
-def test_dictionary_element_2():
+def test_dictionary_element_two_inputs():
+    """
+    # if the input is multiple columns (a list)
+    """
     data = pd.DataFrame({
     'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
     'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
@@ -39,8 +44,12 @@ def test_dictionary_element_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes2'] == 'ROUND'
     
-# if the input and output are not the same type
-def test_dictionary_element_3():
+
+def test_dictionary_element_input_output_error():
+    """
+    Test the the user receives a clear error
+    if the input and output are not the same length
+    """
     data = pd.DataFrame({
     'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
     'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
