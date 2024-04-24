@@ -581,3 +581,102 @@ def test_sig_figs_with_value():
             ''
         ]
     )
+
+# Temp location for attribute testing
+def test_format_attributes_1():
+    """
+    Testing standardizing all attributes in text
+    """
+    data = pd.DataFrame({
+        'input': ["My 13 foot car has a mass of 190kg and it holds 13 liters of gasoline with a battery of 14 volts"]
+    })
+
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+            - format.attributes:
+                input: input
+                output: output
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My 13 ft car has a mass of 190 kg and it holds 13 l of gasoline with a battery of 14 V']
+
+def test_format_attributes_2():
+    """
+    Testing a non existent unit
+    """
+    data = pd.DataFrame({
+        'input': ["my 13 metre car has a quantonium of 13Rx and that's random 13 number"]
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.attributes:
+              input: input
+              output: output
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ["my 13 m car has a quantonium of 13 Rx and that's random 13 number"]
+
+
+def test_format_specific_attribute_1():
+    """
+    Standardize a specific attribute in text
+    Length
+    """
+    data = pd.DataFrame({
+        'input': ["My 13 foot car has a mass of 190kg and it holds 13 liters and the wheel is 4cm wide with 10 mm of thread left"]
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.attributes:
+              input: input
+              output: output
+              attribute_type: length
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My 13 ft car has a mass of 190kg and it holds 13 liters and the wheel is 4 cm wide with 10 mm of thread left']
+
+def test_format_specific_attribute_2():
+    """
+    Standardize a specific attribute in text
+    Mass
+    """
+    data = pd.DataFrame({
+        'input': ["My 13 foot car has a mass of 190kg and it holds 13 liters and the wheel is 4cm wide with 10 mm of thread left"]
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.attributes:
+              input: input
+              output: output
+              attribute_type: mass
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My 13 foot car has a mass of 190 kg and it holds 13 liters and the wheel is 4cm wide with 10 mm of thread left']
+
+def test_format_specific_attribute_3():
+    """
+    Attribute specified not present in text
+    Volume
+    """
+    data = pd.DataFrame({
+        'input': ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.attributes:
+              input: input
+              output: output
+              attribute_type: volume
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
