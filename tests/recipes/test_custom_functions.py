@@ -1340,3 +1340,99 @@ def test_variable_function_invalid_args():
         error.typename == 'TypeError' and
         "must have 0 or 1 arguments" in error.value.args[0]
     )
+
+def test_clear_errors_df():
+    """
+    Test a dataframe level custom function raises a clear error message
+    """
+    def raise_error(df):
+        raise RuntimeError("This is an error")
+
+    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            wrangles:
+                - custom.raise_error: {}
+            """,
+            functions=raise_error
+        )
+
+def test_clear_errors_row_output_missing():
+    """
+    Test a row level custom function raises a clear error message
+    """
+    def raise_error(header1):
+        raise RuntimeError("This is an error")
+
+    with pytest.raises(ValueError, match="Must set 1 or more output columns"):
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            wrangles:
+                - custom.raise_error: {}
+            """,
+            functions=raise_error
+        )
+
+def test_clear_errors_row():
+    """
+    Test a row level custom function raises a clear error message
+    """
+    def raise_error(header1):
+        raise RuntimeError("This is an error")
+
+    with pytest.raises(RuntimeError, match="This is an error"):
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            wrangles:
+                - custom.raise_error:
+                    output: temp
+            """,
+            functions=raise_error
+        )
+
+def test_clear_errors_read():
+    """
+    Test a row level custom function raises a clear error message
+    """
+    def raise_error():
+        raise RuntimeError("This is an error")
+
+    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+        wrangles.recipe.run(
+            """
+            read:
+              - custom.raise_error: {}
+            """,
+            functions=raise_error
+        )
+
+def test_clear_errors_write():
+    """
+    Test a row level custom function raises a clear error message
+    """
+    def raise_error(df):
+        raise RuntimeError("This is an error")
+
+    with pytest.raises(RuntimeError, match="custom.raise_error - This is an error"):
+        wrangles.recipe.run(
+            """
+            write:
+              - custom.raise_error: {}
+            """,
+            functions=raise_error
+        )
