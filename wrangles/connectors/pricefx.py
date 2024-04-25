@@ -211,7 +211,9 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         i += batch_size
 
     if source_code in ['P', 'PX', 'C', 'CX']:
-        df.rename(columns=_get_field_map(host, partition, source_code, user, password, source=source), inplace=True)
+        df = df.rename(
+            columns=_get_field_map(host, partition, source_code, user, password, source=source)
+        )
 
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
