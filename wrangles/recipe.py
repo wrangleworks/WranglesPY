@@ -389,7 +389,8 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     except Exception as e:
         # Append name of read to message and pass through exception
         raise e.__class__(f"{read_type} - {e}").with_traceback(e.__traceback__) from None
-   
+
+
 def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
     """
     Finds matching columns for wildcards or regex from all available columns
