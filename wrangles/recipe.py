@@ -603,8 +603,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                     df,
                                     [output_col, output_col+'_x'],
                                     output_col
-                                )
-                                df.drop([output_col+'_x'], axis = 1, inplace=True)
+                                ).drop([output_col+'_x'], axis = 1)
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                         # Wrangle overwrote the input
                         output_columns = params['input']
@@ -622,8 +621,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                     df,
                                     [input_col, input_col+'_x'],
                                     input_col
-                                )
-                                df.drop([input_col+'_x'], axis = 1, inplace=True)
+                                ).drop([input_col+'_x'], axis = 1)
                     elif list(df.columns) != list(df_original.columns):
                         # Wrangle added columns
                         output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
