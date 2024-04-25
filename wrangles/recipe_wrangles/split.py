@@ -142,9 +142,9 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
 def text(
     df: _pd.DataFrame,
     input: str,
-    output: _Union[str, _list],
+    output: _Union[str, _list] = None,
     char: str = ',',
-    pad: bool = False,
+    pad: bool = None,
     element: _Union[int, str] = None,
     inclusive: bool = False
 ) -> _pd.DataFrame:
@@ -154,7 +154,6 @@ def text(
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
         type: string
@@ -163,27 +162,67 @@ def text(
         type:
           - string
           - array
-        description: Name of the output column
+        description: |-
+          Name of the output column(s)
+          If a single column is provided,
+          the results will be returned as a list
+          If multiple columns are listed,
+          the results will be separated into the columns.
+          If omitted, will overwrite the input.
       char:
         type: string
-        description: (Optional) Set the character(s) to split on. Default comma (,)
+        description: |-
+          Set the character(s) to split on.
+          Default comma (,)
+          Can also prefix with "regex:" to split on a pattern.
       pad:
         type: boolean
-        description: (Optional) If outputting to a list, choose whether to pad to a consistent length. Default False
+        description: >-
+          Choose whether to pad to ensure a consistent length.
+          Default true if outputting to columns, false for lists.
       element:
         type: 
           - integer
           - string
-        description: (Optional) Select a specific element or range after splitting
+        description: >-
+          Select a specific element or range after splitting
+          using slicing syntax. e.g. 0, ":5", "5:", "2:8:2"
       inclusive:
         type: boolean
-        description: (Optional) Include the split character in the output. Default False
+        description: >-
+          If true, include the split character in the output.
+          Default False
     """
-    # If output is a list, then pad to a consistent length
-    if isinstance(output, str) and '*' in output or isinstance(output, _list):
-        pad = True
+    # Ensure only a single input column is specified
+    if isinstance(input, _list):
+        if len(input) != 1:
+            raise ValueError("Only a single column is allowed for input.")
+        else:
+            input = input[0]
 
-    results = _format.split(df[input].astype(str).tolist(), char, output, pad, inclusive)
+    # If user didn't provide an output, overwrite the input
+    if output is None:
+        output = input
+
+    if pad is None:
+        # If user has specified output columns either named
+        # or using a wildcard, set pad = True
+        if (
+            (isinstance(output, str) and '*' in output)
+            or isinstance(output, _list)
+        ):
+            pad = True
+        else:
+            pad = False
+
+    results = _format.split(
+        df[input].astype(str).values,
+        output_length = len(output) if isinstance(output, _list) else None,
+        split_char = char,
+        pad = pad,
+        inclusive = inclusive,
+        element = element
+    )
 
     if isinstance(output, str) and '*' in output:
         # If user has entered a wildcard in the output column name
@@ -197,20 +236,6 @@ def text(
     else:
         # User has given a single column - return as a list within that column
         df[output] = results
-        
-    # Specific element of the output list
-    if isinstance(element, int):
-        element_list = []
-        for x in df[output]:
-            try:
-                element_list.append(x[element])
-            except(IndexError):
-                element_list.append('')
-        df[output] = element_list
-        
-    elif isinstance(element, str):
-        slice_values = [int(x) for x in element.split(':')]
-        df[output] = df[output].apply(lambda x: x[slice_values[0]:slice_values[1]])
         
     return df
 

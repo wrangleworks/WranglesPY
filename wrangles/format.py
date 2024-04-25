@@ -1,3 +1,4 @@
+from typing import Union as _Union
 import re as _re
 import pandas as _pandas
 
@@ -22,10 +23,28 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
         ]
 
 
-def split(input_list, split_char, output, pad=False, inclusive=False):
+def split(
+    input_list,
+    output_length: int = None,
+    split_char = " ",
+    pad=False,
+    inclusive=False,
+    element: _Union[int, str] = None
+):
+    """
+    Split a list of strings into lists
+
+    :param input_list: List of strings that will be split
+    :param output_length: If set, set the final output length. Requires pad = true. 
+    :param split_char: The character the strings will be split on.
+    :param pad: If true, pad results to be a consistent length.
+    :param inclusive: If true, the split lists will include the split char.
+    :param element: Slice the output lists to specific elements.
+    """
+    # Split as either regex or simple string
     if split_char[:6] == 'regex:':
-            split_char = split_char[6:].strip()
-            results = [_re.split(split_char, x) for x in input_list]
+        split_char = split_char[6:].strip()
+        results = [_re.split(split_char, x) for x in input_list]
     else:
         results = [x.split(split_char) for x in input_list]
 
@@ -43,18 +62,50 @@ def split(input_list, split_char, output, pad=False, inclusive=False):
         
         results = merged_results
 
+    # If user specified certain elements
+    # then slice the results appropriately
+    if element is not None:
+        def _int_or_none(val):
+            try:
+                return int(val)
+            except:
+                if val:
+                    raise ValueError(f"{val} is not a valid index to slice on")
+                else:
+                    return None
+
+        def _list_get(lst, index, default=None):
+            try:
+                return lst[index]
+            except IndexError:
+                return default
+
+        if ":" in str(element):
+            slicer = slice(*map(_int_or_none, str(element).split(":")))
+        else:
+            slicer = int(element)
+
+        results = [
+            _list_get(row, slicer, "")
+            for row in results
+        ]
+
+    # Pad to be as long as the longest result
     if pad:
-        # Pad to be as long as the longest result
         max_len = max([len(x) for x in results])
         results = [x + [''] * (max_len - len(x)) for x in results]
         
-        # trimming list to appropriate output columns number
-        if len(output) <= max_len and isinstance(output, list):
-            results = [x[:len(output)] for x in results]
-        # if more columns than number of splits, then add '' in extra columns
-        elif len(output) >= max_len and isinstance(output, list):
-            results = [x + [''] * (len(output) - len(x)) for x in results] 
-            
+        if output_length is not None:
+            # trimming list to appropriate output columns number
+            if output_length <= max_len:
+                results = [x[:output_length] for x in results]
+            # if more columns than number of splits, then add '' in extra columns
+            else:
+                results = [
+                    x + [''] * (output_length - len(x))
+                    for x in results
+                ] 
+
     return results
     
 
