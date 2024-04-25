@@ -753,7 +753,7 @@ def test_jinja_breaking_chars():
     Tests functionality with breaking characters included in column name
     """
     data = pd.DataFrame({
-        "t .-!@#$%^&*()+=[]|\:;'<>,?/`~est": ['phillips head', 'flat head'],
+        r"t .-!@#$%^&*()+=[]|\:;'<>,?/`~est": ['phillips head', 'flat head'],
         '"': ['3 inch', '6 inch']
     })
     recipe = """
