@@ -428,10 +428,17 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]
     return df
 
 
-def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def left(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    length: int,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the left of text. Strings shorter than the length defined will be unaffected.
+    description: >-
+      Return characters from the left of text.
+      Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -449,8 +456,11 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
         description: Name of the output column(s)
       length:
         type: integer
-        description: Number of characters to include
-        minimum: 1
+        description: >-
+          Number of characters to include from the left.
+          If negative, this will remove the specified
+          number of characters from the left.
+          May not equal 0.
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
@@ -462,10 +472,27 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # If length is a string like '1', convert to integer
+    if isinstance(length, str) and length.isdigit():
+        length = int(length)
 
-    # Loop through and get left characters of the length requested for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[:length]
+    # Ensure length is an integer
+    if not isinstance(length, int):
+        raise TypeError('Length must be an integer')
+
+    # Ensure length is not 0
+    if length == 0:
+        raise ValueError('Length may not equal 0')
+
+    if length > 0:
+        # Loop through and get characters from the left
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[:length]
+    else:
+        # Loop through and remove characters from the left
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[-1*length:]
 
     return df
 
@@ -518,10 +545,17 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     return df
 
 
-def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def right(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    length: int,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the right of text. Strings shorter than the length defined will be unaffected.
+    description: >-
+      Return characters from the right of text.
+      Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -539,8 +573,11 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
         description: Name of the output column(s)
       length:
         type: integer
-        description: Number of characters to include
-        minimum: 1
+        description: >-
+          Number of characters to include from the right.
+          If negative, this will remove the specified
+          number of characters from the right.
+          May not equal 0.
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
@@ -552,10 +589,27 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # If length is a string like '1', convert to integer
+    if isinstance(length, str) and length.isdigit():
+        length = int(length)
 
-    # Loop through and get the right characters of the length requested for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[-length:]
+    # Ensure length is an integer
+    if not isinstance(length, int):
+        raise TypeError('Length must be an integer')
+
+    # Ensure length is not 0
+    if length == 0:
+        raise ValueError('Length may not equal 0')
+    
+    if length > 0:
+        # Loop through and get characters from the right
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[-length:]
+    else:
+        # Loop through and remove characters from the right
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[:length]
 
     return df
 
