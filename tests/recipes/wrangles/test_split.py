@@ -506,6 +506,27 @@ def test_split_text_pad_mismatch_error():
             """
         )
 
+def test_split_text_regex_case_insensitive():
+    """
+    Tests split.text using regex with
+    the case insensitive flag
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col1
+                char: 'regex:(?i)x'
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['1x2', "1X2"]
+        })
+    )
+    assert (
+        df['col1'][0] == ["1","2"] and
+        df['col1'][1] == ["1","2"]
+    )
+
 #
 # Split from List
 #
