@@ -92,7 +92,17 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
     return field_map
 
 
-def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None, batch_size: int = 10000) -> _pd.DataFrame:
+def read(
+    host: str,
+    partition: str,
+    target: str,
+    user: str,
+    password: str,
+    columns: list = None,
+    source: str = None,
+    criteria: dict = None,
+    batch_size: int = 10000
+) -> _pd.DataFrame:
     """
     Import data from a PriceFx instance.
 
