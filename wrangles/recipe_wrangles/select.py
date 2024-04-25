@@ -406,6 +406,7 @@ def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
         raise ValueError("n must be a positive integer")
     return df.head(n)
 
+
 def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
@@ -497,7 +498,13 @@ def left(
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default: any = '') -> _pd.DataFrame:
+def list_element(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    element: int = 0,
+    default: any = ''
+) -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -518,7 +525,10 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
         description: Name of the output column
       element:
         type: integer
-        description: The numbered element of the list to select. Starts from zero
+        description: |-
+          The numbered element of the list to select.
+          Starts from zero.
+          This may use python slicing syntax to select a subset of the list.
       default:
         type:
           - string

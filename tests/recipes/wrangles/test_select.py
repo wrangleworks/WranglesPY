@@ -375,8 +375,63 @@ def test_list_elem_default_list():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].values.tolist() == [['A'], [], ['C']]
-    
-    
+
+def test_list_element_integer_as_string():
+    """
+    Test that select.list_element gives the correct answer
+    for an integer given as a string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            output: Second Element
+            element: '1'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df.iloc[0]['Second Element'] == 'B'
+
+def test_list_element_slice():
+    """
+    Test that select.list_element gives the correct
+    answer for selecting a slice from a list.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            element: ':2'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df["Col1"][0] == ["A","B"]
+
+def test_list_element_invalid_element():
+    """
+    Test that select.list_element gives a clear
+    error if the user tries to select an element
+    using invalid syntax.
+    """
+    with pytest.raises(ValueError, match="'a'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: Col1
+                element: 'a'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [['A', 'B', 'C']]
+            })
+        )
+
 #
 # Highest confidence
 #

@@ -49,17 +49,34 @@ def confidence_threshold(list_1, list_2, threshold):
     return results
 
 
-def list_element(input, n, default = ""):
+def list_element(input, n: _Union[str, int], default = ""):
     """
     Select a numbered element of a list (zero indexed).
     """
-    def check_if_possible(element, index):
+    def _int_or_none(val):
         try:
-            return element[index]
+            return int(val)
         except:
+            if val:
+                raise ValueError(f"{val} is not a valid index to slice on")
+            else:
+                return None
+
+    def _list_get(lst, index, default=None):
+        try:
+            return lst[index]
+        except IndexError:
             return default
+
+    if ":" in str(n):
+        slicer = slice(*map(_int_or_none, str(n).split(":")))
+    else:
+        slicer = int(n)
         
-    return [check_if_possible(row, n) for row in input]
+    return [
+        _list_get(row, slicer, default)
+        for row in input
+    ]
 
 
 def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
