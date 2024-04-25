@@ -378,14 +378,13 @@ def group_by(df, by = [], **kwargs):
     df.columns = df.columns.map('.'.join).str.strip('.')
 
     # Rename columns back to original names if altered
-    df.rename(
+    df = df.rename(
         {
             col: col.replace(".grouped_asjkdbak", "")
             for col in df.columns
             if col.endswith(".grouped_asjkdbak")
         },
-        axis=1,
-        inplace=True
+        axis=1
     )
 
     return df
