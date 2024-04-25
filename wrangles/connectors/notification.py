@@ -156,6 +156,11 @@ class email():
             - string
             - array
           description: An email or list of emails to cc the email to.
+        bcc:
+          type:
+            - string
+            - array
+          description: Blind Carbon Copy email address(es).
         name: 
           type: string
           description: The name to show the email as being from. If omitted, defaults to the user.
@@ -180,6 +185,7 @@ class email():
     body: str,
     to: _Union[str, list] = None,
     cc: _Union[str, list] = None,
+    bcc: _Union[str, list] = None,
     domain: str = None,
     host: str = None,
     name: str = None,
@@ -194,6 +200,7 @@ class email():
     :param body: The body of the email
     :param to: An email or list of emails to send the email to. If omitted, the email will be sent to the sender.
     :param cc: An email or list of emails to cc the email to.
+    :param bcc: Blind Carbon Copy email address(es).
     :param domain: The domain to send the email under. If omitted, it will be inferred from the user
     :param host: The SMTP server for your service. This may be omitted for common services such as yahoo, gmail or hotmail but will be needed otherwise.
     :param name: The name to show the email as being from. If omitted, defaults to the user.
@@ -212,7 +219,9 @@ class email():
     # Add optional components to the url
     url = url + f"&name={name or user.replace('@', '%40')}"
 
-    if host: url = url + f"&smtp={host}"
+    if host:
+        url = url + f"&smtp={host}"
+
     if to:
         if isinstance(to, str): to = [to]
         url = url + f"&to={','.join(to)}".replace('@', '%40')
@@ -220,6 +229,10 @@ class email():
     if cc:
         if isinstance(cc, str): cc = [cc]
         url = url + f"&cc={','.join(cc)}".replace('@', '%40')
+
+    if bcc:
+        if isinstance(bcc, str): bcc = [bcc]
+        url = url + f"&bcc={','.join(bcc)}".replace('@', '%40')
 
     run(url, subject, body, attachment)
     
