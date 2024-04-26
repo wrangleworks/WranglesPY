@@ -543,7 +543,24 @@ def test_split_list_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col2'] == 'Wrangles!'
-    
+
+def test_split_list_json():
+    """
+    Test the split.list function with a JSON string
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.list:
+                input: Col
+                output: Col*
+        """,
+        dataframe=pd.DataFrame({
+            'Col': ['["Hello", "Wrangles!"]']
+        })
+    )
+    assert df['Col2'][0] == 'Wrangles!'
+
 # Multiple column named outputs
 def test_split_list_2():
     data = pd.DataFrame({
