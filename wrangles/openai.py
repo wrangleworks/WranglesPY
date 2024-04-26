@@ -194,7 +194,7 @@ def _embedding_thread(
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-ada-002",
+    model: str = "text-embedding-3-small",
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,
