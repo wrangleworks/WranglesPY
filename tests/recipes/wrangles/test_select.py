@@ -375,8 +375,63 @@ def test_list_elem_default_list():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].values.tolist() == [['A'], [], ['C']]
-    
-    
+
+def test_list_element_integer_as_string():
+    """
+    Test that select.list_element gives the correct answer
+    for an integer given as a string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            output: Second Element
+            element: '1'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df.iloc[0]['Second Element'] == 'B'
+
+def test_list_element_slice():
+    """
+    Test that select.list_element gives the correct
+    answer for selecting a slice from a list.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            element: ':2'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df["Col1"][0] == ["A","B"]
+
+def test_list_element_invalid_element():
+    """
+    Test that select.list_element gives a clear
+    error if the user tries to select an element
+    using invalid syntax.
+    """
+    with pytest.raises(ValueError, match="'a'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: Col1
+                element: 'a'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [['A', 'B', 'C']]
+            })
+        )
+
 #
 # Highest confidence
 #
@@ -561,8 +616,10 @@ def test_threshold_where():
 #    
 # Left
 #
-# Multi Columns input and output
-def test_left_1():
+def test_left_two_inputs():
+    """
+    Multi Columns input and output
+    """
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
     'Col2': ['A B C D']
@@ -580,9 +637,11 @@ def test_left_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'One T'
-    
-# Output is none
-def test_left_2():
+
+def test_left_overwrite_input():
+    """
+    Output is none
+    """
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
     'Col2': ['A B C D']
@@ -615,7 +674,6 @@ def test_left_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Out1'] == 'Five ' and df.iloc[0]['Out1'] == ''
 
-# Test the error with a list of inputs and a single output
 def test_left_multi_input_single_output():
     """
     Test the error when using a list of input columns and a single output column
@@ -639,46 +697,163 @@ def test_left_multi_input_single_output():
         info.typename == 'ValueError' and
         "The lists for input and output must be the same length." in info.value.args[0]
     )
-    
+
+def test_left_invalid_length_value():
+    """
+    Test that select.left gives a clear error if
+    the value of length is invalid.
+    """
+    with pytest.raises(TypeError, match="must be an integer"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.left:
+                  input: Col1
+                  length: a
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_left_length_as_string():
+    """
+    Test that select.left gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: '4'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "exam"
+
+def test_left_length_as_zero():
+    """
+    Test that select.left gives a clear error if
+    the value of length is zero.
+    """
+    with pytest.raises(ValueError, match="may not equal 0"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.left:
+                  input: Col1
+                  length: 0
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_left_negative_length():
+    """
+    Test that select.left gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: -4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "ple"
+
+def test_left_shorter_than_length():
+    """
+    Test that select.left gives the original
+    string back if a length longer than that
+    is set.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: 10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "example"
+
+def test_left_negative_more_than_length():
+    """
+    Test that a negative value
+    longer than the length of the string
+    gives back an empty string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: -10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == ""
+
 #
 # Right
 #
-# Multi column
-def test_right_1():
-    data = pd.DataFrame({
-    'Col1': ['One Two Three Four'],
-    'Col2': ['A B C D']
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input:
+def test_right_two_inputs():
+    """
+    Multi column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.right:
+              input:
                 - Col1
                 - Col2
-            output:
+              output:
                 - Out1
                 - Out2
-            length: 4
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+              length: 4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four'],
+            'Col2': ['A B C D']
+        })
+    )
     assert df.iloc[0]['Out1'] == 'Four'
-    
-# Output is none
-def test_right_2():
-    data = pd.DataFrame({
-    'Col1': ['One Two Three Four'],
-    'Col2': ['A B C D']
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input: Col1
-            length: 4
+
+def test_right_overwrite_input():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    Output is none
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.right:
+              input: Col1
+              length: 4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four'],
+            'Col2': ['A B C D']
+        })
+    )
     assert df.iloc[0]['Col1'] == 'Four'
-    
-# Test the error with a list of inputs and a single output
+
 def test_right_multi_input_single_output():
     """
     Test the error when using a list of input columns and a single output column
@@ -707,21 +882,135 @@ def test_right_where():
     """
     Test select.right using where
     """
-    data = pd.DataFrame({
-        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
-        'numbers': [6, 7, 8]
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input: Col1
-            output: Out1
-            length: 6
-            where: numbers > 6
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                output: Out1
+                length: 6
+                where: numbers > 6
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+            'numbers': [6, 7, 8]
+        })
+    )
     assert df.iloc[2]['Out1'] == 'Twelve' and df.iloc[0]['Out1'] == ''
-    
+
+
+def test_right_invalid_length_value():
+    """
+    Test that select.right gives a clear error if
+    the value of length is invalid.
+    """
+    with pytest.raises(TypeError, match="must be an integer"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.right:
+                  input: Col1
+                  length: a
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_right_length_as_string():
+    """
+    Test that select.right gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: '3'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "ple"
+
+def test_right_length_as_zero():
+    """
+    Test that select.right gives a clear error if
+    the value of length is zero.
+    """
+    with pytest.raises(ValueError, match="may not equal 0"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.right:
+                  input: Col1
+                  length: 0
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_right_negative_length():
+    """
+    Test that select.right gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: -3
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "exam"
+
+def test_right_shorter_than_length():
+    """
+    Test that select.right gives the original
+    string back if a length longer than that
+    is set.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: 10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "example"
+
+def test_right_negative_more_than_length():
+    """
+    Test that a negative value
+    longer than the length of the string
+    gives back an empty string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: -10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == ""
+
 #
 # Substring
 #
