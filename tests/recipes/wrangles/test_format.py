@@ -604,7 +604,7 @@ def test_format_attributes_1():
 
 def test_format_attributes_2():
     """
-    Testing a non existent unit
+    Testing a non existent units
     """
     data = pd.DataFrame({
         'input': ["my 13 metre car has a quantonium of 13Rx and that's random 13 number"]
@@ -618,7 +618,7 @@ def test_format_attributes_2():
         """,
         dataframe=data
     )
-    assert df['output'][0] == ["my 13 m car has a quantonium of 13 Rx and that's random 13 number"]
+    assert df['output'][0] == ["my 13 m car has a quantonium of 13Rx and that's random 13 number"]
 
 
 def test_format_specific_attribute_1():
