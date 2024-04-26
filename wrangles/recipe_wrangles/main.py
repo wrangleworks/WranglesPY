@@ -1319,3 +1319,43 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
     return df
+
+def batch(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    batch_size: int = 1000
+):
+    """
+    type: object
+    description: Batch the dataframe into smaller chunks
+    additionalProperties: false
+    required:
+      - batch_size
+    properties:
+      batch_size:
+        type: integer
+        description: The size of the batches to split the dataframe into
+    """
+    if not isinstance(df, _pd.DataFrame):
+            raise ValueError('Input must be a pandas DataFrame')
+    if not isinstance(batch_size, int):
+        raise ValueError('Batch size must be an integer')
+    if batch_size < 1:
+        raise ValueError('Batch size must be greater than 0')
+    
+    df_out = None
+    for i in range(0, len(df), batch_size):
+        df_result =  _wrangles.recipe.run(
+            {
+                "wrangles": wrangles
+            },
+            dataframe=df[i:i + batch_size],
+            functions=functions
+        )
+        if df_out is None:
+            df_out = df_result
+        else:
+            df_out = _pd.concat([df_out, df_result])
+
+    return df_out

@@ -3296,6 +3296,90 @@ def test_accordion_propagate_invalid():
         'accordion - "Did you forget' in err.value.args[0]
     )
 
+class TestBatch:
+    """
+    Test batch wrangle
+    This splits the dataframe into batches
+    and executes a series of wrangles against each
+    """
+    def test_batch(self):
+        """
+        Test basic batch wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert df['column'].tolist() == ["A"] * 1000
+
+    def test_batch_size(self):
+        """
+        Test batch size parameter works correctly
+        """
+        global number_of_batches
+        number_of_batches = 0
+        def record_batch(df):
+            global number_of_batches
+            number_of_batches += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  batch_size: 200
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                    - custom.record_batch: {}
+            """,
+            functions=record_batch
+        )
+        assert (
+            df['column'].tolist() == ["A"] * 1000 and
+            number_of_batches == 5
+        )
+
+    def test_batch_smaller_than_batch_size(self):
+        """
+        Test that batch works correctly if the batch
+        size exceeds the length of the dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  batch_size: 20
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert df['column'].tolist() == ["A"] * 10
+
 class TestLookup:
     """
     Test lookup wrangle
