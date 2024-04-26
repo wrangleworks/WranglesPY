@@ -680,3 +680,44 @@ def test_format_specific_attribute_3():
         dataframe=data
     )
     assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
+
+# Testing remive attributes
+
+def test_remove_attributes_1():
+    """
+    Testing remove all attributes. Using the remove_attributes function
+    """
+    data = pd.DataFrame({
+        'input': ["My 13 foot car has a mass of 190kg and it holds 13 liters of gasoline with a battery of 14 volts"]
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.remove_attributes:
+              input: input
+              output: output
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My car has a mass of and it holds of gasoline with a battery of']
+
+def test_remove_attributes_2():
+    """
+    remove a specific attribute (length)
+    Using attributes function
+    """
+    data = pd.DataFrame({
+        'input': ["My 13 foot car has a mass of 190kg and it holds 13 liters of gasoline with a battery of 14 volts and 10cm of thread left"]
+    })
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - format.attributes:
+              input: input
+              output: output
+              attribute_type: length
+              removeAttributes: True
+        """,
+        dataframe=data
+    )
+    assert df['output'][0] == ['My car has a mass of 190kg and it holds 13 liters of gasoline with a battery of 14 volts and of thread left']

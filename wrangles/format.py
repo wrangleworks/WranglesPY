@@ -192,7 +192,8 @@ def attributes(
         input: _Union[str, list],
         type: str = None,
         desiredUnit: str = None,
-        bound: str = 'mid'
+        bound: str = 'mid',
+        removeAttributes: bool = False
     ) -> _Union[dict, list]:
     """
     Remove or standardize attributes in a string or list of strings.
@@ -208,9 +209,10 @@ def attributes(
         params['desiredUnit'] = desiredUnit
     if type: 
         params['attributeType'] = type
-
     if bound in ['min', 'mid', 'max']:
         params['bound'] = bound
+    if removeAttributes:
+        params['removeAttributes'] = removeAttributes
     else:
         raise ValueError('Invalid boundary setting. min, mid or max permitted.')
     

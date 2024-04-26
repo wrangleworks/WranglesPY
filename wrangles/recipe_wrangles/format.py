@@ -313,7 +313,8 @@ def attributes(
         responseContent: str = 'span',
         attribute_type: str = None,
         desired_unit: str = None,
-        bound: str = 'mid'
+        bound: str = 'mid',
+        removeAttributes: bool = False
         ) -> _pd.DataFrame:
     """
     """
@@ -334,7 +335,8 @@ def attributes(
             responseContent,
             attribute_type,
             desired_unit,
-            bound
+            bound,
+            removeAttributes
         )
     else:
         for input_column, output_column in zip(input, output):
@@ -342,7 +344,8 @@ def attributes(
                 df[input_column].astype(str).tolist(),
                 attribute_type,
                 desired_unit,
-                bound
+                bound,
+                removeAttributes
             )
 
     return df

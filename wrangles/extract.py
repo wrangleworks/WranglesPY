@@ -55,7 +55,8 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     else:
         json_data = input
 
-    url = f'{_config.api_host}/wrangles/extract/attributes'
+    # url = f'{_config.api_host}/wrangles/extract/attributes'
+    url = 'http://127.0.0.1:5000'
     params = {'responseFormat':'array', 'responseContent': responseContent}
     if type: params['attributeType'] = type
     if desiredUnit: params['desiredUnit'] = desiredUnit
