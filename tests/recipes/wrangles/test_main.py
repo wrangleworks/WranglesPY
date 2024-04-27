@@ -2779,6 +2779,33 @@ def test_accordion():
         df["list_column"][0] == ["A","B","C"]
     )
 
+def test_accordion_json():
+    """
+    Test that accordion works even if
+    the input is a json string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                list_column: '["a","b","c"]'
+
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    case: upper
+        """
+    )
+    assert (
+        len(df) == 5 and
+        df["list_column"][0] == ["A","B","C"]
+    )
+
 def test_accordion_order():
     """
     Test a basic accordion that overwrites the input column

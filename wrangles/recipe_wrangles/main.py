@@ -13,7 +13,7 @@ import numexpr as _ne
 import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
-import yaml as _yaml
+import json as _json
 import numpy as _np
 import math as _math
 from ..classify import classify as _classify
@@ -90,6 +90,14 @@ def accordion(
 
     # Deep copy the dataframe to avoid modifying the original
     df_temp = df[input + propagate].copy()
+
+    # Convert any columns containing JSON arrays to lists
+    for col in input:
+        if not isinstance(df_temp[col][0], list):
+            try:
+                df_temp[col] = df_temp[col].apply(_json.loads)
+            except:
+                pass
 
     # Save temporary index to be able to merge back later
     random_str = str(_random.randint(0,999999999))

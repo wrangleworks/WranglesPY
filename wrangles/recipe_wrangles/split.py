@@ -117,12 +117,23 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
         type:
           - string
           - array
-        description: Name of column(s) for the results. If providing a single column, use a wildcard (*) to indicate a incrementing integer
+        description: >-
+          Name of column(s) for the results.
+          If providing a single column, use a wildcard (*)
+          to indicate a incrementing integer
     """
+    # Ensure rows are lists even if they are JSON strings
+    results = [
+        row if isinstance(row, _list) else _json.loads(row)
+        for row in df[input].values
+    ]
     # Generate results and pad to a consistent length
     # as long as the max length
-    max_len = max([len(x) for x in df[input].tolist()])
-    results = [x + [''] * (max_len - len(x)) for x in df[input].tolist()]
+    max_len = max([len(x) for x in results])
+    results = [
+        x + [''] * (max_len - len(x))
+        for x in results
+    ]
 
     if isinstance(output, str) and '*' in output:
         # If user has provided a wildcard for the column name
