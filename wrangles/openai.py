@@ -28,7 +28,7 @@ def chatGPT(
     if len(data) == 1:
         content = list(data.values())[0]
     else:
-        content = _yaml.dump(data, indent=2)
+        content = _yaml.dump(data, indent=2, sort_keys=False)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(

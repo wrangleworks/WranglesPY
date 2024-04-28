@@ -80,7 +80,7 @@ def write(
         for permutation in permutations:
             executor.submit(
                 _wrangles.recipe.run,
-                recipe= _yaml.dump({'write': write}),
+                recipe= _yaml.dump({'write': write}, sort_keys=False),
                 dataframe=df.copy(),
                 variables=permutation,
                 functions=functions
