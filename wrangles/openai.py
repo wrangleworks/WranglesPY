@@ -142,21 +142,24 @@ def _embedding_thread(
     response = None
     backoff_time = 5
     while (retries + 1):
-        response = _requests.post(
-            url=url,
-            headers={
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "model": model,
-                "encoding_format": "base64",
-                "input": [
-                    str(val) if val != "" else " " 
-                    for val in input_list
-                ],
-                **request_params
-            }
-        )
+        try:
+            response = _requests.post(
+                url=url,
+                headers={
+                    "Authorization": f"Bearer {api_key}"
+                },
+                json={
+                    "model": model,
+                    "encoding_format": "base64",
+                    "input": [
+                        str(val) if val != "" else " " 
+                        for val in input_list
+                    ],
+                    **request_params
+                }
+            )
+        except:
+            pass
 
         if response and response.ok:
             break
