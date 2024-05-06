@@ -136,6 +136,10 @@
           "type": ["array", "string"],
           "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 'value' or ${variable} > 10"
+        },
         "where": {
           "type": "string",
           "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 'a'"

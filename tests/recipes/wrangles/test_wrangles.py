@@ -168,3 +168,158 @@ def test_where_data_types_preserved():
         df["Column1"].values.tolist() == [65, 72, '', 92, 87, 79] and
         df["Column3"][2] == ""
     )
+
+def test_if_true():
+    """
+    Test that a wrangle is triggered
+    when an if statement is true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: 1 == 1
+        """
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_false():
+    """
+    Test that a wrangle is triggered
+    when an if statement is true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: 1 == 2
+        """
+    )
+    assert df["header"][0] == "value"
+
+def test_if_python_variable():
+    """
+    Test that an if statement evaluates
+    correctly with a python variable
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: var == 1
+        """,
+        variables={"var": 1}
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_template_variable():
+    """
+    Test that an if statement evaluates
+    correctly with a template variable
+    of the form ${variable}
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: ${var} == 1
+        """,
+        variables={"${var}": 1}
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_variable_with_spaces():
+    """
+    Test that an if statement evaluates
+    correctly with a template variable
+    that contains spaces
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: ${var with spaces} == 1
+        """,
+        variables={"${var with spaces}": 1}
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_variable_with_special_chars():
+    """
+    Test that an if statement evaluates
+    correctly with a template variable
+    that contains special characters
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: ${var-!@#${}} == 1
+        """,
+        variables={"${var-!@#${}}": 1}
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_variable_no_execution():
+    """
+    Test that an if statement evaluates
+    a command as a string and does not execute
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: ${var} == "raise Exception('Error')"
+        """,
+        variables={"${var}": "raise Exception('Error')"}
+    )
+    assert df["header"][0] == "VALUE"

@@ -1,5 +1,6 @@
 import re as _re
 import logging as _logging
+from jinja2 import Template as _Template
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
     """
@@ -83,3 +84,61 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
                     raise KeyError(f'Column {column} does not exist')
 
     return result_columns
+
+
+def _key_generator():
+    """
+    Generate a list of incrementing characters
+    a, b, c, ... z, aa, ab, ac, ... zz, aaa, ...
+    """
+    from itertools import product
+    from string import ascii_lowercase
+
+    for length in range(1, len(ascii_lowercase) + 1):
+        for letters in product(ascii_lowercase, repeat=length):
+            yield ''.join(letters)
+
+def _replace_keys_with_chars(input_dict):
+    """
+    Replace dictionary keys with incrementing characters
+
+    { "key1": "value1", "key2": "value2", ... }
+
+    ->
+    
+    { "a": "value1", "b": "value2", ... }
+    """
+    gen = _key_generator()
+    return {next(gen): v for v in input_dict.values()}
+
+def evaluate_conditional(statement, variables: dict = {}):
+    """
+    Use Jinja2 to safely evaluate a conditional statement
+    and return the result as a boolean
+    :param statement: A conditional statement to evaluate
+    :param variables: A dictionary of variables to use in the statement
+    :return: Whether the statement evaluates to True or False
+    """
+    original_statement = statement
+
+    try:
+        # Replace variable keys with an incrementing character - a, b, c, ...
+        # This is to avoid Jinja2 from throwing an error when it encounters
+        # variables names that are not an allowed format. In particular,
+        # our variable syntax like ${variable_name}
+        formatted_variables = _replace_keys_with_chars(variables)
+        for k, v in zip(variables.keys(), formatted_variables.keys()):
+            statement = statement.replace(k, v)
+
+        # Create a template with your conditional statement
+        result = _Template("{{ " + statement + " }}").render(formatted_variables)
+
+        # Convert the result to a boolean
+        result = str(result).strip().lower()
+    except:
+        raise ValueError(f"An error occurred when trying to evaluate if condition '{original_statement}'") from None
+
+    if result not in ['true', 'false']:
+        raise ValueError(f"If conditions must evaluate to true or false. Got: '{original_statement}'")
+
+    return result == 'true'

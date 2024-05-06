@@ -184,7 +184,7 @@ for read in schema['read']:
     else:
         read_properties = schema['read'][read]['anyOf'][-1]['properties']
 
-    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+    for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
         read_properties[x] = {
             "$ref": f"#/$defs/write/commonProperties/{x}"
         }

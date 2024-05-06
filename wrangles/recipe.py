@@ -19,6 +19,7 @@ from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
 from .config import no_where_list
+from .utils import evaluate_conditional
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -55,17 +56,24 @@ def _replace_templated_values(
             
     elif isinstance(recipe_object, dict):
         # Iterate over all of the keys and value in a dictionary recursively
+        # Do not apply for if statements, these will be evaluated later
+        # Allow unknown values for matrix connectors
         new_recipe_object = {
-            _replace_templated_values(
-                key,
-                variables,
-                any([ignore_unknown_variables, key in ["matrix"]])
+            (
+                _replace_templated_values(
+                    key,
+                    variables,
+                    any([ignore_unknown_variables, key in ["matrix"]])
+                )
             )
-            : 
-            _replace_templated_values(
-                val,
-                variables,
-                any([ignore_unknown_variables, key in ["matrix"]])
+            :
+            (
+                _replace_templated_values(
+                    val,
+                    variables,
+                    any([ignore_unknown_variables, key in ["matrix"]])
+                )
+                if key not in ["if"] else val
             )
             for key, val in recipe_object.items()
         }
@@ -270,13 +278,32 @@ def _load_recipe(
     return recipe_object, functions
 
 
-def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
+def _run_actions(
+    recipe: _Union[dict, list],
+    functions: dict = {},
+    variables: dict = {},
+    error: Exception = None
+) -> None:
+    """
+    Run a list of actions as defined by the recipe
+
+    :param recipe: Run section of a recipe
+    :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of variables to be used in the recipe
+    :param error: (Optional) An error object in the case the actions were triggered by an error
+    """
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
 
     for action in recipe:
         for action_type, params in action.items():
+            if "if" in params:
+                # Skip if condition is not met
+                if not evaluate_conditional(params["if"], variables):
+                    break
+                del params["if"]
+
             if action_type.split('.')[0] == 'custom':
                 # Get custom function
                 custom_function = functions[action_type[7:]]
@@ -434,13 +461,19 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     return list(result_columns.keys())
 
 
-def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
+def _execute_wrangles(
+    df,
+    wrangles_list,
+    functions: dict = {},
+    variables: dict = {}
+) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
 
     :param df: Dateframe that the Wrangles will be run against
     :param wrangles_list: List of Wrangles + their definitions to be executed
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of variables to be used in the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
     for step in wrangles_list:
@@ -448,6 +481,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
             try:
                 if params is None: params = {}
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+
+                if "if" in params:
+                    # Skip if condition is not met
+                    if not evaluate_conditional(params["if"], variables):
+                        break
+                    del params["if"]
 
                 original_params = params.copy()
                 if 'where' in params.keys():
@@ -705,13 +744,19 @@ def _filter_dataframe(
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _pandas.DataFrame:
+def _write_data(
+    df: _pandas.DataFrame,
+    recipe: dict,
+    functions: dict = {},
+    variables: dict = {}
+) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
     # Initialize returned df as df to start
@@ -728,7 +773,23 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 # Filter the dataframe as requested before passing
                 # to the desired write function
                 df_temp = _filter_dataframe(df, **params)
-                for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by']:
+
+                if "if" in params:
+                    # Skip if condition is not met
+                    if not evaluate_conditional(
+                        params["if"],
+                        {
+                            **variables,
+                            **{
+                                "${row_count}": len(df_temp),
+                                "${column_count}": len(df_temp.columns),
+                                "${columns}": df_temp.columns.tolist()
+                            }
+                        }
+                    ):
+                        break
+
+                for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by', 'if']:
                     if key in params:
                         params.pop(key)
 
@@ -787,7 +848,7 @@ def _run_thread(
     # supported sources such as files, url, model id
     # Run any actions required before the main recipe runs
     if 'on_start' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_start'], functions)
+        _run_actions(recipe['run']['on_start'], functions, variables)
 
     # Get requested data
     if 'read' in recipe.keys():
@@ -805,17 +866,17 @@ def _run_thread(
 
     # Execute any Wrangles required (allow single or plural)
     if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'], functions)
+        df = _execute_wrangles(df, recipe['wrangles'], functions, variables)
     elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'], functions)
+        df = _execute_wrangles(df, recipe['wrangle'], functions, variables)
 
     # Execute requested data exports
     if 'write' in recipe.keys():
-        df = _write_data(df, recipe['write'], functions)
+        df = _write_data(df, recipe['write'], functions, variables)
 
     # Run any actions required after the main recipe finishes
     if 'on_success' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_success'], functions)
+        _run_actions(recipe['run']['on_success'], functions, variables)
 
     return df
 
@@ -866,7 +927,7 @@ def run(
                 executor._threads.clear()
                 # Run any actions requested if the recipe fails
                 if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, e)
+                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
             except:
                 pass
             raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
@@ -875,7 +936,7 @@ def run(
             try:
                 # Run any actions requested if the recipe fails
                 if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, e)
+                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
             except:
                 pass
             raise
