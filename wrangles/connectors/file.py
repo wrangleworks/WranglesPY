@@ -19,7 +19,7 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     Import a file as defined by user parameters.
 
     Supports:
-      - Excel (.xlsx, .xlsx, .xlsm)
+      - Excel (.xlsx, .xls, .xlsm, .xlsb)
       - CSV (.csv, .txt)
       - JSON (.json), JSONL (.jsonl)
       - Pickle (.pkl, .pickle) files.
@@ -41,7 +41,7 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
         file_object = name
     
     # Open appropriate file type
-    if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
+    if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls', 'xlsb']:
         if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
         df = _pd.read_excel(file_object, **kwargs).fillna('')
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:

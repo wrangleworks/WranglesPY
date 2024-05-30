@@ -42,18 +42,6 @@ def test_read_json():
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
-def test_read_excel():
-    """
-    Test a basic .xlsx import
-    """
-    recipe = """
-      read:
-        file:
-          name: tests/samples/data.xlsx
-    """
-    df = wrangles.recipe.run(recipe)
-    assert df.columns.tolist() == ['Find', 'Replace']
-
 ## JSON Lines
 def test_read_jsonl():
     recipe = """
@@ -91,20 +79,6 @@ def test_read_json_columns():
     """
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find']
-
-def test_read_excel_columns():
-    """
-    Test a basic .xlsx import
-    """
-    recipe = """
-      read:
-        file:
-          name: tests/samples/data.xlsx
-          columns:
-            - Find
-    """
-    df = wrangles.recipe.run(recipe)
-    assert df.columns.tolist() == ['Find']   
 
 # Write using index
 def test_write_file_indexed():
@@ -363,3 +337,47 @@ def test_read_pickle_gzip():
         df["header1"][0] == "value1"
         and len(df) == 3
     )
+
+
+class TestExcel:
+  """
+  Test reading and writing excel files
+  """
+  def test_read(self):
+      """
+      Test a basic .xlsx import
+      """
+      recipe = """
+        read:
+          file:
+            name: tests/samples/data.xlsx
+      """
+      df = wrangles.recipe.run(recipe)
+      assert df.columns.tolist() == ['Find', 'Replace']
+
+  def test_read_columns(self):
+      """
+      Test a basic .xlsx import
+      """
+      recipe = """
+        read:
+          file:
+            name: tests/samples/data.xlsx
+            columns:
+              - Find
+      """
+      df = wrangles.recipe.run(recipe)
+      assert df.columns.tolist() == ['Find']
+
+  def test_read_binary(self):
+      """
+      Test reading an excel binary format (.xlsb)
+      """
+      df = wrangles.recipe.run(
+          """
+          read:
+            - file:
+                name: tests/samples/ExcelBinaryFormat.xlsb
+          """
+      )
+      assert df.columns.tolist() == ['header1', 'header2']
