@@ -136,7 +136,7 @@ def _replace_keys_with_chars(input_dict):
     { "a": "value1", "b": "value2", ... }
     """
     gen = _key_generator()
-    return {next(gen): v for v in input_dict.values()}
+    return {"wrwx_" + next(gen): v for v in input_dict.values()}
 
 def evaluate_conditional(statement, variables: dict = {}):
     """
@@ -154,8 +154,20 @@ def evaluate_conditional(statement, variables: dict = {}):
         # variables names that are not an allowed format. In particular,
         # our variable syntax like ${variable_name}
         formatted_variables = _replace_keys_with_chars(variables)
-        for k, v in zip(variables.keys(), formatted_variables.keys()):
-            statement = statement.replace(k, v)
+        replacement_dict = {
+            k: v
+            for k, v in zip(variables.keys(), formatted_variables.keys())
+        }
+
+        # Split tokens
+        statement = _re.findall(r"[a-zA-Z0-9'\"${}_]+|[^a-zA-Z0-9${}\"'_]", statement)
+        
+        statement = [
+            replacement_dict.get(token, token)
+            for token in statement
+        ]
+
+        statement = ''.join(statement)
 
         # Create a template with your conditional statement
         result = jinja_env.from_string("{{ " + statement + " }}").render(formatted_variables)

@@ -887,6 +887,7 @@ def rename(
     input: _Union[str, list] = None,
     output: _Union[str, list] = None,
     wrangles: list = None,
+    functions: dict = {},
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -914,6 +915,11 @@ def rename(
         items:
           "$ref": "#/$defs/wrangles/items"
     """
+    if functions and not isinstance(functions, dict):
+        # Catch the case that user has a column named functions
+        kwargs["functions"] = functions
+        functions = {}
+
     # Allow using wrangles to manipulate the column names
     if wrangles:
         input = df.columns.tolist()
@@ -923,7 +929,7 @@ def rename(
                 dataframe=_pd.DataFrame({
                     "columns": input
                 }),
-                functions=kwargs.get("functions", {})
+                functions=functions
             )["columns"].tolist()
         except:
             raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
@@ -933,13 +939,6 @@ def rename(
                 "If using wrangles to rename columns, " +
                 "the results must be the same length as the input columns."
             )
-    else:
-        # Drop functions if not needed
-        if (
-            "functions" in kwargs and
-            isinstance(kwargs["functions"], dict)
-        ):
-            del kwargs["functions"]
 
     # If short form of paired names is provided, use that
     if input is None:
@@ -1336,7 +1335,9 @@ def validate(
     test: _Union[str, list],
     input: _Union[str, list] = None,
     output: _Union[str, list] = None,
-    message: str = None
+    message: str = None,
+    variables: dict = {},
+    functions: dict = {}
 ):
     """
     type: object
@@ -1376,19 +1377,42 @@ def validate(
     if output is not None and not isinstance(output, list):
         output = [output]
 
+    # Generate records as [{"col1": "val1", ...}]
+    # replacing any non-valid python variable characters in column names
     if input:
         if not isinstance(input, list):
             input = [input]
-        records = df[input].to_dict(orient="records")
+
+        records = df[input].rename(
+            columns = {
+                col: _re.sub(r'[^a-zA-Z0-9_]', '_', col)
+                for col in df[input].columns
+            }
+        ).to_dict(orient="records")
     else:
-        records = df.to_dict(orient="records")
+        records = df.rename(
+            columns = {
+                col: _re.sub(r'[^a-zA-Z0-9_]', '_', col)
+                for col in df.columns
+            }
+        ).to_dict(orient="records")
+
+    # Convert variables to ${VAR} syntax
+    variables = {
+        "${" + k + "}": v
+        for k, v in variables.items()
+    }
+
+    # Special variables
+    variables["${columns}"] = list(records[0].keys())
+    variables["${row_count}"] = len(records)
 
     for idx, data in enumerate(records):
         validation_results = []
         for test_case in test:
             is_valid = True
             try:
-                is_valid = evaluate_conditional(test_case, data)
+                is_valid = evaluate_conditional(test_case, {**variables, **data})
             except:
                 is_valid = False
 

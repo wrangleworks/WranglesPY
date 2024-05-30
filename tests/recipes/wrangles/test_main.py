@@ -3716,6 +3716,69 @@ class TestValidate:
                 """
             )
 
+    def test_validate_variable(self):
+        """
+        Test a validate with variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: Col1 == ${var}
+            """,
+            variables={"var": "a"}
+        )
+        assert df['Validate1'][0]
+
+    def test_validate_column_with_space(self):
+        """
+        Test a validate with variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col 1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: Col_1 == 'a'
+            """,
+        )
+        assert df['Validate1'][0]
+
+    def test_validate_input(self):
+        """
+        Test that input limits the tested dataframe
+
+        In this case the input only sets Col2
+        so the test fails as Col1 is not present
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+                    Col2: b
+            wrangles:
+              - validate:
+                  input: Col2
+                  output: Validate1
+                  test: Col1 == 'a'
+            """
+        )
+        assert not df['Validate1'][0]
+
     def test_validate_list(self):
         """
         Test a validate with multiple tests
@@ -3803,3 +3866,22 @@ class TestValidate:
                         - Col1 <= 10
                 """
             )
+
+    def test_validate_columns(self):
+        """
+        Test a validate that passes
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: len(${columns}) == 1 and 'Col1' in ${columns}
+            """
+        )
+        assert df['Validate1'][0]

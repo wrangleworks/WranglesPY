@@ -73,7 +73,7 @@ def _replace_templated_values(
                     variables,
                     any([ignore_unknown_variables, key in ["matrix"]])
                 )
-                if key not in ["if"] else val
+                if key not in ["if", "test"] else val
             )
             for key, val in recipe_object.items()
         }
@@ -609,11 +609,17 @@ def _execute_wrangles(
                     obj = _recipe_wrangles
                     for element in wrangle.split('.'):
                         obj = getattr(obj, element)
+
+                    # Get user's function arguments
+                    fn_argspec = _inspect.getfullargspec(obj)
                     
-                    # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename", "accordion"]:
-                        if "functions" not in params:
-                            params['functions'] = functions
+                    # Pass functions if wrangle needs it
+                    if "functions" not in params and "functions" in fn_argspec.args:
+                        params['functions'] = functions
+
+                    # Pass variables if wrangle needs it
+                    if "variables" not in params and "variables" in fn_argspec.args:
+                        params['variables'] = variables
 
                     df = obj(df, **params)
 
