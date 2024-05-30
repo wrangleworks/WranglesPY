@@ -3638,3 +3638,168 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+
+class TestValidate:
+    def test_validate(self):
+        """
+        Test a validate that passes
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: Col1 == 'a'
+            """
+        )
+        assert df['Validate1'][0]
+
+    def test_validate_fail(self):
+        """
+        Test a validate that fails
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: Col1 == 'b'
+            """
+        )
+        assert not df['Validate1'][0]
+
+    def test_validate_raise(self):
+        """
+        Test a validate that has no output
+        defined and raises an error instead
+        """
+        with pytest.raises(ValueError, match="Col1 == 'b'"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        Col1: a
+                wrangles:
+                - validate:
+                    test: Col1 == 'b'
+                """
+            )
+
+    def test_validate_raise_custom_message(self):
+        """
+        Test that a custom message is raised correctly
+        """
+        with pytest.raises(ValueError, match="oops"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        Col1: a
+                wrangles:
+                - validate:
+                    test: Col1 == 'b'
+                    message: oops
+                """
+            )
+
+    def test_validate_list(self):
+        """
+        Test a validate with multiple tests
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    Col1: <int(0-100)>
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test:
+                    - isinstance(Col1, int)
+                    - Col1 <= 100
+            """
+        )
+        assert df['Validate1'][0]
+
+    def test_validate_list_fail(self):
+        """
+        Test a validate with multiple tests
+        and a single output where one fails
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    Col1: <int(0-100)>
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test:
+                    - isinstance(Col1, int)
+                    - Col1 <= 10
+            """
+        )
+        assert not all(df['Validate1'])
+
+    def test_validate_list_multiple_outputs(self):
+        """
+        Test a validate with multiple tests
+        and multiple outputs
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    Col1: <int(0-100)>
+            wrangles:
+              - validate:
+                  output:
+                    - Validate1
+                    - Validate2
+                  test:
+                    - isinstance(Col1, int)
+                    - Col1 <= 10
+            """
+        )
+        assert all(df["Validate1"]) and not all(df["Validate2"])
+
+    def test_validate_list_raise(self):
+        """
+        Test a validate with multiple tests without an
+        output defined that raises an error instead
+        """
+        with pytest.raises(ValueError, match="Col1 <= 10"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        Col1: <int(0-100)>
+                wrangles:
+                - validate:
+                    test:
+                        - isinstance(Col1, int)
+                        - Col1 <= 10
+                """
+            )

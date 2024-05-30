@@ -16,6 +16,8 @@ import wrangles as _wrangles
 import json as _json
 import numpy as _np
 import math as _math
+
+from ..utils import evaluate_conditional
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -1326,4 +1328,82 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     for input_column, output_column in zip(input, output):
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
+    return df
+
+
+def validate(
+    df: _pd.DataFrame,
+    test: _Union[str, list],
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+    message: str = None
+):
+    """
+    type: object
+    description: 
+    additionalProperties: false
+    required:
+      - test
+    properties:
+      test:
+        type:
+          - string
+          - array
+        description: >-
+          One or more tests to check. Each test will be applied to each row of the data.
+          This can use a limited range of python syntax e.g. Col1 <= 100 or Col1 == 'a'
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name or list of output columns.
+          If output is not provided an error will be raised.
+          If a single output is provided, it will contain true/false depending if all tests pass.
+          If a list of outputs is provided, it will contain true/false for each test result individually.
+      message:
+        type: string
+        description: A custom message to raise if the tests fail
+    """
+    if not isinstance(test, list):
+        test = [test]
+
+    if output is not None and not isinstance(output, list):
+        output = [output]
+
+    if input:
+        if not isinstance(input, list):
+            input = [input]
+        records = df[input].to_dict(orient="records")
+    else:
+        records = df.to_dict(orient="records")
+
+    for idx, data in enumerate(records):
+        validation_results = []
+        for test_case in test:
+            is_valid = True
+            try:
+                is_valid = evaluate_conditional(test_case, data)
+            except:
+                is_valid = False
+
+            if output is None and is_valid == False:
+                # If no output specified, stop here and raise an error
+                if not message:
+                    # Set default if user hasn't provided a custom message
+                    message = f"Test failed. Row: {idx}. Test: {test_case}"
+                raise ValueError(message)
+
+            validation_results.append(is_valid)
+
+        if output and len(output) == 1:
+            df[output] = all(validation_results)
+        elif output and len(output) > 1:
+            df[output] = validation_results
+    
     return df

@@ -1,6 +1,33 @@
 import re as _re
 import logging as _logging
-from jinja2 import Template as _Template
+from jinja2 import Environment as _Environment, BaseLoader as _BaseLoader
+
+jinja_env = _Environment(loader=_BaseLoader())
+jinja_env.globals.update(
+    len=len,
+    str=str,
+    int=int,
+    float=float,
+    list=list,
+    dict=dict,
+    set=set,
+    sorted=sorted,
+    reversed=reversed,
+    enumerate=enumerate,
+    zip=zip,
+    isinstance=isinstance,
+    getattr=getattr,
+    hasattr=hasattr,
+    abs=abs,
+    min=min,
+    max=max,
+    sum=sum,
+    round=round,
+    all=all,
+    any=any,
+    filter=filter
+)
+
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
     """
@@ -131,7 +158,7 @@ def evaluate_conditional(statement, variables: dict = {}):
             statement = statement.replace(k, v)
 
         # Create a template with your conditional statement
-        result = _Template("{{ " + statement + " }}").render(formatted_variables)
+        result = jinja_env.from_string("{{ " + statement + " }}").render(formatted_variables)
 
         # Convert the result to a boolean
         result = str(result).strip().lower()
