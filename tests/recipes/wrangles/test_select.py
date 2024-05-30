@@ -2007,6 +2007,44 @@ def test_sample_integer():
     )
     assert len(df) == 2
 
+def test_sample_integer_as_string():
+    """
+    Test selecting a sample with an integer
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '2'
+        """
+    )
+    assert len(df) == 2
+
+def test_sample_float_as_string():
+    """
+    Test selecting a sample with a float
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 6
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '0.5'
+        """
+    )
+    assert len(df) == 3
+
 def test_sample_fraction():
     """
     Test selecting a sample with a fraction
