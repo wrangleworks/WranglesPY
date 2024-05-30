@@ -640,12 +640,19 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
           of the rows e.g. 0.1 => 10% of rows will be returned
         exclusiveMinimum: 0
     """
-    if not isinstance(rows, (int, float)) or rows <= 0:
+    if not isinstance(rows, (int, float)):
+        try:
+          rows = float(rows)
+        except:
+          raise ValueError(
+              "rows must be a positive integer or a decimal between 0 and 1"
+          )
+
+    if rows <= 0:
         raise ValueError(
             "rows must be a positive integer or a decimal between 0 and 1"
         )
-
-    if rows >= 1:
+    elif rows >= 1:
         if rows > len(df):
             return df.sample(n=len(df), ignore_index=True, **kwargs)
         else:
