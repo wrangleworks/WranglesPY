@@ -1,8 +1,9 @@
 import pytest
 import wrangles
 import pandas as pd
-import logging
 import numpy as np
+import time
+from datetime import datetime
 
 #
 # Classify
@@ -3327,11 +3328,9 @@ class TestBatch:
         """
         Test batch size parameter works correctly
         """
-        global number_of_batches
-        number_of_batches = 0
+        number_of_batches = [0]
         def record_batch(df):
-            global number_of_batches
-            number_of_batches += 1
+            number_of_batches[0] += 1
             return df
 
         df = wrangles.recipe.run(
@@ -3354,7 +3353,7 @@ class TestBatch:
         )
         assert (
             df['column'].tolist() == ["A"] * 1000 and
-            number_of_batches == 5
+            number_of_batches[0] == 5
         )
 
     def test_batch_smaller_than_batch_size(self):
@@ -3379,6 +3378,76 @@ class TestBatch:
             """
         )
         assert df['column'].tolist() == ["A"] * 10
+
+    def test_batch_threads(self):
+        """
+        Test a batch with threads > 5
+        Ensure results order is maintained
+        """
+        start_time = datetime.now()
+
+        def sleep(duration):
+            time.sleep(duration)
+            return "A"
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 25
+                values:
+                    column: a
+            wrangles:
+              - create.index:
+                  output: idx
+              - batch:
+                  batch_size: 5
+                  threads: 5
+                  wrangles:
+                    - custom.sleep:
+                        output: column
+                        duration: 1
+            """,
+            functions=sleep
+        )
+        end_time = datetime.now()
+        assert (
+            (end_time - start_time).seconds == 5 and
+            df['column'].tolist() == ["A"] * 25 and
+            df['idx'].tolist() == list(range(1, 26))
+        )
+
+    def test_batch_non_sequential_index(self):
+        """
+        Test that a non-sequential index is batched correctly
+        """
+        number_of_batches = [0]
+        def record_batch(df):
+            number_of_batches[0] += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 5
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                    - custom.record_batch: {}
+            """,
+            functions=record_batch,
+            dataframe=pd.DataFrame(
+                data= {'column':['a'] * 15},
+                index= [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600]
+            )
+        )
+        assert (
+            list(df.index) == [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600] and
+            df['column'].tolist() == ["A"] * 15 and
+            number_of_batches[0] == 3
+        )
 
 class TestLookup:
     """

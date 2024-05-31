@@ -13,9 +13,10 @@ import numexpr as _ne
 import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
-import yaml as _yaml
 import numpy as _np
 import math as _math
+import concurrent.futures as _futures
+from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -146,6 +147,79 @@ def accordion(
     ]
     df = df[all_columns]
     return df
+
+
+def batch(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    batch_size: int = 1000,
+    threads: int = 1
+):
+    """
+    type: object
+    description: >-
+      Split the data into batches for executing a list of wrangles.
+      Use this in situations such as where the intermediate data
+      is too large to fit in memory.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      batch_size:
+        type: integer
+        description: The number of rows to split each batch into
+        default: 1000
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to execute on the data. Each series of wrangles
+          will be run agaisnst the data in batches of the size
+          defined by batch_size.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      threads:
+        type: integer
+        description: The number of threads to use for parallel processing. Default 1.
+    """
+    if not isinstance(df, _pd.DataFrame):
+        raise ValueError('Input must be a pandas DataFrame')
+
+    if not isinstance(batch_size, int):
+        try:
+            batch_size = int(batch_size)
+        except:
+          raise ValueError('batch_size must be an integer greater than 0')
+    if batch_size < 1:
+        raise ValueError('batch_size must be an integer greater than 0')
+
+    if not isinstance(threads, int):
+        try:
+            threads = int(threads)
+        except:
+            raise ValueError('threads must be an integer greater than 0')
+    if threads < 1:
+        raise ValueError('threads must be an integer greater than 0')
+    
+    def _batch_thread(df, wrangles, functions):
+        return _wrangles.recipe.run(
+            {"wrangles": wrangles},
+            dataframe=df,
+            functions=functions
+        )
+    
+    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        batches = list(_divide_batches(df, batch_size))
+
+        results = list(executor.map(
+            _batch_thread,
+            batches,
+            [wrangles] * len(batches),
+            [functions] * len(batches)
+        ))
+
+    return _pd.concat(results)
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -1319,43 +1393,3 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
     return df
-
-def batch(
-    df,
-    wrangles: list,
-    functions: _Union[_types.FunctionType, list] = [],
-    batch_size: int = 1000
-):
-    """
-    type: object
-    description: Batch the dataframe into smaller chunks
-    additionalProperties: false
-    required:
-      - batch_size
-    properties:
-      batch_size:
-        type: integer
-        description: The size of the batches to split the dataframe into
-    """
-    if not isinstance(df, _pd.DataFrame):
-            raise ValueError('Input must be a pandas DataFrame')
-    if not isinstance(batch_size, int):
-        raise ValueError('Batch size must be an integer')
-    if batch_size < 1:
-        raise ValueError('Batch size must be greater than 0')
-    
-    df_out = None
-    for i in range(0, len(df), batch_size):
-        df_result =  _wrangles.recipe.run(
-            {
-                "wrangles": wrangles
-            },
-            dataframe=df[i:i + batch_size],
-            functions=functions
-        )
-        if df_out is None:
-            df_out = df_result
-        else:
-            df_out = _pd.concat([df_out, df_result])
-
-    return df_out
