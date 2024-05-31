@@ -391,7 +391,8 @@ def from_yaml(
 def to_yaml(
     df: _pd.DataFrame, 
     input: _Union[str, list], 
-    output: _Union[str, list] = None, 
+    output: _Union[str, list] = None,
+    sort_keys: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     r"""
@@ -437,7 +438,7 @@ def to_yaml(
     # Loop through and apply for all columns
     for input_columns, output_column in zip(input, output):
         df[output_column] = [
-            _yaml.dump(row, **kwargs) 
+            _yaml.dump(row, **{**{"sort_keys": sort_keys}, **kwargs})
             for row in df[input_columns].values.tolist()
         ]
         

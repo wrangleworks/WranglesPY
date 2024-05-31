@@ -2,6 +2,7 @@
 Select subsets of input data
 """
 from typing import Union as _Union
+import json as _json
 import itertools as _itertools
 from .utils import wildcard_expansion_dict
 
@@ -63,6 +64,9 @@ def list_element(input, n: _Union[str, int], default = ""):
                 return None
 
     def _list_get(lst, index, default=None):
+        if isinstance(lst, str) and lst.startswith("["):
+            lst = _json.loads(lst)
+            
         try:
             return lst[index]
         except IndexError:
@@ -101,6 +105,14 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
         )
         results = []
         for row in input:
+            # If the row contains a string,
+            # try to parse as a JSON object
+            if isinstance(row, str):
+                if row.startswith("{"):
+                    row = _json.loads(row)
+                else:
+                    row = {}
+
             if isinstance(default, dict):
                 row = {**default, **row}
             else:
@@ -121,10 +133,24 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                 for k in rename_dict
             })
     else:
+        def _get_value(value):
+            """
+            Get the value of a key in a dictionary or JSON dictionary
+            Return the default value if the key is not found or
+            if an error occurs
+            """
+            try:
+                if isinstance(value, dict):
+                    return value.get(key, default)
+                elif isinstance(value, str) and value.startswith("{"):
+                    return _json.loads(value).get(key, default)
+                else:
+                    return default
+            except:
+                return default
+            
         results = [
-            row.get(key, default)
-            if isinstance(row, dict)
-            else default
+            _get_value(row)
             for row in input
         ]
 

@@ -50,7 +50,7 @@ def write(
         
         elif _re.fullmatch(r'set\((.*)\)', val.strip()):
             column_name = _re.fullmatch(r'set\((.*)\)', val.strip())[1]
-            vals = list(set(df[column_name]))
+            vals = list(dict.fromkeys(df[column_name]))
 
         elif _re.fullmatch(r'custom.(.*)', val.strip()):
             # Run custom function
@@ -80,7 +80,7 @@ def write(
         for permutation in permutations:
             executor.submit(
                 _wrangles.recipe.run,
-                recipe= _yaml.dump({'write': write}),
+                recipe= _yaml.dump({'write': write}, sort_keys=False),
                 dataframe=df.copy(),
                 variables=permutation,
                 functions=functions

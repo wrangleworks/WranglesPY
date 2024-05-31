@@ -232,6 +232,44 @@ def test_dictionary_element_list_default_dict():
         'Z': 'default_value_2'
     }
 
+def test_dictionary_element_json_element_list():
+    """
+    Test the select.dictionary_element works even
+    if it's a json string for element as a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.dictionary_element:
+            input: column
+            element:
+              - a
+              - b
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['{"a": 1, "b": 2, "c": 3}']
+        })
+    )
+    assert df['column'][0] == {'a': 1, 'b': 2}
+
+def test_dictionary_element_json_element_single():
+    """
+    Test the select.dictionary_element works even
+    if it's a json string for element as a single value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.dictionary_element:
+            input: column
+            element: a
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['{"a": 1, "b": 2, "c": 3}']
+        })
+    )
+    assert df['column'][0] == 1
+
 #
 # List Element
 #
@@ -431,6 +469,24 @@ def test_list_element_invalid_element():
                 'Col1': [['A', 'B', 'C']]
             })
         )
+
+def test_list_element_json():
+    """
+    Test that select.list_element works even if
+    the input is a json string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: column
+            element: 1
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['["A", "B", "C"]']
+        })
+    )
+    assert df['column'][0] == 'B'
 
 #
 # Highest confidence
@@ -1815,6 +1871,23 @@ def test_element_slice_start_end_step():
     )
     assert df["result"][0] == [2,4]
 
+def test_element_json():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": ['["a", "b", "c"]']
+        })
+    )
+    assert df["result"][0] == "a"
+
 def test_select_columns_basic():
     """
     Test select.columns using basic inputs
@@ -1933,6 +2006,44 @@ def test_sample_integer():
         """
     )
     assert len(df) == 2
+
+def test_sample_integer_as_string():
+    """
+    Test selecting a sample with an integer
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '2'
+        """
+    )
+    assert len(df) == 2
+
+def test_sample_float_as_string():
+    """
+    Test selecting a sample with a float
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 6
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '0.5'
+        """
+    )
+    assert len(df) == 3
 
 def test_sample_fraction():
     """
