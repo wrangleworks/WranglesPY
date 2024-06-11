@@ -1340,7 +1340,7 @@ def flatten_table(df: _pd.DataFrame, similar: int = 2, case_sensitive: bool = Tr
       similar:
         type: integer
         description: The number of similar columns required to be considered a header row.
-      case:
+      case_sensitive:
         type: boolean
         description: Whether to treat column names as case sensitive.
     """
