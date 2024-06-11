@@ -3638,3 +3638,155 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+
+# Test first row
+def test_first_row():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': [13, 26, 'Colours', 'BLACK sdjfjh']
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    expected_df = pd.DataFrame({
+        'colours': ['White'],
+        'material': ['Steel'],
+        'number': [13]
+    })
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.shape == (3,3)
+    assert df.iloc[0].equals(expected_df.iloc[0])
+
+# Testing entire dataframe
+def test_whole_dataframe():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': [13, 26, 'Colours', 'BLACK sdjfjh']
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # Why is the number column not being converted to int by wrangles?
+    df['number'] = df['number'].astype('int64')
+    expected_df = pd.DataFrame({
+        'colours': ['White', 'Black', 'BLACK sdjfjh'],
+        'material': ['Steel', 'Copper', 'Steel 2'],
+        'number': [13, 26, 1313131]
+    })
+    assert df.equals(expected_df)
+
+# Testing Upper and lower case
+def test_upper_lower_case():
+    data = pd.DataFrame({
+            'Colours': ['White', 'Black', '   Material', 'Iron', '    Diamond'],
+            'Material': ['Steel', 'Copper', 'Colours', 'Orange', 'Yellow'],
+            'Number': [13, 26, 'number  ', -48, 0.0002]
+        })
+    expected_df = pd.DataFrame({
+            'Colours': ['White', 'Black', 'Orange', 'Yellow'],
+            'Material': ['Steel', 'Copper', '', ''],
+            'Number': [13, 26, '', ''],
+            '   Material':['', '', 'Iron', '    Diamond'],
+            'number  ':['', '', -48, 0.0002]
+        })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 1
+            case: false
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+# Testing cols with numbers
+def test_digit_cols():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Number', '1313131'],
+        'Number': ['13', '26', 'Black']
+    })
+    expected_df = pd.DataFrame({
+        'colours': ['White', ''],
+        'material': ['Steel', 'Steel 2'],
+        'number': ['13', '1313131'],
+        '26': ['', 'Black']
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+
+def test_one_row():
+    data = pd.DataFrame({
+        'Colours': ['White'],
+        'Material': ['Steel'],
+        'Number': [13]
+    })
+    expected_data = pd.DataFrame({
+        'colours': ['White'],
+        'material': ['Steel'],
+        'number': [13]
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_data)
+
+def test_empty_dataframe():
+    data = pd.DataFrame()
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty
+
+def test_empty_columns():
+    data = pd.DataFrame({
+        'Colours': [],
+        'Material': [],
+        'Number': []
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty
+
+# Existing col is empty
+def test_empty_rows():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Vinyl'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': ['', '', '', '']
+    })
+    expected_df = pd.DataFrame({
+        'colours': ['White', 'Black', ''],
+        'material': ['Steel', 'Copper', "Vinyl"],
+        'number': ['', '', '1313131'],
+        '': ['', '', '']
+    })
+    recipe = """
+    wrangles:
+        - main.flatten_table:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)

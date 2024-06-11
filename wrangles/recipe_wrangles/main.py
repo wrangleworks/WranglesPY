@@ -1327,3 +1327,39 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
         df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
 
     return df
+
+def flatten_table(df: _pd.DataFrame, similar: int = 2, case: bool = True) -> _pd.DataFrame:
+    """
+    type: object
+    description: Flatten a table with multiple header rows into a single header row.
+    additionalProperties: false
+    required:
+      - similar 
+      - case
+    properties:
+      similar:
+        type: integer
+        description: The number of similar columns required to be considered a header row.
+      case:
+        type: boolean
+        description: Whether to treat column names as case sensitive.
+    """
+    df_info = df.to_dict(orient="split")
+    cols = df_info['columns']
+    data = df_info['data']
+    header_stack = cols # Initialize header_stack with column names
+    sub_data = []
+    if case:
+        header_stack = [element.lower().strip() if isinstance(element,str) else element for element in header_stack]
+    for row in data:
+        # Check if row has at least n cols in it to be considered a header row
+        if len(set(cols) & set(row)) >= similar:
+            # If row has at least n cols in it, update header_stack
+            if case: header_stack = [element.lower().strip() if isinstance(element, str) else element for element in row]
+            else:header_stack = row
+        else:
+            # If not a header row, append to sub_data in the form of a dictionary
+            sub_data.append({k:v for k,v in zip(header_stack, row)})
+
+    df = _pd.DataFrame.from_dict(sub_data, orient="columns")
+    return df
