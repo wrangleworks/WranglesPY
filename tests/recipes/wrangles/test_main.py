@@ -3700,7 +3700,7 @@ def test_upper_lower_case():
     wrangles:
         - main.flatten_table:
             similar: 1
-            case: false
+            case_sensitive: false
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.equals(expected_df)

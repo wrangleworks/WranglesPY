@@ -1328,14 +1328,14 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
 
     return df
 
-def flatten_table(df: _pd.DataFrame, similar: int = 2, case: bool = True) -> _pd.DataFrame:
+def flatten_table(df: _pd.DataFrame, similar: int = 2, case_sensitive: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Flatten a table with multiple header rows into a single header row.
     additionalProperties: false
     required:
       - similar 
-      - case
+      - case_sensitive
     properties:
       similar:
         type: integer
@@ -1349,13 +1349,13 @@ def flatten_table(df: _pd.DataFrame, similar: int = 2, case: bool = True) -> _pd
     data = df_info['data']
     header_stack = cols # Initialize header_stack with column names
     sub_data = []
-    if case:
+    if case_sensitive:
         header_stack = [element.lower().strip() if isinstance(element,str) else element for element in header_stack]
     for row in data:
         # Check if row has at least n cols in it to be considered a header row
         if len(set(cols) & set(row)) >= similar:
             # If row has at least n cols in it, update header_stack
-            if case: header_stack = [element.lower().strip() if isinstance(element, str) else element for element in row]
+            if case_sensitive: header_stack = [element.lower().strip() if isinstance(element, str) else element for element in row]
             else:header_stack = row
         else:
             # If not a header row, append to sub_data in the form of a dictionary
