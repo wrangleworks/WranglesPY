@@ -290,13 +290,8 @@ def test_prefix_skip_mult_empty_false():
             value: extra-
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == 'extra-terrestrial'
-    assert df.iloc[1]['out1'] == 'extra-'
-    assert df.iloc[2]['out1'] == 'extra-ordinary'
-    assert df.iloc[0]['out2'] == 'extra-soft'
-    assert df.iloc[1]['out2'] == 'extra-'
-    assert df.iloc[2]['out2'] == 'extra-cripsy'
-
+    assert df['out1'].tolist() == ['extra-terrestrial', 'extra-', 'extra-ordinary']
+    assert df['out2'].tolist() == ['extra-soft', 'extra-', 'extra-cripsy']
 
 def test_prefix_skip_mult_empty_true():
     """
@@ -319,12 +314,8 @@ def test_prefix_skip_mult_empty_true():
             skip_empty: true
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == 'extra-terrestrial'
-    assert df.iloc[1]['out1'] == ''
-    assert df.iloc[2]['out1'] == 'extra-ordinary'
-    assert df.iloc[0]['out2'] == 'extra-soft'
-    assert df.iloc[1]['out2'] == ''
-    assert df.iloc[2]['out2'] == 'extra-cripsy'
+    assert df['out1'].tolist() == ['extra-terrestrial', '', 'extra-ordinary']
+    assert df['out2'].tolist() == ['extra-soft', '', 'extra-cripsy']
 
 def test_prefix_skip_empty_false():
     """
@@ -349,9 +340,7 @@ def test_prefix_skip_empty_false():
             skip_empty: false
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Tool Output'] == 'OSHA approved-Red White Blue Round Titanium Shield' 
-    assert df.iloc[1]['Tool Output'] == 'OSHA approved-300V 1/2" Drive Impact Wrench'
-    assert df.iloc[2]['Tool Output'] == 'OSHA approved-'
+    assert df['Tool Output'].tolist() == ['OSHA approved-Red White Blue Round Titanium Shield', 'OSHA approved-300V 1/2" Drive Impact Wrench', 'OSHA approved-', 'OSHA approved-400 torque 1/2" Drive Impact Wrench', 'OSHA approved-', 'OSHA approved-Hard Hat 30in w/ Light']
 
 def test_prefix_skip_empty_true():
     """
@@ -376,9 +365,7 @@ def test_prefix_skip_empty_true():
           skip_empty: true
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Tool Output'] == 'OSHA approved-Red White Blue Round Titanium Shield' 
-    assert df.iloc[1]['Tool Output'] == 'OSHA approved-300V 1/2" Drive Impact Wrench'
-    assert df.iloc[2]['Tool Output'] == ''
+    assert df['Tool Output'].tolist() == ['OSHA approved-Red White Blue Round Titanium Shield', 'OSHA approved-300V 1/2" Drive Impact Wrench', '', 'OSHA approved-400 torque 1/2" Drive Impact Wrench', '', 'OSHA approved-Hard Hat 30in w/ Light']
 
 
 #    
@@ -496,13 +483,8 @@ def test_suffix_skip_mult_empty_false():
             value: ly
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    print()
-    assert df.iloc[0]['out1'] == 'hardly'
-    assert df.iloc[1]['out1'] == 'ly'
-    assert df.iloc[2]['out1'] == 'softly'
-    assert df.iloc[0]['out2'] == 'quickly'
-    assert df.iloc[1]['out2'] == 'ly'
-    assert df.iloc[2]['out2'] == 'slowly'
+    assert df['out1'].tolist() == ['hardly', 'ly', 'softly']
+    assert df['out2'].tolist() == ['quickly', 'ly', 'slowly']
 
 
 def test_suffix_skip_mult_empty_true():
@@ -526,12 +508,8 @@ def test_suffix_skip_mult_empty_true():
             skip_empty: true
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == 'hardly'
-    assert df.iloc[1]['out1'] == ''
-    assert df.iloc[2]['out1'] == 'softly'
-    assert df.iloc[0]['out2'] == 'quickly'
-    assert df.iloc[1]['out2'] == ''
-    assert df.iloc[2]['out2'] == 'slowly'
+    assert df['out1'].tolist() == ['hardly', '', 'softly']
+    assert df['out2'].tolist() == ['quickly', '', 'slowly']
     
 #
 # date format
