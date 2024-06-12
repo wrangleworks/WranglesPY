@@ -270,6 +270,117 @@ def test_prefix_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['pre-col'] == '' and df.iloc[2]['pre-col'] == 'extra-califragilisticexpialidocious'
     
+def test_prefix_skip_mult_empty_false():
+    """
+    Testing format.prefix with skip_empty false
+    """
+    data = pd.DataFrame({
+        'col1': ['terrestrial','','ordinary'],
+        'col2': ['soft','','cripsy'],
+    })
+    recipe = """
+    wrangles:
+        - format.prefix:
+            input:
+                - col1
+                - col2
+            output: 
+                - out1
+                - out2
+            value: extra-
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == 'extra-terrestrial'
+    assert df.iloc[1]['out1'] == 'extra-'
+    assert df.iloc[2]['out1'] == 'extra-ordinary'
+    assert df.iloc[0]['out2'] == 'extra-soft'
+    assert df.iloc[1]['out2'] == 'extra-'
+    assert df.iloc[2]['out2'] == 'extra-cripsy'
+
+
+def test_prefix_skip_mult_empty_true():
+    """
+    Testing format.prefix with skip_empty false
+    """
+    data = pd.DataFrame({
+        'col1': ['terrestrial','','ordinary'],
+        'col2': ['soft','','cripsy'],
+    })
+    recipe = """
+    wrangles:
+        - format.prefix:
+            input:
+                - col1
+                - col2
+            output: 
+                - out1
+                - out2
+            value: extra-
+            skip_empty: true
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == 'extra-terrestrial'
+    assert df.iloc[1]['out1'] == ''
+    assert df.iloc[2]['out1'] == 'extra-ordinary'
+    assert df.iloc[0]['out2'] == 'extra-soft'
+    assert df.iloc[1]['out2'] == ''
+    assert df.iloc[2]['out2'] == 'extra-cripsy'
+
+def test_prefix_skip_empty_false():
+    """
+    Testing format.prefix with skip_empty false
+    """
+    data = pd.DataFrame(
+        [['Red White Blue Round Titanium Shield'],
+        ['300V 1/2" Drive Impact Wrench'],
+        [''],
+        ['400 torque 1/2" Drive Impact Wrench'],
+        [''],
+        ['Hard Hat 30in w/ Light'],
+        ],
+        columns=['Tools']
+    )
+    recipe = """
+    wrangles:
+        - format.prefix:
+            input: Tools
+            output: Tool Output
+            value: OSHA approved-
+            skip_empty: false
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Tool Output'] == 'OSHA approved-Red White Blue Round Titanium Shield' 
+    assert df.iloc[1]['Tool Output'] == 'OSHA approved-300V 1/2" Drive Impact Wrench'
+    assert df.iloc[2]['Tool Output'] == 'OSHA approved-'
+
+def test_prefix_skip_empty_true():
+    """
+    Testing format.prefix with skip_empty true
+    """
+    data = pd.DataFrame(
+        [['Red White Blue Round Titanium Shield'],
+        ['300V 1/2" Drive Impact Wrench'],
+        [''],
+        ['400 torque 1/2" Drive Impact Wrench'],
+        [''],
+        ['Hard Hat 30in w/ Light'],
+        ],
+        columns=['Tools']
+    )
+    recipe = """
+    wrangles:
+      - format.prefix:
+          input: Tools
+          output: Tool Output
+          value: OSHA approved-
+          skip_empty: true
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Tool Output'] == 'OSHA approved-Red White Blue Round Titanium Shield' 
+    assert df.iloc[1]['Tool Output'] == 'OSHA approved-300V 1/2" Drive Impact Wrench'
+    assert df.iloc[2]['Tool Output'] == ''
+
+
 #    
 # Suffix
 #
@@ -363,6 +474,64 @@ def test_suffix_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col-suf'] == '' and df.iloc[2]['col-suf'] == 'supercalifragilisticexpialidocious-cy'
+    
+
+def test_suffix_skip_mult_empty_false():
+    """
+    Testing format.suffix with skip_empty false
+    """
+    data = pd.DataFrame({
+        'col1': ['hard','','soft'],
+        'col2': ['quick','','slowly'],
+    })
+    recipe = """
+    wrangles:
+        - format.suffix:
+            input:
+                - col1
+                - col2
+            output: 
+                - out1
+                - out2
+            value: ly
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    print()
+    assert df.iloc[0]['out1'] == 'hardly'
+    assert df.iloc[1]['out1'] == 'ly'
+    assert df.iloc[2]['out1'] == 'softly'
+    assert df.iloc[0]['out2'] == 'quickly'
+    assert df.iloc[1]['out2'] == 'ly'
+    assert df.iloc[2]['out2'] == 'slowly'
+
+
+def test_suffix_skip_mult_empty_true():
+    """
+    Testing format.suffix with skip_empty false
+    """
+    data = pd.DataFrame({
+        'col1': ['hard','','soft'],
+        'col2': ['quick','','slowly'],
+    })
+    recipe = """
+    wrangles:
+        - format.suffix:
+            input:
+                - col1
+                - col2
+            output: 
+                - out1
+                - out2
+            value: extra-
+            skip_empty: true
+    """   
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['out1'] == 'hardly'
+    assert df.iloc[1]['out1'] == ''
+    assert df.iloc[2]['out1'] == 'softly'
+    assert df.iloc[0]['out2'] == 'quickly'
+    assert df.iloc[1]['out2'] == ''
+    assert df.iloc[2]['out2'] == 'slowly'
     
 #
 # date format
