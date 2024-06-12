@@ -130,10 +130,10 @@ def prefix(
           - string
           - array
         description: (Optional) Name of the output column
-        skip_empty:
-          type: boolean
-          desription: Whether to skip empty values
-          default: (Optional) false
+      skip_empty:
+        type: boolean
+        desription: Whether to skip empty values
+        default: (Optional) false
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
