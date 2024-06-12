@@ -5,7 +5,10 @@ import pytest
 #
 # Dictionary Element
 #
-def test_dictionary_element_1():
+def test_dictionary_element_one_input():
+    """
+    Default select.dictionary_element test
+    """
     data = pd.DataFrame({
     'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}]
     })
@@ -19,8 +22,10 @@ def test_dictionary_element_1():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes'] == 'round'
     
-# if the input is multiple columns (a list)
-def test_dictionary_element_2():
+def test_dictionary_element_two_inputs():
+    """
+    # if the input is multiple columns (a list)
+    """
     data = pd.DataFrame({
     'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
     'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
@@ -39,8 +44,12 @@ def test_dictionary_element_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Shapes2'] == 'ROUND'
     
-# if the input and output are not the same type
-def test_dictionary_element_3():
+
+def test_dictionary_element_input_output_error():
+    """
+    Test the the user receives a clear error
+    if the input and output are not the same length
+    """
     data = pd.DataFrame({
     'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
     'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
@@ -99,6 +108,167 @@ def test_dictionary_element_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Shapes'] == 'square' and df.iloc[0]['Shapes'] == ''
+
+def test_dictionary_element_list():
+    """
+    Test selecting multiple elements
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            output: Out
+            element:
+              - A
+              - B
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+        })
+    )
+    assert df['Out'][0] == {'A': '1', 'B': '2'}
+
+def test_dictionary_element_list_rename():
+    """
+    Test selecting multiple elements
+    and renaming one
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            element:
+              - A: A_1
+              - B
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+        })
+    )
+    assert df['Col1'][0] == {'A_1': '1', 'B': '2'}
+
+def test_dictionary_element_list_wildcard():
+    """
+    Test selecting multiple elements
+    with a wildcard
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            element:
+              - A: A_1
+              - "*"
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+        })
+    )
+    assert df['Col1'][0] == {'A_1': '1', 'B': '2', 'C': '3'}
+
+def test_dictionary_element_list_rename_wildcard():
+    """
+    Test selecting multiple elements
+    with a wildcard
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            element:
+              - "*1": "*2"
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A1': '1', 'B1': '2', 'C1': '3'}],
+        })
+    )
+    assert df['Col1'][0] == {'A2': '1', 'B2': '2', 'C2': '3'}
+
+def test_dictionary_element_list_default():
+    """
+    Test selecting multiple elements
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            output: Out
+            element:
+              - A
+              - B
+              - Z
+            default: default_value
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+        })
+    )
+    assert df['Out'][0] == {'A': '1', 'B': '2', 'Z': 'default_value'}
+
+def test_dictionary_element_list_default_dict():
+    """
+    Test selecting multiple elements
+    """
+    df = wrangles.recipe.run("""
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            output: Out
+            element:
+              - A
+              - Y
+              - Z
+            default:
+              Y: default_value_1
+              Z: default_value_2
+        """,
+        dataframe=pd.DataFrame({
+          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+        })
+    )
+    assert df['Out'][0] == {
+        'A': '1',
+        'Y': 'default_value_1',
+        'Z': 'default_value_2'
+    }
+
+def test_dictionary_element_json_element_list():
+    """
+    Test the select.dictionary_element works even
+    if it's a json string for element as a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.dictionary_element:
+            input: column
+            element:
+              - a
+              - b
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['{"a": 1, "b": 2, "c": 3}']
+        })
+    )
+    assert df['column'][0] == {'a': 1, 'b': 2}
+
+def test_dictionary_element_json_element_single():
+    """
+    Test the select.dictionary_element works even
+    if it's a json string for element as a single value
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.dictionary_element:
+            input: column
+            element: a
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['{"a": 1, "b": 2, "c": 3}']
+        })
+    )
+    assert df['column'][0] == 1
 
 #
 # List Element
@@ -243,8 +413,81 @@ def test_list_elem_default_list():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].values.tolist() == [['A'], [], ['C']]
-    
-    
+
+def test_list_element_integer_as_string():
+    """
+    Test that select.list_element gives the correct answer
+    for an integer given as a string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            output: Second Element
+            element: '1'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df.iloc[0]['Second Element'] == 'B'
+
+def test_list_element_slice():
+    """
+    Test that select.list_element gives the correct
+    answer for selecting a slice from a list.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: Col1
+            element: ':2'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+    )
+    assert df["Col1"][0] == ["A","B"]
+
+def test_list_element_invalid_element():
+    """
+    Test that select.list_element gives a clear
+    error if the user tries to select an element
+    using invalid syntax.
+    """
+    with pytest.raises(ValueError, match="'a'"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: Col1
+                element: 'a'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [['A', 'B', 'C']]
+            })
+        )
+
+def test_list_element_json():
+    """
+    Test that select.list_element works even if
+    the input is a json string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: column
+            element: 1
+        """,
+        dataframe=pd.DataFrame({
+            'column': ['["A", "B", "C"]']
+        })
+    )
+    assert df['column'][0] == 'B'
+
 #
 # Highest confidence
 #
@@ -429,8 +672,10 @@ def test_threshold_where():
 #    
 # Left
 #
-# Multi Columns input and output
-def test_left_1():
+def test_left_two_inputs():
+    """
+    Multi Columns input and output
+    """
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
     'Col2': ['A B C D']
@@ -448,9 +693,11 @@ def test_left_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Out1'] == 'One T'
-    
-# Output is none
-def test_left_2():
+
+def test_left_overwrite_input():
+    """
+    Output is none
+    """
     data = pd.DataFrame({
     'Col1': ['One Two Three Four'],
     'Col2': ['A B C D']
@@ -483,7 +730,6 @@ def test_left_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Out1'] == 'Five ' and df.iloc[0]['Out1'] == ''
 
-# Test the error with a list of inputs and a single output
 def test_left_multi_input_single_output():
     """
     Test the error when using a list of input columns and a single output column
@@ -507,46 +753,163 @@ def test_left_multi_input_single_output():
         info.typename == 'ValueError' and
         "The lists for input and output must be the same length." in info.value.args[0]
     )
-    
+
+def test_left_invalid_length_value():
+    """
+    Test that select.left gives a clear error if
+    the value of length is invalid.
+    """
+    with pytest.raises(TypeError, match="must be an integer"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.left:
+                  input: Col1
+                  length: a
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_left_length_as_string():
+    """
+    Test that select.left gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: '4'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "exam"
+
+def test_left_length_as_zero():
+    """
+    Test that select.left gives a clear error if
+    the value of length is zero.
+    """
+    with pytest.raises(ValueError, match="may not equal 0"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.left:
+                  input: Col1
+                  length: 0
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_left_negative_length():
+    """
+    Test that select.left gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: -4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "ple"
+
+def test_left_shorter_than_length():
+    """
+    Test that select.left gives the original
+    string back if a length longer than that
+    is set.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: 10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "example"
+
+def test_left_negative_more_than_length():
+    """
+    Test that a negative value
+    longer than the length of the string
+    gives back an empty string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.left:
+                input: Col1
+                length: -10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == ""
+
 #
 # Right
 #
-# Multi column
-def test_right_1():
-    data = pd.DataFrame({
-    'Col1': ['One Two Three Four'],
-    'Col2': ['A B C D']
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input:
+def test_right_two_inputs():
+    """
+    Multi column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.right:
+              input:
                 - Col1
                 - Col2
-            output:
+              output:
                 - Out1
                 - Out2
-            length: 4
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+              length: 4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four'],
+            'Col2': ['A B C D']
+        })
+    )
     assert df.iloc[0]['Out1'] == 'Four'
-    
-# Output is none
-def test_right_2():
-    data = pd.DataFrame({
-    'Col1': ['One Two Three Four'],
-    'Col2': ['A B C D']
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input: Col1
-            length: 4
+
+def test_right_overwrite_input():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    Output is none
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.right:
+              input: Col1
+              length: 4
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four'],
+            'Col2': ['A B C D']
+        })
+    )
     assert df.iloc[0]['Col1'] == 'Four'
-    
-# Test the error with a list of inputs and a single output
+
 def test_right_multi_input_single_output():
     """
     Test the error when using a list of input columns and a single output column
@@ -575,21 +938,135 @@ def test_right_where():
     """
     Test select.right using where
     """
-    data = pd.DataFrame({
-        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
-        'numbers': [6, 7, 8]
-    })
-    recipe = """
-    wrangles:
-        - select.right:
-            input: Col1
-            output: Out1
-            length: 6
-            where: numbers > 6
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                output: Out1
+                length: 6
+                where: numbers > 6
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+            'numbers': [6, 7, 8]
+        })
+    )
     assert df.iloc[2]['Out1'] == 'Twelve' and df.iloc[0]['Out1'] == ''
-    
+
+
+def test_right_invalid_length_value():
+    """
+    Test that select.right gives a clear error if
+    the value of length is invalid.
+    """
+    with pytest.raises(TypeError, match="must be an integer"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.right:
+                  input: Col1
+                  length: a
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_right_length_as_string():
+    """
+    Test that select.right gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: '3'
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "ple"
+
+def test_right_length_as_zero():
+    """
+    Test that select.right gives a clear error if
+    the value of length is zero.
+    """
+    with pytest.raises(ValueError, match="may not equal 0"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - select.right:
+                  input: Col1
+                  length: 0
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['example'],
+            })
+        )
+
+def test_right_negative_length():
+    """
+    Test that select.right gives the correct answer
+    if the length is given as a string, but
+    is a valid integer.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: -3
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "exam"
+
+def test_right_shorter_than_length():
+    """
+    Test that select.right gives the original
+    string back if a length longer than that
+    is set.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: 10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == "example"
+
+def test_right_negative_more_than_length():
+    """
+    Test that a negative value
+    longer than the length of the string
+    gives back an empty string.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - select.right:
+                input: Col1
+                length: -10
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['example'],
+        })
+    )
+    assert df["Col1"][0] == ""
+
 #
 # Substring
 #
@@ -1394,6 +1871,23 @@ def test_element_slice_start_end_step():
     )
     assert df["result"][0] == [2,4]
 
+def test_element_json():
+    """
+    Test get element from a list
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": ['["a", "b", "c"]']
+        })
+    )
+    assert df["result"][0] == "a"
+
 def test_select_columns_basic():
     """
     Test select.columns using basic inputs
@@ -1512,6 +2006,44 @@ def test_sample_integer():
         """
     )
     assert len(df) == 2
+
+def test_sample_integer_as_string():
+    """
+    Test selecting a sample with an integer
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '2'
+        """
+    )
+    assert len(df) == 2
+
+def test_sample_float_as_string():
+    """
+    Test selecting a sample with a float
+    that the user entered as a string
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 6
+              values:
+                header1: <word>
+        wrangles:
+          - select.sample:
+              rows: '0.5'
+        """
+    )
+    assert len(df) == 3
 
 def test_sample_fraction():
     """

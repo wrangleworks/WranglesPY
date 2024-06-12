@@ -162,7 +162,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe)
+            recipe = _yaml.dump(recipe, sort_keys=False)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 
@@ -307,86 +307,90 @@ def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pan
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
-    read_type = list(recipe)[0]
-    read_params = recipe[read_type]
+    try:
+        read_type = list(recipe)[0]
+        read_params = recipe[read_type]
 
-    # Divide parameters into general and specific to that type of read
-    params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by']
-    params_specific = {
-        key: read_params[key]
-        for key in read_params
-        if key not in params_general
-    }
-    params_general = {
-        key: read_params[key]
-        for key in params_general
-        if key in read_params
-    }
+        # Divide parameters into general and specific to that type of read
+        params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by']
+        params_specific = {
+            key: read_params[key]
+            for key in read_params
+            if key not in params_general
+        }
+        params_general = {
+            key: read_params[key]
+            for key in params_general
+            if key in read_params
+        }
 
-    # Allow blended imports
-    if read_type in ['join', 'concatenate', 'union']:
-        dfs = []
-        # Recursively call sub-reads
-        for source in params_specific['sources']:
-            dfs.append(_read_data_sources(source, functions))
-        params_specific.pop('sources')
+        # Allow blended imports
+        if read_type in ['join', 'concatenate', 'union']:
+            dfs = []
+            # Recursively call sub-reads
+            for source in params_specific['sources']:
+                dfs.append(_read_data_sources(source, functions))
+            params_specific.pop('sources')
 
-        if read_type == 'join':
-            df = _pandas.merge(dfs[0], dfs[1], **params_specific)
-        elif read_type == 'union':
-            df = _pandas.concat(dfs, **params_specific)
-        elif read_type == 'concatenate':
-            params_specific['axis'] = 1
-            df = _pandas.concat(dfs, **params_specific)
-        df = df.reset_index(drop=True)
-    else:
-        # If custom, search within custom functions,
-        # else look within the default connectors
-        if read_type.split('.')[0] == 'custom':
-            obj = {"custom": functions}
+            if read_type == 'join':
+                df = _pandas.merge(dfs[0], dfs[1], **params_specific)
+            elif read_type == 'union':
+                df = _pandas.concat(dfs, **params_specific)
+            elif read_type == 'concatenate':
+                params_specific['axis'] = 1
+                df = _pandas.concat(dfs, **params_specific)
+            df = df.reset_index(drop=True)
         else:
-            obj = _connectors
-        
-        # Get the requested function
-        for element in read_type.split('.'):
-            if isinstance(obj, dict):
-                obj = obj[element]
-            elif isinstance(obj, _types.ModuleType):
-                obj = getattr(obj, element)
+            # If custom, search within custom functions,
+            # else look within the default connectors
+            if read_type.split('.')[0] == 'custom':
+                obj = {"custom": functions}
             else:
-                raise ValueError(f"Unrecognized object for {read_type}")
+                obj = _connectors
+            
+            # Get the requested function
+            for element in read_type.split('.'):
+                if isinstance(obj, dict):
+                    obj = obj[element]
+                elif isinstance(obj, _types.ModuleType):
+                    obj = getattr(obj, element)
+                else:
+                    raise ValueError(f"Unrecognized object for {read_type}")
 
-        if read_type.split('.')[0] != 'custom':
-            # Default connectors have the method as read
-            obj = getattr(obj, 'read')
+            if read_type.split('.')[0] != 'custom':
+                # Default connectors have the method as read
+                obj = getattr(obj, 'read')
 
-            # Pass down functions for recipes
-            if read_type == 'recipe':
-                params_specific['functions'] = functions
-        else:
-            # Allow custom functions to access
-            # general params if they are requested
-            params_specific = {
-                **params_specific,
-                **{
-                    k: v
-                    for k, v in params_general.items()
-                    if k in _inspect.getfullargspec(obj).args
+                # Pass down functions for recipes
+                if read_type == 'recipe':
+                    params_specific['functions'] = functions
+            else:
+                # Allow custom functions to access
+                # general params if they are requested
+                params_specific = {
+                    **params_specific,
+                    **{
+                        k: v
+                        for k, v in params_general.items()
+                        if k in _inspect.getfullargspec(obj).args
+                    }
                 }
-            }
 
-        df = obj(**params_specific)
+            df = obj(**params_specific)
 
-    # Ensure the response is a dataframe
-    if not isinstance(df, _pandas.DataFrame):
-        raise RuntimeError(f"Function {read_type} did not return a dataframe")
+        # Ensure the response is a dataframe
+        if not isinstance(df, _pandas.DataFrame):
+            raise RuntimeError(f"Function {read_type} did not return a dataframe")
 
-    # Filter the response
-    df = _filter_dataframe(df, **params_general)
+        # Filter the response
+        df = _filter_dataframe(df, **params_general)
 
-    return df
+        return df
+    except Exception as e:
+        # Append name of read to message and pass through exception
+        raise e.__class__(f"{read_type} - {e}").with_traceback(e.__traceback__) from None
 
-   
+
 def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
     """
     Finds matching columns for wildcards or regex from all available columns
@@ -450,15 +454,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     df_original = df.copy()
                     
                     # Save original index, filter data, then restore index
-                    df['original_index_ikdejsrvjazl'] = df.index
                     df = _filter_dataframe(
                         df,
                         where = params.pop('where'),
-                        where_params= params.pop('where_params', None)
+                        where_params= params.pop('where_params', None),
+                        preserve_index=True
                     )
-                    df = df.set_index(df['original_index_ikdejsrvjazl'])
-                    df = df.drop('original_index_ikdejsrvjazl', axis = 1)
-                    df.index.names = [None]
 
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
@@ -490,6 +491,9 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     else:
                         # Use a temp copy of dataframe as not to affect original
                         df_temp = df
+
+                        if 'output' not in params:
+                            raise ValueError(f'Must set 1 or more output columns')
 
                         # If user specifies an input, reduce dataframe down as required
                         if 'input' in params:
@@ -526,7 +530,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                 if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
                             }
 
-                            df_temp.rename(columns=colDict, inplace=True)
+                            df_temp = df_temp.rename(columns=colDict)
                             cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
 
                             # Ensure we don't remove all columns
@@ -541,17 +545,15 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         else:
                             result_type = 'reduce'
 
-                        # {**x, **params_temp} deals with columns in 
-                        # function args and **params_temp without columns
-                        # There may be no columns in the case that the user
-                        # does not specify any columns in their function parameters
-                        try:
+                        # If the custom functions has kwargs or a parameter
+                        # matching a column name, execute including those
+                        if fn_argspec.varkw or cols_renamed:
                             df[params['output']] = df_temp.apply(
                                 lambda x: custom_function(**{**x, **params_temp}),
                                 axis=1,
                                 result_type=result_type
                             )
-                        except:
+                        else:
                             df[params['output']] = df_temp.apply(
                                 lambda _: custom_function(**params_temp),
                                 axis=1,
@@ -601,8 +603,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                     df,
                                     [output_col, output_col+'_x'],
                                     output_col
-                                )
-                                df.drop([output_col+'_x'], axis = 1, inplace=True)
+                                ).drop([output_col+'_x'], axis = 1)
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                         # Wrangle overwrote the input
                         output_columns = params['input']
@@ -620,8 +621,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                     df,
                                     [input_col, input_col+'_x'],
                                     input_col
-                                )
-                                df.drop([input_col+'_x'], axis = 1, inplace=True)
+                                ).drop([input_col+'_x'], axis = 1)
                     elif list(df.columns) != list(df_original.columns):
                         # Wrangle added columns
                         output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
@@ -640,7 +640,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 df = df.fillna('0')
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__)
+                raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__) from None
 
     return df
 
@@ -652,6 +652,7 @@ def _filter_dataframe(
     where: str = None,
     where_params: _Union[list, dict] = None,
     order_by: str = None,
+    preserve_index: bool = False,
     **_
 ) -> _pandas.DataFrame:
     """
@@ -664,6 +665,7 @@ def _filter_dataframe(
     :param where_params: List of parameters to pass to execute method. \
         The syntax used to pass parameters is database driver dependent.
     :param order_by: SQL order by criteria to sort based on
+    :param preserve_index: Whether the maintain the index after filtering or reset to the default order
     """
     if where or order_by:
         sql = (
@@ -675,7 +677,18 @@ def _filter_dataframe(
             ;
             """
         )
-        df = _recipe_wrangles.sql(df, sql, where_params)
+        # Use SQL to get the indexes of filtered rows and
+        # only pass those through the dataframe
+        df = df.loc[
+            _recipe_wrangles.sql(
+                df,
+                sql,
+                where_params,
+                preserve_index=True
+            ).index.to_list()
+        ]
+        if not preserve_index:
+            df = df.reset_index(drop=True)
 
     # Reduce to user chosen columns
     if columns:
@@ -711,31 +724,35 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
     # Loop through all exports, get type and execute appropriate export
     for export in recipe:
         for export_type, params in export.items():
-            # Filter the dataframe as requested before passing
-            # to the desired write function
-            df_temp = _filter_dataframe(df, **params)
-            for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by']:
-                if key in params:
-                    params.pop(key)
+            try:
+                # Filter the dataframe as requested before passing
+                # to the desired write function
+                df_temp = _filter_dataframe(df, **params)
+                for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by']:
+                    if key in params:
+                        params.pop(key)
 
-            if export_type == 'dataframe':
-                # Define the dataframe that is returned
-                df_return = df_temp
-            
-            # Execute a user's custom function
-            elif export_type.split('.')[0] == 'custom':
-                functions[export_type[7:]](df_temp, **params)
+                if export_type == 'dataframe':
+                    # Define the dataframe that is returned
+                    df_return = df_temp
+                
+                # Execute a user's custom function
+                elif export_type.split('.')[0] == 'custom':
+                    functions[export_type[7:]](df_temp, **params)
 
-            else:
-                # Get write function of requested connector and pass dataframe and user defined params
-                obj = _connectors
-                for element in export_type.split('.'):
-                    obj = getattr(obj, element)
-                
-                if export_type in ['recipe', 'matrix']:
-                    params['functions'] = functions
-                
-                getattr(obj, 'write')(df_temp, **params)
+                else:
+                    # Get write function of requested connector and pass dataframe and user defined params
+                    obj = _connectors
+                    for element in export_type.split('.'):
+                        obj = getattr(obj, element)
+                    
+                    if export_type in ['recipe', 'matrix']:
+                        params['functions'] = functions
+                    
+                    getattr(obj, 'write')(df_temp, **params)
+            except Exception as e:
+                # Append name of wrangle to message and pass through exception
+                raise e.__class__(f"{export_type} - {e}").with_traceback(e.__traceback__) from None
 
     return df_return
 

@@ -13,7 +13,7 @@ import numexpr as _ne
 import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
-import yaml as _yaml
+import json as _json
 import numpy as _np
 import math as _math
 from ..classify import classify as _classify
@@ -90,6 +90,14 @@ def accordion(
 
     # Deep copy the dataframe to avoid modifying the original
     df_temp = df[input + propagate].copy()
+
+    # Convert any columns containing JSON arrays to lists
+    for col in input:
+        if not isinstance(df_temp[col][0], list):
+            try:
+                df_temp[col] = df_temp[col].apply(_json.loads)
+            except:
+                pass
 
     # Save temporary index to be able to merge back later
     random_str = str(_random.randint(0,999999999))
@@ -265,24 +273,24 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 
 def filter(
-          df: _pd.DataFrame,
-          input: _Union[str, list] = [],
-          equal: _Union[str, list] = None,
-          not_equal: _Union[str, list] = None,
-          is_in: _Union[str, list] = None,
-          not_in: _Union[str, list] = None,
-          greater_than: _Union[int, float] = None,
-          greater_than_equal_to: _Union[int, float] = None,
-          less_than: _Union[int, float] = None,
-          less_than_equal_to: _Union[int, float] = None,
-          between: list = None,
-          contains: str = None,
-          not_contains: str = None,
-          is_null: bool = None,
-          where: str = None,
-          where_params: _Union[list, dict] = None,
-          **kwargs,
-          ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, list] = [],
+    equal: _Union[str, list] = None,
+    not_equal: _Union[str, list] = None,
+    is_in: _Union[str, list] = None,
+    not_in: _Union[str, list] = None,
+    greater_than: _Union[int, float] = None,
+    greater_than_equal_to: _Union[int, float] = None,
+    less_than: _Union[int, float] = None,
+    less_than_equal_to: _Union[int, float] = None,
+    between: list = None,
+    contains: str = None,
+    not_contains: str = None,
+    is_null: bool = None,
+    where: str = None,
+    where_params: _Union[list, dict] = None,
+    **kwargs,
+) -> _pd.DataFrame:
     """
     type: object
     description: |-
@@ -364,15 +372,21 @@ def filter(
         description: Select rows where the input does not contain the value. Allows regular expressions.
     """
     if where != None:
-        df = sql(
-            df,
-            f"""
-            SELECT *
-            FROM df
-            WHERE {where};
-            """,
-            where_params
-        )
+        # Filter the dataframe based on the where clause
+        # and use the index to filter the dataframe
+        # to prevent any side effects from passing through the DB
+        df = df.loc[
+            sql(
+                df,
+                f"""
+                SELECT *
+                FROM df
+                WHERE {where};
+                """,
+                where_params,
+                preserve_index=True
+            ).index.to_list()
+        ]
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1013,6 +1027,8 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
       input:
         type: array
         description: Two columns of vectors to compare the similarity of.
+        minItems: 2
+        maxItems: 2
       output:
         type: string
         description: Name of the output column.
@@ -1038,8 +1054,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             (_np.linalg.norm(x) * _np.linalg.norm(y)) 
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
             round(max(min(
@@ -1053,8 +1067,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             ), 1), 0), 3)
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'euclidean':
         similarity_list = [
             _math.sqrt(
@@ -1065,16 +1077,25 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             )
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     else:
         # Ensure method is of a valid type
         raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
 
+    # Ensure values are python float
+    df[output] = [
+        float(x)
+        for x in similarity_list
+    ]
+
     return df
 
 
-def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def sql(
+    df: _pd.DataFrame,
+    command: str,
+    params: _Union[list, dict] = None,
+    preserve_index: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -1094,6 +1115,9 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
     """
+    # Copy to ensure the index of the original dataframe isn't mutated
+    df = df.copy()
+
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
 
@@ -1117,16 +1141,30 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
         if cols in cols_changed:
             # If the column is in cols_changed then convert to json
             _to_json(df=df, input=cols)
-    
-    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
-    
-    # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db, params = params)
+
+    if preserve_index:
+        # Preserve original index and replace with an distinctive name
+        index_names = list(df.index.names)
+        df.index.names = ["wrwx_sql_temp_index"]
+
+        # Write the dataframe to the database
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        
+        # Execute the user's query against the database and return the results
+        df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
+
+        # Restore the original index names
+        df.index.names = index_names
+    else:
+        # Write the dataframe to the database
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        # Execute the user's query against the database and return the results
+        df = _pd.read_sql(command, db, params = params)
+
     db.close()
     
     # Change the columns back to an object
     for new_cols in df.columns:
-        
         if new_cols in cols_changed:
             # If the column is in cols changed, then change back to an object
             _from_json(df=df, input=new_cols)

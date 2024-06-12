@@ -753,7 +753,7 @@ def test_jinja_breaking_chars():
     Tests functionality with breaking characters included in column name
     """
     data = pd.DataFrame({
-        "t .-!@#$%^&*()+=[]|\:;'<>,?/`~est": ['phillips head', 'flat head'],
+        r"t .-!@#$%^&*()+=[]|\:;'<>,?/`~est": ['phillips head', 'flat head'],
         '"': ['3 inch', '6 inch']
     })
     recipe = """
@@ -1095,27 +1095,25 @@ def test_create_embeddings_np_array():
 
 def test_create_embeddings_invalid_output_type():
     """
-    Test generating openai embeddings as a numpy array
+    Test create.embeddings gives a clear error
+    if an invalid output type is given
     """
-    recipe = """
-        read:
-          - test:
-              rows: 1
-              values:
-                text: "This is a test"
-        wrangles:
-          - create.embeddings:
-              input: text
-              output: embedding
-              api_key: ${OPENAI_API_KEY}
-              output_type: Something here is not right
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    assert (
-        info.typename == 'ValueError' and
-        'Output_type must be of value "numpy array" or "python list"' in info.value.args[0]
-    )
+    with pytest.raises(ValueError, match="must be of value"):
+        raise wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    text: "This is a test"
+            wrangles:
+            - create.embeddings:
+                input: text
+                output: embedding
+                api_key: ${OPENAI_API_KEY}
+                output_type: Something here is not right
+            """
+        )
 
 def test_create_embeddings_multi_column():
     """
@@ -1205,3 +1203,46 @@ def test_create_embeddings_kwargs():
         isinstance(df["embedding"][0], list) and
         len(df["embedding"][0]) == 256
     )
+
+def test_create_embeddings_missing_apikey():
+    """
+    Test create.embeddings gives a clear
+    error message when missing an api key
+    """
+    with pytest.raises(TypeError, match="missing 1 required positional argument: 'api"):
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    text: "This is a test"
+            wrangles:
+            - create.embeddings:
+                input: text
+                output: embedding
+                retries: 1
+            """
+        )
+
+def test_create_embeddings_invalid_apikey():
+    """
+    Test create.embeddings gives a clear
+    error message when an invalid api key is given
+    """
+    with pytest.raises(ValueError, match="API Key"):
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    text: "This is a test"
+            wrangles:
+            - create.embeddings:
+                input: text
+                output: embedding
+                api_key: INVALID_API_KEY
+                retries: 1
+            """
+        )

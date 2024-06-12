@@ -92,7 +92,17 @@ def _get_field_map(host: str, partition: str, target_code: str, user: str, passw
     return field_map
 
 
-def read(host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None, criteria: dict = None, batch_size: int = 10000) -> _pd.DataFrame:
+def read(
+    host: str,
+    partition: str,
+    target: str,
+    user: str,
+    password: str,
+    columns: list = None,
+    source: str = None,
+    criteria: dict = None,
+    batch_size: int = 10000
+) -> _pd.DataFrame:
     """
     Import data from a PriceFx instance.
 
@@ -211,7 +221,9 @@ def read(host: str, partition: str, target: str, user: str, password: str, colum
         i += batch_size
 
     if source_code in ['P', 'PX', 'C', 'CX']:
-        df.rename(columns=_get_field_map(host, partition, source_code, user, password, source=source), inplace=True)
+        df = df.rename(
+            columns=_get_field_map(host, partition, source_code, user, password, source=source)
+        )
 
     # Reduce to user's columns if specified
     if columns is not None: df = df[columns]
@@ -264,7 +276,17 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, password: str, columns: list = None, source: str = None) -> None:
+def write(
+    df: _pd.DataFrame,
+    host: str,
+    partition: str,
+    target: str,
+    user: str,
+    password: str,
+    columns: list = None,
+    source: str = None,
+    autoflush: bool = True
+) -> None:
     """
     Export data to a PriceFx instance. Column names must match the ID or label of the respective pricefx columns.
 
@@ -279,6 +301,7 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
     :param password: Password of user
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
     :param source: Required for Data Sources. Set the specific table.
+    :param autoflush: Only relevant for Data Sources. If true, automatically trigger a flush after writing the data to a Data Source. Default True.
     """
     _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
 
@@ -352,19 +375,20 @@ def write(df: _pd.DataFrame, host: str, partition: str, target: str, user: str, 
             raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
 
         # Trigger flush
-        url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
-        payload = {
-            "data": {
-                "type": "DS_FLUSH",
-                "targetName": f"DMDS.{source}",
-                "sourceName": f"DMF.{source}"
+        if autoflush:
+            url = f"https://{host}/pricefx/{partition}/datamart.rundataload"
+            payload = {
+                "data": {
+                    "type": "DS_FLUSH",
+                    "targetName": f"DMDS.{source}",
+                    "sourceName": f"DMF.{source}"
+                }
             }
-        }
-        response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
+            response = _requests.post(url, json=payload, auth=(f'{partition}/{user}', password))
 
-        # If the response is not 2XX then raise an error
-        if str(response.status_code)[0] != '2':
-            raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
+            # If the response is not 2XX then raise an error
+            if str(response.status_code)[0] != '2':
+                raise ValueError(f"Status Code {response.status_code} - {response.reason}\n{_json.loads(response.text)['response']['data']}")
 
     elif target.lower() == 'company parameters':
         df['lookupTable'] = source
@@ -443,4 +467,9 @@ properties:
   source:
     type: string
     description: Required for Data Sources. Set the specific table.
+  autoflush:
+    type: boolean
+    description: >-
+      Only relevant for Data Sources. If true, automatically
+      trigger a flush after writing the data to a Data Source. Default True.
 """

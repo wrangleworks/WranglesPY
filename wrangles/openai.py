@@ -28,7 +28,7 @@ def chatGPT(
     if len(data) == 1:
         content = list(data.values())[0]
     else:
-        content = _yaml.dump(data, indent=2)
+        content = _yaml.dump(data, indent=2, sort_keys=False)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(
@@ -142,24 +142,36 @@ def _embedding_thread(
     response = None
     backoff_time = 5
     while (retries + 1):
-        response = _requests.post(
-            url=url,
-            headers={
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "model": model,
-                "encoding_format": "base64",
-                "input": [
-                    str(val) if val != "" else " " 
-                    for val in input_list
-                ],
-                **request_params
-            }
-        )
+        try:
+            response = _requests.post(
+                url=url,
+                headers={
+                    "Authorization": f"Bearer {api_key}"
+                },
+                json={
+                    "model": model,
+                    "encoding_format": "base64",
+                    "input": [
+                        str(val) if val != "" else " " 
+                        for val in input_list
+                    ],
+                    **request_params
+                }
+            )
+        except:
+            pass
 
         if response and response.ok:
             break
+        else:
+            try:
+                error_message = response.json().get('error').get('message')
+            except:
+                error_message = ""
+            # Raise errors for fatal errors rather than continuing
+            if error_message:
+                if "Incorrect API key" in error_message:
+                    raise ValueError("API Key provided is missing or invalid.")
 
         retries -=1
         _time.sleep(backoff_time)
@@ -174,12 +186,18 @@ def _embedding_thread(
             for row in response.json()['data']
         ]
     else:
-        return ['Error' for _ in input_list]
+        try:
+            error_msg = response.json().get('error').get('message')
+        except:
+            error_msg = 'Unknown error'
+        raise RuntimeError(
+            f"Failed to get embeddings: {error_msg}. Consider raising the number of retries."
+        )
 
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-ada-002",
+    model: str = "text-embedding-3-small",
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,

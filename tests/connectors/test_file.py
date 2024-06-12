@@ -226,35 +226,31 @@ def test_read_unsupported_filetype():
     Check an appropriate error is given if the user 
     tries to read an unknown file type
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(
+    with pytest.raises(ValueError, match="'jason'"):
+        wrangles.recipe.run(
             """
             read:
               - file:
                   name: data.jason
             """
         )
-    assert (
-        info.typename == 'ValueError' and 
-        info.value.args[0] == "File type 'jason' is not supported by the file connector."
-    )
 
 def test_write_unsupported_filetype():
     """
     # Exporting file type error message
     """
-    recipe = """
-      read:
-        file:
-          name: tests/temp/temp.csv
-      
-      write:
-        - file:
-            name: tests/temp/data.jason
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    assert info.typename == 'ValueError' and info.value.args[0] == "File type 'jason' is not supported by the file connector."
+    with pytest.raises(ValueError, match="'jason'"):
+        wrangles.recipe.run(
+            """
+            read:
+                - file:
+                    name: tests/temp/temp.csv
+            
+            write:
+                - file:
+                    name: tests/temp/data.jason
+            """
+        )
 
 # Write using index
 def test_write_with_index():

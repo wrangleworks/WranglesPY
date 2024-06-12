@@ -50,69 +50,65 @@ def test_missing_apikey():
     """
     Check error if user omits API KEY
     """
-    recipe = """
-    read:
-      - ckan:
-          host: https://catalog.wrangle.works
-          dataset: test
-          file: test.csv
-    """
-    with pytest.raises(RuntimeError) as info:
-        raise wrangles.recipe.run(recipe)
-    
-    assert info.typename == 'RuntimeError' and info.value.args[0].startswith('Access Denied')
+    with pytest.raises(RuntimeError, match="Access Denied"):
+        wrangles.recipe.run(
+            """
+            read:
+            - ckan:
+                host: https://catalog.wrangle.works
+                dataset: test
+                file: test.csv
+            """
+        )
 
 def test_invalid_apikey():
     """
     Check error if user has invalid API KEY
     """
-    recipe = """
-    read:
-      - ckan:
-          host: https://catalog.wrangle.works
-          dataset: test
-          file: test.csv
-          api_key: aaaaaa
-    """
-    with pytest.raises(RuntimeError) as info:
-        raise wrangles.recipe.run(recipe)
-    
-    assert info.typename == 'RuntimeError' and info.value.args[0].startswith('Access Denied')
+    with pytest.raises(RuntimeError, match="Access Denied"):
+        wrangles.recipe.run(
+            """
+            read:
+            - ckan:
+                host: https://catalog.wrangle.works
+                dataset: test
+                file: test.csv
+                api_key: aaaaaa
+            """
+        )
 
 def test_missing_dataset():
     """
     Check error if dataset isn't found
     """
-    recipe = """
-    read:
-      - ckan:
-          host: https://catalog.wrangle.works
-          dataset: aaaaaaaaaaaaa
-          file: test.csv
-          api_key: ${CKAN_API_KEY}
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    
-    assert info.typename == 'ValueError' and info.value.args[0][:22] == 'Unable to find dataset'
+    with pytest.raises(ValueError, match="Unable to find dataset"):
+        wrangles.recipe.run(
+            """
+            read:
+            - ckan:
+                host: https://catalog.wrangle.works
+                dataset: aaaaaaaaaaaaa
+                file: test.csv
+                api_key: ${CKAN_API_KEY}
+            """
+        )
 
 
 def test_missing_file():
     """
     Check error if file isn't found in the dataset
     """
-    recipe = """
-    read:
-      - ckan:
-          host: https://catalog.wrangle.works
-          dataset: test
-          file: aaaaaaaaaaaaaa.csv
-          api_key: ${CKAN_API_KEY}
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    
-    assert info.typename == 'ValueError' and info.value.args[0][:14] == 'File not found'
+    with pytest.raises(ValueError, match="File not found"):
+        wrangles.recipe.run(
+            """
+            read:
+            - ckan:
+                host: https://catalog.wrangle.works
+                dataset: test
+                file: aaaaaaaaaaaaaa.csv
+                api_key: ${CKAN_API_KEY}
+            """
+        )
 
 
 def test_upload_file():

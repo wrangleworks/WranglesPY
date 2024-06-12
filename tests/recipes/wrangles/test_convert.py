@@ -928,6 +928,41 @@ def test_to_yaml():
     )
     assert df['column'][0] == "key: val\nkey2:\n- list1\n- list2\n"
 
+def test_to_yaml_sort_order_default():
+    """
+    Test that an object converted to YAML
+    maintains its order using the default settings
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_yaml:
+              input: column
+        """,
+        dataframe=pd.DataFrame({
+            "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+        })
+    )
+    assert df['column'][0] == "key2: val\nkey1:\n- list1\n- list2\n"
+
+def test_to_yaml_sort_keys_true():
+    """
+    Test specifying sort_keys: true
+    for convert.to_yaml
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_yaml:
+              input: column
+              sort_keys: true
+        """,
+        dataframe=pd.DataFrame({
+            "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+        })
+    )
+    assert df['column'][0] == "key1:\n- list1\n- list2\nkey2: val\n"
+
 def test_from_yaml():
     """
     Test converting a YAML to an object

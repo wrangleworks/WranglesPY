@@ -28,7 +28,7 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
                 """
                 # Use the current counter value, then increment it
                 group_counter[0] += 1                
-                return f'\{group_counter[0]}'
+                return fr'\g<{group_counter[0]}>'
             v = _re.sub(r'(?<!\\)\*', replacer, v)
             tmp_columns[k] = v
         else:

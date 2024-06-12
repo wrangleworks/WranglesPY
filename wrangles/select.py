@@ -1,6 +1,11 @@
 """
 Select subsets of input data
 """
+from typing import Union as _Union
+import json as _json
+import itertools as _itertools
+from .utils import wildcard_expansion_dict
+
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
@@ -45,21 +50,111 @@ def confidence_threshold(list_1, list_2, threshold):
     return results
 
 
-def list_element(input, n, default = ""):
+def list_element(input, n: _Union[str, int], default = ""):
     """
     Select a numbered element of a list (zero indexed).
     """
-    def check_if_possible(element, index):
+    def _int_or_none(val):
         try:
-            return element[index]
+            return int(val)
         except:
+            if val:
+                raise ValueError(f"{val} is not a valid index to slice on")
+            else:
+                return None
+
+    def _list_get(lst, index, default=None):
+        if isinstance(lst, str) and lst.startswith("["):
+            lst = _json.loads(lst)
+            
+        try:
+            return lst[index]
+        except IndexError:
             return default
+
+    if ":" in str(n):
+        slicer = slice(*map(_int_or_none, str(n).split(":")))
+    else:
+        slicer = int(n)
         
-    return [check_if_possible(row, n) for row in input]
+    return [
+        _list_get(row, slicer, default)
+        for row in input
+    ]
 
 
-def dict_element(input, key, default=""):
+def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
     """
-    Select a named element of a dictionary
+    Select an element or elements of a dictionary
     """
-    return [row.get(key, default) if isinstance(row, dict) else default for row in input]
+    # Ensure input is a list
+    single_input = False
+    if not isinstance(input, list):
+        input = [input]
+        single_input = True
+    
+    if isinstance(key, list):
+        key = dict(
+            _itertools.chain.from_iterable(
+                [
+                    x.items() if isinstance(x, dict)
+                    else {x: x}.items()
+                    for x in key
+                ]
+            )
+        )
+        results = []
+        for row in input:
+            # If the row contains a string,
+            # try to parse as a JSON object
+            if isinstance(row, str):
+                if row.startswith("{"):
+                    row = _json.loads(row)
+                else:
+                    row = {}
+
+            if isinstance(default, dict):
+                row = {**default, **row}
+            else:
+                row = {
+                    **{
+                        k: default
+                        for k in key.keys()
+                        if (
+                            "regex:" not in k.lower() and
+                            "*" not in k
+                        )
+                    },
+                    **row
+                }
+            rename_dict = wildcard_expansion_dict(row.keys(), key)
+            results.append({
+                rename_dict[k]: row.get(k, default)
+                for k in rename_dict
+            })
+    else:
+        def _get_value(value):
+            """
+            Get the value of a key in a dictionary or JSON dictionary
+            Return the default value if the key is not found or
+            if an error occurs
+            """
+            try:
+                if isinstance(value, dict):
+                    return value.get(key, default)
+                elif isinstance(value, str) and value.startswith("{"):
+                    return _json.loads(value).get(key, default)
+                else:
+                    return default
+            except:
+                return default
+            
+        results = [
+            _get_value(row)
+            for row in input
+        ]
+
+    if single_input:
+        return results[0]
+    else:
+        return results

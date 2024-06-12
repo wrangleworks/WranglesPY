@@ -134,7 +134,7 @@ def embeddings(
     batch_size: int = 100,
     threads: int = 10,
     output_type: str = "python list",
-    model: str = "text-embedding-ada-002",
+    model: str = "text-embedding-3-small",
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
     **kwargs
