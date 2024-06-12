@@ -482,7 +482,7 @@ def test_suffix_skip_mult_empty_false():
     """
     data = pd.DataFrame({
         'col1': ['hard','','soft'],
-        'col2': ['quick','','slowly'],
+        'col2': ['quick','','slow'],
     })
     recipe = """
     wrangles:
@@ -511,7 +511,7 @@ def test_suffix_skip_mult_empty_true():
     """
     data = pd.DataFrame({
         'col1': ['hard','','soft'],
-        'col2': ['quick','','slowly'],
+        'col2': ['quick','','slow'],
     })
     recipe = """
     wrangles:
@@ -522,7 +522,7 @@ def test_suffix_skip_mult_empty_true():
             output: 
                 - out1
                 - out2
-            value: extra-
+            value: ly
             skip_empty: true
     """   
     df = wrangles.recipe.run(recipe, dataframe=data)
