@@ -341,7 +341,13 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
+def brackets(
+    df: _pd.DataFrame, 
+    input: str, 
+    output: str, 
+    find: str = '',
+    extract_raw: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -360,6 +366,14 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
           - string
           - array
         description: Name of the output columns
+      find:
+        type: 
+          - string
+          - array
+        description: (Optional) The type of brackets to find
+      extract_raw:
+        type: boolean
+        description: (Optional) Extract the raw data
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -372,12 +386,22 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    # Ensure find is a list
+    if not isinstance(find, list): find = [find]
+
+    # Ensure find only contains the elements: round, square, curly, angled
+    bracket_types = ['round', 'square', 'curly', 'angled','']
+
+    if not all(element in bracket_types for element in find):
+        raise ValueError("find must only contain the elements: round, square, curly, angled")
+
+    # If only only one output and multiple inputs, concatenate the inputs
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
+        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, extract_raw)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist())
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, extract_raw)
 
     return df
 
