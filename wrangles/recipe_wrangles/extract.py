@@ -343,9 +343,9 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
 
 def brackets(
     df: _pd.DataFrame, 
-    input: str, 
-    output: str, 
-    find: str = '',
+    input: _Union[str, list],
+    output: _Union[str, list],
+    find: _Union[str, list] = '',
     extract_raw: bool = False
 ) -> _pd.DataFrame:
     """
