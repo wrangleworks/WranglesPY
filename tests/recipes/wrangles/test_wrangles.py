@@ -5,6 +5,7 @@ to an individual wrangle
 import wrangles
 import pandas as pd
 import numpy as np
+import pytest
 
 
 def test_double_where_input():
@@ -168,3 +169,80 @@ def test_where_data_types_preserved():
         df["Column1"].values.tolist() == [65, 72, '', 92, 87, 79] and
         df["Column3"][2] == ""
     )
+
+def test_where_empty_case_df():
+    """
+    Test using where on an empty dataframe
+    """
+    with pytest.raises(ValueError, match="No rows found for where clause:"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - convert.case:
+                  input: col2
+                  case: upper
+                  where: col1 = 2
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['1', '0', '1', '0', '1'],
+                'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            })
+        )
+
+def test_where_empty_prefix_df():
+    """
+    Test using where on an empty dataframe
+    """
+    with pytest.raises(ValueError, match="No rows found for where clause:"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - format.prefix:
+                  input: col2
+                  value: test-
+                  where: col1 = 2
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['1', '0', '1', '0', '1'],
+                'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            })
+        )
+
+def test_where_empty_suffix_df():
+    """
+    Test using where on an empty dataframe
+    """
+    with pytest.raises(ValueError, match="No rows found for where clause:"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - format.suffix:
+                  input: col2
+                  value: test-
+                  where: col1 = 2
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['1', '0', '1', '0', '1'],
+                'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            })
+        )
+
+def test_where_pad_df():
+    """
+    Test using where on an empty dataframe
+    """
+    with pytest.raises(ValueError, match="No rows found for where clause:"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - format.prefix:
+                    input: col2
+                    side: right
+                    char: ~
+                    where: col1 = 2
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['1', '0', '1', '0', '1'],
+                'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            })
+        )

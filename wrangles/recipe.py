@@ -460,7 +460,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         where_params= params.pop('where_params', None),
                         preserve_index=True
                     )
-
+                    if df.empty: raise ValueError(f"No rows found for where clause: {original_params['where']}")
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
                     # TODO: disallow any hidden methods
