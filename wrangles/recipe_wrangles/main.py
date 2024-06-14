@@ -163,7 +163,8 @@ def batch(
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
     batch_size: int = 1000,
-    threads: int = 1
+    threads: int = 1,
+    on_error: dict = None
 ):
     """
     type: object
@@ -191,6 +192,9 @@ def batch(
       threads:
         type: integer
         description: The number of threads to use for parallel processing. Default 1.
+      on_error:
+        type: object
+        description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
     """
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
@@ -212,12 +216,21 @@ def batch(
         raise ValueError('threads must be an integer greater than 0')
     
     def _batch_thread(df, wrangles, functions):
-        return _wrangles.recipe.run(
-            {"wrangles": wrangles},
-            dataframe=df,
-            functions=functions
-        )
-    
+        try:
+            return _wrangles.recipe.run(
+                {"wrangles": wrangles},
+                dataframe=df,
+                functions=functions
+            )
+        except Exception as err:
+            if on_error:
+                return df.assign(**{
+                    k: [v] * len(df)
+                    for k, v in on_error.items()
+                })
+            else:
+                raise err from None
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
 
