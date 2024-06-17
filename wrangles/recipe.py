@@ -580,9 +580,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         df = obj(df, **params)
 
 
-                if not isinstance(params['input'], list): params['input'] = [params['input']]
+                if not isinstance(params['input'], list) and params: params['input'] = [params['input']]
 
-          
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
