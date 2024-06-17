@@ -571,13 +571,17 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                             obj = _recipe_wrangles
                             for element in wrangle.split('.'):
                                 obj = getattr(obj, element)
-                            
-                            # Pass on custom functions to wrangles that may need it
-                            if wrangle in ["recipe", "rename", "accordion"]:
-                                if "functions" not in params:
-                                    params['functions'] = functions
 
-                            df = obj(df, **params)
+                    # Get the requested function from the recipe_wrangles module
+                    obj = _recipe_wrangles
+                    for element in wrangle.split('.'):
+                        obj = getattr(obj, element)
+                    
+                    # Pass on custom functions to wrangles that may need it
+                    if wrangle in ["recipe", "rename", "accordion","batch"]:
+                        if "functions" not in params:
+                            params['functions'] = functions
+
 
 
                 # Blacklist of Wrangles not to allow wildcards for
