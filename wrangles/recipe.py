@@ -580,12 +580,9 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         df = obj(df, **params)
 
 
+                if not isinstance(params['input'], list): params['input'] = [params['input']]
 
-                # Blacklist of Wrangles not to allow wildcards for
-                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
-                    # Expand out any wildcards or regex in column names
-                    params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                                    
+          
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
