@@ -460,124 +460,131 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         where_params= params.pop('where_params', None),
                         preserve_index=True
                     )
-                    if df.empty: raise ValueError(f"No rows found for where clause: {original_params['where']}")
-                if wrangle.split('.')[0] == 'pandas':
-                    # Execute a pandas method
-                    # TODO: disallow any hidden methods
-                    # TODO: remove parameters, allow selecting in/out columns
-                    try:
-                        df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
-                    except:
-                        df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
+                
+                if not df.empty:
+                    if wrangle.split('.')[0] == 'pandas':
+                        # Execute a pandas method
+                        # TODO: disallow any hidden methods
+                        # TODO: remove parameters, allow selecting in/out columns
+                        try:
+                            df[params['output']] = getattr(df[params['input']], wrangle.split('.')[1])(**params.get('parameters', {}))
+                        except:
+                            df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
-                elif wrangle.split('.')[0] == 'custom':
-                    # Execute a user's custom function
-                    try:
-                        custom_function = functions[wrangle[7:]]
-                    except:
-                        raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
+                    elif wrangle.split('.')[0] == 'custom':
+                        # Execute a user's custom function
+                        try:
+                            custom_function = functions[wrangle[7:]]
+                        except:
+                            raise ValueError(f'Custom Wrangle function: "{wrangle}" not found')
 
-                    # Get user's function arguments
-                    fn_argspec = _inspect.getfullargspec(custom_function)
+                        # Get user's function arguments
+                        fn_argspec = _inspect.getfullargspec(custom_function)
 
-                    # Check for function_args and df
-                    if 'df' in fn_argspec.args:
-                        # If user's first argument is df, pass them the whole dataframe
-                        df = custom_function(df=df, **params)
-                        if not isinstance(df, _pandas.DataFrame):
-                            raise RuntimeError(f"Function {wrangle} did not return a dataframe")
+                        # Check for function_args and df
+                        if 'df' in fn_argspec.args:
+                            # If user's first argument is df, pass them the whole dataframe
+                            df = custom_function(df=df, **params)
+                            if not isinstance(df, _pandas.DataFrame):
+                                raise RuntimeError(f"Function {wrangle} did not return a dataframe")
 
-                    # Dealing with no function_args
-                    else:
-                        # Use a temp copy of dataframe as not to affect original
-                        df_temp = df
-
-                        if 'output' not in params:
-                            raise ValueError(f'Must set 1 or more output columns')
-
-                        # If user specifies an input, reduce dataframe down as required
-                        if 'input' in params:
-                            df_temp = df_temp[
-                                _wildcard_expansion(
-                                    all_columns=df.columns.tolist(),
-                                    selected_columns=params['input']
-                                )
-                            ]
-
-                        # If the user hasn't explicitly requested input or output
-                        # then remove them so they will not be included in kwargs
-                        params_temp = params.copy()
-                        for special_parameter in ['input', 'output']:
-                            if special_parameter in params_temp and special_parameter not in fn_argspec.args:
-                                params_temp.pop(special_parameter)
-
-                        # If the user's custom function does not have kwargs available
-                        # then we need to remove any unmatched function arguments
-                        # from the parameters or the columns
-                        if not fn_argspec.varkw:
-                            params_temp2 = params_temp.copy()
-                            for param in params_temp2.keys():
-                                if param not in fn_argspec.args:
-                                    params_temp.pop(param)
-
-                            cols = df_temp.columns.to_list()
-                            cols_renamed = [col.replace(' ', '_') for col in cols]
-
-                            # Create a dictionary of columns with spaces and their replacement
-                            # with an underscore. Used in df_temp.rename
-                            colDict = {
-                                col: col.replace(' ', '_') for col in cols
-                                if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
-                            }
-
-                            df_temp = df_temp.rename(columns=colDict)
-                            cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
-
-                            # Ensure we don't remove all columns
-                            # if user hasn't specified any
-                            if cols_renamed:
-                                df_temp = df_temp[cols_renamed]
-                        
-                        # If user specifies multiple outputs, expand any list output
-                        # across the columns else return as a single column
-                        if isinstance(params['output'], list) and len(params['output']) > 1:
-                            result_type = 'expand'
+                        # Dealing with no function_args
                         else:
-                            result_type = 'reduce'
+                            # Use a temp copy of dataframe as not to affect original
+                            df_temp = df
 
-                        # If the custom functions has kwargs or a parameter
-                        # matching a column name, execute including those
-                        if fn_argspec.varkw or cols_renamed:
-                            df[params['output']] = df_temp.apply(
-                                lambda x: custom_function(**{**x, **params_temp}),
-                                axis=1,
-                                result_type=result_type
-                            )
-                        else:
-                            df[params['output']] = df_temp.apply(
-                                lambda _: custom_function(**params_temp),
-                                axis=1,
-                                result_type=result_type
-                            )
+                            if 'output' not in params:
+                                raise ValueError(f'Must set 1 or more output columns')
 
-                else:
-                    # Blacklist of Wrangles not to allow wildcards for
-                    if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
-                        # Expand out any wildcards or regex in column names
-                        params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                            # If user specifies an input, reduce dataframe down as required
+                            if 'input' in params:
+                                df_temp = df_temp[
+                                    _wildcard_expansion(
+                                        all_columns=df.columns.tolist(),
+                                        selected_columns=params['input']
+                                    )
+                                ]
+
+                            # If the user hasn't explicitly requested input or output
+                            # then remove them so they will not be included in kwargs
+                            params_temp = params.copy()
+                            for special_parameter in ['input', 'output']:
+                                if special_parameter in params_temp and special_parameter not in fn_argspec.args:
+                                    params_temp.pop(special_parameter)
+
+                            # If the user's custom function does not have kwargs available
+                            # then we need to remove any unmatched function arguments
+                            # from the parameters or the columns
+                            if not fn_argspec.varkw:
+                                params_temp2 = params_temp.copy()
+                                for param in params_temp2.keys():
+                                    if param not in fn_argspec.args:
+                                        params_temp.pop(param)
+
+                                cols = df_temp.columns.to_list()
+                                cols_renamed = [col.replace(' ', '_') for col in cols]
+
+                                # Create a dictionary of columns with spaces and their replacement
+                                # with an underscore. Used in df_temp.rename
+                                colDict = {
+                                    col: col.replace(' ', '_') for col in cols
+                                    if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                                }
+
+                                df_temp = df_temp.rename(columns=colDict)
+                                cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
+
+                                # Ensure we don't remove all columns
+                                # if user hasn't specified any
+                                if cols_renamed:
+                                    df_temp = df_temp[cols_renamed]
                             
-                    # Get the requested function from the recipe_wrangles module
-                    obj = _recipe_wrangles
-                    for element in wrangle.split('.'):
-                        obj = getattr(obj, element)
-                    
-                    # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename", "accordion"]:
-                        if "functions" not in params:
-                            params['functions'] = functions
+                            # If user specifies multiple outputs, expand any list output
+                            # across the columns else return as a single column
+                            if isinstance(params['output'], list) and len(params['output']) > 1:
+                                result_type = 'expand'
+                            else:
+                                result_type = 'reduce'
 
-                    df = obj(df, **params)
+                            # If the custom functions has kwargs or a parameter
+                            # matching a column name, execute including those
+                            if fn_argspec.varkw or cols_renamed:
+                                df[params['output']] = df_temp.apply(
+                                    lambda x: custom_function(**{**x, **params_temp}),
+                                    axis=1,
+                                    result_type=result_type
+                                )
+                            else:
+                                df[params['output']] = df_temp.apply(
+                                    lambda _: custom_function(**params_temp),
+                                    axis=1,
+                                    result_type=result_type
+                                )
 
+                    else:
+                            # Blacklist of Wrangles not to allow wildcards for
+                            if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
+                                # Expand out any wildcards or regex in column names
+                                params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                                    
+                            # Get the requested function from the recipe_wrangles module
+                            obj = _recipe_wrangles
+                            for element in wrangle.split('.'):
+                                obj = getattr(obj, element)
+                            
+                            # Pass on custom functions to wrangles that may need it
+                            if wrangle in ["recipe", "rename", "accordion"]:
+                                if "functions" not in params:
+                                    params['functions'] = functions
+
+                            df = obj(df, **params)
+
+
+                # Blacklist of Wrangles not to allow wildcards for
+                if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
+                    # Expand out any wildcards or regex in column names
+                    params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                                    
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
