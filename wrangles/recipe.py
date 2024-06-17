@@ -562,25 +562,22 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                 )
 
                     else:
-                            # Blacklist of Wrangles not to allow wildcards for
-                            if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
-                                # Expand out any wildcards or regex in column names
-                                params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
-                                    
-                            # Get the requested function from the recipe_wrangles module
-                            obj = _recipe_wrangles
-                            for element in wrangle.split('.'):
-                                obj = getattr(obj, element)
+                        # Blacklist of Wrangles not to allow wildcards for
+                        if wrangle not in ['math', 'maths', 'merge.key_value_pairs', 'split.text', 'split.list', 'select.element'] and 'input' in params:
+                            # Expand out any wildcards or regex in column names
+                            params['input'] = _wildcard_expansion(all_columns=df.columns.tolist(), selected_columns=params['input'])
+                                
+                        # Get the requested function from the recipe_wrangles module
+                        obj = _recipe_wrangles
+                        for element in wrangle.split('.'):
+                            obj = getattr(obj, element)
+                        
+                        # Pass on custom functions to wrangles that may need it
+                        if wrangle in ["recipe", "rename", "accordion","batch"]:
+                            if "functions" not in params:
+                                params['functions'] = functions
 
-                    # Get the requested function from the recipe_wrangles module
-                    obj = _recipe_wrangles
-                    for element in wrangle.split('.'):
-                        obj = getattr(obj, element)
-                    
-                    # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename", "accordion","batch"]:
-                        if "functions" not in params:
-                            params['functions'] = functions
+                        df = obj(df, **params)
 
 
 
