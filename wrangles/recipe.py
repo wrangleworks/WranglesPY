@@ -787,9 +787,9 @@ def _write_data(
                         {
                             **variables,
                             **{
-                                "${row_count}": len(df_temp),
-                                "${column_count}": len(df_temp.columns),
-                                "${columns}": df_temp.columns.tolist()
+                                "row_count": len(df_temp),
+                                "column_count": len(df_temp.columns),
+                                "columns": df_temp.columns.tolist()
                             }
                         }
                     ):

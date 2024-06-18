@@ -1397,22 +1397,18 @@ def validate(
             }
         ).to_dict(orient="records")
 
-    # Convert variables to ${VAR} syntax
-    variables = {
-        "${" + k + "}": v
-        for k, v in variables.items()
-    }
-
     # Special variables
-    variables["${columns}"] = list(records[0].keys())
-    variables["${row_count}"] = len(records)
+    # Ensure variables are passed by value
+    variables = {**variables}
+    variables["columns"] = list(records[0].keys())
+    variables["row_count"] = len(records)
 
     for idx, data in enumerate(records):
         validation_results = []
         for test_case in test:
             is_valid = True
             try:
-                is_valid = evaluate_conditional(test_case, {**variables, **data})
+                is_valid = evaluate_conditional(test_case, variables, data)
             except:
                 is_valid = False
 

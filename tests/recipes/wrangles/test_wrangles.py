@@ -211,28 +211,6 @@ def test_if_false():
     )
     assert df["header"][0] == "value"
 
-def test_if_python_variable():
-    """
-    Test that an if statement evaluates
-    correctly with a python variable
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 1
-              values:
-                header: value
-        wrangles:
-          - convert.case:
-              input: header
-              case: upper
-              if: var == 1
-        """,
-        variables={"var": 1}
-    )
-    assert df["header"][0] == "VALUE"
-
 def test_if_template_variable():
     """
     Test that an if statement evaluates
@@ -252,7 +230,7 @@ def test_if_template_variable():
               case: upper
               if: ${var} == 1
         """,
-        variables={"${var}": 1}
+        variables={"var": 1}
     )
     assert df["header"][0] == "VALUE"
 
@@ -275,7 +253,7 @@ def test_if_variable_with_spaces():
               case: upper
               if: ${var with spaces} == 1
         """,
-        variables={"${var with spaces}": 1}
+        variables={"var with spaces": 1}
     )
     assert df["header"][0] == "VALUE"
 
@@ -298,7 +276,7 @@ def test_if_variable_with_special_chars():
               case: upper
               if: ${var-!@#${}} == 1
         """,
-        variables={"${var-!@#${}}": 1}
+        variables={"var-!@#${}": 1}
     )
     assert df["header"][0] == "VALUE"
 
@@ -318,8 +296,8 @@ def test_if_variable_no_execution():
           - convert.case:
               input: header
               case: upper
-              if: ${var} == "raise Exception('Error')"
+              if: ${var} == "raise Exception('Error') && 'a'"
         """,
-        variables={"${var}": "raise Exception('Error')"}
+        variables={"var": "raise Exception('Error') && 'a'"}
     )
     assert df["header"][0] == "VALUE"

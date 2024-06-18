@@ -1,32 +1,5 @@
 import re as _re
 import logging as _logging
-from jinja2 import Environment as _Environment, BaseLoader as _BaseLoader
-
-jinja_env = _Environment(loader=_BaseLoader())
-jinja_env.globals.update(
-    len=len,
-    str=str,
-    int=int,
-    float=float,
-    list=list,
-    dict=dict,
-    set=set,
-    sorted=sorted,
-    reversed=reversed,
-    enumerate=enumerate,
-    zip=zip,
-    isinstance=isinstance,
-    getattr=getattr,
-    hasattr=hasattr,
-    abs=abs,
-    min=min,
-    max=max,
-    sum=sum,
-    round=round,
-    all=all,
-    any=any,
-    filter=filter
-)
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -125,6 +98,7 @@ def _key_generator():
         for letters in product(ascii_lowercase, repeat=length):
             yield ''.join(letters)
 
+
 def _replace_keys_with_chars(input_dict):
     """
     Replace dictionary keys with incrementing characters
@@ -138,46 +112,56 @@ def _replace_keys_with_chars(input_dict):
     gen = _key_generator()
     return {"wrwx_" + next(gen): v for v in input_dict.values()}
 
-def evaluate_conditional(statement, variables: dict = {}):
+
+def _replace_strings(text, replacements):
+    # Sort the keys of the dictionary by length in descending order
+    sorted_keys = sorted(replacements.keys(), key=len, reverse=True)
+    # Create a regular expression pattern that matches any of the keys
+    pattern = _re.compile("|".join([_re.escape(key) for key in sorted_keys]))
+    
+    # Define a replacement function
+    def replacement_function(match):
+        return replacements[match.group(0)]
+    
+    # Use re.sub with the replacement function
+    return pattern.sub(replacement_function, text)
+
+
+def evaluate_conditional(statement, global_variables: dict = {}, local_variables: dict = {}):
     """
     Use Jinja2 to safely evaluate a conditional statement
     and return the result as a boolean
     :param statement: A conditional statement to evaluate
-    :param variables: A dictionary of variables to use in the statement
+    :param global_variables: A dictionary of global variables to use in the statement.
+        Global variables are expected to be included in the form ${variable_name}
+        When included within the statement
+    :param local_variables: A dictionary of local variables to use in the statement.
+        Local variables are expected to be valid python variable syntax
     :return: Whether the statement evaluates to True or False
     """
-    original_statement = statement
-
     try:
         # Replace variable keys with an incrementing character - a, b, c, ...
         # This is to avoid Jinja2 from throwing an error when it encounters
         # variables names that are not an allowed format. In particular,
         # our variable syntax like ${variable_name}
-        formatted_variables = _replace_keys_with_chars(variables)
+        formatted_variables = _replace_keys_with_chars(global_variables)
         replacement_dict = {
-            k: v
-            for k, v in zip(variables.keys(), formatted_variables.keys())
+            "${" + k + "}": v
+            for k, v in zip(global_variables.keys(), formatted_variables.keys())
         }
 
-        # Split tokens
-        statement = _re.findall(r"[a-zA-Z0-9'\"${}_]+|[^a-zA-Z0-9${}\"'_]", statement)
-        
-        statement = [
-            replacement_dict.get(token, token)
-            for token in statement
-        ]
-
-        statement = ''.join(statement)
-
         # Create a template with your conditional statement
-        result = jinja_env.from_string("{{ " + statement + " }}").render(formatted_variables)
+        result = eval(
+            _replace_strings(statement, replacement_dict),
+            {**formatted_variables, **local_variables}
+        )
 
         # Convert the result to a boolean
         result = str(result).strip().lower()
     except:
-        raise ValueError(f"An error occurred when trying to evaluate if condition '{original_statement}'") from None
+        raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
 
     if result not in ['true', 'false']:
-        raise ValueError(f"If conditions must evaluate to true or false. Got: '{original_statement}'")
+        raise ValueError(f"If conditions must evaluate to true or false. Got: '{statement}'")
 
     return result == 'true'

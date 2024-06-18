@@ -378,30 +378,7 @@ def test_write_if_false():
     )
     assert df.columns.tolist() == ['header1', 'header2']
 
-def test_write_python_variable():
-    """
-    Test a write that uses a
-    python variable as part of an if statement
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 1
-              values:
-                header1: value1
-                header2: value2
-        write:
-          - dataframe:
-              if: var == 1
-              columns:
-                - header1
-        """,
-        variables={"var": 1}
-    )
-    assert df.columns.tolist() == ['header1']
-
-def test_write_template_variable():
+def test_write_if_template_variable():
     """
     Test a write that uses a template
     variable as part of an if statement
@@ -420,11 +397,11 @@ def test_write_template_variable():
               columns:
                 - header1
         """,
-        variables={"${var}": 1}
+        variables={"var": 1}
     )
     assert df.columns.tolist() == ['header1']
 
-def test_write_columns_variable():
+def test_write_if_columns_variable():
     """
     Test a write that uses the ${columns} variable
     that gives a list of the columns
@@ -446,7 +423,7 @@ def test_write_columns_variable():
     )
     assert df.columns.tolist() == ['header1', 'header2']
 
-def test_write_column_count_variable():
+def test_write_if_column_count_variable():
     """
     Test a write that uses the ${column_count} variable
     that gives the number of columns in the dataframe
@@ -468,7 +445,7 @@ def test_write_column_count_variable():
     )
     assert df.columns.tolist() == ['header1', 'header2']
 
-def test_write_row_count_variable():
+def test_write_if_row_count_variable():
     """
     Test a write that uses the ${row_count} variable
     that gives the number of rows in the dataframe

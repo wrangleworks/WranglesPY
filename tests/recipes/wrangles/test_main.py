@@ -3,6 +3,7 @@ import wrangles
 import pandas as pd
 import logging
 import numpy as np
+import re
 
 #
 # Classify
@@ -3678,6 +3679,25 @@ class TestValidate:
         )
         assert not df['Validate1'][0]
 
+    def test_validate_f_string(self):
+        """
+        Test a validate that passes
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+            wrangles:
+              - validate:
+                  output: Validate1
+                  test: f'test-{Col1}' == 'test-a'
+            """
+        )
+        assert df['Validate1'][0]
+
     def test_validate_raise(self):
         """
         Test a validate that has no output
@@ -3851,7 +3871,7 @@ class TestValidate:
         Test a validate with multiple tests without an
         output defined that raises an error instead
         """
-        with pytest.raises(ValueError, match="Col1 <= 10"):
+        with pytest.raises(ValueError, match=re.escape("Col1 <= 10")):
             wrangles.recipe.run(
                 """
                 read:
@@ -3865,6 +3885,28 @@ class TestValidate:
                         - isinstance(Col1, int)
                         - Col1 <= 10
                 """
+            )
+
+    def test_validate_raise_global_variable(self):
+        """
+        Test that an error raised based on a global
+        variable is correctly formatted
+        """
+        with pytest.raises(ValueError, match=re.escape("${var} <= 10")):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        Col1: <int(0-100)>
+                wrangles:
+                - validate:
+                    test:
+                        - isinstance(Col1, int)
+                        - ${var} <= 10
+                """,
+                variables={"var": 15}
             )
 
     def test_validate_columns(self):

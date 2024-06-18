@@ -107,33 +107,6 @@ def test_if():
     assert "run_if_should_run" in wrangles.connectors.memory.dataframes
     assert "run_if_should_not_run" not in wrangles.connectors.memory.dataframes
 
-def test_if_variables():
-    """
-    Test that an if statement runs correctly
-    when using variables of regular python format
-    """
-    wrangles.recipe.run(
-        """
-        run:
-          on_start:
-            - recipe:
-                if: var == 1
-                read:
-                  - test:
-                      rows: 1
-                      values:
-                        header: value
-                write:
-                  - memory:
-                      id: run_if_variables_should_run
-        """,
-        variables={
-            "var": 1
-        }
-    )
-
-    assert "run_if_variables_should_run" in wrangles.connectors.memory.dataframes
-
 def test_if_variables_syntax():
     """
     Test that an if statement runs correctly
@@ -155,7 +128,7 @@ def test_if_variables_syntax():
                       id: run_if_variables_syntax_should_run
         """,
         variables={
-            "${var}": 1
+            "var": 1
         }
     )
 
