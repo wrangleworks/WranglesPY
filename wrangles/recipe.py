@@ -584,12 +584,12 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         if not isinstance(params[key], list):
                             params[key] = [params[key]]
 
-                # if not isinstance(params['input'], list) and params: params['input'] = [params['input']]
-
+                
+                #     empty_columns = [col for col in output_columns if df_original[col].isna().all()]
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
-                if 'where' in original_params and wrangle not in no_where_list:
+                if 'where' in original_params and wrangle not in no_where_list and not df.empty:
                     if 'output' in params.keys():
                         # Wrangle explictly defined the output
                         output_columns = (
@@ -597,6 +597,8 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                             if isinstance(params['output'], list)
                             else [params['output']]
                         )
+                        # if df has output_columns as a column, merge it back to the original
+                        # if all(column in df.columns for column in output_columns):
                         df = _pandas.merge(
                             df_original,
                             df[output_columns],
@@ -612,9 +614,17 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                                     [output_col, output_col+'_x'],
                                     output_col
                                 ).drop([output_col+'_x'], axis = 1)
+                        # else:
+                        #     # Wrangle did not output the columns
+                        #     df = df_original
+                        #     # Add output columns to the original dataframe
+                        #     for column in output_columns:
+                        #          df[column] = None
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+
                         # Wrangle overwrote the input
                         output_columns = params['input']
+
                         df = _pandas.merge(
                             df_original,
                             df[output_columns],
@@ -640,7 +650,22 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                             right_index=True,
                             how='left'
                         )
+                else:
+                    # Wrangle did not output the columns
+                    df = df_original
 
+                    if 'output' in params.keys():
+                        output_columns = (
+                                    params['output']
+                                    if isinstance(params['output'], list)
+                                    else [params['output']]
+                                )
+                    
+                        # Add output columns to the original dataframe
+                        for column in output_columns:
+                                df[column] = None
+
+                            
                 # Clean up NaN's
                 df = df.fillna('')
                 # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros

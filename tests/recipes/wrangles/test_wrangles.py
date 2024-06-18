@@ -191,6 +191,33 @@ def test_where_empty_case_df():
     )
     assert df.equals(data)
 
+def test_where_empty_output_case_df():
+    """
+    Test using where on an empty dataframe
+    """
+    data=pd.DataFrame({
+            'col1': ['1', '0', '1', '0', '1'],
+            'col2': ['python', 'java', 'sql', 'r', 'c++'],
+        })
+    expected_df = pd.DataFrame({
+            'col1': ['1', '0', '1', '0', '1'],
+            'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            'output': ['','','','','']
+        })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - convert.case:
+                input: col2
+                output: output
+                case: upper
+                where: col1 = 2
+        """,
+        dataframe=data
+        
+    )
+    assert df.equals(expected_df)
+
 def test_where_empty_prefix_df():
     """
     Test using where on an empty dataframe
@@ -231,11 +258,37 @@ def test_where_empty_suffix_df():
     )
     assert df.equals(data)
 
+def test_where_empty_output_suffix_df():
+    """
+    Test using where on an empty dataframe
+    """
+    data = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python', 'java', 'sql', 'r', 'c++'],
+        'output': ['','','','','']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - format.suffix:
+                input: col2
+                output: output
+                value: test-
+                where: col1 = 2
+        """,
+        dataframe=data
+    )
+    assert df.equals(data)
+
 def test_where_pad_df():
     """
     Test using where on an empty dataframe
     """
     data = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python', 'java', 'sql', 'r', 'c++'],
+    })
+    expected_df = pd.DataFrame({
         'col1': ['1', '0', '1', '0', '1'],
         'col2': ['python', 'java', 'sql', 'r', 'c++'],
     })
@@ -250,4 +303,124 @@ def test_where_pad_df():
         """,
         dataframe=data
     )
-    assert df.equals(data)
+    assert df.equals(expected_df)
+
+def test_empty_split_where_df():
+    """
+    Test using multiple where on different rows
+    """
+    data = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+    })
+    expected_df = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+        'output': ['','','','','']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col2
+                output: output
+                char: ', '
+                where: col1 = 2
+            
+        """,
+        dataframe=data
+    )
+    
+    assert df.equals(expected_df)
+
+def test_empty_mutli_where_df():
+    """
+    Test using multiple where on different rows
+    """
+    data = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+    })
+    expected_df = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+        'output': ['','','','','']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col2
+                output: output
+                char: ', '
+                where: col1 = 2
+            
+        """,
+        dataframe=data
+    )
+
+    assert df.equals(expected_df)
+
+def test_empty_mutli_output_where_df():
+    """
+    Test using multiple where on different rows
+    """
+    data = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+    })
+    expected_df = pd.DataFrame({
+        'col1': ['1', '0', '1', '0', '1'],
+        'col2': ['python, best', 'java, worst', 'sql, medicore', 'r, worst', 'c++, best'],
+        'output1': ['','','','',''],
+        'output2': ['','','','','']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col2
+                output: 
+                    - output1
+                    - output2
+                char: ', '
+                where: col1 = 2
+            
+        """,
+        dataframe=data
+    )
+
+    assert df.equals(expected_df)
+
+def test_where_empty_case_df():
+    """
+    Test using where on an empty dataframe
+    """
+    data=pd.DataFrame({
+            'col1': ['1', '0', '1', '0', '1'],
+            'col2': ['python', 'java', 'sql', 'r', 'c++'],
+        })
+    expected_df = pd.DataFrame({
+            'col1': ['1', '0', '1', '0', '1'],
+            'col2': ['python', 'java', 'sql', 'r', 'c++'],
+            'output': ['','','','',''],
+        })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - convert.case:
+                input: col2
+                output: output
+                case: upper
+                where: col1 = 2
+
+            - format.prefix:
+                input: col2
+                value: test-
+                where: col1 = 2
+        """,
+        dataframe=data
+        
+    )
+    assert df.equals(expected_df)
+
