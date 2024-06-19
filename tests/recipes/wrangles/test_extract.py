@@ -1589,11 +1589,11 @@ def test_ai():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
               retries: 2
-              model: gpt-4-0125-preview
               output:
                 length:
                   type: string
@@ -1626,10 +1626,10 @@ def test_ai_multiple_output():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
-              model: gpt-4-0125-preview
               retries: 2
               output:
                 length:
@@ -1671,6 +1671,7 @@ def test_ai_multiple_input():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1713,6 +1714,7 @@ def test_ai_enum():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1781,6 +1783,7 @@ def test_ai_timeout_multiple_output():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 0.1
@@ -1822,7 +1825,7 @@ def test_ai_messages():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1862,7 +1865,7 @@ def test_ai_array_no_items():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1873,7 +1876,6 @@ def test_ai_array_no_items():
                   description: >-
                     Return the names of any fruits
                     that are yellow
-              model: gpt-4-1106-preview
         """,
         dataframe=pd.DataFrame({
             "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
@@ -1893,7 +1895,7 @@ def test_ai_array_item_type_specified():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1905,7 +1907,6 @@ def test_ai_array_item_type_specified():
                     type: integer
                   description: >-
                     Get all numbers from the input
-              model: gpt-4-1106-preview
         """,
         dataframe=pd.DataFrame({
             "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],

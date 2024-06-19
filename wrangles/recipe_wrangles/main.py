@@ -16,6 +16,8 @@ import wrangles as _wrangles
 import json as _json
 import numpy as _np
 import math as _math
+import concurrent.futures as _futures
+from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
@@ -154,6 +156,92 @@ def accordion(
     ]
     df = df[all_columns]
     return df
+
+
+def batch(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    batch_size: int = 1000,
+    threads: int = 1,
+    on_error: dict = None
+):
+    """
+    type: object
+    description: >-
+      Split the data into batches for executing a list of wrangles.
+      Use this in situations such as where the intermediate data
+      is too large to fit in memory.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      batch_size:
+        type: integer
+        description: The number of rows to split each batch into
+        default: 1000
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to execute on the data. Each series of wrangles
+          will be run agaisnst the data in batches of the size
+          defined by batch_size.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      threads:
+        type: integer
+        description: The number of threads to use for parallel processing. Default 1.
+      on_error:
+        type: object
+        description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
+    """
+    if not isinstance(df, _pd.DataFrame):
+        raise ValueError('Input must be a pandas DataFrame')
+
+    if not isinstance(batch_size, int):
+        try:
+            batch_size = int(batch_size)
+        except:
+          raise ValueError('batch_size must be an integer greater than 0')
+    if batch_size < 1:
+        raise ValueError('batch_size must be an integer greater than 0')
+
+    if not isinstance(threads, int):
+        try:
+            threads = int(threads)
+        except:
+            raise ValueError('threads must be an integer greater than 0')
+    if threads < 1:
+        raise ValueError('threads must be an integer greater than 0')
+    
+    def _batch_thread(df, wrangles, functions):
+        try:
+            return _wrangles.recipe.run(
+                {"wrangles": wrangles},
+                dataframe=df,
+                functions=functions
+            )
+        except Exception as err:
+            if on_error:
+                return df.assign(**{
+                    k: [v] * len(df)
+                    for k, v in on_error.items()
+                })
+            else:
+                raise err from None
+
+    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        batches = list(_divide_batches(df, batch_size))
+
+        results = list(executor.map(
+            _batch_thread,
+            batches,
+            [wrangles] * len(batches),
+            [functions] * len(batches)
+        ))
+
+    return _pd.concat(results)
 
 
 def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
@@ -631,34 +719,28 @@ def lookup(
     df: _pd.DataFrame,
     input: str,
     output: _Union[str, list] = None,
-    reference: dict = None,
-    default: str = None,
-    model_id: str = None
+    model_id: str = None,
+    **kwargs
 ) -> _pd.DataFrame:
     """
-    # type: object
-    # description: Lookup values in a reference dictionary
-    # additionalProperties: true
-    # required:
-    #   - input
-    # properties:
-    #   input:
-    #     type: string
-    #     description: Name of the column(s) to lookup.
-    #   model_id:
-    #     type: string
-    #     description: The model_id to use lookup against
-    #   output:
-    #     type:
-    #       - string
-    #       - array
-    #     description: Name of the output column(s)
-    #   overrides:
-    #     type: object
-    #     description: The lookup to apply to the column(s)
-    #   default:
-    #     type: string
-    #     description: The default value to use if the input is not found in the reference.
+    type: object
+    description: Lookup values from a saved lookup wrangle
+    additionalProperties: true
+    required:
+      - input
+      - model_id
+    properties:
+      input:
+        type: string
+        description: Name of the column(s) to lookup.
+      model_id:
+        type: string
+        description: The model_id to use lookup against
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
     """
     # Ensure input is only 1 value
     if isinstance(input, list):
@@ -702,12 +784,8 @@ def lookup(
         else:
             # User specified a mixture of unrecognized columns and columns from the wrangle
             raise ValueError('Lookup may only contain all named or unnamed columns.')
-
-    # for i in range(len(output)):
-    #     df[output[i]] = df.loc[:, input].map(arg=reference, na_action=na_action)
-
-    # if default:
-    #     df[output] = df[output].fillna(default)
+    else:
+        raise ValueError('model_id is required for lookup')
     
     return df
 

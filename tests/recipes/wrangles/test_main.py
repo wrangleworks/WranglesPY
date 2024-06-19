@@ -1,8 +1,9 @@
 import pytest
 import wrangles
 import pandas as pd
-import logging
 import numpy as np
+import time
+from datetime import datetime
 
 #
 # Classify
@@ -3322,6 +3323,345 @@ def test_accordion_propagate_invalid():
         err.typename == 'KeyError' and
         'accordion - "Did you forget' in err.value.args[0]
     )
+
+class TestBatch:
+    """
+    Test batch wrangle
+    This splits the dataframe into batches
+    and executes a series of wrangles against each
+    """
+    def test_batch(self):
+        """
+        Test basic batch wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert df['column'].tolist() == ["A"] * 1000
+
+    def test_batch_size(self):
+        """
+        Test batch size parameter works correctly
+        """
+        number_of_batches = [0]
+        def record_batch(df):
+            number_of_batches[0] += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  batch_size: 200
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                    - custom.record_batch: {}
+            """,
+            functions=record_batch
+        )
+        assert (
+            df['column'].tolist() == ["A"] * 1000 and
+            number_of_batches[0] == 5
+        )
+
+    def test_batch_size_one(self):
+        """
+        Test batch size parameter works correctly
+        with a batch size as 1
+        """
+        number_of_batches = [0]
+        def record_batch(df):
+            number_of_batches[0] += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                    - custom.record_batch: {}
+            """,
+            functions=record_batch
+        )
+        assert (
+            df['column'].tolist() == ["A"] * 1000 and
+            number_of_batches[0] == 1000
+        )
+
+    def test_batch_preserves_order(self):
+        """
+        Test batch preserves
+        the order of the input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - create.index:
+                  output: idx
+              - batch:
+                  batch_size: 10
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert (
+            df['column'].tolist() == ["A"] * 1000 and
+            df['idx'].tolist() == list(range(1, 1001))
+        )
+
+    def test_batch_not_exactly_divisible(self):
+        """
+        Test batch what the total number of rows
+        leaves a remainder vs the batch size
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - create.index:
+                  output: idx
+              - batch:
+                  batch_size: 220
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert (
+            df['column'].tolist() == ["A"] * 1000 and
+            df['idx'].tolist() == list(range(1, 1001))
+        )
+
+    def test_batch_smaller_than_batch_size(self):
+        """
+        Test that batch works correctly if the batch
+        size exceeds the length of the dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  batch_size: 20
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+            """
+        )
+        assert df['column'].tolist() == ["A"] * 10
+
+    def test_batch_threads(self):
+        """
+        Test a batch with threads > 5
+        Ensure results order is maintained
+        """
+        start_time = datetime.now()
+
+        def sleep(duration):
+            time.sleep(duration)
+            return "A"
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 25
+                values:
+                    column: a
+            wrangles:
+              - create.index:
+                  output: idx
+              - batch:
+                  batch_size: 5
+                  threads: 5
+                  wrangles:
+                    - custom.sleep:
+                        output: column
+                        duration: 1
+            """,
+            functions=sleep
+        )
+        end_time = datetime.now()
+        assert (
+            (end_time - start_time).seconds == 5 and
+            df['column'].tolist() == ["A"] * 25 and
+            df['idx'].tolist() == list(range(1, 26))
+        )
+
+    def test_batch_non_sequential_index(self):
+        """
+        Test that a non-sequential index is batched correctly
+        """
+        number_of_batches = [0]
+        def record_batch(df):
+            number_of_batches[0] += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 5
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                    - custom.record_batch: {}
+            """,
+            functions=record_batch,
+            dataframe=pd.DataFrame(
+                data= {'column':['a'] * 15},
+                index= [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600]
+            )
+        )
+        assert (
+            list(df.index) == [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600] and
+            df['column'].tolist() == ["A"] * 15 and
+            number_of_batches[0] == 3
+        )
+
+    def test_batch_error(self):
+        """
+        Test that an error is raised correctly
+        """
+        with pytest.raises(KeyError, match="column1 does not exist"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        column: a
+                wrangles:
+                - batch:
+                    wrangles:
+                        - convert.case:
+                            input: column1
+                            case: upper
+                """
+            )
+
+    def test_batch_error_catch(self):
+        """
+        Test that an error is caught and
+        the appropriate values are returned
+        for a variety of data types
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                  column: a
+            wrangles:
+            - batch:
+                on_error:
+                  str: string
+                  int: 1
+                  float: 1.5
+                  array: [1,2,3]
+                  dict:
+                    a: 1
+                    b: 2
+                  boolean: true
+                wrangles:
+                  - convert.case:
+                      input: column1
+                      case: upper
+            """
+        )
+        
+        assert len(df) == 1000
+        assert df["str"][0] == "string"
+        assert df["int"][0] == 1
+        assert df["float"][0] == 1.5
+        assert df["array"][0] == [1,2,3]
+        assert df["dict"][0] == {"a": 1, "b": 2}
+        assert df["boolean"][0] == True
+
+    def test_batch_error_catch_mixed(self):
+        """
+        Test that an error is caught and
+        the appropriate values are returned
+        when some batches fail and some succeed
+        """
+        number_of_batches = [0]
+        def record_batch(df, input):
+            number_of_batches[0] += 1
+            if number_of_batches[0] > 3:
+                raise Exception("test error")
+            else:
+                df[input] = "b"
+                return df
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    column: a
+            wrangles:
+            - batch:
+                batch_size: 1
+                on_error:
+                  column: err
+                wrangles:
+                  - custom.record_batch:
+                      input: column
+            """,
+            functions=record_batch
+        )
+        
+        assert len(df) == 5
+        assert df["column"][0] == "b"
+        assert df["column"][4] == "err"
 
 class TestLookup:
     """
