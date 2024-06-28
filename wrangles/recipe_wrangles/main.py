@@ -109,7 +109,7 @@ def accordion(
         df_temp = _wrangles.recipe.run(
             {
                 "wrangles": [
-                    {"explode": {"input": input}},
+                    {"explode": {"input": input, "drop_empty": True}},
                     {"pandas.reset_index": {"parameters": {"drop": True}}},
                 ] + wrangles
             },
