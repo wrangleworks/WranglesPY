@@ -3324,6 +3324,28 @@ def test_accordion_propagate_invalid():
         'accordion - "Did you forget' in err.value.args[0]
     )
 
+
+def test_accordion_empty_list():
+    """
+    Test that an accordion preserves rows with empty lists
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    case: upper
+        """,
+        dataframe=pd.DataFrame({
+            "list_column": [["a","b","c"], []]
+        })
+    )
+    assert df["list_column"][0] == ["A","B","C"]
+    assert df["list_column"][1] == []
+
 class TestBatch:
     """
     Test batch wrangle
