@@ -119,7 +119,12 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     return df
 
 
-def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None) -> _pd.DataFrame:
+def fraction_to_decimal(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    decimals: int = 4,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
     description: Convert fractions to decimals
@@ -130,10 +135,12 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
       input:
         type:
           - string
+          - array
         description: Name of the input column
       output:
         type:
           - string
+          - array
         description: Name of the output colum
       decimals:
         type:

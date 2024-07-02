@@ -32,6 +32,35 @@ def test_matrix_column_set():
 
     assert lens == [3,2,1]
 
+def test_matrix_column_set_ordered():
+    """
+    Test that using set preserves the order correctly
+    """
+    check_order = []
+    def _test_func(df, var1, var2):
+        check_order.append(var1 == str(var2))
+
+    wrangles.recipe.run(
+        """
+        write:
+          - matrix:
+              variables:
+                var1: set(col1)
+                var2: set(col2)
+              write:
+                - custom._test_func:
+                    var1: ${var1}
+                    var2: ${var2}
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["1","1","2","2","3","3","4","4"],
+            "col2": [1,1,2,2,3,3,4,4]
+        }),
+        functions=_test_func
+    )
+
+    assert all(check_order)
+
 def test_matrix_list():
     """
     Test using variables from a list

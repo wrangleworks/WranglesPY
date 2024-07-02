@@ -12,22 +12,27 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
-	"postCreateCommand": "pip install pytest==7.4.4 lorem pytest-mock && pip3 install --user -r requirements.txt",
+	"onCreateCommand": "pip install pytest==7.4.4 lorem pytest-mock",
+	"postCreateCommand": "pip3 install --user -r requirements.txt",
 
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"redhat.vscode-yaml"
+				"redhat.vscode-yaml",
+				"GitHub.copilot"
 			],
 			"settings": {
 				"yaml.schemas": {
 					"https://public.wrangle.works/schema/recipes/schema.json": ["*.wrgl.yml", "*.wrgl.yaml"]
-				}
+				},
+				"python.testing.pytestArgs": ["tests"],
+				"python.testing.unittestEnabled": false,
+    			"python.testing.pytestEnabled": true
 			}
 		}
 	}
-	
+
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 }
