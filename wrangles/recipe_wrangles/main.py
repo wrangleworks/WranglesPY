@@ -27,6 +27,7 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from .. import select as _select
 
 
 def accordion(
@@ -1451,3 +1452,56 @@ def translate(
         )
 
     return df
+
+
+def find_match(
+    df: _pd.DataFrame,
+    input_a: str,
+    input_b: str,
+    output: str,
+    non_match_char: str = '*',
+    include_ratio: bool = False,
+    exact_match_value: str = '<<EXACT_MATCH>>',
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Find the matching characters between two strings
+    additionalProperties: false
+    required:
+        - input_a
+        - input_b
+        - output
+    properties:
+        input_a:
+          type: string
+          description: Name of the first column
+        input_b:
+          type: string
+          description: Name of the second column
+        output:
+          type: string
+          description: Name of the output column
+        non_match_char:
+          type: string
+          description: (Optional) Character to use for non-matching characters
+        include_ration:
+          type: boolean
+          description: (Optional) Include the ratio of matching characters
+        exact_match_value:
+          type: string
+          description: (Optional) Value to use for exact matches
+        
+    """
+
+    df[output] = _select.find_match(
+        df[input_a].astype(str).values.tolist(),
+        df[input_b].astype(str).values.tolist(),
+        non_match_char,
+        include_ratio,
+        exact_match_value
+    )
+
+    df
+
+    return df
+    
