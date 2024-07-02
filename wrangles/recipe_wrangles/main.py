@@ -244,13 +244,18 @@ def batch(
     return _pd.concat(results)
 
 
-def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
+def classify(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    model_id: str,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: |
       Run classify wrangles on the specified columns.
       Requires WrangleWorks Account and Subscription.
-    additionalProperties: false
     required:
       - input
       - output
@@ -283,8 +288,12 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
-        
+        df[output_column] = _classify(
+            df[input_column].astype(str).tolist(),
+            model_id,
+            **kwargs
+        )
+
     return df
 
 
@@ -690,7 +699,6 @@ def lookup(
     """
     type: object
     description: Lookup values from a saved lookup wrangle
-    additionalProperties: true
     required:
       - input
       - model_id
@@ -738,12 +746,21 @@ def lookup(
         if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
-            data = _lookup(df[input].values.tolist(), model_id, columns=wrangle_output)
+            data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                columns=wrangle_output,
+                **kwargs
+            )
             df[output] = data
         elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified no columns from the wrangle
             # Add dict of all values to those columns
-            data = _lookup(df[input].values.tolist(), model_id)
+            data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                **kwargs
+            )
             for out in output:
                 df[out] = data
         else:
@@ -1250,11 +1267,17 @@ def sql(
     return df
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, case_sensitive: bool = False) -> _pd.DataFrame:
+def standardize(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    model_id: _Union[str, list],
+    output: _Union[str, list] = None,
+    case_sensitive: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: false
     required:
       - input
     properties:
@@ -1295,20 +1318,38 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         df_copy = df.loc[:, [input[0]]]
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
-                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model, case_sensitive)
-        
+                df_copy[output_column] = _standardize(
+                    df_copy[output_column].astype(str).tolist(),
+                    model,
+                    case_sensitive,
+                    **kwargs
+                )
+
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
         return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
-            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model, case_sensitive)
-            
+            df[output_column] = _standardize(
+                df[input_column].astype(str).tolist(),
+                model,
+                case_sensitive,
+                **kwargs
+            )
+
     return df
 
 
-def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
+def translate(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    target_language: str,
+    source_language: str = 'AUTO',
+    case: str = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
@@ -1388,7 +1429,6 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - Spanish
           - Swedish
     """
-    
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -1402,6 +1442,12 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
+        df[output_column] = _translate(
+            df[input_column].astype(str).tolist(),
+            target_language,
+            source_language,
+            case,
+            **kwargs
+        )
 
     return df
