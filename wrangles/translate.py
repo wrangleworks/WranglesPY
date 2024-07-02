@@ -6,7 +6,13 @@ from . import config as _config
 from . import batching as _batching
 
 
-def translate(input: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _Union[str, list]:
+def translate(
+    input: _Union[str, list],
+    target_language: str,
+    source_language: str = 'AUTO',
+    case: str = None,
+    **kwargs
+) -> _Union[str, list]:
     """
     Translate text
     Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available)
@@ -97,7 +103,12 @@ def translate(input: _Union[str, list], target_language: str, source_language: s
         json_data = [val.title() for val in json_data]
 
     url = f'{_config.api_host}/wrangles/translate'
-    params = {'responseFormat':'array', 'targetLanguage': target_language, 'sourceLanguage': source_language}
+    params = {
+        'responseFormat':'array',
+        'targetLanguage': target_language,
+        'sourceLanguage': source_language,
+        **kwargs
+    }
     batch_size = 60
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
