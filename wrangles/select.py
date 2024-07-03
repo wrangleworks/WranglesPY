@@ -6,6 +6,43 @@ import json as _json
 import itertools as _itertools
 from .utils import wildcard_expansion_dict
 
+def compare_text(input_a: list, input_b: list, type: str ='difference', char: str = ' '):
+    """
+    Compare text and show what is not in input_b from input_a
+    """
+
+    results = []
+    for a, b in zip(input_a, input_b):
+            
+        # split the strings into lists
+
+        compare_types = ['intersection', 'difference']
+
+        if type not in compare_types:
+            raise ValueError(f"Type must be one of {compare_types}")
+
+        col_2 = set(b.split(char))
+
+        # dict to hold the comparison operation
+        compare_operation = {
+            'intersection': lambda x: x in col_2,
+            'difference': lambda x: x not in col_2
+        }
+
+        # simple techniques to get intersection and difference
+        # dict.fromkeys is trick to keep the tokens in original order
+        output =  list(dict.fromkeys(
+            [
+                word
+                for word in a.split(char)
+                if compare_operation[type](word)
+            ]
+        ))
+
+        results.append(' '.join(output))
+
+    return results
+
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
