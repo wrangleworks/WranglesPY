@@ -1461,7 +1461,11 @@ def find_match(
     output: str,
     non_match_char: str = '*',
     include_ratio: bool = False,
+    decimal_places: int = 3,
     exact_match_value: str = '<<EXACT_MATCH>>',
+    input_a_empty_value: str = '<<A EMPTY',
+    input_b_empty_value: str = '<<B EMPTY>>',
+    both_empty_value: str = '<<BOTH EMPTY>>',
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1484,24 +1488,32 @@ def find_match(
         non_match_char:
           type: string
           description: (Optional) Character to use for non-matching characters
-        include_ration:
+        include_ratio:
           type: boolean
           description: (Optional) Include the ratio of matching characters
+        decimal_places:
+          type: integer
+          description: (Optional) Number of decimal places to round the ratio to
         exact_match_value:
           type: string
           description: (Optional) Value to use for exact matches
         
     """
 
+    if isinstance(decimal_places, str):
+        int(decimal_places)
+
     df[output] = _select.find_match(
         df[input_a].astype(str).values.tolist(),
         df[input_b].astype(str).values.tolist(),
         non_match_char,
         include_ratio,
-        exact_match_value
+        decimal_places,
+        exact_match_value,
+        input_a_empty_value,
+        input_b_empty_value,
+        both_empty_value
     )
-
-    df
 
     return df
     

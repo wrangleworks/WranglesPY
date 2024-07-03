@@ -166,7 +166,11 @@ def find_match(
         input_b: str,
         non_match_char: str = '*',
         include_ratio: bool = False,
-        exact_match_value: str = '<<EXACT_MATCH>>'
+        decimal_places: int = 3,
+        exact_match_value: str = '<<EXACT_MATCH>>',
+        input_a_empty_value: str = '<<A EMPTY',
+        input_b_empty_value: str = '<<B EMPTY>>',
+        both_empty_value: str = '<<BOTH EMPTY>>',
     ) -> _Union[list, str]:
     """
     Find the matching characters between two strings.
@@ -177,36 +181,31 @@ def find_match(
 
         a_str = str(a_value)
         b_str = str(b_value)
-        
-        if not len(a_str) and len(b_str):
-            if include_ratio:
-                results.append(['<< a empty >>',1])
+
+        if not len(a_str) or not len(b_str):
+            if not len(a_str) and not len(b_str):
+                empty_value = both_empty_value
+            elif not len(a_str):
+                empty_value = input_a_empty_value
             else:
-                results.append('<< a empty >>')
-            continue
-        if not len(b_str) and len(a_str):
+                empty_value = input_b_empty_value
+
             if include_ratio:
-                results.append(['<< b empty >>',1])
+                results.append([empty_value, 0])
             else:
-                results.append('<< b empty >>')
-            continue
-        if not len(a_str) and not len(b_str):
-            if include_ratio:
-                results.append(['<< both empty >>',1])
-            else:
-                results.append('<< both empty >>')
+                results.append(empty_value)
             continue
 
         # Create a SequenceMatcher with '-' as 'junk'
         matcher = SequenceMatcher(lambda x: x == '-', a_str, b_str)
         if matcher.ratio() == 1.0:
             if include_ratio:
-                results.append([exact_match_value,1])
+                results.append([exact_match_value,0])
             else:
                 results.append(exact_match_value)
             continue
-        result = []
 
+        result = []
         # Starting index for the next unmatched block in both strings
         last_match_end_a = 0
         last_match_end_b = 0
@@ -235,7 +234,7 @@ def find_match(
             last_match_end_b = block.b + block.size
 
         if include_ratio:
-            results.append([''.join(result), matcher.ratio()])
+            results.append([''.join(result), round(matcher.ratio(), decimal_places)])
         else:
             results.append(''.join(result))
 
