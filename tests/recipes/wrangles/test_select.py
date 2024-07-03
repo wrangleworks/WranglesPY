@@ -2141,3 +2141,71 @@ def test_sample_where():
         })
     )
     assert len(df) == 2 and df["header2"][0] < 0
+
+def test_find_match_1():
+    """
+    Test a simple find match wrangle
+    """
+    data = pd.DataFrame({
+    'col1': ['mario', 'luigi', 'peach', 'yoshi', 'equal', '', 'no match', ''],
+    'col2': ['supermario', 'superluigi', 'superpeach', 'superyoshi', 'equal', 'no match', '', ''],
+    })
+    recipe = """
+    wrangles:
+    - find_match:
+        input_a: col1
+        input_b: col2
+        output: TEST
+    """
+    df = wrangles.recipe.run(
+    recipe=recipe,
+    dataframe=data,
+    )
+    expected_values = ['*****mario', '*****luigi', '*****peach', '*****yoshi', '<<EXACT_MATCH>>', '<<A EMPTY', '<<B EMPTY>>', '<<BOTH EMPTY>>']
+    assert df['TEST'].values.tolist() == expected_values
+
+def test_find_match_2():
+    """
+    Test with ratios
+    """
+    data = pd.DataFrame({
+    'col1': ['mario', 'luigi', 'peach', 'yoshi', 'equal', '', 'no match', ''],
+    'col2': ['supermario', 'superluigi', 'superpeach', 'superyoshi', 'equal', 'no match', '', ''],
+    })
+    recipe = """
+    wrangles:
+    - find_match:
+        input_a: col1
+        input_b: col2
+        output: TEST
+        include_ratio: True
+    """
+    df = wrangles.recipe.run(
+    recipe=recipe,
+    dataframe=data,
+    )
+    expected_values = [['*****mario', 0.667], ['*****luigi', 0.667], ['*****peach', 0.667], ['*****yoshi', 0.667], ['<<EXACT_MATCH>>', 0], ['<<A EMPTY', 0], ['<<B EMPTY>>', 0], ['<<BOTH EMPTY>>', 0]]
+    assert df['TEST'].values.tolist() == expected_values
+
+def test_find_match_3():
+    """
+    Testing numbers
+    """
+    data = pd.DataFrame({
+    'col1': [123, 456, 789, 000],
+    'col2': [120, 460, 789, 000],
+    })
+    recipe = """
+    wrangles:
+    - find_match:
+        input_a: col1
+        input_b: col2
+        output: TEST
+    """
+    df = wrangles.recipe.run(
+    recipe=recipe,
+    dataframe=data,
+    )
+    expected_values = ['12*', '4*6*', '<<EXACT_MATCH>>', '<<EXACT_MATCH>>']
+    assert df['TEST'].values.tolist() == expected_values
+
