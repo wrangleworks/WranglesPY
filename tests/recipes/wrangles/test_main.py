@@ -2539,217 +2539,268 @@ def test_copy_where():
     assert list(df['col3'].values) == ['', 'val1', 'val1']
 
 ## Python
-def test_python():
+class TestPython:
     """
-    Test a simple python command
+    Test Python Wrangle
     """
-    df = wrangles.recipe.run(
+    def test_python(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-        wrangles:
-          - python:
-              command: header1 + " " + header2
-              output: result
+        Test a simple python command
         """
-    )
-    assert df["result"][0] == "a b"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+            wrangles:
+            - python:
+                command: header1 + " " + header2
+                output: result
+            """
+        )
+        assert df["result"][0] == "a b"
 
-def test_python_list_comprehension():
-    """
-    Test a python list comprehension
-    """
-    df = wrangles.recipe.run(
+    def test_python_list_comprehension(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: '["a","b","c"]'
-                header2: '["1","2","3"]'
-        wrangles:
-          - convert.from_json:
-              input:
-                - header1
-                - header2
-          - python:
-              command: |
-                [
-                  x + " " + y
-                  for x, y in zip(header1, header2)
-                ]
-              output: result
-          - convert.to_json:
-              input: result
+        Test a python list comprehension
         """
-    )
-    assert df["result"][0] == '["a 1", "b 2", "c 3"]'
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: '["a","b","c"]'
+                    header2: '["1","2","3"]'
+            wrangles:
+            - convert.from_json:
+                input:
+                    - header1
+                    - header2
+            - python:
+                command: |
+                    [
+                    x + " " + y
+                    for x, y in zip(header1, header2)
+                    ]
+                output: result
+            - convert.to_json:
+                input: result
+            """
+        )
+        assert df["result"][0] == '["a 1", "b 2", "c 3"]'
 
-def test_python_column_with_space():
-    """
-    Test a simple python command
-    where a column name includes a space
-    """
-    df = wrangles.recipe.run(
+    def test_python_column_with_space(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header 1: a
-                header 2: b
-        wrangles:
-          - python:
-              command: header_1 + " " + header_2
-              output: result
+        Test a simple python command
+        where a column name includes a space
         """
-    )
-    assert df["result"][0] == "a b"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+                    header 2: b
+            wrangles:
+            - python:
+                command: header_1 + " " + header_2
+                output: result
+            """
+        )
+        assert df["result"][0] == "a b"
 
-def test_python_kwargs():
-    """
-    Test kwargs dict
-    """
-    df = wrangles.recipe.run(
+    def test_python_kwargs(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-        wrangles:
-          - python:
-              command: kwargs
-              output: result
-          - convert.to_json:
-              input: result
+        Test kwargs dict
         """
-    )
-    assert df["result"][0] == '{"header1": "a", "header2": "b"}'
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+            wrangles:
+            - python:
+                command: kwargs
+                output: result
+            - convert.to_json:
+                input: result
+            """
+        )
+        assert df["result"][0] == '{"header1": "a", "header2": "b"}'
 
-def test_python_input():
-    """
-    Test using input to filter columns
-    """
-    df = wrangles.recipe.run(
+    def test_python_input(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-                header3: c
-        wrangles:
-          - python:
-              command: kwargs
-              input:
-                - header1
-                - header2
-              output: result
-          - convert.to_json:
-              input: result
+        Test using input to filter columns
         """
-    )
-    assert df["result"][0] == '{"header1": "a", "header2": "b"}'
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+                    header3: c
+            wrangles:
+            - python:
+                command: kwargs
+                input:
+                    - header1
+                    - header2
+                output: result
+            - convert.to_json:
+                input: result
+            """
+        )
+        assert df["result"][0] == '{"header1": "a", "header2": "b"}'
 
-def test_python_input_wildcard():
-    """
-    Test using input to filter columns with a wildcard
-    """
-    df = wrangles.recipe.run(
+    def test_python_input_wildcard(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-                not_this: c
-        wrangles:
-          - python:
-              command: kwargs
-              input: header*
-              output: result
-          - convert.to_json:
-              input: result
+        Test using input to filter columns with a wildcard
         """
-    )
-    assert df["result"][0] == '{"header1": "a", "header2": "b"}'
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+                    not_this: c
+            wrangles:
+            - python:
+                command: kwargs
+                input: header*
+                output: result
+            - convert.to_json:
+                input: result
+            """
+        )
+        assert df["result"][0] == '{"header1": "a", "header2": "b"}'
 
-def test_python_multiple_output():
-    """
-    Test providing multiple outputs
-    """
-    df = wrangles.recipe.run(
+    def test_python_multiple_output(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-        wrangles:
-          - python:
-              command: kwargs.values()
-              output:
-                - result1
-                - result2
+        Test providing multiple outputs
         """
-    )
-    assert df["result1"][0] == "a" and df["result2"][0] == "b"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+            wrangles:
+            - python:
+                command: kwargs.values()
+                output:
+                    - result1
+                    - result2
+            """
+        )
+        assert df["result1"][0] == "a" and df["result2"][0] == "b"
 
-def test_python_params():
-    """
-    Test a simple python command
-    """
-    df = wrangles.recipe.run(
+    def test_python_params(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: a
-                header2: b
-        wrangles:
-          - python:
-              command: header1 + " " + my_param
-              output: result
-              my_param: my_value
+        Test a simple python command
         """
-    )
-    assert df["result"][0] == "a my_value"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: a
+                    header2: b
+            wrangles:
+            - python:
+                command: header1 + " " + my_param
+                output: result
+                my_param: my_value
+            """
+        )
+        assert df["result"][0] == "a my_value"
 
-def test_python_kwargs_scope():
-    """
-    Test to ensure variables
-    are correctly declared in scope
-    """
-    df = wrangles.recipe.run(
+    def test_python_kwargs_scope(self):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: value1
-                header2: value2
+        Test to ensure variables
+        are correctly declared in scope
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
 
-        wrangles:
-          - python:
-              output: test
-              command: |-
-                {
-                  k: kwargs[k]
-                  for k in ["header1"]
-                }
+            wrangles:
+            - python:
+                output: test
+                command: |-
+                    {
+                    k: kwargs[k]
+                    for k in ["header1"]
+                    }
+            """
+        )
+        assert df["test"][0]["header1"] == "value1"
+
+    def test_python_special_characters(self):
         """
-    )
-    assert df["test"][0]["header1"] == "value1"
+        Test to ensure that invalid python variable
+        characters are correctly handled by replacing
+        with underscores
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+                    header (2): b
+
+            wrangles:
+            - python:
+                output: test
+                command: header_1 + header__2_
+            """
+        )
+        assert df["test"][0] == "ab"
+
+    def test_python_special_characters_parameterized(self):
+        """
+        Test to ensure that special characters are
+        correctly handled when passed as parameters
+        using kwargs
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+                    'header "2"': b
+
+            wrangles:
+            - python:
+                output: test
+                command: header_1 + kwargs[h2]
+                h2: 'header "2"'
+            """
+        )
+        assert df["test"][0] == "ab"
 
 def test_accordion():
     """
