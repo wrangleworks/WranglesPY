@@ -1497,7 +1497,15 @@ def find_match(
         exact_match_value:
           type: string
           description: (Optional) Value to use for exact matches
-        
+        input_a_empty_value:
+          type: string
+          description: (Optional) Value to use for empty input a
+        input_b_empty_value:
+          type: string
+          description: (Optional) Value to use for empty input b
+        both_empty_value:
+          type: string
+          description: (Optional) Value to use for both inputs
     """
 
     if isinstance(decimal_places, str):
