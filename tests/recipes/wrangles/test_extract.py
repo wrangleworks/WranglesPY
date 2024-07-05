@@ -704,6 +704,31 @@ df_test_custom_multi_input = pd.DataFrame(
   }
 )
 
+def test_extract_custom_empty_input():
+    """
+    Test custom extract with an empty input
+    e.g. in the case a where filters all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.custom:
+            input:
+                - col1
+                - col2
+            output: col3
+            model_id: 1eddb7e8-1b2b-4a52
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [],
+            'col2': []
+        })
+    )
+    assert (
+        list(df.columns) == ['col1', 'col2', 'col3'] and
+        len(df) == 0
+    )
+
 def test_extract_custom_multi_input():
     recipe = """
     wrangles:
