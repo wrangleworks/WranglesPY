@@ -1992,3 +1992,34 @@ def test_ai_invalid_apikey():
             })
         )
     assert "API Key" in error.value.args[0]
+
+def test_ai_where():
+    """
+    Test using where with extract.ai
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.ai:
+            input: data
+            api_key: ${OPENAI_API_KEY}
+            seed: 1
+            timeout: 60
+            retries: 2
+            output:
+              length:
+                type: integer
+                description: Get the number from the input
+            where: data LIKE 'wrench%'
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
+        })
+    )
+    assert (
+        df['length'][1] == "" and (
+            df['length'][0] == 25 or
+            df['length'][2] == 35 or
+            df['length'][3] == 45
+        )
+    )
