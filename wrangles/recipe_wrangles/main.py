@@ -593,18 +593,19 @@ def align_columns(
       index_headers = df.index[combined_condition].tolist()
 
       df = df.drop(indicator, axis=1)
-
-      sub_data = df.iloc[:index_headers[0]]
-      result = _pd.concat([result, sub_data], axis=0, sort=True, ignore_index=True)
-      for i, val in enumerate(index_headers):
-        header_stack = df.iloc[val].tolist()
-        try:
-            next_val = index_headers[i + 1]
-            sub_data = _pd.DataFrame(data = df.iloc[val + 1: next_val].values, columns=header_stack)
-        except IndexError:
-            sub_data = _pd.DataFrame(data = df.iloc[val + 1:].values, columns = header_stack)
+      if index_headers:
+        sub_data = df.iloc[:index_headers[0]]
         result = _pd.concat([result, sub_data], axis=0, sort=True, ignore_index=True)
-
+        for i, val in enumerate(index_headers):
+          header_stack = df.iloc[val].tolist()
+          try:
+              next_val = index_headers[i + 1]
+              sub_data = _pd.DataFrame(data = df.iloc[val + 1: next_val].values, columns=header_stack)
+          except IndexError:
+              sub_data = _pd.DataFrame(data = df.iloc[val + 1:].values, columns = header_stack)
+          result = _pd.concat([result, sub_data], axis=0, sort=True, ignore_index=True)
+      else:
+          result = df
       if output is not None:
         result = result[output]
       return result

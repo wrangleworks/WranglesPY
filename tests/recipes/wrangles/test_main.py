@@ -4151,6 +4151,34 @@ def test_align_columns_empty_rows():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.equals(expected_df)
 
+def test_align_columns_no_headers():
+    '''
+    Testing indicator with no trues
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Number': ['12', '5', '40', '9'],
+        'Material': ['Steel', 'Copper','Vinyl', 'Chain'],
+        'Header': [np.nan,np.nan,np.nan,np.nan],
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+            output: 
+                - Colours
+                - Material
+                - Number
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+
 def test_align_columns_truthy_indicator():
     '''
     Testing the indicator param for truthy values
@@ -4195,6 +4223,33 @@ def test_align_columns_single_output():
             output:
                 - Number
                 - Material
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+def test_align_columns_no_truthy():
+    '''
+    Testing the indicator param for truthy values
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Number': ['12', '5', '40', '9'],
+        'Material': ['Steel', 'Copper','Vinyl', 'Chain'],
+        'Header': [False, False, False, False],
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+            output:
+                - Colours
+                - Material
+                - Number
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.equals(expected_df)
