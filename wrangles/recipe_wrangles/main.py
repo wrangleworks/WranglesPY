@@ -835,8 +835,9 @@ def python(
       variables from untrusted sources within the command string.
       The python command will be evaluated once for each row and the result returned.
       Reference column values by using their name.
-      Spaces within column names are replaced by underscores (_)
+      Non-alphanumeric characters within column names are replaced by underscores (_)
       Additionally, all columns are available as a dict named kwargs.
+      Additional parameters set for the wrangle will also be available to the command.
     required:
       - command
       - output
@@ -849,34 +850,66 @@ def python(
           Name or list of input column(s) to filter the data available
           to the command. Useful in conjunction with kwargs to target
           a variable range of columns.
+          If not specified, all columns will be available.
       output:
         type:
           - string
           - array
         description: |
           Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.  Note: spaces within
-           column names are replaced by underscores (_).
+          return a list of the corresponding length.
       command:
         type: string
-        description: Python command. This must return a value.
+        description: |
+          Python command. This must return a value.
+          Note: any non-alphanumeric characters in variable names
+          are replaced by underscores (_).
     """
-    def _apply_command(**kwargs):
-        return eval(command, {**kwargs, **{"kwargs": kwargs}}, {})
-    
-    df_temp = df.copy()
+    # Ensure input is a list and if not
+    # specified then set to all columns
+    if not input:
+        input = list(df.columns)
+    if not isinstance(input, list):
+        input = [input]
 
-    if input:
-        df_temp = df_temp[input].copy()
+    # Create rename dict to rename variables
+    # that can't be used as python variables
+    rename_dict = {
+        **{
+            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
+            for k in kwargs.keys()
+        },
+        **{
+            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
+            for k in input
+        }
+    }
 
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-
+    # Set whether to output as a single or multiple columns
     if isinstance(output, list) and len(output) > 1:
         result_type = "expand"
     else:
         result_type = "reduce"
     
-    df[output] = df_temp.apply(lambda x: _apply_command(**x, **kwargs), axis=1, result_type=result_type)
+    def _apply_command(**kwargs):
+        return eval(
+            command,
+            {
+                **{
+                    rename_dict.get(k, k): v
+                    for k, v in kwargs.items()
+                },
+                **{"kwargs": kwargs}
+            },
+            {}
+        )
+    
+    df[output] = df[input].apply(
+        lambda x: _apply_command(**x, **kwargs),
+        axis=1,
+        result_type=result_type
+    )
+
     return df
 
 
