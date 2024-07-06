@@ -4012,6 +4012,32 @@ class TestLookup:
             and df['Value2'][0] == "z"
         )
 
+    def test_lookup_rename_outputs_where(self):
+        """
+        Test renaming some of multiple output columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                - Value1: XYZ_Value1
+                - Value2
+                model_id: 6e97bb6c-bfab-402b
+                where: "[where] = 'x'"
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": ["a", "a"],
+                "where": ["x", "y"]
+            })
+        )
+        assert (
+            "Value1" not in df.columns and
+            df['XYZ_Value1'][0] == 1 and df['Value2'][0] == "z" and
+            df['XYZ_Value1'][1] == "" and df['Value2'][1] == ""
+        )
+
     def test_lookup_model_unrecognized_value_unnamed_column(self):
         """
         Test lookup using a saved lookup wrangle
