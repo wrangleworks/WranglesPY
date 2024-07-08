@@ -297,53 +297,6 @@ def classify(
 
     return df
 
-def compare_text(
-    df: _pd.DataFrame,
-    input_a: str,
-    input_b: str,
-    output: str,
-    type: str = 'difference',
-    char: str = ' ',
-) -> _pd.DataFrame:
-    """
-    type: object
-    description: Compare two strings and return the intersection or difference.
-    additionalProperties: false
-    required:
-      - input_a
-      - input_b
-      - output
-    properties:
-      input_a:
-        type: string
-        description: The first column to compare.
-      input_b:
-        type: string
-        description: The second to compare
-      output:
-        type: string
-        description: The column to output the results to
-      type:
-        type: string
-        description: (Optional) The type of comparison to perform
-        enum:
-          - intersection
-          - difference
-      char:
-        type: string
-        description: (Optional) The character to split the strings on. Default is a space
-    """
-
-    if input_a is None or input_b is None:
-        raise ValueError('Both input_a and input_b must be specified.')
-
-    df[output] = _select.compare_text(
-        input_a=df[input_a].astype(str).tolist(),
-        input_b=df[input_b].astype(str).tolist(),
-        type=type,
-        char=char
-    )
-    return df
 
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
