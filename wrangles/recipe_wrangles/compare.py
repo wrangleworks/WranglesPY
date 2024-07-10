@@ -29,44 +29,22 @@ def text(
     required:
       - input
       - output
+      - method
     properties:
       input:
-        type: list
-        description: the columns to compare
+        type: array
+        description: the columns to compare. First column is the base column
       output:
         type: string
         description: The column to output the results to
       method:
         type: string
-        description: (Optional) The type of comparison to perform
+        description: The type of comparison to perform (difference, intersection, overlap)
         enum:
           - difference
           - intersection
           - overlap
-      char:
-        type: string
-        description: (Optional difference/intersection) The character to split the strings on. Default is a space
-      non_match_char:
-        type: string
-        description: (Optional overlap) Character to use for non-matching characters
-      include_ratio:
-        type: boolean
-        description: (Optional overlap) Include the ratio of matching characters
-      decimal_places:
-        type: integer
-        description: (Optional overlap) Number of decimal places to round the ratio to
-      exact_match_value:
-        type: string
-        description: (Optional overlap) Value to use for exact matches
-      input_a_empty_value:
-        type: string
-        description: (Optional overlap) Value to use for empty input a
-      input_b_empty_value:
-        type: string
-        description: (Optional overlap) Value to use for empty input b
-      both_empty_value:
-        type: string
-        description: (Optional overlap) Value to use for both inputs
+    $ref: "#/$defs/misc/compare_text"
     """
 
     # Check that input is a list of length 2

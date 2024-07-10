@@ -491,6 +491,73 @@
               }
             }
           ]
+      },
+      "compare_text": {
+        "allOf": [
+          {
+            "if": {
+              "properties": { "method": { "const": "difference" } }
+            },
+            "then": {
+              "properties": {
+                "char": {
+                  "type": "string",
+                  "description": "(Optional) The character to split the strings on. Default is a space"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "method": { "const": "intersection" } }
+            },
+            "then": {
+              "properties": {
+                "char": {
+                  "type": "string",
+                  "description": "(Optional) The character to split the strings on. Default is a space"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": { "method": { "const": "overlap" } }
+            },
+            "then": {
+              "properties": {
+                "non_match_char": {
+                  "type": "string",
+                  "description": "(Optional) Character to use for non-matching characters"
+                },
+                "include_ratio": {
+                  "type": "boolean",
+                  "description": "(Optional) Include the ratio of matching characters"
+                },
+                "decimal_places": {
+                  "type": "integer",
+                  "description": "(Optional) Number of decimal places to round the ratio to"
+                },
+                "exact_match_value": {
+                  "type": "string",
+                  "description": "(Optional) Value to use for exact matches"
+                },
+                "input_a_empty_value": {
+                  "type": "string",
+                  "description": "(Optional) Value to use for empty input a"
+                },
+                "input_b_empty_value": {
+                  "type": "string",
+                  "description": "(Optional) Value to use for empty input b"
+                },
+                "both_empty_value": {
+                  "type": "string",
+                  "description": "(Optional) Value to use for both inputs"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }
