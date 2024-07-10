@@ -133,3 +133,76 @@ def test_text_4():
         dataframe=data,
     )
     assert df['output'].values.tolist() == ['Oak White Top', '']
+
+def test_text_5():
+    """
+    Using overlap method
+    """
+    data = pd.DataFrame({
+    'col1': [
+        'Mario',
+        'Luigi',
+    ],
+    'col2': [
+        'SuperMario',
+        'SuperLuigi',
+    ]
+    })
+
+    recipe = """
+    wrangles:
+    - compare.text:
+        input:
+          - col1
+          - col2
+        output: output
+        method: overlap
+    """
+    df = wrangles.recipe.run(
+        recipe=recipe,
+        dataframe=data,
+    )
+    assert df['output'].values.tolist() == ['*****Mario', '*****Luigi']
+
+def test_text_6():
+    """
+    Using overlap method and having empty values
+    """
+    data = pd.DataFrame({
+    'col1': [
+        'Mario',
+        'Luigi',
+        '',
+        'Bowser',
+        ''
+    ],
+    'col2': [
+        'SuperMario',
+        'SuperLuigi',
+        'SuperPeach',
+        '',
+        ''
+    ]
+    })
+
+    recipe = """
+    wrangles:
+    - compare.text:
+        input:
+          - col1
+          - col2
+        output: output
+        method: overlap
+        non_match_char: '@'
+        include_ratio: True
+        decimal_places: 2
+        exact_match_value: 'They are the same'
+        input_a_empty_value: 'Empty A'
+        input_b_empty_value: 'Empty B'
+        both_empty_value: 'Both Empty'
+    """
+    df = wrangles.recipe.run(
+        recipe=recipe,
+        dataframe=data,
+    )
+    assert df['output'].values.tolist() == [['@@@@@Mario', 0.67], ['@@@@@Luigi', 0.67], ['Empty A', 0], ['Empty B', 0], ['Both Empty', 0]]

@@ -2,14 +2,13 @@
 Compare subsets of input data
 """
 
-from typing import Union as _Union
 from difflib import SequenceMatcher
 
 
     
-def contrast(input_a: list, input_b: list, type: str ='difference', char: str = ' '):
+def _contrast(input_a: list, input_b: list, type: str ='difference', char: str = ' ') -> list:
     """
-    Compare the elements in a list of strings
+    Compare the elements in two lists and return the difference or intersection
     """
     results = []
     for a, b in zip(input_a, input_b):
@@ -43,7 +42,7 @@ def contrast(input_a: list, input_b: list, type: str ='difference', char: str = 
 
     return results
 
-def overlap(
+def _overlap(
         input_a: str,
         input_b: str,
         non_match_char: str = '*',
@@ -53,10 +52,10 @@ def overlap(
         input_a_empty_value: str = '<<A EMPTY>>',
         input_b_empty_value: str = '<<B EMPTY>>',
         both_empty_value: str = '<<BOTH EMPTY>>',
-    ) -> _Union[list, str]:
+    ) -> list:
     """
     Find the matching characters between two strings.
-    return: 2D list with the matched elements and the ratio of similarity
+    return: 2D list with the matched elements or the matched elements and the ratio of similarity in a list
     """
     results = []
     for a_value, b_value in zip(input_a, input_b):
@@ -121,3 +120,52 @@ def overlap(
             results.append(''.join(result))
 
     return results
+
+def text(
+    input_a: list,
+    input_b: list,
+    method: str = 'difference',
+    char: str = ' ',
+    non_match_char: str = '*',
+    include_ratio: bool = False,
+    decimal_places: int = 3,
+    exact_match_value: str = '<<EXACT_MATCH>>',
+    input_a_empty_value: str = '<<A EMPTY>>',
+    input_b_empty_value: str = '<<B EMPTY>>',
+    both_empty_value: str = '<<BOTH EMPTY>>',
+) -> list:
+    """
+    Compare two strings and return the intersection or difference using overlap or use match to find the matching characters between two strings.
+
+    :param input_a: List of strings to compare
+    :param input_b: List of strings to compare
+    :param method: The type of comparison to perform
+    :param char: The character to split the strings on. Default is a space
+    :param non_match_char: Character to use for non-matching characters
+    :param include_ratio: Include the ratio of matching characters
+    :param decimal_places: Number of decimal places to round the ratio to
+    :param exact_match_value: Value to use for exact matches
+    :param input_a_empty_value: Value to use for empty input a
+    :param input_b_empty_value: Value to use for empty input b
+    :param both_empty_value: Value to use for empty input a and b
+    """
+
+    if method not in ['difference', 'intersection', 'overlap']:
+        raise ValueError(f"Method must be one of ['difference', 'intersection', 'overlap']")
+
+    if method in ['difference', 'intersection']:
+        return _contrast(input_a, input_b, method, char)
+    
+    if method == 'overlap':
+        return _overlap(
+            input_a,
+            input_b,
+            non_match_char,
+            include_ratio,
+            decimal_places,
+            exact_match_value,
+            input_a_empty_value,
+            input_b_empty_value,
+            both_empty_value,
+        )
+    

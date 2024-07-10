@@ -77,7 +77,7 @@ def text(
         raise ValueError("Method must be one of 'overlap', 'difference' or 'intersection'")
 
     if method == 'difference' or method == 'intersection':
-        df[output] = _compare.contrast(
+        df[output] = _compare._contrast(
             input_a=df[input[0]].astype(str).tolist(),
             input_b=df[input[1]].astype(str).tolist(),
             type=method,
@@ -88,7 +88,7 @@ def text(
         if isinstance(decimal_places, str):
             int(decimal_places)
 
-        df[output] = _compare.overlap(
+        df[output] = _compare._overlap(
             df[input[0]].astype(str).values.tolist(),
             df[input[1]].astype(str).values.tolist(),
             non_match_char,

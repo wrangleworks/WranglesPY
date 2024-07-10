@@ -6,7 +6,6 @@ import json as _json
 import itertools as _itertools
 from .utils import wildcard_expansion_dict
 
-
 def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
