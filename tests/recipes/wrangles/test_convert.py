@@ -185,6 +185,67 @@ def test_case_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
+def test_case_empty_dataframe():
+    """
+    Test that convert.case works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.case:
+              input: example
+              output: output
+              case: upper
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_case_where_empty():
+    """
+    Test that convert.case works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.case:
+              input: example
+              case: upper
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value"
+
+def test_case_empty_dataframe_with_output():
+    """
+    Test that convert.case works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.case:
+              input: example
+              output: output
+              case: upper
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value" and df["output"][0] == ""
+
 #
 # Data Type
 #
@@ -283,6 +344,67 @@ def test_data_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
+
+def test_case_empty_dataframe():
+    """
+    Test that convert.data_type works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.data_type:
+              input: example
+              output: output
+              data_type: str
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_case_where_empty():
+    """
+    Test that convert.data_type works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 1
+        wrangles:
+          - convert.data_type:
+              input: example
+              data_type: str
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == 1
+
+def test_data_type_where_empty_with_output():
+    """
+    Test that convert.data_type works correctly
+    with a where that filters out all rows
+    and specifies output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 1
+        wrangles:
+          - convert.data_type:
+              input: example
+              output: output
+              data_type: str
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == 1 and df["output"][0] == ""
 
 #
 # JSON
@@ -574,6 +696,64 @@ def test_to_json_numpy_int():
         }, dtype=object)
     )
     assert df['column'][0] == '[1]'
+
+def test_to_json_with_empty_dataframe():
+    """
+    Test that convert.to_json works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_json:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_to_json_where_empty():
+    """
+    Test that convert.to_json works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.to_json:
+              input: example
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value"
+
+def test_to_json_empty_dataframe_with_output():
+    """
+    Test that convert.to_json works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.to_json:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value" and df["output"][0] == ""
 
 def test_from_json_array():
     """
@@ -911,6 +1091,65 @@ def test_fraction_to_decimal_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
+
+def test_fraction_to_decimal_empty_dataframe():
+    """
+    Test that convert.fraction_to_decimal works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.fraction_to_decimal:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_fraction_to_decimal_where_empty():
+    """
+    Test that convert.fraction_to_decimal works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 1/2
+        wrangles:
+          - convert.fraction_to_decimal:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "1/2"
+
+def test_fraction_to_decimal_empty_dataframe_with_output():
+    """
+    Test that convert.fraction_to_decimal works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 1/2
+        wrangles:
+          - convert.fraction_to_decimal:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "1/2" and df["output"][0] == ""
 
 def test_to_yaml():
     """
