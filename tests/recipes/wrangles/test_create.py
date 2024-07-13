@@ -342,6 +342,43 @@ def test_create_column_list_value():
         len(df["column"][0]) == 3
     )
 
+def test_create_column_empty_dataframe():
+    """
+    Test creating a column in an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.column:
+              output: new_col
+              value: one
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # All of the columns are empty
+    assert len(df) == 0
+
+def test_create_column_where_empty():
+    """
+    Test that create.column works with where
+    that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - create.column:
+              output: new_column
+              where: example = 1
+        """
+    )
+    # All of the new column values should be empty strings
+    assert all([x == '' for x in df['new_column'].values.tolist()])
+
 #
 # Index
 #
@@ -494,6 +531,21 @@ def test_guid_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['GUID Col'] == ''
+
+def test_guid_with_empty_dataframe():
+    """
+    Test that create.guid works with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.guid:
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # all of the columns are empty
+    assert len(df) == 0
 
 #
 # JINJA
@@ -765,6 +817,46 @@ def test_jinja_breaking_chars():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
+
+def test_jinja_with_empty_dataframe():
+    """
+    Testing jinja with empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.jinja:
+              output: Description
+              template:
+                string: |
+                    This is a {{length}} {{type}} screwdriver
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0
+
+def test_jinja_where_empty():
+    """
+    Test create.jinja using where
+    that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - create.jinja:
+              output: description
+              template: 
+                string: "This is a {{length}} {{type}} screwdriver"
+              where: example = 1
+        """
+    )
+    # All of the new column values should be empty strings
+    assert all([x == '' for x in df['description'].values.tolist()])
 
 #
 # UUID
