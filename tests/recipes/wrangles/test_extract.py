@@ -114,6 +114,45 @@ def test_address_multi_input():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out'] == ['221 B Baker St.']
 
+def test_address_empty_dataframe():
+    """
+    Test extract.address with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.address:
+              input: example
+              output: output
+              dataType: streets
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_address_where_empty():
+    """
+    Test extract.address works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: 221 B Baker St., London, England, United Kingdom
+    wrangles:
+      - extract.address:
+          input: example
+          output: output
+          dataType: streets
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
+
 #
 # Attributes
 #
