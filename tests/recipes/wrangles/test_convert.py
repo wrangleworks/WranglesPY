@@ -923,6 +923,64 @@ def test_from_json_default_dict_error():
         df["header1"][1] == [1,2,3]
     )
 
+def test_from_json_empty_dataframe():
+    """
+    Test that convert.from_json works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_json:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_from_json_where_empty():
+    """
+    Test that convert.from_json works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.from_json:
+              input: example
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value"
+
+def test_from_json_empty_dataframe_with_output():
+    """
+    Test that convert.from_json works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.from_json:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value" and df["output"][0] == ""
+
 #
 # Convert to datetime
 #
@@ -1202,6 +1260,64 @@ def test_to_yaml_sort_keys_true():
     )
     assert df['column'][0] == "key1:\n- list1\n- list2\nkey2: val\n"
 
+def test_to_yaml_empty_dataframe():
+    """
+    Test that convert.to_yaml works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.to_yaml:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_to_yaml_where_empty():
+    """
+    Test that convert.to_yaml works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.to_yaml:
+              input: example
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value"
+
+def test_to_yaml_empty_dataframe_with_output():
+    """
+    Test that convert.to_yaml works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.to_yaml:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value" and df["output"][0] == ""
+
 def test_from_yaml():
     """
     Test converting a YAML to an object
@@ -1286,3 +1402,61 @@ def test_from_yaml_error_default_dict():
         df["column"][0] == {} and
         df["column"][1]["key"] == "val"
     )
+
+def test_from_yaml_empty_dataframe():
+    """
+    Test that convert.from_yaml works
+    correctly with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - convert.from_yaml:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_from_yaml_where_empty():
+    """
+    Test that convert.from_yaml works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.from_yaml:
+              input: example
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value"
+
+def test_from_yaml_empty_dataframe_with_output():
+    """
+    Test that convert.from_yaml works correctly
+    with a where that filters out all rows
+    and specifies an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: value
+        wrangles:
+          - convert.from_yaml:
+              input: example
+              output: output
+              where: 1 = 2
+        """
+    )
+    assert df["example"][0] == "value" and df["output"][0] == ""
