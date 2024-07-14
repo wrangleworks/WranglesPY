@@ -454,6 +454,48 @@ def test_attributes_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == {'length': ['13mm']}
 
+def test_attributes_empty_dataframe():
+    """
+    Test that extract.attributes works correctly
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.attributes:
+              input: example
+              output: output
+              responseContent: span
+              attribute_type: mass
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_attributes_where_empty():
+    """
+    Test that attributes works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: 13 something 13kg 13 random
+    wrangles:
+      - extract.attributes:
+          input: example
+          output: output
+          responseContent: span
+          attribute_type: mass
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
+
 #
 # Codes
 #
@@ -561,6 +603,44 @@ def test_extract_codes_one_input_multi_output():
         info.typename == 'ValueError' and
         'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
     )
+
+def test_extract_codes_empty_dataframe():
+    """
+    Test that extract.codes works correctly
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.codes:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_extract_codes_where_empty():
+    """
+    Test that extract.codes works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: to gain access use Z1ON0101
+    wrangles:
+      - extract.codes:
+          input: example
+          output: output
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
 
 #
 # Custom Extraction
@@ -1289,7 +1369,49 @@ def test_unlabeled_only_with_first_element_true():
     """
     df =  wrangles.recipe.run(recipe, dataframe=data)
     assert df['out'][0] == {'Unlabeled': 'red'}
-    
+
+def test_custom_empty_dataframe():
+    """
+    Test that custom extract works
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.custom:
+            input: example
+            output: output
+            model_id: 829c1a73-1bfd-4ac0
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_custom_where_empty():
+    """
+    Test that custom extract works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: Pikachu
+    wrangles:
+      - extract.custom:
+          input: example
+          output: output
+          model_id: 1eddb7e8-1b2b-4a52
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
+
+
+
 #
 # Properties
 #
@@ -1502,6 +1624,43 @@ def test_extract_brackets_multi_input_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
     
+
+def test_extract_brackets_empty_dataframe():
+    """
+    Test extract.brackets with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.brackets:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_extract_brackets_where_empty():
+    """
+    Test that extract.brackets with where filters all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: [value]
+        wrangles:
+          - extract.brackets:
+              input: example
+              output: output
+              where: 1 = 2
+        """,
+    )
+    # All values in the output column should be empty
+    assert all(df["output"].apply(lambda x: x == ""))
+
 #
 # Date Properties
 #
