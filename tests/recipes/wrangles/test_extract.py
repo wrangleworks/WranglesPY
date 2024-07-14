@@ -763,6 +763,47 @@ def test_extract_regex_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
+
+def test_extract_regex_empty_dataframe():
+    """
+    Test that extract.regex works correctly
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.regex:
+              input: example
+              output: output
+              find: \d+
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_extract_regex_where_empty():
+    """
+    Test that extract.regex works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: Pikachu
+    wrangles:
+      - extract.regex:
+          input: example
+          output: output
+          find: \d+
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
+
     
 # incorrect model_id - forget to use ${}
 def test_extract_custom_6():
@@ -1500,6 +1541,47 @@ def test_properties_6():
 
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'Blue' in df.iloc[0]['out'] and 'Sky Blue' in df.iloc[0]['out']
+
+def test_properties_empty_dataframe():
+    """
+    Test that extract.properties works correctly
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.properties:
+              input: example
+              output: output
+              property_type: colours
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_properties_where_empty():
+    """
+    Test that extract.properties works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: Why is the sky blue?
+    wrangles:
+      - extract.properties:
+          input: example
+          output: output
+          property_type: colours
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    col_val = 'Why is the sky blue?'
+    assert all([x=='' for x in df['output'].values.tolist()])
     
 #
 # HTML
@@ -1532,6 +1614,68 @@ def test_extract_html_links():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+
+def test_extract_html_empty_dataframe():
+    """
+    Works with empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.html:
+              input: example
+              output: output
+              data_type: text
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_extract_html_where_empty():
+    """
+    Test that extract.html works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: <a href="https://www.wrangleworks.com/">Wrangle Works!</a>
+    wrangles:
+      - extract.html:
+          input: example
+          data_type: text
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    col_val = '<a href="https://www.wrangleworks.com/">Wrangle Works!</a>'
+    assert all([x==col_val for x in df['example'].values.tolist()])
+
+def test_extract_html_where_empty_with_output():
+    """
+    Test that extract.html works correctly
+    with a where that filters out all rows
+    """
+    df = wrangles.recipe.run(
+    """
+    read:
+      - test:
+          rows: 5
+          values:
+            example: <a href="https://www.wrangleworks.com/">Wrangle Works!</a>
+    wrangles:
+      - extract.html:
+          input: example
+          output: output
+          data_type: text
+          where: 1 = 2
+    """
+    )
+    # all values should be empty strings
+    assert all([x=='' for x in df['output'].values.tolist()])
     
 #
 # Brackets
@@ -1760,6 +1904,65 @@ def test_date_properties_multi_input_multi_output_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['out1'] == 'Tuesday' and df.iloc[2]['out2'] == ""
+
+def test_date_properties_empty_dataframe():
+    """
+    Test extract.date_properties with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.date_properties:
+              input: example
+              output: output
+              property: week_day_name
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_date_properties_where_empty():
+    """
+    Test that extract.date_properties with where filters all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 12/24/2000
+        wrangles:
+          - extract.date_properties:
+              input: example
+              property: week_day_name
+              where: 1 = 2
+        """,
+    )
+    # All values in the output column should be empty
+    assert all(df["example"].apply(lambda x: x == "12/24/2000"))
+
+def test_date_properties_where_empty_with_output():
+    """
+    Test that date properties works correctly with where and output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 12/24/2000
+        wrangles:
+          - extract.date_properties:
+                input: example
+                output: output
+                property: week_day_name
+                where: 1 = 2
+        """
+    )
+    assert df['example'][0] == '12/24/2000' and df['output'][0] == ''
+
     
 #
 # Date range
@@ -1803,6 +2006,47 @@ def test_date_range_2():
         info.typename == 'ValueError' and
         '"millennium" not a valid frequency' in info.value.args[0]
     )
+
+def test_date_range_empty_dataframe():
+    """
+    Test extract.date_range with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.date_range:
+              start_time: example1
+              end_time: example2
+              output: output
+              range: years
+        """,
+        dataframe=pd.DataFrame({"example1": [], "example2": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_date_range_where_empty():
+    """
+    Test that extract.date_range with where filters all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example1: 12/24/2000
+                example2: 12/25/2020
+        wrangles:
+          - extract.date_range:
+              start_time: example1
+              end_time: example2
+              output: output
+              range: days
+              where: 1 = 2
+        """
+    )
+    # All values in the output column should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
 
 def test_ai():
     """
