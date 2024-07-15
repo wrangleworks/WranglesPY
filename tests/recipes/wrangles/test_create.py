@@ -356,7 +356,7 @@ def test_create_column_empty_dataframe():
         dataframe=pd.DataFrame({"example": []})
     )
     # All of the columns are empty
-    assert len(df) == 0
+    assert len(df) == 0 and 'new_col' in df.columns
 
 def test_create_column_where_empty():
     """
@@ -545,7 +545,7 @@ def test_guid_with_empty_dataframe():
         dataframe=pd.DataFrame({"example": []})
     )
     # all of the columns are empty
-    assert len(df) == 0
+    assert len(df) == 0 and 'output' in df.columns
 
 #
 # JINJA
@@ -833,7 +833,7 @@ def test_jinja_with_empty_dataframe():
         """,
         dataframe=pd.DataFrame({"example": []})
     )
-    assert len(df) == 0
+    assert len(df) == 0 and 'Description' in df.columns
 
 def test_jinja_where_empty():
     """

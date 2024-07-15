@@ -171,6 +171,44 @@ def test_classify_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
 
+def test_classify_empty_dataframe():
+    """
+    Test classify on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - classify:
+                input: example
+                output: output
+                model_id: c77839db-237a-476b
+        """,
+        dataframe = pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_classify_where_empty():
+    """
+    Test classify using where on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: Ball Bearing
+        wrangles:
+            - classify:
+                input: example
+                output: output
+                model_id: c77839db-237a-476b
+                where: 1 = 2
+        """,
+    )
+    # all values should be empty strings as the where condition is never met
+    assert all(x == "" for x in df['output'])
+
 
 #
 # Filter
@@ -2499,6 +2537,57 @@ def test_date_calc_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'
 
+def test_date_calc_empty_dataframe():
+    data = pd.DataFrame({
+        'date1': []
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 0 and 'out1' not in df.columns
+
+def test_date_calc_where_empty():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022', '12/31/2022'],
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # the date1 data should be the same as originial since where clause is not met
+    assert df['date1'].values.tolist() == ['12/25/2022', '12/31/2022']
+
+def test_date_calc_where_empty_with_output():
+    data = pd.DataFrame({
+        'date1': ['12/25/2022', '12/31/2022'],
+    })
+    recipe = """
+    wrangles:
+      - date_calculator:
+          input: date1
+          output: out1
+          operation: subtract
+          time_unit: days
+          time_value: 1
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # the out1 data should be empty strings since where clause is not met
+    assert df['out1'].values.tolist() == ['', '']
+
 def test_copy():
     """
     Test copying a column
@@ -2537,6 +2626,42 @@ def test_copy_where():
         })
     )
     assert list(df['col3'].values) == ['', 'val1', 'val1']
+
+def test_copy_empty_dataframe():
+    """
+    Test copying a column from an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - copy:
+              input: col1
+              output: col2
+        """,
+        dataframe=pd.DataFrame({
+            "col1": []
+        })
+    )
+    assert len(df) == 0 and 'col2' not in df.columns
+
+def test_copy_where_empty():
+    """
+    Test copying a column with a where clause from an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - copy:
+              input: col1
+              output: col2
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            "col1": ["one", "two", "three"],
+        })
+    )
+    # all col2 values should be empty strings due to the where clause not being met
+    assert all(x == "" for x in df['col2'])
 
 ## Python
 class TestPython:
@@ -3396,6 +3521,49 @@ def test_accordion_empty_list():
     )
     assert df["list_column"][0] == ["A","B","C"]
     assert df["list_column"][1] == []
+
+def test_accordion_empty_dataframe():
+    """
+    Test that an accordion preserves rows with empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - create.column:
+                    output: NEW
+                    value: NEW_VALUE
+        """,
+        dataframe=pd.DataFrame({
+            "list_column": []
+        })
+    )
+    assert df["list_column"].tolist() == []
+
+def test_accordion_where_empty():
+    """
+    Test that an accordion preserves rows with empty lists
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - accordion:
+              input: list_column
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    output: output
+                    case: upper
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            "list_column": [["a","b","c"]]
+        })
+    )
+    # all output should be empty strings as the where clause is not met
+    assert all(x for x in df['output'])
 
 class TestBatch:
     """

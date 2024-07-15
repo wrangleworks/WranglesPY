@@ -2265,7 +2265,7 @@ def test_element_empty_dataframe():
             "col": []
         })
     )
-    assert len(df) == 0
+    assert len(df) == 0 and "result" in df.columns
 
 
 def test_select_columns_basic():
@@ -2350,7 +2350,7 @@ def test_select_columns_empty_dataframe():
             input: Col1
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert len(df) == 0    
+    assert len(df) == 0  and "Col1" in df.columns
 
 def test_head():
     """

@@ -541,7 +541,7 @@ def test_split_text_empty_dataframe():
             'col1': []
         })
     )
-    assert len(df) == 0
+    assert len(df) == 0 and "col1" in df.columns
 
 def test_split_text_where_empty():
     """
@@ -641,12 +641,13 @@ def test_split_list_empty_dataframe():
         wrangles:
           - split.list:
               input: col1
+              output: output
         """,
         dataframe=pd.DataFrame({
             'col1': []
         })
     )
-    assert len(df) == 0    
+    assert len(df) == 0 and "output" in df.columns
 #
 # Split from Dict
 #
@@ -1101,7 +1102,7 @@ def test_split_dictionary_empty_dataframe():
             'col1': []
         })
     )
-    assert len(df) == 0
+    assert len(df) == 0 and "col1" in df.columns
 
 def test_split_dictionary_where_empty():
     """
@@ -1229,7 +1230,7 @@ def test_tokenize_empty_dataframe():
             'col1': []
         })
     )
-    assert len(df) == 0
+    assert len(df) == 0 and "col1" in df.columns
 
 def test_tokenize_where_empty():
     """
