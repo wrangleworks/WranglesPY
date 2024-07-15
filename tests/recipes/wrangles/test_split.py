@@ -527,6 +527,60 @@ def test_split_text_regex_case_insensitive():
         df['col1'][1] == ["1","2"]
     )
 
+def test_split_text_empty_dataframe():
+    """
+    Test split.text with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col1
+        """,
+        dataframe=pd.DataFrame({
+            'col1': []
+        })
+    )
+    assert len(df) == 0
+
+def test_split_text_where_empty():
+    """
+    Test split.text using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col1
+                where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['Hello, Wrangles!', 'Hello, World!', 'Hola, Mundo!'],
+        })
+    )
+    # col1 should be all empty strings since the where condition was not met
+    assert all(x=="" for x in df['col1'])
+
+def test_split_text_where_empty_with_output():
+    """
+    Test split.text using where with an empty dataframe
+    and output columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - split.text:
+                input: col1
+                output: output
+                where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['Hello, Wrangles!', 'Hello, World!', 'Hola, Mundo!'],
+        })
+    )
+    # output should be all empty strings since the where condition was not met
+    assert all(x=="" for x in df['output'])
+
 #
 # Split from List
 #
@@ -577,6 +631,22 @@ def test_split_list_2():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out2'] == 'Wrangles!'
     
+
+def test_split_list_empty_dataframe():
+    """
+    Test split.list with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.list:
+              input: col1
+        """,
+        dataframe=pd.DataFrame({
+            'col1': []
+        })
+    )
+    assert len(df) == 0    
 #
 # Split from Dict
 #
@@ -1017,6 +1087,43 @@ def test_split_dictionary_output_regex_missing_capture():
             })
         )
 
+def test_split_dictionary_empty_dataframe():
+    """
+    Test splitting an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': []
+        })
+    )
+    assert len(df) == 0
+
+def test_split_dictionary_where_empty():
+    """
+    Test split.dictionary using where
+    with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.dictionary:
+              input: col1
+              where: 1 = 2
+        """, 
+        dataframe=pd.DataFrame({
+            'col1': [
+                {'Col1': 'A', 'Col2': 'B', 'Col3': 'C'},
+                {'Col1': 'D', 'Col2': 'E', 'Col3': 'F'},
+                {'Col1': 'G', 'Col2': 'H', 'Col3': 'I'}
+            ],        })
+    )
+    # There should not be any new columns created since the where condition was not met
+    assert len(df.columns.tolist()) == 1
 
 #
 # Tokenize List
@@ -1107,3 +1214,57 @@ def test_tokenize_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['out1'][0] == 'Titanium' and df.iloc[0]['out1'] == ''
+
+def test_tokenize_empty_dataframe():
+    """
+    Test split.tokenize with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.tokenize:
+              input: col1
+        """,
+        dataframe=pd.DataFrame({
+            'col1': []
+        })
+    )
+    assert len(df) == 0
+
+def test_tokenize_where_empty():
+    """
+    Test split.tokenize using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.tokenize:
+              input: col1
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['Stainless Steel', 'Oak Wood']
+        })
+    )
+    # col1 should be all strings since the where condition was not met
+    assert all(isinstance(x, str) for x in df['col1'])
+
+def test_tokenize_where_empty_with_output():
+    """
+    Test split.tokenize using where with an empty dataframe
+    and output columns
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - split.tokenize:
+              input: col1
+              output: output
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['Stainless Steel', 'Oak Wood']
+        })
+    )
+    # output should be all empty strings since the where condition was not met
+    assert all(x=="" for x in df['output'])
