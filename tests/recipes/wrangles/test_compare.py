@@ -7,7 +7,7 @@ import pytest
 # Text
 #
 
-def test_text_1():
+def test_compare_text_default():
     """
     Test normal Compare Text. Difference (default)
     """
@@ -40,7 +40,7 @@ def test_text_1():
     )
     assert df['output'].values.tolist() == ['Oak White Top', 'Oak White Marble', 'Oak White Marble']
 
-def test_text_2():
+def test_compare_text_intersection():
     """
     Test normal Compare Text. Intersection
     """
@@ -73,9 +73,9 @@ def test_text_2():
     )
     assert df['output'].values.tolist() == ['Mario Wood Marble Bookshelf', 'Luigi Wood Top Coffee Table', 'Peach Wood Top Console Table']
 
-def test_text_3():
+def test_compare_text_empty_value_second_column():
     """
-    Having an empty value in input_b
+    Having an empty value in second column
     """
     data = pd.DataFrame({
     'col1': [
@@ -104,9 +104,9 @@ def test_text_3():
     )
     assert df['output'].values.tolist() == ['Mario Wood Marble Bookshelf', '']
 
-def test_text_4():
+def test_compare_text_empty_value_first_column():
     """
-    Having an empty value in input_a
+    Having an empty value in the first column
     """
     data = pd.DataFrame({
     'col1': [
@@ -134,7 +134,7 @@ def test_text_4():
     )
     assert df['output'].values.tolist() == ['Oak White Top', '']
 
-def test_text_5():
+def test_compare_text_overlap():
     """
     Using overlap method
     """
@@ -164,7 +164,7 @@ def test_text_5():
     )
     assert df['output'].values.tolist() == ['*****Mario', '*****Luigi']
 
-def test_text_6():
+def test_compare_text_overlap_empty_values():
     """
     Using overlap method and having empty values
     """
