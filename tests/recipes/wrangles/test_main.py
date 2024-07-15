@@ -532,6 +532,39 @@ def test_filter_input_list():
     )
     assert len(df) == 1
 
+def test_filter_empty_dataframe():
+    """
+    Test filter on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - filter:
+              input: example
+              contains: App
+        """,
+        dataframe = pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "example" in df.columns
+
+def test_filter_empty_dataframe_where():
+    """
+    Test filter using where on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: Ball Bearing
+        wrangles:
+          - filter:
+              where: 1 = 2
+        """,
+    )
+    assert len(df) == 0 and "example" in df.columns
+
 
 #
 # Log
@@ -649,6 +682,37 @@ def test_log_write():
         """
     )
     assert len(df) == 5 and df['header'][0] == 'value'
+
+def test_log_empty_dataframe():
+    """
+    Test log on an empty dataframe
+    """
+    wrangles.recipe.run(
+        """
+        wrangles:
+          - log:
+              columns:
+                - example
+        """,
+        dataframe = pd.DataFrame({"example": []})
+    )
+
+def test_log_empty_where():
+    """
+    Test log using where on an empty dataframe
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: Ball Bearing
+        wrangles:
+          - log:
+              where: 1 = 2
+        """
+    )
 
 #
 # Remove Words
@@ -952,6 +1016,71 @@ def test_remove_words_mixed_to_remove_5():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+    
+
+def test_remove_words_empty_dataframe():
+    """
+    Test remove_words on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - remove_words:
+              input: example
+              output: output
+              to_remove:
+                - temp
+        """,
+        dataframe = pd.DataFrame({"example": [], 'temp': []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_remove_words_empty_where():
+    """
+    Test remove_words using where on an empty dataframe
+    """
+    data = pd.DataFrame({
+        'col': ['Metal Carbon Water Tank'],
+        'materials': ['Metal Carbon']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - remove_words:
+              where: 1 = 2
+              input: col
+              to_remove:
+                - materials
+              where: 1 = 2
+        """,
+        dataframe=data
+    )
+    # col one should be the same as input
+    assert df['col'].values.tolist() == ['Metal Carbon Water Tank']
+
+def test_remove_words_where_empty_with_output():
+    """
+    Test remove_words using where on an empty df and having an output
+    """
+    data = pd.DataFrame({
+        'col': ['Metal Carbon Water Tank'],
+        'materials': ['Metal Carbon']
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - remove_words:
+              where: 1 = 2
+              input: col
+              output: output
+              to_remove:
+                - materials
+              where: 1 = 2
+        """,
+        dataframe=data
+    )
+    # output should be all empty strings
+    assert all(x == "" for x in df['output'])
     
 
 #
@@ -1623,6 +1752,48 @@ def test_similarity_invalid_method():
         'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
     )
 
+def test_similarity_empty_dataframe():
+    """
+    Test similarity on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - similarity:
+              input:
+                - col1
+                - col2
+              output: Cos Sim
+              method: cosine
+        """,
+        dataframe = pd.DataFrame({"col1": [], 'col2': []})
+    )
+    assert len(df) == 0 and "Cos Sim" in df.columns
+
+def test_similarity_where_empty():
+    """
+    Test similarity using where on an empty dataframe
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10]]
+    })
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - similarity:
+              input:
+                - col1
+                - col2
+              output: Cos Sim
+              method: cosine
+              where: 1 = 2
+        """,
+        dataframe=data
+    )
+    # all output values should be empty string since where clause was not applied to column
+    assert all(x=="" for x in df['Cos Sim'])
+
 
 #
 # Standardize
@@ -1964,6 +2135,58 @@ def test_standardize_case_insensitive_multi_model():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
 
+def test_standardize_empty_dataframe():
+    """
+    Test standardize on an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - standardize:
+              input: col1
+              output: output
+              model_id: 6ca4ab44-8c66-40e8
+        """,
+        dataframe = pd.DataFrame({"col1": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_standardize_where_empty():
+    """
+    Where is an empty df
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - standardize:
+              input: col1
+              model_id: 6ca4ab44-8c66-40e8
+              where: 1=2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['eta', 'brb']
+        })
+    )
+    # input should be the same as output since where was not applied
+    assert df['col1'].values.tolist() == ['eta', 'brb']
+
+def test_standardize_where_empty_with_output():
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - standardize:
+              input: col1
+              output: output
+              model_id: 6ca4ab44-8c66-40e8
+              where: 1=2
+        """,
+        dataframe=pd.DataFrame({
+            'col1': ['eta', 'brb']
+        })
+    )
+    # all output values should be empty strings
+    assert all(x=="" for x in df['output'])
+
 def test_replace():
     """
     Test replace
@@ -2127,6 +2350,61 @@ def test_replace_string_with_integer():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['replaced numbers'] == 'fifty-5'
 
+def test_replace_empty_dataframe():
+    """
+    Test replacing wrangle when an empty df is the input
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - replace:
+              input: col1
+              output: output
+              find: five
+              replace: 5
+        """,
+        dataframe=pd.DataFrame({"col1": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_replace_where_empty():
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - replace:
+            input: example
+            find: five
+            replace: 5
+            where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'example': ['my five', 'five items']
+        })
+    )
+    # example should be the same as the input
+    assert df['example'].values.tolist() == ['my five', 'five items']
+
+def test_replace_where_empty_with_output():
+    """
+    Where is empty with an output column
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - replace:
+            input: example
+            output: output
+            find: five
+            replace: 5
+            where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'example': ['my five', 'five items']
+        })
+    )
+    # all values in output should be empty strings
+    assert all(x == "" for x in df['output'])
+
 #
 # Translate
 #
@@ -2225,6 +2503,47 @@ def test_translate_where():
     df =  wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['English'] == "" and df.iloc[1]['English'] == 'My name is Johnny Number Five'
 
+def test_translate_empty_dataframe():
+    """
+    input data is an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - translate:
+              input: example
+              output: output
+              source_language: Spanish
+              target_language: English
+        """,
+        dataframe=pd.DataFrame({
+            'example': []
+        })
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_translate_where_empty():
+    """
+    Where is an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - translate:
+              input: example
+              output: output
+              source_language: Spanish
+              target_language: English
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({
+            'example': ['esto', 'no', 'funciona']
+        })
+    )
+    # all outputs should be empty strings
+    assert all(x=="" for x in df['output'])
+
+ 
 #
 # Maths
 #
@@ -2304,6 +2623,40 @@ def test_math_column_spaces():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['result'] == 3
+
+def test_maths_empty_dataframe():
+    """
+    Test maths with an empty dataframe
+    """
+    data = pd.DataFrame({
+        'col1': [],
+    })
+    recipe = """
+    wrangles:
+      - maths:
+          input: sqrt(col1)
+          output: result
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty and "result" in df.columns
+
+def test_maths_where_empty():
+    """
+    Test maths with where clause and an empty dataframe
+    """
+    data = pd.DataFrame({
+        'col1': [1, 2, 3],
+    })
+    recipe = """
+    wrangles:
+      - maths:
+          input: sqrt(col1)
+          output: result
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # all values should be empty strings
+    assert all(x == "" for x in df['result'])
     
 
 #
@@ -2404,6 +2757,18 @@ def test_recipe_wrangle_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col'].iloc[0] == 'MARIO'
+
+def test_recipe_empty_dataframe():
+    data = pd.DataFrame({
+        'col': []
+    })
+    recipe = """
+    wrangles:
+      - recipe:
+          name: 'tests/samples/recipe_ception.wrgl.yaml'
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty and 'col' in df.columns
     
     
 #
