@@ -185,7 +185,7 @@ def test_case_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
-def test_case_empty_dataframe():
+def test_convert_case_empty_dataframe():
     """
     Test that convert.case works
     correctly with an empty dataframe
@@ -202,7 +202,7 @@ def test_case_empty_dataframe():
     )
     assert len(df) == 0 and "output" in df.columns
 
-def test_case_where_empty():
+def test_convert_case_where_empty():
     """
     Test that convert.case works correctly
     with a where that filters out all rows
