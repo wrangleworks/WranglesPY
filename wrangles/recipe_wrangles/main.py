@@ -27,7 +27,6 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
-from .. import select as _select
 
 
 def accordion(
