@@ -399,6 +399,66 @@ def test_date_format_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['date'] == '1992-08-13' and df.iloc[1]['date'] == '11/10/1987'
 
+def test_date_format_empty_dataframe():
+    """
+    Test format.date with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.dates:
+              input: example
+              output: output
+              format: "%Y-%m-%d"
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_date_format_where_empty():
+    """
+    Test format.date using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 08/13/2024
+        wrangles:
+          - format.dates:
+              input: example
+              format: "%Y-%m-%d"
+              where: 1 = 2 
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    df['example'][0] == '08/13/2024'
+
+def test_date_format_where_empty_output():
+    """
+    Test format.date using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 08/13/2024
+        wrangles:
+          - format.dates:
+              input: example
+              format: "%Y-%m-%d"
+              output: output
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
+
 #
 # pad
 #
