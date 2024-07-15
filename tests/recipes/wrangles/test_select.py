@@ -270,6 +270,67 @@ def test_dictionary_element_json_element_single():
     )
     assert df['column'][0] == 1
 
+def test_dictionary_element_empty_dataframe():
+    """
+    Test that select.dictionary_element gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.dictionary_element:
+            input: column
+            element: a
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_dictionary_element_where_empty():
+    """
+    Test select.dictionary_element using where
+    """
+    data = pd.DataFrame({
+        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+                 {'colours': ['green', 'gold', 'yellow'], 'shapes': 'square', 'materials': 'titanium'},
+                 {'colours': ['orange', 'purple', 'black'], 'shapes': 'triangular', 'materials': 'aluminum'}],
+        'numbers': [3, 6, 10]
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Prop
+          element: shapes
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be dicts as the where condition is never met
+    assert all(isinstance(x, dict) for x in df['Prop'])
+
+def test_dictionary_element_where_empty_with_output():
+    """
+    Test select.dictionary_element using where
+    """
+    data = pd.DataFrame({
+        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+                 {'colours': ['green', 'gold', 'yellow'], 'shapes': 'square', 'materials': 'titanium'},
+                 {'colours': ['orange', 'purple', 'black'], 'shapes': 'triangular', 'materials': 'aluminum'}],
+        'numbers': [3, 6, 10]
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: Prop
+          output: Shapes
+          element: shapes
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be empty strings as the where condition is never met
+    assert all(x == "" for x in df['Shapes'])
+
 #
 # List Element
 #
@@ -488,6 +549,61 @@ def test_list_element_json():
     )
     assert df['column'][0] == 'B'
 
+def test_list_element_empty_dataframe():
+    """
+    Test that select.list_element gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.list_element:
+            input: column
+            element: 1
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_list_element_where_empty():
+    """
+    Test select.list_element using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          element: 1
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be lists as the where condition is never met
+    assert all(isinstance(x, list) for x in df['Col1'])
+
+def test_list_element_where_empty_with_output():
+    """
+    Test select.list_element using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']],
+    })
+    recipe = """
+    wrangles:
+      - select.list_element:
+          input: Col1
+          output: Second Element
+          element: 1
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be empty strings as the where condition is never met
+    assert all(x == "" for x in df['Second Element'])
+
 #
 # Highest confidence
 #
@@ -555,6 +671,42 @@ def test_highest_confidence_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Winner'] == ['F', .89] and df.iloc[0]['Winner'] == ''
+
+def test_highest_confidence_empty_dataframe():
+    """
+    Test that select.highest_confidence gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.highest_confidence:
+            input: column
+            output: Winner
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_highest_confidence_where_empty():
+    """
+    Test select.highest_confidence using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', .79], ['D', .88], ['G', .97]],
+    })
+    recipe = """
+    wrangles:
+      - select.highest_confidence:
+          input: Col1
+          output: output
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be empty strings as the where condition is never met
+    assert all(x == "" for x in df['output'])
 
 #
 # Threshold
@@ -668,6 +820,44 @@ def test_threshold_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Top Words'] == 'C' and df.iloc[0]['Top Words'] == ''
+
+def test_threshold_empty_dataframe():
+    """
+    Test that select.threshold gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.threshold:
+            input: column
+            output: Top Words
+            threshold: .77
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_threshold_where_empty():
+    """
+    Test select.threshold using where
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', .60], ['C', .88], ['E', .98]],
+    })
+    recipe = """
+    wrangles:
+      - select.threshold:
+          input: Col1
+          output: output
+          threshold: .77
+          where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # All values should be empty strings as the where condition is never met
+    assert all(x == "" for x in df['output'])
     
 #    
 # Left
@@ -865,6 +1055,63 @@ def test_left_negative_more_than_length():
         })
     )
     assert df["Col1"][0] == ""
+
+def test_left_empty_dataframe():
+    """
+    Test that select.left gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.left:
+            input: column
+            length: 5
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_left_where_empty():
+    """
+    Test select.left using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input: Col1
+            length: 5
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No left operation should be performed
+    assert df['Col1'].values.tolist() == ['one', 'two', 'three']
+
+def test_left_where_empty_with_output():
+    """
+    Test select.left using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.left:
+            input: Col1
+            output: output
+            length: 5
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No left operation should be performed, all values are empty strings
+    assert all(x == "" for x in df['output'])
 
 #
 # Right
@@ -1067,6 +1314,63 @@ def test_right_negative_more_than_length():
     )
     assert df["Col1"][0] == ""
 
+def test_right_empty_dataframe():
+    """
+    Test that select.right gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.right:
+            input: column
+            length: 5
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_right_where_empty():
+    """
+    Test select.right using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input: Col1
+            length: 2
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No right operation should be performed
+    assert df['Col1'].values.tolist() == ['one', 'two', 'three']
+
+def test_right_where_empty_with_output():
+    """
+    Test select.right using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+        'numbers': [6, 7, 8]
+    })
+    recipe = """
+    wrangles:
+        - select.right:
+            input: Col1
+            output: output
+            length: 2
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No right operation should be performed, all values are empty strings
+    assert all(x == "" for x in df['output'])
+
 #
 # Substring
 #
@@ -1207,6 +1511,64 @@ def test_substring_where():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''
+
+def test_substring_empty_dataframe():
+    """
+    Test that select.substring gives the correct
+    answer for an empty dataframe.
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - select.substring:
+            input: column
+            start: 5
+            length: 4
+        """,
+        dataframe=pd.DataFrame({
+            'column': []
+        })
+    )
+    assert df['column'].values.tolist() == []
+
+def test_substring_where_empty():
+    """
+    Test select.substring using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            start: 1
+            length: 2
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No substring operation should be performed
+    assert df['Col1'].values.tolist() == ['one', 'two', 'three']
+
+def test_substring_where_empty_with_output():
+    """
+    Test select.substring using where
+    """
+    data = pd.DataFrame({
+        'Col1': ['one', 'two', 'three'],
+    })
+    recipe = """
+    wrangles:
+        - select.substring:
+            input: Col1
+            output: output
+            start: 1
+            length: 2
+            where: 1 = 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    # No substring operation should be performed, all values are empty strings
+    assert all(x == "" for x in df['output'])
 
 def test_group_by():
     """
@@ -1888,6 +2250,24 @@ def test_element_json():
     )
     assert df["result"][0] == "a"
 
+def test_element_empty_dataframe():
+    """
+    Test get element from an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: col[0]
+              output: result
+        """,
+        dataframe=pd.DataFrame({
+            "col": []
+        })
+    )
+    assert len(df) == 0
+
+
 def test_select_columns_basic():
     """
     Test select.columns using basic inputs
@@ -1955,7 +2335,22 @@ def test_select_column_with_non_existing_cols():
     with pytest.raises(KeyError) as info:
         raise wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
-    
+
+def test_select_columns_empty_dataframe():
+    """
+    Test select.columns using an empty dataframe
+    """
+    data = pd.DataFrame({
+        'Col1': [],
+        'Col2': []
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input: Col1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert len(df) == 0    
 
 def test_head():
     """
