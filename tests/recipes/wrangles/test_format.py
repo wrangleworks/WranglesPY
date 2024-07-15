@@ -90,6 +90,63 @@ def test_remove_duplicates_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Remove'] == 'duplicate' and df.iloc[1]['Remove'] == ''
 
+def test_remove_duplicates_empty_dataframe():
+    """
+    Test format.remove_duplicates with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.remove_duplicates:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_remove_duplicates_where_empty():
+    """
+    Test format.remove_duplicates using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: duplicate duplicate
+        wrangles:
+          - format.remove_duplicates:
+              input: example
+              where: 1 = 2
+        """,
+    )
+    # no duplicates should be removed
+    assert all([x == 'duplicate duplicate' for x in df['example'].values.tolist()])
+
+def test_remove_duplicates_where_empty_output():
+    """
+    Test format.remove_duplicates using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: duplicate duplicate
+        wrangles:
+          - format.remove_duplicates:
+              input: example
+              output: output
+              where: 1 = 2
+        """,
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
+
+
 #
 # Trim
 #
@@ -175,6 +232,64 @@ def test_trim_list_to_single_output():
         info.typename == 'ValueError' and
         'The lists for input and output must be the same length.' in info.value.args[0]
     )
+
+
+def test_trim_empty_dataframe():
+    """
+    Test format.trim with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.trim:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_trim_where_empty():
+    """
+    Test format.trim using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: '         Wilson!         '
+        wrangles:
+          - format.trim:
+              input: example
+              where: 1 = 2
+        """,
+    )
+    # no trimming should be done
+    assert all([x == '         Wilson!         ' for x in df['example'].values.tolist()])
+
+def test_trim_where_empty_output():
+    """
+    Test format.trim using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: '         Wilson!         '
+        wrangles:
+          - format.trim:
+              input: example
+              output: output
+              where: 1 = 2
+        """,
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
+
 
 #    
 # Prefix
@@ -270,6 +385,67 @@ def test_prefix_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['pre-col'] == '' and df.iloc[2]['pre-col'] == 'extra-califragilisticexpialidocious'
     
+def test_prefix_empty_dataframe():
+    """
+    Test format.prefix with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.prefix:
+              input: example
+              output: output
+              value: extra-
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_prefix_where_empty():
+    """
+    Test format.prefix using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: terrestrial
+        wrangles:
+          - format.prefix:
+              input: example
+              value: extra-
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # no prefix should be added
+    assert all([x == 'terrestrial' for x in df['example'].values.tolist()])
+
+def test_prefix_where_empty_output():
+    """
+    Test format.prefix using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: terrestrial
+        wrangles:
+          - format.prefix:
+              input: example
+              output: output
+              value: extra-
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
+
 #    
 # Suffix
 #
@@ -364,6 +540,68 @@ def test_suffix_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['col-suf'] == '' and df.iloc[2]['col-suf'] == 'supercalifragilisticexpialidocious-cy'
     
+def test_suffix_empty_dataframe():
+    """
+    Test format.suffix with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.suffix:
+              input: example
+              output: output
+              value: -cy
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_suffix_where_empty():
+    """
+    Test format.suffix using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: urgen
+        wrangles:
+          - format.suffix:
+              input: example
+              value: -cy
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # no suffix should be added
+    assert all([x == 'urgen' for x in df['example'].values.tolist()])
+
+def test_suffix_where_empty_output():
+    """
+    Test format.suffix using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: urgen
+        wrangles:
+          - format.suffix:
+              input: example
+              output: output
+              value: -cy
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
+
+
 #
 # date format
 #
@@ -565,6 +803,71 @@ def test_pad_where():
   """
   df = wrangles.recipe.run(recipe, dataframe=data)
   assert df.iloc[0]['out1'] == '007' and df.iloc[2]['out1'] == ''
+
+def test_pad_empty_dataframe():
+    """
+    Test that it works with empty datframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.pad:
+              input: example
+              output: output
+              pad_length: 3
+              side: left
+              char: 0
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_pad_where_empty():
+    """
+    Test that it works with empty datframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 7
+        wrangles:
+          - format.pad:
+              input: example
+              pad_length: 3
+              side: left
+              char: A
+              where: 1 = 2
+        """,
+    )
+    # no padding should be done
+    assert all([int(x) == 7 for x in df['example'].values.tolist()])
+
+def test_pad_where_empty_with_output():
+    """
+    Test that it works with empty datframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 7
+        wrangles:
+          - format.pad:
+              input: example
+              output: output
+              pad_length: 3
+              side: left
+              char: A
+              where: 1 = 2
+        """,
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
   
 #
 # Significant Figures
@@ -641,3 +944,61 @@ def test_sig_figs_with_value():
             ''
         ]
     )
+
+def test_sig_figs_empty_dataframe():
+    """
+    Test format.significant_figures with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - format.significant_figures:
+              input: example
+              output: output
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    assert len(df) == 0 and "output" in df.columns
+
+def test_sig_figs_where_empty():
+    """
+    Test format.significant_figures using where with an empty dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 13.45644 ft
+        wrangles:
+          - format.significant_figures:
+              input: example
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # no significant figures should be formatted
+    assert all([x == '13.45644 ft' for x in df['example'].values.tolist()])
+
+def test_sig_figs_where_empty_output():
+    """
+    Test format.significant_figures using where with an empty output
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                example: 13.45644 ft
+        wrangles:
+          - format.significant_figures:
+              input: example
+              output: output
+              where: 1 = 2
+        """,
+        dataframe=pd.DataFrame({"example": []})
+    )
+    # All output columns should be empty
+    assert all(x=="" for x in df['output'].values.tolist())
