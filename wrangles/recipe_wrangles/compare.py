@@ -17,15 +17,14 @@ def text(
     non_match_char: str = '*',
     include_ratio: bool = False,
     decimal_places: int = 3,
-    exact_match_value: str = '<<EXACT_MATCH>>',
-    input_a_empty_value: str = '<<A EMPTY>>',
-    input_b_empty_value: str = '<<B EMPTY>>',
-    both_empty_value: str = '<<BOTH EMPTY>>',
+    exact_match: str = None,
+    empty_a: str = None,
+    empty_b: str = None,
+    all_empty: str = None,
 ) -> _pd.DataFrame:
     """
     type: object
     description: Compare two strings and return the intersection or difference using overlap or use match to find the matching characters between two strings.
-    additionalProperties: false
     required:
       - input
       - output
@@ -78,32 +77,30 @@ def text(
             decimal_places:
               type: integer
               description: "(Optional) Number of decimal places to round the ratio to"
-            exact_match_value:
+            exact_match:
               type: string
               description: "(Optional) Value to use for exact matches"
-            input_a_empty_value:
+            empty_a:
               type: string
               description: "(Optional) Value to use for empty input a"
-            input_b_empty_value:
+            empty_b:
               type: string
               description: "(Optional) Value to use for empty input b"
-            both_empty_value:
+            all_empty:
               type: string
               description: "(Optional) Value to use for both inputs"
 
     """
-
-    # Check that input is a list of length 2
-    if len(input) != 2:
-        raise ValueError("compare.text Wrangle, input must be a list of length 2")
-    
     if method not in ['difference', 'intersection', 'overlap']:
         raise ValueError("Method must be one of 'overlap', 'difference' or 'intersection'")
 
     if method == 'difference' or method == 'intersection':
+        # ensure that input is at least a list of two columns
+        if not isinstance(input, list) or len(input) < 2:
+            raise ValueError("Input must be a list of at least two columns")
+
         df[output] = _compare._contrast(
-            input_a=df[input[0]].astype(str).tolist(),
-            input_b=df[input[1]].astype(str).tolist(),
+            input=df[input].astype(str).values.tolist(),
             type=method,
             char=char
         )
@@ -112,16 +109,19 @@ def text(
         if isinstance(decimal_places, str):
             int(decimal_places)
 
+        # ensure that input is a list of two columns
+        if not isinstance(input, list) or len(input) != 2:
+            raise ValueError("Input must be a list of two columns")
+
         df[output] = _compare._overlap(
-            df[input[0]].astype(str).values.tolist(),
-            df[input[1]].astype(str).values.tolist(),
-            non_match_char,
-            include_ratio,
-            decimal_places,
-            exact_match_value,
-            input_a_empty_value,
-            input_b_empty_value,
-            both_empty_value
+            input=df[input].astype(str).values.tolist(),
+            non_match_char=non_match_char,
+            include_ratio=include_ratio,
+            decimal_places=decimal_places,
+            exact_match=exact_match,
+            empty_a=empty_a,
+            empty_b=empty_b,
+            all_empty=all_empty
         )
 
     return df

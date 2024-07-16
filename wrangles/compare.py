@@ -2,74 +2,90 @@
 Compare subsets of input data
 """
 
+from collections import OrderedDict
 from difflib import SequenceMatcher
 
 
-    
-def _contrast(input_a: list, input_b: list, type: str ='difference', char: str = ' ') -> list:
+def _ordered_words(string, char):
     """
-    Compare the elements in two lists and return the difference or intersection
+    Generate an ordered dictionary of words from a string.
+    """
+    words = OrderedDict()
+    for word in string.split(char):
+        if word not in words:
+            words[word] = None
+    return words
+
+
+def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
+    """
+    Compare the intersection or difference between multiple strings.
+
+    :param input: 2D list of strings to compare. [[str, str1], [str2, str3], ...]
+    :param type: The type of comparison to perform. 'difference' or 'intersection'
+    :param char: The character to split the strings on. Default is a space
     """
     results = []
-    for a, b in zip(input_a, input_b):
+    for row in input:
             
-        # split the strings into lists
+        if not row:
+            return ""
 
-        compare_types = ['intersection', 'difference']
+        # Generate ordered words for each string
+        ordered_words_list = [_ordered_words(x, char) for x in row]
 
-        if type not in compare_types:
-            raise ValueError(f"Type must be one of {compare_types}")
+        # Initialize intersection with the words of the first string
+        common_words = OrderedDict(ordered_words_list[0])
 
-        col_2 = set(b.split(char))
+        if type == 'intersection':
 
-        # dict to hold the comparison operation
-        compare_operation = {
-            'intersection': lambda x: x in col_2,
-            'difference': lambda x: x not in col_2
-        }
+            # Find the intersection by keeping only common words in the same order
+            for words in ordered_words_list[1:]:
+                common_words = OrderedDict((k, None) for k in common_words if k in words)
 
-        # simple techniques to get intersection and difference
-        # dict.fromkeys is trick to keep the tokens in original order
-        output =  list(dict.fromkeys(
-            [
-                word
-                for word in a.split(char)
-                if compare_operation[type](word)
-            ]
-        ))
+            intersection = " ".join(common_words.keys())
+            results.append(intersection)
 
-        results.append(' '.join(output))
+        else:
+            # Find the difference by keeping words that are in any string but not in the common words
+            all_words_flat = OrderedDict()
+            for words in ordered_words_list:
+                for word in words:
+                    if word not in all_words_flat:
+                        all_words_flat[word] = None
+
+            difference = " ".join(k for k in all_words_flat if k not in common_words)
+            results.append(difference)
 
     return results
 
 def _overlap(
-        input_a: str,
-        input_b: str,
+        input: list,
         non_match_char: str = '*',
         include_ratio: bool = False,
         decimal_places: int = 3,
-        exact_match_value: str = '<<EXACT_MATCH>>',
-        input_a_empty_value: str = '<<A EMPTY>>',
-        input_b_empty_value: str = '<<B EMPTY>>',
-        both_empty_value: str = '<<BOTH EMPTY>>',
+        exact_match: str = None,
+        empty_a: str = None,
+        empty_b: str = None,
+        all_empty: str = None,
     ) -> list:
     """
     Find the matching characters between two strings.
     return: 2D list with the matched elements or the matched elements and the ratio of similarity in a list
     """
     results = []
-    for a_value, b_value in zip(input_a, input_b):
+    for row in input:
 
-        a_str = str(a_value)
-        b_str = str(b_value)
+        a_str = str(row[0])
+        b_str = str(row[1])
 
         if not len(a_str) or not len(b_str):
             if not len(a_str) and not len(b_str):
-                empty_value = both_empty_value
+                empty_value = all_empty
             elif not len(a_str):
-                empty_value = input_a_empty_value
+                empty_value = empty_a
             else:
-                empty_value = input_b_empty_value
+                empty_value = empty_b
 
             if include_ratio:
                 results.append([empty_value, 0])
@@ -81,9 +97,11 @@ def _overlap(
         matcher = SequenceMatcher(lambda x: x == '-', a_str, b_str)
         if matcher.ratio() == 1.0:
             if include_ratio:
-                results.append([exact_match_value,0])
+                results.append(
+                    [exact_match if exact_match else a_str, 0]
+                )
             else:
-                results.append(exact_match_value)
+                results.append(exact_match if exact_match else a_str)
             continue
 
         result = []
@@ -120,52 +138,3 @@ def _overlap(
             results.append(''.join(result))
 
     return results
-
-def text(
-    input_a: list,
-    input_b: list,
-    method: str = 'difference',
-    char: str = ' ',
-    non_match_char: str = '*',
-    include_ratio: bool = False,
-    decimal_places: int = 3,
-    exact_match_value: str = '<<EXACT_MATCH>>',
-    input_a_empty_value: str = '<<A EMPTY>>',
-    input_b_empty_value: str = '<<B EMPTY>>',
-    both_empty_value: str = '<<BOTH EMPTY>>',
-) -> list:
-    """
-    Compare two strings and return the intersection or difference using overlap or use match to find the matching characters between two strings.
-
-    :param input_a: List of strings to compare
-    :param input_b: List of strings to compare
-    :param method: The type of comparison to perform
-    :param char: The character to split the strings on. Default is a space
-    :param non_match_char: Character to use for non-matching characters
-    :param include_ratio: Include the ratio of matching characters
-    :param decimal_places: Number of decimal places to round the ratio to
-    :param exact_match_value: Value to use for exact matches
-    :param input_a_empty_value: Value to use for empty input a
-    :param input_b_empty_value: Value to use for empty input b
-    :param both_empty_value: Value to use for empty input a and b
-    """
-
-    if method not in ['difference', 'intersection', 'overlap']:
-        raise ValueError(f"Method must be one of ['difference', 'intersection', 'overlap']")
-
-    if method in ['difference', 'intersection']:
-        return _contrast(input_a, input_b, method, char)
-    
-    if method == 'overlap':
-        return _overlap(
-            input_a,
-            input_b,
-            non_match_char,
-            include_ratio,
-            decimal_places,
-            exact_match_value,
-            input_a_empty_value,
-            input_b_empty_value,
-            both_empty_value,
-        )
-    
