@@ -15,8 +15,30 @@ def highest_confidence(data_list):
         highest_confidence = 0
         highest_result = None
         for cell in row:
-            if isinstance(cell, str): cell = cell.split(' || ')
-            if float(cell[1]) > highest_confidence:
+            if isinstance(cell, str) and ' || ' in cell: cell = cell.split(' || ')
+           
+            if isinstance(cell, list) and len(cell) > 0 and isinstance(cell[1], str): cell[1] = float(cell[1])
+
+            if isinstance(cell, list) and isinstance(cell[1], list):
+                for object in cell:
+                    if float(object[1] > highest_confidence):
+                        highest_result = object
+                        highest_confidence = float(object[1])
+                results.append(highest_result)
+                return results
+            
+            if not isinstance(cell, list):
+                if not isinstance(cell, str):
+                    cell = str(cell)
+                try: 
+                    cell = _json.loads(cell)
+                    if float(list(cell.values())[0]) > highest_confidence:
+                        highest_result = [list(cell.keys())[0] , float(list(cell.values())[0])]
+                        highest_confidence = float(list(cell.values())[0])
+                except(ValueError, TypeError):
+                    continue
+
+            if isinstance(cell, list) and float(cell[1]) > highest_confidence:
                 highest_result = cell
                 highest_confidence = float(cell[1])
 
