@@ -707,6 +707,31 @@ df_test_custom_multi_input = pd.DataFrame(
   }
 )
 
+def test_extract_custom_empty_input():
+    """
+    Test custom extract with an empty input
+    e.g. in the case a where filters all rows
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.custom:
+            input:
+                - col1
+                - col2
+            output: col3
+            model_id: 1eddb7e8-1b2b-4a52
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [],
+            'col2': []
+        })
+    )
+    assert (
+        list(df.columns) == ['col1', 'col2', 'col3'] and
+        len(df) == 0
+    )
+
 def test_extract_custom_multi_input():
     recipe = """
     wrangles:
@@ -1592,11 +1617,11 @@ def test_ai():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
               retries: 2
-              model: gpt-4-0125-preview
               output:
                 length:
                   type: string
@@ -1629,10 +1654,10 @@ def test_ai_multiple_output():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
-              model: gpt-4-0125-preview
               retries: 2
               output:
                 length:
@@ -1674,6 +1699,7 @@ def test_ai_multiple_input():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1716,6 +1742,7 @@ def test_ai_enum():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1784,6 +1811,7 @@ def test_ai_timeout_multiple_output():
         """
         wrangles:
           - extract.ai:
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 0.1
@@ -1825,7 +1853,7 @@ def test_ai_messages():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1865,7 +1893,7 @@ def test_ai_array_no_items():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1876,7 +1904,6 @@ def test_ai_array_no_items():
                   description: >-
                     Return the names of any fruits
                     that are yellow
-              model: gpt-4-1106-preview
         """,
         dataframe=pd.DataFrame({
             "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
@@ -1896,7 +1923,7 @@ def test_ai_array_item_type_specified():
         """
         wrangles:
           - extract.ai:
-              model: gpt-4-1106-preview
+              model: gpt-4o
               api_key: ${OPENAI_API_KEY}
               seed: 1
               timeout: 60
@@ -1908,7 +1935,6 @@ def test_ai_array_item_type_specified():
                     type: integer
                   description: >-
                     Get all numbers from the input
-              model: gpt-4-1106-preview
         """,
         dataframe=pd.DataFrame({
             "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
@@ -1969,3 +1995,34 @@ def test_ai_invalid_apikey():
             })
         )
     assert "API Key" in error.value.args[0]
+
+def test_ai_where():
+    """
+    Test using where with extract.ai
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.ai:
+            input: data
+            api_key: ${OPENAI_API_KEY}
+            seed: 1
+            timeout: 60
+            retries: 2
+            output:
+              length:
+                type: integer
+                description: Get the number from the input
+            where: data LIKE 'wrench%'
+        """,
+        dataframe=pd.DataFrame({
+            "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
+        })
+    )
+    assert (
+        df['length'][1] == "" and (
+            df['length'][0] == 25 or
+            df['length'][2] == 35 or
+            df['length'][3] == 45
+        )
+    )

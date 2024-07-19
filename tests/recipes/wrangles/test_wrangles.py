@@ -168,3 +168,43 @@ def test_where_data_types_preserved():
         df["Column1"].values.tolist() == [65, 72, '', 92, 87, 79] and
         df["Column3"][2] == ""
     )
+
+def test_where_falsy_value():
+    """
+    Ensure that falsy values from the original dataframe
+    are not removed by the where clause
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - math:
+            input: Column1 + 1
+            output: Column1
+            where: Column1 != 0
+        """,
+        dataframe= pd.DataFrame({
+            'Column1': [0, 1, 2, 3],
+        })
+    )
+    assert df["Column1"].values.tolist() == [0, 2, 3, 4]
+
+def test_where_input_wildcard():
+    """
+    Test that where works correct with an input
+    column identified by a wildcard
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - convert.case:
+            input:
+              - Column*
+            case: upper
+            where: clause = 'a'
+        """,
+        dataframe= pd.DataFrame({
+            'Column1': ["a,b,c", "x,y,z"],
+            "clause": ["a", "b"]
+        })
+    )
+    assert df["Column1"][0] == "A,B,C" and df["Column1"][1] == "x,y,z"

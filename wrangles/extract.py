@@ -9,7 +9,11 @@ from . import batching as _batching
 from .format import tokenize, flatten_lists
 
 
-def address(input: _Union[str, list], dataType: str) -> list:
+def address(
+    input: _Union[str, list],
+    dataType: str,
+    **kwargs
+) -> list:
     """
     Extract geographical information from unstructured text such as streets, cities or countries.
     Requires WrangleWorks Account.
@@ -26,7 +30,11 @@ def address(input: _Union[str, list], dataType: str) -> list:
         json_data = input
 
     url = f'{_config.api_host}/wrangles/extract/address'
-    params = {'responseFormat':'array', 'dataType':dataType }
+    params = {
+        'responseFormat':'array',
+        'dataType':dataType,
+        **kwargs
+    }
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
@@ -36,7 +44,14 @@ def address(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def attributes(input: _Union[str, list], responseContent: str = 'span', type: str = None, desiredUnit: str = None, bound: str = 'mid') -> _Union[dict, list]:
+def attributes(
+    input: _Union[str, list],
+    responseContent: str = 'span',
+    type: str = None,
+    desiredUnit: str = None,
+    bound: str = 'mid',
+    **kwargs
+) -> _Union[dict, list]:
     """
     Extract numeric attributes from unstructured text such as lengths or voltages.
     Requires WrangleWorks Account.
@@ -55,9 +70,12 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     else:
         json_data = input
 
-    # url = f'{_config.api_host}/wrangles/extract/attributes'
-    url = 'http://127.0.0.1:5000'
-    params = {'responseFormat':'array', 'responseContent': responseContent}
+    url = f'{_config.api_host}/wrangles/extract/attributes'
+    params = {
+        'responseFormat':'array',
+        'responseContent': responseContent,
+        **kwargs
+    }
     if type: params['attributeType'] = type
     if desiredUnit: params['desiredUnit'] = desiredUnit
     
@@ -75,7 +93,10 @@ def attributes(input: _Union[str, list], responseContent: str = 'span', type: st
     return results
 
 
-def codes(input: _Union[str, list]) -> list:
+def codes(
+    input: _Union[str, list],
+    **kwargs
+) -> list:
     """
     Extract alphanumeric codes from unstructured text.
     Requires WrangleWorks Account.
@@ -89,7 +110,7 @@ def codes(input: _Union[str, list]) -> list:
         json_data = input
 
     url = f'{_config.api_host}/wrangles/extract/codes'
-    params = {'responseFormat': 'array'}
+    params = {'responseFormat': 'array', **kwargs}
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
@@ -106,7 +127,8 @@ def custom(
     use_labels: bool = False,
     case_sensitive: bool = False,
     extract_raw: bool = False,
-    use_spellcheck: bool = False
+    use_spellcheck: bool = False,
+    **kwargs
 ) -> list:
     """
     Extract entities using a custom model.
@@ -138,7 +160,8 @@ def custom(
         'use_labels': use_labels,
         'caseSensitive': case_sensitive,
         'extract_raw': extract_raw,
-        'use_spellcheck': use_spellcheck
+        'use_spellcheck': use_spellcheck,
+        **kwargs
     }
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
@@ -179,7 +202,11 @@ def custom(
     return results
 
 
-def html(input: _Union[str, list], dataType: str) -> list:
+def html(
+    input: _Union[str, list],
+    dataType: str,
+    **kwargs
+) -> list:
     """
     Extract specific html elements from strings containing html.
     Requires WrangleWorks Account.
@@ -194,7 +221,11 @@ def html(input: _Union[str, list], dataType: str) -> list:
         json_data = input
 
     url = f'{_config.api_host}/wrangles/extract/html'
-    params = {'responseFormat': 'array', 'dataType': dataType}
+    params = {
+        'responseFormat': 'array',
+        'dataType': dataType,
+        **kwargs
+    }
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
@@ -204,7 +235,12 @@ def html(input: _Union[str, list], dataType: str) -> list:
     return results
 
     
-def properties(input: _Union[str, list], type: str = None, return_data_type: str = 'list') -> _Union[dict, list]:
+def properties(
+    input: _Union[str, list],
+    type: str = None,
+    return_data_type: str = 'list',
+    **kwargs
+) -> _Union[dict, list]:
     """
     Extract categorical properties from unstructured text such as colours or materials.
     Requires WrangleWorks Account.
@@ -223,7 +259,7 @@ def properties(input: _Union[str, list], type: str = None, return_data_type: str
         json_data = input
 
     url = f'{_config.api_host}/wrangles/extract/properties'
-    params = {'responseFormat':'array'}
+    params = {'responseFormat':'array', **kwargs}
     if type is not None: params['dataType'] = type
     batch_size = 10000
 
