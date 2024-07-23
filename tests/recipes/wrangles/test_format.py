@@ -685,7 +685,7 @@ class TestFormatAttributes:
         )
         assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
 
-    # Testing remive attributes
+    # Testing remove attributes
 
     def test_remove_attributes_all(self):
         """

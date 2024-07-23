@@ -3,6 +3,7 @@ import re as _re
 import pandas as _pandas
 from . import batching as _batching
 from typing import Union as _Union
+from . import config as _config
 
 
 def flatten_lists(lst):
@@ -238,7 +239,6 @@ def tokenize(input):
     return results
 
 
-# Temp location... will be moved later...?
 def attributes(
         input: _Union[str, list],
         type: str = None,
@@ -254,7 +254,7 @@ def attributes(
         json_data = [input]
     else:
         json_data = input
-    url = 'http://127.0.0.1:5000/standardize'
+    url = f'{_config.api_host}/wrangles/extract/attributes/standardize'
     params = {'responseFormat': 'array'}
     if desiredUnit:
         params['desiredUnit'] = desiredUnit
@@ -273,7 +273,7 @@ def attributes(
 
     return results
 
-# Temp location... will be moved later...?
+
 def remove_attributes(input: _Union[str, list]) -> _Union[dict, list]:
     """
     Remove or standardize attributes in a string or list of strings.
@@ -283,7 +283,7 @@ def remove_attributes(input: _Union[str, list]) -> _Union[dict, list]:
         json_data = [input]
     else:
         json_data = input
-    url = 'http://127.0.0.1:5000/standardize'
+    url = f'{_config.api_host}/wrangles/extract/attributes/standardize'
     params = {'responseFormat': 'array', 'removeAttributes': True}
     
     batch_size = 1000
