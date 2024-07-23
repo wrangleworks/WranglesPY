@@ -264,8 +264,6 @@ def attributes(
         params['bound'] = bound
     if removeAttributes:
         params['removeAttributes'] = removeAttributes
-    else:
-        raise ValueError('Invalid boundary setting. min, mid or max permitted.')
     
     batch_size = 1000
 
