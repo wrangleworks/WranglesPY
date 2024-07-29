@@ -4000,4 +4000,3 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
-
