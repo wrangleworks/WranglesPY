@@ -1658,13 +1658,13 @@ def test_standardize_5():
         - standardize:
             input: Abbrev
             output: Abbreviations
-            model_id: c77839db-237a-476b
+            model_id: a62c7480-500e-480c
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Using classify model_id c77839db-237a-476b in a standardize function.' in info.value.args[0]
+        'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
     )
 
 def test_standardize_where():
