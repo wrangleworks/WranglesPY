@@ -19,7 +19,7 @@ from .classify import classify
 from . import extract
 from .lookup import lookup
 from .translate import translate
-from .standardize import standardize
+from .standardize import standardize # for legacy purposes
 from . import format
 from . import openai
 
