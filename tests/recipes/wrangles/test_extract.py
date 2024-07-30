@@ -180,6 +180,18 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'][0] in ['13m^2', '13sq m']
 
+    def test_attributes_area_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: area
+            """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 sq m']
+
     # Testing Current
     def test_attributes_current(self):
         recipe = """
@@ -192,6 +204,18 @@ class TestExtractAttributes:
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13A']
+
+    def test_attributes_current_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: current
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 A']
 
     # Testing Force
     def test_attributes_force(self):
@@ -206,6 +230,18 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13N']
 
+    def test_attributes_force_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: force
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 N']
+
     # Testing Length
     def test_attributes_length(self):
         recipe = """
@@ -218,6 +254,18 @@ class TestExtractAttributes:
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13m']
+
+    def test_attributes_length_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: length
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 m']
 
     # Testing Power
     def test_attributes_power(self):
@@ -232,6 +280,18 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13hp', '13W']
 
+    def test_attributes_power_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: power
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 hp', '13 W']
+
     # Testing Pressure
     def test_attributes_pressure(self):
         recipe = """
@@ -244,6 +304,18 @@ class TestExtractAttributes:
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13psi']
+
+    def test_attributes_pressure_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: pressure
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 psi']
 
     # Testing electric potential
     def test_attributes_voltage_legacy(self):
@@ -277,6 +349,21 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13V']
 
+    def test_attributes_voltage_standard(self):
+        """
+        Test voltage with new name
+        """
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: voltage
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 V']
+
     # Testing volume
     def test_attributes_volume(self):
         recipe = """
@@ -289,6 +376,18 @@ class TestExtractAttributes:
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'][0] in ['13m^3', '13cu m']
+
+    def test_attributes_volume_standard(self):
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: volume
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 cu m']
 
     # Testing mass
     def test_attributes_mass_legacy(self):
@@ -320,6 +419,36 @@ class TestExtractAttributes:
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
         assert df.iloc[0]['Attributes'] == ['13kg']
+
+    def test_attributes_mass_standard_weight(self):
+        """
+        Test with new name for weight
+        """
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: weight
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 kg']
+
+    def test_attributes_mass_standard_mass(self):
+        """
+        Test with legacy name for weight (mass)
+        """
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: Tools
+                output: Attributes
+                responseContent: standard
+                attribute_type: mass
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
+        assert df.iloc[0]['Attributes'] == ['13 kg']
 
     # min/mid/max attributes
     def test_attributes_MinMidMax(self):
