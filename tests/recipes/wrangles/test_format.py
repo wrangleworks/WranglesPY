@@ -582,7 +582,7 @@ def test_sig_figs_with_value():
         ]
     )
 
-class TestFormatAttributes:
+class TestStandardizeAttributes:
     """
     Format (standardize) attributes or remove them
     """
@@ -598,7 +598,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-                - format.attributes:
+                - standardize.attributes:
                     input: input
                     output: output
             """,
@@ -616,7 +616,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-            - format.attributes:
+            - standardize.attributes:
                 input: input
                 output: output
             """,
@@ -636,7 +636,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-            - format.attributes:
+            - standardize.attributes:
                 input: input
                 output: output
                 attribute_type: length
@@ -656,7 +656,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-            - format.attributes:
+            - standardize.attributes:
                 input: input
                 output: output
                 attribute_type: mass
@@ -676,7 +676,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-            - format.attributes:
+            - standardize.attributes:
                 input: input
                 output: output
                 attribute_type: volume
@@ -716,7 +716,7 @@ class TestFormatAttributes:
         df = wrangles.recipe.run(
             recipe="""
             wrangles:
-            - format.attributes:
+            - standardize.attributes:
                 input: input
                 output: output
                 attribute_type: length

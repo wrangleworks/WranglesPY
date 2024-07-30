@@ -5,6 +5,48 @@ from typing import Union as _Union
 import pandas as _pd
 from .. import standardize as _standardize
 
+def attributes(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list] = None,
+    type: str = None,
+    removeAttributes: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+
+    """
+    # if output is not specified, overwrite the input
+    if output is None: output = input
+
+    # if input is a string, convert to a list for consistency
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    if len(output) == 1 and len(input) > 1:
+        df[output[0]] = _standardize.attributes(
+            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            type,
+            removeAttributes,
+            **kwargs
+        )
+    else:
+        # loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            df[output_column] = _standardize.attributes(
+                df[input_column].astype(str).tolist(),
+                type,
+                removeAttributes,
+                **kwargs
+            )
+    
+    return df
+
+
 def custom(
     df: _pd.DataFrame,
     input: _Union[str, list],

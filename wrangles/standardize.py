@@ -9,6 +9,39 @@ from . import batching as _batching
 import warnings as _warnings
 
 
+def attributes(
+    input: _Union[str, list],
+    type: str,
+    removeAttributes: bool = False,
+    **kwargs
+) -> list:
+    """
+    Standardize all attributes or a specific attribute type in a string.
+    Requires WrangleWorks Account and Subscription.
+
+    :param input: A string or list of strings to be standardized.
+    :param type: (Optional) The attribute type to be standardized. Default is all.
+    :param removeAttributes: (Optional) Remove attributes from the string. Default is False.
+    """
+    if isinstance(input, str):
+        json_data = [input]
+    else:
+        json_data = input
+
+    url = f'{_config.api_host}/wrangles/extract/attributes'
+    params = {
+        'responseFormat': 'array',
+        **kwargs
+    }
+    if type: params['attributeType'] = type
+    if removeAttributes: params['removeAttributes'] = removeAttributes
+
+    batch_size = 1000
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
+    if isinstance(input, str): results = results[0]
+    return results
+
+
 def custom(
     input: _Union[str, list],
     model_id: str,
@@ -74,7 +107,7 @@ def standardize(
     **kwargs
 ) -> list:
     """
-    Deprecation Warning: use 'wrangles.standardize.custom' instead.
+    Deprecation Warning: if using using 'wrangles.standardize' use 'wrangles.standardize.custom' instead.
     """
     _warnings.warn(
         "'wrangles.standardize' is deprecated and slated for removal in a future version. Use 'wrangles.standardize.custom' instead.",
