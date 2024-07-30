@@ -311,10 +311,11 @@ def attributes(
           - volumetric flow
       responseContent:
         type: string
-        description: span - returns the text found. object - returns an object with the value and unit
+        description: span - returns the text found. object - returns an object with unit information. standard - returns the standardized value and unit.
         enum:
           - span
           - object
+          - standard
       bound:
         type: string
         description: When returning an object, if the input is a range (e.g. 10-20mm) set the value to return. min, mid or max. Default mid.
