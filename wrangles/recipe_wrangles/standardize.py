@@ -9,7 +9,7 @@ def attributes(
     df: _pd.DataFrame,
     input: _Union[str, list],
     output: _Union[str, list] = None,
-    type: str = None,
+    attribute_type: str = None,
     removeAttributes: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
@@ -30,7 +30,7 @@ def attributes(
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _standardize.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
-            type,
+            attribute_type,
             removeAttributes,
             **kwargs
         )
@@ -39,7 +39,7 @@ def attributes(
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize.attributes(
                 df[input_column].astype(str).tolist(),
-                type,
+                attribute_type,
                 removeAttributes,
                 **kwargs
             )
