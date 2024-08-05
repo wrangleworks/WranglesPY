@@ -436,14 +436,21 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
 
 def _re_route_wrangle(old_wrangle: str) -> str:
     """
-    Re-route old wrangle names to new ones and provide a warning
+    Re-route old wrangle names to new ones and provide a warning or use default warning
+
+    route_map = {
+        "old_wrangle": ["new_wrangle", "My Error Message (Optional)"],
+    }
     """
     route_map = {
-        "standardize": "standardize.custom",
+        "standardize": ["standardize.custom", "My Error Message"],
     }
-    if old_wrangle in route_map.keys():
-        _logging.warning(f": Wrangle '{old_wrangle}' is now used as '{route_map[old_wrangle]}'. Please update recipe.")
-    return route_map.get(old_wrangle, old_wrangle)
+    new_wrangle, *messages = route_map.get(old_wrangle, [old_wrangle])
+    if messages:
+        _logging.warning(f" {messages[0]}")
+    else:
+        _logging.warning(f" Wrangle '{old_wrangle}' has been deprecated. Please use '{new_wrangle}' instead.")
+    return new_wrangle
 
 
 def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
