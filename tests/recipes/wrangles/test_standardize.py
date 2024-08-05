@@ -174,6 +174,155 @@ class TestUnitConversion:
         )
         assert df['output'][0] == ['My car has a capacitance of 13000000 µF and 13lbs of weight']
 
+    # charge
+    def test_convert_and_standardize_charge(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a charge of 13 coulombs and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: charge
+                desiredUnit: millicoulombs
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a charge of 13000 mC and 13lbs of weight']
+
+    # current
+    def test_convert_and_standardize_current(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a current of 13 amperes and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: current
+                desiredUnit: milliamperes
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a current of 13000 mA and 13lbs of weight']
+
+
+    # data transfer rate
+    def test_convert_and_standardize_data_transfer_rate(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a data transfer rate of 1333333 bps and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: data transfer rate
+                desiredUnit: kilobytes per second
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a data transfer rate of 167 kilobytes per second and 13lbs of weight']
+
+    # electrical conductance -> siemens to kilosiemens
+    def test_convert_and_standardize_electrical_conductance(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has an electrical conductance of 13 siemens and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: electrical conductance
+                desiredUnit: kilosiemens
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has an electrical conductance of 0.013 kS and 13lbs of weight']
+
+    # electrical resistance -> ohms to kiloohms
+    def test_convert_and_standardize_electrical_resistance(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has an electrical resistance of 13666 ohms and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: electrical resistance
+                desiredUnit: kiloohms
+                sigFigs: 3
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has an electrical resistance of 13.7 kΩ and 13lbs of weight']
+
+    # energy -> joules to kilojoules
+    def test_convert_and_standardize_energy(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has an energy of 13000 joules and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: energy
+                desiredUnit: kilojoules
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has an energy of 13 kJ and 13lbs of weight']
+
+    # force -> newtons to kilonewtons
+    def test_convert_and_standardize_force(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a force of 13000 newtons and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: force
+                desiredUnit: kilonewtons
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a force of 13 kN and 13lbs of weight']
+
     # Weight
     def test_covert_and_standardize_weight(self):
         """
@@ -193,4 +342,4 @@ class TestUnitConversion:
             """,
             dataframe=data
         )
-        assert df['output'][0] == ['My car has a mass of 419 lbs and it holds 3.434 gallons of gasoline with a battery of 14 V']
+        assert df['output'][0] == ['My car has a mass of 419 lb and it holds 13 liters of gasoline with a battery of 14 volts']
