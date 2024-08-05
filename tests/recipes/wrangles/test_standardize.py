@@ -159,6 +159,48 @@ class TestStandardizeAttributes:
         )
         assert df['output'][0] == ['13 ft']
 
+    def test_standardize_unit_sigFigs(self):
+        """
+        Testing only units in text
+        """
+        data = pd.DataFrame({
+            'input': ['13.999999 feet of hiking trail']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: length
+                desiredUnit: meters
+                sigFigs: 2
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['4.3 m of hiking trail']
+
+    def test_standardize_unit_sigFigs_same_unit(self):
+        """
+        Testing only units in text
+        """
+        data = pd.DataFrame({
+            'input': ['13.999999 feet of hiking trail']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: length
+                desiredUnit: feet
+                sigFigs: 2
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['14 ft of hiking trail']
+
 
 class TestUnitConversion:
     """
