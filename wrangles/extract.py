@@ -50,6 +50,7 @@ def attributes(
     type: str = None,
     desiredUnit: str = None,
     bound: str = 'mid',
+    sigFigs: int = 3,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -78,6 +79,7 @@ def attributes(
     }
     if type: params['attributeType'] = type
     if desiredUnit: params['desiredUnit'] = desiredUnit
+    if sigFigs: params['sigFigs'] = sigFigs
     
     if bound in ['min', 'mid', 'max']:
         params['bound'] = bound

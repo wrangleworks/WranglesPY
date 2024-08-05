@@ -261,6 +261,7 @@ def attributes(
     attribute_type: str = None,
     desired_unit: str = None,
     bound: str = 'mid',
+    sigFigs: int = 3,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -323,6 +324,9 @@ def attributes(
           - min
           - mid
           - max
+      sigFigs:
+        type: integer
+        description: Apply the number of significant figures to the unit conversion. Default is 3.
       desired_unit:
         type: string
         description: Convert the extracted unit to the desired unit

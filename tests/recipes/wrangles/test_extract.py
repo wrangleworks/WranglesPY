@@ -552,6 +552,25 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == {'length': ['13mm']}
 
+    def test_attributes_sigFigs(self):
+        """
+        Test extract.attributes using where
+        """
+        data = pd.DataFrame({
+            'col1': ['13 something 13.999999kg 13 random'],
+        })
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: col1
+                output: output
+                sigFigs: 2
+                attribute_type: weight
+                desired_unit: kilogram
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'][0] == ['14 kg']
+
 
 class TestExtractAttributesAndConvert:
     """
