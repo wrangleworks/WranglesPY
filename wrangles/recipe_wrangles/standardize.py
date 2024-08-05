@@ -17,6 +17,7 @@ def attributes(
     """
     type: object
     description: Standardize data by attribute type. Requires WrangleWorks Account and Subscription.
+    additionalProperties: true
     required:
       - input
       - output

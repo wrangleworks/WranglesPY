@@ -22,7 +22,6 @@ def attributes(
 
     :param input: A string or list of strings to be standardized.
     :param type: (Optional) The attribute type to be standardized. Default is all.
-    :param removeAttributes: (Optional) Remove attributes from the string. Default is False.
     """
     if isinstance(input, str):
         json_data = [input]
@@ -97,8 +96,3 @@ def custom(
     if isinstance(input, str): results = results[0]
     
     return results
-
-
-####################################################################################################
-# Removed standardize function -> use custom instead
-####################################################################################################
