@@ -11,6 +11,7 @@ def attributes(
     output: _Union[str, list] = None,
     attribute_type: str = None,
     desiredUnit: str = None,
+    sigFigs: int = 3,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -80,6 +81,7 @@ def attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             attribute_type,
             desiredUnit,
+            sigFigs,
             **kwargs
         )
     else:
@@ -89,6 +91,7 @@ def attributes(
                 df[input_column].astype(str).tolist(),
                 attribute_type,
                 desiredUnit,
+                sigFigs,
                 **kwargs
             )
     

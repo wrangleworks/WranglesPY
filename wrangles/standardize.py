@@ -13,6 +13,7 @@ def attributes(
     input: _Union[str, list],
     type: str,
     desiredUnit: str = None,
+    sigFigs: int = 3,
     **kwargs
 ) -> list:
     """
@@ -34,7 +35,8 @@ def attributes(
         **kwargs
     }
     if type: params['attributeType'] = type
-    if desiredUnit: params['desiredUnit'] = desiredUnit    
+    if desiredUnit: params['desiredUnit'] = desiredUnit
+    if sigFigs: params['sigFigs'] = sigFigs    
 
     batch_size = 1000
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
