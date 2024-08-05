@@ -28,7 +28,7 @@ def attributes(
     else:
         json_data = input
 
-    url = f'{_config.api_host}/wrangles/extract/attributes'
+    url = f'{_config.api_host}/wrangles/standardize/attributes'
     params = {
         'responseFormat': 'array',
         **kwargs
