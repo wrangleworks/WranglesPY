@@ -158,13 +158,13 @@ def test_translate_list_title_case():
 
 # Str as input
 def test_standardize_1():
-    result = wrangles.standardize('ASAP', '6ca4ab44-8c66-40e8')
+    result = wrangles.standardize.custom('ASAP', '6ca4ab44-8c66-40e8')
     assert result == 'As Soon As Possible'
     
 # invalid input
 def test_standardize_2():
     with pytest.raises(TypeError) as info:
-        raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
+        raise wrangles.standardize.custom({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # If input is a list, check to make sure that all sublists are length of 2
