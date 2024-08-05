@@ -105,6 +105,7 @@ class TestStandardizeAttributes:
         )
         assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
 
+
 class TestUnitConversion:
     """
     Test unit conversion with standardize
@@ -362,6 +363,48 @@ class TestUnitConversion:
             dataframe=data
         )
         assert df['output'][0] == ['My car has a force of 13 kN and 13lbs of weight']
+
+    # length
+    def test_convert_and_standardize_length(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a length of 13 feet and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: length
+                desiredUnit: meters
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a length of 3.96 m and 13lbs of weight']
+
+    # pressure
+    def test_convert_and_standardize_pressure(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a pressure of 13000 pascals and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: pressure
+                desiredUnit: kilopascals
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a pressure of 13 kPa and 13lbs of weight']
 
     # Weight
     def test_covert_and_standardize_weight(self):
