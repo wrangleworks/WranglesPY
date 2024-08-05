@@ -60,7 +60,10 @@ def attributes(
           - time
           - voltage
           - volume
-          - volumetric flow 
+          - volumetric flow
+      sigFigs:
+        type: integer
+        description: Apply the number of significant figures to the unit conversion. Default is 3. 
       desired_unit:
         type: string
         description: Convert the extracted unit to the desired unit
