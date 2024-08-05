@@ -443,13 +443,14 @@ def _re_route_wrangle(old_wrangle: str) -> str:
     }
     """
     route_map = {
-        "standardize": ["standardize.custom", "My Error Message"],
+        "standardize": ["standardize.custom"],
     }
     new_wrangle, *messages = route_map.get(old_wrangle, [old_wrangle])
-    if messages:
-        _logging.warning(f" {messages[0]}")
-    else:
-        _logging.warning(f" Wrangle '{old_wrangle}' has been deprecated. Please use '{new_wrangle}' instead.")
+    if new_wrangle != old_wrangle:
+        if messages:
+            _logging.warning(f" {messages[0]}")
+        else:
+            _logging.warning(f" Wrangle '{old_wrangle}' has been deprecated. Please use '{new_wrangle}' instead.")
     return new_wrangle
 
 
