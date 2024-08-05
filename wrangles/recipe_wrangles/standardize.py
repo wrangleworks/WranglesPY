@@ -10,10 +10,59 @@ def attributes(
     input: _Union[str, list],
     output: _Union[str, list] = None,
     attribute_type: str = None,
+    desiredUnit: str = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
-
+    type: object
+    description: Standardize data by attribute type. Requires WrangleWorks Account and Subscription.
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      attribute_type:
+        type: string
+        description: The attribute type to be standardized. Default is all.
+        enum:
+          - angle
+          - area
+          - capacitance
+          - charge
+          - current
+          - data transfer rate
+          - electrical conductance
+          - electrical resistance
+          - energy
+          - force
+          - frequency
+          - inductance
+          - instance frequency
+          - length
+          - luminous flux
+          - weight
+          - power
+          - pressure
+          - speed
+          - velocity
+          - temperature
+          - time
+          - voltage
+          - volume
+          - volumetric flow 
+      desired_unit:
+        type: string
+        description: Convert the extracted unit to the desired unit
+    $ref: "#/$defs/misc/unit_entity_map"
     """
     # if output is not specified, overwrite the input
     if output is None: output = input
@@ -30,6 +79,7 @@ def attributes(
         df[output[0]] = _standardize.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             attribute_type,
+            desiredUnit,
             **kwargs
         )
     else:
@@ -38,6 +88,7 @@ def attributes(
             df[output_column] = _standardize.attributes(
                 df[input_column].astype(str).tolist(),
                 attribute_type,
+                desiredUnit,
                 **kwargs
             )
     
