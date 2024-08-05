@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+import wrangles.standardize
 from wrangles.train import train
 
 
@@ -166,7 +167,16 @@ def test_standardize_2():
     with pytest.raises(TypeError) as info:
         raise wrangles.standardize.custom({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
-    
+
+# standardize all attributes
+def test_standardize_all_attributes():
+    result = wrangles.standardize.attributes('my 13 foot shark weights 1347 pound', 'length')
+    assert result == ['my 13 ft shark weights 1347 pound']
+
+def test_standardize_all_arguments_in_function():
+    result = wrangles.standardize.attributes('my 13.8484883 foot shark weights 1347 pound', 'length', 'ft', 2)
+    assert result == ['my 14 ft shark weights 1347 pound']
+
 # If input is a list, check to make sure that all sublists are length of 2
 # Headers not included ['Find', 'Replace']
 def test_standardize_train_1(mocker):
