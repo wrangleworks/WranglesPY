@@ -115,7 +115,7 @@ class TestUnitConversion:
         Testing multiple units in text
         """
         data = pd.DataFrame({
-            'input': ['My car has a mass of 190kg and it holds 190kg pf gas with a battery weight of 190kg']
+            'input': ['My car has a mass of 190kg and it holds 190kg gas with a battery weight of 190kg']
         })
         df = wrangles.recipe.run(
             recipe="""
@@ -128,7 +128,7 @@ class TestUnitConversion:
             """,
             dataframe=data
         )
-        assert df['output'][0] == ['My car has a mass of 419 lb and it holds 419 lb pf gas with a battery weight of 419 lb']
+        assert df['output'][0] == ['My car has a mass of 419 lb and it holds 419 lb gas with a battery weight of 419 lb']
 
     def test_no_units(self):
         """
