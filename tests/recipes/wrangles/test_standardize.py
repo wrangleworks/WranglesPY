@@ -104,3 +104,93 @@ class TestStandardizeAttributes:
             dataframe=data
         )
         assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
+
+class TestUnitConversion:
+    """
+    Test unit conversion with standardize
+    """
+
+    # angle
+    def test_convert_and_standardize_angle(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a 90 degree angle and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: angle
+                desiredUnit: radians
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a 1.57 rad angle and 13lbs of weight']
+
+    # area
+    def test_convert_and_standardize_area(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has an area of 13.666 square feet and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: area
+                desiredUnit: square meter
+                sigFigs: 2
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has an area of 1.3 sq m and 13lbs of weight']
+
+    # capacitance
+    def test_convert_and_standardize_capacitance(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a capacitance of 13 farads and 13lbs of weight']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: capacitance
+                desiredUnit: microfarads
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a capacitance of 13000000 µF and 13lbs of weight']
+
+    # Weight
+    def test_covert_and_standardize_weight(self):
+        """
+        Testing unit conversion
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a mass of 190kg and it holds 13 liters of gasoline with a battery of 14 volts']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+                attribute_type: weight
+                desiredUnit: pounds
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a mass of 419 lbs and it holds 3.434 gallons of gasoline with a battery of 14 V']
