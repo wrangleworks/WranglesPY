@@ -10,7 +10,6 @@ def attributes(
     input: _Union[str, list],
     output: _Union[str, list] = None,
     attribute_type: str = None,
-    removeAttributes: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -31,7 +30,6 @@ def attributes(
         df[output[0]] = _standardize.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             attribute_type,
-            removeAttributes,
             **kwargs
         )
     else:
@@ -40,7 +38,6 @@ def attributes(
             df[output_column] = _standardize.attributes(
                 df[input_column].astype(str).tolist(),
                 attribute_type,
-                removeAttributes,
                 **kwargs
             )
     

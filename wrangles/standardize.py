@@ -12,7 +12,6 @@ import warnings as _warnings
 def attributes(
     input: _Union[str, list],
     type: str,
-    removeAttributes: bool = False,
     **kwargs
 ) -> list:
     """
@@ -34,7 +33,6 @@ def attributes(
         **kwargs
     }
     if type: params['attributeType'] = type
-    if removeAttributes: params['removeAttributes'] = removeAttributes
 
     batch_size = 1000
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
