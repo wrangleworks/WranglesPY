@@ -6,7 +6,6 @@ from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
-import warnings as _warnings
 
 
 def attributes(

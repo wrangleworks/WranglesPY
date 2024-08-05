@@ -1,7 +1,6 @@
 import pytest
 import wrangles
 import pandas as pd
-import wrangles.standardize
 from wrangles.train import train
 
 
