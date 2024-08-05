@@ -105,6 +105,60 @@ class TestStandardizeAttributes:
         )
         assert df['output'][0] == ['My 13 foot car has a mass of 190kg and the wheel is 4cm']
 
+    def test_standardize_no_units(self):
+        """
+        Testing no units in text
+        """
+        data = pd.DataFrame({
+            'input': ['My car has a mass of 190 and it holds 190 gas with a battery weight of 190']  
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['My car has a mass of 190 and it holds 190 gas with a battery weight of 190']
+
+    def test_santadize_empty_text(self):
+        """
+        Testing empty text
+        """
+        data = pd.DataFrame({
+            'input': ['']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['']
+
+    def test_standardize_unit_only(self):
+        """
+        Testing only units in text
+        """
+        data = pd.DataFrame({
+            'input': ['13 feet']
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - standardize.attributes:
+                input: input
+                output: output
+            """,
+            dataframe=data
+        )
+        assert df['output'][0] == ['13 ft']
+
 
 class TestUnitConversion:
     """
