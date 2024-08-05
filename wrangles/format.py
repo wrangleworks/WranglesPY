@@ -1,9 +1,6 @@
 from typing import Union as _Union
 import re as _re
 import pandas as _pandas
-from . import batching as _batching
-from typing import Union as _Union
-from . import config as _config
 
 
 def flatten_lists(lst):
