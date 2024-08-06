@@ -52,6 +52,7 @@ def test_no_unit_object():
 def test_non_existing_unit():
     """
     Test a desired unit that does not exists, should return error
+    Adding Lowercase to the error message for multi-system testing
     """
     data = pd.DataFrame(
     {'col': ['1000 W', '1000 watts', '.01 MW', '1 kW', '1 hp']}
