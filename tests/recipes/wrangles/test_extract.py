@@ -622,6 +622,7 @@ class TestExtractAttributesAndConvert:
     def test_non_existing_unit(self):
         """
         Test a desired unit that does not exists, should return error
+        Adding lower to test on multiple systems
         """
         data = pd.DataFrame(
         {'col': ['1000 W', '1000 watts', '.01 MW', '1 kW', '1 hp']}
@@ -638,7 +639,7 @@ class TestExtractAttributesAndConvert:
                 """,
                 dataframe=data
             )
-        assert info.typename == 'ValueError' and info.value.args[0] == 'extract.attributes - Status Code: 400 - BAD REQUEST. {"ValueError":"Invalid desiredUnit provided"}\n \n'
+        assert info.typename == 'ValueError' and info.value.args[0].lower() == 'extract.attributes - status code: 400 - bad request. {"valueerror":"invalid desiredunit provided"}\n \n'
 
     def test_wrong_match_1(self):
         """
