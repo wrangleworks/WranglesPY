@@ -1,17 +1,55 @@
+"""
+Functions to standardize data
+"""
+
 from typing import Union as _Union
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
 
 
-def standardize(
+def attributes(
+    input: _Union[str, list],
+    type: str,
+    desiredUnit: str = None,
+    sigFigs: int = 3,
+    **kwargs
+) -> list:
+    """
+    Standardize all attributes or a specific attribute type in a string.
+    Requires WrangleWorks Account and Subscription.
+
+    :param input: A string or list of strings to be standardized.
+    :param type: (Optional) The attribute type to be standardized. Default is all.
+    """
+    if isinstance(input, str):
+        json_data = [input]
+    else:
+        json_data = input
+
+    url = f'{_config.api_host}/wrangles/standardize/attributes'
+    params = {
+        'responseFormat': 'array',
+        **kwargs
+    }
+    if type: params['attributeType'] = type
+    if desiredUnit: params['desiredUnit'] = desiredUnit
+    if sigFigs: params['sigFigs'] = sigFigs    
+
+    batch_size = 1000
+    results = _batching.batch_api_calls(url, params, json_data, batch_size)
+    if isinstance(input, str): results = results[0]
+    return results
+
+
+def custom(
     input: _Union[str, list],
     model_id: str,
     case_sensitive: bool = False,
     **kwargs
 ) -> list:
     """
-    Standardize text - Standardize Wrangles can replace words with alternatives,
+    Standardize text - Standardize Wrangles can replace words with alternatives, 
     in addition to using regex patterns for more complex replacements.
     Requires WrangleWorks Account and Subscription.
 
