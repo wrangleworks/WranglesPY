@@ -24,7 +24,7 @@ def text(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Compare two strings and return the intersection or difference using overlap or use match to find the matching characters between two strings.
+    description: Compare two strings and return the intersection or difference, or use overlap to find the matching characters between the two strings.
     required:
       - input
       - output
