@@ -11,6 +11,11 @@ def batch_api_calls(url, params, input_list, batch_size):
     """
     Batch API calls into multiple of set batch size
     """
+    if input_list == []:
+        # If input list is empty, shortcut and 
+        # immediately return an empty list
+        return []
+
     results = None
     for i in range(0, len(input_list), batch_size):
         headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
