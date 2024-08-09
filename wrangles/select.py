@@ -35,8 +35,8 @@ def highest_confidence(data_list):
                     if float(list(cell.values())[0]) > highest_confidence:
                         highest_result = [list(cell.keys())[0] , float(list(cell.values())[0])]
                         highest_confidence = float(list(cell.values())[0])
-                except(ValueError, TypeError):
-                    continue
+                except:
+                    raise ValueError(f"Invalid Input: Input must be a list with a string value and a confidence value")
 
             if isinstance(cell, list) and float(cell[1]) > highest_confidence:
                 highest_result = cell

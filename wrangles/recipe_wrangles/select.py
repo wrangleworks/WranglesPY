@@ -424,10 +424,11 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list])
           - string
         description: If two columns; the result and confidence. If one column; [result, confidence]
     """
+
     if isinstance(output, list) and len(output) == 1:
         output = output[0]
     elif isinstance(output, list) and len(output) > 2:
-        raise ValueError(f"If output is a list, it can only contain 2 columns. Recieved: {output}")
+        raise ValueError(f"Invalid Output: If output is a list, it can only contain 2 columns. Recieved: {output}")
 
     df[output] = _select.highest_confidence(df[input].values.tolist())
     
