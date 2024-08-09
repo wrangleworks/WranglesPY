@@ -17,11 +17,11 @@ def highest_confidence(data_list):
         for cell in row:
             if isinstance(cell, str) and ' || ' in cell: cell = cell.split(' || ')
            
-            if isinstance(cell, list) and len(cell) > 0 and isinstance(cell[1], str): cell[1] = float(cell[1])
+            if isinstance(cell, list) and len(cell) > 1 and isinstance(cell[1], str): cell[1] = float(cell[1])
 
-            if isinstance(cell, list) and isinstance(cell[1], list):
+            if isinstance(cell, list) and all(isinstance(i, list) for i in cell):
                 for object in cell:
-                    if float(object[1] > highest_confidence):
+                    if len(object) > 1 and float(object[1]) > highest_confidence:
                         highest_result = object
                         highest_confidence = float(object[1])
                 results.append(highest_result)
@@ -35,10 +35,10 @@ def highest_confidence(data_list):
                     if float(list(cell.values())[0]) > highest_confidence:
                         highest_result = [list(cell.keys())[0] , float(list(cell.values())[0])]
                         highest_confidence = float(list(cell.values())[0])
-                except:
+                except(ValueError, TypeError):
                     raise ValueError(f"Invalid Input: Input must be a list with a string value and a confidence value")
 
-            if isinstance(cell, list) and float(cell[1]) > highest_confidence:
+            if isinstance(cell, list) and len(cell) > 1 and float(cell[1]) > highest_confidence:
                 highest_result = cell
                 highest_confidence = float(cell[1])
 

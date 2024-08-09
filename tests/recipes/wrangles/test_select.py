@@ -650,9 +650,9 @@ def test_highest_confidence_error():
     a clear error message with invalid input/output
     """
     data = pd.DataFrame({
-    'Col1': ['A, .079'],
+    'Col1': [['A, .079']],
     'Col2': ['B = 0.80'], 
-    'Col3': ['C: 0.99']
+    'Col3': [['C: 0.99']]
     })
     recipe = """
     wrangles: 
@@ -663,8 +663,14 @@ def test_highest_confidence_error():
                 - Col3
             output: Winner
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Winner'] == ['C', 0.99]
+    # df = wrangles.recipe.run(recipe, dataframe=data)
+    # assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' 
+    )
 #
 # Threshold
 #
