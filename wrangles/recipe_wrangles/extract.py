@@ -367,8 +367,8 @@ def brackets(
     df: _pd.DataFrame, 
     input: _Union[str, list],
     output: _Union[str, list],
-    find: _Union[str, list] = '',
-    extract_raw: bool = False
+    find: _Union[str, list] = 'all',
+    include_brackets: bool = False
 ) -> _pd.DataFrame:
     """
     type: object
@@ -392,10 +392,10 @@ def brackets(
         type: 
           - string
           - array
-        description: (Optional) The type of brackets to find
-      extract_raw:
+        description: (Optional) The type of brackets to find (round '()', square '[]', curly '{}', angled '<>'). Default is all brackets.
+      include_brackets:
         type: boolean
-        description: (Optional) Extract the raw data
+        description: (Optional) Include the brackets in the output
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -412,18 +412,18 @@ def brackets(
     if not isinstance(find, list): find = [find]
 
     # Ensure find only contains the elements: round, square, curly, angled
-    bracket_types = ['round', 'square', 'curly', 'angled','']
+    bracket_types = ['round', 'square', 'curly', 'angled', 'all']
 
     if not all(element in bracket_types for element in find):
         raise ValueError("find must only contain the elements: round, square, curly, angled")
 
     # If only only one output and multiple inputs, concatenate the inputs
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, extract_raw)
+        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, include_brackets)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, extract_raw)
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets)
 
     return df
 
