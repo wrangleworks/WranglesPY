@@ -406,7 +406,7 @@ def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     return df.head(n)
 
 
-def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]) -> _pd.DataFrame:
+def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list]) -> _pd.DataFrame:
     """
     type: object
     description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
@@ -424,7 +424,14 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]
           - string
         description: If two columns; the result and confidence. If one column; [result, confidence]
     """
+
+    if isinstance(output, list) and len(output) == 1:
+        output = output[0]
+    elif isinstance(output, list) and len(output) > 2:
+        raise ValueError(f"Invalid Output: If output is a list, it can only contain 2 columns. Recieved: {output}")
+
     df[output] = _select.highest_confidence(df[input].values.tolist())
+    
     return df
 
 
