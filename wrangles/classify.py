@@ -7,7 +7,11 @@ from . import data as _data
 from . import batching as _batching
 
 
-def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
+def classify(
+    input: _Union[str, list],
+    model_id: str,
+    **kwargs
+) -> _Union[str, list]:
     """
     Predict which category an input belongs to.
     Requires WrangleWorks Account and Subscription.
@@ -32,7 +36,7 @@ def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
        
     url = f'{_config.api_host}/wrangles/classify'
-    params = {'responseFormat': 'array', 'model_id': model_id}
+    params = {'responseFormat': 'array', 'model_id': model_id, **kwargs}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')

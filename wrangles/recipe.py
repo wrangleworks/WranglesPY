@@ -572,7 +572,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         obj = getattr(obj, element)
                     
                     # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename", "accordion"]:
+                    if wrangle in ["recipe", "rename", "accordion","batch"]:
                         if "functions" not in params:
                             params['functions'] = functions
 
@@ -584,11 +584,29 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                 if 'where' in original_params and wrangle not in no_where_list:
                     if 'output' in params.keys():
                         # Wrangle explictly defined the output
-                        output_columns = (
-                            params['output']
-                            if isinstance(params['output'], list)
-                            else [params['output']]
-                        )
+                        # Get the columns that should have been added
+                        if isinstance(params['output'], list):
+                            # Wrangle output was a list
+                            # this may be a list of columns or
+                            # a list of dictionaries with renamed outputs
+                            output_columns = [
+                                list(col.values()) if isinstance(col, dict) else [col]
+                                for col in params['output']
+                            ]
+                            # Spread to a 1D list
+                            output_columns = [
+                                item
+                                for sublist in output_columns
+                                for item in sublist
+                            ]
+                        elif isinstance(params['output'], dict):
+                            # Wrangle output was a dictionary,
+                            # the keys should be the columns that were added
+                            output_columns = list(params['output'].keys())
+                        else:
+                            # Scalar value
+                            output_columns = [params['output']]
+
                         df = _pandas.merge(
                             df_original,
                             df[output_columns],
@@ -599,17 +617,18 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         )
                         for output_col in output_columns:
                             if output_col + '_x' in df.columns:
-                                df = _recipe_wrangles.merge.coalesce(
-                                    df,
-                                    [output_col, output_col+'_x'],
-                                    output_col
-                                ).drop([output_col+'_x'], axis = 1)
+                                # Take new value if not NaN, else keep original
+                                df[output_col] = [
+                                    x[0] if x[0] != 'wrwx_placeholder_nan' else x[1]
+                                    for x in df[[output_col, output_col + '_x']].fillna('wrwx_placeholder_nan').values
+                                ]
+                                df = df.drop([output_col+'_x'], axis = 1)
+
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
                         # Wrangle overwrote the input
-                        output_columns = params['input']
                         df = _pandas.merge(
                             df_original,
-                            df[output_columns],
+                            df[params['input']],
                             left_index=True,
                             right_index=True,
                             how='left',
@@ -617,11 +636,13 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         )
                         for input_col in params['input']:
                             if input_col + '_x' in df.columns:
-                                df = _recipe_wrangles.merge.coalesce(
-                                    df,
-                                    [input_col, input_col+'_x'],
-                                    input_col
-                                ).drop([input_col+'_x'], axis = 1)
+                                # Take new value if not NaN, else keep original
+                                df[input_col] = [
+                                    x[0] if x[0] != 'wrwx_placeholder_nan' else x[1]
+                                    for x in df[[input_col, input_col + '_x']].fillna('wrwx_placeholder_nan').values
+                                ]
+                                df = df.drop([input_col+'_x'], axis = 1)
+
                     elif list(df.columns) != list(df_original.columns):
                         # Wrangle added columns
                         output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
