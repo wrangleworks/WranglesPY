@@ -14,42 +14,50 @@ def test_classify():
     """
     df = wrangles.recipe.run(
         """
+        read:
+          - test:
+              rows: 1
+              values:
+                Col1: Chicken
         wrangles:
             - classify:
                 input: Col1
                 output: Class
-                model_id: c77839db-237a-476b
-        """,
-        dataframe = pd.DataFrame({
-            'Col1': ['Ball Bearing']
-        })
+                model_id: a62c7480-500e-480c
+        """
     )
-    assert df.iloc[0]['Class'] == 'Ball Bearing'
+    assert df['Class'][0] == 'Meat'
 
-def test_classify_2():
+def test_classify_multi_input_output():
     """
     Multiple column input and output
     """
-    data = pd.DataFrame({
-    'Col1': ['Ball Bearing'],
-    'Col2': ['Bearing']
-    })
-    recipe = """
-    wrangles:
-        - classify:
-            input:
-              - Col1
-              - Col2
-            output:
-              - Output 1
-              - Output 2
-            model_id: c77839db-237a-476b
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                Col1: Chicken
+                Col2: Cheese
+        wrangles:
+          - classify:
+              input:
+                - Col1
+                - Col2
+              output:
+                - Output 1
+                - Output 2
+              model_id: a62c7480-500e-480c
+        """
+    )
+    assert df['Output 1'][0] == 'Meat' and df['Output 2'][0] == 'Dairy'
+
+def test_classify_inconsistent_input_output_lengths():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Output 1'] == 'Ball Bearing'
-    
-# Len input != len output
-def test_classify_3():
+    Test that a clear error is given when multiple inputs are given
+    if the output does not match the same length.
+    """
     data = pd.DataFrame({
     'Col1': ['Ball Bearing'],
     'Col2': ['Ball Bearing']
@@ -62,7 +70,7 @@ def test_classify_3():
               - Col2
             output: 
               - Class
-            model_id: c77839db-237a-476b
+            model_id: a62c7480-500e-480c
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
@@ -151,25 +159,21 @@ def test_classify_where():
     """
     Test classify using where
     """
-    data = pd.DataFrame({
-    'Col1': ['Ball Bearing', 'Roller Bearing'],
-    'Col2': ['Ball Bearing', 'Needle Bearing'],
-    'number': [25, 31]
-    })
-    recipe = """
-    wrangles:
-        - classify:
-            input: 
-              - Col1
-              - Col2
-            output: 
-              - Class1
-              - Class2
-            model_id: c77839db-237a-476b
-            where: number > 25
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Class1'] == "" and df.iloc[1]['Class1'] == 'Roller Bearing'
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+            - classify:
+                input: Col1
+                output: Class1
+                model_id: a62c7480-500e-480c
+                where: number > 25
+        """,
+        dataframe=pd.DataFrame({
+            'Col1': ['Chicken', 'Cheese'],
+            'number': [25, 31]
+        })
+    )
+    assert df['Class1'][0] == "" and df['Class1'][1] == 'Dairy'
 
 
 #
@@ -503,25 +507,17 @@ def test_log_columns(caplog):
     Test log when specifying columns
     """
     data = pd.DataFrame({
-    'Col1': ['Ball Bearing'],
-    'Col2': ['Bearing']
+    'Col1': ['Chicken'],
+    'Col2': ['Cheese']
     })
     recipe = """
     wrangles:
-        - classify:
-            input:
-              - Col1
-              - Col2
-            output:
-              - Output 1
-              - Output 2
-            model_id: c77839db-237a-476b
         - log:
             columns:
               - Col1
     """
     wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1\n0  Ball Bearing\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
 
 def test_log(caplog):
     """
@@ -533,18 +529,10 @@ def test_log(caplog):
     })
     recipe = """
     wrangles:
-        - classify:
-            input:
-              - Col1
-              - Col2
-            output:
-              - Output 1
-              - Output 2
-            model_id: c77839db-237a-476b
         - log: {}
     """
     wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2      Output 1 Output 2\n0  Ball Bearing  Bearing  Ball Bearing  Bearing\n'
+    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2\n0  Ball Bearing  Bearing\n'
 
 def test_log_wildcard(caplog):
     """
@@ -1670,13 +1658,13 @@ def test_standardize_5():
         - standardize:
             input: Abbrev
             output: Abbreviations
-            model_id: c77839db-237a-476b
+            model_id: a62c7480-500e-480c
     """
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
-        'Using classify model_id c77839db-237a-476b in a standardize function.' in info.value.args[0]
+        'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
     )
 
 def test_standardize_where():
