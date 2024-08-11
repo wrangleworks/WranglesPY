@@ -537,6 +537,101 @@ def filter(
 
     return df
 
+def align_columns(
+        df: _pd.DataFrame,
+          indicator: str = None,
+          output: _Union[str, list] = None,
+          similar: int = None,
+)-> _pd.DataFrame:
+    """
+    type: object
+    description: align a table's columns with multiple header rows into a single header row.
+    additionalProperties: false
+    properties:
+      input: 
+        type:
+          - string
+          - array
+        description: The 
+      indicator:
+        type: 
+          - string
+          - array
+        description: The column name to use as an indicator for the header row.
+      output:
+        type: 
+          - string
+          - array
+        description: The columns used to output
+      similar:
+        type: integer
+        description: The number of similar columns required to be considered a header row.
+    """
+    # if indicator is not None and similar is not None: raise ValueError("Cannot use both indicator and similar parameters")
+    if isinstance(output, str): output = [output]
+    df_info = df.to_dict(orient="split")
+    cols = df_info['columns']
+    data = df_info['data']
+    header_stack = cols
+    sub_data = []
+
+
+    if indicator:
+      result = _pd.DataFrame()
+      index_headers = []
+
+      # Possibly use loc[indicator] == True to get the index
+      # for index, row in df.iterrows():
+      #   if type(row[indicator]) == bool:
+      #     if row[indicator] == True:
+      #       index_headers.append(index) 
+      #   else:
+      #     if type(row[indicator]) == str:
+      #       index_headers.append(index)
+      
+      # Condition for True boolean values
+      condition_bool = df[indicator] == True
+
+      # Condition for non-empty strings, excluding np.nan
+      condition_str = (df[indicator] != "") & (df[indicator])
+
+      # Combine conditions: True boolean values OR non-empty strings
+      combined_condition = condition_bool | condition_str
+
+      # Extract indices of rows that meet the combined condition
+      index_headers = df.index[combined_condition].tolist()
+
+      df = df.drop(indicator, axis=1)
+      if index_headers:
+        sub_data = df.iloc[:index_headers[0]]
+        result = _pd.concat([result, sub_data], axis=0, sort=True, ignore_index=True)
+        for i, val in enumerate(index_headers):
+          header_stack = df.iloc[val].tolist()
+          try:
+              next_val = index_headers[i + 1]
+              sub_data = _pd.DataFrame(data = df.iloc[val + 1: next_val].values, columns=header_stack)
+          except IndexError:
+              sub_data = _pd.DataFrame(data = df.iloc[val + 1:].values, columns = header_stack)
+          result = _pd.concat([result, sub_data], axis=0, sort=True, ignore_index=True)
+      else:
+          result = df
+      if output is not None:
+        result = result[output]
+      return result
+    else:
+
+      for row in data:
+          # Check if row has at least n cols in it to be considered a header row
+          if len(set(cols) & set(row)) >= similar:
+              header_stack = row
+          else:
+              # If not a header row, append to sub_data in the form of a dictionary
+              sub_data.append({k:v for k,v in zip(header_stack, row)})
+
+      df = _pd.DataFrame.from_dict(sub_data, orient="columns")
+      if output is not None:
+        df = df[output]
+      return df
 
 def huggingface(
     df: _pd.DataFrame,
@@ -1484,3 +1579,4 @@ def translate(
         )
 
     return df
+

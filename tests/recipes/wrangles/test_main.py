@@ -4065,3 +4065,280 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+
+# Test first row
+def test_align_columns_first_row():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': [13, 26, 'Colours', 'BLACK sdjfjh']
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White'],
+        'Material': ['Steel'],
+        'Number': [13]
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.shape == (3,3)
+    assert df.iloc[0].equals(expected_df.iloc[0])
+
+# Testing entire dataframe
+def test_align_columns_whole_dataframe():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': ['13', '26', 'Colours', 'BLACK sdjfjh']
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'BLACK sdjfjh'],
+        'Material': ['Steel', 'Copper', 'Steel 2'],
+        'Number': ['13', '26', '1313131']
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+# Testing Upper and lower case
+def test_align_columns_upper_lower_case():
+    data = pd.DataFrame({
+            'Colours': ['White', 'Black', '   Material', 'Iron', '    Diamond'],
+            'Material': ['Steel', 'Copper', 'Colours', 'Orange', 'Yellow'],
+            'Number': [13, 26, 'number  ', -48, 0.0002]
+        })
+    expected_df = pd.DataFrame({
+            'Colours': ['White', 'Black', 'Orange', 'Yellow'],
+            'Material': ['Steel', 'Copper', '', ''],
+            'Number': [13, 26, '', ''],
+            '   Material':['', '', 'Iron', '    Diamond'],
+            'number  ':['', '', -48, 0.0002]
+        })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 1
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+# Testing cols with numbers
+def test_align_columns_digit_cols():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Material', 'Steel 2'],
+        'Material': ['Steel', 'Number', '1313131'],
+        'Number': ['13', '26', 'Black']
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', ''],
+        'Material': ['Steel', 'Steel 2'],
+        'Number': ['13', '1313131'],
+        '26': ['', 'Black']
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+
+def test_align_columns_one_row():
+    data = pd.DataFrame({
+        'Colours': ['White'],
+        'Material': ['Steel'],
+        'Number': [13]
+    })
+    expected_data = pd.DataFrame({
+        'Colours': ['White'],
+        'Material': ['Steel'],
+        'Number': [13]
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_data)
+
+def test_align_columns_empty_dataframe():
+    data = pd.DataFrame()
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty
+
+def test_align_columns_empty_columns():
+    data = pd.DataFrame({
+        'Colours': [],
+        'Material': [],
+        'Number': []
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.empty
+
+# Existing col is empty
+def test_align_columns_empty_rows():
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Vinyl'],
+        'Material': ['Steel', 'Copper', 'Number', '1313131'],
+        'Number': ['', '', '', '']
+    })
+    expected_df = pd.DataFrame({
+        'colours': ['White', 'Black', ''],
+        'material': ['Steel', 'Copper', "Vinyl"],
+        'number': ['', '', '1313131'],
+        '': ['', '', '']
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            similar: 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+def test_align_columns_empty_rows():
+    '''
+    Testing the indicator param for empty strings
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Vinyl', 'Chain'],
+        'Material': ['Steel', 'Copper', 'Number', '40', '9'],
+        'Number': ['12', '5', 'Colours', 'Green', 'Blue'],
+        'Header': [np.nan,np.nan, 'x', np.nan,np.nan]
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+def test_align_columns_no_headers():
+    '''
+    Testing indicator with no trues
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Number': ['12', '5', '40', '9'],
+        'Material': ['Steel', 'Copper','Vinyl', 'Chain'],
+        'Header': [np.nan,np.nan,np.nan,np.nan],
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+            output: 
+                - Colours
+                - Material
+                - Number
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+
+def test_align_columns_truthy_indicator():
+    '''
+    Testing the indicator param for truthy values
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Vinyl', 'Chain'],
+        'Material': ['Steel', 'Copper', 'Number', '40', '9'],
+        'Number': ['12', '5', 'Colours', 'Green', 'Blue'],
+        'Header': [False,False,True,False,False]
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+def test_align_columns_single_output():
+    '''
+    Testing the indicator param for truthy values
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Material', 'Vinyl', 'Chain'],
+        'Material': ['Steel', 'Copper', 'Number', '40', '9'],
+        'Number': ['12', '5', 'Colours', 'Green', 'Blue'],
+        'Header': [False,False,True,False,False]
+    })
+    expected_df = pd.DataFrame({
+        'Number': ['12', '5', '40', '9'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+            output:
+                - Number
+                - Material
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+def test_align_columns_no_truthy():
+    '''
+    Testing the indicator param for truthy values
+    '''
+    data = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Number': ['12', '5', '40', '9'],
+        'Material': ['Steel', 'Copper','Vinyl', 'Chain'],
+        'Header': [False, False, False, False],
+    })
+    expected_df = pd.DataFrame({
+        'Colours': ['White', 'Black', 'Green', 'Blue'],
+        'Material': ['Steel', 'Copper', 'Vinyl', 'Chain'],
+        'Number': ['12', '5', '40', '9'],
+    })
+    recipe = """
+    wrangles:
+        - main.align_columns:
+            indicator: Header
+            output:
+                - Colours
+                - Material
+                - Number
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.equals(expected_df)
+
+    
