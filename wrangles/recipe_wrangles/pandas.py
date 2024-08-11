@@ -176,7 +176,8 @@ def reindex(
 def explode(
     df: _pd.DataFrame,
     input: _Union[str, list],
-    reset_index: bool = True
+    reset_index: bool = True,
+    drop_empty: bool = False
 ) -> _pd.DataFrame:
     """
     type: object
@@ -196,6 +197,12 @@ def explode(
         reset_index:
           type: boolean
           description: Reset the index after exploding. Default True.
+        drop_empty:
+          type: boolean
+          description: |- 
+            If true, any rows that contain an empty list will be dropped.
+            If false, rows that contain empty lists will keep 1 row with an empty value.
+            Default False.
     """    
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -204,4 +211,10 @@ def explode(
     if not set(input).issubset(df.columns):
         raise ValueError(f"Columns {input} not in DataFrame")
 
-    return df.explode(input, reset_index)
+    df = df.explode(input, reset_index)
+
+    # Drop any rows that contain na after exploding
+    if drop_empty:
+        df = df.dropna(subset=input, how='all')
+
+    return df

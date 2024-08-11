@@ -7,7 +7,8 @@ import json as _json
 def lookup(
     input: _Union[str, list],
     model_id: str,
-    columns: _Union[str, list] = None
+    columns: _Union[str, list] = None,
+    **kwargs
 ) -> _Union[str, list]:
     """
     Find information using a lookup wrangle. Requires WrangleWorks Account.
@@ -59,7 +60,8 @@ def lookup(
         f'{_config.api_host}/wrangles/lookup',
         {
             "model_id": model_id,
-            "columns": _json.dumps(columns or metadata["settings"]["columns"])
+            "columns": _json.dumps(columns or metadata["settings"]["columns"]),
+            **kwargs
         },
         input,
         batch_size

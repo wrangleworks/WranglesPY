@@ -11,11 +11,16 @@ from .. import format as _format
 from .. import openai as _openai
 
 
-def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
+def address(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    dataType: str,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -52,12 +57,18 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType)
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            dataType,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.address(
-                df[input_column].astype(str).tolist(), dataType)
+                df[input_column].astype(str).tolist(),
+                dataType,
+                **kwargs
+            )
   
     return df
 
@@ -242,11 +253,19 @@ def ai(
     return df
 
 
-def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], responseContent: str = 'span', attribute_type: str = None, desired_unit: str = None, bound: str = 'mid') -> _pd.DataFrame:
+def attributes(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    responseContent: str = 'span',
+    attribute_type: str = None,
+    desired_unit: str = None,
+    bound: str = 'mid',
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -323,10 +342,12 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
         df[output[0]] = _extract.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
-              responseContent,
-              attribute_type,
-              desired_unit,
-              bound)
+            responseContent,
+            attribute_type,
+            desired_unit,
+            bound,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -335,8 +356,9 @@ def attributes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
                 responseContent,
                 attribute_type,
                 desired_unit,
-                bound
-        )
+                bound,
+                **kwargs
+            )
         
     return df
 
@@ -382,11 +404,15 @@ def brackets(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     return df
 
 
-def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
+def codes(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -414,11 +440,17 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.codes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
+        df[output[0]] = _extract.codes(
+            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.codes(df[input_column].astype(str).tolist())
+            df[output_column] = _extract.codes(
+                df[input_column].astype(str).tolist(),
+                **kwargs
+            )
 
     return df
 
@@ -432,12 +464,12 @@ def custom(
     first_element: bool = False,
     case_sensitive: bool = False,
     extract_raw: bool = False,
-    use_spellcheck: bool = False
+    use_spellcheck: bool = False,
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: true
     required:
       - input
       - model_id
@@ -491,7 +523,8 @@ def custom(
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
-                use_spellcheck=use_spellcheck
+                use_spellcheck=use_spellcheck,
+                **kwargs
             )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
@@ -503,7 +536,8 @@ def custom(
             use_labels=use_labels,
             case_sensitive=case_sensitive,
             extract_raw=extract_raw,
-            use_spellcheck=use_spellcheck
+            use_spellcheck=use_spellcheck,
+            **kwargs
         )
     
     else:
@@ -516,7 +550,8 @@ def custom(
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
-                use_spellcheck=use_spellcheck
+                use_spellcheck=use_spellcheck,
+                **kwargs
             )
 
     return df
@@ -703,11 +738,16 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
-def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def html(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    data_type: str,
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract elements from strings containing html. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -743,16 +783,26 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
+        df[output_column] = _extract.html(
+            df[input_column].astype(str).tolist(),
+            dataType=data_type,
+            **kwargs
+        )
             
     return df
 
 
-def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], property_type: str = None, return_data_type: str = 'list') -> _pd.DataFrame:
+def properties(
+    df: _pd.DataFrame,
+    input: _Union[str, list],
+    output: _Union[str, list],
+    property_type: str = None,
+    return_data_type: str = 'list',
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -794,11 +844,21 @@ def properties(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, 
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type)
+        df[output[0]] = _extract.properties(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            type=property_type,
+            return_data_type=return_data_type,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type)
+            df[output_column] = _extract.properties(
+                df[input_column].astype(str).tolist(),
+                type=property_type,
+                return_data_type=return_data_type,
+                **kwargs
+            )
     
     return df
 
