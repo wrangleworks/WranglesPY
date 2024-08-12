@@ -336,18 +336,41 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     return results
 
 
-def brackets(input: str) -> list:
+def brackets(input: str, find: list = _Union[str, list], include_brackets: bool = False) -> list:
     """
-    Extract values in brackets, [], {}
+    Extract values in brackets, [], {}, (), <>
     
-    :param input: Name of the input column
-    :param output: Name of the output column
+    :param input: Input string to search for brackets
+    :param find: Types of brackets to find (e.g., 'round', 'square', 'curly', 'angled'). Default is all types.
+    :param include_brackets: Whether to include brackets in the results
+    :return: List of extracted values
     """
     results = []
+    bracket_patterns = {
+    'round': r'\(.*?\)',
+    'square': r'\[.*?\]',
+    'curly': r'\{.*?\}',
+    'angled': r'<.*?>'
+    }
+
+    if isinstance(find, str): find = [find]
+
+    if find != ['all']:
+        patterns = [bracket_patterns[element] for element in find if element != 'all']
+        pattern = '|'.join(patterns)
+    else:
+        # Default pattern matches all types of brackets if find is empty
+        pattern = '|'.join(bracket_patterns.values())
+
     for item in input:
-        re = _re.findall(r'\[.*?\]|{.*?}|\(.*?\)|<.*?>', item)
-        re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
-        
-        results.append(', '.join(re))
+        # Finds all matches inside of brackets in item (list of strings)
+        re = _re.findall(pattern, item)
+    
+        # Traverse list and remove all brackets if include_brackets is False
+        if include_brackets is False:
+            re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
+            results.append(', '.join(re))
+        else:
+            results.append(', '.join(re))
         
     return results
