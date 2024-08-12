@@ -2790,6 +2790,93 @@ class TestPython:
         )
         assert df["test"][0] == "ab"
 
+    def test_python_no_except(self):
+        """
+        Test that an exception is raised if no except is provided
+        """
+        with pytest.raises(SyntaxError):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 5
+                    values:
+                        header 1: a
+                wrangles:
+                  - python:
+                      command: this should error
+                      output: result
+                """
+            )
+
+    def test_python_except(self):
+        """
+        Test to ensure that an exception is caught
+        and the appropraite value is returned instead
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+            wrangles:
+              - python:
+                  command: this should error
+                  output: result
+                  except: error
+            """
+        )
+        assert df["result"][0] == "error"
+
+    def test_python_except_array(self):
+        """
+        Test that an array is returned correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+            wrangles:
+              - python:
+                  command: this should error
+                  output: result
+                  except:
+                    - error1
+                    - error2
+            """
+        )
+        assert df["result"][0] == ["error1","error2"]
+
+    def test_python_except_multiple_outputs(self):
+        """
+        Test that an array is returned correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header 1: a
+            wrangles:
+              - python:
+                  command: this should error
+                  output:
+                    - result1
+                    - result2
+                  except:
+                    - error1
+                    - error2
+            """
+        )
+        assert df["result1"][0] == "error1" and df["result2"][0] == "error2"
+
+
 def test_accordion():
     """
     Test a basic accordion that overwrites the input column
