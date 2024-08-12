@@ -27,6 +27,7 @@ from . import openai
 from . import data
 from .train import train
 from . import select
+from . import compare
 
 
 

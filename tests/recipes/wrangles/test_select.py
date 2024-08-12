@@ -556,6 +556,121 @@ def test_highest_confidence_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Winner'] == ['F', .89] and df.iloc[0]['Winner'] == ''
 
+def test_highest_confidence_single_output():
+    """
+    Test that select.highest_confidence works to
+    see that a list of one is the same as a single value
+    for output
+    """
+    data = pd.DataFrame({
+    'Col1': [['A', .79]],
+    'Col2': [['B', .80]],
+    'Col3': [['C', .99]]
+    })
+    recipe = """
+    wrangles:
+      - select.highest_confidence:
+          input:
+            - Col1
+            - Col2
+            - Col3
+          output:
+            - Winner
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+def test_highest_confidence_json_input():
+    """
+    Test that select.highest_confidence works where
+    the input values is are in JSON.
+    """
+    data = pd.DataFrame({
+    'Col1': ['{"A": 0.79}'],
+    'Col2': ['{"B": 0.80}'],
+    'Col3': ['{"C": 0.99}']
+    })
+
+    recipe = """
+    wrangles:
+        - select.highest_confidence:
+            input:
+                - Col1
+                - Col2
+                - Col3
+            output: Winner
+    """
+
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+def test_highest_confidence_input_strings():
+    """
+    Test that select.highest_confidence works where
+    input scores are string. 
+    """
+    data = pd.DataFrame({
+    'Col1': [['A', '0.79']],
+    'Col2': [['B', '0.80']],
+    'Col3': [['C', '0.99']]
+    })
+
+    recipe = """
+    wrangles:
+        - select.highest_confidence:
+            input:
+                - Col1
+                - Col2
+                - Col3
+            output: Winner
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+def test_highest_confidence_input_single_column_list():
+    """
+    Test that select.highest_confidence works where
+    where the input is a sinlge column with a list
+    """
+    data = pd.DataFrame({
+    'Col1': [[['A', 0.79], ['B', 0.80], ['C', 0.99]]]
+    })
+    recipe = """
+    wrangles:
+        - select.highest_confidence:
+            input: Col1
+            output: Winner
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+def test_highest_confidence_error():
+    """
+    Test that select.highest_confidence gives 
+    a clear error message with invalid input/output
+    """
+    data = pd.DataFrame({
+    'Col1': [['A, .079']],
+    'Col2': ['B = 0.80'], 
+    'Col3': [['C: 0.99']]
+    })
+    recipe = """
+    wrangles: 
+        - select.highest_confidence:
+            input: 
+                - Col1
+                - Col2
+                - Col3
+            output: Winner
+    """
+    # df = wrangles.recipe.run(recipe, dataframe=data)
+    # assert df.iloc[0]['Winner'] == ['C', 0.99]
+
+    with pytest.raises(ValueError) as info:
+        raise wrangles.recipe.run(recipe, dataframe=data)
+    assert (
+        info.typename == 'ValueError' 
+    )
 #
 # Threshold
 #

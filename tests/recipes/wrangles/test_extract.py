@@ -2729,93 +2729,303 @@ def test_extract_html_links():
 # Brackets
 #
 
-def test_extract_brackets_1():
-    data = pd.DataFrame({
-        'col': ['[1234]', '{1234}']
-    })
-    recipe = """
-    wrangles:
-      - extract.brackets:
-          input: col
-          output: no_brackets
+class TestExtractBrackets:
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['no_brackets'] == '1234'
-    
-# if the input is multi column (a list)
-def test_extract_brackets_2():
-    data = pd.DataFrame({
-        'col': ['[1234]'],
-        'col2': ['{1234}'],
-    })
-    recipe = """
-    wrangles:
-      - extract.brackets:
-          input:
-            - col
-            - col2
-          output:
-            - no_brackets
-            - no_brackets2
+    All tests for extract.brackets
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['no_brackets2'] == '1234'
-    
-# if the input and output are not the same type
-def test_extract_brackets_3():
-    data = pd.DataFrame({
-        'col': ['[12345]'],
-        'col2': ['{1234}'],
-    })
-    recipe = """
-    wrangles:
-      - extract.brackets:
-          input:
-            - col
-            - col2
-          output: output
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == '12345, 1234'
 
-# if the input and output are not the same type
-def test_extract_brackets_multi_input():
-    data = pd.DataFrame({
-        'col': ['[12345]'],
-        'col2': ['[6789]'],
-    })
-    recipe = """
-    wrangles:
-      - extract.brackets:
-          input:
-            - col
-            - col2
-          output: output
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == '12345, 6789'
+    def test_extract_brackets_1(self):
+        data = pd.DataFrame({
+            'col': ['[1234]', '{1234}']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output: no_brackets
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['no_brackets'] == '1234'
+        
+    # if the input is multi column (a list)
+    def test_extract_brackets_2(self):
+        data = pd.DataFrame({
+            'col': ['[1234]'],
+            'col2': ['{1234}'],
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input:
+                - col
+                - col2
+            output:
+                - no_brackets
+                - no_brackets2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['no_brackets2'] == '1234'
+        
+    # if the input and output are not the same type
+    def test_extract_brackets_3(self):
+        data = pd.DataFrame({
+            'col': ['[12345]'],
+            'col2': ['{1234}'],
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input:
+                - col
+                - col2
+            output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == '12345, 1234'
 
-def test_extract_brackets_multi_input_where():
-    """
-    Test extract.brackets with multiple inputs, and one output using where
-    """
-    data = pd.DataFrame({
-        'col': ['[12345]', '[this is in brackets]', '[more stuff in brackets]'],
-        'col2': ['[6789]', 'This is not in brackets', '[But this is]'],
-        'numbers': [4, 6, 10]
-    })
-    recipe = """
-    wrangles:
-      - extract.brackets:
-          input:
-            - col
-            - col2
-          output: output
-          where: numbers > 4
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
-    
+    # if the input and output are not the same type
+    def test_extract_brackets_multi_input(self):
+        data = pd.DataFrame({
+            'col': ['[12345]'],
+            'col2': ['[6789]'],
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input:
+                - col
+                - col2
+            output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == '12345, 6789'
+
+    def test_extract_brackets_multi_input_where(self):
+        """
+        Test extract.brackets with multiple inputs, and one output using where
+        """
+        data = pd.DataFrame({
+            'col': ['[12345]', '[this is in brackets]', '[more stuff in brackets]'],
+            'col2': ['[6789]', 'This is not in brackets', '[But this is]'],
+            'numbers': [4, 6, 10]
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input:
+                - col
+                - col2
+            output: output
+            where: numbers > 4
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+
+
+    def test_brackets_round(self):
+        data = pd.DataFrame({
+            'input': ['(some)', 'example']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: round
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'some'
+        assert df.iloc[1]['output'] == ''
+
+    def test_brackets_square(self):
+        data = pd.DataFrame({
+            'input': ['[example]', 'example']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: square
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'example'
+        assert df.iloc[1]['output'] == ''
+
+    def test_brackets_round_square(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: 
+                    - round
+                    - square
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'some'
+        assert df.iloc[1]['output'] == 'example'
+
+    def test_all_brackets(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: 
+                    - round
+                    - square
+                    - curly
+                    - angled
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+
+    def test_all_brackets_no_find(self):
+        data = pd.DataFrame({
+            'input': ['(some) and (some2)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['some, some2', 'example', 'example', 'example']
+
+    def test_all_brackets_with_all_specified(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+
+    def test_multi_bracket_all_included(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: 
+                    - round
+                    - square
+                    - all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['some', 'example', '', '']
+
+    def test_all_brackets_no_find_raw(self):
+        data = pd.DataFrame({
+            'input': ['(some) and (some2)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                include_brackets: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['(some), (some2)', '[example]', '{example}', '<example>']
+
+    def test_all_brackets_raw(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: 
+                    - round
+                    - square
+                    - curly
+                    - angled
+                include_brackets: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['(some)', '[example]', '{example}', '<example>']
+
+    def test_two_bracket_types(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]', '{example}', '<example>']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: 
+                    - round
+                    - square
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output'].tolist() == ['some', 'example', '', '']
+
+    def test_brackets_curly(self):
+        data = pd.DataFrame({
+            'input': ['{example}', 'example']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: curly
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'example'
+        assert df.iloc[1]['output'] == ''
+
+    def test_brackets_angled(self):
+        data = pd.DataFrame({
+            'input': ['<example>', 'example']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                find: angled
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'example'
+        assert df.iloc[1]['output'] == ''
+
+    def test_brackets_extract_raw(self):
+        data = pd.DataFrame({
+            'input': ['(some)', '[example]']
+        })
+        recipe = """
+        wrangles:
+            - extract.brackets:
+                input: input
+                output: output
+                include_brackets: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == '(some)'
+        assert df.iloc[1]['output'] == '[example]'
+
+
 #
 # Date Properties
 #
