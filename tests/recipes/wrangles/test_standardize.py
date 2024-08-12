@@ -522,3 +522,677 @@ class TestUnitConversion:
             dataframe=data
         )
         assert df['output'][0] == ['My car has a mass of 419 lb and it holds 13 liters of gasoline with a battery of 14 volts']
+
+
+#
+# Standardize Custom
+#
+class TestStandardizeCustom:
+    """
+    Legacy and new standardize tests (new module)
+    """
+    def test_standardize_1(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP', 'ETA'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible'
+
+    def test_standardize_1_new_module(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP', 'ETA'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible'
+        
+    # Missing ${ } in model_id
+    def test_standardize_2(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: wrong_model
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Incorrect model_id. May be missing "${ }" around value' in info.value.args[0]
+        )
+
+    def test_standardize_2_new_module(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: wrong_model
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Incorrect model_id. May be missing "${ }" around value' in info.value.args[0]
+        )
+
+    # Missing a character in model_id format
+    def test_standardize_3(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6c4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
+        )
+
+    def test_standardize_3_new_module(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6c4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
+        )
+
+    # using an extract model with standardize function
+    def test_standardize_4(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 1eddb7e8-1b2b-4a52
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.' in info.value.args[0]
+        )
+
+    def test_standardize_4_new_module(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 1eddb7e8-1b2b-4a52
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.' in info.value.args[0]
+        )
+        
+    # Using classify model with standardize function
+    def test_standardize_5(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: a62c7480-500e-480c
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
+        )
+
+    def test_standardize_5_new_module(self):
+        data = pd.DataFrame({
+        'Abbrev': ['ASAP'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: a62c7480-500e-480c
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
+        )
+
+    def test_standardize_where(self):
+        """
+        Test standardize function using a where clause
+        """
+        data = pd.DataFrame({
+        'Product': ['Wrench', 'Hammer', 'Pliers'],
+        'Price': [4.99, 9.99, 14.99]
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Product
+                output: Product Standardized
+                model_id: 6ca4ab44-8c66-40e8
+                where: Price > 10
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Product Standardized'] == "" and df.iloc[2]['Product Standardized'] == 'Pliers'
+
+    def test_standardize_where_new_module(self):
+        """
+        Test standardize function using a where clause
+        """
+        data = pd.DataFrame({
+        'Product': ['Wrench', 'Hammer', 'Pliers'],
+        'Price': [4.99, 9.99, 14.99]
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Product
+                output: Product Standardized
+                model_id: 6ca4ab44-8c66-40e8
+                where: Price > 10
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Product Standardized'] == "" and df.iloc[2]['Product Standardized'] == 'Pliers'
+
+    # List of inputs to one output
+    def test_standardize_multi_input_single_output(self):
+        """
+        Test error using multiple input columns and only one output
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['ASAP'],
+        'Abbrev2': ['RSVP']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_standardize_multi_input_single_output_new_module(self):
+        """
+        Test error using multiple input columns and only one output
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['ASAP'],
+        'Abbrev2': ['RSVP']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    # List of inputs and outputs single model_id
+    def test_standardize_multi_io_single_model(self):
+        """
+        Test output using multiple input and output columns with a single model_id
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['ASAP'],
+        'Abbrev2': ['ETA']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbreviations1
+                - Abbreviations2
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
+
+    def test_standardize_multi_io_single_model_new_module(self):
+        """
+        Test output using multiple input and output columns with a single model_id
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['ASAP'],
+        'Abbrev2': ['ETA']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbreviations1
+                - Abbreviations2
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations1'] == 'As Soon As Possible' and df.iloc[0]['Abbreviations2'] == 'Estimated Time of Arrival'
+
+    # List of inputs and outputs single model_id with where
+    def test_standardize_multi_io_single_model_where(self):
+        """
+        Test output using multiple input and output columns with a single model_id with a where filter
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['FOMO', 'IDK', 'ASAP', 'ETA'],
+        'Abbrev2': ['IDK', 'FOMO', 'ASAP', 'ETA']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbreviations1
+                - Abbreviations2
+                model_id: 6ca4ab44-8c66-40e8
+                where: Abbrev1 LIKE Abbrev2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
+
+    # List of inputs and outputs single model_id with where
+    def test_standardize_multi_io_single_model_where_new_module(self):
+        """
+        Test output using multiple input and output columns with a single model_id with a where filter
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['FOMO', 'IDK', 'ASAP', 'ETA'],
+        'Abbrev2': ['IDK', 'FOMO', 'ASAP', 'ETA']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbreviations1
+                - Abbreviations2
+                model_id: 6ca4ab44-8c66-40e8
+                where: Abbrev1 LIKE Abbrev2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations1'] == "" and df.iloc[2]['Abbreviations1'] == 'As Soon As Possible'
+
+    def test_standardize_case_sensitive(self):
+        """
+        Test standardize with case sensitivity
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'asap' and df.iloc[1]['Abbreviations'] == 'eta'
+
+    def test_standardize_case_sensitive_new_module(self):
+        """
+        Test standardize with case sensitivity
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'asap' and df.iloc[1]['Abbreviations'] == 'eta'
+
+    def test_standardize_case_insensitive(self):
+        """
+        Test standardize with case insensitivity
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                case_sensitive: false
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+    def test_standardize_case_insensitive_new_module(self):
+        """
+        Test standardize with case insensitivity
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                case_sensitive: false
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+    def test_standardize_case_default(self):
+        """
+        Test standardize with case default
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+    def test_standardize_case_default_new_module(self):
+        """
+        Test standardize with case default
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: Abbreviations
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbreviations'] == 'As Soon As Possible' and df.iloc[1]['Abbreviations'] == 'Estimated Time of Arrival'
+
+    def test_standardize_case_sensitive_multiple_rows(self):
+        """
+        Test standardize with case sensitive and multiple inputs and outputs
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['asap'],
+        'Abbrev2': ['eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbrev1 output
+                - Abbrev2 output
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbrev1 output'] == 'asap' and df.iloc[0]['Abbrev2 output'] == 'eta'
+
+    def test_standardize_case_sensitive_multiple_rows_new_module(self):
+        """
+        Test standardize with case sensitive and multiple inputs and outputs
+        """
+        data = pd.DataFrame({
+        'Abbrev1': ['asap'],
+        'Abbrev2': ['eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: 
+                - Abbrev1
+                - Abbrev2
+                output: 
+                - Abbrev1 output
+                - Abbrev2 output
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbrev1 output'] == 'asap' and df.iloc[0]['Abbrev2 output'] == 'eta'
+
+    def test_standardize_case_sensitive_in_place(self):
+        """
+        Test standardize with case sensitive and no output
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbrev'] == 'asap' and df.iloc[1]['Abbrev'] == 'eta'
+
+    def test_standardize_case_sensitive_in_place_new_module(self):
+        """
+        Test standardize with case sensitive and no output
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                case_sensitive: true
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Abbrev'] == 'asap' and df.iloc[1]['Abbrev'] == 'eta'
+
+    def test_standardize_case_sensitive_invalid_bool(self):
+        """
+        Test standardize with case sensitive with an invalid boolean
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: output
+                case_sensitive: Huh?
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
+        )
+
+    def test_standardize_case_sensitive_invalid_bool_new_module(self):
+        """
+        Test standardize with case sensitive with an invalid boolean
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta']
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: output
+                case_sensitive: Huh?
+                model_id: 6ca4ab44-8c66-40e8
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
+        )
+
+    def test_standardize_case_sensitive_multi_model(self):
+        """
+        Test standardize with case sensitive with multiple models
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: output
+                case_sensitive: true
+                model_id: 
+                - fc7d46e3-057f-47bd
+                - 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'asap' and df.iloc[3]['output'] == 'OMW'
+
+    def test_standardize_case_sensitive_multi_model_new_module(self):
+        """
+        Test standardize with case sensitive with multiple models
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: output
+                case_sensitive: true
+                model_id: 
+                - fc7d46e3-057f-47bd
+                - 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'asap' and df.iloc[3]['output'] == 'OMW'
+
+    def test_standardize_case_insensitive_multi_model(self):
+        """
+        Test standardize with case insensitive with multiple models
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+        })
+        recipe = """
+        wrangles:
+            - standardize:
+                input: Abbrev
+                output: output
+                case_sensitive: false
+                model_id: 
+                - fc7d46e3-057f-47bd
+                - 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
+
+    def test_standardize_case_insensitive_multi_model_new_module(self):
+        """
+        Test standardize with case insensitive with multiple models
+        """
+        data = pd.DataFrame({
+        'Abbrev': ['asap', 'eta', 'IDK', 'OMW'],
+        })
+        recipe = """
+        wrangles:
+            - standardize.custom:
+                input: Abbrev
+                output: output
+                case_sensitive: false
+                model_id: 
+                - fc7d46e3-057f-47bd
+                - 6ca4ab44-8c66-40e8
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
