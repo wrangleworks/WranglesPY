@@ -846,7 +846,7 @@ def python(
         type:
           - string
           - array
-        description: |
+        description: |-
           Name or list of input column(s) to filter the data available
           to the command. Useful in conjunction with kwargs to target
           a variable range of columns.
@@ -855,15 +855,27 @@ def python(
         type:
           - string
           - array
-        description: |
+        description: |-
           Name or list of output column(s). To output multiple columns,
           return a list of the corresponding length.
       command:
         type: string
-        description: |
+        description: |-
           Python command. This must return a value.
           Note: any non-alphanumeric characters in variable names
           are replaced by underscores (_).
+      except:
+        type:
+          - string
+          - array
+          - number
+          - integer
+          - boolean
+          - object
+        description: |-
+          Value to return for the row if an exception occurs during the evaluation.
+          If not provided, an exception will be raised as normal.
+          If multiple output columns are specified, this must match the length.
     """
     # Ensure input is a list and if not
     # specified then set to all columns
@@ -890,8 +902,18 @@ def python(
         result_type = "expand"
     else:
         result_type = "reduce"
-    
+
+    # Set the exception value if one is provided by the user
+    if "except" in kwargs:
+        exception = kwargs["except"]
+        del kwargs["except"]
+    else:
+        exception = None
+
     def _apply_command(**kwargs):
+        """
+        Apply the command to the inputs and return the result
+        """
         return eval(
             command,
             {
@@ -904,8 +926,21 @@ def python(
             {}
         )
     
+    def _exception_handler(**kwargs):
+        """
+        If an exception value is provided by the user, catch and return
+        else raise an error in the normal way otherwise
+        """
+        if exception:
+            try:
+                return _apply_command(**kwargs)
+            except Exception as e:
+                return exception
+        else:
+            return _apply_command(**kwargs)
+        
     df[output] = df[input].apply(
-        lambda x: _apply_command(**x, **kwargs),
+        lambda x: _exception_handler(**x, **kwargs),
         axis=1,
         result_type=result_type
     )
