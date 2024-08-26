@@ -4,6 +4,7 @@ Functions for interacting with Keycloak Server
 from datetime import datetime as _datetime, timedelta as _timedelta
 import requests as _requests
 from . import config as _config
+import urllib.parse as _urlparse
 
 
 _access_token = None
@@ -17,8 +18,12 @@ def _refresh_access_token():
     """
     if _config.api_user == None or _config.api_password == None: raise RuntimeError('User or password not provided')
 
+    # Encode username and password
+    username = _urlparse.quote(_config.api_user)
+    password = _urlparse.quote(_config.api_password)
+
     url = f"{_config.keycloak.host}/auth/realms/{_config.keycloak.realm}/protocol/openid-connect/token"
-    payload = f"grant_type=password&username={_config.api_user}&password={_config.api_password}&client_id={_config.keycloak.client_id}"
+    payload = f"grant_type=password&username={username}&password={password}&client_id={_config.keycloak.client_id}"
     headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
 
     response = _requests.post(url, headers=headers, data=payload)
