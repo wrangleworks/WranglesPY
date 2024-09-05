@@ -88,7 +88,9 @@ def _replace_templated_values(
                     raise ValueError(f"Variable {new_recipe_object} was not found.")
 
             # Test if replacement is JSON
-            if (isinstance(replacement_value, str)
+            if (
+                isinstance(replacement_value, str)
+                and len(replacement_value) > 0
                 and replacement_value[0] in ['{', '[']
                 and replacement_value[-1] in ['}', ']']
             ):
@@ -99,7 +101,8 @@ def _replace_templated_values(
                     pass
 
             # Test if replacement is YAML
-            if (isinstance(replacement_value, str) 
+            if (
+                isinstance(replacement_value, str) 
                 and ':' in replacement_value 
                 and '\n' in replacement_value
             ):

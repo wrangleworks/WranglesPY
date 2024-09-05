@@ -266,3 +266,71 @@ def test_parameter_overrides_environment():
         variables={'HOME':'success', 'USERNAME':'success'}
     )
     assert df.iloc[0]['header'] == 'success'
+
+def test_empty_string_value():
+    """
+    Test that a variable with the value set as
+    an empty string is interpreted correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                header: ${empty}
+        """,
+        variables={'empty': ''}
+    )
+    assert df['header'][0] == ''
+
+def test_zero_value():
+    """
+    Test that a variable with the value set as
+    zero is interpreted correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                header: ${empty}
+        """,
+        variables={'empty': 0}
+    )
+    assert df['header'][0] == 0
+
+def test_none_value():
+    """
+    Test that a variable with the value set as
+    None is interpreted correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                header: ${empty}
+        """,
+        variables={'empty': None}
+    )
+    assert df['header'][0] is None
+
+def test_false_value():
+    """
+    Test that a variable with the value set as
+    False is interpreted correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                header: ${empty}
+        """,
+        variables={'empty': False}
+    )
+    assert df['header'][0] == False
