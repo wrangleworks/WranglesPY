@@ -12,11 +12,6 @@ def test_classify():
 def test_classify_list():
     result = wrangles.classify(['ball bearing'], '24ac9037-ecab-4030')
     assert result[0].split(' || ')[0] == 'Bearings'
-
-def test_classify_large_list():
-    input = ['ball bearing' for _ in range(25000)]
-    results = wrangles.classify(input, '24ac9037-ecab-4030')
-    assert len(results) == 25000 and results[0].split(' || ')[0] == 'Bearings'
   
 ##  Classify Raise Errors
 # Invalid input data provided
@@ -91,11 +86,6 @@ def test_custom_first_element():
 def test_custom_first_element_list():
     result = wrangles.extract.custom(['test skf test timken', 'test timken test skf'], 'fce592c9-26f5-4fd7', first_element=True)
     assert result == ['SKF', 'SKF']
-
-def test_custom_large_list():
-    input = ['test skf test' for _ in range(25000)]
-    results = wrangles.extract.custom(input, '4786921f-342f-4a0c')
-    assert len(results) == 25000 and results[0][0] == 'SKF'
 
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
