@@ -325,27 +325,6 @@ def test_to_json_array_list_to_list():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out1'] == '["val1", "val2"]' and df.iloc[0]['out2'] == '["val3", "val4"]'
     
-# Test error when using a list of input columns and a single output column
-def test_to_json_array_list_to_single_output():
-    """
-    Test converting to a list to a JSON array with a list of input columns and a single output column
-    """
-    data = pd.DataFrame([[["val1", "val2"], ["val3", "val4"]]], columns=['header1', 'header2'])
-    recipe = """
-    wrangles:
-        - convert.to_json:
-            input: 
-              - header1
-              - header2
-            output: out1
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
-    
 # Test error when using a single input column and a list of output columns
 def test_to_json_array_single_input_to_multi_output():
     """
@@ -574,6 +553,31 @@ def test_to_json_numpy_int():
         }, dtype=object)
     )
     assert df['column'][0] == '[1]'
+
+def test_to_json_input_list_output_one():
+    """
+    Test providing multiple inputs but only one output
+    Should merge to a dictionary before converting to JSON
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                column1: a
+                column2:
+                  b: 1
+        wrangles:
+          - convert.to_json:
+              input:
+                - column1
+                - column2
+              output: result
+        """
+    )
+    assert df['result'][0] == r'{"column1": "a", "column2": {"b": 1}}'
+
 
 def test_from_json_array():
     """

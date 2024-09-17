@@ -310,24 +310,34 @@ def to_json(
     if not isinstance(output, list): output = [output]
     
     # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
-    # Loop through and apply for all columns
-    for input_columns, output_column in zip(input, output):
-        df[output_column] = [
+    if len(input) == len(output):
+        # Loop through and apply for all columns
+        for input_columns, output_column in zip(input, output):
+            df[output_column] = [
+                _json.dumps(
+                    row,
+                    ensure_ascii=ensure_ascii,
+                    default=handle_unusual_datatypes,
+                    **kwargs
+                ) 
+                for row in df[input_columns].values
+            ]
+    elif len(input) > 1 and len(output) == 1:
+        df[output] = [
             _json.dumps(
                 row,
                 ensure_ascii=ensure_ascii,
                 default=handle_unusual_datatypes,
                 **kwargs
             ) 
-            for row in df[input_columns].values
+            for row in df[input].to_dict(orient="records")
         ]
-        
+    else:
+        raise ValueError('The lists for input and output must be the same length.')
+
     return df
 
-
+ 
 def from_yaml(
     df: _pd.DataFrame, 
     input: _Union[str, list], 
