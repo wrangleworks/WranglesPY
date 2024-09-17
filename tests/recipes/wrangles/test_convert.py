@@ -5,290 +5,321 @@ import json as _json
 import numpy as _np
 
 
-#
-# CASE
-#
-def test_case_default():
+class TestCase:
     """
-    Default value -> no case specified
+    Test convert.case wrangles
     """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'a string'
+    def test_default(self):
+        """
+        Default value -> no case specified
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'a string'
 
-def test_case_list():
-    """
-    Input is a list
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input:
-            - Data1
-            - Data2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'a string' and df.iloc[0]['Data2'] == 'another string'
+    def test_list(self):
+        """
+        Input is a list
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input:
+                - Data1
+                - Data2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'a string' and df.iloc[0]['Data2'] == 'another string'
+
+    def test_output(self):
+        """
+        Specifying output column
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            output: Column
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Column'] == 'a string'
+
+    def test_list_to_list(self):
+        """
+        Output and input are a multi columns
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input:
+                - Data1
+                - Data2
+            output:
+                - Column1
+                - Column2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Column1'] == 'a string' and df.iloc[0]['Column2'] == 'another string'
+
+    def test_multi_input_single_output(self):
+        """
+        Input is a list of columns and output is a single column
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input:
+                - Data1
+                - Data2
+            output: Column1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_single_input_multi_output(self):
+        """
+        Input is a list of columns and output is a single column
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            output:
+                - Column1
+                - Column2
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_lower(self):
+        """
+        Test converting to lower case
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            case: lower
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'a string'
+
+    def test_upper(self):
+        """
+        Test converting to upper case
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'A STRING'
+        
+    def test_title(self):
+        """
+        Test converting to title case
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            case: title
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'A String'
+
+    def test_sentence(self):
+        """
+        Test converting to sentence case
+        """
+        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data1
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Data1'] == 'A string'
+
+    def test_where(self):
+        """
+        Test converting to title case using where
+        """
+        data = pd.DataFrame({
+        'Col1': ['ball bearing', 'roller bearing', 'needle bearing'],
+        'number': [25, 31, 22]
+        })
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Col1
+            case: title
+            where: number > 22
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
 
-def test_case_output():
+class TestDataType:
     """
-    Specifying output column
+    Test convert.data_type wrangles
     """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          output: Column
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Column'] == 'a string'
+    def test_str(self):
+        """
+        Test converting to string data type
+        """
+        data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: Data1
+            data_type: str
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert isinstance(df.iloc[0]['Data1'], str)
 
-def test_case_list_to_list():
-    """
-    Output and input are a multi columns
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input:
-            - Data1
-            - Data2
-          output:
-            - Column1
-            - Column2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Column1'] == 'a string' and df.iloc[0]['Column2'] == 'another string'
+    def test_list_to_list(self):
+        """
+        Test using a list of outputs and a list of inputs
+        """
+        data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: 
+              - Data1
+              - Data2
+            output:
+              - out1
+              - out2
+            data_type: str
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert isinstance(df.iloc[0]['out1'], str) and isinstance(df.iloc[0]['out2'], str) 
 
-# Test error when a list is input with only one output given
-def test_case_multi_input_single_output():
-    """
-    Input is a list of columns and output is a single column
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input:
-            - Data1
-            - Data2
-          output: Column1
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
+    def test_error_multi_input_single_output(self):
+        """
+        Test error when list of inputs given with a single output
+        """
+        data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: 
+              - Data1
+              - Data2
+            output: out1
+            data_type: str
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
 
-# Test error when a single input with list of outputs is given
-def test_case_single_input_multi_output():
-    """
-    Input is a list of columns and output is a single column
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          output:
-            - Column1
-            - Column2
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
+    def test_error_single_input_multi_output(self):
+        """
+        Test error when single input given with list of outputs
+        """
+        data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: Data1
+            output: 
+              - out1
+              - out2
+            data_type: str
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
 
-def test_case_lower():
-    """
-    Test converting to lower case
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          case: lower
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'a string'
+    def test_where(self):
+        """
+        Test convert.data_type using where
+        """
+        data = pd.DataFrame({
+        'number': [25, 31, 22]
+        })
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: number
+            output: number string
+            data_type: str
+            where: number > 25
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
 
-def test_case_upper():
-    """
-    Test converting to upper case
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          case: upper
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'A STRING'
-    
-def test_case_title():
-    """
-    Test converting to title case
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          case: title
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'A String'
+    def test_convert_to_datetime(self):
+        data = pd.DataFrame({
+            'date': ['12/25/2050'],
+        })
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: date
+            output: date_type
+            data_type: datetime
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['date_type'].week == 51
+        
+    def test_convert_to_datetime_where(self):
+        """
+        Test using convert to datetime using where
+        """
+        data = pd.DataFrame({
+            'date': ['12/25/2050', '11/10/1987'],
+            'numbers': [4, 2]
+        })
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: date
+            output: date_type
+            data_type: datetime
+            where: numbers > 3
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
 
-def test_case_sentence():
-    """
-    Test converting to sentence case
-    """
-    data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Data1
-          case: sentence
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Data1'] == 'A string'
-
-def test_case_where():
-    """
-    Test converting to title case using where
-    """
-    data = pd.DataFrame({
-    'Col1': ['ball bearing', 'roller bearing', 'needle bearing'],
-    'number': [25, 31, 22]
-    })
-    recipe = """
-    wrangles:
-      - convert.case:
-          input: Col1
-          case: title
-          where: number > 22
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
-
-#
-# Data Type
-#
-def test_data_type_str():
-    """
-    Test converting to string data type
-    """
-    data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: Data1
-          data_type: str
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert isinstance(df.iloc[0]['Data1'], str)
-
-# List of inputs to a list of outputs
-def test_data_list_to_list():
-    """
-    Test using a list of outputs and a list of inputs
-    """
-    data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: 
-            - Data1
-            - Data2
-          output:
-            - out1
-            - out2
-          data_type: str
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert isinstance(df.iloc[0]['out1'], str) and isinstance(df.iloc[0]['out2'], str) 
-    
-# List of inputs to a single output
-def test_data_multi_input_single_output():
-    """
-    Test error when list of inputs given with a single output
-    """
-    data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: 
-            - Data1
-            - Data2
-          output: out1
-          data_type: str
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
-    
-# Single input to a list of outputs
-def test_data_single_input_multi_output():
-    """
-    Test error when single input given with list of outputs
-    """
-    data = pd.DataFrame([[1, "2"]], columns=['Data1', 'Data2'])
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: Data1
-          output: 
-            - out1
-            - out2
-          data_type: str
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
-
-def test_data_where():
-    """
-    Test convert.data_type using where
-    """
-    data = pd.DataFrame({
-    'number': [25, 31, 22]
-    })
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: number
-          output: number string
-          data_type: str
-          where: number > 25
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
 
 class TestToJSON:
     """
     Test convert.to_json wrangles
     """
-    def test_to_json_array(self):
+    def test_array(self):
         """
         Test converting to a list to a JSON array
         """
@@ -307,7 +338,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['headers_json'] == '["val1", "val2"]'
 
-    def test_to_json_array_list_to_list(self):
+    def test_array_list_to_list(self):
         """
         Test converting to a list to a JSON array with a list of input and output columns
         """
@@ -325,7 +356,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['out1'] == '["val1", "val2"]' and df.iloc[0]['out2'] == '["val3", "val4"]'
 
-    def test_to_json_array_single_input_to_multi_output(self):
+    def test_array_single_input_to_multi_output(self):
         """
         Test converting to a list to a JSON array with a single input and a list of output columns
         """
@@ -345,7 +376,7 @@ class TestToJSON:
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
-    def test_to_json_array_where(self):
+    def test_array_where(self):
         """
         Test converting to a list to a JSON array using where
         """
@@ -369,7 +400,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['headers_json'] == "" and df.iloc[1]['headers_json'] == '["val2", "val5"]'
 
-    def test_to_json_array_indent(self):
+    def test_array_indent(self):
         """
         Test converting to a list to a JSON array using indent
         """
@@ -389,7 +420,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['headers_json'] == '[\n    "val1",\n    "val2"\n]'
 
-    def test_to_json_array_sort_keys(self):
+    def test_array_sort_keys(self):
         """
         Test converting to a list to a JSON array using sort_keys
         """
@@ -410,7 +441,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['headers_json'] == '{"header1": "val1", "header2": "val2", "header3": "val3"}'
 
-    def test_to_json_ensure_ascii_true(self):
+    def test_ensure_ascii_true(self):
         """
         Test uncommon characters that require UTF encoding.
         With ascii as True these should show the encoded version.
@@ -436,7 +467,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['column dict'] == '{"column": "this is a \\u00b0 symbol"}'
 
-    def test_to_json_ensure_ascii_false(self):
+    def test_ensure_ascii_false(self):
         """
         Test uncommon characters that require UTF encoding.
         With ascii as false, these should not be encoded.
@@ -462,7 +493,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
 
-    def test_to_json_ensure_ascii_default(self):
+    def test_ensure_ascii_default(self):
         """
         Test uncommon characters that require UTF encoding.
         With default settings, these should not be encoded.
@@ -487,7 +518,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['column dict'] == '{"column": "this is a ° symbol"}'
 
-    def test_to_json_numpy_array(self):
+    def test_numpy_array(self):
         """
         Test converting a numpy array to json
         """
@@ -503,7 +534,7 @@ class TestToJSON:
         )
         assert df['column'][0] == '[1, "a"]'
 
-    def test_to_json_datetime(self):
+    def test_datetime(self):
         """
         Test converting a datetime to json
         """
@@ -519,7 +550,7 @@ class TestToJSON:
         )
         assert df['column'][0][:22] == '"2020-01-01T00:00:00.0'
 
-    def test_to_json_numpy_float(self):
+    def test_numpy_float(self):
         """
         Test converting a numpy float to json
         """
@@ -535,7 +566,7 @@ class TestToJSON:
         )
         assert df['column'][0] == '[1.0]'
 
-    def test_to_json_numpy_int(self):
+    def test_numpy_int(self):
         """
         Test converting a numpy float to json
         """
@@ -551,7 +582,7 @@ class TestToJSON:
         )
         assert df['column'][0] == '[1]'
 
-    def test_to_json_input_list_output_one(self):
+    def test_multiple_input_single_output(self):
         """
         Test providing multiple inputs but only one output
         Should merge to a dictionary before converting to JSON
@@ -575,7 +606,12 @@ class TestToJSON:
         )
         assert df['result'][0] == r'{"column1": "a", "column2": {"b": 1}}'
 
-    def test_from_json_array(self):
+
+class TestFromJSON:
+    """
+    Test convert.from_json wrangles
+    """
+    def test_array(self):
         """
         Test converting to a JSON array to a list
         """
@@ -588,7 +624,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert isinstance(df.iloc[0]['header1'], list)
 
-    def test_from_json_array_list_to_list(self):
+    def test_array_list_to_list(self):
         """
         Test converting to a JSON array to a list using a list of inputs and outputs
         """
@@ -606,7 +642,7 @@ class TestToJSON:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert isinstance(df.iloc[0]['out1'], list) and isinstance(df.iloc[0]['out2'], list)
 
-    def test_from_json_array_list_to_single_output(self):
+    def test_array_list_to_single_output(self):
         """
         Test error with a list of inputs and a single output
         """
@@ -626,422 +662,420 @@ class TestToJSON:
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
-# test error with a single input and a list of outputs
-def test_from_json_array_single_input_to_multi_output():
-    """
-    Test error with a single input and a list of outputs
-    """
-    data = pd.DataFrame([['["val1", "val2"]', '["val3", "val4"]']], columns=['header1', 'header2'])
-    recipe = """
-    wrangles:
-        - convert.from_json:
-            input: header1
-            output: 
-              - out1
-              - out2
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
+    def test_array_single_input_to_multi_output(self):
+        """
+        Test error with a single input and a list of outputs
+        """
+        data = pd.DataFrame([['["val1", "val2"]', '["val3", "val4"]']], columns=['header1', 'header2'])
+        recipe = """
+        wrangles:
+            - convert.from_json:
+                input: header1
+                output: 
+                - out1
+                - out2
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
 
-def test_from_json_array_where():
-    """
-    Test converting to a JSON array to a list using where
-    """
-    data = pd.DataFrame({
-        'header1': ['["val1", "val2"]', '["val3", "val4"]'],
-        'numbers': [5, 7]
-    })
-    recipe = """
-    wrangles:
-        - convert.from_json:
-            input: header1
-            where: numbers > 6
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['header1'] == '["val1", "val2"]' and isinstance(df.iloc[1]['header1'], list)
+    def test_array_where(self):
+        """
+        Test converting to a JSON array to a list using where
+        """
+        data = pd.DataFrame({
+            'header1': ['["val1", "val2"]', '["val3", "val4"]'],
+            'numbers': [5, 7]
+        })
+        recipe = """
+        wrangles:
+            - convert.from_json:
+                input: header1
+                where: numbers > 6
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['header1'] == '["val1", "val2"]' and isinstance(df.iloc[1]['header1'], list)
 
-def test_from_json_error():
-    """
-    Test that bad values return an appropriate error
-    """
-    with pytest.raises(ValueError) as error:
-        raise wrangles.recipe.run(
+    def test_error(self):
+        """
+        Test that bad values return an appropriate error
+        """
+        with pytest.raises(ValueError) as error:
+            raise wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.from_json:
+                    input: header1
+                """,
+                dataframe=pd.DataFrame({
+                    "header1": ["", '[1,2,3]']
+                })
+            )
+        assert "Unable to load all rows as JSON" in error.value.args[0]
+
+    def test_default_array(self):
+        """
+        Test that a default applies correctly for error values
+        """
+        df = wrangles.recipe.run(
             """
             wrangles:
             - convert.from_json:
                 input: header1
+                default: []
             """,
             dataframe=pd.DataFrame({
                 "header1": ["", '[1,2,3]']
             })
         )
-    assert "Unable to load all rows as JSON" in error.value.args[0]
+        assert (
+            df["header1"][0] == [] and
+            df["header1"][1] == [1,2,3]
+        )
 
-def test_from_json_default_array():
-    """
-    Test that a default applies correctly for error values
-    """
-    df = wrangles.recipe.run(
+    def test_default_dict_empty(self):
         """
-        wrangles:
-        - convert.from_json:
-            input: header1
-            default: []
-        """,
-        dataframe=pd.DataFrame({
-            "header1": ["", '[1,2,3]']
-        })
-    )
-    assert (
-        df["header1"][0] == [] and
-        df["header1"][1] == [1,2,3]
-    )
-
-def test_from_json_default_dict_empty():
-    """
-    Test that a default applies correctly for empty values
-    """
-    df = wrangles.recipe.run(
+        Test that a default applies correctly for empty values
         """
-        wrangles:
-        - convert.from_json:
-            input: header1
-            default: {}
-        """,
-        dataframe=pd.DataFrame({
-            "header1": ["", '[1,2,3]']
-        })
-    )
-    assert (
-        df["header1"][0] == {} and
-        df["header1"][1] == [1,2,3]
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input: header1
+                default: {}
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]']
+            })
+        )
+        assert (
+            df["header1"][0] == {} and
+            df["header1"][1] == [1,2,3]
+        )
 
-def test_from_json_default_dict_error():
-    """
-    Test that a default applies correctly for error values
-    """
-    df = wrangles.recipe.run(
+    def test_default_dict_error(self):
         """
-        wrangles:
-        - convert.from_json:
-            input: header1
-            default: {}
-        """,
-        dataframe=pd.DataFrame({
-            "header1": ['{"a":"b":"c"}', '[1,2,3]']
+        Test that a default applies correctly for error values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input: header1
+                default: {}
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ['{"a":"b":"c"}', '[1,2,3]']
+            })
+        )
+        assert (
+            df["header1"][0] == {} and
+            df["header1"][1] == [1,2,3]
+        )
+
+
+class TestFractionToDecimal:
+    """
+    Test convert.fraction_to_decimal wrangle
+    """
+    def test_default(self):
+        """
+        Test basic example
+        """
+        data = pd.DataFrame({
+        'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
         })
-    )
-    assert (
-        df["header1"][0] == {} and
-        df["header1"][1] == [1,2,3]
-    )
-
-#
-# Convert to datetime
-#
-
-def test_convert_to_datetime():
-    data = pd.DataFrame({
-        'date': ['12/25/2050'],
-    })
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: date
-          output: date_type
-          data_type: datetime
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['date_type'].week == 51
-    
-def test_convert_to_datetime_where():
-    """
-    Test using convert to datetime using where
-    """
-    data = pd.DataFrame({
-        'date': ['12/25/2050', '11/10/1987'],
-        'numbers': [4, 2]
-    })
-    recipe = """
-    wrangles:
-      - convert.data_type:
-          input: date
-          output: date_type
-          data_type: datetime
-          where: numbers > 3
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
-
-#
-# Fractions
-#
-def test_fraction_to_decimal():
-    data = pd.DataFrame({
-    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
-    })
-    recipe = """
-    wrangles:
-      - convert.fraction_to_decimal:
-          input: col1
-          output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
-
-# Test converting fraction to decimal with a list of outputs and inputs
-def test_fraction_to_decimal_list_to_list():
-    """
-    Test using a list of outputs and inputs
-    """
-    data = pd.DataFrame({
-    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
-    'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
-    })
-    recipe = """
-    wrangles:
-      - convert.fraction_to_decimal:
-          input: 
-            - col1
-            - col2
-          output: 
-            - out1
-            - out2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high" and df.iloc[0]['out2'] == "The length is 0.75 wide 0.125 high"
-    
-# Test converting fraction to decimal with a list of inputs and a single output
-def test_fraction_to_decimal_list_to_single_output():
-    """
-    Test using a list of inputs and a single output
-    """
-    data = pd.DataFrame({
-    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
-    'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
-    })
-    recipe = """
-    wrangles:
-      - convert.fraction_to_decimal:
-          input: 
-            - col1
-            - col2
-          output: out1
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
-
-# Test converting fraction to decimal with a list of outputs and a single input
-def test_fraction_to_decimal_single_input_multi_output():
-    """
-    Test using a single input and a list of outputs
-    """
-    data = pd.DataFrame({
-    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
-    'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
-    })
-    recipe = """
-    wrangles:
-      - convert.fraction_to_decimal:
-          input: col1
-          output: 
-            - out1
-            - out2
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        'The lists for input and output must be the same length.' in info.value.args[0]
-    )
-    
-def test_fraction_to_decimal_different_separators():
-    """
-    Testing different separators for mixed fractions
-    """
-    data = pd.DataFrame({
-        'input': [
-            '1-1/3',
-            '1-1/2 cups',
-            '1 1/2 cups',
-            '1 1/3',
-            'not range 1-1/4',
-            'e.g 1-3/4 - 2-1/2',
-            'fraction ranges 1/4 - 1/2'
-        ]
-    })
-    
-    df = wrangles.recipe.run(
-        recipe="""
+        recipe = """
         wrangles:
         - convert.fraction_to_decimal:
-            input: input
-            output: out
-            decimals: 2
-        """,
-        dataframe=data
-    )
-    assert df['out'].tolist() == ['1.33', '1.5 cups', '1.5 cups', '1.33', 'not range 1.25', 'e.g 1.75 - 2.5', 'fraction ranges 0.25 - 0.5']
-
-def test_fraction_to_decimal_where():
-    """
-    Test using fraction to decimal using where
-    """
-    data = pd.DataFrame({
-    'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
-    'numbers': [13, 12, 11]
-    })
-    recipe = """
-    wrangles:
-      - convert.fraction_to_decimal:
-          input: col1
-          output: out1
-          where: numbers > 11
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
-
-def test_to_yaml():
-    """
-    Test converting an object to YAML
-    """
-    df = wrangles.recipe.run(
+            input: col1
+            output: out1
         """
-        wrangles:
-          - convert.to_yaml:
-              input: column
-        """,
-        dataframe=pd.DataFrame({
-            "column": [{"key": "val", "key2": ["list1", "list2"]}]
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
+
+    def test_list_to_list(self):
+        """
+        Test using a list of outputs and inputs
+        """
+        data = pd.DataFrame({
+        'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+        'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
         })
-    )
-    assert df['column'][0] == "key: val\nkey2:\n- list1\n- list2\n"
-
-def test_to_yaml_sort_order_default():
-    """
-    Test that an object converted to YAML
-    maintains its order using the default settings
-    """
-    df = wrangles.recipe.run(
-        """
+        recipe = """
         wrangles:
-          - convert.to_yaml:
-              input: column
-        """,
-        dataframe=pd.DataFrame({
-            "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+        - convert.fraction_to_decimal:
+            input: 
+                - col1
+                - col2
+            output: 
+                - out1
+                - out2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high" and df.iloc[0]['out2'] == "The length is 0.75 wide 0.125 high"
+
+    def test_list_to_single_output(self):
+        """
+        Test using a list of inputs and a single output
+        """
+        data = pd.DataFrame({
+        'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+        'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
         })
-    )
-    assert df['column'][0] == "key2: val\nkey1:\n- list1\n- list2\n"
-
-def test_to_yaml_sort_keys_true():
-    """
-    Test specifying sort_keys: true
-    for convert.to_yaml
-    """
-    df = wrangles.recipe.run(
-        """
+        recipe = """
         wrangles:
-          - convert.to_yaml:
-              input: column
-              sort_keys: true
-        """,
-        dataframe=pd.DataFrame({
-            "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+        - convert.fraction_to_decimal:
+            input: 
+                - col1
+                - col2
+            output: out1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_single_input_multi_output(self):
+        """
+        Test using a single input and a list of outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+        'col2': ['The length is 3/4 wide 1/8 high', 'the panel is 1/3 inches', 'the diameter is 3/16 meters']
         })
-    )
-    assert df['column'][0] == "key1:\n- list1\n- list2\nkey2: val\n"
-
-def test_from_yaml():
-    """
-    Test converting a YAML to an object
-    """
-    df = wrangles.recipe.run(
-        """
+        recipe = """
         wrangles:
-          - convert.from_yaml:
-              input: column
-        """,
-        dataframe=pd.DataFrame({
-            "column": ["key: val\nkey2:\n- list1\n- list2\n"]
-        })
-    )
-    assert (
-        _json.dumps(df['column'][0]) == 
-        _json.dumps({"key": "val", "key2": ["list1", "list2"]})
-    )
-
-def test_from_yaml_empty_default_list():
-    """
-    Test converting a YAML to an object
-    with a default for empty values
-    """
-    df = wrangles.recipe.run(
+        - convert.fraction_to_decimal:
+            input: col1
+            output: 
+                - out1
+                - out2
         """
-        wrangles:
-          - convert.from_yaml:
-              input: column
-              default: []
-        """,
-        dataframe=pd.DataFrame({
-            "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
-        })
-    )
-    assert (
-        df["column"][0] == [] and
-        df["column"][1]["key"] == "val"
-    )
-
-def test_from_yaml_empty_default_dict():
-    """
-    Test converting a YAML to an object
-    with a default for empty values
-    """
-    df = wrangles.recipe.run(
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+        
+    def test_different_separators(self):
         """
-        wrangles:
-          - convert.from_yaml:
-              input: column
-              default: {}
-        """,
-        dataframe=pd.DataFrame({
-            "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
-        })
-    )
-    assert (
-        df["column"][0] == {} and
-        df["column"][1]["key"] == "val"
-    )
-
-def test_from_yaml_error_default_dict():
-    """
-    Test converting YAML to an object
-    with a default for error values
-    """
-    df = wrangles.recipe.run(
+        Testing different separators for mixed fractions
         """
-        wrangles:
-          - convert.from_yaml:
-              input: column
-              default: {}
-        """,
-        dataframe=pd.DataFrame({
-            "column": [
-                " key: val\nkey2:\n- list1\n- list2\n",
-                "key: val\nkey2:\n- list1\n- list2\n"
+        data = pd.DataFrame({
+            'input': [
+                '1-1/3',
+                '1-1/2 cups',
+                '1 1/2 cups',
+                '1 1/3',
+                'not range 1-1/4',
+                'e.g 1-3/4 - 2-1/2',
+                'fraction ranges 1/4 - 1/2'
             ]
         })
-    )
-    assert (
-        df["column"][0] == {} and
-        df["column"][1]["key"] == "val"
-    )
+        
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - convert.fraction_to_decimal:
+                input: input
+                output: out
+                decimals: 2
+            """,
+            dataframe=data
+        )
+        assert df['out'].tolist() == ['1.33', '1.5 cups', '1.5 cups', '1.33', 'not range 1.25', 'e.g 1.75 - 2.5', 'fraction ranges 0.25 - 0.5']
+
+    def test_where(self):
+        """
+        Test using fraction to decimal using where
+        """
+        data = pd.DataFrame({
+        'col1': ['The length is 1/2 wide 1/3 high', 'the panel is 3/4 inches', 'the diameter is 1/3 meters'],
+        'numbers': [13, 12, 11]
+        })
+        recipe = """
+        wrangles:
+        - convert.fraction_to_decimal:
+            input: col1
+            output: out1
+            where: numbers > 11
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
+
+
+class TestToYAML:
+    """
+    Test convert.to_yaml wrangle
+    """
+    def test_default(self):
+        """
+        Test converting an object to YAML
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [{"key": "val", "key2": ["list1", "list2"]}]
+            })
+        )
+        assert df['column'][0] == "key: val\nkey2:\n- list1\n- list2\n"
+
+    def test_sort_order_default(self):
+        """
+        Test that an object converted to YAML
+        maintains its order using the default settings
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+            })
+        )
+        assert df['column'][0] == "key2: val\nkey1:\n- list1\n- list2\n"
+
+    def test_sort_keys_true(self):
+        """
+        Test specifying sort_keys: true
+        for convert.to_yaml
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+                sort_keys: true
+            """,
+            dataframe=pd.DataFrame({
+                "column": [{"key2": "val", "key1": ["list1", "list2"]}]
+            })
+        )
+        assert df['column'][0] == "key1:\n- list1\n- list2\nkey2: val\n"
+
+    def test_multi_input_single_output(self):
+        """
+        Test providing multiple inputs but only one output
+        Should merge to a dictionary before converting to YAML
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                  column1: a
+                  column2:
+                    b: 1
+            wrangles:
+            - convert.to_yaml:
+                input:
+                  - column1
+                  - column2
+                output: result
+            """
+        )
+        assert df['result'][0] == 'column1: a\ncolumn2:\n  b: 1\n'
+
+
+class TestFromYAML:
+    """
+    Test convert.from_yaml wrangle
+    """
+    def test_default(self):
+        """
+        Test converting YAML to an object
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["key: val\nkey2:\n- list1\n- list2\n"]
+            })
+        )
+        assert (
+            _json.dumps(df['column'][0]) == 
+            _json.dumps({"key": "val", "key2": ["list1", "list2"]})
+        )
+
+    def test_empty_default_list(self):
+        """
+        Test converting a YAML to an object
+        with a default for empty values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+                default: []
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
+            })
+        )
+        assert (
+            df["column"][0] == [] and
+            df["column"][1]["key"] == "val"
+        )
+
+    def test_empty_default_dict(self):
+        """
+        Test converting a YAML to an object
+        with a default for empty values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+                default: {}
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "key: val\nkey2:\n- list1\n- list2\n"]
+            })
+        )
+        assert (
+            df["column"][0] == {} and
+            df["column"][1]["key"] == "val"
+        )
+
+    def test_error_default_dict(self):
+        """
+        Test converting YAML to an object
+        with a default for error values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+                default: {}
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    " key: val\nkey2:\n- list1\n- list2\n",
+                    "key: val\nkey2:\n- list1\n- list2\n"
+                ]
+            })
+        )
+        assert (
+            df["column"][0] == {} and
+            df["column"][1]["key"] == "val"
+        )
