@@ -410,6 +410,7 @@ def to_yaml(
     input: _Union[str, list], 
     output: _Union[str, list] = None,
     sort_keys: bool = False,
+    allow_unicode: bool = True,
     **kwargs
 ) -> _pd.DataFrame:
     r"""
@@ -453,7 +454,12 @@ def to_yaml(
         # Loop through and apply for all columns
         for input_columns, output_column in zip(input, output):
             df[output_column] = [
-                _yaml.dump(row, **{**{"sort_keys": sort_keys}, **kwargs})
+                _yaml.dump(
+                    row,
+                    sort_keys=sort_keys,
+                    allow_unicode=allow_unicode,
+                    **kwargs
+                )
                 for row in df[input_columns].values
             ]
     elif len(input) > 1 and len(output) == 1:
@@ -463,6 +469,7 @@ def to_yaml(
             _yaml.dump(
                 row,
                 sort_keys=sort_keys,
+                allow_unicode=allow_unicode,
                 **kwargs
             )
             for row in df[input].to_dict(orient="records")

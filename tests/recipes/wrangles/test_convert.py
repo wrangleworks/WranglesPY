@@ -990,6 +990,21 @@ class TestToYAML:
         )
         assert df['result'][0] == 'column1: a\ncolumn2:\n  b: 1\n'
 
+    def test_unicode_characters(self):
+        """
+        Test that unicode characters are encoded correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [{"key": "this is a ° symbol"}]
+            })
+        )
+        assert df['column'][0] == 'key: this is a ° symbol\n'
 
 class TestFromYAML:
     """
