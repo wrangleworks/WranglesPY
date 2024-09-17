@@ -256,12 +256,12 @@ def from_json(
 
 
 def to_json(
-        df: _pd.DataFrame, 
-        input: _Union[str, list], 
-        output: _Union[str, list] = None, 
-        ensure_ascii: bool = False,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame, 
+    input: _Union[str, list], 
+    output: _Union[str, list] = None, 
+    ensure_ascii: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     r"""
     type: object
     description: Convert an object to a JSON representation.
