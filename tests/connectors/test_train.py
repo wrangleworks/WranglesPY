@@ -12,7 +12,7 @@ def test_classify_read():
     recipe = """
     read:
       - train.classify:
-          model_id: a62c7480-500e-480c
+          model_id: 94674750-f9e1-44af
     """
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['Category'] == 'Grains'
@@ -28,7 +28,7 @@ def test_classify_write():
             - Example
             - Category
             - Notes
-          model_id: a62c7480-500e-480c
+          model_id: 94674750-f9e1-44af
     """
     data = pd.DataFrame({
         'Example': ['rice', 'milk', 'beef'],
@@ -51,7 +51,7 @@ def test_classify_write_2():
                     - Example2
                     - Category2
                     - Notes2
-                model_id: a62c7480-500e-480c
+                model_id: 94674750-f9e1-44af
             """,
             dataframe=pd.DataFrame({
                 'Example2': ['rice', 'milk', 'beef'],
@@ -93,7 +93,7 @@ def test_classify_read_two_cols_wrgl(mocker):
         """
         read:
         - train.classify:
-            model_id: a62c7480-500e-480c
+            model_id: 94674750-f9e1-44af
         """
     )
     assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
@@ -111,7 +111,7 @@ def test_classify_read_four_cols_error(mocker):
             """
             read:
             - train.classify:
-                model_id: a62c7480-500e-480c
+                model_id: 94674750-f9e1-44af
             """
         )
 
