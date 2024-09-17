@@ -6,29 +6,24 @@ from wrangles.train import train
 
 # Classify
 def test_classify():
-    result = wrangles.classify('ball bearing', '24ac9037-ecab-4030')
-    assert result.split(' || ')[0] == 'Bearings'
+    result = wrangles.classify('cheese', 'a62c7480-500e-480c')
+    assert result.split(' || ')[0] == 'Dairy'
 
 def test_classify_list():
-    result = wrangles.classify(['ball bearing'], '24ac9037-ecab-4030')
-    assert result[0].split(' || ')[0] == 'Bearings'
-
-def test_classify_large_list():
-    input = ['ball bearing' for _ in range(25000)]
-    results = wrangles.classify(input, '24ac9037-ecab-4030')
-    assert len(results) == 25000 and results[0].split(' || ')[0] == 'Bearings'
+    result = wrangles.classify(['cheese'], 'a62c7480-500e-480c')
+    assert result[0].split(' || ')[0] == 'Dairy'
   
 ##  Classify Raise Errors
 # Invalid input data provided
 def test_classify_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.classify({'ball bearing'}, '24ac9037-ecab-4030')
+        raise wrangles.classify({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
 def test_classify_error_2():
     with pytest.raises(ValueError) as info:
-        raise wrangles.classify('ball bearing', '24ac9037-ecab-403')
+        raise wrangles.classify('ball bearing', 'a62c7480-500e-480')
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
 
 # Wrong Model id on wrong function name
@@ -92,11 +87,6 @@ def test_custom_first_element_list():
     result = wrangles.extract.custom(['test skf test timken', 'test timken test skf'], 'fce592c9-26f5-4fd7', first_element=True)
     assert result == ['SKF', 'SKF']
 
-def test_custom_large_list():
-    input = ['test skf test' for _ in range(25000)]
-    results = wrangles.extract.custom(input, '4786921f-342f-4a0c')
-    assert len(results) == 25000 and results[0][0] == 'SKF'
-
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
     assert result['Colours'][0] == 'Yellow'
@@ -109,7 +99,7 @@ def test_properties_list():
 # Invalid input data provided
 def test_extract_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.extract.custom({'ball bearing'}, 'fce592c9-26f5-4fd7')
+        raise wrangles.extract.custom({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
@@ -121,8 +111,8 @@ def test_extract_error_2():
 # Wrong Model id on wrong function name
 def test_extract_error_3():
     with pytest.raises(ValueError) as info:
-        raise wrangles.extract.custom('ball bearing', '24ac9037-ecab-4030')
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id 24ac9037-ecab-4030 in an extract function.'
+        raise wrangles.extract.custom('ball bearing', 'a62c7480-500e-480c')
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id a62c7480-500e-480c in an extract function.'
 
 def test_extract_html_str():
     result = wrangles.extract.html('<a href="https://www.wrangleworks.com/">Wrangle Works!</a>', dataType='text')

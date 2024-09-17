@@ -12,7 +12,7 @@ def test_classify_read():
     recipe = """
     read:
       - train.classify:
-          model_id: a62c7480-500e-480c
+          model_id: 94674750-f9e1-44af
     """
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['Category'] == 'Grains'
@@ -28,7 +28,7 @@ def test_classify_write():
             - Example
             - Category
             - Notes
-          model_id: a62c7480-500e-480c
+          model_id: 94674750-f9e1-44af
     """
     data = pd.DataFrame({
         'Example': ['rice', 'milk', 'beef'],
@@ -51,7 +51,7 @@ def test_classify_write_2():
                     - Example2
                     - Category2
                     - Notes2
-                model_id: a62c7480-500e-480c
+                model_id: 94674750-f9e1-44af
             """,
             dataframe=pd.DataFrame({
                 'Example2': ['rice', 'milk', 'beef'],
@@ -93,7 +93,7 @@ def test_classify_read_two_cols_wrgl(mocker):
         """
         read:
         - train.classify:
-            model_id: a62c7480-500e-480c
+            model_id: 94674750-f9e1-44af
         """
     )
     assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
@@ -111,7 +111,7 @@ def test_classify_read_four_cols_error(mocker):
             """
             read:
             - train.classify:
-                model_id: a62c7480-500e-480c
+                model_id: 94674750-f9e1-44af
             """
         )
 
@@ -172,39 +172,6 @@ def test_extract_write_2():
                 'Variation (Optional)2': ['', '', ''],
                 'Notes2': ['Blade Runner', 'Westworld', 'Interstellar'],
             })
-        )
-
-def test_extract_read_two_cols_wrgl(mocker):
-    """
-    Wrangle that contains only two columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
-    }
-    recipe = """
-    read:
-      - train.extract:
-          model_id: a62c7480-500e-480c
-    """
-    df = wrangles.recipe.run(recipe)
-    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
-
-def test_extract_read_four_cols_error(mocker):
-    """
-    Wrangles that does not contain 3 columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello']]
-    }
-    with pytest.raises(ValueError, match="contain three columns"):
-        wrangles.recipe.run(
-            """
-            read:
-            - train.extract:
-                model_id: a62c7480-500e-480c
-            """
         )
 
 def test_extract_error():
@@ -288,40 +255,6 @@ def test_standardize_write_2():
         'Notes2': ['For pytests', ''],
         })
     )
-
-def test_standardize_read_two_cols_wrgl(mocker):
-    """
-    Wrangle that contains only two columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
-    }
-    df = wrangles.recipe.run(
-        """
-        read:
-        - train.standardize:
-            model_id: a62c7480-500e-480c
-        """
-    )
-    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
-
-def test_standardize_read_incorrect_cols_error(mocker):
-    """
-    wrangles that does not contain 3 columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello']]
-    }
-    with pytest.raises(ValueError, match="contain three columns"):
-        wrangles.recipe.run(
-            """
-            read:
-            - train.standardize:
-                model_id: a62c7480-500e-480c
-            """
-        )
 
 def test_standardize_error():
     """

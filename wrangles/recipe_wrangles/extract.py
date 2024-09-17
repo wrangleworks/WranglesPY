@@ -78,7 +78,7 @@ def ai(
     output: list,
     api_key: str,
     input: list = None,
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o-mini",
     threads: int = 10,
     timeout: int = 25,
     retries: int = 0,
