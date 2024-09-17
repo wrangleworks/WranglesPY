@@ -449,14 +449,25 @@ def to_yaml(
     if not isinstance(output, list): output = [output]
     
     # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
-    # Loop through and apply for all columns
-    for input_columns, output_column in zip(input, output):
-        df[output_column] = [
-            _yaml.dump(row, **{**{"sort_keys": sort_keys}, **kwargs})
-            for row in df[input_columns].values.tolist()
+    if len(input) == len(output):
+        # Loop through and apply for all columns
+        for input_columns, output_column in zip(input, output):
+            df[output_column] = [
+                _yaml.dump(row, **{**{"sort_keys": sort_keys}, **kwargs})
+                for row in df[input_columns].values
+            ]
+    elif len(input) > 1 and len(output) == 1:
+        # User specified multiple inputs but only one output
+        # Merge the inputs into a single dictionary before converting
+        df[output] = [
+            _yaml.dump(
+                row,
+                sort_keys=sort_keys,
+                **kwargs
+            )
+            for row in df[input].to_dict(orient="records")
         ]
+    else:
+        raise ValueError('The lists for input and output must be the same length.')
         
     return df
