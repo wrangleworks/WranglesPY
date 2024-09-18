@@ -46,7 +46,7 @@ def test_read_oauth():
                   Content-Type: application/x-www-form-urlencoded
         """
     )
-    assert df.columns.tolist() == ["Columns", "Data", "Settings"]
+    assert df.columns.tolist() == ["Settings", "Columns", "Data"]
 
 def test_read_orient_tight():
     """
