@@ -103,7 +103,7 @@ class train():
             
         if name is not None and settings.get("variant", "") not in ["key", "embedding", "fuzzy", "recipe"]:
             raise ValueError(
-                "A new lookup must contain a value for setting/variant."
+                "A new lookup must contain a value (key or semantic) for setting/variant."
             )
 
         if name:
