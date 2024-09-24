@@ -2,6 +2,7 @@
 Functions to select data from within columns
 """
 from typing import Union as _Union
+import types as _types
 import re as _re
 import json as _json
 import pandas as _pd
@@ -233,7 +234,12 @@ def element(
     return df
 
 
-def group_by(df, by = [], **kwargs):
+def group_by(
+    df,
+    by = [],
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+):
     """
     type: object
     description: Group and aggregate the data
@@ -315,6 +321,12 @@ def group_by(df, by = [], **kwargs):
         description: >-
           Get a percentile. Note, you can use any integer here
           for the corresponding percentile.
+      custom.placeholder:
+        type:
+          - string
+          - array
+        description: >-
+          Placeholder for custom functions. Replace 'placeholder' with the name of the function.
     """
     def percentile(n):
         def percentile_(x):
@@ -337,8 +349,14 @@ def group_by(df, by = [], **kwargs):
         if operation[0].lower() == "p" and operation[1:].isnumeric():
             operation = percentile(int(operation[1:])/100)
 
+        # Pass custom functions
+        elif operation.startswith("custom."):
+            if operation[7:] not in functions:
+                raise KeyError(f"Function {operation[7:]} is not a recognized custom function")
+            operation = functions[operation[7:]]
+
         # Add option to group as a list
-        if operation == "list":
+        elif operation == "list":
             operation = list
 
         if not isinstance(columns, list): columns = [columns]
