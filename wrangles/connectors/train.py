@@ -184,9 +184,12 @@ class lookup():
         :param name: Name to give to a new Wrangle that will be created
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
-        :param variant: Variant of the Lookup Wrangle that will be created
+        :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
         """
         _logging.info(": Training Lookup Wrangle")
+
+        if variant == 'semantic':
+            variant = 'embedding'
 
         if 'variant' not in settings.keys():
             settings['variant'] = variant
