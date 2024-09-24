@@ -573,10 +573,16 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                     obj = _recipe_wrangles
                     for element in wrangle.split('.'):
                         obj = getattr(obj, element)
-                    
+
                     # Pass on custom functions to wrangles that may need it
-                    if wrangle in ["recipe", "rename", "accordion","batch"]:
-                        if "functions" not in params:
+                    # Special override for rename due to special parameter setup.
+                    if (
+                        (
+                            'functions' in _inspect.getfullargspec(obj).args
+                            or wrangle in ["rename"]
+                        )
+                        and "functions" not in params
+                    ):
                             params['functions'] = functions
 
                     df = obj(df, **params)

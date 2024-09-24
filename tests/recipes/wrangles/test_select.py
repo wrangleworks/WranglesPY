@@ -1323,303 +1323,353 @@ def test_substring_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''
 
-def test_group_by():
+class TestGroupBy:
     """
-    Test basic group by
+    Test select.group_by
     """
-    df = wrangles.recipe.run(
+    def test_group_by(self):
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              sum: sum_me
-              min: min_me
-              max: max_me
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "min_me": [1,2,3,4],
-            "max_me": [1,2,3,4],
-            "sum_me": [1,2,3,4]
-        })
-    )
-
-    assert (
-        list(df.values[0]) == ['a', 6, 1, 3] and
-        list(df.values[1]) == ['b', 4, 4, 4]
-    )
-
-def test_group_by_multiple_by():
-    """
-    Test group by with multiple by
-    columns specified
-    """
-    df = wrangles.recipe.run(
+        Test basic group by
         """
-        wrangles:
-          - select.group_by:
-              by:
-                - agg1
-                - agg2
-              sum: sum_me
-              min: min_me
-              max: max_me
-        """,
-        dataframe=pd.DataFrame({
-            "agg1": ["a", "a", "a", "b"],
-            "agg2": ["a", "a", "b", "b"],
-            "min_me": [1,2,3,4],
-            "max_me": [1,2,3,4],
-            "sum_me": [1,2,3,4]
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                sum: sum_me
+                min: min_me
+                max: max_me
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "min_me": [1,2,3,4],
+                "max_me": [1,2,3,4],
+                "sum_me": [1,2,3,4]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a', 'a', 3, 1, 2] and
-        list(df.values[1]) == ['a', 'b', 3, 3, 3] and
-        list(df.values[2]) == ['b', 'b', 4, 4, 4]
-    )
+        assert (
+            list(df.values[0]) == ['a', 6, 1, 3] and
+            list(df.values[1]) == ['b', 4, 4, 4]
+        )
 
-def test_group_by_without_by():
-    """
-    Test group by with only aggregations
-    """
-    df = wrangles.recipe.run(
+    def test_group_by_multiple_by(self):
         """
-        wrangles:
-          - select.group_by:
-              sum: sum_me
-              min: min_me
-              max: max_me
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "min_me": [1,2,3,4],
-            "max_me": [1,2,3,4],
-            "sum_me": [1,2,3,4]
-        })
-    )
-
-    assert list(df.values[0]) == [10, 1, 4]
-
-def test_group_by_without_aggregations():
-    """
-    Test group by without any aggregations
-    """
-    df = wrangles.recipe.run(
+        Test group by with multiple by
+        columns specified
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "min_me": [1,2,3,4],
-            "max_me": [1,2,3,4],
-            "sum_me": [1,2,3,4]
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by:
+                    - agg1
+                    - agg2
+                sum: sum_me
+                min: min_me
+                max: max_me
+            """,
+            dataframe=pd.DataFrame({
+                "agg1": ["a", "a", "a", "b"],
+                "agg2": ["a", "a", "b", "b"],
+                "min_me": [1,2,3,4],
+                "max_me": [1,2,3,4],
+                "sum_me": [1,2,3,4]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a'] and
-        list(df.values[1]) == ['b']
-    )
+        assert (
+            list(df.values[0]) == ['a', 'a', 3, 1, 2] and
+            list(df.values[1]) == ['a', 'b', 3, 3, 3] and
+            list(df.values[2]) == ['b', 'b', 4, 4, 4]
+        )
 
-def test_group_by_agg_lists():
-    """
-    Test with multiple aggregations
-    """
-    df = wrangles.recipe.run(
+    def test_group_by_without_by(self):
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              sum:
-                - sum_me
-                - and_sum_me
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "sum_me": [1,2,3,4],
-            "and_sum_me": [5,6,7,8]
-        })
-    )
-
-    assert (
-        list(df.values[0]) == ['a', 6, 18] and
-        list(df.values[1]) == ['b', 4, 8]
-    )
-
-def test_group_by_same_column():
-    """
-    Test group by with different
-    aggregations on the same column
-    """
-    df = wrangles.recipe.run(
+        Test group by with only aggregations
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              sum: numbers
-              min: numbers
-              max: numbers
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "numbers": [1,2,3,4]
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                sum: sum_me
+                min: min_me
+                max: max_me
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "min_me": [1,2,3,4],
+                "max_me": [1,2,3,4],
+                "sum_me": [1,2,3,4]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a', 6, 1, 3] and
-        list(df.values[1]) == ['b', 4, 4, 4]
-    )
+        assert list(df.values[0]) == [10, 1, 4]
 
-def test_group_by_percentiles():
-    """
-    Test group by with different
-    aggregations on the same column
-    """
-    df = wrangles.recipe.run(
+    def test_group_by_without_aggregations(self):
         """
-        wrangles:
-          - select.group_by:
-              p0: numbers
-              p1: numbers
-              p25: numbers
-              p50: numbers
-              p75: numbers
-              p90: numbers
-              p100: numbers
-        """,
-        dataframe=pd.DataFrame({
-            "numbers": [i for i in range(101)]
-        })
-    )
-
-    assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
-
-def test_group_by_to_list():
-    """
-    Test group by aggregating to a list
-    """
-    df = wrangles.recipe.run(
+        Test group by without any aggregations
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              list: to_list
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "to_list": [1,2,3,4],
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "min_me": [1,2,3,4],
+                "max_me": [1,2,3,4],
+                "sum_me": [1,2,3,4]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a', [1,2,3]] and
-        list(df.values[1]) == ['b', [4]]
-    )
+        assert (
+            list(df.values[0]) == ['a'] and
+            list(df.values[1]) == ['b']
+        )
 
-def test_group_by_to_list_multiple_by():
-    """
-    Test group by aggregating on multiple columns
-    """
-    df = wrangles.recipe.run(
+    def test_group_by_agg_lists(self):
         """
-        wrangles:
-          - select.group_by:
-              by:
-                - agg1
-                - agg2
-              list: to_list
-        """,
-        dataframe=pd.DataFrame({
-            "agg1": ["a", "a", "a", "b"],
-            "agg2": ["a", "a", "b", "b"],
-            "to_list": [1,2,3,4],
-        })
-    )
-
-    assert (
-        list(df.values[0]) == ['a', 'a', [1,2]] and
-        list(df.values[1]) == ['a', 'b', [3]] and
-        list(df.values[2]) == ['b', 'b', [4]]
-    )
-
-def test_group_by_to_list_multiple_list():
-    """
-    Test group by aggregating
-    multiple columns to lists
-    """
-    df = wrangles.recipe.run(
+        Test with multiple aggregations
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              list:
-                - to_list1
-                - to_list2
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-            "to_list1": [1,2,3,4],
-            "to_list2": [5,6,7,8],
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                sum:
+                    - sum_me
+                    - and_sum_me
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "sum_me": [1,2,3,4],
+                "and_sum_me": [5,6,7,8]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a', [1,2,3], [5,6,7]] and
-        list(df.values[1]) == ['b', [4], [8]]
-    )
+        assert (
+            list(df.values[0]) == ['a', 6, 18] and
+            list(df.values[1]) == ['b', 4, 8]
+        )
 
-
-def test_group_by_where():
-    """
-    Test group by using where
-    """
-    df = wrangles.recipe.run(
+    def test_group_by_same_column(self):
         """
-        wrangles:
-          - select.group_by:
-              by: agg
-              list: to_list
-              where: agg <> 'b'
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "b", "c"],
-            "to_list": [1,2,3,4]
-        })
-    )
-
-    assert (
-        list(df.values[0]) == ['a', [1,2]] and
-        list(df.values[1]) == ['c', [4]]
-    )
-
-def test_group_by_agg_same_column():
-    """
-    Test group by and aggregating
-    on the same column
-    """
-    df = wrangles.recipe.run(
+        Test group by with different
+        aggregations on the same column
         """
-        wrangles:
-          - select.group_by:
-              by:
-                - agg
-              count:
-                - agg
-        """,
-        dataframe=pd.DataFrame({
-            "agg": ["a", "a", "a", "b"],
-        })
-    )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                sum: numbers
+                min: numbers
+                max: numbers
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "numbers": [1,2,3,4]
+            })
+        )
 
-    assert (
-        list(df.values[0]) == ['a', 3] and
-        list(df.values[1]) == ['b', 1]
-    )
+        assert (
+            list(df.values[0]) == ['a', 6, 1, 3] and
+            list(df.values[1]) == ['b', 4, 4, 4]
+        )
+
+    def test_group_by_percentiles(self):
+        """
+        Test group by with different
+        aggregations on the same column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                p0: numbers
+                p1: numbers
+                p25: numbers
+                p50: numbers
+                p75: numbers
+                p90: numbers
+                p100: numbers
+            """,
+            dataframe=pd.DataFrame({
+                "numbers": [i for i in range(101)]
+            })
+        )
+
+        assert list(df.values[0]) == [0, 1, 25, 50, 75, 90, 100]
+
+    def test_group_by_to_list(self):
+        """
+        Test group by aggregating to a list
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                list: to_list
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "to_list": [1,2,3,4],
+            })
+        )
+
+        assert (
+            list(df.values[0]) == ['a', [1,2,3]] and
+            list(df.values[1]) == ['b', [4]]
+        )
+
+    def test_group_by_to_list_multiple_by(self):
+        """
+        Test group by aggregating on multiple columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by:
+                    - agg1
+                    - agg2
+                list: to_list
+            """,
+            dataframe=pd.DataFrame({
+                "agg1": ["a", "a", "a", "b"],
+                "agg2": ["a", "a", "b", "b"],
+                "to_list": [1,2,3,4],
+            })
+        )
+
+        assert (
+            list(df.values[0]) == ['a', 'a', [1,2]] and
+            list(df.values[1]) == ['a', 'b', [3]] and
+            list(df.values[2]) == ['b', 'b', [4]]
+        )
+
+    def test_group_by_to_list_multiple_list(self):
+        """
+        Test group by aggregating
+        multiple columns to lists
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                list:
+                    - to_list1
+                    - to_list2
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+                "to_list1": [1,2,3,4],
+                "to_list2": [5,6,7,8],
+            })
+        )
+
+        assert (
+            list(df.values[0]) == ['a', [1,2,3], [5,6,7]] and
+            list(df.values[1]) == ['b', [4], [8]]
+        )
+
+
+    def test_group_by_where(self):
+        """
+        Test group by using where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: agg
+                list: to_list
+                where: agg <> 'b'
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "b", "c"],
+                "to_list": [1,2,3,4]
+            })
+        )
+
+        assert (
+            list(df.values[0]) == ['a', [1,2]] and
+            list(df.values[1]) == ['c', [4]]
+        )
+
+    def test_group_by_agg_same_column(self):
+        """
+        Test group by and aggregating
+        on the same column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by:
+                    - agg
+                count:
+                    - agg
+            """,
+            dataframe=pd.DataFrame({
+                "agg": ["a", "a", "a", "b"],
+            })
+        )
+
+        assert (
+            list(df.values[0]) == ['a', 3] and
+            list(df.values[1]) == ['b', 1]
+        )
+
+    def test_custom_function(self):
+        """
+        Test a group by that uses a custom function
+        to aggregate the values
+        """
+        def sum_times_two(x):
+            return sum(x) * 2
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - select.group_by:
+                  by: group
+                  custom.sum_times_two: agg
+            """,
+            dataframe=pd.DataFrame({
+                "group": ["a", "a", "a", "b"],
+                "agg": [1,2,3,4]
+            }),
+            functions=[sum_times_two]
+        )
+
+        assert (
+            list(df.values[0]) == ['a', 12] and
+            list(df.values[1]) == ['b', 8]
+        )
+
+    def test_custom_function_invalid(self):
+        """
+        Test that a clear error is raised if the user
+        tries to use a custom function that isn't valid
+        """
+        with pytest.raises(KeyError, match="bad_function"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - select.group_by:
+                    by: group
+                    custom.bad_function: agg
+                """,
+                dataframe=pd.DataFrame({
+                    "group": ["a", "a", "a", "b"],
+                    "agg": [1,2,3,4]
+                })
+            )
 
 def test_element_list():
     """
