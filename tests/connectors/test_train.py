@@ -152,6 +152,28 @@ def test_extract_write():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Entity to Find'] == 'Rachel'
 
+def test_extract_ai_write():
+    """
+    Writing data to a wrangle (re-training)
+    """
+    recipe = """
+    write:
+      - train.extract:
+          name: Let's add variant now again
+          variant: ai
+    """
+    data = pd.DataFrame({
+        'Find': ['Finish', 'Length', 'Product Type'],
+        'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+        'Type': ['string', 'string', 'string'],
+        'Default': ['None', 'None', 'None'],
+        'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+        'Enum': [[], [], []],
+        'Notes': ['Notes here', 'and here', 'and also here']
+    })
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Entity to Find'] == 'Rachel'
+
 def test_extract_write_2():
     """
     Incorrect columns for extract read
