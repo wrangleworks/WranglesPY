@@ -114,7 +114,7 @@ class extract():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
+    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None, variant: str = 'pattern matching') -> None:
         """
         Train a new or existing extract wrangle
 
@@ -128,11 +128,16 @@ class extract():
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        if not required_columns == list(df.columns[:3]):
+        if variant == 'pattern matching':
+            required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            col_len = 3
+        elif variant == 'ai':
+            required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
+            col_len = 7
+        if not required_columns == list(df.columns[:col_len]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
-        _train.extract(df[required_columns].values.tolist(), name, model_id)
+        _train.extract(df[required_columns].values.tolist(), name, model_id, variant)
 
     _schema["write"] = """
         type: object
