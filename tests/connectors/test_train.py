@@ -196,6 +196,78 @@ def test_extract_error():
         )
 
 
+class TestTrainLookup:
+    """
+    All tests for train.lookup
+    """
+
+    def test_lookup_read(self):
+        """
+        Read lookup wrangle data
+        """
+        recipe = """
+        read:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+        """
+        df = wrangles.recipe.run(recipe)
+        assert len(df) == 3 and df.columns.to_list() == ['Key', 'Value']
+
+    def test_lookup_write(self):
+        """
+        Writing data to a Lookup Wrangle (re-training)
+        """
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+
+    def test_lookup_write_columns(self):
+        """
+        Writing data to a Lookup Wrangle (re-training)
+        """
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+              columns:
+                - Key
+                - Value
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+
+    def test_lookup_write_no_key(self):
+        """
+        Writing data to a Lookup Wrangle (re-training) without Key
+        """
+        with pytest.raises(ValueError, match="Data must contain one column named Key"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.lookup:
+                      model_id: 3c8f6707-2de4-4be3
+                      columns:
+                        - Value
+                """,
+                dataframe=pd.DataFrame({
+                  'Key': ['Rachel', 'Dolores', 'TARS'],
+                  'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+
 #
 # Standardize
 #
@@ -276,3 +348,5 @@ def test_standardize_error():
                 'Notes': ['Notes here', 'and here', 'and also here']
             })
         )
+
+
