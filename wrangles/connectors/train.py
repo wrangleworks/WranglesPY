@@ -188,6 +188,13 @@ class lookup():
         """
         _logging.info(": Training Lookup Wrangle")
 
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+        if name is None and model_id is None:
+            raise ValueError("Lookup: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
+
         if variant == 'semantic':
             variant = 'embedding'
 
