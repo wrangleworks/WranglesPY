@@ -156,7 +156,7 @@ def test_standardize_2():
     with pytest.raises(TypeError) as info:
         raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
-    
+
 # If input is a list, check to make sure that all sublists are length of 2
 # Headers not included ['Find', 'Replace']
 def test_standardize_train_1(mocker):

@@ -437,6 +437,26 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     return list(result_columns.keys())
 
 
+def _re_route_wrangle(old_wrangle: str) -> str:
+    """
+    Re-route old wrangle names to new ones and provide a warning or use default warning
+
+    route_map = {
+        "old_wrangle": ["new_wrangle", "My Error Message (Optional)"],
+    }
+    """
+    route_map = {
+        "standardize": ["standardize.custom"],
+    }
+    new_wrangle, *messages = route_map.get(old_wrangle, [old_wrangle])
+    if new_wrangle != old_wrangle:
+        if messages:
+            _logging.warning(f" {messages[0]}")
+        else:
+            _logging.warning(f" Wrangle '{old_wrangle}' has been deprecated. Please use '{new_wrangle}' instead.")
+    return new_wrangle
+
+
 def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
@@ -450,6 +470,7 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
         for wrangle, params in step.items():
             try:
                 if params is None: params = {}
+                wrangle = _re_route_wrangle(wrangle)
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
                 original_params = params.copy()
