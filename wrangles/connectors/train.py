@@ -143,7 +143,7 @@ class extract():
         if columns is not None: df = df[columns]
 
         if variant == 'pattern matching':
-            required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            required_columns = ['Find', 'Output (Optional)', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
