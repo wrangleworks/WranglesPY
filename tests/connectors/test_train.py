@@ -267,6 +267,48 @@ class TestTrainLookup:
                 })
             )
 
+    def test_lookup_write_model_id_and_name(self):
+        """
+        Writing data to a Lookup Wrangle (re-training) with both a model_id and name
+        """
+        with pytest.raises(ValueError, match="Name and model_id cannot both be provided"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.lookup:
+                      model_id: 3c8f6707-2de4-4be3
+                      name: My Lookup Wrangle
+                      columns:
+                        - Key
+                        - Value
+                """,
+                dataframe=pd.DataFrame({
+                  'Key': ['Rachel', 'Dolores', 'TARS'],
+                  'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_lookup_write_no_model_id_or_name(self):
+        """
+        Writing data to a Lookup Wrangle (re-training) without Key
+        """
+        with pytest.raises(ValueError, match="Either a name or a model id must be provided"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.lookup:
+                      columns:
+                        - Key
+                        - Value
+                """,
+                dataframe=pd.DataFrame({
+                  'Key': ['Rachel', 'Dolores', 'TARS'],
+                  'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+
+
 
 #
 # Standardize
