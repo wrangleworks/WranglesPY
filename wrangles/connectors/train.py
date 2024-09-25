@@ -125,13 +125,27 @@ class extract():
         """
         _logging.info(f": Training Extract Wrangle")
 
+        # Error handling for variant
+        if variant == 'ai':
+            variant = 'extract-ai'
+
+        if variant not in ['pattern matching', 'extract-ai']:
+            raise ValueError("The variant must be either 'pattern matching' or 'ai'")
+        
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+        if name is None and model_id is None:
+            raise ValueError("Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
+
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
         if variant == 'pattern matching':
             required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
             col_len = 3
-        elif variant == 'ai':
+        elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
             col_len = 7
         if not required_columns == list(df.columns[:col_len]):
