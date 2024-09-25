@@ -59,12 +59,12 @@ class train():
             if training_data[0] != ['Entity to Find', 'Variation (Optional)', 'Notes']:
                 training_data = [['Entity to Find', 'Variation (Optional)', 'Notes']] + training_data
         
-        # If input is a list, check to make sure that all sublists are length of 2
-        # Must have both values filled ('' counts as filled, None does not count)
-        if isinstance(training_data, list) and variant == 'ai':
+        # If input is a list, check to make sure that all sublists are length of 7
+        # Must have all values filled ('' counts as filled, None does not count)
+        if isinstance(training_data, list) and variant == 'extract-ai':
             check_index = [training_data.index(x) for x in training_data if len(x) != 7]
-            if len(check_index) != 0: # If an index does not have len() of 2 then raise error
-                raise ValueError(f"Training_data list must contain a list of two elements, plus optional Notes. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use \'\'\n"
+            if len(check_index) != 0: # If an index does not have len() of 6 then raise error
+                raise ValueError(f"Training_data list must contain a list of six elements, plus optional Notes. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is 'Find'\nSecond Element is 'Description', If no variation, use \'\'\n"
                 # This example needs to be updated with the 5 other columns
                 "Example:[['Colour', 'The colour of the item']]")
             # checking the first element in training list
@@ -74,7 +74,7 @@ class train():
         if name:
             response = _requests.post(f'{_config.api_host}/model/content', params={'type':'extract', 'name': name, 'variant': variant}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'extract', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'extract', 'model_id': model_id, 'variant': variant}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
         else:
             raise ValueError('Either a name or a model id must be provided')
 
