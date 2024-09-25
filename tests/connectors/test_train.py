@@ -159,7 +159,7 @@ def test_extract_ai_write():
     recipe = """
     write:
       - train.extract:
-          name: Let's add variant now again
+          model_id: d188e7a7-9de8-4565
           variant: ai
     """
     data = pd.DataFrame({
@@ -172,7 +172,95 @@ def test_extract_ai_write():
         'Notes': ['Notes here', 'and here', 'and also here']
     })
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Entity to Find'] == 'Rachel'
+    assert df.iloc[0]['Find'] == 'Finish'
+
+def test_extract_ai_write_no_variant():
+    """
+    Writing data to an extract.ai wrangle without specifying the variant
+    """
+    with pytest.raises(ValueError, match="must be provided for train.extract."):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.extract:
+                  model_id: d188e7a7-9de8-4565
+            """,
+            dataframe=pd.DataFrame({
+                'Find': ['Finish', 'Length', 'Product Type'],
+                'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+                'Type': ['string', 'string', 'string'],
+                'Default': ['None', 'None', 'None'],
+                'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                'Enum': [[], [], []],
+                'Notes': ['Notes here', 'and here', 'and also here']
+            })
+        )
+
+def test_extract_ai_write_name_and_model_id():
+    """
+    Writing data to an extract.ai wrangle with both name and model_id
+    """
+    with pytest.raises(ValueError, match="Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model"):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.extract:
+                  model_id: d188e7a7-9de8-4565
+                  name: My Wrangle Has a First Name, It's O-S-C-A-R
+            """,
+            dataframe=pd.DataFrame({
+                'Find': ['Finish', 'Length', 'Product Type'],
+                'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+                'Type': ['string', 'string', 'string'],
+                'Default': ['None', 'None', 'None'],
+                'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                'Enum': [[], [], []],
+                'Notes': ['Notes here', 'and here', 'and also here']
+            })
+        )
+
+def test_extract_ai_write_wrong_variant():
+    """
+    Writing data to an extract.ai wrangle with the wrong variant
+    """
+    with pytest.raises(ValueError, match="The variant must be either 'pattern matching' or 'ai'"):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.extract:
+                  model_id: d188e7a7-9de8-4565
+                  variant: WRONG
+            """,
+            dataframe=pd.DataFrame({
+                'Find': ['Finish', 'Length', 'Product Type'],
+                'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+                'Type': ['string', 'string', 'string'],
+                'Default': ['None', 'None', 'None'],
+                'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                'Enum': [[], [], []],
+                'Notes': ['Notes here', 'and here', 'and also here']
+            })
+        )
+
+def test_extract_ai_write_wrong_columns():
+    """
+    Writing data to an extract.ai wrangle with the wrong variant
+    """
+    with pytest.raises(ValueError, match="The columns Find, Description, Type, Default, Examples, Enum, Notes must be provided for train.extract"):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.extract:
+                  model_id: d188e7a7-9de8-4565
+                  variant: ai
+            """,
+            dataframe=pd.DataFrame({
+                'Default': ['None', 'None', 'None'],
+                'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                'Enum': [[], [], []],
+                'Notes': ['Notes here', 'and here', 'and also here']
+            })
+        )
 
 def test_extract_write_2():
     """
