@@ -100,7 +100,7 @@ class train():
                 raise ValueError(
                     "Lookup: The data must be a dictionary of the format {'Data': [[]], 'Columns': [], 'Settings': {}}"
                 )
-            if "Key" not in data["Columns"]:
+            if settings['variant'] =='key' and "Key" not in data["Columns"]:
                 raise ValueError("Lookup: Data must contain one column named Key")
             
         if name is not None and settings.get("variant", "") not in ["key", "embedding", "fuzzy", "recipe"]:
