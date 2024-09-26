@@ -5,6 +5,7 @@ from typing import Union as _Union
 import fnmatch as _fnmatch
 import pandas as _pd
 from .. import format as _format
+from ast import literal_eval
 
 
 def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
@@ -187,6 +188,18 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         description: Whether to remove duplicates from the created list
     """
     output_list = []
+
+    # Convert strings that look like lists to lists
+    def convert_to_list(item):
+        try:
+            # Try to parse the item if it's a string that looks like a list
+            return literal_eval(item)
+        except (ValueError, SyntaxError):
+            # If parsing fails, return the item as it is
+            return item
+        
+    df[input] = df[input].applymap(convert_to_list)
+
     for row in df[input].values.tolist():
         output_row = []
         for col in row:
