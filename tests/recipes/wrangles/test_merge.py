@@ -247,6 +247,43 @@ def test_lists_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['C', 'D', 'F', 'G']
 
+def test_lists_remove_duplicates():
+    """
+    Test merge.lists using remove_duplicates
+    """
+    data = pd.DataFrame({
+        'Col1': [['A', 'B'], ['C', 'D']],
+        'Col2': [['A', 'E'], ['C', 'G']]
+    })
+    recipe = """
+    wrangles:
+        - merge.lists:
+            input: 
+                - Col1
+                - Col2
+            output: Combined Col
+            remove_duplicates: true
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Combined Col'] == ['A', 'B', 'E'] and df.iloc[1]['Combined Col'] == ['C', 'D', 'G']
+
+def test_lists_single_double_quotes():
+    """
+    Tests merge.lists with single and double quotes
+    """
+    # It is important to read data from the file, otherwise the bug will not be tested
+    data = pd.read_excel('tests/samples/data.xlsx', sheet_name='Lists')
+    recipe = """
+    wrangles:
+        - merge.lists:
+            input: 
+                - Col1
+                - Col2
+            output: Combined Col
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Combined Col'] == ['Zylight, LLC', "AIR ENERGY LLC's", 'Zylight, LLC']
+
 #
 # to_list
 #
