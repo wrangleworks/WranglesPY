@@ -90,6 +90,13 @@ def test_recipe_model():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+def test_recipe_wrong_model():
+    """
+    Test the error message when a model is incorrect type
+    """
+    with pytest.raises(ValueError, match="Using classify model_id a62c7480-500e-480c in a recipe wrangle"):
+            wrangles.recipe.run('a62c7480-500e-480c')
+
 def test_timeout():
     """
     Test that the timeout parameter triggers
