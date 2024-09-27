@@ -4152,3 +4152,18 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+
+    def test_lookup_wrong_model_id_type(self):
+        """
+        Test the error message when passing through a model_id for a different wrangle type
+        """
+        with pytest.raises(ValueError, match="Using recipe model_id 1e13e845-bc3f-4b27 in a lookup function"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - lookup:
+                        input: Stuff
+                        model_id: 1e13e845-bc3f-4b27
+                """,
+                dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
+            )
