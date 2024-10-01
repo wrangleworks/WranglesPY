@@ -46,165 +46,203 @@ def test_coalesce_where():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[1]['Output Col'] == 'B' and df.iloc[0]['Output Col'] ==''
 
-#
-# Concatenate
-#
-# One column concat
-def test_concatenate_1():
-    data = pd.DataFrame({
-        'Col1': [['A', 'B', 'C']]
-    })
-    recipe = """
-    wrangles:
-      - merge.concatenate:
-          input: Col1
-          output: Join List
-          char: ' '
+
+class TestConcatenate:
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Join List'] == 'A B C'
-    
-# Multi column concat
-def test_concatenate_2():
-    data = pd.DataFrame({
-        'Col1': ['A'],
-        'Col2': ['B'],
-        'Col3': ['C']
-    })
-    recipe = """
-    wrangles:
+    All concatenate tests
+    """
+    def test_concatenate_1(self):
+        data = pd.DataFrame({
+            'Col1': [['A', 'B', 'C']]
+        })
+        recipe = """
+        wrangles:
         - merge.concatenate:
-            input: 
-                - Col1
-                - Col2
-                - Col3
-            output: Join Col
-            char: ', '
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Join Col'] == 'A, B, C'
-
-def test_concatenate_where():
-    """
-    Test concatenate using where
-    """
-    data = pd.DataFrame({
-        'Col1': ['A', 'E', 'H'],
-        'Col2': ['B', 'F', 'I'],
-        'Col3': ['C', 'G', 'J'],
-        'numbers': [23, 44, 13]
-    })
-    recipe = """
-    wrangles:
-        - merge.concatenate:
-            input: 
-                - Col1
-                - Col2
-                - Col3
-            output: Join Col
-            char: ', '
-            where: numbers !=13
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Join Col'] == 'A, B, C' and df.iloc[2]['Join Col'] == ''
-
-def test_concatenate_integer():
-    """
-    Test that a non-string doesn't
-    break the concatenation
-    """
-    df = wrangles.recipe.run(
+            input: Col1
+            output: Join List
+            char: ' '
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header1: ["a", 1]
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Join List'] == 'A B C'
+        
+    # Multi column concat
+    def test_concatenate_2(self):
+        data = pd.DataFrame({
+            'Col1': ['A'],
+            'Col2': ['B'],
+            'Col3': ['C']
+        })
+        recipe = """
         wrangles:
-          - merge.concatenate:
-              input: header1
-              output: result
-              char: ''
+            - merge.concatenate:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Join Col
+                char: ', '
         """
-    )
-    assert df["result"][0] == 'a1'
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Join Col'] == 'A, B, C'
 
-def test_concatenate_skip_empty_true():
-    """
-    Test skipping empty values as true
-    """
-    df = wrangles.recipe.run(
+    def test_concatenate_where(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header1: a
-                header2: ""
-                header3: b
+        Test concatenate using where
+        """
+        data = pd.DataFrame({
+            'Col1': ['A', 'E', 'H'],
+            'Col2': ['B', 'F', 'I'],
+            'Col3': ['C', 'G', 'J'],
+            'numbers': [23, 44, 13]
+        })
+        recipe = """
         wrangles:
-          - merge.concatenate:
-              input:
-                - header1
-                - header2
-                - header3
-              output: result
-              char: '-'
-              skip_empty: true
+            - merge.concatenate:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Join Col
+                char: ', '
+                where: numbers !=13
         """
-    )
-    assert df["result"][0] == 'a-b'
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Join Col'] == 'A, B, C' and df.iloc[2]['Join Col'] == ''
 
-def test_concatenate_skip_empty_false():
-    """
-    Test skipping empty values set as false
-    """
-    df = wrangles.recipe.run(
+    def test_concatenate_integer(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header1: a
-                header2: ""
-                header3: b
-        wrangles:
-          - merge.concatenate:
-              input:
-                - header1
-                - header2
-                - header3
-              output: result
-              char: '-'
-              skip_empty: false
+        Test that a non-string doesn't
+        break the concatenation
         """
-    )
-    assert df["result"][0] == 'a--b'
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: ["a", 1]
+            wrangles:
+            - merge.concatenate:
+                input: header1
+                output: result
+                char: ''
+            """
+        )
+        assert df["result"][0] == 'a1'
 
-def test_concatenate_skip_empty_default():
-    """
-    Test skipping empty values not provided
-    """
-    df = wrangles.recipe.run(
+    def test_concatenate_skip_empty_true(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header1: a
-                header2: ""
-                header3: b
+        Test skipping empty values as true
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: a
+                    header2: ""
+                    header3: b
+            wrangles:
+            - merge.concatenate:
+                input:
+                    - header1
+                    - header2
+                    - header3
+                output: result
+                char: '-'
+                skip_empty: true
+            """
+        )
+        assert df["result"][0] == 'a-b'
+
+    def test_concatenate_skip_empty_false(self):
+        """
+        Test skipping empty values set as false
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: a
+                    header2: ""
+                    header3: b
+            wrangles:
+            - merge.concatenate:
+                input:
+                    - header1
+                    - header2
+                    - header3
+                output: result
+                char: '-'
+                skip_empty: false
+            """
+        )
+        assert df["result"][0] == 'a--b'
+
+    def test_concatenate_skip_empty_default(self):
+        """
+        Test skipping empty values not provided
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: a
+                    header2: ""
+                    header3: b
+            wrangles:
+            - merge.concatenate:
+                input:
+                    - header1
+                    - header2
+                    - header3
+                output: result
+                char: '-'
+            """
+        )
+        assert df["result"][0] == 'a--b'
+
+    def test_concatenate_strings(self):
+        """
+        Test concatenate with a single column of strings (a bug)
+        """
+        data = pd.DataFrame({
+            'Col1': ['AAAAAA', 'EEEEEE', 'HHHHHH'],
+            'Col2': ['BBBBBB', 'FFFFFF', 'IIIIII'],
+        })
+        recipe = """
         wrangles:
-          - merge.concatenate:
-              input:
-                - header1
-                - header2
-                - header3
-              output: result
-              char: '-'
+            - merge.concatenate:
+                input: Col1
+                output: Output Col
+                char: ' '
         """
-    )
-    assert df["result"][0] == 'a--b'
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Output Col'] == 'AAAAAA' and df.iloc[2]['Output Col'] == 'HHHHHH'
+
+    def test_concatenate_strings_skip_empty(self):
+        """
+        Test concatenate with a single column of strings (a bug) with skip empty
+        """
+        data = pd.DataFrame({
+            'Col1': ['AAAAAA', 'EEEEEE', 'HHHHHH'],
+            'Col2': ['BBBBBB', 'FFFFFF', 'IIIIII'],
+        })
+        recipe = """
+        wrangles:
+            - merge.concatenate:
+                input: Col1
+                output: Output Col
+                char: ' '
+                skip_empty: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Output Col'] == 'AAAAAA' and df.iloc[2]['Output Col'] == 'HHHHHH'
 
 #
 # Lists
