@@ -1,6 +1,7 @@
 from typing import Union as _Union
 import re as _re
 import pandas as _pandas
+import numpy as _np
 
 
 def flatten_lists(lst):
@@ -14,12 +15,12 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
     if skip_empty:
         return [
             concat_char.join([str(x) for x in row if x])
-            for row in data_list
+            if isinstance(row, (list, _np.ndarray)) else row for row in data_list
         ]
     else:
         return [
             concat_char.join([str(x) for x in row])
-            for row in data_list
+            if isinstance(row, (list, _np.ndarray)) else row for row in data_list
         ]
 
 
