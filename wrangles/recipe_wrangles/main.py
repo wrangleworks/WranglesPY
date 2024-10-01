@@ -1109,7 +1109,7 @@ def rename(
         for x in rename_cols:
             if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
         # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns])
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
         
         rename_dict = kwargs
     else:
@@ -1125,7 +1125,7 @@ def rename(
             raise ValueError('The lists for input and output must be the same length.')
         
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns])
+        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
