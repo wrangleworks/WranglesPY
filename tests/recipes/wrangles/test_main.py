@@ -904,282 +904,193 @@ def test_remove_words_mixed_to_remove_5():
     assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
     
 
-#
-# Rename
-#
-def test_rename_dict():
+class TestRename:
     """
-    Rename using a dictionary of columns
+    All rename tests
     """
-    df = wrangles.recipe.run(
+    def test_rename_dict(self):
         """
-        wrangles:
-          - rename:
-              Manufacturer Name: Company
-              Part Number: MPN
-        """,
-        dataframe = pd.DataFrame({
-            'Manufacturer Name': ['Delos'],
-            'Part Number': ['CH465517080'],
-        })
-    )
-    assert df.iloc[0]['MPN'] == 'CH465517080'
-
-def test_rename_input_output():
-    """
-    Rename using a single input to a single output
-    """
-    data = pd.DataFrame({
-    'Manufacturer Name': ['Delos'],
-    'Part Number': ['CH465517080'],
-    })
-    recipe = """
-    wrangles:
-        - rename:
-            input: Manufacturer Name
-            output: Company
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Company'] == 'Delos'
-
-def test_rename_missing_output():
-    """
-    Check error if input is provided but not output
-    """
-    with pytest.raises(ValueError) as info:
-        wrangles.recipe.run(
+        Rename using a dictionary of columns
+        """
+        df = wrangles.recipe.run(
             """
-            wrangles:
-                - rename:
-                    input: Manufacturer Name
-            """,
-            dataframe = pd.DataFrame({
-                'Manufacturer Name': ['Delos'],
-                'Part Number': ['CH465517080'],
-            })
-        )
-    assert (
-        info.typename == 'ValueError' and
-        'If an input' in info.value.args[0]
-    )
-
-def test_rename_inconsistent_input_output():
-    """
-    Check error if the lists for input and output are not equal lengths
-    """
-    with pytest.raises(ValueError) as info:
-        wrangles.recipe.run(
-            """
-            wrangles:
-                - rename:
-                    input: Manufacturer Name
-                    output:
-                      - Two
-                      - Columns
-            """,
-            dataframe = pd.DataFrame({
-                'Manufacturer Name': ['Delos'],
-                'Part Number': ['CH465517080'],
-            })
-        )
-    assert (
-        info.typename == 'ValueError' and
-        "The lists for" in info.value.args[0]
-    )
-
-def test_rename_invalid_input():
-    """
-    Check error if a column specified in input doesn't exist
-    """
-    with pytest.raises(KeyError) as info:
-        wrangles.recipe.run(
-            """
-            wrangles:
-                - rename:
-                    input: doesn't exist
-                    output: Column
-            """,
-            dataframe = pd.DataFrame({
-                'Manufacturer Name': ['Delos'],
-                'Part Number': ['CH465517080'],
-            })
-        )
-    assert info.typename == 'KeyError'
-
-def test_rename_into_existing_column():
-    """
-    Rename a column to a name that already exists as a column.
-    This should overwrite the existing column.
-    """
-    data = pd.DataFrame({
-    'col1': [1, 2, 3, 4],
-    'col2': [444, 555, 666, 444],
-    })
-    df = wrangles.recipe.run(
-        """
-        wrangles:        
-          - rename:
-              col2: col1
-        """,
-        dataframe=data
-    )
-    assert (
-        df["col1"].values.tolist() == [444, 555, 666, 444] and
-        df.columns.tolist() == ["col1"]
-    )
-
-def test_rename_into_existing_column_dict():
-    """
-    Rename a column to a name that already exists as a column.
-    This should make sure that all columns are pandas Series
-    """
-    data = pd.DataFrame({
-    'col1': [1, 2, 3, 4],
-    'col2': [444, 555, 666, 444],
-    })
-
-    recipe = """
-    wrangles:
-    - copy:
-        input: col1
-        output: col1_copy
-        
-    - create.column:
-        output: col2_copy
-        
-    - rename:
-        col2_copy: col1_copy
-        col2: newCol2
-    """
-    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
-
-def test_rename_into_existing_column_input():
-    """
-    Rename a column to a name that already exists as a column.
-    This should make sure that all columns are pandas Series. Using input/output
-    """
-    data = pd.DataFrame({
-    'col1': [1, 2, 3, 4],
-    'col2': [444, 555, 666, 444],
-    })
-
-    recipe = """
-    wrangles:
-    - copy:
-        input: col1
-        output: col1_copy
-        
-    - create.column:
-        output: col2_copy
-        
-    - rename:
-        input:
-            - col2_copy
-            - col2
-        output:
-            - col1_copy
-            - newCol2
-    """
-    df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-    assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
-
-
-def test_rename_wrangles():
-    """
-    Use wrangles to rename columns
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: value1
-                header2: value2
-        wrangles:
-          - rename:
-              wrangles:
-                - convert.case:
-                    input: columns
-                    case: upper
-        """
-    )
-    assert df.columns.tolist() == ["HEADER1","HEADER2"]
-
-def test_rename_custom_function():
-    """
-    Test that a custom function for rename wrangles works correctly
-    """
-    def func(columns):
-        return columns + "_1"
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 5
-              values:
-                header1: value1
-                header2: value2
-        wrangles:
-          - rename:
-              wrangles:
-                - custom.func:
-                    output: columns
-        """,
-        functions=func
-    )
-    assert df.columns.tolist() == ["header1_1","header2_1"]
-
-def test_rename_column_named_functions():
-    """
-    Test that a column named functions is still
-    renamed correctly.
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-        - test:
-            rows: 5
-            values:
-                functions: value
-        wrangles:
-        - rename:
-            functions: renamed
-        """
-    )
-    assert df.columns.tolist() == ["renamed"]
-
-def test_rename_wrangles_columns_missing_error():
-    """
-    If user doesn't return a column named columns
-    ensure an appropriate error is show
-    """
-    with pytest.raises(RuntimeError) as error:
-        raise wrangles.recipe.run(
-            """
-            read:
-            - test:
-                rows: 5
-                values:
-                    header1: value1
-                    header2: value2
             wrangles:
             - rename:
+                Manufacturer Name: Company
+                Part Number: MPN
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos'],
+                'Part Number': ['CH465517080'],
+            })
+        )
+        assert df.iloc[0]['MPN'] == 'CH465517080'
+
+    def test_rename_input_output(self):
+        """
+        Rename using a single input to a single output
+        """
+        data = pd.DataFrame({
+        'Manufacturer Name': ['Delos'],
+        'Part Number': ['CH465517080'],
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                input: Manufacturer Name
+                output: Company
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Company'] == 'Delos'
+
+    def test_rename_missing_output(self):
+        """
+        Check error if input is provided but not output
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(
+                """
                 wrangles:
                     - rename:
-                        columns: cause_error
-            """
+                        input: Manufacturer Name
+                """,
+                dataframe = pd.DataFrame({
+                    'Manufacturer Name': ['Delos'],
+                    'Part Number': ['CH465517080'],
+                })
+            )
+        assert (
+            info.typename == 'ValueError' and
+            'If an input' in info.value.args[0]
         )
-    assert "column named 'columns' must be returned" in error.value.args[0]
 
-def test_rename_wrangles_filtered_error():
-    """
-    When renaming, if the user changes the length of the output columns
-    by wrangling then ensure an appropriate error is returned.
-    """
-    with pytest.raises(RuntimeError) as error:
-        raise wrangles.recipe.run(
+    def test_rename_inconsistent_input_output(self):
+        """
+        Check error if the lists for input and output are not equal lengths
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        input: Manufacturer Name
+                        output:
+                        - Two
+                        - Columns
+                """,
+                dataframe = pd.DataFrame({
+                    'Manufacturer Name': ['Delos'],
+                    'Part Number': ['CH465517080'],
+                })
+            )
+        assert (
+            info.typename == 'ValueError' and
+            "The lists for" in info.value.args[0]
+        )
+
+    def test_rename_invalid_input(self):
+        """
+        Check error if a column specified in input doesn't exist
+        """
+        with pytest.raises(KeyError) as info:
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        input: doesn't exist
+                        output: Column
+                """,
+                dataframe = pd.DataFrame({
+                    'Manufacturer Name': ['Delos'],
+                    'Part Number': ['CH465517080'],
+                })
+            )
+        assert info.typename == 'KeyError'
+
+    def test_rename_into_existing_column(self):
+        """
+        Rename a column to a name that already exists as a column.
+        This should overwrite the existing column.
+        """
+        data = pd.DataFrame({
+        'col1': [1, 2, 3, 4],
+        'col2': [444, 555, 666, 444],
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:        
+            - rename:
+                col2: col1
+            """,
+            dataframe=data
+        )
+        assert (
+            df["col1"].values.tolist() == [444, 555, 666, 444] and
+            df.columns.tolist() == ["col1"]
+        )
+
+    def test_rename_into_existing_column_dict(self):
+        """
+        Rename a column to a name that already exists as a column.
+        This should make sure that all columns are pandas Series
+        """
+        data = pd.DataFrame({
+        'col1': [1, 2, 3, 4],
+        'col2': [444, 555, 666, 444],
+        })
+
+        recipe = """
+        wrangles:
+        - copy:
+            input: col1
+            output: col1_copy
+            
+        - create.column:
+            output: col2_copy
+            
+        - rename:
+            col2_copy: col1_copy
+            col2: newCol2
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+    def test_rename_into_existing_column_input(self):
+        """
+        Rename a column to a name that already exists as a column.
+        This should make sure that all columns are pandas Series. Using input/output
+        """
+        data = pd.DataFrame({
+        'col1': [1, 2, 3, 4],
+        'col2': [444, 555, 666, 444],
+        })
+
+        recipe = """
+        wrangles:
+        - copy:
+            input: col1
+            output: col1_copy
+            
+        - create.column:
+            output: col2_copy
+            
+        - rename:
+            input:
+                - col2_copy
+                - col2
+            output:
+                - col1_copy
+                - newCol2
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
+
+
+    def test_rename_wrangles(self):
+        """
+        Use wrangles to rename columns
+        """
+        df = wrangles.recipe.run(
             """
             read:
             - test:
@@ -1190,11 +1101,136 @@ def test_rename_wrangles_filtered_error():
             wrangles:
             - rename:
                 wrangles:
-                    - filter:
-                        where: columns = 'header1'
+                    - convert.case:
+                        input: columns
+                        case: upper
             """
         )
-    assert "same length as the input" in error.value.args[0]
+        assert df.columns.tolist() == ["HEADER1","HEADER2"]
+
+    def test_rename_custom_function(self):
+        """
+        Test that a custom function for rename wrangles works correctly
+        """
+        def func(columns):
+            return columns + "_1"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - custom.func:
+                        output: columns
+            """,
+            functions=func
+        )
+        assert df.columns.tolist() == ["header1_1","header2_1"]
+
+    def test_rename_column_named_functions(self):
+        """
+        Test that a column named functions is still
+        renamed correctly.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    functions: value
+            wrangles:
+            - rename:
+                functions: renamed
+            """
+        )
+        assert df.columns.tolist() == ["renamed"]
+
+    def test_rename_wrangles_columns_missing_error(self):
+        """
+        If user doesn't return a column named columns
+        ensure an appropriate error is show
+        """
+        with pytest.raises(RuntimeError) as error:
+            raise wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 5
+                    values:
+                        header1: value1
+                        header2: value2
+                wrangles:
+                - rename:
+                    wrangles:
+                        - rename:
+                            columns: cause_error
+                """
+            )
+        assert "column named 'columns' must be returned" in error.value.args[0]
+
+    def test_rename_wrangles_filtered_error(self):
+        """
+        When renaming, if the user changes the length of the output columns
+        by wrangling then ensure an appropriate error is returned.
+        """
+        with pytest.raises(RuntimeError) as error:
+            raise wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 5
+                    values:
+                        header1: value1
+                        header2: value2
+                wrangles:
+                - rename:
+                    wrangles:
+                        - filter:
+                            where: columns = 'header1'
+                """
+            )
+        assert "same length as the input" in error.value.args[0]
+
+    def test_rename_input_output_equal(self):
+        """
+        Rename using a single input to a single output where the input and output are the same
+        """
+        data = pd.DataFrame({
+        'Manufacturer Name': ['Delos'],
+        'Part Number': ['CH465517080'],
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                input: Manufacturer Name
+                output: Manufacturer Name
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Manufacturer Name'] == 'Delos'
+
+    def test_rename_dict_equal(self):
+        """
+        Rename using a dictionary of columns where the names are equal
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - rename:
+                Manufacturer Name: Manufacturer Name
+                Part Number: Part Number
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos'],
+                'Part Number': ['CH465517080'],
+            })
+        )
+        assert df.iloc[0]['Part Number'] == 'CH465517080'
 
 #
 # Cosine Similarity
