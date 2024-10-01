@@ -1231,6 +1231,26 @@ class TestRename:
             })
         )
         assert df.iloc[0]['Part Number'] == 'CH465517080'
+    
+    def test_rename_invert_names(self):
+        """
+        Test a rename that swaps two columns to each other's names
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    column1: value1
+                    column2: value2
+            wrangles:
+              - rename:
+                  column1: column2
+                  column2: column1
+            """
+        )
+        assert df["column1"][0] == "value2" and df["column2"][0] == "value1"
 
 #
 # Cosine Similarity
