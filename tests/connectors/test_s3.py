@@ -33,6 +33,21 @@ def test_read_2():
     df = wrangles.recipe.run(recipe)
     assert df.iloc[0]['Winners'] == 'Uruguay'
 
+def test_read_gzip():
+    """
+    Test reading a gzipped file from s3
+    """
+    recipe = f"""
+    read:
+      - s3:
+          bucket: wrwx-public
+          key: World Cup Titles.csv.gz
+          access_key: {s3_key}
+          secret_access_key: {s3_secret}
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.iloc[0]['Country'] == 'Brazil'
+
 
 
 # Writing to an S3 file
