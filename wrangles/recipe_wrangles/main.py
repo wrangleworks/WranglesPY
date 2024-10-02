@@ -733,6 +733,11 @@ def lookup(
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
         
+        # Using model_id in wrong function
+        purpose = metadata['purpose']
+        if purpose != 'lookup':
+            raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
+        
         # Split input/output if user differentiated e.g. "wrangle_column: output_column"
         wrangle_output = [
             list(val.keys())[0] if isinstance(val, dict) else val

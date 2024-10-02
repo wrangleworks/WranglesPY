@@ -178,6 +178,18 @@ def _load_recipe(
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
+        metadata = _data.model(recipe)
+        # If model_id format is correct but no mode_id exists
+        if metadata.get('message', None) == 'error':
+            raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+        
+        # Using model_id in wrong function
+        purpose = metadata['purpose']
+        if purpose != 'recipe':
+            raise ValueError(
+                f'Using {purpose} model_id {recipe} in a recipe wrangle.'
+            )
+        
         model_contents = _data.model_content(recipe)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
