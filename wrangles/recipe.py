@@ -788,7 +788,7 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                     for element in export_type.split('.'):
                         obj = getattr(obj, element)
                     
-                    if export_type in ['recipe', 'matrix']:
+                    if export_type in ['recipe', 'matrix', 'concurrent']:
                         params['functions'] = functions
                     
                     getattr(obj, 'write')(df_temp, **params)
