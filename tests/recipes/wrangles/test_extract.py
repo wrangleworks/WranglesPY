@@ -1816,420 +1816,462 @@ def test_date_range_2():
         '"millennium" not a valid frequency' in info.value.args[0]
     )
 
-def test_ai():
+class TestAiExtract:
     """
-    Test openai extract with a single input and output
+    All tests for extract.ai
     """
-    df = wrangles.recipe.run(
+    def test_ai(self):
         """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                length:
-                  type: string
-                  description: >-
-                    Any lengths found in the data
-                    such as cm, m, ft, etc.
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "wrench 25mm",
-                "6m cable",
-                "screwdriver 3mm"
-            ],
-        })
-    )
-    # This is temperamental
-    # Score as 2/3 as good enough for test to pass
-    matches = sum([
-        df['length'][0] == '25mm',
-        df['length'][1] == '6m',
-        df['length'][2] == '3mm'
-    ])
-    assert matches >= 2
-
-def test_ai_multiple_output():
-    """
-    Test AI extract with multiple outputs
-    """
-    df = wrangles.recipe.run(
+        Test openai extract with a single input and output
         """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                length:
-                  type: string
-                  description: >-
-                    Any lengths found in the data
-                    such as cm, m, ft, etc.
-                type:
-                  type: string
-                  description: >-
-                    The type of item in the data
-                    such as spanner, cellphone, etc.
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "wrench 25mm",
-                "6m cable",
-                "screwdriver 3mm"
-            ],
-        })
-    )
-    # This is temperamental
-    # Score as 4/6 as good enough for test to pass
-    matches = sum([
-        df['length'][0] == '25mm',
-        df['length'][1] == '6m',
-        df['length'][2] == '3mm',
-        df['type'][0] == 'wrench',
-        df['type'][1] == 'cable',
-        df['type'][2] == 'screwdriver'
-    ])
-    assert matches >= 4
-
-def test_ai_multiple_input():
-    """
-    Test AI extract with multiple inputs
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                text:
-                  type: string
-                  description: >-
-                    Concatenate the type and
-                    length to form a single output text
-                    e.g. bolt 5mm
-        """,
-        dataframe=pd.DataFrame({
-            "type": [
-                "wrench",
-                "cable",
-                "screwdriver"
-            ],
-            "length": [
-                "25mm",
-                "6m",
-                "3mm"
-            ]
-        })
-    )
-    # This is temperamental
-    # Score as 2/3 as good enough for test to pass
-    matches = sum([
-        df['text'][0] == 'wrench 25mm',
-        df['text'][1] == 'cable 6m',
-        df['text'][2] == 'screwdriver 3mm'
-    ])
-    assert matches >= 2
-
-def test_ai_enum():
-    """
-    Test AI extract with an enum defined
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                sentiment:
-                  type: string
-                  description: >-
-                    Describe the sentiment of the text
-                  enum:
-                    - positive
-                    - negative
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "The best movie I've ever seen!",
-                "I almost threw up. I wouldn't go again.",
-                "I had a smile on my face all day."
-            ],
-        })
-    )
-    # This is temperamental
-    # Score as 2/3 as good enough for test to pass
-    matches = sum([
-        df["sentiment"][0] == "positive",
-        df["sentiment"][1] == "negative",
-        df["sentiment"][2] == "positive"
-    ])
-    assert matches >= 2
-
-def test_ai_timeout():
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 0.1
-              retries: 0
-              output:
-                length:
-                  type: string
-                  description: >-
-                    Any lengths found in the data
-                    such as cm, m, ft, etc.
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "wrench 25mm",
-                "6m cable",
-                "screwdriver 3mm"
-            ],
-        })
-    )
-    assert (
-        df['length'][0] == 'Timed Out' and
-        df['length'][1] == 'Timed Out' and
-        df['length'][2] == 'Timed Out'
-    )
-
-def test_ai_timeout_multiple_output():
-    """
-    Test AI extract with multiple outputs
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 0.1
-              retries: 0
-              output:
-                length:
-                  type: string
-                  description: >-
-                    Any lengths found in the data
-                    such as cm, m, ft, etc.
-                type:
-                  type: string
-                  description: >-
-                    The type of item in the data
-                    such as spanner, cellphone, etc.
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "wrench 25mm",
-                "6m cable",
-                "screwdriver 3mm"
-            ],
-        })
-    )
-    assert (
-        df['length'][0] == 'Timed Out' and
-        df['length'][1] == 'Timed Out' and
-        df['length'][2] == 'Timed Out' and
-        df['type'][0] == 'Timed Out' and
-        df['type'][1] == 'Timed Out' and
-        df['type'][2] == 'Timed Out'
-    )
-
-def test_ai_messages():
-    """
-    Test openai extract with a header level prompt
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                length:
-                  type: string
-                  description: >-
-                    Any lengths found in the data
-                    such as CM, M, FT, etc.
-              messages: All response text should be in upper case.
-        """,
-        dataframe=pd.DataFrame({
-            "data": [
-                "wrench 25mm",
-                "6m cable",
-                "screwdriver 3mm"
-            ],
-        })
-    )
-
-    # This is temperamental, and sometimes GPT returns lowercase
-    # Score as 2/3 as good enough for test to pass
-    matches = sum([
-        df['length'][0].upper().replace(' ', '') == '25MM',
-        df['length'][1].upper().replace(' ', '') == '6M',
-        df['length'][2].upper().replace(' ', '') == '3MM'
-    ])
-    assert matches >= 2
-
-def test_ai_array_no_items():
-    """
-    Test openai extract with array but items type is
-    not specified. Defaults to string
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                fruits:
-                  type: array
-                  description: >-
-                    Return the names of any fruits
-                    that are yellow
-        """,
-        dataframe=pd.DataFrame({
-            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-        })
-    )
-    assert (
-        ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
-        ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
-    )
-
-def test_ai_array_item_type_specified():
-    """
-    Test openai extract with array where
-    the items type is specified
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-          - extract.ai:
-              model: gpt-4o
-              api_key: ${OPENAI_API_KEY}
-              seed: 1
-              timeout: 60
-              retries: 2
-              output:
-                count:
-                  type: array
-                  items:
-                    type: integer
-                  description: >-
-                    Get all numbers from the input
-        """,
-        dataframe=pd.DataFrame({
-            "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-        })
-    )
-    assert df['count'][0] == [3,5,2]
-
-def test_ai_bad_schema():
-    """
-    Test that an appropriate error is returned
-    if the schema is not valid
-    """
-    with pytest.raises(ValueError) as error:
-        raise wrangles.recipe.run(
+        df = wrangles.recipe.run(
             """
             wrangles:
             - extract.ai:
+                model: gpt-4o
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
                 retries: 2
                 output:
                   length:
-                    type: invalid
+                    type: string
                     description: >-
-                        Any lengths found in the data
-                        such as cm, m, ft, etc.
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
             """,
             dataframe=pd.DataFrame({
-                "data": ["wrench 25mm"],
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
             })
         )
-    assert "schema submitted for output is not valid" in error.value.args[0]
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm'
+        ])
+        assert matches >= 2
 
-def test_ai_invalid_apikey():
-    """
-    Test that an appropriate error is returned
-    if the api key is invalid
-    """
-    with pytest.raises(ValueError) as error:
-        raise wrangles.recipe.run(
+    def test_ai_multiple_output(self):
+        """
+        Test AI extract with multiple outputs
+        """
+        df = wrangles.recipe.run(
             """
             wrangles:
             - extract.ai:
-                api_key: abc123
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
                 retries: 2
                 output:
                   length:
-                    type: invalid
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+                  type:
+                    type: string
+                    description: >-
+                      The type of item in the data
+                      such as spanner, cellphone, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 4/6 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm',
+            df['type'][0] == 'wrench',
+            df['type'][1] == 'cable',
+            df['type'][2] == 'screwdriver'
+        ])
+        assert matches >= 4
+
+    def test_ai_multiple_input(self):
+        """
+        Test AI extract with multiple inputs
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  text:
+                    type: string
+                    description: >-
+                      Concatenate the type and
+                      length to form a single output text
+                      e.g. bolt 5mm
+            """,
+            dataframe=pd.DataFrame({
+                "type": [
+                    "wrench",
+                    "cable",
+                    "screwdriver"
+                ],
+                "length": [
+                    "25mm",
+                    "6m",
+                    "3mm"
+                ]
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['text'][0] == 'wrench 25mm',
+            df['text'][1] == 'cable 6m',
+            df['text'][2] == 'screwdriver 3mm'
+        ])
+        assert matches >= 2
+
+    def test_ai_enum(self):
+        """
+        Test AI extract with an enum defined
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  sentiment:
+                    type: string
+                    description: >-
+                      Describe the sentiment of the text
+                    enum:
+                      - positive
+                      - negative
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "The best movie I've ever seen!",
+                    "I almost threw up. I wouldn't go again.",
+                    "I had a smile on my face all day."
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df["sentiment"][0] == "positive",
+            df["sentiment"][1] == "negative",
+            df["sentiment"][2] == "positive"
+        ])
+        assert matches >= 2
+
+    def test_ai_timeout(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 0.1
+                retries: 0
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        assert (
+            df['length'][0] == 'Timed Out' and
+            df['length'][1] == 'Timed Out' and
+            df['length'][2] == 'Timed Out'
+        )
+
+    def test_ai_timeout_multiple_output(self):
+        """
+        Test AI extract with multiple outputs
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 0.1
+                retries: 0
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+                  type:
+                    type: string
+                    description: >-
+                      The type of item in the data
+                      such as spanner, cellphone, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        assert (
+            df['length'][0] == 'Timed Out' and
+            df['length'][1] == 'Timed Out' and
+            df['length'][2] == 'Timed Out' and
+            df['type'][0] == 'Timed Out' and
+            df['type'][1] == 'Timed Out' and
+            df['type'][2] == 'Timed Out'
+        )
+
+    def test_ai_messages(self):
+        """
+        Test openai extract with a header level prompt
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as CM, M, FT, etc.
+                messages: All response text should be in upper case.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+
+        # This is temperamental, and sometimes GPT returns lowercase
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0].upper().replace(' ', '') == '25MM',
+            df['length'][1].upper().replace(' ', '') == '6M',
+            df['length'][2].upper().replace(' ', '') == '3MM'
+        ])
+        assert matches >= 2
+
+    def test_ai_array_no_items(self):
+        """
+        Test openai extract with array but items type is
+        not specified. Defaults to string
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  fruits:
+                    type: array
+                    description: >-
+                      Return the names of any fruits
+                      that are yellow
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+            })
+        )
+        assert (
+            ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
+            ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
+        )
+
+    def test_ai_array_item_type_specified(self):
+        """
+        Test openai extract with array where
+        the items type is specified
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  count:
+                    type: array
+                    items:
+                      type: integer
+                    description: >-
+                      Get all numbers from the input
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+            })
+        )
+        assert df['count'][0] == [3,5,2]
+
+    def test_ai_bad_schema(self):
+        """
+        Test that an appropriate error is returned
+        if the schema is not valid
+        """
+        with pytest.raises(ValueError) as error:
+            raise wrangles.recipe.run(
+                """
+                wrangles:
+                  - extract.ai:
+                      api_key: ${OPENAI_API_KEY}
+                      seed: 1
+                      timeout: 60
+                      retries: 2
+                      output:
+                        length:
+                          type: invalid
+                          description: >-
+                            Any lengths found in the data
+                            such as cm, m, ft, etc.
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm"],
+                })
+            )
+        assert "schema submitted for output is not valid" in error.value.args[0]
+
+    def test_ai_invalid_apikey(self):
+        """
+        Test that an appropriate error is returned
+        if the api key is invalid
+        """
+        with pytest.raises(ValueError) as error:
+            raise wrangles.recipe.run(
+                """
+                wrangles:
+                  - extract.ai:
+                      api_key: abc123
+                      seed: 1
+                      timeout: 60
+                      retries: 2
+                      output:
+                        length:
+                          type: invalid
+                          description: >-
+                            Any lengths found in the data
+                            such as cm, m, ft, etc.
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm"],
+                })
+            )
+        assert "API Key" in error.value.args[0]
+
+    def test_ai_where(self):
+        """
+        Test using where with extract.ai
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.ai:
+                  input: data
+                  api_key: ${OPENAI_API_KEY}
+                  seed: 1
+                  timeout: 60
+                  retries: 2
+                  output:
+                    length:
+                      type: integer
+                      description: Get the number from the input
+                  where: data LIKE 'wrench%'
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
+            })
+        )
+        assert (
+            df['length'][1] == "" and (
+                df['length'][0] == 25 or
+                df['length'][2] == 35 or
+                df['length'][3] == 45
+            )
+        )
+
+    def test_ai_string_examples(self):
+        """
+        Test openai extract with examples passed as a string
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: string
                     description: >-
                         Any lengths found in the data
                         such as cm, m, ft, etc.
+                    examples: 22mm
             """,
             dataframe=pd.DataFrame({
-                "data": ["wrench 25mm"],
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
             })
         )
-    assert "API Key" in error.value.args[0]
-
-def test_ai_where():
-    """
-    Test using where with extract.ai
-    """
-    df = wrangles.recipe.run(
-        """
-        wrangles:
-        - extract.ai:
-            input: data
-            api_key: ${OPENAI_API_KEY}
-            seed: 1
-            timeout: 60
-            retries: 2
-            output:
-              length:
-                type: integer
-                description: Get the number from the input
-            where: data LIKE 'wrench%'
-        """,
-        dataframe=pd.DataFrame({
-            "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
-        })
-    )
-    assert (
-        df['length'][1] == "" and (
-            df['length'][0] == 25 or
-            df['length'][2] == 35 or
-            df['length'][3] == 45
-        )
-    )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm'
+        ])
+        assert matches >= 2
