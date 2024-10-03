@@ -498,107 +498,129 @@ def test_filter_input_list():
     )
     assert len(df) == 1
 
-
-#
-# Log
-#
-def test_log_columns(caplog):
+@pytest.mark.usefixtures("caplog")
+class TestLog:
     """
-    Test log when specifying columns
+    All log tests
     """
-    data = pd.DataFrame({
-    'Col1': ['Chicken'],
-    'Col2': ['Cheese']
-    })
-    recipe = """
-    wrangles:
-        - log:
-            columns:
-              - Col1
-    """
-    wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
-
-def test_log(caplog):
-    """
-    Test default log
-    """
-    data = pd.DataFrame({
-    'Col1': ['Ball Bearing'],
-    'Col2': ['Bearing']
-    })
-    recipe = """
-    wrangles:
-        - log: {}
-    """
-    wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2\n0  Ball Bearing  Bearing\n'
-
-def test_log_wildcard(caplog):
-    """
-    Test one column with wildcard
-    """
-    data = pd.DataFrame({
-        'Col': ['Hello, Wrangle, Works'],
-    })
-    recipe = """
-    wrangles:
-      - split.text:
-          input: Col
-          output: Col*
-          char: ', '
-
-      - log:
-          columns:
-            - Col*
-    """
-    wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
-
-def test_log_escaped_wildcard(caplog):
-    """
-    Test escaping a wildcard when specifying columns.
-    """
-    data = pd.DataFrame({
-        'Col': ['Hello'],
-        'Col*': ['WrangleWorks!'],
-    })
-    recipe = r"""
-    wrangles:
-      - log:
-          columns:
-            - Col\*
-    """
-    wrangles.recipe.run(recipe, dataframe=data)
-    assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
-
-def test_log_write():
-    """
-    Test using a connector as part of a log
-    """
-    wrangles.recipe.run(
+    def test_log_columns(self, caplog):
         """
-        read:
-          - test:
-              rows: 5
-              values:
-                header: value
-            
+        Test log when specifying columns
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                columns:
+                  - Col1
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
+
+    def test_log(self, caplog):
+        """
+        Test default log
+        """
+        data = pd.DataFrame({
+        'Col1': ['Ball Bearing'],
+        'Col2': ['Bearing']
+        })
+        recipe = """
+        wrangles:
+            - log: {}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2\n0  Ball Bearing  Bearing\n'
+
+    def test_log_wildcard(self, caplog):
+        """
+        Test one column with wildcard
+        """
+        data = pd.DataFrame({
+            'Col': ['Hello, Wrangle, Works'],
+        })
+        recipe = """
+        wrangles:
+          - split.text:
+              input: Col
+              output: Col*
+              char: ', '
+
+          - log:
+              columns:
+                - Col*
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[-1] == ': Dataframe ::\n\n                     Col   Col1     Col2   Col3\n0  Hello, Wrangle, Works  Hello  Wrangle  Works\n'
+
+    def test_log_escaped_wildcard(self, caplog):
+        """
+        Test escaping a wildcard when specifying columns.
+        """
+        data = pd.DataFrame({
+            'Col': ['Hello'],
+            'Col*': ['WrangleWorks!'],
+        })
+        recipe = r"""
         wrangles:
           - log:
-              write:
-                - file:
-                    name: tests/temp/temp.csv
+              columns:
+                - Col\*
         """
-    )
-    df = wrangles.recipe.run(
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[-1] == ': Dataframe ::\n\n            Col*\n0  WrangleWorks!\n'
+
+    def test_log_write(self):
         """
+        Test using a connector as part of a log
+        """
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header: value
+                
+            wrangles:
+              - log:
+                  write:
+                    - file:
+                        name: tests/temp/temp.csv
+            """
+        )
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp.csv
+            """
+        )
+        assert len(df) == 5 and df['header'][0] == 'value'
+
+    def test_log_length(self, caplog):
+        """
+        Test default log
+        """
+        data = pd.DataFrame({
+        'Col1': ['Ball Bearing'],
+        'Col2': ['Bearing']
+        })
+        recipe = """
         read:
-          - file:
-              name: tests/temp/temp.csv
+          - test:
+              rows: 30
+              values:
+                Col1: Ball Bearing
+                Col2: Bearing
+        wrangles:
+            - log: {}
         """
-    )
-    assert len(df) == 5 and df['header'][0] == 'value'
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert 'Bearing\n19' in caplog.messages[-1] and 'Bearing\n20' not in caplog.messages[-1]
 
 #
 # Remove Words

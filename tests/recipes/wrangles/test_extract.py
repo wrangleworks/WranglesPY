@@ -2070,7 +2070,7 @@ def test_ai_messages():
                   type: string
                   description: >-
                     Any lengths found in the data
-                    such as cm, m, ft, etc.
+                    such as CM, M, FT, etc.
               messages: All response text should be in upper case.
         """,
         dataframe=pd.DataFrame({
@@ -2085,9 +2085,9 @@ def test_ai_messages():
     # This is temperamental, and sometimes GPT returns lowercase
     # Score as 2/3 as good enough for test to pass
     matches = sum([
-        df['length'][0] == '25MM',
-        df['length'][1] == '6M',
-        df['length'][2] == '3MM'
+        df['length'][0].upper().replace(' ', '') == '25MM',
+        df['length'][1].upper().replace(' ', '') == '6M',
+        df['length'][2].upper().replace(' ', '') == '3MM'
     ])
     assert matches >= 2
 

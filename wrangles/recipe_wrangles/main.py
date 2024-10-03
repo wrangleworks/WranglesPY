@@ -609,7 +609,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = True
+    log_data: bool = None
 ):
     """
     type: object
@@ -636,7 +636,7 @@ def log(
         description: Log info to the console
       log_data:
         type: boolean
-        description: Whether to log a sample of the contents of the dataframe. Default True.
+        description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
     if columns is not None:
 
@@ -666,10 +666,10 @@ def log(
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        df_tolog = df[columns_to_print]
+        df_tolog = df[columns_to_print].head(20)
 
     else:
-        df_tolog = df
+        df_tolog = df.head(20)
 
     if error:
         _logging.error(error)
@@ -677,14 +677,17 @@ def log(
         _logging.warning(warning)
     if info:
         _logging.info(info)
-    if log_data:
-        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     if write:
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
         )
+
+    if log_data == None and not any([error, warning, info, write]): log_data = True
+        
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     return df
 
