@@ -609,7 +609,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = True
+    log_data: bool = None
 ):
     """
     type: object
@@ -673,20 +673,18 @@ def log(
 
     if error:
         _logging.error(error)
-        log_data = False
     if warning:
         _logging.warning(warning)
-        log_data = False
     if info:
         _logging.info(info)
-        log_data = False
 
     if write:
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
         )
-        log_data = False
+
+    if log_data == None and not any([error, warning, info, write]): log_data = True
         
     if log_data:
         _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
