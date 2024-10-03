@@ -2070,7 +2070,7 @@ def test_ai_messages():
                   type: string
                   description: >-
                     Any lengths found in the data
-                    such as cm, m, ft, etc.
+                    such as CM, M, FT, etc.
               messages: All response text should be in upper case.
         """,
         dataframe=pd.DataFrame({
