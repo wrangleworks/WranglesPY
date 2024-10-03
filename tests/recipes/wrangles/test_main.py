@@ -600,6 +600,27 @@ def test_log_write():
     )
     assert len(df) == 5 and df['header'][0] == 'value'
 
+def test_log_length(caplog):
+    """
+    Test default log
+    """
+    data = pd.DataFrame({
+    'Col1': ['Ball Bearing'],
+    'Col2': ['Bearing']
+    })
+    recipe = """
+    read:
+      - test:
+          rows: 30
+          values:
+            Col1: Ball Bearing
+            Col2: Bearing
+    wrangles:
+        - log: {}
+    """
+    wrangles.recipe.run(recipe, dataframe=data)
+    assert 'Bearing\n19' in caplog.messages[-1] and 'Bearing\n20' not in caplog.messages[-1]
+
 #
 # Remove Words
 #
