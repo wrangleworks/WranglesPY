@@ -17,6 +17,8 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
+import itertools as _itertools
+from collections import ChainMap as _chainmap
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -822,6 +824,96 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(' ', '_')
     df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
+    return df
+
+
+def matrix(
+    df: _pd.DataFrame,
+    variables: dict,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "loop",
+):
+    """
+    type: object
+    description: |-
+      Apply a matrix of wrangles to the dataframe.
+      This will run the wrangles for each combination of the variables.
+    required:
+      - variables
+      - wrangles
+    properties:
+      variables:
+        type: object
+        description: |-
+          A dictionary of variables to pass to the wrangle.
+          The key is the variable name and the value is a list of values.
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to apply to the dataframe.
+          Each wrangle will be run for each combination of the variables.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+        strategy:
+          type: string
+          enum:
+            - permutations
+            - loop
+          description: >-
+            Determines how to combine variables when there are multiple.
+            loop (default) iterates over each set of variables, repeating shorter lists 
+            until the longest is completed. permutations uses the combination of all 
+            variables against all other variables.
+    """
+    def _zip_cycle(*iterables, empty_default=None):
+        cycles = [_itertools.cycle(i) for i in iterables]
+        for _ in _itertools.zip_longest(*iterables):
+            yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
+
+    permutations = []
+
+    for key, val in variables.items():
+        if isinstance(val, list):
+            vals = val
+        
+        elif _re.fullmatch(r'set\((.*)\)', val.strip()):
+            column_name = _re.fullmatch(r'set\((.*)\)', val.strip())[1]
+            vals = list(dict.fromkeys(df[column_name]))
+
+        elif _re.fullmatch(r'custom.(.*)', val.strip()):
+            # Run custom function
+            vals = functions[val.strip()[7:]]()
+        
+        else:
+            vals = [val]
+
+        permutations.append([{key: var} for var in vals])
+
+    if strategy.lower() == "permutations":
+        # Calc all permutations
+        permutations = list(_itertools.product(*permutations))
+        permutations = [
+            dict(_chainmap(*permutation))
+            for permutation in permutations
+        ]
+    elif strategy.lower() == "loop":
+        permutations = [
+            permutation
+            for permutation in _zip_cycle(*permutations)
+        ]
+    else:
+        raise ValueError(f"Invalid setting {strategy} for strategy")
+
+    for permutation in permutations:
+        df = _wrangles.recipe.run(
+            recipe={'wrangles': wrangles},
+            dataframe=df,
+            variables=permutation,
+            functions=functions
+        )
+
     return df
 
 
