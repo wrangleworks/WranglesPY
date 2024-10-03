@@ -246,6 +246,61 @@ def batch(
     return _pd.concat(results)
 
 
+def chain(
+    df: _pd.DataFrame,
+    wrangles: list,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+):
+    """
+    type: object
+    description: |-
+      Apply a series of wrangles to a subset of the data.
+    required:
+      - wrangles
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of the column(s) to apply the wrangle to
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+    """
+    if input is None:
+        input = df.columns.tolist()
+
+    if not isinstance(input, list):
+        input = [input]
+
+    df_temp = _wrangles.recipe.run(
+        recipe={'wrangles': wrangles},
+        dataframe=df[input].copy(),
+    )
+
+    if output is None:
+        output = df_temp.columns.tolist()
+      
+    if not isinstance(output, list):
+        output = [output]
+
+    df[output] = _wrangles.recipe.run(
+        recipe={'wrangles': wrangles},
+        dataframe=df[input].copy(),
+    )[output]
+
+    return df
+
+
 def classify(
     df: _pd.DataFrame,
     input: _Union[str, list],

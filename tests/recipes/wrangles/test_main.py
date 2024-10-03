@@ -4407,3 +4407,151 @@ class TestMatrix:
             df['Mineral'].values.tolist() == ['', 'Gold', ''] and
             df['Vegetable'].values.tolist() == ['', '', 'Carrot']
         )
+
+
+class TestChain:
+    """
+    Test chain wrangle
+    """
+    def test_basic(self):
+        """
+        Test that a chain without any additional
+        parameters works as expected
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - chain:
+                  wrangles:
+                    - copy:
+                        input: Col1
+                        output: Col2
+
+                    - convert.case:
+                        input: Col2
+                        case: upper
+
+                    - merge.concatenate:
+                        input:
+                          - Col1
+                          - Col2
+                        output: Col1
+                        char: ""
+            """
+        )
+        assert (
+            df['Col1'][0] == "aA" and
+            df['Col2'][0] == "A" and
+            df.columns.tolist() == ["Col1", "Col2"]
+        )
+
+    def test_output(self):
+        """
+        Test a chain with an output parameter
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - chain:
+                  output: Col1
+                  wrangles:
+                    - copy:
+                        input: Col1
+                        output: Col2
+
+                    - convert.case:
+                        input: Col2
+                        case: upper
+
+                    - merge.concatenate:
+                        input:
+                          - Col1
+                          - Col2
+                        output: Col1
+                        char: ""
+            """
+        )
+        assert (
+            df['Col1'][0] == "aA" and
+            df.columns.tolist() == ["Col1"]
+        )
+
+    def test_input(self):
+        """
+        Test a chain with an input parameter
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+                    Col2: b
+                    Col3: c
+            wrangles:
+              - chain:
+                  input:
+                    - Col1
+                    - Col2
+                  wrangles:
+                    - convert.case:
+                        input: "*"
+                        case: upper
+
+                    - format.suffix:
+                        input: "*"
+                        value: "Z"
+            """
+        )
+        assert (
+            df['Col1'][0] == "AZ" and
+            df['Col2'][0] == "BZ" and
+            df['Col3'][0] == "c" and
+            df.columns.tolist() == ["Col1", "Col2", "Col3"]
+        )
+
+    def test_where(self):
+        """
+        Test a chain with a where clause
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - chain:
+                  output: Col1
+                  where: Col1 = 'a'
+                  wrangles:
+                    - copy:
+                        input: Col1
+                        output: Col2
+
+                    - convert.case:
+                        input: Col2
+                        case: upper
+
+                    - merge.concatenate:
+                        input:
+                          - Col1
+                          - Col2
+                        output: Col1
+                        char: ""
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": ["a", "b", "c"]
+            })
+        )
+        assert (
+            df['Col1'][0] == "aA" and
+            df.columns.tolist() == ["Col1"]
+        )
