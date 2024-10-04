@@ -285,7 +285,20 @@ def _load_recipe(
     return recipe_object, functions
 
 
-def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Exception = None) -> None:
+def _run_actions(
+    recipe: _Union[dict, list],
+    functions: dict = {},
+    variables: dict = {},
+    error: Exception = None
+) -> None:
+    """
+    Run any actions defined in the recipe
+
+    :param recipe: Run section of the recipe
+    :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of variables to pass to the recipe
+    :param error: (Optional) If the action is triggered by an exception, this contains the error object
+    """
     # If user has entered a dictionary, convert to list
     if isinstance(recipe, dict):
         recipe = [recipe]
@@ -294,24 +307,29 @@ def _run_actions(recipe: _Union[dict, list], functions: dict = {}, error: Except
         for action_type, params in action.items():
             if action_type.split('.')[0] == 'custom':
                 # Get custom function
-                custom_function = functions[action_type[7:]]
+                if action_type[7:] not in functions:
+                    raise ValueError(f'Custom function {action_type} is not recognized')
 
-                # Check if error is one of the user's function arguments
-                if 'error' in _inspect.getfullargspec(custom_function).args:
-                    params['error'] = error
-
-                # Execute a user's custom function
-                custom_function(**params)
+                obj = functions[action_type[7:]]
             else:
-                # Get run function of requested connector and pass user defined params
+                # Get run function of requested connector
                 obj = _connectors
                 for element in action_type.split('.'):
                     obj = getattr(obj, element)
 
-                if action_type == 'recipe':
-                    params['functions'] = functions
+                obj = getattr(obj, 'run')
+            
+            # Check args and pass on special parameters if requested
+            argspec = _inspect.getfullargspec(obj).args
+            if ("functions" not in params and "functions" in argspec):
+                params['functions'] = functions
+            if ("error" not in params and "error" in argspec):
+                params['error'] = error
+            if ("variables" not in params and "variables" in argspec):
+                params['variables'] = variables
 
-                getattr(obj, 'run')(**params)
+            # Execute the function
+            obj(**params)
 
 
 def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pandas.DataFrame:
@@ -829,7 +847,7 @@ def _run_thread(
     # supported sources such as files, url, model id
     # Run any actions required before the main recipe runs
     if 'on_start' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_start'], functions)
+        _run_actions(recipe['run']['on_start'], functions, variables)
 
     # Get requested data
     if 'read' in recipe.keys():
@@ -857,7 +875,7 @@ def _run_thread(
 
     # Run any actions required after the main recipe finishes
     if 'on_success' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_success'], functions)
+        _run_actions(recipe['run']['on_success'], functions, variables)
 
     return df
 
@@ -908,7 +926,7 @@ def run(
                 executor._threads.clear()
                 # Run any actions requested if the recipe fails
                 if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, e)
+                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
             except:
                 pass
             raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
@@ -917,7 +935,7 @@ def run(
             try:
                 # Run any actions requested if the recipe fails
                 if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, e)
+                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
             except:
                 pass
             raise
