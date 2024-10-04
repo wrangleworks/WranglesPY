@@ -77,8 +77,9 @@ def write(
         raise ValueError(f"Invalid setting {strategy} for strategy")
 
     with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
+        futures = []
         for permutation in permutations:
-            executor.submit(
+            future = executor.submit(
                 _wrangles.recipe.run,
                 recipe= _yaml.dump({'write': write}, sort_keys=False),
                 dataframe=df.copy(),
@@ -86,6 +87,9 @@ def write(
                 functions=functions
             )
 
+            # Wait for all futures to complete
+            for future in futures:
+                future.result()
 
 _schema['write'] = """
 type: object
