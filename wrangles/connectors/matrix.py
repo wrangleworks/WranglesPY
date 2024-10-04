@@ -21,7 +21,8 @@ def write(
     variables: dict,
     write: list,
     functions: _Union[_types.FunctionType, list] = [],
-    strategy: str = "loop"
+    strategy: str = "loop",
+    use_multiprocessing: bool = False
 ):
     """
     The matrix write connector lets you use variables in a single write definition to
@@ -75,8 +76,14 @@ def write(
         ]
     else:
         raise ValueError(f"Invalid setting {strategy} for strategy")
+    
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
 
-    with _futures.ThreadPoolExecutor(max_workers=min(len(permutations), 10)) as executor:
+    with pool_executor(max_workers=min(len(permutations), 10)) as executor:
         futures = []
         for permutation in permutations:
             future = executor.submit(
