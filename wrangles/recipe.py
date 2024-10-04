@@ -299,37 +299,48 @@ def _run_actions(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :param error: (Optional) If the action is triggered by an exception, this contains the error object
     """
-    # If user has entered a dictionary, convert to list
-    if isinstance(recipe, dict):
+    # Ensure recipe object is a list
+    if not isinstance(recipe, list):
         recipe = [recipe]
 
     for action in recipe:
-        for action_type, params in action.items():
-            if action_type.split('.')[0] == 'custom':
-                # Get custom function
-                if action_type[7:] not in functions:
-                    raise ValueError(f'Custom function {action_type} is not recognized')
-
-                obj = functions[action_type[7:]]
+        if not isinstance(action, dict):
+            if isinstance(action, str):
+                # Add empty params
+                action = {action: {}}
             else:
-                # Get run function of requested connector
-                obj = _connectors
-                for element in action_type.split('.'):
-                    obj = getattr(obj, element)
+                raise ValueError('The run section of the recipe is not correctly structured')
 
-                obj = getattr(obj, 'run')
-            
-            # Check args and pass on special parameters if requested
-            argspec = _inspect.getfullargspec(obj).args
-            if ("functions" not in params and "functions" in argspec):
-                params['functions'] = functions
-            if ("error" not in params and "error" in argspec):
-                params['error'] = error
-            if ("variables" not in params and "variables" in argspec):
-                params['variables'] = variables
+        for action_type, params in action.items():
+            try:
+                if action_type.split('.')[0] == 'custom':
+                    # Get custom function
+                    if action_type[7:] not in functions:
+                        raise ValueError(f'Custom function {action_type} is not recognized')
 
-            # Execute the function
-            obj(**params)
+                    obj = functions[action_type[7:]]
+                else:
+                    # Get run function of requested connector
+                    obj = _connectors
+                    for element in action_type.split('.'):
+                        obj = getattr(obj, element)
+
+                    obj = getattr(obj, 'run')
+                
+                # Check args and pass on special parameters if requested
+                argspec = _inspect.getfullargspec(obj).args
+                if ("functions" not in params and "functions" in argspec):
+                    params['functions'] = functions
+                if ("error" not in params and "error" in argspec):
+                    params['error'] = error
+                if ("variables" not in params and "variables" in argspec):
+                    params['variables'] = variables
+
+                # Execute the function
+                obj(**params)
+            except Exception as e:
+                # Append name of wrangle to message and pass through exception
+                raise e.__class__(f"{action_type} - {e}").with_traceback(e.__traceback__) from None
 
 
 def _read_data_sources(recipe: _Union[dict, list], functions: dict = {}) -> _pandas.DataFrame:
