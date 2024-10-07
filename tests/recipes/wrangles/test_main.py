@@ -4245,3 +4245,129 @@ class TestLookup:
                 """,
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
+
+
+def wait_then_update(df, duration, input, output, value):
+    """
+    Wait and then add suffix to value
+    """
+    time.sleep(duration)
+    df[output] = df[input] + value
+    return df
+    
+class TestConcurrent:
+    """
+    Test concurrent wrangle
+    """
+    def test_multithreaded(self):
+        """
+        Test concurrent wrangle with multiple threads
+        """
+        start = datetime.now()
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    column: a
+            wrangles:
+              - concurrent:
+                  wrangles:
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_a
+                        duration: 3
+                        value: a
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_b
+                        duration: 1
+                        value: b
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_c
+                        duration: 5
+                        value: c
+            """,
+            functions=wait_then_update
+        )
+
+        end = datetime.now()
+
+        assert (
+            df['column_a'][0] == 'aa' and
+            df['column_b'][0] == 'ab' and
+            df['column_c'][0] == 'ac' and
+            (end - start).seconds < 6 and
+            (end - start).seconds >= 5
+        )
+
+    def test_multiprocess(self):
+        """
+        Test concurrent wrangle with multiple processes
+        """
+        start = datetime.now()
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    column: a
+            wrangles:
+              - concurrent:
+                  use_multiprocessing: true
+                  wrangles:
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_a
+                        duration: 3
+                        value: a
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_b
+                        duration: 1
+                        value: b
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_c
+                        duration: 5
+                        value: c
+            """,
+            functions=wait_then_update
+        )
+
+        end = datetime.now()
+
+        assert (
+            df['column_a'][0] == 'aa' and
+            df['column_b'][0] == 'ab' and
+            df['column_c'][0] == 'ac' and
+            (end - start).seconds < 6 and
+            (end - start).seconds >= 5
+        )
+
+    def test_output_error(self):
+        """
+        Check that a clear error is given if the
+        user tries to use a wrangle that doesn't
+        specify an output column.
+        """
+        with pytest.raises(ValueError, match="specify output"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                      column: a
+                wrangles:
+                - concurrent:
+                    wrangles:
+                      - convert.case:
+                          input: column
+                """
+            )

@@ -478,13 +478,19 @@ def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) 
     return list(result_columns.keys())
 
 
-def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFrame:
+def _execute_wrangles(
+    df: _pandas.DataFrame,
+    wrangles_list: list,
+    functions: dict = {},
+    variables: dict = {}
+) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
 
     :param df: Dateframe that the Wrangles will be run against
     :param wrangles_list: List of Wrangles + their definitions to be executed
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
     for step in wrangles_list:
@@ -625,6 +631,13 @@ def _execute_wrangles(df, wrangles_list, functions: dict = {}) -> _pandas.DataFr
                         and "functions" not in params
                     ):
                             params['functions'] = functions
+                    
+                    # Pass on variables to wrangles that may need it
+                    if (
+                        "variables" not in params
+                        and 'variables' in _inspect.getfullargspec(obj).args
+                    ):
+                        params['variables'] = variables
 
                     df = obj(df, **params)
 
@@ -876,9 +889,9 @@ def _run_thread(
 
     # Execute any Wrangles required (allow single or plural)
     if 'wrangles' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangles'], functions)
+        df = _execute_wrangles(df, recipe['wrangles'], functions, variables)
     elif 'wrangle' in recipe.keys():
-        df = _execute_wrangles(df, recipe['wrangle'], functions)
+        df = _execute_wrangles(df, recipe['wrangle'], functions, variables)
 
     # Execute requested data exports
     if 'write' in recipe.keys():
