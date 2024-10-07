@@ -58,9 +58,7 @@ required:
 properties:
   run:
     type: array
-    description: >-
-      The write section of a recipe to execute for each
-      combination of variables
+    description: Actions to run concurrently
     minItems: 1
     items:
       - $ref: "#/$defs/run/items"
@@ -121,9 +119,7 @@ required:
 properties:
   write:
     type: array
-    description: >-
-      The write section of a recipe to execute for each
-      combination of variables
+    description: Writes to run concurrently
     minItems: 1
     items:
       - $ref: "#/$defs/write/items"
