@@ -722,8 +722,6 @@ def lookup(
     if isinstance(input, list):
         if len(input) == 1:
             input = input[0]
-        else:
-            raise ValueError('Input only allows one column.')
     
     if output is None: output = input
 
@@ -755,7 +753,7 @@ def lookup(
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
             data = _lookup(
-                df[input].values.tolist(),
+                [item for sublist in df[input].values for item in sublist],
                 model_id,
                 columns=wrangle_output,
                 **kwargs
