@@ -789,13 +789,19 @@ def _filter_dataframe(
     return df
 
 
-def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _pandas.DataFrame:
+def _write_data(
+    df: _pandas.DataFrame,
+    recipe: dict,
+    functions: dict = {},
+    variables: dict = {}
+) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
 
     :param df: Dataframe to be exported
     :param recipe: write section of a recipe
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
+    :param variables: (Optional) A dictionary of variables passed to the recipe
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
     # Initialize returned df as df to start
@@ -807,6 +813,9 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
 
     # Loop through all exports, get type and execute appropriate export
     for export in recipe:
+        if not isinstance(export, dict):
+            raise ValueError('The write section of the recipe is not correctly structured')
+
         for export_type, params in export.items():
             try:
                 # Filter the dataframe as requested before passing
@@ -819,21 +828,29 @@ def _write_data(df: _pandas.DataFrame, recipe: dict, functions: dict = {}) -> _p
                 if export_type == 'dataframe':
                     # Define the dataframe that is returned
                     df_return = df_temp
-                
-                # Execute a user's custom function
-                elif export_type.split('.')[0] == 'custom':
-                    functions[export_type[7:]](df_temp, **params)
-
                 else:
-                    # Get write function of requested connector and pass dataframe and user defined params
-                    obj = _connectors
-                    for element in export_type.split('.'):
-                        obj = getattr(obj, element)
-                    
-                    if export_type in ['recipe', 'matrix', 'concurrent']:
+                    # User specified a custom function
+                    if export_type.split('.')[0] == 'custom':
+                        # Get custom function
+                        if export_type[7:] not in functions:
+                            raise ValueError(f'Custom function {export_type} is not recognized')
+                        obj = functions[export_type[7:]]
+                    else:
+                        # Get from stock wrangles
+                        obj = _connectors
+                        for element in export_type.split('.'):
+                            obj = getattr(obj, element)
+                        obj = getattr(obj, 'write')
+
+                    # Check args and pass on special parameters if requested
+                    argspec = _inspect.getfullargspec(obj).args
+                    if ("functions" not in params and "functions" in argspec):
                         params['functions'] = functions
+                    if ("variables" not in params and "variables" in argspec):
+                        params['variables'] = variables
                     
-                    getattr(obj, 'write')(df_temp, **params)
+                    obj(df_temp, **params)
+
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{export_type} - {e}").with_traceback(e.__traceback__) from None
