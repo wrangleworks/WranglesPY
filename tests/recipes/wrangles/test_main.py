@@ -4245,3 +4245,82 @@ class TestLookup:
                 """,
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
+
+    
+    def test_lookup_multiple_input(self):
+        """
+        Test lookup using a saved lookup wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+                    Col2: b
+            wrangles:
+            - lookup:
+                input:
+                  - Col1
+                  - Col2
+                output:
+                  - Value1
+                  - Value2
+                model_id: 18199c74-c14b-4645
+            """
+        )
+        assert df['Value1'][0] == 'This is Value1 Key a' and df['Value2'][0] == 'This is Value2 Key b'
+    
+    def test_lookup_multiple_input_order(self):
+        """
+        Test lookup using a saved lookup wrangle with multiple inputs where the order of the inputs is reversed
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+                    Col2: b
+                    Col3: c
+            wrangles:
+            - lookup:
+                input:
+                  - Col1
+                  - Col2
+                  - Col3
+                output:
+                  - Value3
+                  - Value1
+                  - Value2
+                model_id: 18199c74-c14b-4645
+            """
+        )
+        assert df['Value1'][0] == 'This is Value1 Key b' and df['Value2'][0] == 'This is Value2 Key c' and df['Value3'][0] == 'This is Value3 Key a'
+    
+    def test_lookup_one_input_multiple_output(self):
+        """
+        Test lookup using a single input and multiple outputs
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: a
+                    Col2: b
+                    Col3: c
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Value3
+                  - Value1
+                  - Value2
+                model_id: 18199c74-c14b-4645
+            """
+        )
+        assert df['Value1'][0] == 'This is Value1 Key a' and df['Value2'][0] == 'This is Value2 Key a' and df['Value3'][0] == 'This is Value3 Key a'
