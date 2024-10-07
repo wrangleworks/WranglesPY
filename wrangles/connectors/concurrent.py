@@ -22,7 +22,7 @@ def run(
     Run multiple actions concurrently.
 
     :param run: List of actions to run concurrently
-    :param max_concurrency: Maximum number to run concurrently. If more, the rest will be queued.
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
     :param variables: Variables to pass to any downstream recipes
     :param functions: Custom functions to pass to any downstream recipes
     :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
@@ -65,7 +65,67 @@ properties:
   max_concurrency:
     type: integer
     description: >-
-      The maximum number of writes to execute in parallel
+      The maximum number to execute in parallel. If there are
+      more than this, the rest will be queued.
+    minimum: 1
+"""
+
+def read(
+    read: list,
+    max_concurrency: int = 10,
+    use_multiprocessing: bool = False,
+    functions: _Union[_types.FunctionType, list, dict] = {},
+    variables: dict = {}
+):
+    """
+    Run multiple reads simulatenously.
+    This must be nested under a connector that aggregates multiple sources
+    such as join, union, or concatenate.
+
+    :param read: List of read connectors to run concurrently
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
+    :param functions: Custom functions to make available downstream.
+    :param variables: Variables to make available downstream.
+    """
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
+    
+    with pool_executor(max_workers=max_concurrency) as executor:
+        dfs = list(executor.map(
+            _wrangles.recipe.run,
+            [{'read': [read_definition]} for read_definition in read],
+            [variables for _ in read],
+            [None for _ in read],
+            [functions for _ in read]
+        ))
+
+    return dfs
+
+_schema['read'] = """
+type: object
+description: >-
+  The concurrent connector lets you read multiple sources
+  simultaneously rather than sequentially.
+  This must be nested under a connector that aggregates multiple sources
+  such as join, union, or concatenate.
+required:
+  - read
+properties:
+  read:
+    type: array
+    description: Reads to be run concurrently
+    minItems: 1
+    items:
+      - $ref: "#/$defs/read/items"
+  max_concurrency:
+    type: integer
+    description: >-
+      The maximum number to execute in parallel. If there are
+      more than this, the rest will be queued.
     minimum: 1
 """
 
@@ -82,7 +142,7 @@ def write(
 
     :param df: Dataframe to write
     :param write: List of write connectors to run concurrently
-    :param max_concurrency: Maximum number to write concurrently. If more, the rest will be queued.
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
     :param variables: Variables to pass to any downstream recipes
     :param functions: Custom functions to pass to any downstream recipes
     :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
@@ -98,7 +158,7 @@ def write(
         for write_definition in write:
             future = executor.submit(
                 _wrangles.recipe.run,
-                recipe= {'write': write_definition},
+                recipe= {'write': [write_definition]},
                 dataframe=df.copy(),
                 variables=variables,
                 functions=functions
@@ -126,6 +186,7 @@ properties:
   max_concurrency:
     type: integer
     description: >-
-      The maximum number of writes to execute in parallel
+      The maximum number to execute in parallel. If there are
+      more than this, the rest will be queued.
     minimum: 1
 """
