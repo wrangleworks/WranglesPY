@@ -23,6 +23,9 @@ def lookup(
         input = [input]
         single_input = True
 
+    if isinstance(input, list) and len(input) == 1:
+        single_input = True
+
     # Check if user has entered a single column, multiple columns or not specified
     single_columns = False
     if not isinstance(columns, list) and columns is not None:
@@ -38,7 +41,7 @@ def lookup(
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
 
     metadata = _data.model(model_id)
-    # If model_id format is correct but no mode_id exists
+    # If model_id format is correct but no model_id exists
     if metadata.get('message', None) == 'error':
         raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
 
@@ -76,6 +79,9 @@ def lookup(
     elif single_columns:
         # If single column specified, return as 1D array [val1, ...]
         results = [r[0] for r in results["data"]]
+    elif not single_input and not single_columns:
+        # If multiple columns specified and multiple inputs, return as a 1D array
+        results = [sublist[i] for i, sublist in enumerate(results["data"])]
     else:
         # If multiple columns specified, return as 2D array [[val1, ...], ...]
         results = results["data"]
