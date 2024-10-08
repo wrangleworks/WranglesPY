@@ -166,11 +166,10 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     return value.get(key, default)
                 elif isinstance(value, str) and value.startswith("{"):
                     return _json.loads(value).get(key, default)
+                elif default == None:
+                    raise ValueError(f"Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided")
                 else:
-                    if default == None:
-                        raise ValueError(f"Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided")
-                    else:
-                        return default
+                    return default
             except:
                 if default == None:
                     raise ValueError(f"Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided")
