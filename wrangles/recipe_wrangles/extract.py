@@ -176,9 +176,12 @@ def ai(
 
     # Add a default for type array if not already specified.
     # ChatGPT appears to need this to function correctly.
+    # Also ensure examples are in a list.
     for k, v in output.items():
         if v.get("type") == "array" and "items" not in v:
             output[k]["items"] = {"type": "string"}
+        if not isinstance(v.get('examples'), list):
+            output[k]['examples'] = [v.get('examples')]
 
     # Format any user submitted header messages
     if not isinstance(messages, list): messages = [messages]

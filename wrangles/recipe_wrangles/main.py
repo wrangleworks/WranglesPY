@@ -299,6 +299,73 @@ def classify(
     return df
 
 
+def concurrent(
+    df: _pd.DataFrame,
+    wrangles: list,
+    max_concurrency: int = 10,
+    use_multiprocessing: bool = False,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Run multiple wrangles concurrently rather than sequentially.
+      Wrangles must specify output columns to be used concurrently.
+      When using concurrent, Wrangles may not complete in a predictable order
+      and it is not recommended to update overlapping columns with different wrangles.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: >-
+          The wrangles section of a recipe to execute for each
+          combination of variables
+        minItems: 1
+        items:
+          - $ref: "#/$defs/wrangles/items"
+      max_concurrency:
+        type: integer
+        description: The maximum number of wrangles to execute in parallel
+        minimum: 1
+    """
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
+
+    with pool_executor(max_workers=max_concurrency) as executor:
+        futures = []
+        futures_output_map = {}
+        for wrangle_definition in wrangles:
+            if (
+                not isinstance(wrangle_definition, dict) or
+                "output" not in list(wrangle_definition.values())[0]
+            ):
+                raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
+
+            future = executor.submit(
+                _wrangles.recipe.run,
+                recipe= {'wrangles': [wrangle_definition]},
+                dataframe=df.copy(),
+                variables=variables,
+                functions=functions
+            )
+            futures.append(future)
+
+            # Add output columns to reference on completion
+            futures_output_map[future] = list(wrangle_definition.values())[0]["output"]
+        
+        # Wait for all futures to complete
+        for future in _futures.as_completed(futures):
+            df[futures_output_map[future]] = future.result()[futures_output_map[future]]
+
+    return df
+
+
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
     type: object
@@ -611,7 +678,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = True
+    log_data: bool = None
 ):
     """
     type: object
@@ -638,7 +705,7 @@ def log(
         description: Log info to the console
       log_data:
         type: boolean
-        description: Whether to log a sample of the contents of the dataframe. Default True.
+        description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
     if columns is not None:
 
@@ -668,10 +735,10 @@ def log(
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        df_tolog = df[columns_to_print]
+        df_tolog = df[columns_to_print].head(20)
 
     else:
-        df_tolog = df
+        df_tolog = df.head(20)
 
     if error:
         _logging.error(error)
@@ -679,14 +746,17 @@ def log(
         _logging.warning(warning)
     if info:
         _logging.info(info)
-    if log_data:
-        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     if write:
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
         )
+
+    if log_data == None and not any([error, warning, info, write]): log_data = True
+        
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     return df
 

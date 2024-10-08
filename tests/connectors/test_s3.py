@@ -134,36 +134,42 @@ def test_file_upload_and_download_2():
     df = wrangles.recipe.run(recipe2)
     assert df.iloc[0]['Find'] == 'BRG'
     
-    
-# Downloading multiple files error
+
 def test_download_error():
-    recipe = """
-    run:
-      on_success:
-        - s3.download_files:
-            bucket: wrwx-public
-            key:
-              - Test_Upload_File.csv
-              - World Cup Titles.csv
-            file:
-              - tests/temp/temp_download_data.csv
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    assert info.typename == 'ValueError' and info.value.args[0] == 's3.download_files: An equal number of keys and files must be provided'
+    Downloading multiple files error
+    """
+    with pytest.raises(ValueError, match="equal number of keys and files"):
+        wrangles.recipe.run(
+            """
+            run:
+              on_success:
+                - s3.download_files:
+                    bucket: wrwx-public
+                    key:
+                      - Test_Upload_File.csv
+                      - World Cup Titles.csv
+                    file:
+                      - tests/temp/temp_download_data.csv
+            """
+        )
 
 def test_upload_error():
-    recipe = """
-    run:
-      on_start:
-        - s3.upload_files:
-           bucket: wrwx-public
-           file:
-             - tests/samples/data.csv
-             - tests/samples/data.json
-           key:
-             - Test_Upload_File.csv
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    assert info.typename == 'ValueError' and info.value.args[0] == 's3.upload_files: An equal number of files and keys must be provided'
+    Test that an appropriate error is shown if the number of keys and filenames
+    are not equal when attempting to upload files
+    """
+    with pytest.raises(ValueError, match="equal number of files and keys"):
+        wrangles.recipe.run(
+            """
+            run:
+              on_start:
+                - s3.upload_files:
+                    bucket: wrwx-public
+                    file:
+                      - tests/samples/data.csv
+                      - tests/samples/data.json
+                    key:
+                      - Test_Upload_File.csv
+            """
+        )
