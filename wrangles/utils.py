@@ -216,3 +216,33 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     
     # Return, preserving original order
     return list(result_columns.keys())
+
+
+def evaluate_conditional(statement, variables: dict = {}):
+    """
+    Evaluate a conditional statement using the variables provided
+    to determine if the statement is true or false
+
+    Recipe variables of the style ${var} will be parameterized
+
+    :param statement: Python style statement
+    :param variables: Dictionary of variables to use in the statement
+    """
+    try:
+        statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', statement)
+
+        if _re.match(r'\$\{(.+)\}', statement_modified):
+            raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
+
+        # Create a template with your conditional statement
+        result = eval(statement_modified, variables, {})
+
+        # Convert the result to a boolean
+        result = str(result).strip().lower()
+    except:
+        raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
+
+    if result not in ['true', 'false']:
+        raise ValueError(f"If conditions must evaluate to true or false. Got: '{statement}'")
+
+    return result == 'true'

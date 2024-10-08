@@ -333,3 +333,134 @@ def test_write_order_by_and_where():
         df.head(1)["header"].iloc[0] == min(df["header"].values) and
         df.head(1)["header"].iloc[0] > 50
     )
+
+def test_write_if_true():
+    """
+    Test a write that uses an
+    if statement that is true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: value1
+                header2: value2
+        write:
+          - dataframe:
+              if: 1 == 1
+              columns:
+                - header1
+        """
+    )
+    assert df.columns.tolist() == ['header1']
+
+def test_write_if_false():
+    """
+    Test a write that uses an
+    if statement that is false
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: value1
+                header2: value2
+        write:
+          - dataframe:
+              if: 1 == 2
+              columns:
+                - header1
+        """
+    )
+    assert df.columns.tolist() == ['header1', 'header2']
+
+def test_write_if_template_variable():
+    """
+    Test a write that uses a template
+    variable as part of an if statement
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: value1
+                header2: value2
+        write:
+          - dataframe:
+              if: ${var} == 1
+              columns:
+                - header1
+        """,
+        variables={"var": 1}
+    )
+    assert df.columns.tolist() == ['header1']
+
+def test_write_if_columns_variable():
+    """
+    Test a write that uses the columns variable
+    that gives a list of the columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: value1
+                header2: value2
+        write:
+          - dataframe:
+              if: '"header2" in columns'
+              columns:
+                - header1
+        """
+    )
+    assert df.columns.tolist() == ['header1', 'header2']
+
+def test_write_if_column_count_variable():
+    """
+    Test a write that uses the column_count variable
+    that gives the number of columns in the dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header1: value1
+                header2: value2
+        write:
+          - dataframe:
+              if: column_count > 1
+              columns:
+                - header1
+        """
+    )
+    assert df.columns.tolist() == ['header1', 'header2']
+
+def test_write_if_row_count_variable():
+    """
+    Test a write that uses the row_count variable
+    that gives the number of rows in the dataframe
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 100000
+              values:
+                header: <number(0-100)>
+        write:
+          - dataframe:
+              where: header > 90
+              if: row_count > 50000
+        """
+    )
+    assert len(df) == 100000

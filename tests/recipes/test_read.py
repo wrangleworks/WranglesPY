@@ -6,6 +6,7 @@ file for the respective connectors
 e.g. tests/connectors/test_file.py
 """
 import wrangles
+import pandas as pd
 
 
 # If they've entered a list, get the first key and value from the first element
@@ -45,6 +46,27 @@ def test_union_files():
         df.columns.to_list() == ['column1', 'column2']
     )
 
+def test_union_one_file():
+    """
+    Testing that a union still works with only a single source
+    """
+    df = wrangles.recipe.run(
+        """
+          read:
+            - union:
+                sources:
+                  - test:
+                      rows: 3
+                      values:
+                        column1: value1
+                        column2: value2
+        """
+    )
+    assert (
+        len(df) == 3 and 
+        df.columns.to_list() == ['column1', 'column2']
+    )
+
 def test_concatenate_files():
     """
     Testing concatenating multiple sources
@@ -71,6 +93,28 @@ def test_concatenate_files():
         df.columns.to_list() == ['column1', 'column2', 'column3', 'column4'] and
         df['column1'][0] == "value1" and
         df['column4'][0] == "value4"
+    )
+
+def test_concatenate_one_file():
+    """
+    Testing that a concatenate still works with only a single source
+    """
+    df = wrangles.recipe.run(
+        """
+          read:
+            - concatenate:
+                sources:
+                  - test:
+                      rows: 3
+                      values:
+                        column1: value1
+                        column2: value2
+        """
+    )
+    assert (
+        len(df) == 3 and
+        df.columns.to_list() == ['column1', 'column2'] and
+        df['column1'][0] == "value1"
     )
 
 # Testing join of multiple sources
@@ -167,3 +211,70 @@ def test_read_order_by():
         df.tail(1)["header"].iloc[0] == max(df["header"].values)
         and df.head(1)["header"].iloc[0] == min(df["header"].values)
     )
+
+def test_multiple_reads():
+    """
+    Test that multiple reads are concatenated correctly
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value1
+          - test:
+              rows: 1
+              values:
+                header: value2
+        """
+    )
+    assert list(df['header'].values) == ['value1', 'value2']
+
+def test_read_single_plus_aggregate():
+    """
+    Test a read that includes an aggregating connector
+    and a regular single connector
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - union:
+              sources:
+                - test:
+                    rows: 1
+                    values:
+                      header: value1
+                - test:
+                    rows: 1
+                    values:
+                      header: value2
+        
+          - test:
+              rows: 1
+              values:
+                header: value3
+        """
+    )
+    assert list(df['header'].values) == ['value1', 'value2', 'value3']
+
+def test_all_if_false():
+    """
+    Test that a recipe works correctly if all reads test false
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              if: 1 == 2
+              rows: 1
+              values:
+                header: value1
+          - test:
+              if: 1 == 2
+              rows: 1
+              values:
+                header: value2
+        """
+    )
+    assert isinstance(df, pd.DataFrame) and df.empty

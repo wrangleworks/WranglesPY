@@ -158,6 +158,46 @@ class TestRead:
 
         assert list(df["header"].values) == ["value1", "value2", "value3"]
 
+    def test_read_if(self):
+        """
+        Test using matrix and if in combination
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - union:
+                  sources:
+                    - matrix:
+                        variables:
+                          var: dir(tests/samples/matrix_dir)
+                        read:
+                          - file:
+                              name: ${var}
+                              if: ${var}.endswith(".csv")
+            """
+        )
+
+        assert list(df["header"].values) == ["value1", "value2"]
+
+    def test_not_aggregated(self):
+        """
+        Test that a matrix not explicitly aggregated is 
+        unioned together.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - matrix:
+                  variables:
+                    var: dir(tests/samples/matrix_dir)
+                  read:
+                    - file:
+                        name: ${var}
+            """
+        )
+
+        assert list(df["header"].values) == ["value1", "value2", "value3"]
+
 class TestWrite:
     def test_matrix_column_set(self):
         """

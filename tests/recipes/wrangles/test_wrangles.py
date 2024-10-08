@@ -208,3 +208,91 @@ def test_where_input_wildcard():
         })
     )
     assert df["Column1"][0] == "A,B,C" and df["Column1"][1] == "x,y,z"
+
+def test_if_true():
+    """
+    Test that a wrangle is triggered
+    when an if statement is true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: 1 == 1
+        """
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_false():
+    """
+    Test that a wrangle is triggered
+    when an if statement is true
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: 1 == 2
+        """
+    )
+    assert df["header"][0] == "value"
+
+def test_if_template_variable():
+    """
+    Test that an if statement evaluates
+    correctly with a template variable
+    of the form ${variable}
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: ${var} == 1
+        """,
+        variables={"var": 1}
+    )
+    assert df["header"][0] == "VALUE"
+
+def test_if_variable_no_execution():
+    """
+    Test that an if statement parameterizes
+    variables correctly and does not execute
+    the values
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - convert.case:
+              input: header
+              case: upper
+              if: not(1 == 1 and should_be_parameterized)
+        """,
+        variables={"should_be_parameterized": "1 == 2"}
+    )
+    assert df["header"][0] == "value"
