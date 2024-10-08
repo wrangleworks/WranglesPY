@@ -5,288 +5,323 @@ import pytest
 #
 # Dictionary Element
 #
-def test_dictionary_element_one_input():
-    """
-    Default select.dictionary_element test
-    """
-    data = pd.DataFrame({
-    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}]
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input: Prop
-          output: Shapes
-          element: shapes
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Shapes'] == 'round'
-    
-def test_dictionary_element_two_inputs():
-    """
-    # if the input is multiple columns (a list)
-    """
-    data = pd.DataFrame({
-    'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
-    'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input:
-            - Prop1
-            - Prop2
-          output:
-            - Shapes1
-            - Shapes2
-          element: shapes
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Shapes2'] == 'ROUND'
-    
-
-def test_dictionary_element_input_output_error():
-    """
-    Test the the user receives a clear error
-    if the input and output are not the same length
-    """
-    data = pd.DataFrame({
-    'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
-    'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input:
-            - Prop1
-            - Prop2
-          output: Shapes1
-          element: shapes
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
-    )
-
-def test_dictionary_elem_default():
-    """
-    Test user defined default value
-    """
-    data = pd.DataFrame({
-    'Col1': [{'A': '1', 'B': '2'}],
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input: Col1
-          output: Out
-          element: C
-          default: '3'
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['Out'][0] == '3'
-
-def test_dictionary_element_where():
-    """
-    Test select.dictionary_element using where
-    """
-    data = pd.DataFrame({
-    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
-             {'colours': ['green', 'gold', 'yellow'], 'shapes': 'square', 'materials': 'titanium'},
-             {'colours': ['orange', 'purple', 'black'], 'shapes': 'triangular', 'materials': 'aluminum'}],
-    'numbers': [3, 6, 10]
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input: Prop
-          output: Shapes
-          element: shapes
-          where: numbers > 3
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['Shapes'] == 'square' and df.iloc[0]['Shapes'] == ''
-
-def test_dictionary_element_list():
-    """
-    Test selecting multiple elements
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            output: Out
-            element:
-              - A
-              - B
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-        })
-    )
-    assert df['Out'][0] == {'A': '1', 'B': '2'}
-
-def test_dictionary_element_list_rename():
-    """
-    Test selecting multiple elements
-    and renaming one
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            element:
-              - A: A_1
-              - B
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-        })
-    )
-    assert df['Col1'][0] == {'A_1': '1', 'B': '2'}
-
-def test_dictionary_element_list_wildcard():
-    """
-    Test selecting multiple elements
-    with a wildcard
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            element:
-              - A: A_1
-              - "*"
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-        })
-    )
-    assert df['Col1'][0] == {'A_1': '1', 'B': '2', 'C': '3'}
-
-def test_dictionary_element_list_rename_wildcard():
-    """
-    Test selecting multiple elements
-    with a wildcard
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            element:
-              - "*1": "*2"
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A1': '1', 'B1': '2', 'C1': '3'}],
-        })
-    )
-    assert df['Col1'][0] == {'A2': '1', 'B2': '2', 'C2': '3'}
-
-def test_dictionary_element_list_default():
-    """
-    Test selecting multiple elements
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            output: Out
-            element:
-              - A
-              - B
-              - Z
-            default: default_value
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-        })
-    )
-    assert df['Out'][0] == {'A': '1', 'B': '2', 'Z': 'default_value'}
-
-def test_dictionary_element_list_default_dict():
-    """
-    Test selecting multiple elements
-    """
-    df = wrangles.recipe.run("""
-        wrangles:
-        - select.dictionary_element:
-            input: Col1
-            output: Out
-            element:
-              - A
-              - Y
-              - Z
-            default:
-              Y: default_value_1
-              Z: default_value_2
-        """,
-        dataframe=pd.DataFrame({
-          'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-        })
-    )
-    assert df['Out'][0] == {
-        'A': '1',
-        'Y': 'default_value_1',
-        'Z': 'default_value_2'
-    }
-
-def test_dictionary_element_json_element_list():
-    """
-    Test the select.dictionary_element works even
-    if it's a json string for element as a list
-    """
-    df = wrangles.recipe.run(
+class TestDictionaryElement:
+    def test_dictionary_element_one_input(self):
         """
-        wrangles:
-        - select.dictionary_element:
-            input: column
-            element:
-              - a
-              - b
-        """,
-        dataframe=pd.DataFrame({
-            'column': ['{"a": 1, "b": 2, "c": 3}']
-        })
-    )
-    assert df['column'][0] == {'a': 1, 'b': 2}
-
-def test_dictionary_element_json_element_single():
-    """
-    Test the select.dictionary_element works even
-    if it's a json string for element as a single value
-    """
-    df = wrangles.recipe.run(
+        Default select.dictionary_element test
         """
+        data = pd.DataFrame({
+        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}]
+        })
+        recipe = """
         wrangles:
         - select.dictionary_element:
-            input: column
-            element: a
-        """,
-        dataframe=pd.DataFrame({
-            'column': ['{"a": 1, "b": 2, "c": 3}']
+            input: Prop
+            output: Shapes
+            element: shapes
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Shapes'] == 'round'
+        
+    def test_dictionary_element_two_inputs(self):
+        """
+        # if the input is multiple columns (a list)
+        """
+        data = pd.DataFrame({
+        'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+        'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
         })
-    )
-    assert df['column'][0] == 1
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input:
+                - Prop1
+                - Prop2
+            output:
+                - Shapes1
+                - Shapes2
+            element: shapes
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Shapes2'] == 'ROUND'
+        
 
-def test_dictionary_element_string_input():
-    """
-    Tests the error handling when inputing a column of strings
-    """
-    data = pd.DataFrame({
-    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
-    'String': ['This is a string']
-    })
-    recipe = """
-    wrangles:
-      - select.dictionary_element:
-          input: String
-          output: Shapes
-          element: shapes
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Shapes'] == 'round'
+    def test_dictionary_element_input_output_error(self):
+        """
+        Test the the user receives a clear error
+        if the input and output are not the same length
+        """
+        data = pd.DataFrame({
+        'Prop1': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+        'Prop2': [{'colours': ['red', 'white', 'blue'], 'shapes': 'ROUND', 'materials': 'tungsten'}]
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input:
+                - Prop1
+                - Prop2
+            output: Shapes1
+            element: shapes
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
+        )
+
+    def test_dictionary_elem_default(self):
+        """
+        Test user defined default value
+        """
+        data = pd.DataFrame({
+        'Col1': [{'A': '1', 'B': '2'}],
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: Col1
+            output: Out
+            element: C
+            default: '3'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'][0] == '3'
+
+    def test_dictionary_element_where(self):
+        """
+        Test select.dictionary_element using where
+        """
+        data = pd.DataFrame({
+        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+                {'colours': ['green', 'gold', 'yellow'], 'shapes': 'square', 'materials': 'titanium'},
+                {'colours': ['orange', 'purple', 'black'], 'shapes': 'triangular', 'materials': 'aluminum'}],
+        'numbers': [3, 6, 10]
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: Prop
+            output: Shapes
+            element: shapes
+            where: numbers > 3
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['Shapes'] == 'square' and df.iloc[0]['Shapes'] == ''
+
+    def test_dictionary_element_list(self):
+        """
+        Test selecting multiple elements
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Out
+                element:
+                - A
+                - B
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['Out'][0] == {'A': '1', 'B': '2'}
+
+    def test_dictionary_element_list_rename(self):
+        """
+        Test selecting multiple elements
+        and renaming one
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element:
+                - A: A_1
+                - B
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['Col1'][0] == {'A_1': '1', 'B': '2'}
+
+    def test_dictionary_element_list_wildcard(self):
+        """
+        Test selecting multiple elements
+        with a wildcard
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element:
+                - A: A_1
+                - "*"
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['Col1'][0] == {'A_1': '1', 'B': '2', 'C': '3'}
+
+    def test_dictionary_element_list_rename_wildcard(self):
+        """
+        Test selecting multiple elements
+        with a wildcard
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element:
+                - "*1": "*2"
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'C1': '3'}],
+            })
+        )
+        assert df['Col1'][0] == {'A2': '1', 'B2': '2', 'C2': '3'}
+
+    def test_dictionary_element_list_default(self):
+        """
+        Test selecting multiple elements
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Out
+                element:
+                - A
+                - B
+                - Z
+                default: default_value
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['Out'][0] == {'A': '1', 'B': '2', 'Z': 'default_value'}
+
+    def test_dictionary_element_list_default_dict(self):
+        """
+        Test selecting multiple elements
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Out
+                element:
+                  - A
+                  - Y
+                  - Z
+                default:
+                  Y: default_value_1
+                  Z: default_value_2
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['Out'][0] == {
+            'A': '1',
+            'Y': 'default_value_1',
+            'Z': 'default_value_2'
+        }
+
+    def test_dictionary_element_json_element_list(self):
+        """
+        Test the select.dictionary_element works even
+        if it's a json string for element as a list
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: column
+                element:
+                - a
+                - b
+            """,
+            dataframe=pd.DataFrame({
+                'column': ['{"a": 1, "b": 2, "c": 3}']
+            })
+        )
+        assert df['column'][0] == {'a': 1, 'b': 2}
+
+    def test_dictionary_element_json_element_single(self):
+        """
+        Test the select.dictionary_element works even
+        if it's a json string for element as a single value
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: column
+                element: a
+            """,
+            dataframe=pd.DataFrame({
+                'column': ['{"a": 1, "b": 2, "c": 3}']
+            })
+        )
+        assert df['column'][0] == 1
+
+    def test_dictionary_element_string_input(self):
+        """
+        Tests the error handling when inputing a column of strings
+        """
+        # data = pd.DataFrame({
+        # 'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+        # 'String': ['This is a string']
+        # })
+        # recipe = """
+        # wrangles:
+        # - select.dictionary_element:
+        #     input: String
+        #     output: Shapes
+        #     element: shapes
+        # """
+        # df = wrangles.recipe.run(recipe, dataframe=data)
+        # assert df.iloc[0]['Shapes'] == 'round'
+
+        with pytest.raises(ValueError, match="Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - select.dictionary_element:
+                    input: String
+                    output: Shapes
+                    element: shapes
+                """,
+                dataframe=pd.DataFrame({
+                    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+                    'String': ['This is a string']
+                })
+            )
+
+    def test_dictionary_element_none_default(self):
+        """
+        Tests what happens when the default value is set to None
+        """
+        data = pd.DataFrame({
+        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+        'String': ['This is a string']
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: String
+            output: Shapes
+            element: shapes
+            default: None
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Shapes'] == 'round'
 
 #
 # List Element
