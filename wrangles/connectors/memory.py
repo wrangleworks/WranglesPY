@@ -61,7 +61,10 @@ def read(id: str = None, orient: str = "tight", **kwargs):
             raise RuntimeError(f"Dataframe {id} not found.")
         data = dataframes[id]
 
-    if orient == "split":
+    if isinstance(data, _pandas.DataFrame):
+        # If already a dataframe, return it
+        return data
+    elif orient == "split":
         # Ensure custom user keys aren't included
         data = {
             k: v
