@@ -562,7 +562,27 @@ def _execute_wrangles(
 
                 # Used to store parameters common to all wrangles - e.g where
                 common_params = {}
-                
+
+                # Blacklist of Wrangles not to allow wildcards for
+                original_input = params.get('input') # Save for later reference
+                if (
+                    'input' in params and 
+                    wrangle not in [
+                        'math',
+                        'maths',
+                        'merge.key_value_pairs',
+                        'split.text',
+                        'split.list',
+                        'select.element'
+                    ]
+                ):
+                    # Expand out any wildcards or regex in column names
+                    params['input'] = _wildcard_expansion(
+                        all_columns=df.columns.tolist(),
+                        selected_columns=params['input']
+                    )
+
+                # Filter dataframe if a where clause is present
                 if 'where' in params.keys():
                     df_original = df.copy()
                     
@@ -589,15 +609,26 @@ def _execute_wrangles(
                         df = getattr(df, wrangle.split('.')[1])(**params.get('parameters', {}))
 
                 elif wrangle.split('.')[0] == 'custom':
-                    # Execute a user's custom function
+                    # For backwards compatibility 
+                    # if user provided a single input and it is unchanged by the wildcard expansion,
+                    # restore it to be a scalar rather than a list
+                    if (
+                        not isinstance(original_input, list) and
+                        isinstance(params.get('input'), list) and
+                        len(params.get('input', [])) == 1 and 
+                        params['input'][0] == original_input
+                    ):
+
+                        params['input'] = original_input
+
+                    # Get the requested function from the user defined functions
                     func = _get_nested_function(wrangle, None, functions)
 
                     # Get user's function arguments
                     fn_argspec = _inspect.getfullargspec(func)
 
-                    # Check for function_args and df
+                    # If function's arguments contain df, pass them the whole dataframe
                     if 'df' in fn_argspec.args:
-                        # If user's first argument is df, pass them the whole dataframe
                         df = func(
                             df=df,
                             **_add_special_parameters(
@@ -611,7 +642,7 @@ def _execute_wrangles(
                         if not isinstance(df, _pandas.DataFrame):
                             raise RuntimeError(f"Function {wrangle} did not return a dataframe")
 
-                    # Dealing with no function_args
+                    # Otherwise, do a row-wise apply
                     else:
                         # Use a temp copy of dataframe as not to affect original
                         df_temp = df
@@ -685,27 +716,10 @@ def _execute_wrangles(
                             )
 
                 else:
-                    # Blacklist of Wrangles not to allow wildcards for
-                    if (
-                        'input' in params and 
-                        wrangle not in [
-                            'math',
-                            'maths',
-                            'merge.key_value_pairs',
-                            'split.text',
-                            'split.list',
-                            'select.element'
-                        ]
-                    ):
-                        # Expand out any wildcards or regex in column names
-                        params['input'] = _wildcard_expansion(
-                            all_columns=df.columns.tolist(),
-                            selected_columns=params['input']
-                        )
-                    
                     # Get the requested function from the recipe_wrangles module
                     func = _get_nested_function(wrangle, _recipe_wrangles, None)
 
+                    # Add any special params if requested by the function
                     params = _add_special_parameters(
                         params,
                         func,
@@ -719,17 +733,15 @@ def _execute_wrangles(
                         params["functions"] = functions
 
                     # Execute the function
-                    df = func(
-                        df=df,
-                        **params
-                    )
+                    df = func(df=df, **params)
 
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
                 if 'where' in original_params and wrangle not in no_where_list:
+
+                    # Wrangle explictly defined the output
                     if 'output' in params.keys():
-                        # Wrangle explictly defined the output
                         # Get the columns that should have been added
                         if isinstance(params['output'], list):
                             # Wrangle output was a list
@@ -770,7 +782,12 @@ def _execute_wrangles(
                                 ]
                                 df = df.drop([output_col+'_x'], axis = 1)
 
+                    # Wrangle appears to have overwritten the input column(s)
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
+                        # Ensure input is a list if not already
+                        if not isinstance(params['input'], list):
+                            params['input'] = [params['input']]
+
                         # Wrangle overwrote the input
                         df = _pandas.merge(
                             df_original,
@@ -789,8 +806,8 @@ def _execute_wrangles(
                                 ]
                                 df = df.drop([input_col+'_x'], axis = 1)
 
+                    # Wrangle added columns
                     elif list(df.columns) != list(df_original.columns):
-                        # Wrangle added columns
                         output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
                         df = _pandas.merge(
                             df_original,
