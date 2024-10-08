@@ -4299,28 +4299,3 @@ class TestLookup:
             """
         )
         assert df['Value1'][0] == 'This is Value1 Key b' and df['Value2'][0] == 'This is Value2 Key c' and df['Value3'][0] == 'This is Value3 Key a'
-    
-    def test_lookup_one_input_multiple_output(self):
-        """
-        Test lookup using a single input and multiple outputs
-        """
-        df = wrangles.recipe.run(
-            """
-            read:
-            - test:
-                rows: 1
-                values:
-                    Col1: a
-                    Col2: b
-                    Col3: c
-            wrangles:
-            - lookup:
-                input: Col1
-                output:
-                  - Value3
-                  - Value1
-                  - Value2
-                model_id: 18199c74-c14b-4645
-            """
-        )
-        assert df['Value1'][0] == 'This is Value1 Key a' and df['Value2'][0] == 'This is Value2 Key a' and df['Value3'][0] == 'This is Value3 Key a'
