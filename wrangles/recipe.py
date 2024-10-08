@@ -715,7 +715,7 @@ def _execute_wrangles(
                     )
 
                     # Add functions for rename due to special syntax
-                    if wrangle == "rename":
+                    if wrangle == "rename" and "functions" not in params:
                         params["functions"] = functions
 
                     # Execute the function
