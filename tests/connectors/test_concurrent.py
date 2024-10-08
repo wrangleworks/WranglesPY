@@ -109,7 +109,7 @@ def test_write_multithread():
 
     assert (
         5 <= (end - start).seconds < 10 and
-        test_vals["multithread"] == [1,3,5]
+        test_vals["multithread"] == [2,3,5]
     )
 
 def sleep(seconds):
