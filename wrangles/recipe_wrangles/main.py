@@ -718,7 +718,7 @@ def lookup(
           - array
         description: Name of the output column(s)
     """
-    # Ensure input is only 1 value
+    # Ensure input becomes a string if it is a list with one element
     if isinstance(input, list):
         if len(input) == 1:
             input = input[0]
@@ -749,8 +749,18 @@ def lookup(
             for val in output    
         ]
 
-        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
-            # User specified all columns from the wrangle
+        if all([col in metadata["settings"]["columns"] for col in wrangle_output]) and not isinstance(input, list):
+            # User specified all columns from the wrangle and input is a string
+            # Add respective columns to the dataframe
+            data = _lookup(
+                [item for sublist in df[input].values for item in (sublist if isinstance(sublist, list) else [sublist])],
+                model_id,
+                columns=wrangle_output,
+                **kwargs
+            )
+            df[output] = data
+        elif all([col in metadata["settings"]["columns"] for col in wrangle_output]) and isinstance(input, list):
+            # User specified all columns from the wrangle and input is a list
             # Add respective columns to the dataframe
             data = _lookup(
                 [item for sublist in df[input].values for item in sublist],
