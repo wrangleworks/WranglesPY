@@ -19,6 +19,11 @@ from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
 from .config import no_where_list
+from .utils import (
+    get_nested_function as _get_nested_function,
+    add_special_parameters as _add_special_parameters,
+    wildcard_expansion as _wildcard_expansion
+)
 
 
 _logging.getLogger().setLevel(_logging.INFO)
@@ -29,89 +34,6 @@ _logging.getLogger().setLevel(_logging.INFO)
 # There does not appear to be low performance, despite the warning,
 # but will also investigate if there is a better long term solution
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
-
-
-def _add_special_parameters(
-    params: dict,
-    fn: _types.FunctionType,
-    functions: dict = {},
-    variables: dict = {},
-    error: Exception = None,
-    common_params: dict = {}
-):
-    """
-    Add special parameters to the params dictionary if they are required by the function
-
-    :param params: Dictionary of parameters to pass to the function
-    :param fn: Function to check for special parameters
-    :param functions: Dictionary of custom functions
-    :param variables: Dictionary of variables
-    :param error: Exception object
-    :param common_params: These are parameters that are common to all functions. \
-        They will only be passed as a parameter if the function requests them.
-    """
-    # Check args and pass on special parameters if requested
-    argspec = _inspect.getfullargspec(fn).args
-    if ("functions" not in params and "functions" in argspec):
-        params['functions'] = functions
-    if ("variables" not in params and "variables" in argspec):
-        params['variables'] = variables
-
-    if error and "error" not in params and "error" in argspec:
-        params['error'] = error
-
-    # Allow functions to access common
-    # parameters only if they need them
-    if common_params:
-        params = {
-            **params,
-            **{
-                k: v
-                for k, v in common_params.items()
-                if k in argspec
-            }
-        }
-
-    return params
-
-
-def _get_nested_function(
-    fn_string: str,
-    stock_functions: _types.ModuleType,
-    custom_functions: dict,
-    default_stock_functions: str = None
-):
-    """
-    Get a nested function from obj as defined by a string
-    e.g. 'custom.my_function' or 'my_function' or 'my_module.my_function'
-
-    :param fn_string: String defining the function to get
-    :param stock_functions: Module containing stock functions
-    :param custom_functions: Dictionary of user defined custom functions
-    :param default_stock_functions: Some stock functions use a default final function to call
-    """
-    fn_list = fn_string.split('.')
-    if fn_list[0] == 'custom':
-        if len(fn_list) == 1:
-            raise ValueError('Custom function not defined correctly')
-        fn_list = fn_list[1:]
-        obj = custom_functions
-    else:
-        if default_stock_functions:
-            fn_list.append(default_stock_functions)
-        obj = stock_functions
-        
-    for fn_name in fn_list:
-        if isinstance(obj, dict):
-            if fn_name not in obj:
-                raise ValueError(f'Function {fn_string} not recognized')
-            obj = obj[fn_name]
-        else:
-            if not hasattr(obj, fn_name):
-                raise ValueError(f'Function {fn_string} not recognized')
-            obj = getattr(obj, fn_name)
-    
-    return obj
 
 
 def _replace_templated_values(
@@ -405,7 +327,7 @@ def _run_actions(
                 raise e.__class__(f"{action_type} - {e}").with_traceback(e.__traceback__) from None
 
 
-def _read_data_sources(
+def _read_data(
     recipe: _Union[dict, list],
     functions: dict = {},
     variables: dict = {}
@@ -443,7 +365,7 @@ def _read_data_sources(
             dfs = []
             # Recursively call sub-reads
             for source in params_specific['sources']:
-                result = _read_data_sources(source, functions, variables)
+                result = _read_data(source, functions, variables)
                 if isinstance(result, list):
                     dfs.extend(result)
                 else:
@@ -485,49 +407,6 @@ def _read_data_sources(
     except Exception as e:
         # Append name of read to message and pass through exception
         raise e.__class__(f"{read_type} - {e}").with_traceback(e.__traceback__) from None
-
-
-def _wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
-    """
-    Finds matching columns for wildcards or regex from all available columns
-    
-    :param all_columns: List of all available columns in the dataframe
-    :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
-    """
-    if not isinstance(selected_columns, list): selected_columns = [selected_columns]
-
-    # Convert wildcards to regex pattern
-    for i in range(len(selected_columns)):
-        # If column contains * without escape
-        if _re.search(r'[^\\]?\*', str(selected_columns[i])) and not str(selected_columns[i]).lower().startswith('regex:'):
-            selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
-
-    # Using a dict to preserve insert order.
-    # Order is preserved for Dictionaries from Python 3.7+
-    result_columns = {}
-
-    # Identify any matching columns using regex within the list
-    for column in selected_columns:
-        if column.lower().startswith('regex:'):
-            result_columns.update(dict.fromkeys(list(
-                filter(_re.compile(column[6:].strip()).fullmatch, all_columns)
-            ))) # Read Note below
-        else:
-            # Check if a column is indicated as
-            # optional with column_name?
-            optional_column = False
-            if column[-1] == "?" and column not in all_columns:
-                column = column[:-1]
-                optional_column = True
-
-            if column in all_columns:
-                result_columns[column] = None
-            else:
-                if not optional_column:
-                    raise KeyError(f'Column {column} does not exist')
-    
-    # Return, preserving original order
-    return list(result_columns.keys())
 
 
 def _execute_wrangles(
@@ -998,9 +877,9 @@ def _run_thread(
     if 'read' in recipe.keys():
         # Execute requested data imports
         if isinstance(recipe['read'], list):
-            df = _read_data_sources(recipe['read'][0], functions, variables)
+            df = _read_data(recipe['read'][0], functions, variables)
         else:
-            df = _read_data_sources(recipe['read'], functions, variables)
+            df = _read_data(recipe['read'], functions, variables)
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe
