@@ -40,7 +40,6 @@
       "type": "array",
       "description": "Read data from a variety of sources",
       "minItems": 1,
-      "maxItems": 1,
       "items": {
         "$ref": "#/$defs/read/items"
       }
