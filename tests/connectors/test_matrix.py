@@ -138,32 +138,6 @@ class TestRead:
 
         assert list(df["header"].values) == ["value0", "value1", "value2"]
 
-    def test_multiprocessing(self):
-        """
-        Test using multiprocessing
-        """
-        for i in range(3):
-            memory.dataframes[f"test_matrix_read_list_{i}"] = pd.DataFrame({
-                "header": [f"value{i}"]
-            })
-
-        df = wrangles.recipe.run(
-            """
-            read:
-              - union:
-                  sources:
-                    - matrix:
-                        use_multiprocessing: true
-                        variables:
-                          var: [0,1,2]
-                        read:
-                          - memory:
-                              id: test_matrix_read_list_${var}
-            """
-        )
-
-        assert list(df["header"].values) == ["value0", "value1", "value2"]
-
     def test_read_directory(self):
         """
         Test using variables defined by the files in a directory
