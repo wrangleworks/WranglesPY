@@ -11,11 +11,11 @@ def test_function_not_found():
     Test that if a custom function isn't found
     that the user gets a relevant error message
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(
+    with pytest.raises(ValueError, match="does_not_exist not recognized"):
+        wrangles.recipe.run(
             """
             wrangles:
-              - custom.does_not_exists:
+              - custom.does_not_exist:
                   input: col
                   output: out
             """,
@@ -23,11 +23,6 @@ def test_function_not_found():
                 'col':['Hello World']
             })
         )
-    assert (
-        info.typename == 'ValueError' and
-        '"custom.does_not_exists" not found' in info.value.args[0]
-    )
-
 
 def test_run():
     """

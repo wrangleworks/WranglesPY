@@ -540,7 +540,19 @@ def _execute_wrangles(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
+    # Ensure wrangles are defined as a list
+    if not isinstance(wrangles_list, list):
+        wrangles_list = [wrangles_list]
+
     for step in wrangles_list:
+        # Ensure step is a dictionary
+        if not isinstance(step, dict):
+            if isinstance(step, str):
+                # Default to be empty parameters
+                step = {step: {}}
+            else:
+                raise ValueError('The wrangles section of the recipe is not correctly structured')
+
         for wrangle, params in step.items():
             try:
                 if params is None: params = {}
@@ -694,16 +706,22 @@ def _execute_wrangles(
                     # Get the requested function from the recipe_wrangles module
                     func = _get_nested_function(wrangle, _recipe_wrangles, None)
 
+                    params = _add_special_parameters(
+                        params,
+                        func,
+                        functions,
+                        variables,
+                        common_params=common_params
+                    )
+
+                    # Add functions for rename due to special syntax
+                    if wrangle == "rename":
+                        params["functions"] = functions
+
                     # Execute the function
                     df = func(
                         df=df,
-                        **_add_special_parameters(
-                            params,
-                            func,
-                            functions,
-                            variables,
-                            common_params=common_params
-                        )
+                        **params
                     )
 
                 # If the user specified a where, we need to merge this back to the original dataframe
