@@ -81,13 +81,13 @@ def lookup(
         results = [r[0] for r in results["data"]]
     elif not single_input and not single_columns:
         # If multiple columns specified and multiple inputs, return as a 1D array
-        results = [sublist[i] for i, sublist in enumerate(results["data"])]
+        results = [sublist[i] for i, sublist in enumerate(results["data"]) if i < len(sublist)]
     else:
         # If multiple columns specified, return as 2D array [[val1, ...], ...]
         results = results["data"]
 
     # If input was a single value, return a single value
-    if single_input:
+    if single_input and columns is not None:
         results = results[0]
 
     return results
