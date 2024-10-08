@@ -4246,6 +4246,189 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
 
+class TestMatrix:
+    """
+    Test matrix wrangle
+    """
+    def test_basic(self):
+        """
+        Test a basic matrix with a variable defined by a list
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    var: [a,b,c]
+                  wrangles:
+                    - format.suffix:
+                        input: Col1
+                        output: out_${var}
+                        value: ${var}
+            """
+        )
+        assert (
+            df['out_a'][0] == "aa" and
+            df['out_b'][0] == "ab" and
+            df['out_c'][0] == "ac"
+        )
+
+    def test_where(self):
+        """
+        Test a matrix with a where clause
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - matrix:
+                  variables:
+                    var: set(col2)
+                  wrangles:
+                    - convert.case:
+                        input: col1
+                        case: ${var}
+                        where: col2 = ?
+                        where_params:
+                          - ${var}
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["aaa", "bbb", "ccc"],
+                "col2": ["upper", "lower", "title"]
+            })
+        )
+
+        assert (
+            df['col1'][0] == "AAA" and
+            df['col1'][1] == "bbb" and
+            df['col1'][2] == "Ccc"
+        )
+
+    def test_variable_custom_function(self):
+        """
+        Test using a custom function to define a variable values
+        """
+        def test_fn():
+            return ["a", "b", "c"]
+
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    var: custom.test_fn
+                  wrangles:
+                    - format.suffix:
+                        input: Col1
+                        output: out_${var}
+                        value: ${var}
+            """,
+            functions=test_fn
+        )
+        assert (
+            df['out_a'][0] == "aa" and
+            df['out_b'][0] == "ab" and
+            df['out_c'][0] == "ac"
+        )
+    
+    def test_custom_function(self):
+        """
+        Test using a custom function in the wrangles
+        """
+        def test_fn(Col1, value):
+            return Col1 + value
+        
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    var: [a,b,c]
+                  wrangles:
+                    - custom.test_fn:
+                        input: Col1
+                        output: out_${var}
+                        value: ${var}
+            """,
+            functions=test_fn
+        )
+        assert (
+            df['out_a'][0] == "aa" and
+            df['out_b'][0] == "ab" and
+            df['out_c'][0] == "ac"
+        )
+
+    def test_error(self):
+        """
+        Test that an error is raised correctly
+        """
+        with pytest.raises(KeyError, match="Col2 does not exist"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        Col1: a
+                wrangles:
+                - matrix:
+                    variables:
+                        var: [a,b,c]
+                    wrangles:
+                        - format.suffix:
+                            input: Col2
+                            output: out_${var}
+                            value: ${var}
+                """
+            )
+
+    def test_extract_ai(self):
+        """
+        Test using extract.ai within a matrix
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - matrix:
+                  variables:
+                    Category: set(Category)
+                  wrangles:
+                    - extract.ai:
+                        input: Description
+                        api_key: ${OPENAI_API_KEY}
+                        seed: 1
+                        output:
+                          ${Category}:
+                            type: string
+                            description: The type of ${Category}
+                        where: Category = ?
+                        where_params:
+                          - ${Category}
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["Animal", "Mineral", "Vegetable"],
+                "Description": ["Tiger", "Gold", "Carrot"]
+            })
+        )
+        assert (
+            df['Animal'].values.tolist() == ['Tiger', '', ''] and
+            df['Mineral'].values.tolist() == ['', 'Gold', ''] and
+            df['Vegetable'].values.tolist() == ['', '', 'Carrot']
+        )
 
 def wait_then_update(df, duration, input, output, value):
     """

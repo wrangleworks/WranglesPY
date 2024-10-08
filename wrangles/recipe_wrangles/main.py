@@ -17,6 +17,8 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
+import itertools as _itertools
+from collections import ChainMap as _chainmap
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -27,6 +29,7 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from ..connectors.matrix import _define_permutations
 
 
 def accordion(
@@ -892,6 +895,62 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(' ', '_')
     df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
+    return df
+
+
+def matrix(
+    df: _pd.DataFrame,
+    variables: dict,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "loop",
+):
+    """
+    type: object
+    description: |-
+      Apply a matrix of wrangles to the dataframe.
+      This will run the wrangles for each combination of the variables.
+    required:
+      - variables
+      - wrangles
+    properties:
+      variables:
+        type: object
+        description: |-
+          A dictionary of variables to pass to the wrangle.
+          The key is the variable name and the value is a list of values.
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to apply to the dataframe.
+          Each wrangle will be run for each combination of the variables.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+        strategy:
+          type: string
+          enum:
+            - permutations
+            - loop
+          description: >-
+            Determines how to combine variables when there are multiple.
+            loop (default) iterates over each set of variables, repeating shorter lists 
+            until the longest is completed. permutations uses the combination of all 
+            variables against all other variables.
+    """
+    for permutation in _define_permutations(
+      variables,
+      strategy,
+      functions,
+      df
+    ):
+        df = _wrangles.recipe.run(
+            recipe={'wrangles': wrangles},
+            dataframe=df,
+            variables=permutation,
+            functions=functions
+        )
+
     return df
 
 
