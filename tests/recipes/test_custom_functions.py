@@ -1515,3 +1515,29 @@ def test_nested_run():
         functions=nested
     )
     assert memory.variables["test_nested_run"] == "value"
+
+def test_common_param_access():
+    """
+    Test that a custom function can access common parameters
+    """
+    def common_param_access(df, input, where):
+        if len(df) != 2:
+            raise ValueError("Dataframe not the correct length")
+        if where != "header > 3":
+            raise ValueError("Where condition not met")
+        if input != "header":
+            raise ValueError("Input not correct")
+        df[input] = df[input] * 2
+        return df
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.common_param_access:
+              input: header
+              where: header > 3
+        """,
+        functions=common_param_access,
+        dataframe=pd.DataFrame({"header": [1,2,3,4,5], "header2": [5,4,3,2,1]})
+    )
+    assert df['header'][4] == 10 and df["header"][0] == 1
