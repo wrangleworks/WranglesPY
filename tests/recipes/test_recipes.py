@@ -569,3 +569,85 @@ def test_wildcard_expansion_dict_regex():
         "col1": "new_1",
         "col2": "new_2"
     }
+
+def test_run_as_string():
+    """
+    Test a run defined as a string runs correctly assuming there are no parameters.
+    """
+    ref_values = []
+
+    def set_value():
+        ref_values.append(1)
+
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - custom.set_value
+        """,
+        functions=set_value
+    )
+    assert ref_values == [1]
+
+def test_read_as_string():
+    """
+    Test a read defined as a string runs correctly assuming there are no parameters.
+    """
+    def get_values():
+        return pd.DataFrame({
+            'header': ['value']
+        })
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - custom.get_values
+        """,
+        functions=get_values
+    )
+    assert df["header"][0] == "value"
+
+def test_wrangle_as_string():
+    """
+    Test a wrangle defined as a string runs correctly assuming there are no parameters.
+    """
+    def set_values(df):
+        df['header'] = "value1"
+        return df
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - custom.set_values
+        """,
+        functions=set_values
+    )
+    assert df["header"][0] == "value1"
+
+def test_write_as_string():
+    """
+    Test a write defined as a string runs correctly assuming there are no parameters.
+    """
+    ref_values = []
+
+    def write_values(df):
+        ref_values.append(df['header'][0])
+
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        write:
+          - custom.write_values
+        """,
+        functions=write_values
+    )
+    assert ref_values == ["value"]

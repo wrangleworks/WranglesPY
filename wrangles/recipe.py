@@ -74,6 +74,7 @@ def _add_special_parameters(
 
     return params
 
+
 def _get_nested_function(
     fn_string: str,
     stock_functions: _types.ModuleType,
@@ -417,8 +418,12 @@ def _read_data_sources(
     :return: Dataframe of imported data
     """
     try:
-        read_type = list(recipe)[0]
-        read_params = recipe[read_type]
+        if isinstance(recipe, dict):
+            read_type = list(recipe)[0]
+            read_params = recipe[read_type]
+        else:
+            read_type = recipe
+            read_params = {}
 
         # Divide parameters into general and specific to that type of read
         params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by']
@@ -914,9 +919,9 @@ def _write_data(
     # Loop through all exports, get type and execute appropriate export
     for export in recipe:
         if not isinstance(export, dict):
-            if isinstance(action, str):
+            if isinstance(export, str):
                 # Add empty params
-                action = {action: {}}
+                export = {export: {}}
             else:
                 raise ValueError('The write section of the recipe is not correctly structured')
 
