@@ -105,7 +105,7 @@ def list_element(input, n: _Union[str, int], default = ""):
     ]
 
 
-def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
+def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=None):
     """
     Select an element or elements of a dictionary
     """
@@ -167,9 +167,15 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                 elif isinstance(value, str) and value.startswith("{"):
                     return _json.loads(value).get(key, default)
                 else:
-                    return default
+                    if default == None:
+                        raise ValueError(f"Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided")
+                    else:
+                        return default
             except:
-                return default
+                if default == None:
+                    raise ValueError(f"Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided")
+                else:
+                    return default
             
         results = [
             _get_value(row)
