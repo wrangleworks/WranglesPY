@@ -270,6 +270,24 @@ def test_dictionary_element_json_element_single():
     )
     assert df['column'][0] == 1
 
+def test_dictionary_element_string_input():
+    """
+    Tests the error handling when inputing a column of strings
+    """
+    data = pd.DataFrame({
+    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+    'String': ['This is a string']
+    })
+    recipe = """
+    wrangles:
+      - select.dictionary_element:
+          input: String
+          output: Shapes
+          element: shapes
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Shapes'] == 'round'
+
 #
 # List Element
 #
