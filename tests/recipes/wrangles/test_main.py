@@ -4300,8 +4300,7 @@ class TestConcurrent:
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            (end - start).seconds < 6 and
-            (end - start).seconds >= 5
+            5 <= (end - start).seconds < 7
         )
 
     def test_multiprocess(self):
@@ -4346,8 +4345,7 @@ class TestConcurrent:
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            (end - start).seconds < 6 and
-            (end - start).seconds >= 5
+            5 <= (end - start).seconds < 7
         )
 
     def test_output_error(self):

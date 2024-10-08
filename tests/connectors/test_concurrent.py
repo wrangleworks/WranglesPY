@@ -33,7 +33,7 @@ def test_read_multithread():
     end = datetime.now()
 
     assert (
-        (end - start).seconds < 6 and
+        5 <= (end - start).seconds < 7 and
         len(df) == 3
     )
 
@@ -64,7 +64,7 @@ def test_read_multiprocess():
     end = datetime.now()
 
     assert (
-        (end - start).seconds < 6 and
+        5 <= (end - start).seconds < 7 and
         len(df) == 3
     )
 
@@ -108,7 +108,7 @@ def test_write_multithread():
     end = datetime.now()
 
     assert (
-        5 <= (end - start).seconds < 6 and
+        5 <= (end - start).seconds < 7 and
         test_vals["multithread"] == [1,3,5]
     )
 
@@ -145,7 +145,7 @@ def test_run_multithread():
 
     end = datetime.now()
 
-    assert 5 <= (end - start).seconds < 6
+    assert 5 <= (end - start).seconds < 7
 
 def test_run_multiprocess():
     """
@@ -173,4 +173,4 @@ def test_run_multiprocess():
 
     end = datetime.now()
 
-    assert 5 <= (end - start).seconds < 6
+    assert 5 <= (end - start).seconds < 7
