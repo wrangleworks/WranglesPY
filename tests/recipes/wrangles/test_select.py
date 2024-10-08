@@ -275,20 +275,6 @@ class TestDictionaryElement:
         """
         Tests the error handling when inputing a column of strings
         """
-        # data = pd.DataFrame({
-        # 'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
-        # 'String': ['This is a string']
-        # })
-        # recipe = """
-        # wrangles:
-        # - select.dictionary_element:
-        #     input: String
-        #     output: Shapes
-        #     element: shapes
-        # """
-        # df = wrangles.recipe.run(recipe, dataframe=data)
-        # assert df.iloc[0]['Shapes'] == 'round'
-
         with pytest.raises(ValueError, match="Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided"):
             wrangles.recipe.run(
                 """
@@ -299,7 +285,6 @@ class TestDictionaryElement:
                     element: shapes
                 """,
                 dataframe=pd.DataFrame({
-                    'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
                     'String': ['This is a string']
                 })
             )
@@ -308,20 +293,35 @@ class TestDictionaryElement:
         """
         Tests what happens when the default value is set to None
         """
-        data = pd.DataFrame({
-        'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
-        'String': ['This is a string']
-        })
-        recipe = """
-        wrangles:
-        - select.dictionary_element:
-            input: String
-            output: Shapes
-            element: shapes
-            default: None
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Shapes'] == 'round'
+        with pytest.raises(ValueError, match="Invalid Input: Input must be a dictionary, a JSON object, or a default value must be provided"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - select.dictionary_element:
+                    input: String
+                    output: Shapes
+                    element: shapes
+                    default: ${default}
+                """,
+                dataframe=pd.DataFrame({
+                    'String': ['This is a string']
+                }),
+                variables = {'default': None}
+            )
+        # data = pd.DataFrame({
+        # 'Prop': [{'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'}],
+        # 'String': ['This is a string']
+        # })
+        # recipe = """
+        # wrangles:
+        # - select.dictionary_element:
+        #     input: String
+        #     output: Shapes
+        #     element: shapes
+        #     default: ${default}
+        # """
+        # df = wrangles.recipe.run(recipe, dataframe=data, variables = {'default': None})
+        # assert df.iloc[0]['Shapes'] == ''
 
 #
 # List Element
