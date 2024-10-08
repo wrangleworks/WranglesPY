@@ -29,6 +29,7 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from ..connectors.matrix import _define_permutations
 
 
 def accordion(
@@ -937,46 +938,12 @@ def matrix(
             until the longest is completed. permutations uses the combination of all 
             variables against all other variables.
     """
-    def _zip_cycle(*iterables, empty_default=None):
-        cycles = [_itertools.cycle(i) for i in iterables]
-        for _ in _itertools.zip_longest(*iterables):
-            yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
-
-    permutations = []
-
-    for key, val in variables.items():
-        if isinstance(val, list):
-            vals = val
-        
-        elif _re.fullmatch(r'set\((.*)\)', val.strip()):
-            column_name = _re.fullmatch(r'set\((.*)\)', val.strip())[1]
-            vals = list(dict.fromkeys(df[column_name]))
-
-        elif _re.fullmatch(r'custom.(.*)', val.strip()):
-            # Run custom function
-            vals = functions[val.strip()[7:]]()
-        
-        else:
-            vals = [val]
-
-        permutations.append([{key: var} for var in vals])
-
-    if strategy.lower() == "permutations":
-        # Calc all permutations
-        permutations = list(_itertools.product(*permutations))
-        permutations = [
-            dict(_chainmap(*permutation))
-            for permutation in permutations
-        ]
-    elif strategy.lower() == "loop":
-        permutations = [
-            permutation
-            for permutation in _zip_cycle(*permutations)
-        ]
-    else:
-        raise ValueError(f"Invalid setting {strategy} for strategy")
-
-    for permutation in permutations:
+    for permutation in _define_permutations(
+      variables,
+      strategy,
+      functions,
+      df
+    ):
         df = _wrangles.recipe.run(
             recipe={'wrangles': wrangles},
             dataframe=df,
