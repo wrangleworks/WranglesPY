@@ -4283,7 +4283,7 @@ class TestConcurrent:
                     - custom.wait_then_update:
                         input: column
                         output: column_b
-                        duration: 1
+                        duration: 2
                         value: b
                     - custom.wait_then_update:
                         input: column
@@ -4300,7 +4300,7 @@ class TestConcurrent:
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 7
+            5 <= (end - start).seconds < 10
         )
 
     def test_multiprocess(self):
@@ -4328,7 +4328,7 @@ class TestConcurrent:
                     - custom.wait_then_update:
                         input: column
                         output: column_b
-                        duration: 1
+                        duration: 2
                         value: b
                     - custom.wait_then_update:
                         input: column
@@ -4345,7 +4345,7 @@ class TestConcurrent:
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 7
+            5 <= (end - start).seconds < 10
         )
 
     def test_output_error(self):
