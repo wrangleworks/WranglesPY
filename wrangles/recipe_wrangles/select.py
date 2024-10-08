@@ -35,7 +35,7 @@ def dictionary_element(
     input: _Union[str, list],
     element: str,
     output: _Union[str, list] = None,
-    default: any = ''
+    default: any = None
 ) -> _pd.DataFrame:
     """
     type: object
