@@ -79,8 +79,6 @@ def read(
 ):
     """
     Run multiple reads simulatenously.
-    This must be nested under a connector that aggregates multiple sources
-    such as join, union, or concatenate.
 
     :param read: List of read connectors to run concurrently
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
@@ -110,8 +108,8 @@ type: object
 description: >-
   The concurrent connector lets you read multiple sources
   simultaneously rather than sequentially.
-  This must be nested under a connector that aggregates multiple sources
-  such as join, union, or concatenate.
+  If the outputs of the reads are not otherwise aggregated,
+  they will be merged together via a union.
 required:
   - read
 properties:
