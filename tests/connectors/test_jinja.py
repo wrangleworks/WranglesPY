@@ -91,8 +91,8 @@ def test_no_template():
     """
     Tests the error when not given a template
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(
+    with pytest.raises(ValueError, match='jinja: Either a file'):
+        wrangles.recipe.run(
             """
             run:
               on_start:
@@ -104,7 +104,3 @@ def test_no_template():
                       placeholder: value
             """
         )
-    assert (
-        info.typename == 'ValueError' and
-        info.value.args[0][:20] == 'jinja: Either a file'
-    )
