@@ -2,6 +2,7 @@
 Test custom functions that are passed to recipes
 """
 import wrangles
+from wrangles.connectors import memory
 import pandas as pd
 import pytest
 
@@ -1431,3 +1432,86 @@ def test_clear_errors_write():
             """,
             functions=raise_error
         )
+
+class nested:
+    def read():
+        return pd.DataFrame({
+            "header": ["value"]
+        })
+    
+    def wrangle(df, input):
+        df[input] = df[input] + "1"
+        return df
+
+    def write(df, id):
+        memory.dataframes[id] = df
+
+    def run(id, value):
+        memory.variables[id] = value
+
+def test_nested_read():
+    """
+    Test a nested custom function for read
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - custom.nested.read: {}
+        """,
+        functions=nested
+    )
+    assert df['header'][0] == "value"
+
+def test_nested_wrangle():
+    """
+    Test a nested custom function for wrangles
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - custom.nested.wrangle:
+              input: header
+        """,
+        functions=nested
+    )
+    assert df['header'][0] == "value1"
+
+def test_nested_write():
+    """
+    Test a nested custom function for write
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        write:
+          - custom.nested.write:
+              id: test_nested_write
+        """,
+        functions=nested
+    )
+    assert memory.dataframes["test_nested_write"]["header"][0] == "value"
+
+def test_nested_run():
+    """
+    Test a nested custom function for run
+    """
+    df = wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - custom.nested.run:
+                id: test_nested_run
+                value: value
+        """,
+        functions=nested
+    )
+    assert memory.variables["test_nested_run"] == "value"
