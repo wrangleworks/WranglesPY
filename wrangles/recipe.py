@@ -351,7 +351,8 @@ def _run_actions(
 def _read_data(
     recipe: _Union[dict, list],
     functions: dict = {},
-    variables: dict = {}
+    variables: dict = {},
+    input_dataframe: _pandas.DataFrame = None
 ) -> _pandas.DataFrame:
     """
     Import data from requested datasources as defined by the recipe
@@ -395,12 +396,15 @@ def _read_data(
                     if key in read_params
                 }
 
+                # Reference the recipe execution input dataframe
+                if read_type == "input":
+                    df = input_dataframe
                 # Allow blended imports
-                if read_type in ['join', 'concatenate', 'union']:
+                elif read_type in ['join', 'concatenate', 'union']:
                     dfs = []
                     # Recursively call sub-reads
                     for source in params_specific['sources']:
-                        result = _read_data(source, functions, variables)
+                        result = _read_data(source, functions, variables, input_dataframe)
                         if result is None:
                             # Skip if None returned
                             # e.g. in the case of a false if condition
@@ -958,7 +962,7 @@ def _run_thread(
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
-        df = _read_data(recipe['read'], functions, variables)
+        df = _read_data(recipe['read'], functions, variables, dataframe)
 
         # If no data is returned, initialize an empty dataframe
         if df is None:
