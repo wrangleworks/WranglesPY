@@ -2378,23 +2378,26 @@ def test_sql_2():
         'Only SELECT statements are supported for sql wrangles' in info.value.args[0]
     )
 
-# sql with objects in data
-def test_sql_3():
-    data = pd.DataFrame({
-        'header1': [1, 2, 3],
-        'header2': ['a', 'b', 'c'],
-        'header3': ['x', 'y', {"Object": "z"}],
-    })
-    recipe = """
-    wrangles:
-      - sql:
-          command: |
-            SELECT *
-            FROM df
-            WHERE header1 >= 3
+def test_sql_mixed_objects():
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['header3'] == {"Object": "z"}
+    Test SQL with a column that contains a mixture of objects and scalars
+    """
+    with pytest.raises(ValueError, match="mixed data"):
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - sql:
+                command: |
+                    SELECT *
+                    FROM df
+                    WHERE header1 >= 3
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [1, 2, 3],
+                'header2': ['a', 'b', 'c'],
+                'header3': ['x', 'y', {"Object": "z"}],
+            })
+        )
 
 def test_sql_params():
     """
@@ -2418,6 +2421,31 @@ def test_sql_params():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['header1'] == 2
 
+def test_sql_objects():
+    """
+    Test SQL with a column that contains a mixture of objects and scalars
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - sql:
+            command: |
+                SELECT *
+                FROM df
+                WHERE header1 >= 3
+        """,
+        dataframe=pd.DataFrame({
+            'header1': [1, 2, 3],
+            'header2': [['a'], ['b'], ['c']],
+            'header3': [{"Object": "x"}, {"Object": "y"}, {"Object": "z"}],
+        })
+    )
+    assert (
+        df.columns.tolist() == ['header1', 'header2', 'header3'] and
+        df['header1'][0] == 3 and
+        df['header2'][0] == ['c'] and
+        df['header3'][0] == {"Object": "z"}
+    )
 #
 # Recipe as a wrangle. Recipe-ception
 #
