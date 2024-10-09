@@ -577,19 +577,19 @@ class TestColumnWildcards:
         """
         columns = wrangles.recipe._wildcard_expansion(
             ["col1","col2","col3"],
-            ["*", "!col1"]
+            ["*", "-col1"]
         )
         assert columns == ['col2', 'col3']
 
     def test_wildcard_not_exclamation_start_name(self):
         """
-        Test that a column starting with a ! can still be selected
+        Test that a column starting with a - can still be selected
         """
         columns = wrangles.recipe._wildcard_expansion(
-            ["!col1","col2","col3"],
-            ["!col1"]
+            ["-col1","col2","col3"],
+            ["-col1"]
         )
-        assert columns == ['!col1']
+        assert columns == ['-col1']
 
     def test_not_star(self):
         """
@@ -597,7 +597,7 @@ class TestColumnWildcards:
         """
         columns = wrangles.recipe._wildcard_expansion(
             ["a", "col1","col2","col3"],
-            ["col*", "!*3"]
+            ["col*", "-*3"]
         )
         assert columns == ['col1', 'col2']
 
@@ -607,7 +607,7 @@ class TestColumnWildcards:
         """
         columns = wrangles.recipe._wildcard_expansion(
             ["a", "col1","col2","col3"],
-            ["col*", "!regex:.*3"]
+            ["col*", "-regex:.*3"]
         )
         assert columns == ['col1', 'col2']
 
@@ -617,19 +617,64 @@ class TestColumnWildcards:
         """
         columns = wrangles.recipe._wildcard_expansion(
             ["a", "col1","col2","col3"],
-            ["col*", "regex:!.*3"]
+            ["col*", "regex:-.*3"]
         )
         assert columns == ['col1', 'col2']
 
     def test_star_regex_special_chars(self):
         """
-        Test using not regex
+        Test that regex special characters are escaped
+        correctly when using a wildcard
         """
         columns = wrangles.recipe._wildcard_expansion(
             [".col1",".col2",":col3"],
             [".col*"]
         )
         assert columns == ['.col1', '.col2']
+
+    def test_not_in_recipe(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns:
+                    - "*"
+                    - -header1
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header2", "header3"] and
+            len(df) == 10
+        )
+
+    def test_not_syntax_error(self):
+        """
+        Test that a likely syntax error by adding a space
+        after the dash gives a clear error message
+        """
+        with pytest.raises(ValueError, match="without a space"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 10
+                    values:
+                      header1: value1
+                      header2: value2
+                      header3: value3
+                    columns:
+                      - "*"
+                      - - header1
+                """
+            )
 
 def test_run_as_string():
     """

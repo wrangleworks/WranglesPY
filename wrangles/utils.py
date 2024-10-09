@@ -3,6 +3,7 @@ import logging as _logging
 import types as _types
 import inspect as _inspect
 from typing import Union as _Union
+import yaml as _yaml
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -200,6 +201,14 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
+        # Catch not syntax errors
+        if isinstance(selected_columns[i], list):
+            raise ValueError(
+                "Column name is not formatted correctly. " + 
+                f"Got: {_yaml.dump(selected_columns[i]).strip('\n')}" +
+                ". Did you mean to use '-column_name' without a space? "
+            )
+
         # If column contains * without escape
         if (
             _re.search(r'[^\\]?\*', str(selected_columns[i])) and
@@ -218,13 +227,13 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
-        # Rearrange !regex: to regex:! to allow either to work
-        if str(column).lower().startswith('!regex:'):
-            column = "regex:!" + column[7:]
+        # Rearrange -regex: to regex:- to allow either to work
+        if str(column).lower().startswith('-regex:'):
+            column = "regex:-" + column[7:]
 
         if column.lower().startswith('regex:'):
             pattern = column[6:].strip() 
-            if pattern.startswith("!"):
+            if pattern.startswith("-"):
                 # Remove columns that match the negative regex pattern
                 result_columns = {
                     k: None
@@ -237,8 +246,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                     filter(_re.compile(pattern).fullmatch, all_columns)
                 ))) # Read Note below
         else:
-            if column not in all_columns and str(column).startswith('!'):
-                # Columns prefixed with ! indicate not to include them
+            if column not in all_columns and str(column).startswith('-'):
+                # Columns prefixed with - indicate not to include them
                 result_columns.pop(column[1:], None)
                 continue
 
