@@ -12,6 +12,12 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 import wrangles
 
+# inverse of reserved_word_replacements
+reserved_word_replacements = {
+    v: k
+    for k, v in wrangles.config.reserved_word_replacements.items()
+}
+
 schema = {
     'run': {},
     'read': {},
@@ -141,7 +147,9 @@ def getMethodDocs(schema_wrangles, obj, path):
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
             if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
-                schema_wrangles[path[1:]] = schema_wrangle
+                schema_wrangles[
+                    reserved_word_replacements.get(path[1:], path[1:])
+                ] = schema_wrangle
         except Exception as e:
             logging.warning(f'{obj} description={e}')
 
