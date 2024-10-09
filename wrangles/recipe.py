@@ -18,7 +18,10 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
-from .config import no_where_list
+from .config import (
+    no_where_list,
+    reserved_word_replacements as _reserved_word_replacements
+)
 from .utils import (
     get_nested_function as _get_nested_function,
     add_special_parameters as _add_special_parameters,
@@ -441,6 +444,9 @@ def _execute_wrangles(
             try:
                 if params is None: params = {}
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+                
+                # Replace any conflicting reserved words with a safe alternative
+                wrangle = _reserved_word_replacements.get(wrangle, wrangle)
 
                 original_params = params.copy()
 

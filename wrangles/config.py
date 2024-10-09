@@ -37,3 +37,8 @@ no_where_list = [
     'reindex',
     'select.group_by'
 ]
+
+# 
+reserved_word_replacements = {
+    "try": "Try"
+}

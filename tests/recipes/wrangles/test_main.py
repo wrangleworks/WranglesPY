@@ -4552,3 +4552,144 @@ class TestConcurrent:
                           input: column
                 """
             )
+
+class TestTry:
+    """
+    Test try
+    """
+    def test_try_fail(self):
+        """
+        Test a try that fails
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: value
+            wrangles:
+              - try:
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_fail
+            """
+        )
+        assert (
+            df.columns.tolist() == ['header'] and
+            df['header'][0] == 'value'
+        )
+
+    def test_try_pass(self):
+        """
+        Test a try that passes
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: 1
+            wrangles:
+              - try:
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_not_fail
+            """
+        )
+        assert (
+            df.columns.tolist() == ['header', 'should_not_fail'] and
+            df['header'][0] == 1 and
+            df['should_not_fail'][0] == 2
+        )
+
+    def test_try_except_dict(self):
+        """
+        Test a try that has an except
+        containing a dictionary
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: value
+            wrangles:
+              - try:
+                  except:
+                    should_fail: failed
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_fail
+            """
+        )
+        assert (
+            df.columns.tolist() == ['header', 'should_fail'] and
+            df['header'][0] == 'value' and
+            df['should_fail'][0] == 'failed'
+        )
+
+    def test_try_except_dict_list(self):
+        """
+        Test a try that has an except
+        containing a dictionary with a list as a value
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: value
+            wrangles:
+              - try:
+                  except:
+                    should_fail: [failed, failed]
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_fail
+            """
+        )
+        assert (
+            df.columns.tolist() == ['header', 'should_fail'] and
+            df['header'][0] == 'value' and
+            df['should_fail'][0] == ['failed', 'failed']
+        )
+
+
+    def test_try_except_wrangles(self):
+        """
+        Test a try that has an except
+        containing wrangles
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: value
+            wrangles:
+              - try:
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_fail
+                  except:
+                    - convert.case:
+                         input: header
+                         output: should_fail
+                         case: upper
+            """
+        )
+        assert (
+            df.columns.tolist() == ['header', 'should_fail'] and
+            df['header'][0] == 'value' and
+            df['should_fail'][0] == 'VALUE'
+        )
