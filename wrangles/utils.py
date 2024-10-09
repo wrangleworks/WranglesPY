@@ -203,10 +203,11 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     for i in range(len(selected_columns)):
         # Catch not syntax errors
         if isinstance(selected_columns[i], list):
+            newline = '\n'
             raise ValueError(
                 "Column name is not formatted correctly. " + 
-                f"Got: {_yaml.dump(selected_columns[i]).strip('\n')}" +
-                ". Did you mean to use '-column_name' without a space? "
+                f"Got: {_yaml.dump(selected_columns[i]).strip(newline)}. " +
+                "Did you mean to use '-column_name' without a space? "
             )
 
         # If column contains * without escape
