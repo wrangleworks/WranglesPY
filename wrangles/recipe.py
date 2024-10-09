@@ -20,6 +20,7 @@ from . import connectors as _connectors
 from . import data as _data
 from .config import no_where_list
 from .utils import (
+    evaluate_conditional as _evaluate_conditional,
     get_nested_function as _get_nested_function,
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion
@@ -66,11 +67,15 @@ def _replace_templated_values(
                 variables,
                 any([ignore_unknown_variables, key in ["matrix"]])
             )
-            : 
-            _replace_templated_values(
-                val,
-                variables,
-                any([ignore_unknown_variables, key in ["matrix"]])
+            :
+            (
+                _replace_templated_values(
+                    val,
+                    variables,
+                    any([ignore_unknown_variables, key in ["matrix"]])
+                )
+                if key not in ["if"]
+                else val
             )
             for key, val in recipe_object.items()
         }
@@ -317,11 +322,24 @@ def _run_actions(
                 raise ValueError('The run section of the recipe is not correctly structured')
 
         for action_type, params in action.items():
-            try:                
+            try:
+                # If the action is conditional, check if it should be run
+                if (
+                    "if" in params and
+                    not _evaluate_conditional(params["if"], variables)
+                ):
+                    continue
+                
+                common_params = {}
+                # Add to common_params dict and remove from params
+                for key in ['if']:
+                    if key in params.keys():
+                        common_params[key] = params.pop(key)
+
                 func = _get_nested_function(action_type, _connectors, functions, 'run')
 
                 # Execute the function
-                func(**_add_special_parameters(params, func, functions, variables, error))
+                func(**_add_special_parameters(params, func, functions, variables, error, common_params))
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{action_type} - {e}").with_traceback(e.__traceback__) from None
@@ -339,75 +357,99 @@ def _read_data(
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
-    try:
-        if isinstance(recipe, dict):
-            read_type = list(recipe)[0]
-            read_params = recipe[read_type]
-        else:
-            read_type = recipe
-            read_params = {}
+    # Ensure recipe is a list
+    if not isinstance(recipe, list):
+        recipe = [recipe]
+    
+    results = []
+    for read in recipe:
+        if not isinstance(read, dict):
+            if isinstance(read, str):
+                # Add empty params
+                read = {read: {}}
+            else:
+                raise ValueError('The read section of the recipe is not correctly structured')
+            
+        for read_type, read_params in read.items():
+            try:
+                # If the action is conditional, check if it should be run
+                if (
+                    "if" in read_params and
+                    not _evaluate_conditional(read_params["if"], variables)
+                ):
+                    return None
 
-        # Divide parameters into general and specific to that type of read
-        params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by']
-        params_specific = {
-            key: read_params[key]
-            for key in read_params
-            if key not in params_general
-        }
-        params_general = {
-            key: read_params[key]
-            for key in params_general
-            if key in read_params
-        }
+                # Divide parameters into general and specific to that type of read
+                params_general = ['columns', 'not_columns', 'where', 'where_params', 'order_by', 'if']
+                params_specific = {
+                    key: read_params[key]
+                    for key in read_params
+                    if key not in params_general
+                }
+                params_general = {
+                    key: read_params[key]
+                    for key in params_general
+                    if key in read_params
+                }
 
-        # Allow blended imports
-        if read_type in ['join', 'concatenate', 'union']:
-            dfs = []
-            # Recursively call sub-reads
-            for source in params_specific['sources']:
-                result = _read_data(source, functions, variables)
-                if isinstance(result, list):
-                    dfs.extend(result)
+                # Allow blended imports
+                if read_type in ['join', 'concatenate', 'union']:
+                    dfs = []
+                    # Recursively call sub-reads
+                    for source in params_specific['sources']:
+                        result = _read_data(source, functions, variables)
+                        if result is None:
+                            # Skip if None returned
+                            # e.g. in the case of a false if condition
+                            continue
+
+                        if isinstance(result, list):
+                            dfs.extend(result)
+                        else:
+                            dfs.append(result)
+
+                    params_specific.pop('sources')
+
+                    if read_type == 'join':
+                        df = _pandas.merge(dfs[0], dfs[1], **params_specific)
+                    elif read_type == 'union':
+                        df = _pandas.concat(dfs, **params_specific)
+                    elif read_type == 'concatenate':
+                        params_specific['axis'] = 1
+                        df = _pandas.concat(dfs, **params_specific)
+                    df = df.reset_index(drop=True)
                 else:
-                    dfs.append(result)
-            params_specific.pop('sources')
+                    # Get the requested function from the connectors module or user defined functions
+                    func = _get_nested_function(read_type, _connectors, functions, 'read')
 
-            if read_type == 'join':
-                df = _pandas.merge(dfs[0], dfs[1], **params_specific)
-            elif read_type == 'union':
-                df = _pandas.concat(dfs, **params_specific)
-            elif read_type == 'concatenate':
-                params_specific['axis'] = 1
-                df = _pandas.concat(dfs, **params_specific)
-            df = df.reset_index(drop=True)
-        else:
-            # Get the requested function from the connectors module or user defined functions
-            func = _get_nested_function(read_type, _connectors, functions, 'read')
+                    # Execute the function
+                    df = func(
+                        **_add_special_parameters(
+                            params_specific,
+                            func,
+                            functions,
+                            variables,
+                            common_params=params_general
+                        )
+                    )
 
-            # Execute the function
-            df = func(
-                **_add_special_parameters(
-                    params_specific,
-                    func,
-                    functions,
-                    variables,
-                    common_params=params_general
-                )
-            )
+                if isinstance(df, _pandas.DataFrame):
+                    # Response is a single dataframe, filter appropriately
+                    results.append(_filter_dataframe(df, **params_general))
+                elif isinstance(df, list) and all([isinstance(x, _pandas.DataFrame) for x in df]):
+                    # Response is a list of dataframes, filter each appropriately
+                    results.extend([_filter_dataframe(x, **params_general) for x in df])
+                else:
+                    raise RuntimeError(f"Function {read_type} did not return a dataframe")
 
-        if isinstance(df, _pandas.DataFrame):
-            # Response is a single dataframe, filter appropriately
-            return _filter_dataframe(df, **params_general)
-        elif isinstance(df, list) and all([isinstance(x, _pandas.DataFrame) for x in df]):
-            # Response is a list of dataframes, filter each appropriately
-            return [_filter_dataframe(x, **params_general) for x in df]
-        else:
-            raise RuntimeError(f"Function {read_type} did not return a dataframe")
+            except Exception as e:
+                # Append name of read to message and pass through exception
+                raise e.__class__(f"{read_type} - {e}").with_traceback(e.__traceback__) from None
 
-    except Exception as e:
-        # Append name of read to message and pass through exception
-        raise e.__class__(f"{read_type} - {e}").with_traceback(e.__traceback__) from None
-
+    if len(results) == 1:
+        return results[0]
+    else:
+        return results
 
 def _execute_wrangles(
     df: _pandas.DataFrame,
@@ -478,10 +520,27 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
-                    # Add to common_params dict and remove from params
-                    for key in ['where', 'where_params']:
-                        if key in params.keys():
-                            common_params[key] = params.pop(key)
+                # If the action is conditional, check if it should be run
+                if (
+                    "if" in params and
+                    not _evaluate_conditional(
+                        params["if"],
+                        {
+                            **variables,
+                            **{
+                                "row_count": len(df),
+                                "column_count": len(df.columns),
+                                "columns": df.columns.tolist()
+                            }
+                        }
+                    )
+                ):
+                    continue
+
+                # Add to common_params dict and remove from params
+                for key in ['where', 'where_params', 'if']:
+                    if key in params.keys():
+                        common_params[key] = params.pop(key)
 
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
@@ -810,9 +869,26 @@ def _write_data(
                 # to the desired write function
                 df_temp = _filter_dataframe(df, **params)
 
+                # If the action is conditional, check if it should be run
+                if (
+                    "if" in params and
+                    not _evaluate_conditional(
+                        params["if"],
+                        {
+                            **variables,
+                            **{
+                                "row_count": len(df_temp),
+                                "column_count": len(df_temp.columns),
+                                "columns": df_temp.columns.tolist()
+                            }
+                        }
+                    )
+                ):
+                    continue
+
                 # Separate any parameters that are commmon to all write functions
                 common_params = {}
-                for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by']:
+                for key in ['columns', 'not_columns', 'where', 'where_params', 'order_by', 'if']:
                     if key in params:
                         common_params[key] = params.pop(key)
 
@@ -876,10 +952,19 @@ def _run_thread(
     # Get requested data
     if 'read' in recipe.keys():
         # Execute requested data imports
-        if isinstance(recipe['read'], list):
-            df = _read_data(recipe['read'][0], functions, variables)
-        else:
-            df = _read_data(recipe['read'], functions, variables)
+        df = _read_data(recipe['read'], functions, variables)
+
+        # If no data is returned, initialize an empty dataframe
+        if df is None:
+            df = _pandas.DataFrame()
+
+        # If multiple dataframes are returned, union them
+        if isinstance(df, list) and all([isinstance(x, _pandas.DataFrame) for x in df]):
+            df = _pandas.concat(df, ignore_index=True)
+
+        if not isinstance(df, _pandas.DataFrame):
+            raise RuntimeError("Read did not return a valid dataframe")
+
     elif dataframe is not None:
         # User has passed in a pre-created dataframe
         df = dataframe

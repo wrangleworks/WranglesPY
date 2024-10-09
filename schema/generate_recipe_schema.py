@@ -93,8 +93,8 @@ schema['read']['union'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: The data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """
@@ -108,8 +108,8 @@ schema['read']['concatenate'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: The data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """
@@ -161,9 +161,10 @@ for wrangle in schema['wrangles']:
         schema['wrangles'][wrangle]['properties']['where'] = {
             "$ref": "#/$defs/wrangles/commonProperties/where_special"
         }
-    schema['wrangles'][wrangle]['properties']['where_params'] = {
-        "$ref": "#/$defs/wrangles/commonProperties/where_params"
-    }
+    for x in ["where_params", "if"]:
+        schema['wrangles'][wrangle]['properties'][x] = {
+            "$ref": f"#/$defs/wrangles/commonProperties/{x}"
+        }
 
 # Add common write properties
 for write in schema['write']:
@@ -172,7 +173,7 @@ for write in schema['write']:
     else:
         write_properties = schema['write'][write]['anyOf'][-1]['properties']
 
-    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+    for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
         write_properties[x] = {
             "$ref": f"#/$defs/write/commonProperties/{x}"
         }
@@ -184,9 +185,21 @@ for read in schema['read']:
     else:
         read_properties = schema['read'][read]['anyOf'][-1]['properties']
 
-    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+    for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
         read_properties[x] = {
             "$ref": f"#/$defs/write/commonProperties/{x}"
+        }
+
+# Add common run properties
+for run in schema['run']:
+    if "properties" not in schema['run'][run]:
+        schema['run'][run]['properties'] = {}
+
+    run_properties = schema['run'][run]['properties']
+
+    for x in ["if"]:
+        run_properties[x] = {
+            "$ref": f"#/$defs/run/commonProperties/{x}"
         }
 
 # Construct final schema

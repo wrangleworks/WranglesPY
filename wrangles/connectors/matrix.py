@@ -225,9 +225,11 @@ type: object
 description: >-
   The matrix connector lets you use variables to automatically execute
   multiple reads that are based on the combinations of the variables.
+  If the outputs of the reads are not otherwise aggregated,
+  they will be merged together via a union.
 required:
   - variables
-  - run
+  - read
 properties:
   variables:
     type: object
@@ -235,14 +237,14 @@ properties:
       A set of variables as key/values.
       The action will be execute once for each combination of variables.\n
       Values may be a single value or a list or reference a custom function.
-  run:
+  read:
     type: array
     description: >-
-      The run section of a recipe to execute for each
+      The read section of a recipe to execute for each
       combination of variables
     minItems: 1
     items:
-      - $ref: "#/$defs/run/items"
+      - $ref: "#/$defs/read/items"
   strategy:
     type: string
     enum:
