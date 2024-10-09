@@ -223,7 +223,16 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
     # Using a dict to preserve insert order.
     # Order is preserved for Dictionaries from Python 3.7+
-    result_columns = {}
+    if (
+        all([str(column).startswith('-') for column in selected_columns]) and
+        not any([col in all_columns for col in selected_columns])
+    ):
+        # If all selected columns are not columns then
+        # initialize with all columns
+        result_columns = dict.fromkeys(all_columns)
+    else:
+        # Otherwise initialize with no columns
+        result_columns = {}
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:

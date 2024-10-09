@@ -676,6 +676,50 @@ class TestColumnWildcards:
                 """
             )
 
+    def test_only_not_string(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns: -header1
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header2", "header3"] and
+            len(df) == 10
+        )
+
+    def test_only_not_list(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns:
+                  - -header1
+                  - -header2
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header3"] and
+            len(df) == 10
+        )
+
 def test_run_as_string():
     """
     Test a run defined as a string runs correctly assuming there are no parameters.
