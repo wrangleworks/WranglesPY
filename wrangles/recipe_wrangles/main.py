@@ -1420,6 +1420,11 @@ def sql(
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
     
+    # Adjust the chunk size based on the number of columns
+    # Large numbers of columns can exceed the
+    # sqlite_max_variable_number limit
+    chunk_size = min(10000 // df.columns.size, 1000)    
+
     def _fast_fix_objects(df: _pd.DataFrame, n=100):
         """
         Attempt to convert columns with objects to json
@@ -1465,7 +1470,7 @@ def sql(
         index_names = list(df.index.names)
         df.index.names = ["wrwx_sql_temp_index"]
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
         df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
         # Restore the original index names
@@ -1485,7 +1490,7 @@ def sql(
         df_temp = df.copy()
         cols_changed = _fast_fix_objects(df_temp)
         # Write the dataframe to the database
-        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
+        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
         df_temp = _pd.read_sql(command, db, params = params)
 

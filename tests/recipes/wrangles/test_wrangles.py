@@ -273,6 +273,32 @@ class TestWhere:
         )
         assert df.columns.tolist() == ["col1", "col2", "col3"]
 
+    def test_where_large_column_count(self):
+        """
+        Test a where with a large number of columns
+        This previously caused issues due to 
+        the sqlite_max_variable_number limit
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - math:
+                  input: col1 * 2
+                  output: col1
+                  where: col2 < 5
+            """,
+            dataframe= pd.DataFrame({
+                f"col{i}": range(1000)
+                for i in range(500)
+            })
+        )
+        assert (
+            int(df.columns.size) == 500 and
+            int(df["col0"][1]) == 1 and 
+            int(df["col1"][1]) == 2 and
+            int(df["col1"][5]) == 5
+        )
+
 def test_if_true():
     """
     Test that a wrangle is triggered
