@@ -766,6 +766,13 @@ def _execute_wrangles(
                             how='left'
                         )
 
+                    # Ensure the column order follows the original dataframe
+                    df = df[
+                        [x for x in df_original.columns if x in df.columns]
+                        +
+                        [x for x in df.columns if x not in df_original.columns]
+                    ]
+
                 # Clean up NaN's
                 df = df.fillna('')
                 # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
@@ -817,7 +824,8 @@ def _filter_dataframe(
                 df,
                 sql,
                 where_params,
-                preserve_index=True
+                preserve_index=True,
+                preserve_data_types=False
             ).index.to_list()
         ]
         if not preserve_index:

@@ -551,7 +551,8 @@ def filter(
                 WHERE {where};
                 """,
                 where_params,
-                preserve_index=True
+                preserve_index=True,
+                preserve_data_types=False
             ).index.to_list()
         ]
 
@@ -1391,7 +1392,8 @@ def sql(
     df: _pd.DataFrame,
     command: str,
     params: _Union[list, dict] = None,
-    preserve_index: bool = False
+    preserve_index: bool = False,
+    preserve_data_types: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1412,61 +1414,96 @@ def sql(
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
     """
-    # Copy to ensure the index of the original dataframe isn't mutated
-    df = df.copy()
-
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
     
-    # List of columns changed
-    cols_changed = []
-    for cols in df.columns:
-        count = 0        
-        for row in df[cols]:
-            # If row contains objects, then convert to json
-            if isinstance(row, dict) or isinstance(row, list):
-                # Check if there is an object in the column and record column name to convert to json
-                cols_changed.append(cols)
-                break
-            # Only check the first 10 rows of a column
-            count += 1
-            if count > 10: break
-            
-        if cols in cols_changed:
-            # If the column is in cols_changed then convert to json
-            _to_json(df=df, input=cols)
+    # Adjust the chunk size based on the number of columns
+    # Large numbers of columns can exceed the
+    # sqlite_max_variable_number limit
+    chunk_size = min(10000 // df.columns.size, 1000)    
 
-    if preserve_index:
-        # Preserve original index and replace with an distinctive name
+    def _fast_fix_objects(df: _pd.DataFrame, n=100):
+        """
+        Attempt to convert columns with objects to json
+        For performance only check the first n rows of a column
+
+        :param df: DataFrame
+        :param n: Number of rows to check
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            count = sum([int(isinstance(row, (dict, list))) for row in list(df[column])[:n]])
+            if count == 0:
+                continue
+            elif count == min(n, len(df)):
+                cols_changed.append(column)
+            else:
+                # Mixed column type.
+                raise ValueError(f"Column '{column}' contains mixed data types which is not supported.")
+            
+        # Convert any objects found to JSON
+        if cols_changed:
+            _to_json(df=df, input=cols_changed)
+        
+        return cols_changed
+
+    def _fallback_fix_objects(df: _pd.DataFrame):
+        """
+        Convert cells with objects to json
+        Check each cell individually
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            for idx, row in zip(df.index, df[column]):
+                # Check each cell for an object
+                if isinstance(row, (dict, list)):
+                    df.loc[idx, column] = _json.dumps(row, ensure_ascii=True, default=str)
+        return cols_changed
+
+    def _sql_preserve_index(df: _pd.DataFrame):
+        # Preserve original index and replace with a distinctive name
         index_names = list(df.index.names)
         df.index.names = ["wrwx_sql_temp_index"]
-
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
-        
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
         df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
-
         # Restore the original index names
         df.index.names = index_names
+        return df
+        
+    if preserve_index:
+        try:
+            df_temp = df.copy()
+            cols_changed = _fast_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
+        except:
+            df_temp = df.copy()
+            cols_changed = _fallback_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
     else:
+        df_temp = df.copy()
+        cols_changed = _fast_fix_objects(df_temp)
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
-        df = _pd.read_sql(command, db, params = params)
+        df_temp = _pd.read_sql(command, db, params = params)
 
     db.close()
+
+    if preserve_data_types and cols_changed:
+        # Change the columns back to an object
+        _from_json(
+          df=df_temp,
+          input=[new_col for new_col in df.columns if new_col in cols_changed]
+        )
     
-    # Change the columns back to an object
-    for new_cols in df.columns:
-        if new_cols in cols_changed:
-            # If the column is in cols changed, then change back to an object
-            _from_json(df=df, input=new_cols)
-    
-    return df
+    return df_temp
 
 
 def standardize(
