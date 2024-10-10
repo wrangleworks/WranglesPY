@@ -3,6 +3,7 @@ import logging as _logging
 import types as _types
 import inspect as _inspect
 from typing import Union as _Union
+import yaml as _yaml
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -182,25 +183,84 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     :param all_columns: List of all available columns in the dataframe
     :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
     """
+    def escape_except(text, chars_not_to_escape):
+        """
+        Escape regex characters except for those specified
+        """
+        # Define all regex special characters
+        special_chars = set(r'[]{}()^$.|*+?\\')
+        # Determine the characters to escape
+        chars_to_escape = special_chars - set(chars_not_to_escape)
+        # Create a regex pattern to match any of the characters to escape
+        pattern = _re.compile(f"[{_re.escape(''.join(chars_to_escape))}]")
+        # Use re.sub to replace each match with the escaped version
+        escaped_text = pattern.sub(lambda match: f"\\{match.group(0)}", text)
+        return escaped_text
+
     if not isinstance(selected_columns, list): selected_columns = [selected_columns]
 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
+        # Catch not syntax errors
+        if isinstance(selected_columns[i], list):
+            newline = '\n'
+            raise ValueError(
+                "Column name is not formatted correctly. " + 
+                f"Got: {_yaml.dump(selected_columns[i]).strip(newline)}. " +
+                "Did you mean to use '-column_name' without a space? "
+            )
+
         # If column contains * without escape
-        if _re.search(r'[^\\]?\*', str(selected_columns[i])) and not str(selected_columns[i]).lower().startswith('regex:'):
-            selected_columns[i] = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', selected_columns[i])
+        if (
+            _re.search(r'[^\\]?\*', str(selected_columns[i])) and
+            not 'regex:' in str(selected_columns[i]).lower()
+        ):
+            # Replace with a regex pattern and escape
+            # other regex special characters
+            selected_columns[i] = 'regex:' + _re.sub(
+                r'(?<!\\)\*', r'(.*)',
+                escape_except(selected_columns[i], ['*', '\\'])
+            )
 
     # Using a dict to preserve insert order.
     # Order is preserved for Dictionaries from Python 3.7+
-    result_columns = {}
+    if (
+        all([str(column).startswith('-') for column in selected_columns]) and
+        not any([col in all_columns for col in selected_columns])
+    ):
+        # If all selected columns are not columns then
+        # initialize with all columns
+        result_columns = dict.fromkeys(all_columns)
+    else:
+        # Otherwise initialize with no columns
+        result_columns = {}
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
+        # Rearrange -regex: to regex:- to allow either to work
+        if str(column).lower().startswith('-regex:'):
+            column = "regex:-" + column[7:]
+
         if column.lower().startswith('regex:'):
-            result_columns.update(dict.fromkeys(list(
-                filter(_re.compile(column[6:].strip()).fullmatch, all_columns)
-            ))) # Read Note below
+            pattern = column[6:].strip() 
+            if pattern.startswith("-"):
+                # Remove columns that match the negative regex pattern
+                result_columns = {
+                    k: None
+                    for k in result_columns
+                    if not _re.compile(pattern[1:]).fullmatch(k)
+                }
+            else:
+                # Add columns that match the regex pattern
+                result_columns.update(dict.fromkeys(list(
+                    filter(_re.compile(pattern).fullmatch, all_columns)
+                ))) # Read Note below
         else:
+            if column not in all_columns and str(column).startswith('-'):
+                # Columns prefixed with - indicate not to include them
+                result_columns.pop(column[1:], None)
+                continue
+
             # Check if a column is indicated as
             # optional with column_name?
             optional_column = False

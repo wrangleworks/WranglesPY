@@ -673,7 +673,7 @@ def test_regex_with_kwargs():
     recipe = """
     wrangles:
       - custom.function:
-          input: P[a-z]*s
+          input: "regex:P[a-z]*s"
           string: this is a string
           output: Stuff
     """
