@@ -1,6 +1,6 @@
 """
-Test generic wrangles functionality, not specific
-to an individual wrangle
+Test generic wrangles functionality that
+is not specific to a particular wrangle
 """
 import wrangles
 import pandas as pd
