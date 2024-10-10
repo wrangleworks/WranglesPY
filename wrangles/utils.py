@@ -219,7 +219,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             # other regex special characters
             selected_columns[i] = 'regex:' + _re.sub(
                 r'(?<!\\)\*', r'(.*)',
-                escape_except(selected_columns[i], ['*'])
+                escape_except(selected_columns[i], ['*', '\\'])
             )
 
     # Using a dict to preserve insert order.
