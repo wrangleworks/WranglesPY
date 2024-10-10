@@ -1261,65 +1261,18 @@ def test_from_file():
     )
     assert df['header2'][0] == "VALUE1"
 
-def test_variable_function():
+class TestVariableFunctions:
     """
-    Test a custom function for variables
-    that does not have any arguments
+    Test using custom functions to define variables
     """
-    def func():
-        return 5
-
-    df = wrangles.recipe.run(
+    def test_variable_function(self):
         """
-        read:
-          - test:
-              rows: ${key}
-              values:
-                header1: value1
-        """,
-        variables={
-            "key": "custom.func"
-        },
-        functions=func
-    )
-
-    assert len(df) == 5
-
-def test_variable_function_with_arg():
-    """
-    Test a custom function for variables
-    that takes an argument
-    """
-    def func(variables):
-        return variables["var"] + 1
-
-    df = wrangles.recipe.run(
+        Test a function that does not have any arguments
         """
-        read:
-          - test:
-              rows: ${key}
-              values:
-                header1: value1
-        """,
-        variables={
-            "var": 5,
-            "key": "custom.func"
-        },
-        functions=func
-    )
+        def func():
+            return 5
 
-    assert len(df) == 6
-
-def test_variable_function_invalid_args():
-    """
-    Test a custom function for variables
-    that does not have the correct arguments
-    """
-    def func(a, b):
-        return 5
-
-    with pytest.raises(TypeError) as error:
-        raise wrangles.recipe.run(
+        df = wrangles.recipe.run(
             """
             read:
             - test:
@@ -1332,10 +1285,180 @@ def test_variable_function_invalid_args():
             },
             functions=func
         )
-    assert (
-        error.typename == 'TypeError' and
-        "must have 0 or 1 arguments" in error.value.args[0]
-    )
+
+        assert len(df) == 5
+
+    def test_kwargs(self):
+        """
+        Test a function that uses kwargs
+        """
+        def func(key1, **kwargs):
+            if key1 != 5:
+                raise ValueError("Invalid key1")
+            if kwargs["key2"] != 6:
+                raise ValueError("Invalid key2")
+            if "key1" in kwargs:
+                raise ValueError("key2 should not be in kwargs")
+            return 5
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "key1": 5,
+                "key2": 6
+            },
+            functions=func
+        )
+        assert len(df) == 5
+
+    def test_arg_default(self):
+        """
+        Test a function that has a default
+        value for an argument
+        """
+        def func(key1, key2 = 1):
+            return key1 + key2
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "key1": 5
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_arg_default_only(self):
+        """
+        Test a function that only has
+        an argument with a default
+        """
+        def func(key1 = 5):
+            return key1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func"
+            },
+            functions=func
+        )
+        assert len(df) == 5
+
+    def test_nested_function(self):
+        """
+        Test referencing a nested custom function
+        """
+        class nested:
+            def func():
+                return 5
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.nested.func"
+            },
+            functions=nested
+        )
+        assert len(df) == 5
+
+    def test_named_variable(self):
+        """
+        Test referencing a variable as a named parameter
+        """
+        def func(named_var):
+            return named_var + 1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "named_var": 5
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_variable_arg(self):
+        """
+        Test a function that uses
+        the variables argument
+        """
+        def func(variables):
+            return variables["var"] + 1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "var": 5,
+                "key": "custom.func"
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_variable_function_invalid_args(self):
+        """
+        Test a custom function for variables
+        that does not have the correct arguments
+        gives a clear error message
+        """
+        def func(a, b):
+            return 5
+
+        with pytest.raises(ValueError, match="requires arguments"):
+            raise wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: ${key}
+                    values:
+                        header1: value1
+                """,
+                variables={
+                    "key": "custom.func"
+                },
+                functions=func
+            )
+
 
 def test_clear_errors_df():
     """
