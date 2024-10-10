@@ -132,6 +132,30 @@ def get_nested_function(
     return obj
 
 
+def validate_function_args(
+    func: _types.FunctionType,
+    args: dict,
+    name: str
+):
+    """
+    Validate that all required arguments are provided for a custom function
+
+    :param func: Function to validate
+    :param args: Arguments provided to the function
+    :param name: Name of the function
+    """
+    argspec = _inspect.getfullargspec(func)
+
+    missing_args = [
+        x
+        for x
+        in argspec.args[:len(argspec.args) - len(argspec.defaults or [])]
+        if x not in args.keys()
+    ]
+
+    if missing_args:
+        raise ValueError(f"Function '{name}' requires arguments: {missing_args}")
+
 def add_special_parameters(
     params: dict,
     fn: _types.FunctionType,

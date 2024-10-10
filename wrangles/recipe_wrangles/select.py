@@ -7,7 +7,7 @@ import re as _re
 import json as _json
 import pandas as _pd
 from .. import select as _select
-
+from ..utils import get_nested_function as _get_nested_function
 
 def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
     """
@@ -351,9 +351,7 @@ def group_by(
 
         # Pass custom functions
         elif operation.startswith("custom."):
-            if operation[7:] not in functions:
-                raise KeyError(f"Function {operation[7:]} is not a recognized custom function")
-            operation = functions[operation[7:]]
+            operation = _get_nested_function(operation, None, functions)
 
         # Add option to group as a list
         elif operation == "list":
