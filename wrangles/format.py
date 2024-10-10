@@ -1,4 +1,5 @@
 from typing import Union as _Union
+import types as _types
 import re as _re
 import pandas as _pandas
 import numpy as _np
@@ -214,24 +215,70 @@ def significant_figures(input_list: list, sig_figs: int = 3) -> list:
 
     return results
 
-# Super Mario function
-def tokenize(input):
+def tokenize(
+    input,
+    method="space",
+    func=None,
+    pattern=None
+):
     """
     Tokenizes everything in a list that has spaces
     Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
     Ex: 'Cookie Monster -> ['Cookie', 'Monster']
+
+    :param input: The list of strings to tokenize
+    :param method: The method to tokenize. Can be 'space', 'boundary' or 'boundary_ignore_space'
+    :param func: A function to use to tokenize the input instead of the default methods
+    :param pattern: A custom regex pattern or regex string to split the input on
+    :return: The tokenized list
     """
+    word_boundary_pattern = _re.compile(r"([\b\W\b])")
+
+    def split_boundary_ignore_space(value):
+        return [
+            x
+            for x in word_boundary_pattern.split(value)
+            if x.replace(' ', '') != ''
+        ]
+
+    def split_boundary(value):
+        return [
+            x
+            for x in word_boundary_pattern.split(value)
+            if x != ''
+        ]
+
+    def split_space(value):
+        return value.split()
     
-    results = []
-    for item in input:
-        if isinstance(item, list):
-            temp1 = [x.split() for x in item]
-            temp2 = [item for sublist in temp1 for item in sublist]
-            results.append(temp2)
-            
-        elif isinstance(item, str):
-            temp = list(filter(None, item.split()))
-            results.append(temp)
-            
-    
+    # Ensure pattern is compiled
+    if pattern and not isinstance(pattern, _re.Pattern):
+        pattern = _re.compile(pattern)
+    def split_regex(value):
+        return pattern.split(value)
+
+    if method == "space":
+        split_method = split_space
+    elif method == "boundary_ignore_space":
+        split_method = split_boundary_ignore_space
+    elif method == "boundary":
+        split_method = split_boundary
+    elif isinstance(func, _types.FunctionType):
+        split_method = func
+    elif pattern:
+        split_method = split_regex
+    else:
+        raise ValueError("Invalid method. Must be either 'space', 'boundary' or 'boundary_ignore_space'")
+
+    results = [
+        [
+            item
+            for sublist in [split_method(x) for x in item]
+            for item in sublist
+        ]
+        if isinstance(item, list)
+        else split_method(str(item))
+        for item in input
+    ]
+
     return results

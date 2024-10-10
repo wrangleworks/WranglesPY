@@ -156,6 +156,7 @@ def validate_function_args(
     if missing_args:
         raise ValueError(f"Function '{name}' requires arguments: {missing_args}")
 
+
 def add_special_parameters(
     params: dict,
     fn: _types.FunctionType,
