@@ -4,7 +4,6 @@ Functions to run extraction wrangles
 from typing import Union as _Union
 import re as _re
 import concurrent.futures as _futures
-from collections import OrderedDict as _OrderedDict
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format

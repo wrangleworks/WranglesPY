@@ -7,7 +7,7 @@ import pandas as _pd
 from .. import format as _format
 import json as _json
 import itertools as _itertools
-from ..utils import wildcard_expansion_dict
+from ..utils import wildcard_expansion_dict as _wildcard_expansion_dict
 
 def dictionary(
     df: _pd.DataFrame,
@@ -90,7 +90,7 @@ def dictionary(
             )
         )
         # Expand wildcard and regex defined columns to match the actual columns
-        output = wildcard_expansion_dict(df_temp.columns, output)
+        output = _wildcard_expansion_dict(df_temp.columns, output)
         df_temp = df_temp.rename(columns=output)
 
         # Return only the named output columns
