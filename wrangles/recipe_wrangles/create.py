@@ -12,7 +12,6 @@ from jinja2 import (
     FileSystemLoader as _FileSystemLoader,
     BaseLoader as _BaseLoader
 )
-import requests as _requests
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 

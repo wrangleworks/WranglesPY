@@ -2,15 +2,15 @@
 Compare subsets of input data
 """
 
-from collections import OrderedDict
-from difflib import SequenceMatcher
+from collections import OrderedDict as _OrderedDict
+from difflib import SequenceMatcher as _SequenceMatcher
 
 
 def _ordered_words(string, char):
     """
     Generate an ordered dictionary of words from a string.
     """
-    words = OrderedDict()
+    words = _OrderedDict()
     for word in string.split(char):
         if word not in words:
             words[word] = None
@@ -35,20 +35,20 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
         ordered_words_list = [_ordered_words(x, char) for x in row]
 
         # Initialize intersection with the words of the first string
-        common_words = OrderedDict(ordered_words_list[0])
+        common_words = _OrderedDict(ordered_words_list[0])
 
         if type == 'intersection':
 
             # Find the intersection by keeping only common words in the same order
             for words in ordered_words_list[1:]:
-                common_words = OrderedDict((k, None) for k in common_words if k in words)
+                common_words = _OrderedDict((k, None) for k in common_words if k in words)
 
             intersection = " ".join(common_words.keys())
             results.append(intersection)
 
         else:
             # Find the difference by keeping words that are in any string but not in the common words
-            all_words_flat = OrderedDict()
+            all_words_flat = _OrderedDict()
             for words in ordered_words_list:
                 for word in words:
                     if word not in all_words_flat:
@@ -94,7 +94,7 @@ def _overlap(
             continue
 
         # Create a SequenceMatcher with '-' as 'junk'
-        matcher = SequenceMatcher(lambda x: x == '-', a_str, b_str)
+        matcher = _SequenceMatcher(lambda x: x == '-', a_str, b_str)
         if matcher.ratio() == 1.0:
             if include_ratio:
                 results.append(

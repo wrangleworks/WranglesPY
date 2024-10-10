@@ -17,8 +17,6 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
-import itertools as _itertools
-from collections import ChainMap as _chainmap
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
