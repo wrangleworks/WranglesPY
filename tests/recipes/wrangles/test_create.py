@@ -618,21 +618,21 @@ def test_jinja_no_template():
     """
     Tests that the appropriate error message is shown when no template is given
     """
-    data = pd.DataFrame({
-        'data column': [{'type': 'phillips head', 'length': '3 inch'}, {'type': 'flat head', 'length': '6 inch'}]
-    })
-    recipe = """
-    wrangles:
-      - create.jinja:
-          input: data column
-          output: description
-    """
-    with pytest.raises(TypeError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'TypeError' and
-        "jinja() missing 1 required positional argument: 'template'" in info.value.args[0]
-    )
+    with pytest.raises(ValueError, match="requires arguments") as info:
+        raise wrangles.recipe.run(
+            """
+            wrangles:
+            - create.jinja:
+                input: data column
+                output: description
+            """,
+            dataframe=pd.DataFrame({
+                'data column': [
+                    {'type': 'phillips head', 'length': '3 inch'},
+                    {'type': 'flat head', 'length': '6 inch'}
+                ]
+            })
+        )
 
 def test_jinja_unsupported_template_key():
     """
@@ -684,7 +684,7 @@ def test_jinja_output_missing():
     """
     Check error if user doesn't specify output
     """
-    with pytest.raises(TypeError) as info:
+    with pytest.raises(ValueError, match="requires arguments"):
         wrangles.recipe.run(
             """
             wrangles:
@@ -700,10 +700,6 @@ def test_jinja_output_missing():
                 ]
             })
         )
-    assert (
-        info.typename == 'TypeError' and
-        "jinja() missing" in info.value.args[0]
-    )
 
 
 def test_jinja_variable_with_space():
@@ -1209,7 +1205,7 @@ def test_create_embeddings_missing_apikey():
     Test create.embeddings gives a clear
     error message when missing an api key
     """
-    with pytest.raises(TypeError, match="missing 1 required positional argument: 'api"):
+    with pytest.raises(ValueError, match="requires arguments"):
         wrangles.recipe.run(
             """
             read:

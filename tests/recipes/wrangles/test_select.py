@@ -1657,7 +1657,7 @@ class TestGroupBy:
         Test that a clear error is raised if the user
         tries to use a custom function that isn't valid
         """
-        with pytest.raises(KeyError, match="bad_function"):
+        with pytest.raises(ValueError, match="bad_function"):
             wrangles.recipe.run(
                 """
                 wrangles:
