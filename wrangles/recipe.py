@@ -278,17 +278,35 @@ def _load_recipe(
     # Interpret any variables defined by a custom function
     for k, v in variables.items():
         if isinstance(v, str) and v.lower().startswith("custom."):
-            if v[7:] in functions.keys():
-                func = functions[v[7:]]
-                fn_argspec = _inspect.getfullargspec(func)
-                if len(fn_argspec.args) == 0:
-                    variables[k] = func()
-                elif len(fn_argspec.args) == 1:
-                    variables[k] = func(variables)
-                else:
-                    raise TypeError(
-                        f"Custom function {v[7:]} must have 0 or 1 arguments"
-                    )
+            func = _get_nested_function(v, None, functions)
+            fn_argspec = _inspect.getfullargspec(func)
+            args = {}
+
+            # Full variables dict required
+            if "variables" in fn_argspec.args:
+                args["variables"] = variables
+
+            if fn_argspec.varkw:
+                # Pass all variables if function has **kwargs
+                args = {**args, **variables}
+            else:
+                # Add any named args
+                for x in fn_argspec.args:
+                    if x in variables.keys():
+                        args[x] = variables[x]
+
+            missing_args = [
+                x
+                for x in fn_argspec.args[
+                    :len(fn_argspec.args) - len(fn_argspec.defaults or [])
+                ]
+                if x not in args.keys()
+            ]
+            
+            if missing_args:
+                raise ValueError(f"Custom Function '{v[7:]}' requires arguments: {missing_args}")
+
+            variables[k] = func(**args)
 
     recipe_object = _yaml.safe_load(recipe_string)
 
