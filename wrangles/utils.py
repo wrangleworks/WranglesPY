@@ -312,21 +312,23 @@ def evaluate_conditional(statement, variables: dict = {}):
     :param statement: Python style statement
     :param variables: Dictionary of variables to use in the statement
     """
+    statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
+
+    if _re.match(r'\$\{(.+)\}', statement_modified):
+        raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
+
     try:
-        statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', statement)
-
-        if _re.match(r'\$\{(.+)\}', statement_modified):
-            raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
-
-        # Create a template with your conditional statement
+        # Evaluate the statement
         result = eval(statement_modified, variables, {})
 
-        # Convert the result to a boolean
-        result = str(result).strip().lower()
+        # Result was already a boolean
+        if isinstance(result, bool):
+            return result
+        # Result was a string like true or false
+        if isinstance(result, str) and result.strip().lower() in ['true', 'false']:
+            return result.strip().lower() == 'true'
+        # Otherwise return python truthiness
+        else:
+            return bool(result)
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
-
-    if result not in ['true', 'false']:
-        raise ValueError(f"If conditions must evaluate to true or false. Got: '{statement}'")
-
-    return result == 'true'

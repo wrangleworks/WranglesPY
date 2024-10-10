@@ -1,10 +1,11 @@
 """
-Test generic wrangles functionality, not specific
-to an individual wrangle
+Test generic wrangles functionality that
+is not specific to a particular wrangle
 """
 import wrangles
 import pandas as pd
 import numpy as np
+import pytest
 
 class TestWhere:
     """
@@ -299,90 +300,164 @@ class TestWhere:
             int(df["col1"][5]) == 5
         )
 
-def test_if_true():
-    """
-    Test that a wrangle is triggered
-    when an if statement is true
-    """
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 1
-              values:
-                header: value
-        wrangles:
-          - convert.case:
-              input: header
-              case: upper
-              if: 1 == 1
-        """
-    )
-    assert df["header"][0] == "VALUE"
 
-def test_if_false():
+class TestIf:
     """
-    Test that a wrangle is triggered
-    when an if statement is true
+    Test using if with wrangles
     """
-    df = wrangles.recipe.run(
+    def test_if_true(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header: value
-        wrangles:
-          - convert.case:
-              input: header
-              case: upper
-              if: 1 == 2
+        Test that a wrangle is triggered
+        when an if statement is true
         """
-    )
-    assert df["header"][0] == "value"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: 1 == 1
+            """
+        )
+        assert df["header"][0] == "VALUE"
 
-def test_if_template_variable():
-    """
-    Test that an if statement evaluates
-    correctly with a template variable
-    of the form ${variable}
-    """
-    df = wrangles.recipe.run(
+    def test_if_false(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header: value
-        wrangles:
-          - convert.case:
-              input: header
-              case: upper
-              if: ${var} == 1
-        """,
-        variables={"var": 1}
-    )
-    assert df["header"][0] == "VALUE"
+        Test that a wrangle is triggered
+        when an if statement is true
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: 1 == 2
+            """
+        )
+        assert df["header"][0] == "value"
 
-def test_if_variable_no_execution():
-    """
-    Test that an if statement parameterizes
-    variables correctly and does not execute
-    the values
-    """
-    df = wrangles.recipe.run(
+    def test_if_template_variable(self):
         """
-        read:
-          - test:
-              rows: 1
-              values:
-                header: value
-        wrangles:
-          - convert.case:
-              input: header
-              case: upper
-              if: not(1 == 1 and should_be_parameterized)
-        """,
-        variables={"should_be_parameterized": "1 == 2"}
-    )
-    assert df["header"][0] == "value"
+        Test that an if statement evaluates
+        correctly with a template variable
+        of the form ${variable}
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: ${var} == 1
+            """,
+            variables={"var": 1}
+        )
+        assert df["header"][0] == "VALUE"
+
+    def test_if_variable_falsy_value(self):
+        """
+        Test that an if statement evaluates
+        correctly with a template variable
+        of the form ${variable}
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: ${var}
+            """,
+            variables={"var": ""}
+        )
+        assert df["header"][0] == "value"
+
+    def test_if_variable_none_value(self):
+        """
+        Test that an if statement evaluates
+        correctly with a template variable
+        of the form ${variable}
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: ${var}
+            """,
+            variables={"var": None}
+        )
+        assert df["header"][0] == "value"
+
+    def test_invalid_python_variable(self):
+        """
+        Test that a clear error is given
+        if trying to use a variable that
+        is not a valid python variable
+        """
+        with pytest.raises(ValueError, match="may only contain chars A-z"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        header: value
+                wrangles:
+                - convert.case:
+                    input: header
+                    case: upper
+                    if: ${var with space} == 1
+                """,
+                variables={"var with space": 1}
+            )
+
+    def test_if_variable_no_execution(self):
+        """
+        Test that an if statement parameterizes
+        variables correctly and does not execute
+        the values
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: not(1 == 1 and should_be_parameterized)
+            """,
+            variables={"should_be_parameterized": "1 == 2"}
+        )
+        assert df["header"][0] == "value"
