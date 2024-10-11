@@ -35,7 +35,14 @@ no_where_list = [
     'drop',
     'split.list',
     'reindex',
-    'select.group_by'
+    'select.group_by',
+    'select.sample',
+    'pandas.head',
+    'pandas.tail',
+    'tail',
+    'head',
+    'sort',
+    'explode'
 ]
 
 # 

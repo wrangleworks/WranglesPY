@@ -2449,19 +2449,91 @@ def test_sql_objects():
 #
 # Recipe as a wrangle. Recipe-ception
 #
-def test_recipe_wrangle_1():
-    data = pd.DataFrame({
-        'col': ['Mario', 'Luigi']
-    })
-    recipe = """
-    wrangles:
-      - recipe:
-          name: 'tests/samples/recipe_ception.wrgl.yaml'
+class TestRecipe:
     """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['col'].iloc[0] == 'MARIO'
-    
-    
+    Test using a recipe as a wrangle
+    """
+    def test_recipe_wrangle(self):
+        data = pd.DataFrame({
+            'col': ['Mario', 'Luigi']
+        })
+        recipe = """
+        wrangles:
+        - recipe:
+            name: 'tests/samples/recipe_ception.wrgl.yaml'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['col'].iloc[0] == 'MARIO'
+
+    def test_recipe_input(self):
+        """
+        Test using a recipe as a wrangle with defined input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+              - recipe:
+                  input: header1
+                  wrangles:
+                    - convert.case:
+                        input: "*"
+                        case: upper
+            """
+        )
+        assert df['header1'][0] == 'VALUE1' and df['header2'][0] == 'value2'
+
+    def test_recipe_output(self):
+        """
+        Test using a recipe as a wrangle
+        that specifies an output
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+              - recipe:
+                  output: header1
+                  wrangles:
+                    - convert.case:
+                        input: "*"
+                        case: upper
+            """
+        )
+        assert df['header1'][0] == 'VALUE1' and df['header2'][0] == 'value2'
+
+    def test_recipe_where(self):
+        """
+        Test using a recipe as a wrangle
+        that specifies an output
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - recipe:
+                  where: header1 = 'b'
+                  wrangles:
+                    - convert.case:
+                        input: "*"
+                        case: upper
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'b'],
+                'header2': ['value1', 'value2']
+            })
+        )
+        assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
+
 #
 # Date Calculator
 #

@@ -788,6 +788,22 @@ def _execute_wrangles(
                             right_index=True,
                             how='left'
                         )
+                    else:
+                        # Not clear what changed - overwrite everything
+                        df = _pandas.merge(
+                            df_original,
+                            df,
+                            left_index=True,
+                            right_index=True,
+                            how='left',
+                            suffixes=('_x',None)
+                        )
+
+                        for col in df.columns:
+                            if str(col).endswith('_x'):
+                                df[col[:-2]] = df[col[:-2]].combine_first(df[col])
+
+                        df = df.drop([col for col in df.columns if str(col).endswith('_x')], axis=1)
 
                     # Ensure the column order follows the original dataframe
                     df = df[

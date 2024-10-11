@@ -1083,9 +1083,10 @@ def python(
 
 def recipe(
     df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
     name: str = None,
     variables = {},
-    output_columns = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
@@ -1107,17 +1108,33 @@ def recipe(
     """
     if not name: name = kwargs
 
-    original_df = df.copy() # copy of the original df
+    df_temp = df.copy() # copy of the original df
+
+    # Filter columns if input is specified
+    if input:
+        if not isinstance(input, list): input = [input]
+        df_temp = df_temp[input]
     
-    # Running recipe wrangle
-    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
-    
-    # column output logic
-    if output_columns is None:
-        df = df_temp
+    if output is None and input is not None:
+        output = input
+
+    # If output columns are specified, only apply to those
+    if output:
+        if not isinstance(output, list): output = [output]
+        df[output] = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )[output]
     else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
-        
+        df = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )
+
     return df
 
 
