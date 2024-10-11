@@ -179,7 +179,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False)
+            recipe = _yaml.dump(recipe, sort_keys=False, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 
