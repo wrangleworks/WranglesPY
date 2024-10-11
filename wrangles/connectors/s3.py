@@ -18,8 +18,7 @@ def read(bucket: str, key: str, access_key: str = None, secret_access_key: str =
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
-    
-    _logging.info(f": Importing Data :: {bucket}.{key}")
+    _logging.info(f": Reading data from S3 :: {bucket} / {key}")
     
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
@@ -67,8 +66,9 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
     """
-  
-  # Check if access keys are not none then auth
+    _logging.info(f": Writing data to S3 :: {bucket} / {key}")
+
+    # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
         s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
@@ -150,7 +150,8 @@ class download_files:
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
-        _logging.info(f": Downloading files from S3 :: bucket={bucket} key={key}")
+        _logging.info(f": Downloading files from S3 :: {bucket} / {key}")
+
         s3 = _boto3.client('s3', **kwargs)
 
         if isinstance(key, str): key = [key]
@@ -217,7 +218,8 @@ class upload_files:
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
-        _logging.info(f": Uploading files to S3 :: bucket={bucket} key={key}")
+        _logging.info(f": Uploading files to S3 :: {bucket} / {key}")
+
         s3 = _boto3.client('s3', **kwargs)
 
         if isinstance(file, str): file = [file]

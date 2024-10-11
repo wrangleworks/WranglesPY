@@ -119,7 +119,7 @@ def read(
     :param batch_size: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
     :param criteria: (Optional) Filter the returned data set
     """
-    _logging.info(f": Importing Data :: {host} / {partition} / {target}")
+    _logging.info(f": Reading data from PriceFx :: {host} / {partition} / {target}")
 
     # Convert target name to code
     source_code = _target_types.get(target.lower(), target)
@@ -303,7 +303,7 @@ def write(
     :param source: Required for Data Sources. Set the specific table.
     :param autoflush: Only relevant for Data Sources. If true, automatically trigger a flush after writing the data to a Data Source. Default True.
     """
-    _logging.info(f": Exporting Data :: {host} / {partition} / {target}")
+    _logging.info(f": Writing data to PriceFx :: {host} / {partition} / {target}")
 
     # Convert target name to code
     target_code = _target_types.get(target.lower(), target)

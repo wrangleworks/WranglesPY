@@ -3,11 +3,14 @@ Only for use by the WranglesXL application
 """
 import pandas as _pd
 from . import memory as _memory
+import logging as _logging
 
 class sheet():
     _schema = {}
 
     def write(df: _pd.DataFrame, **kwargs):
+        _logging.info(f": Saving data for Excel Sheet")
+
         _memory.write(
             df,
             connector = "excel.sheet.write",
