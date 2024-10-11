@@ -183,8 +183,6 @@ def _load_recipe(
 
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
-        _logging.info(f": Reading Recipe :: {recipe}")
-
         response = _requests.get(recipe)
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
@@ -192,8 +190,6 @@ def _load_recipe(
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
-        _logging.info(f": Reading Recipe :: {recipe}")
-
         metadata = _data.model(recipe)
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
