@@ -1017,93 +1017,216 @@ def test_split_dictionary_output_regex_missing_capture():
             })
         )
 
+class TestTokenize:
+    """
+    Test split.tokenize
+    """
+    def test_tokenize_1(self):
+        data = pd.DataFrame({
+        'col1': [['Stainless Steel', 'Oak Wood']],
+        })
+        recipe = """
+        wrangles:
+        - split.tokenize:
+            input: col1
+            output: out1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'][2] == 'Oak'
 
-#
-# Tokenize List
-#
-# input is a list
-def test_tokenize_1():
-    data = pd.DataFrame({
-    'col1': [['Stainless Steel', 'Oak Wood']],
-    })
-    recipe = """
-    wrangles:
-      - split.tokenize:
-          input: col1
-          output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'][2] == 'Oak'
-    
-# Input is a str
-def test_tokenize_2():
-    data = pd.DataFrame({
-        'col1': ['Stainless Steel']
-    })
-    recipe = """
-    wrangles:
-      - split.tokenize:
-          input: col1
-          output: out1
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'][1] == 'Steel'
-    
-# If the input is multiple columns (a list)
-def test_tokenize_3():
-    data = pd.DataFrame({
-        'col1': ['Iron Man'],
-        'col2': ['Spider Man'],
-    })
-    recipe = """
-    wrangles:
-      - split.tokenize:
-          input:
-            - col1
-            - col2
-          output:
-            - out1
-            - out2
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['out1'][1] == 'Man'
-    
-# if the input and output are not the same
-# If the input is multiple columns (a list)
-def test_tokenize_4():
-    data = pd.DataFrame({
-        'col1': ['Iron Man'],
-        'col2': ['Spider Man'],
-    })
-    recipe = """
-    wrangles:
-      - split.tokenize:
-          input:
-            - col1
-            - col2
-          output: out1
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
-    assert (
-        info.typename == 'ValueError' and
-        "The list of inputs and outputs must be the same length for split.tokenize" in info.value.args[0]
-    )
+    def test_tokenize_2(self):
+        """
+        Input is a str
+        """
+        data = pd.DataFrame({
+            'col1': ['Stainless Steel']
+        })
+        recipe = """
+        wrangles:
+        - split.tokenize:
+            input: col1
+            output: out1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'][1] == 'Steel'
 
-def test_tokenize_where():
-    """
-    Test split.tokenize using where
-    """
-    data = pd.DataFrame({
-        'col1': [['Stainless Steel', 'Oak Wood'], ['Titanium', 'Cedar Wood'], ['Aluminum', 'Teak Wood']],
-        'numbers': [2, 3, 4]
-    })
-    recipe = """
-    wrangles:
-      - split.tokenize:
-          input: col1
-          output: out1
-          where: numbers >= 3
-    """
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[1]['out1'][0] == 'Titanium' and df.iloc[0]['out1'] == ''
+    def test_tokenize_3(self):
+        """
+        If the input is multiple columns (a list)
+        """
+        data = pd.DataFrame({
+            'col1': ['Iron Man'],
+            'col2': ['Spider Man'],
+        })
+        recipe = """
+        wrangles:
+        - split.tokenize:
+            input:
+                - col1
+                - col2
+            output:
+                - out1
+                - out2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'][1] == 'Man'
+
+    def test_tokenize_4(self):
+        """
+        If the input and output are not the same
+        If the input is multiple columns (a list)
+        """
+        data = pd.DataFrame({
+            'col1': ['Iron Man'],
+            'col2': ['Spider Man'],
+        })
+        recipe = """
+        wrangles:
+        - split.tokenize:
+            input:
+                - col1
+                - col2
+            output: out1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            "The list of inputs and outputs must be the same length for split.tokenize" in info.value.args[0]
+        )
+
+    def test_tokenize_where(self):
+        """
+        Test split.tokenize using where
+        """
+        data = pd.DataFrame({
+            'col1': [['Stainless Steel', 'Oak Wood'], ['Titanium', 'Cedar Wood'], ['Aluminum', 'Teak Wood']],
+            'numbers': [2, 3, 4]
+        })
+        recipe = """
+        wrangles:
+        - split.tokenize:
+            input: col1
+            output: out1
+            where: numbers >= 3
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['out1'][0] == 'Titanium' and df.iloc[0]['out1'] == ''
+
+    def test_boundary(self):
+        """
+        Test using the boundary method
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                  header: >-
+                    "What is the meaning of life, the universe, and everything?"
+            wrangles:
+            - split.tokenize:
+                input: header
+                method: boundary
+            """
+        )
+        assert (
+            df["header"][0][:15]
+            ==
+            ['"', 'What', ' ', 'is', ' ', 'the', ' ', 'meaning', ' ', 'of', ' ', 'life', ',', ' ', 'the']
+        )
+
+    def test_boundary_without_spaces(self):
+        """
+        Test using the boundary ignore space method
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                  header: >-
+                    "What is the meaning of life, the universe, and everything?"
+            wrangles:
+            - split.tokenize:
+                input: header
+                method: boundary_ignore_space
+            """
+        )
+        assert (
+            df["header"][0][:9]
+            ==
+            ['"', 'What', 'is', 'the', 'meaning', 'of', 'life', ',', 'the']
+        )
+
+    def test_custom_function(self):
+        """
+        Test using a custom function
+        """
+        def func(value):
+            return value.split("a")
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                  header: >-
+                    "What is the meaning of life, the universe, and everything?"
+            wrangles:
+            - split.tokenize:
+                input: header
+                method: custom.func
+            """,
+            functions=func
+        )
+        assert (
+            df["header"][0]
+            ==
+            ['"Wh', 't is the me', 'ning of life, the universe, ', 'nd everything?"']
+        )
+    def test_regex(self):
+        """
+        Test using a regex pattern
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                  header: >-
+                    "What is the meaning of life, the universe, and everything?"
+            wrangles:
+            - split.tokenize:
+                input: header
+                method: regex:[wsg]
+            """
+        )
+        assert (
+            df["header"][0]
+            ==
+            ['"What i', ' the meanin', ' of life, the univer', 'e, and everythin', '?"']
+        )
+
+    def test_invalid_method(self):
+        """
+        Ensure a clear error is given if an invalid method is provided
+        """
+        with pytest.raises(ValueError, match="Method must be one of"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1
+                    values:
+                      header: string
+                wrangles:
+                - split.tokenize:
+                    input: header
+                    method: invalid_value
+                """
+            )

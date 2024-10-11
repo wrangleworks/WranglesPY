@@ -7,7 +7,11 @@ import pandas as _pd
 from .. import format as _format
 import json as _json
 import itertools as _itertools
-from ..utils import wildcard_expansion_dict as _wildcard_expansion_dict
+import re as _re
+from ..utils import (
+    wildcard_expansion_dict as _wildcard_expansion_dict,
+    get_nested_function as _get_nested_function
+)
 
 def dictionary(
     df: _pd.DataFrame,
@@ -251,25 +255,50 @@ def text(
     return df
 
 
-def tokenize(df: _pd.DataFrame, input: _Union[str, _list], output: _Union[str, _list] = None) -> _pd.DataFrame:
+def tokenize(
+    df: _pd.DataFrame,
+    input: _Union[str, _list],
+    output: _Union[str, _list] = None,
+    method: str = 'space',
+    functions: dict = {}
+) -> _pd.DataFrame:
     """
     type: object
-    description: Tokenize elements in a list into individual tokens.
+    description: >-
+      Split text into tokens. A variety of methods are available.
+      The default method is to split on spaces.
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
         type:
           - string
           - array
-        description: list in column to split
+        description: Column(s) to be split into tokens
       output:
         type: 
           - string
           - array
         description: Name of the output column
+      method:
+        anyOf:
+          - type: string
+            enum:
+              - space
+              - boundary
+              - boundary_ignore_space
+            description: >-
+              Method to split the list.
+              Options: space, boundary, boundary_ignore_space
+              or use a custom function with custom.<function>
+              or use a regex pattern with regex:<pattern>
+          - type: string
+            description: >-
+              Method to split the list.
+              Options: space, boundary, boundary_ignore_space
+              or use a custom function with custom.<function>
+              or use a regex pattern with regex:<pattern>
     """
     if output is None: output = input
     
@@ -281,7 +310,25 @@ def tokenize(df: _pd.DataFrame, input: _Union[str, _list], output: _Union[str, _
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
     
+    func = None
+    pattern = None
+
+    # User defined custom function
+    if str(method).startswith("custom."):
+        func = _get_nested_function(method, None, functions)
+        method = "function"
+    # User defined Regex pattern
+    elif str(method).lower().startswith("regex:"):
+        pattern = method[6:].strip()
+        method = "regex"
+    # Default methods
+    elif method not in ['space', 'boundary', 'boundary_ignore_space']:
+        raise ValueError(
+            'Method must be one of: space, boundary, '
+            'boundary_ignore_space, custom.<function>, regex:<pattern>'
+        )
+
     for in_col, out_col in zip(input, output):
-        df[out_col] = _format.tokenize(df[in_col].values.tolist())
+        df[out_col] = _format.tokenize(df[in_col].values.tolist(), method, func, pattern)
             
     return df
