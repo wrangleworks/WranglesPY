@@ -39,6 +39,11 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     # If user does not pass a file object then use name
     if file_object is None:
         file_object = name
+    else:
+        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+            # If the file is passed in memory but indicates it is gzipped,
+            # then set appropriate compression as it can't be inferred
+            kwargs['compression'] = 'gzip'
     
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
@@ -147,6 +152,11 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
 
         # Set file object to name
         file_object = name
+    else:
+        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+            # If the file is passed in memory but indicates it is gzipped,
+            # then set appropriate compression as it can't be inferred
+            kwargs['compression'] = 'gzip'
 
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:

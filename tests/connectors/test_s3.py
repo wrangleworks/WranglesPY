@@ -4,8 +4,6 @@ import wrangles
 import pytest
 import time
 
-from wrangles.connectors.s3 import read, write
-
 s3_key = os.getenv('AWS_ACCESS_KEY_ID', '...')
 s3_secret = os.getenv('AWS_SECRET_ACCESS_KEY', '...')
 
@@ -173,3 +171,36 @@ def test_upload_error():
                       - Test_Upload_File.csv
             """
         )
+
+def test_write_and_read_gzip():
+    """
+    Test writing and reading a gzipped file
+    """
+    # Upload random data
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1000
+              values:
+                header: <sentence>
+        write:
+          - s3:
+              bucket: wrwx-public
+              key: test_gzip.csv.gz
+        """
+    )
+
+    time.sleep(1)
+    random_sentence = df['header'][0]
+
+    # Download and verify it matches
+    df = wrangles.recipe.run(
+        """
+        read:
+          - s3:
+              bucket: wrwx-public
+              key: test_gzip.csv.gz
+        """
+    )
+    assert df['header'][0] == random_sentence
