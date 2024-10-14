@@ -4,6 +4,7 @@ Connector to make http(s) requests
 import requests as _requests
 import pandas as _pd
 from typing import Union as _Union
+import logging as _logging
 
 
 def _get_oauth_token(url, method="POST", **kwargs):
@@ -44,6 +45,8 @@ def run(
     :param oauth: Make a request to get an OAuth token prior
       to sending the main request
     """
+    _logging.info(f": Making http request :: {url}")
+
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
     
@@ -148,6 +151,8 @@ def read(
     :param orient: The format of the JSON to be converted to a dataframe. Default records.
     :return: A pandas DataFrame
     """
+    _logging.info(f": Reading data from http :: {url}")
+
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
 
@@ -282,6 +287,8 @@ def write(
         If False, send each row as a separate request.
         If an integer, send the DataFrame in batches of that size.
     """
+    _logging.info(f": Writing data to http :: {url}")
+
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
 

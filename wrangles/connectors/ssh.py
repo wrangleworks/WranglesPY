@@ -5,6 +5,8 @@ from fabric import Connection as _Connection
 from typing import Union as _Union
 from paramiko import RSAKey as _RSAKey
 from io import StringIO as _StringIO
+import logging as _logging
+
 
 _schema = {}
 
@@ -19,6 +21,8 @@ def run(host: str, user: str, command: _Union[str, list], password: str = None, 
     :param private_key: Provide an RSA Private Key as a string
     :param command: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands.  
     """
+    _logging.info(f": Executing SSH command :: {host}")
+
     # If user has passed a single command, convert to a list of one
     if isinstance(command, str): command = [command]
 

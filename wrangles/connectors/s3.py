@@ -8,7 +8,13 @@ from . import file as _file
 
 _schema = {}
 
-def read(bucket: str, key: str, access_key: str = None, secret_access_key: str = None, **kwargs) -> _pd.DataFrame:
+def read(
+    bucket: str,
+    key: str,
+    access_key: str = None,
+    secret_access_key: str = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     Import data from a file in AWS S3
     
@@ -18,8 +24,7 @@ def read(bucket: str, key: str, access_key: str = None, secret_access_key: str =
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
-    
-    _logging.info(f": Importing Data :: {bucket}.{key}")
+    _logging.info(f": Reading data from S3 :: {bucket} / {key}")
     
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
@@ -27,8 +32,18 @@ def read(bucket: str, key: str, access_key: str = None, secret_access_key: str =
     else:
         # if using environment variables
         s3 = _boto3.client('s3')
-      
-    response = s3.get_object(Bucket=bucket, Key=key)['Body']
+    
+    try:
+        response = s3.get_object(Bucket=bucket, Key=key)['Body']
+    except s3.exceptions.NoSuchKey:
+        raise FileNotFoundError(f"File not found in S3 bucket :: {bucket} / {key}")
+    except s3.exceptions.NoSuchBucket:
+        raise RuntimeError(f"S3 bucket does not exist :: {bucket} / {key}")
+    except s3.exceptions.ClientError as e:
+        raise RuntimeError(f"Failed to read file from S3 :: {e.response.get('Error', {}).get('Message', '')} :: {bucket} / {key}")
+    except:
+        raise RuntimeError(f"Failed to read file from S3 :: {bucket} / {key}")
+
     response = _BytesIO(response.read())
     df = _file.read(key, file_object=response, **kwargs)    
  
@@ -67,8 +82,9 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
     """
-  
-  # Check if access keys are not none then auth
+    _logging.info(f": Writing data to S3 :: {bucket} / {key}")
+
+    # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
         s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
@@ -79,8 +95,17 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     _file.write(df, name=key, file_object=memory_file, **kwargs)
     memory_file.seek(0, 0)
     _logging.info(f": Writing File :: {bucket}.{key}")
-    s3.put_object(Bucket=bucket, Body=memory_file, Key=key)
-    
+
+    try:
+        s3.put_object(Bucket=bucket, Body=memory_file, Key=key)
+    except s3.exceptions.NoSuchBucket:
+        raise RuntimeError(f"S3 bucket does not exist :: {bucket} / {key}")
+    except s3.exceptions.ClientError as e:
+        raise RuntimeError(f"Failed to write file to S3 :: {e.response.get('Error', {}).get('Message', '')} :: {bucket} / {key}")
+    except:
+        raise RuntimeError(f"Failed to write file to S3 :: {bucket} / {key}")
+
+
 _schema['write'] = """
 type: object
 description: Write a file to AWS S3
@@ -150,7 +175,8 @@ class download_files:
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
-        _logging.info(f": Downloading files from S3 :: bucket={bucket} key={key}")
+        _logging.info(f": Downloading files from S3 :: {bucket} / {key}")
+
         s3 = _boto3.client('s3', **kwargs)
 
         if isinstance(key, str): key = [key]
@@ -167,7 +193,17 @@ class download_files:
             raise ValueError('s3.download_files: An equal number of keys and files must be provided')
 
         for f, k in zip(file, key):
-            s3.download_file(bucket, k, f)
+            try:
+                s3.download_file(bucket, k, f)
+            except s3.exceptions.ClientError as e:
+                if e.response.get('Error', {}).get('Code') == "404":
+                    raise FileNotFoundError(f"File not found :: {bucket} / {k}")
+                elif e.response.get('Error', {}).get('Code') == "403":
+                    raise PermissionError(f"Permission denied to download file :: {bucket} / {k}")
+                else:
+                    raise RuntimeError(f"Failed to download file from S3 :: {e.response.get('Error', {}).get('Message', '')} :: {bucket} / {k}")
+            except:
+                raise RuntimeError(f"Failed to download file from S3 :: {bucket} / {k}")
 
 class upload_files:
     """
@@ -217,7 +253,8 @@ class upload_files:
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
-        _logging.info(f": Uploading files to S3 :: bucket={bucket} key={key}")
+        _logging.info(f": Uploading files to S3 :: {bucket} / {key}")
+
         s3 = _boto3.client('s3', **kwargs)
 
         if isinstance(file, str): file = [file]
@@ -234,4 +271,7 @@ class upload_files:
             raise ValueError('s3.upload_files: An equal number of files and keys must be provided')
 
         for f, k in zip(file, key):
-            s3.upload_file(f, bucket, k)
+            try:
+                s3.upload_file(f, bucket, k)
+            except:
+                raise RuntimeError(f"Failed to write file to S3 :: {bucket} / {k}")

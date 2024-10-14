@@ -169,19 +169,17 @@ def _load_recipe(
     """
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
-    else:
-        _logging.info(": Reading Recipe :: inline")
-    
-    # Dict to store functions stored within a model
-    model_functions = {}
     
     # Load the recipe from the various supported formats
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False)
+            recipe = _yaml.dump(recipe, sort_keys=False, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
+
+    # Dict to store functions stored within a model
+    model_functions = {}
 
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
