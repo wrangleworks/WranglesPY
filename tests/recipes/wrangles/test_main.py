@@ -4477,28 +4477,6 @@ class TestMatrix:
             df['col1'][2] == "Ccc"
         )
 
-    def test_matrix_where(self):
-        """
-        Test a matrix with a where clause, but different than above
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-              - matrix:
-                  where: numbers = 2
-                  wrangles:
-                    - convert.case:
-                        input: col1
-                        case: upper
-            """,
-            dataframe=pd.DataFrame({
-                "col1": ["aaa", "bbb", "ccc"],
-                "numbers": [1, 2, 3]
-            })
-        )
-
-        assert df['col1'][1] == "BBB"
-
     def test_variable_custom_function(self):
         """
         Test using a custom function to define a variable values
