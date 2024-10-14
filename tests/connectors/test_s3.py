@@ -172,35 +172,33 @@ def test_upload_error():
             """
         )
 
-def test_write_and_read_gzip():
+def test_read_gzip():
     """
     Test writing and reading a gzipped file
     """
-    # Upload random data
-    df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 1000
-              values:
-                header: <sentence>
-        write:
-          - s3:
-              bucket: wrwx-public
-              key: test_gzip.csv.gz
-        """
-    )
-
-    time.sleep(1)
-    random_sentence = df['header'][0]
-
     # Download and verify it matches
     df = wrangles.recipe.run(
         """
         read:
           - s3:
               bucket: wrwx-public
-              key: test_gzip.csv.gz
+              key: test_gzip_read.csv.gz
         """
     )
-    assert df['header'][0] == random_sentence
+    assert df['header'][0] == 'Sed magnam tempora adipisci velit eius consectetur'
+
+def test_write_gzip():
+    # Upload random data
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 100
+              values:
+                header: <sentence>
+        write:
+          - s3:
+              bucket: wrwx-public
+              key: test_gzip_write.csv.gz
+        """
+    )
