@@ -576,6 +576,21 @@ def test_split_list_2():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df.iloc[0]['out2'] == 'Wrangles!'
+
+def test_split_list_where():
+    data = pd.DataFrame({
+    'Col': [['Hello', 'Wrangles!'], ['Hola', 'Mundo!'], ['Bonjour', 'Monde!']],
+    'numbers': [4, 5, 6]
+    })
+    recipe = """
+    wrangles:
+        - split.list:
+            input: Col
+            output: Col*
+            where: numbers > 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.index.to_list() == [1, 2] and df.iloc[0]['Col1'] == 'Hola'
     
 #
 # Split from Dict

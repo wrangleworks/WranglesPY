@@ -622,6 +622,24 @@ class TestLog:
         wrangles.recipe.run(recipe, dataframe=data)
         assert 'Bearing\n19' in caplog.messages[-1] and 'Bearing\n20' not in caplog.messages[-1]
 
+    def test_log_where(self, caplog):
+        """
+        Test log when specifying columns
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken', 'Cheese', 'Pizza'],
+        'numbers': [4, 3, 2]
+        })
+        recipe = """
+        wrangles:
+            - log:
+                columns:
+                  - Col1
+                where: numbers >= 3
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n1   Cheese\n'
+
 #
 # Remove Words
 #
@@ -1651,6 +1669,27 @@ def test_similarity_invalid_method():
         'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
     )
 
+def test_similarity_cosine_where():
+    """
+    Test cosine similarity with where
+    """
+    data = pd.DataFrame({
+        'col1': [[1,2,3,4,5], [6,7,8,9,10], [2, 3, 4, 5, 6]],
+        'col2': [[5,4,3,2,1], [6,7,8,9,10], [2, 9, 4, 5, 6]],
+        'numbers': [4, 3, 2]
+    })
+    recipe = """
+    wrangles:
+        - similarity:
+            input:
+              - col1
+              - col2
+            output: Cos Sim
+            method: cosine
+            where: numbers < 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Cos Sim'] == '' and df.iloc[1]['Cos Sim'] == 1.0
 
 #
 # Standardize
@@ -2446,6 +2485,24 @@ def test_sql_objects():
         df['header2'][0] == ['c'] and
         df['header3'][0] == {"Object": "z"}
     )
+
+def test_sql_where():
+    data = pd.DataFrame({
+        'header1': [1, 2, 3],
+        'header2': ['a', 'b', 'c'],
+        'header3': ['x', 'y', 'z'],
+    })
+    recipe = """
+    wrangles:
+      - sql:
+          command: |
+            SELECT header1, header2
+            FROM df
+          where: header1 >= 2
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['header1'] == 2
+
 #
 # Recipe as a wrangle. Recipe-ception
 #
@@ -2460,6 +2517,20 @@ def test_recipe_wrangle_1():
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert df['col'].iloc[0] == 'MARIO'
+
+def test_recipe_wrangle_where():
+    data = pd.DataFrame({
+        'col': ['Mario', 'Luigi', 'Peach', 'Toadstool'],
+        'numbers': [3, 4, 5, 6]
+    })
+    recipe = """
+    wrangles:
+      - recipe:
+          name: 'tests/samples/recipe_ception.wrgl.yaml'
+          where: numbers > 4
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df['col'].iloc[0] == 'PEACH' and df['col'].iloc[1] == 'TOADSTOOL'
     
     
 #
@@ -2981,6 +3052,26 @@ class TestPython:
             """
         )
         assert df["result1"][0] == "error1" and df["result2"][0] == "error2"
+
+    def test_python_where(self):
+        """
+        Test a simple python command with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: header1 + " " + header2
+                output: result
+                where: numbers = 6
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            })
+        )
+        assert df["result"][0] == '' and df['result'][2] == 'z p'
 
 
 def test_accordion():
@@ -3578,6 +3669,28 @@ def test_accordion_empty_list():
     assert df["list_column"][0] == ["A","B","C"]
     assert df["list_column"][1] == []
 
+def test_accordion_where():
+    """
+    Test an accordion with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - accordion:
+              input: list_column
+              where: numbers = 1
+              wrangles:
+                - convert.case:
+                    input: list_column
+                    case: upper
+        """,
+        dataframe=pd.DataFrame({
+            "list_column": [["a","b","c"], ["e","f","g"], ["h","i","j"]],
+            "numbers": [1, 2, 3]
+        })
+    )
+    assert df["list_column"][0] == ["A","B","C"] and df["list_column"][1] == ["e","f","g"]
+
 class TestBatch:
     """
     Test batch wrangle
@@ -3916,6 +4029,34 @@ class TestBatch:
         assert len(df) == 5
         assert df["column"][0] == "b"
         assert df["column"][4] == "err"
+
+    def test_batch_where(self):
+        """
+        Test batch with where. This doesn't seem to work but I'll leave the test here anyway
+        """
+        number_of_batches = [0]
+        def record_batch(df):
+            number_of_batches[0] += 1
+            return df
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  where: numbers = 1
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        output: output col
+                        case: upper
+            """,
+            dataframe=pd.DataFrame({
+            "column": [["a","b","c"], ["e","f","g"], ["h","i","j"]],
+            "numbers": [1, 2, 3]
+        })
+        )
+        
+        assert df['output col'][0] == ''
 
 class TestLookup:
     """
@@ -4336,6 +4477,28 @@ class TestMatrix:
             df['col1'][2] == "Ccc"
         )
 
+    def test_matrix_where(self):
+        """
+        Test a matrix with a where clause, but different than above
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - matrix:
+                  where: numbers = 2
+                  wrangles:
+                    - convert.case:
+                        input: col1
+                        case: upper
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["aaa", "bbb", "ccc"],
+                "numbers": [1, 2, 3]
+            })
+        )
+
+        assert df['col1'][1] == "BBB"
+
     def test_variable_custom_function(self):
         """
         Test using a custom function to define a variable values
@@ -4581,6 +4744,50 @@ class TestConcurrent:
                 """
             )
 
+    def test_multithreaded_where(self):
+        """
+        Test concurrent wrangle with where
+        """
+        start = datetime.now()
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - concurrent:
+                  where: numbers > 1
+                  wrangles:
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_a
+                        duration: 3
+                        value: a
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_b
+                        duration: 2
+                        value: b
+                    - custom.wait_then_update:
+                        input: column
+                        output: column_c
+                        duration: 5
+                        value: c
+            """,
+            dataframe=pd.DataFrame({
+            "column": ["a","b","c"],
+            "numbers": [1, 2, 3]
+            }),
+            functions=wait_then_update
+        )
+
+        end = datetime.now()
+
+        assert (
+            df['column_a'][0] == '' and
+            df['column_b'][1] == 'bb' and
+            df['column_c'][2] == 'cc' and
+            5 <= (end - start).seconds < 10
+        )
+
 class TestTry:
     """
     Test try
@@ -4721,3 +4928,24 @@ class TestTry:
             df['header'][0] == 'value' and
             df['should_fail'][0] == 'VALUE'
         )
+
+    def test_try_fail_where(self):
+        """
+        Test a try that fails using where.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - try:
+                  where: numbers = 8
+                  wrangles:
+                    - math:
+                        input: header * 2
+                        output: should_fail
+            """,
+            dataframe=pd.DataFrame({
+                "header": ["value1", "value2", 'value3'],
+                "numbers": [5, 8, 18]
+            })
+        )
+        assert df['header'][1] == 'value2' and df.index.to_list() == [1]

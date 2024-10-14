@@ -583,6 +583,26 @@ def test_explode_reset_index_true():
     )
     assert df.index.to_list() == [0, 1, 2, 3, 4, 5, 6]
 
+def test_explode_where():
+    """
+    Test explode basic function with where.
+    Explode is included in the nowhere list,
+    so this does not really work properly.
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - explode:
+              input: column
+              where: numbers = 14
+        """,
+        dataframe=pd.DataFrame({
+            'column': [['a', 'b', 'c'], ['f', 't', 'l'], ['w', 'k', 'm', 'b'], ['d', 'e']],
+            'numbers': [4, 7, 14, 19]
+        })
+    )
+    assert df['column'].tolist() == ['w', 'k', 'm', 'b']
+
 def test_sort():
     """
     Test default sort
@@ -627,3 +647,22 @@ def test_sort_descending():
         df["column"][0] >= df["column"][1]
         and df["column"].tolist()[-2] >= df["column"].tolist()[-1]
     )
+
+def test_sort_where():
+    """
+    Test default sort with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - sort:
+              by: column
+              where: numbers > 2
+        """,
+        dataframe=pd.DataFrame({
+            'column': [3, 1, 5, 2, 4],
+            'numbers': [1, 2, 3, 4, 5]
+        })
+    )
+
+    assert df["column"].tolist() == [2, 4, 5]

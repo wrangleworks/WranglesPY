@@ -523,6 +523,26 @@ def test_extract_codes_one_input_multi_output():
         'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
     )
 
+def test_extract_codes_where():
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.codes:
+            input: column
+            output: code
+            where: numbers > 6
+        """, 
+        dataframe=pd.DataFrame({
+                "column": [
+                        'This is a code Z1ON0101',
+                        'This is also a code Z151HG52',
+                        'Yet another code HK21454L'
+                    ],
+                "numbers": [5, 7, 8]
+            })
+        )
+    assert df.iloc[1]['code'] == ['Z151HG52'] and df.iloc[0]['code'] == ''
+
 #
 # Custom Extraction
 #
@@ -1339,6 +1359,30 @@ def test_properties_6():
 
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert 'Blue' in df.iloc[0]['out'] and 'Sky Blue' in df.iloc[0]['out']
+
+def test_extract_properties_where():
+    """
+    Test extract.properties with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.properties:
+              input: column
+              output: colour
+              property_type: colours
+              where: numbers > 6
+        """,
+        dataframe=pd.DataFrame({
+                "column": [
+                        'Red is a colour',
+                        'White is a colour',
+                        'Blue is a colour'
+                    ],
+                "numbers": [5, 7, 8]
+            })
+    )
+    assert df['colour'][0] == '' and df['colour'][1] == ['White']
     
 #
 # HTML
@@ -1371,6 +1415,29 @@ def test_extract_html_links():
     """
     df = wrangles.recipe.run(recipe, dataframe=df_test_html)
     assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+
+def test_extract_html_where():
+    """
+    Test extract.properties with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - extract.html:
+              input: column
+              output: Link
+              data_type: links
+              where: numbers > 6
+        """,
+        dataframe=pd.DataFrame({
+                "column": [
+                        r'<a href="https://www.wrangles.io/">Wrangle Works!</a>',
+                        r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>'
+                    ],
+                "numbers": [5, 7]
+            })
+    )
+    assert df['Link'][0] == '' and df['Link'][1] == ['https://www.wrangleworks.com/']
     
 #
 # Brackets
@@ -1815,6 +1882,27 @@ def test_date_range_2():
         info.typename == 'ValueError' and
         '"millennium" not a valid frequency' in info.value.args[0]
     )
+
+def test_date_range_where():
+    """
+    Test extract.date_range with where
+    """
+    data = pd.DataFrame({
+      'date1': ['08-13-1992', '11-10-1987', '09-15-1933'],
+      'date2': ['08-13-2022', '11-10-2024', '09-15-2024'],
+      'number': [4, 9, 13]
+    })
+    recipe = """
+    wrangles:
+      - extract.date_range:
+          start_time: date1
+          end_time: date2
+          output: Range
+          range: years
+          where: number > 8
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.iloc[0]['Range'] == '' and df.iloc[1]['Range'] == 36 and df.iloc[2]['Range'] == 90
 
 class TestAiExtract:
     """

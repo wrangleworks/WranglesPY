@@ -1242,3 +1242,28 @@ def test_create_embeddings_invalid_apikey():
                 retries: 1
             """
         )
+
+def test_create_embeddings_where():
+    """
+    Test generating openai embeddings with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - create.embeddings:
+              input: column
+              output: embedding
+              api_key: ${OPENAI_API_KEY}
+              retries: 1
+              where: numbers > 7
+        """,
+        dataframe=pd.DataFrame({
+                "column": [
+                        'This is a test',
+                        'This is also a test',
+                        'Yet another test'
+                    ],
+                "numbers": [5, 7, 8]
+            })
+    )
+    assert df['embedding'][0] == '' and len(df['embedding'][2]) == 1536

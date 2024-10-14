@@ -2053,6 +2053,25 @@ def test_element_json():
     )
     assert df["result"][0] == "a"
 
+def test_element_where():
+    """
+    Test get element with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.element:
+              input: column[0]
+              output: result
+              where: numbers > 6
+        """,
+        dataframe=pd.DataFrame({
+            "column": [["a", "b", "c"], [1, 2, 3], ['do', 're', 'mi']],
+            'numbers': [6, 7, 8]
+        })
+    )
+    assert df["result"][0] == "" and df["result"][1] == 1 and df["result"][2] == "do"
+
 def test_select_columns_basic():
     """
     Test select.columns using basic inputs
@@ -2121,6 +2140,28 @@ def test_select_column_with_non_existing_cols():
         raise wrangles.recipe.run(recipe=recipe, dataframe=data)
     assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
     
+def test_select_columns_where():
+    """
+    Test select.columns with where.
+    This is broken, but I am going to leave it here for now.
+    """
+    data = pd.DataFrame({
+        'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
+        'Col2': [1, 2, 3],
+        'Col3': [4, 5, 6],
+        'Col4': [7, 8, 9],
+        'Col5': [10, 11, 12]
+    })
+    recipe = """
+    wrangles:
+        - select.columns:
+            input:
+                - Col1
+                - Col5
+            where: Col5 > 11
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Col4', 'Col5']
 
 def test_head():
     """

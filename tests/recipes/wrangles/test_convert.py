@@ -708,6 +708,28 @@ class TestFromYAML:
             df["column"][1]["key"] == "val"
         )
 
+    def test_default_where(self):
+        """
+        Test converting YAML to an object with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+                output: output col
+                where: numbers > 6
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "key: val\nkey2:\n- list1\n- list2\n",
+                    "key3: val\nkey4:\n- list1\n- list2\n",
+                    "key5: val\nkey6:\n- list1\n- list2\n",
+                    ],
+                "numbers": [5, 7, 8]
+            })
+        )
+        assert df['output col'][0]== ''
 
 class TestToJSON:
     """
@@ -1095,3 +1117,26 @@ class TestToYAML:
             })
         )
         assert df['column'][0] == 'key: this is a ° symbol\n'
+
+    def test_default_where(self):
+        """
+        Test converting an object to YAML with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+                output: output col
+                where: numbers > 6
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                        {"key": "val", "key2": ["list1", "list2"]},
+                        {"key3": "val", "key4": ["list1", "list2"]},
+                        {"key5": "val", "key6": ["list1", "list2"]},
+                    ],
+                "numbers": [5, 7, 8]
+            })
+        )
+        assert df['output col'][0] == ""

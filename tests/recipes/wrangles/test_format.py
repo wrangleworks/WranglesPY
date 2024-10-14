@@ -581,3 +581,41 @@ def test_sig_figs_with_value():
             ''
         ]
     )
+
+def test_sig_figs_where():
+    """
+    Test converting multiple number types to desired
+    significant figures with where
+    """
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+        - format.significant_figures:
+            input: col1
+            output: out1
+            where: numbers > 5
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                '13.45644 ft',
+                'length: 34453.3323ft',
+                '34.234234',
+                'nothing here',
+                13.4565,
+                1132424,
+                ''
+            ], 
+            'numbers': [3, 4, 5, 6, 7, 8, 9]
+        })
+    )
+    assert (
+        df['out1'].to_list() == [
+            '',
+            '',
+            '',
+            'nothing here',
+            13.5,
+            1130000,
+            ''
+        ]
+    )
