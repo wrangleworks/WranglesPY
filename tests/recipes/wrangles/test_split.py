@@ -578,6 +578,9 @@ def test_split_list_2():
     assert df.iloc[0]['out2'] == 'Wrangles!'
 
 def test_split_list_where():
+    """
+    Test split.list using where
+    """
     data = pd.DataFrame({
     'Col': [['Hello', 'Wrangles!'], ['Hola', 'Mundo!'], ['Bonjour', 'Monde!']],
     'numbers': [4, 5, 6]

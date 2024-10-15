@@ -1292,6 +1292,50 @@ class TestRename:
         )
         assert df["column1"][0] == "value2" and df["column2"][0] == "value1"
 
+    def test_rename_dict_where(self):
+        """
+        Rename using a dictionary of columns with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - rename:
+                Manufacturer Name: Company
+                Part Number: MPN
+                where: numbers > 5
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos', 'Timken', 'SKF'],
+                'Part Number': ['CH465517080', 'BR549', '6202-f'],
+                'numbers': [4, 6, 8]
+            })
+        )
+        assert df.index.to_list() == [1, 2] and df.columns.to_list() == ['Company', 'MPN', 'numbers']
+
+    def test_rename_input_output_where(self):
+        """
+        Rename using a dictionary of columns with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - rename:
+                input: 
+                  - Manufacturer Name
+                  - Part Number
+                output:
+                  - Company
+                  - MPN
+                where: numbers > 5
+            """,
+            dataframe = pd.DataFrame({
+                'Manufacturer Name': ['Delos', 'Timken', 'SKF'],
+                'Part Number': ['CH465517080', 'BR549', '6202-f'],
+                'numbers': [4, 6, 8]
+            })
+        )
+        assert df.index.to_list() == [1, 2] and df.columns.to_list() == ['Company', 'MPN', 'numbers']
+
 #
 # Cosine Similarity
 #
@@ -2487,6 +2531,9 @@ def test_sql_objects():
     )
 
 def test_sql_where():
+    """
+    Test sql with a where
+    """
     data = pd.DataFrame({
         'header1': [1, 2, 3],
         'header2': ['a', 'b', 'c'],
@@ -2519,6 +2566,9 @@ def test_recipe_wrangle_1():
     assert df['col'].iloc[0] == 'MARIO'
 
 def test_recipe_wrangle_where():
+    """
+    Test a recipe wrangle using where
+    """
     data = pd.DataFrame({
         'col': ['Mario', 'Luigi', 'Peach', 'Toadstool'],
         'numbers': [3, 4, 5, 6]
@@ -4477,6 +4527,27 @@ class TestMatrix:
             df['col1'][2] == "Ccc"
         )
 
+    def test_matrix_where(self):
+        """
+        Test a matrix with a where clause, but different than above
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - matrix:
+                  where: numbers = 2
+                  wrangles:
+                    - convert.case:
+                        input: col1
+                        case: upper
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["aaa", "bbb", "ccc"],
+                "numbers": [1, 2, 3]
+            })
+        )
+        assert df['col1'][1] == "BBB" and df.index.to_list() == [1]
+
     def test_variable_custom_function(self):
         """
         Test using a custom function to define a variable values
@@ -4765,6 +4836,43 @@ class TestConcurrent:
             df['column_c'][2] == 'cc' and
             5 <= (end - start).seconds < 10
         )
+
+class TestTranspose:
+    """
+    All transpose tests
+    """
+    def test_pd_transpose(self):
+        """
+        Test transpose
+        """
+        data = pd.DataFrame({
+            'col': ['Mario'],
+            'col2': ['Luigi'],
+            'col3': ['Bowser'],
+        }, index=['Characters'])
+        recipe = """
+        wrangles:
+          - transpose: {}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['Characters']
+
+    def test_transpose_where(self):
+        """
+        Test transpose with where
+        """
+        data = pd.DataFrame({
+            'col': ['Mario', 'Luigi', 'Koopa'],
+            'col2': ['Luigi', 'Bowser', 'Peach'],
+            'numbers': [4, 2, 8]
+        })
+        recipe = """
+        wrangles:
+          - transpose:
+              where: numbers > 3
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.index.to_list() == ['col', 'col2', 'numbers'] and df.columns.to_list() == [0, 2]
 
 class TestTry:
     """

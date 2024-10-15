@@ -524,6 +524,9 @@ def test_extract_codes_one_input_multi_output():
     )
 
 def test_extract_codes_where():
+    """
+    Test extract.codes with a where
+    """
     df = wrangles.recipe.run(
         """
         wrangles:

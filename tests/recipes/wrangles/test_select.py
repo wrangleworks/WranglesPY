@@ -2179,6 +2179,24 @@ def test_head():
     )
     assert df["heading"].values.tolist() == [1,2,3]
 
+def test_head_where():
+    """
+    Test using head with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.head:
+              n: 2
+              where: numbers > 10
+        """,
+        dataframe=pd.DataFrame({
+            'heading': [1,2,3,4,5,6],
+            'numbers': [12, 9, 14, 8, 15, 2]
+        })
+    )
+    assert df.index.to_list() == [0, 2] and df['heading'][2] == 3 and len(df == 2)
+
 def test_tail():
     """
     Test using tail to return n rows
@@ -2194,6 +2212,24 @@ def test_tail():
         })
     )
     assert df["heading"].values.tolist() == [4,5,6]
+
+def test_tail_where():
+    """
+    Test tail with where
+    """
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - select.tail:
+              n: 2
+              where: numbers < 10
+        """,
+        dataframe=pd.DataFrame({
+            "heading": [1,2,3,4,5,6],
+            'numbers': [12, 9, 14, 8, 15, 2]
+        })
+    )
+    assert df.index.to_list() == [3, 5] and df['heading'][3] == 4 and len(df) == 2
 
 def test_sample_integer():
     """

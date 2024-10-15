@@ -253,6 +253,24 @@ def test_drop_multiple_columns():
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['col']
 
+def test_drop_where():
+    """
+    Test drop with where
+    """
+    data = pd.DataFrame({
+        'col': ['Mario', 'Peach', 'Bowser'],
+        'col2': ['Luigi', 'Toadstool', 'Koopa'],
+        'numbers': [4, 2, 8]
+    })
+    recipe = """
+    wrangles:
+      - drop:
+          columns: col2
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.index.to_list() == [0, 2] and df.columns.to_list() == ['col', 'numbers']
+
 def test_pd_transpose():
     """
     Test transpose
@@ -264,10 +282,27 @@ def test_pd_transpose():
     }, index=['Characters'])
     recipe = """
     wrangles:
-      - transpose: {}
+      - pandas.transpose: {}
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
     assert list(df.columns) == ['Characters']
+
+def test_transpose_where():
+    """
+    Test transpose with where
+    """
+    data = pd.DataFrame({
+        'col': ['Mario', 'Luigi', 'Koopa'],
+        'col2': ['Luigi', 'Bowser', 'Peach'],
+        'numbers': [4, 2, 8]
+    })
+    recipe = """
+    wrangles:
+      - pandas.transpose:
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe, dataframe=data)
+    assert df.index.to_list() == ['col', 'col2', 'numbers'] and df.columns.to_list() == [0, 2]
     
 def test_round_one_input():
     """
@@ -379,7 +414,28 @@ def test_reindex():
     """
     df = wrangles.recipe.run(recipe=rec, dataframe=data)
     assert df.index.to_list() == ['Safari', 'Iceweasel', 'Comodo Dragon', 'IE10']
-
+    
+def test_reindex_where():
+    """
+    Testing reindex with where
+    """
+    data = pd.DataFrame({
+        'col': ['Mario', 'Luigi', 'Koopa'],
+        'col2': ['Luigi', 'Bowser', 'Peach'],
+        'numbers': [4, 2, 8]
+    })
+    
+    rec = """
+    wrangles:
+      - reindex:
+          index:
+            - 2
+            - 1
+            - 0
+          where: numbers > 3
+    """
+    df = wrangles.recipe.run(recipe=rec, dataframe=data)
+    assert df.index.to_list() == [2, 1, 0] and df['col'][1] == ''
 
 def test_explode():
     """
