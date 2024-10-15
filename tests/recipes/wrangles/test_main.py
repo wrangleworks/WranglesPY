@@ -4082,7 +4082,9 @@ class TestBatch:
 
     def test_batch_where(self):
         """
-        Test batch with where. This doesn't seem to work but I'll leave the test here anyway
+        Test batch with where.
+        This doesn't output data to the output column,
+        just empty strings
         """
         number_of_batches = [0]
         def record_batch(df):

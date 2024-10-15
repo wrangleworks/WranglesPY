@@ -642,8 +642,8 @@ def test_explode_reset_index_true():
 def test_explode_where():
     """
     Test explode basic function with where.
-    Explode is included in the nowhere list,
-    so this does not really work properly.
+    This explodes the column(s) that meet the condition,
+    but overwrites the other rows above/below the exploded rows
     """
     df = wrangles.recipe.run(
         recipe="""

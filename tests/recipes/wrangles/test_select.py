@@ -2143,7 +2143,8 @@ def test_select_column_with_non_existing_cols():
 def test_select_columns_where():
     """
     Test select.columns with where.
-    This is broken, but I am going to leave it here for now.
+    This does not actually do anything to the data
+    when the where is included.
     """
     data = pd.DataFrame({
         'Col1': ['One Two Three Four', 'Five Six Seven Eight', 'Nine Ten Eleven Twelve'],
