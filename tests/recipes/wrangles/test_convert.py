@@ -267,19 +267,19 @@ class TestDataType:
         """
         Test convert.data_type using where
         """
-        data = pd.DataFrame({
-        'number': [25, 31, 22]
-        })
-        recipe = """
-        wrangles:
-        - convert.data_type:
-            input: number
-            output: number string
-            data_type: str
-            where: number > 25
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: number
+                data_type: str
+                where: number > 25
+            """,
+            dataframe=pd.DataFrame({
+                'number': [25, 31, 22]
+            })
+        )
+        assert df['number'].values.tolist() == [25, '31', 22]
 
     def test_convert_to_datetime(self):
         data = pd.DataFrame({
@@ -708,7 +708,7 @@ class TestFromYAML:
             df["column"][1]["key"] == "val"
         )
 
-    def test_default_where(self):
+    def test_where(self):
         """
         Test converting YAML to an object with where
         """
@@ -729,7 +729,10 @@ class TestFromYAML:
                 "numbers": [5, 7, 8]
             })
         )
-        assert df['output col'][0]== ''
+        assert (
+            df['output col'][0]== '' and
+            df['output col'][1]["key3"] == "val"
+        )
 
 class TestToJSON:
     """
@@ -1118,7 +1121,7 @@ class TestToYAML:
         )
         assert df['column'][0] == 'key: this is a ° symbol\n'
 
-    def test_default_where(self):
+    def test_where(self):
         """
         Test converting an object to YAML with where
         """
@@ -1135,8 +1138,11 @@ class TestToYAML:
                         {"key": "val", "key2": ["list1", "list2"]},
                         {"key3": "val", "key4": ["list1", "list2"]},
                         {"key5": "val", "key6": ["list1", "list2"]},
-                    ],
+                ],
                 "numbers": [5, 7, 8]
             })
         )
-        assert df['output col'][0] == ""
+        assert (
+            df['output col'][0] == "" and
+            df['output col'][1] == "key3: val\nkey4:\n- list1\n- list2\n"
+        )

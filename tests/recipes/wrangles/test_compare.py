@@ -423,37 +423,37 @@ def test_compare_text_where():
     """
     Test Compare Text using where
     """
-    data = pd.DataFrame({
-    'col1': [
-        'Mario Oak Wood White Marble Top Bookshelf',
-        'Luigi Oak Wood White Marble Top Coffee Table',
-        'Peach Oak Wood White Marble Top Console Table',
-    ],
-    'col2': [
-        'Mario Pine Wood Black Marble Bottom Bookshelf',
-        'Luigi Maple Wood Orange Steel Top Coffee Table',
-        'Peach Normal Wood Blue Plastic Top Console Table',
-    ],
-    'col3': [
-        'Yes',
-        'No',
-        'Yes'
-    ]
-    })
-
-    recipe = """
-    wrangles:
-    - compare.text:
-        input:
-          - col1
-          - col2
-        output: output
-        method: difference
-        where: col3 == 'Yes'
-    """
-
     df = wrangles.recipe.run(
-        recipe=recipe,
-        dataframe=data,
+        """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+            where: col3 == 'Yes'
+        """,
+        dataframe=pd.DataFrame({
+            'col1': [
+                'Mario Oak Wood White Marble Top Bookshelf',
+                'Luigi Oak Wood White Marble Top Coffee Table',
+                'Peach Oak Wood White Marble Top Console Table',
+            ],
+            'col2': [
+                'Mario Pine Wood Black Marble Bottom Bookshelf',
+                'Luigi Maple Wood Orange Steel Top Coffee Table',
+                'Peach Normal Wood Blue Plastic Top Console Table',
+            ],
+            'col3': [
+                'Yes',
+                'No',
+                'Yes'
+            ]
+        }),
     )
-    assert df['output'][1] == ''
+    assert (
+        df['output'][0] == 'Pine Black Bottom' and
+        df['output'][1] == '' and
+        df['output'][2] == 'Normal Blue Plastic'
+    )
