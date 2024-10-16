@@ -161,17 +161,22 @@ for wrangle in schema['wrangles']:
     if "properties" not in schema['wrangles'][wrangle]:
         schema['wrangles'][wrangle]["properties"] = {}
 
-    if wrangle not in wrangles.config.no_where_list:
-        schema['wrangles'][wrangle]['properties']['where'] = {
-            "$ref": "#/$defs/wrangles/commonProperties/where"
-        }
-    else:
-        schema['wrangles'][wrangle]['properties']['where'] = {
-            "$ref": "#/$defs/wrangles/commonProperties/where_special"
-        }
-    for x in ["where_params", "if"]:
-        schema['wrangles'][wrangle]['properties'][x] = {
-            "$ref": f"#/$defs/wrangles/commonProperties/{x}"
+    schema['wrangles'][wrangle]['properties']["if"] = {
+        "$ref": f"#/$defs/wrangles/commonProperties/if"
+    }
+
+    if wrangle not in wrangles.config.where_not_implemented:
+        if wrangle in wrangles.config.where_overwrite_output:
+            schema['wrangles'][wrangle]['properties']['where'] = {
+                "$ref": "#/$defs/wrangles/commonProperties/where_special"
+            }
+        else:
+            schema['wrangles'][wrangle]['properties']['where'] = {
+                "$ref": "#/$defs/wrangles/commonProperties/where"
+            }
+
+        schema['wrangles'][wrangle]['properties']["where_params"] = {
+            "$ref": f"#/$defs/wrangles/commonProperties/where_params"
         }
 
 # Add common write properties
