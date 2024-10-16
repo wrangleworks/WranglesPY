@@ -1818,6 +1818,25 @@ class TestExtractBrackets:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == '(some)'
         assert df.iloc[1]['output'] == '[example]'
+    
+    def test_where(self):
+        """
+        Test using a where clause
+        """
+        df = wrangles.recipe.run(
+            r"""
+            wrangles:
+              - extract.brackets:
+                  input: column
+                  output: output
+                  where: >-
+                    column like '%x%' 
+            """,
+            dataframe=pd.DataFrame({
+                'column': ['[x]', '[y]']
+            })
+        )
+        assert df['output'].values.tolist() == ['x', '']
 
 
 class TestExtractDateProperties:
