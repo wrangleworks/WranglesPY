@@ -28,7 +28,7 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
     :param kwargs: Other arguments from the file connector may also be used
     :return: A dataframe with the imported data
     """
-    _logging.info(f": Importing Data from SFTP :: {host}")
+    _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
@@ -115,6 +115,8 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     :param port: (Optional) Specify the port to connect to
     :param kwargs: Other arguments from the file connector may also be used
     """
+    _logging.info(f": Writing data to SFTP :: {host} / {file}")
+
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
     _file.write(df, name=file.split("/")[-1], file_object=tempFile, **kwargs)
@@ -233,7 +235,7 @@ class download_files:
         :param local: (Optional) The local filename(s) and/or directories to save as.
         :param port: The port to connect to. Default 22.
         """
-        _logging.info(f": Downloading files from SFTP :: host={host} files={files}")
+        _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
         # Ensure files and local are both lists and 
         if not isinstance(files, list): files = [files]
@@ -325,7 +327,7 @@ class upload_files:
         :param remote: (Optional) The remote filename(s) and/or directories to save to.
         :param port: The port to connect to. Default 22.
         """
-        _logging.info(f": Uploading files to SFTP :: host={host} files={files}")
+        _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
         # Ensure files and remote are both lists
         if not isinstance(files, list): files = [files]

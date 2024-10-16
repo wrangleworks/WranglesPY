@@ -380,6 +380,36 @@ class TestWrite:
             len(memory.dataframes["variable_custom_functions_test_c"]["data"]) == 1
         )
 
+    def test_matrix_variable_custom_function_single_value(self):
+        """
+        Test using a custom function that returns a scalar
+        """
+        def get_scalar():
+            return "aa"
+
+        wrangles.recipe.run(
+            """
+            write:
+            - matrix:
+                variables:
+                    key: custom.get_scalar
+                write:
+                    - memory:
+                        id: variable_custom_function_single_value_${key}
+                        where: col1 = ?
+                        where_params:
+                        - ${key}
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["aa","aa","aa","bb","bb","cc"]
+            }),
+            functions=get_scalar
+        )
+        
+        assert (
+            len(memory.dataframes["variable_custom_function_single_value_aa"]["data"]) == 3
+        )
+
     def test_strategy_default(self):
         """
         Test using default strategy for multiple variables

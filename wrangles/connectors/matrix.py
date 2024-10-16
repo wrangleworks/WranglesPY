@@ -65,6 +65,10 @@ def _define_permutations(
         else:
             vals = [val]
 
+        # Ensure vals is a list
+        if not isinstance(vals, list):
+            vals = [vals]
+
         permutations.append([{key: var} for var in vals])
 
     if strategy.lower() == "permutations":

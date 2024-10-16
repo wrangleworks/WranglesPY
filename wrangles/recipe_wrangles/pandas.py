@@ -131,13 +131,13 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
     
     
 def reindex(
-        df: _pd.DataFrame,
-        labels: list= None,
-        index: list = None,
-        columns: list = None,
-        axis: _Union[str, int] = None,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    labels: list= None,
+    index: list = None,
+    columns: list = None,
+    axis: _Union[str, int] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Changes the row labels and column labels of a DataFrame.
@@ -158,7 +158,6 @@ def reindex(
           - string
         description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
     """
-
     # The following code is due to issue "Get Pandas to work with versions" #199
     # This ensures this works with older and newer pandas versions
     # Adding parameters to dictionary
@@ -177,7 +176,8 @@ def explode(
     df: _pd.DataFrame,
     input: _Union[str, list],
     reset_index: bool = True,
-    drop_empty: bool = False
+    drop_empty: bool = False,
+    where = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -203,13 +203,18 @@ def explode(
             If true, any rows that contain an empty list will be dropped.
             If false, rows that contain empty lists will keep 1 row with an empty value.
             Default False.
-    """    
+    """
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     
     # Check if there are any columns not in df
     if not set(input).issubset(df.columns):
         raise ValueError(f"Columns {input} not in DataFrame")
+    
+    # If using where, we need to maintain the index
+    # to be able to merge back later
+    if where:
+        reset_index = False
 
     df = df.explode(input, reset_index)
 

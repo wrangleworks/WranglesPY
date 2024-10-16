@@ -13,6 +13,8 @@ class classify():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Classify Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -87,6 +89,8 @@ class extract():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Extract Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -161,6 +165,8 @@ class lookup():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Lookup Wrangle data :: {model_id}")
+
         content = _data.model_content(model_id)
         return _pd.DataFrame(content['Data'], columns=content['Columns'])
 
@@ -242,6 +248,8 @@ class standardize():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Standardize Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
