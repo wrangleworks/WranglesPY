@@ -5,7 +5,7 @@ import json as _json
 import numpy as _np
 
 
-class TestCase:
+class TestConvertCase:
     """
     Test convert.case wrangles
     """
@@ -184,7 +184,7 @@ class TestCase:
         assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
 
-class TestDataType:
+class TestConvertDataType:
     """
     Test convert.data_type wrangles
     """
@@ -315,7 +315,7 @@ class TestDataType:
         assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
 
 
-class TestFractionToDecimal:
+class TestConvertFractionToDecimal:
     """
     Test convert.fraction_to_decimal wrangle
     """
@@ -449,7 +449,7 @@ class TestFractionToDecimal:
         assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
 
 
-class TestFromJSON:
+class TestConvertFromJSON:
     """
     Test convert.from_json wrangles
     """
@@ -619,7 +619,7 @@ class TestFromJSON:
         )
 
 
-class TestFromYAML:
+class TestConvertFromYAML:
     """
     Test convert.from_yaml wrangle
     """
@@ -734,7 +734,8 @@ class TestFromYAML:
             df['output col'][1]["key3"] == "val"
         )
 
-class TestToJSON:
+
+class TestConvertToJSON:
     """
     Test convert.to_json wrangles
     """
@@ -1026,7 +1027,7 @@ class TestToJSON:
         assert df['result'][0] == r'{"column1": "a", "column2": {"b": 1}}'
 
 
-class TestToYAML:
+class TestConvertToYAML:
     """
     Test convert.to_yaml wrangle
     """

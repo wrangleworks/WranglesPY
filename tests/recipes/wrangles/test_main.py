@@ -658,8 +658,8 @@ class TestLog:
         Test log when specifying columns
         """
         data = pd.DataFrame({
-        'Col1': ['Chicken', 'Cheese', 'Pizza'],
-        'numbers': [4, 3, 2]
+        'Col1': ['Pizza', 'Chicken', 'Cheese'],
+        'numbers': [2, 4, 3]
         })
         recipe = """
         wrangles:
@@ -669,7 +669,7 @@ class TestLog:
                 where: numbers >= 3
         """
         wrangles.recipe.run(recipe, dataframe=data)
-        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n1   Cheese\n'
+        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n1  Chicken\n2   Cheese\n'
 
 
 class TestRemoveWords:
@@ -1892,20 +1892,20 @@ class TestStandardize:
         """
         Test standardize function using a where clause
         """
-        data = pd.DataFrame({
-        'Product': ['Wrench', 'Hammer', 'Pliers'],
-        'Price': [4.99, 9.99, 14.99]
-        })
-        recipe = """
-        wrangles:
-            - standardize:
-                input: Product
-                output: Product Standardized
-                model_id: 6ca4ab44-8c66-40e8
-                where: Price > 10
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Product Standardized'] == "" and df.iloc[2]['Product Standardized'] == 'Pliers'
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - standardize:
+                    input: Product
+                    model_id: 6ca4ab44-8c66-40e8
+                    where: Price > 10
+            """,
+            dataframe=pd.DataFrame({
+                'Product': ['ASAP', 'ETA', 'omw'],
+                'Price': [4.99, 9.99, 14.99]
+            })
+        )
+        assert df['Product'].to_list() == ["ASAP", "ETA", "on my way"]
 
     def test_standardize_multi_input_single_output(self):
         """
@@ -2202,21 +2202,21 @@ class TestReplace:
         """
         Test replace using where
         """
-        data = pd.DataFrame({
-        'Abbrev': ['random ASAP random', 'random ETA random'],
-        'numbers': [1, 2]
-        })
-        recipe = """
-        wrangles:
-            - replace:
-                input: Abbrev
-                output: Abbreviations
-                find: ETA
-                replace: Estimated Time of Arrival
-                where: numbers > 1
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Abbreviations'] == "" and df.iloc[1]['Abbreviations'] == 'random Estimated Time of Arrival random'
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - replace:
+                    input: Abbrev
+                    find: ETA
+                    replace: Estimated Time of Arrival
+                    where: numbers > 1
+            """,
+            dataframe=pd.DataFrame({
+            'Abbrev': ['random ETA random', 'random ETA random'],
+            'numbers': [1, 2]
+            })
+        )
+        assert df['Abbrev'].to_list() == ["random ETA random", 'random Estimated Time of Arrival random']
 
     def test_replace_inconsistent_input(self):
         """
@@ -2649,18 +2649,19 @@ class TestRecipe:
         """
         Test a recipe wrangle using where
         """
-        data = pd.DataFrame({
-            'col': ['Mario', 'Luigi', 'Peach', 'Toadstool'],
-            'numbers': [3, 4, 5, 6]
-        })
-        recipe = """
-        wrangles:
-        - recipe:
-            name: 'tests/samples/recipe_ception.wrgl.yaml'
-            where: numbers > 4
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['col'].iloc[0] == 'PEACH' and df['col'].iloc[1] == 'TOADSTOOL'
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - recipe:
+                name: 'tests/samples/recipe_ception.wrgl.yaml'
+                where: numbers > 4
+            """,
+            dataframe=pd.DataFrame({
+                'col': ['Mario', 'Luigi', 'Peach', 'Toadstool'],
+                'numbers': [3, 4, 5, 6]
+            })
+        )
+        assert df['col'].to_list() == ['Mario', 'Luigi', 'PEACH', 'TOADSTOOL']
 
 
 class TestDateCalculator:
@@ -2797,6 +2798,7 @@ class TestDateCalculator:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'
+
 
 class TestCopy:
     """
@@ -4181,16 +4183,11 @@ class TestBatch:
         This doesn't output data to the output column,
         just empty strings
         """
-        number_of_batches = [0]
-        def record_batch(df):
-            number_of_batches[0] += 1
-            return df
-
         df = wrangles.recipe.run(
             """
             wrangles:
               - batch:
-                  where: numbers = 1
+                  where: numbers IN (1, 3)
                   wrangles:
                     - convert.case:
                         input: column
@@ -4198,12 +4195,12 @@ class TestBatch:
                         case: upper
             """,
             dataframe=pd.DataFrame({
-            "column": [["a","b","c"], ["e","f","g"], ["h","i","j"]],
-            "numbers": [1, 2, 3]
-        })
-        )
-        
-        assert df['output col'][0] == ''
+                "column": ["a", "b", "c"],
+                "numbers": [1, 2, 3]
+            })
+        )     
+        assert df['output col'].to_list() == ["A","","C"]
+
 
 class TestLookup:
     """
@@ -4562,6 +4559,7 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
 
+
 class TestMatrix:
     """
     Test matrix wrangle
@@ -4632,18 +4630,24 @@ class TestMatrix:
             """
             wrangles:
               - matrix:
-                  where: numbers = 2
+                  where: numbers IN (1, 3)
+                  variables:
+                    var: set(case)
                   wrangles:
                     - convert.case:
                         input: col1
-                        case: upper
+                        case: ${var}
+                        where: '"case" = ?'
+                        where_params:
+                          - ${var}
             """,
             dataframe=pd.DataFrame({
-                "col1": ["aaa", "bbb", "ccc"],
+                "col1": ["aaa", "BBB", "ccc"],
+                "case": ["upper", "lower", "title"],
                 "numbers": [1, 2, 3]
             })
         )
-        assert df['col1'][1] == "BBB" and df.index.to_list() == [1]
+        assert df['col1'].to_list() == ["AAA","BBB","Ccc"]
 
     def test_variable_custom_function(self):
         """
@@ -4766,6 +4770,7 @@ class TestMatrix:
             df['Mineral'].values.tolist() == ['', 'Gold', ''] and
             df['Vegetable'].values.tolist() == ['', '', 'Carrot']
         )
+
 
 def wait_then_update(df, duration, input, output, value):
     """
@@ -4934,6 +4939,7 @@ class TestConcurrent:
             5 <= (end - start).seconds < 10
         )
 
+
 class TestTranspose:
     """
     All transpose tests
@@ -4970,6 +4976,7 @@ class TestTranspose:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.index.to_list() == ['col', 'col2', 'numbers'] and df.columns.to_list() == [0, 2]
+
 
 class TestTry:
     """
@@ -5131,4 +5138,33 @@ class TestTry:
                 "numbers": [5, 8, 18]
             })
         )
-        assert df['header'][1] == 'value2' and df.index.to_list() == [1]
+        assert (
+            df['header'].to_list() == ['value1','value2','value3'] and 
+            df['numbers'].to_list() == [5, 8, 18] and 
+            list(df.columns) == ['header', 'numbers']
+        )
+
+    def test_try_pass_where(self):
+        """
+        Test a try that passes using where.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - try:
+                  where: numbers = 8
+                  wrangles:
+                    - math:
+                        input: numbers * 2
+                        output: numbers
+            """,
+            dataframe=pd.DataFrame({
+                "header": ["value1", "value2", 'value3'],
+                "numbers": [5, 8, 18]
+            })
+        )
+        assert (
+            df['header'].to_list() == ['value1','value2','value3'] and 
+            df['numbers'].to_list() == [5, 16, 18] and 
+            list(df.columns) == ['header', 'numbers']
+        )
