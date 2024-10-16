@@ -1,30 +1,35 @@
 import wrangles
 import pandas as pd
+import pytest
 
 
 class TestMergeCoalesce:
     """
     Test merge.coalesce
     """
-    def test_coalesce_1(self):
-        data = pd.DataFrame({
-            'Col1': ['A', '', ''],
-            'Col2': ['', 'B', ''],
-            'Col3': ['', '', 'C']
-        })
-        recipe = """
-        wrangles:
-        - merge.coalesce:
-            input: 
-                - Col1
-                - Col2
-                - Col3
-            output: Output Col
+    def test_columns(self):
         """
-        df = wrangles.recipe.run(recipe, dataframe=data)
+        Test coalescing multiple columns into one
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input: 
+                  - Col1
+                  - Col2
+                  - Col3
+                output: Output Col
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['A', '', ''],
+                'Col2': ['', 'B', ''],
+                'Col3': ['', '', 'C']
+            })
+        )
         assert df['Output Col'].values.tolist() == ['A', 'B', 'C']
 
-    def test_coalesce_where(self):
+    def test_where(self):
         """
         Test coalesce using where
         """
@@ -47,6 +52,82 @@ class TestMergeCoalesce:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Output Col'] == 'B' and df.iloc[0]['Output Col'] ==''
 
+    def test_lists(self):
+        """
+        Test coalesce with a single column containing a list
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: ["","b","c"]
+            wrangles:
+            - merge.coalesce:
+                input: header
+            """
+        )
+        assert df["header"][0] == 'b'
+
+    def test_lists_with_output(self):
+        """
+        Test coalesce with a single column containing
+        a list that defines an output column
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: ["","b","c"]
+            wrangles:
+            - merge.coalesce:
+                input: header
+                output: result
+            """
+        )
+        assert df["result"][0] == 'b'
+
+    def test_lists_mixed_list_scalar(self):
+        """
+        Test coalesce with a single column that
+        contains a mix of lists and scalars
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input: header
+            """,
+            dataframe=pd.DataFrame({
+                'header': [["","bb","cc"], '', 'dd', ["ee", ""]]
+            })
+        )
+        assert df["header"].to_list() == ['bb', '', 'dd', 'ee']
+
+    def test_output_error(self):
+        """
+        Test that a clear error is given if trying to coalesce
+        multiple columns but not giving an output
+        """
+        with pytest.raises(ValueError, match="output column must be provided"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        header1: value1
+                        header2: value2
+                wrangles:
+                  - merge.coalesce:
+                      input:
+                        - header1
+                        - header2
+                """
+            )
 
 class TestMergeConcatenate:
     """
