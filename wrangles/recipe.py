@@ -19,8 +19,9 @@ from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
 from .config import (
-    no_where_list,
-    reserved_word_replacements as _reserved_word_replacements
+    reserved_word_replacements as _reserved_word_replacements,
+    where_overwrite_output as _where_overwrite_output,
+    where_not_implemented as _where_not_implemented
 )
 from .utils import (
     evaluate_conditional as _evaluate_conditional,
@@ -533,6 +534,10 @@ def _execute_wrangles(
 
                 # Filter dataframe if a where clause is present
                 if 'where' in params.keys():
+                    if wrangle in _where_not_implemented:
+                        raise NotImplementedError(f"where parameter is not implemented for {wrangle}")
+
+                    # Save original so we can merge back later
                     df_original = df.copy()
                     
                     # Save original index, filter data, then restore index
@@ -708,7 +713,7 @@ def _execute_wrangles(
                 # If the user specified a where, we need to merge this back to the original dataframe
                 # Certain wrangles (e.g. transpose, select.group_by) manipulate the structure of the 
                 # dataframe and do not make sense to merge back to the original
-                if 'where' in original_params and wrangle not in no_where_list:
+                if 'where' in original_params and wrangle not in _where_overwrite_output:
 
                     # Wrangle explictly defined the output
                     if 'output' in params.keys():
@@ -735,22 +740,10 @@ def _execute_wrangles(
                             # Scalar value
                             output_columns = [params['output']]
 
-                        df = _pandas.merge(
-                            df_original,
-                            df[output_columns],
-                            left_index=True,
-                            right_index=True,
-                            how='left',
-                            suffixes=('_x',None)
-                        )
-                        for output_col in output_columns:
-                            if output_col + '_x' in df.columns:
-                                # Take new value if not NaN, else keep original
-                                df[output_col] = [
-                                    x[0] if x[0] != 'wrwx_placeholder_nan' else x[1]
-                                    for x in df[[output_col, output_col + '_x']].fillna('wrwx_placeholder_nan').values
-                                ]
-                                df = df.drop([output_col+'_x'], axis = 1)
+                        # Expand the columns if using any wildcards
+                        output_columns = _wildcard_expansion(df.columns, output_columns)
+
+                        df = df[output_columns]
 
                     # Wrangle appears to have overwritten the input column(s)
                     elif list(df.columns) == list(df_original.columns) and 'input' in list(params.keys()):
@@ -758,34 +751,36 @@ def _execute_wrangles(
                         if not isinstance(params['input'], list):
                             params['input'] = [params['input']]
 
-                        # Wrangle overwrote the input
-                        df = _pandas.merge(
-                            df_original,
-                            df[params['input']],
-                            left_index=True,
-                            right_index=True,
-                            how='left',
-                            suffixes=('_x',None)
-                        )
-                        for input_col in params['input']:
-                            if input_col + '_x' in df.columns:
-                                # Take new value if not NaN, else keep original
-                                df[input_col] = [
-                                    x[0] if x[0] != 'wrwx_placeholder_nan' else x[1]
-                                    for x in df[[input_col, input_col + '_x']].fillna('wrwx_placeholder_nan').values
-                                ]
-                                df = df.drop([input_col+'_x'], axis = 1)
+                        df = df[params['input']]
 
                     # Wrangle added columns
-                    elif list(df.columns) != list(df_original.columns):
-                        output_columns = [col for col in list(df.columns) if col not in list(df_original.columns)]
-                        df = _pandas.merge(
-                            df_original,
-                            df[output_columns],
-                            left_index=True,
-                            right_index=True,
-                            how='left'
-                        )
+                    elif len([col for col in list(df.columns) if col not in list(df_original.columns)]) > 0:
+                        df = df[[
+                            col
+                            for col in list(df.columns)
+                            if col not in list(df_original.columns)
+                        ]]
+
+                    else:
+                        # Not clear what changed - overwrite everything
+                        pass
+                    
+                    # Merge back to original dataframe
+                    df = _pandas.merge(
+                        df_original,
+                        df,
+                        left_index=True,
+                        right_index=True,
+                        how='left',
+                        suffixes=('_x',None)
+                    )
+
+                    # Combine any duplicated columns and drop the _x columns
+                    for col in df.columns:
+                        if str(col).endswith('_x'):
+                            df[col[:-2]] = df[col[:-2]].combine_first(df[col])
+
+                    df = df.drop([col for col in df.columns if str(col).endswith('_x')], axis=1)
 
                     # Ensure the column order follows the original dataframe
                     df = df[
