@@ -1343,45 +1343,21 @@ class TestRename:
         """
         Rename using a dictionary of columns with where
         """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - rename:
-                Manufacturer Name: Company
-                Part Number: MPN
-                where: numbers > 5
-            """,
-            dataframe = pd.DataFrame({
-                'Manufacturer Name': ['Delos', 'Timken', 'SKF'],
-                'Part Number': ['CH465517080', 'BR549', '6202-f'],
-                'numbers': [4, 6, 8]
-            })
-        )
-        assert df.index.to_list() == [1, 2] and df.columns.to_list() == ['Company', 'MPN', 'numbers']
-
-    def test_rename_input_output_where(self):
-        """
-        Rename using a dictionary of columns with where
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - rename:
-                input: 
-                  - Manufacturer Name
-                  - Part Number
-                output:
-                  - Company
-                  - MPN
-                where: numbers > 5
-            """,
-            dataframe = pd.DataFrame({
-                'Manufacturer Name': ['Delos', 'Timken', 'SKF'],
-                'Part Number': ['CH465517080', 'BR549', '6202-f'],
-                'numbers': [4, 6, 8]
-            })
-        )
-        assert df.index.to_list() == [1, 2] and df.columns.to_list() == ['Company', 'MPN', 'numbers']
+        with pytest.raises(NotImplementedError, match="where"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - rename:
+                    Manufacturer Name: Company
+                    Part Number: MPN
+                    where: numbers > 5
+                """,
+                dataframe = pd.DataFrame({
+                    'Manufacturer Name': ['Delos', 'Timken', 'SKF'],
+                    'Part Number': ['CH465517080', 'BR549', '6202-f'],
+                    'numbers': [4, 6, 8]
+                })
+            )
 
 
 class TestSimilarity:

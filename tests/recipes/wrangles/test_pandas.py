@@ -684,23 +684,24 @@ class TestExplode:
 
     def test_explode_where(self):
         """
-        Test explode basic function with where.
-        This explodes the column(s) that meet the condition,
-        but overwrites the other rows above/below the exploded rows
+        Test explode using where
         """
-        with pytest.raises(NotImplementedError, match="where"):
-            wrangles.recipe.run(
-                recipe="""
-                wrangles:
-                - explode:
-                    input: column
-                    where: numbers = 14
-                """,
-                dataframe=pd.DataFrame({
-                    'column': [['a', 'b', 'c'], ['f', 't', 'l'], ['w', 'k', 'm', 'b'], ['d', 'e']],
-                    'numbers': [4, 7, 14, 19]
-                })
-            )
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - explode:
+                input: column
+                where: numbers = 14
+            """,
+            dataframe=pd.DataFrame({
+                'column': [['a', 'b', 'c'], ['f', 't', 'l'], ['w', 'k', 'm', 'b'], ['d', 'e']],
+                'numbers': [4, 7, 14, 19]
+            })
+        )
+        assert (
+            df['column'].tolist() == [['a', 'b', 'c'], ['f', 't', 'l'], 'w', 'k', 'm', 'b', ['d', 'e']] and
+            df['numbers'].tolist() == [4, 7, 14, 14, 14, 14, 19]
+        )
 
 
 class TestSort:
