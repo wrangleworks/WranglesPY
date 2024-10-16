@@ -7,25 +7,49 @@ import pandas as _pd
 from .. import format as _format
 
 
-def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+def coalesce(
+    df: _pd.DataFrame,
+    input: list,
+    output: str = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Take the first non-empty value from a series of columns.
+    description: Take the first non-empty value from a series of columns or lists.
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
-        type: array
-        description: List of input columns
+        type:
+          - array
+          - string
+        description: List of input columns or a single column containing lists
       output:
         type: string
-        description: Name of the output columns
+        description: Name of the output columns. This is required if multiple input columns are provided.
     """
     # NOTE: cleaner implementations that I've found implemented directly in pandas do not work with empty strings
     # If a better solution found, replace but ensure it works with all falsy values in python
-    df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+
+    # Ensure input is a list
+    if not isinstance(input, list): input = [input]
+
+    if len(input) == 1:
+        if output is None:
+            output = input[0]
+        
+        df[output] = _format.coalesce(
+            [
+                x if isinstance(x, list) else [x]
+                for x in df[input[0]].fillna('')
+            ]
+        )
+    else:
+        if output is None:
+            raise ValueError('An output column must be provided if coalescing multiple input columns')
+
+        df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+
     return df
 
 
