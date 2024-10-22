@@ -391,7 +391,12 @@ def group_by(
         df = df.drop('absjdkbatgg', axis=1, level=0)
 
     # Flatting multilevel headings back to one
-    df.columns = df.columns.map('.'.join).str.strip('.')
+    df.columns = [
+        '.'.join(col).strip('.')
+        if isinstance(col, tuple)
+        else col
+        for col in df.columns
+    ]
 
     # Rename columns back to original names if altered
     df = df.rename(

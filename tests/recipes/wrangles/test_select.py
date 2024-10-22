@@ -1695,6 +1695,25 @@ class TestGroupBy:
                 })
             )
 
+    def test_by_only(self):
+        """
+        Test grouping without any aggregations
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - select.group_by:
+                  by: to_group
+            """,
+            dataframe=pd.DataFrame({
+                "to_group": ["a", "a", "a", "b"],
+            })
+        )
+        assert (
+            list(df.columns) == ['to_group'] and
+            df["to_group"].tolist() == ["a", "b"]
+        )
+
 
 class TestSelectElement:
     """
