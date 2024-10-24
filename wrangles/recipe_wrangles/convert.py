@@ -439,7 +439,7 @@ def to_yaml(
       sort_keys:
         type: boolean
         description: >-
-          If sort_keys is true (default: True),
+          If sort_keys is true (default: False),
           then the output of dictionaries will be sorted by key.
     """
     # Set output column as input if not provided
