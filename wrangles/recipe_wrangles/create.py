@@ -136,6 +136,7 @@ def embeddings(
     model: str = "text-embedding-3-small",
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
+    precision: str = "float32",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -187,6 +188,15 @@ def embeddings(
         description: |-
           Override the default url for the AI endpoint.
           Must use the OpenAI embeddings API.
+      precision:
+        type: string
+        description: >-
+          The precision of the embeddings.
+          Default is float32.
+          This should be used with output_type numpy array.
+        enum:
+          - float16
+          - float32
     """
     if output is None: output = input
 
@@ -208,12 +218,13 @@ def embeddings(
             threads,
             retries,
             url,
+            precision,
             **kwargs
         )
 
         if output_type == 'python list':
             df[output_col] = [
-                list(row)
+                row.tolist()
                 for row in df[output_col].values
             ]
 

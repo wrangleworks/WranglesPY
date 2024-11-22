@@ -1285,3 +1285,38 @@ class TestCreateEmbeddings:
                 })
         )
         assert df['embedding'][0] == '' and len(df['embedding'][2]) == 1536
+
+    def test_float16_precision(self):
+        """
+        Test generating half precision embeddings
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    header: value
+            wrangles:
+            - create.embeddings:
+                input: header
+                output: embeddings_16
+                api_key: ${OPENAI_API_KEY}
+                retries: 1
+                output_type: numpy array
+                precision: float16
+                dimensions: 256
+            - create.embeddings:
+                input: header
+                output: embeddings_32
+                api_key: ${OPENAI_API_KEY}
+                retries: 1
+                output_type: numpy array
+                dimensions: 256
+            """
+        )
+        assert (
+            df['embeddings_16'][0].dtype == np.float16 and
+            df['embeddings_32'][0].dtype == np.float32 and
+            df['embeddings_32'][0].astype(np.float16).tobytes() == df['embeddings_16'][0].tobytes()
+        )
