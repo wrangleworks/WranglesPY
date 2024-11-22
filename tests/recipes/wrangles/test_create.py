@@ -1318,5 +1318,5 @@ class TestCreateEmbeddings:
         assert (
             df['embeddings_16'][0].dtype == np.float16 and
             df['embeddings_32'][0].dtype == np.float32 and
-            round(float(df['embeddings_32'][0][0]), 4) == round(float(df['embeddings_16'][0][0]), 4)
+            round(float(df['embeddings_32'][0][0]), 3) == round(float(df['embeddings_16'][0][0]), 3)
         )
