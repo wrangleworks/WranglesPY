@@ -7,6 +7,7 @@ import types as _types
 import logging as _logging
 from typing import Union as _Union
 import random as _random
+import time as _time
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
@@ -1712,6 +1713,7 @@ def Try(
     wrangles: list,
     functions: _Union[_types.FunctionType, list, dict] = {},
     variables: dict = {},
+    retries: int = 0,
     **kwargs
 ):
     """
@@ -1736,32 +1738,41 @@ def Try(
         minItems: 1
         items:
           "$ref": "#/$defs/wrangles/items"
+      retries:
+        type: integer
+        description: Number of times to retry the wrangles if an error occurs. Default 0.
+        minimum: 0
     """
-    try:
-        df = _wrangles.recipe.run(
-            recipe={'wrangles': wrangles},
-            dataframe=df,
-            variables=variables,
-            functions=functions
-        )
-    except Exception as e:
-        _logging.error(f"Try caught error: {e}")
-        if "except" in kwargs:
-            if isinstance(kwargs["except"], dict):
-                # Except contains a dict of columns and values
-                df = df.assign(**{
-                    k: [v] * len(df)
-                    for k, v in kwargs["except"].items()
-                })
-            elif isinstance(kwargs["except"], list):
-                # Except contains a list of wrangles to run
-                df = _wrangles.recipe.run(
-                    recipe={'wrangles': kwargs['except']},
-                    dataframe=df,
-                    variables=variables,
-                    functions=functions
-                )
+    for attempt in range(retries + 1):
+        try:
+            df = _wrangles.recipe.run(
+                recipe={'wrangles': wrangles},
+                dataframe=df,
+                variables=variables,
+                functions=functions
+            )
+            break
+        except Exception as e:
+            _logging.error(f"Try caught error: {e}")
+            if attempt < retries:
+                _time.sleep(1.5 ** attempt)  # Exponential backoff
             else:
-                raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
+                if "except" in kwargs:
+                    if isinstance(kwargs["except"], dict):
+                        # Except contains a dict of columns and values
+                        df = df.assign(**{
+                            k: [v] * len(df)
+                            for k, v in kwargs["except"].items()
+                        })
+                    elif isinstance(kwargs["except"], list):
+                        # Except contains a list of wrangles to run
+                        df = _wrangles.recipe.run(
+                            recipe={'wrangles': kwargs['except']},
+                            dataframe=df,
+                            variables=variables,
+                            functions=functions
+                        )
+                    else:
+                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
     
     return df
