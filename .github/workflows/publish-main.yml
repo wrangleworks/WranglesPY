@@ -70,7 +70,8 @@ jobs:
           brew install freetds
           brew install openssl@3
 
-          pip install --pre --no-binary :all: pymssql --no-cache --force
+          pip install pymssql==2.1.5
+
 
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
