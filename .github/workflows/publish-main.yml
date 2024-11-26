@@ -65,16 +65,21 @@ jobs:
       - name: Test pip install macos latest
         run: |
           python -m pip install --upgrade pip
-          pip install .
+       
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install freetds
           brew install openssl@3
+          
+          export LDFLAGS="-L/opt/homebrew/opt/freetds/lib -L/opt/homebrew/opt/openssl@3/lib"
+          export CFLAGS="-I/opt/homebrew/opt/freetds/include"
+          export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include"
+          export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+          PATH="/opt/homebrew/bin:$PATH"
+
           pip install Cython
-
-
           pip install pymssql==2.1.5
 
-
+          pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   # test-pip-install:
