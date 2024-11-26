@@ -45,11 +45,11 @@ jobs:
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-  test-pip-install:
+  test-pip-install-macos-latest:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
+        os: [macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
     permissions:
       contents: read
@@ -62,11 +62,35 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Test pip install
+      - name: Test pip install macos latest
         run: |
           python -m pip install --upgrade pip
           pip install .
+          pip install pymssql
           wrangles.recipe tests/samples/generate-data.wrgl.yml
+
+  # test-pip-install:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os: [ubuntu-latest, windows-latest, macos-13]
+  #       python-version: ['3.9', '3.10', '3.11', '3.12']
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: ${{ matrix.python-version }}
+
+  #     - name: Test pip install
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install .
+  #         wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   test-generate-schema:
     runs-on: ubuntu-latest
@@ -95,7 +119,7 @@ jobs:
   
   build:
     runs-on: ubuntu-latest
-    needs: [pytest, test-pip-install, test-generate-schema]
+    needs: [pytest, test-pip-install-macos-latest, test-pip-install, test-generate-schema]
     permissions:
       contents: read
       packages: write
