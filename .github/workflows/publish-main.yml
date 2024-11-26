@@ -76,7 +76,6 @@ jobs:
           export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include"
           export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
 
-          pip install pymssql
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   # test-pip-install:
