@@ -77,7 +77,8 @@ jobs:
           PATH="/opt/homebrew/bin:$PATH"
 
           pip install Cython
-          pip install pymssql==2.1.5
+          
+          pip install --no-cache-dir pymssql
 
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
