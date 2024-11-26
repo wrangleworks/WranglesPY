@@ -73,7 +73,6 @@ jobs:
           export LDFLAGS="-L/opt/homebrew/opt/freetds/lib -L/opt/homebrew/opt/openssl@3/lib"
           export CFLAGS="-I/opt/homebrew/opt/freetds/include"
           export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include"
-          export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
           PATH="/opt/homebrew/bin:$PATH"
 
           pip install Cython
