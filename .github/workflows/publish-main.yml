@@ -70,14 +70,7 @@ jobs:
           brew install freetds
           brew install openssl@3
 
-          export PATH="/opt/homebrew/bin:$PATH"
-          export LDFLAGS="-L/opt/homebrew/opt/freetds/lib -L/opt/homebrew/opt/openssl@3/lib"
-          export CFLAGS="-I/opt/homebrew/opt/freetds/include"
-          export CPPFLAGS="-I/opt/homebrew/opt/openssl@3/include"
-          export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
-
           pip install --pre --no-binary :all: pymssql --no-cache --force
-
 
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
