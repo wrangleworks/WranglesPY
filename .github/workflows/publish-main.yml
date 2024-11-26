@@ -69,6 +69,8 @@ jobs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install freetds
           brew install openssl@3
+          pip install Cython
+
 
           pip install pymssql==2.1.5
 
