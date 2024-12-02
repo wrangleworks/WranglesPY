@@ -374,7 +374,7 @@ def from_yaml(
         If no default, raise an error.
         """
         try:
-            return _yaml.safe_load(value, **kwargs) or default
+            return _yaml.load(value, Loader=_yaml.CSafeLoader, **kwargs) or default
         except:
             if default != None:
                 return default
@@ -458,6 +458,7 @@ def to_yaml(
                     row,
                     sort_keys=sort_keys,
                     allow_unicode=allow_unicode,
+                    Dumper=_yaml.CSafeDumper,
                     **kwargs
                 )
                 for row in df[input_columns].values
@@ -470,6 +471,7 @@ def to_yaml(
                 row,
                 sort_keys=sort_keys,
                 allow_unicode=allow_unicode,
+                Dumper=_yaml.CSafeDumper,
                 **kwargs
             )
             for row in df[input].to_dict(orient="records")
