@@ -91,6 +91,10 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
       value:
         type:
           - string
+          - number
+          - object
+          - array
+          - boolean
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
     """
     # If a string provided, convert to list
