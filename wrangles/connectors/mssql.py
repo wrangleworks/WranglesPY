@@ -7,11 +7,14 @@ import logging as _logging
 
 try:
   import pymssql as _pymssql
-except:
-  pass
+except ImportError:
+    _pymssql = None
 
 
 try:
+  if _pymssql is None:
+     raise ImportError("The 'pymssql' module is not installed. Please install it to use this connector.")
+    
   _schema = {}
 
   def read(host: str, user: str, password: str, command: str, port = 1433, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
@@ -223,4 +226,4 @@ try:
   """
 
 except ImportError as e:
-    print("pymssql is not installed. Please install it using pip install pymssql.")
+    print(f"ImportError: {e}")
