@@ -50,7 +50,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest]
-        python-version: ['3.10']
+        python-version: ['3.10', '3.11', '3.12']
     permissions:
       contents: read
     steps:
@@ -68,7 +68,6 @@ jobs:
           brew install freetds
           python -m pip install --upgrade pip
           pip install .
-
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   # test-pip-install:
