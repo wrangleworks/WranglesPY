@@ -68,7 +68,7 @@ jobs:
           brew install freetds
           python -m pip install --upgrade pip
           pip install .
-          pip --no-cache-dir install pymssql
+
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
   # test-pip-install:
