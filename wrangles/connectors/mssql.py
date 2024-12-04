@@ -13,7 +13,7 @@ except ImportError:
 
 try:
   if _pymssql is None:
-     raise ImportError("The 'pymssql' module is not installed. Please install it to use this connector.")
+     raise ImportError("The 'pymssql' module is not installed. Please install it using pip install pymssql.")
     
   _schema = {}
 
