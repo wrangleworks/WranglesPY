@@ -225,4 +225,4 @@ try:
   """
 
 except:
-    raise ImportError("pymssql is not installed. Please install it by running `pip install pymssql`")
+    print("pymssql is not installed. Exception raised")
