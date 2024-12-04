@@ -3,9 +3,9 @@ import pandas as pd
 try:
     # Testing mssql read - "read_sql" function
     from wrangles.connectors.mssql import read, write, run
-    
+
 except ImportError:
-    print("The 'pymssql' module is not installed. Please install it to use this connector.")
+    print("The 'pymssql' module is not installed. Please install it to use this connector with pip install pymssql.")
    
 def test_read_sql(mocker):
     data = pd.DataFrame({'Col1': ['Data1, Data2']})
