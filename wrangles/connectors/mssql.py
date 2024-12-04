@@ -4,10 +4,8 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-try:
-  import pymssql as _pymssql
-except:
-   pass
+import pymssql as _pymssql
+
 
 
 _schema = {}
@@ -30,8 +28,6 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    if not imported:
-       _logging.error()
 
     _logging.info(f": Reading data from MSSQL :: {host} / {database}")
 
