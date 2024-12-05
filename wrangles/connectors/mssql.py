@@ -155,7 +155,8 @@ properties:
 """
 
 
-def run(host: str, user: str, password: str, command: _Union[str, list], params: _Union[list, dict] = None, **kwargs) -> None:
+def run(host: str, user: str, password: str, command: _Union[str, list], params: _Union[list, dict] = None, **kwargs
+) -> None:
     """
     Run a command on a Microsoft SQL Server
 
@@ -170,7 +171,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], params:
     """
 
     if _pymssql is None:
-      raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
+       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
     
     _logging.info(f": Executing MSSQL Command :: {host}")
 
