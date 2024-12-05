@@ -47,11 +47,11 @@ def test_run(mocker):
     try:
         m = mocker.patch("pymssql.connect")
         m2 = mocker.patch("pymssql.connect.cursor")
+        m2.return_value = None
         
     except ImportError as e:
         print(f"Test skipped due to missing module. {e}")
     
-    m2.return_value = None
     config = {
         'host': 'host_mock',
         'user': 'user_mock',
