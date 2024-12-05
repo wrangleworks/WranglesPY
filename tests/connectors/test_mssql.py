@@ -1,13 +1,6 @@
 import pandas as pd
 
-
-try:
-    # Testing mssql read - "read_sql" function
-    from wrangles.connectors.mssql import read, write, run
-
-except ImportError:
-    print("The 'pymssql' module is not installed. Please install it to use this connector with 'pip install pymssql'.")
-
+from wrangles.connectors.mssql import read, write, run
 
 def test_read_sql(mocker):
     data = pd.DataFrame({'Col1': ['Data1, Data2']})
@@ -26,8 +19,7 @@ def test_read_sql(mocker):
         assert df.equals(data)
 
     except ImportError as e:
-        print(f"Test skipped due to missing module: {e}")
-
+        print(f"Test skipped due to missing module. {e}")
 
 # The function does not have a return
 # Have a way to test with sqllite?
@@ -48,7 +40,7 @@ def test_write_sql(mocker):
         assert df == None
 
     except ImportError as e:
-        print(f"Test skipped due to missing module: {e}")
+        print(f"Test skipped due to missing module. {e}")
     
 def test_run(mocker):
     m = mocker.patch("pymssql.connect")
@@ -66,6 +58,5 @@ def test_run(mocker):
         assert df == None
 
     except ImportError as e:
-        print(f"Test skipped due to missing module: {e}")
-    
+        print(f"Test skipped due to missing module. {e}")
     
