@@ -21,9 +21,6 @@ def test_read_sql(mocker):
     except ImportError as e:
         print(f"Test skipped due to missing module. {e}")
 
-    except Exception as ex:
-        print(f"Test failed due to unexpected error: {ex}")
-
 # The function does not have a return
 # Have a way to test with sqllite?
 
@@ -45,13 +42,15 @@ def test_write_sql(mocker):
 
     except ImportError as e:
         print(f"Test skipped due to missing module. {e}")
-
-    except Exception as ex:
-        print(f"Test failed due to unexpected error: {ex}")
     
 def test_run(mocker):
-    m = mocker.patch("pymssql.connect")
-    m2 = mocker.patch("pymssql.connect.cursor")
+    try:
+        m = mocker.patch("pymssql.connect")
+        m2 = mocker.patch("pymssql.connect.cursor")
+        
+    except ImportError as e:
+        print(f"Test skipped due to missing module. {e}")
+    
     m2.return_value = None
     config = {
         'host': 'host_mock',
@@ -66,7 +65,3 @@ def test_run(mocker):
 
     except ImportError as e:
         print(f"Test skipped due to missing module. {e}")
-
-    except Exception as ex:
-        print(f"Test failed due to unexpected error: {ex}")
-    
