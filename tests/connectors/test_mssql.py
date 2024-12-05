@@ -23,6 +23,7 @@ def test_read_sql(mocker):
 
 # The function does not have a return
 # Have a way to test with sqllite?
+
 def test_write_sql(mocker):
     m = mocker.patch("pandas.DataFrame.to_sql")
     m.return_value = None
