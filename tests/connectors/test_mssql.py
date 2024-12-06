@@ -2,6 +2,12 @@ import pandas as pd
 
 from wrangles.connectors.mssql import read, write, run
 
+"""
+Added try-except error handling to address pymssql's compatibility issues 
+with newer Python versions on M1/M2 macOS. The testing will be skipped on pymssql import failure.
+"""
+
+
 def test_read_sql(mocker):
     data = pd.DataFrame({'Col1': ['Data1, Data2']})
     m = mocker.patch("pandas.read_sql")
@@ -13,7 +19,7 @@ def test_read_sql(mocker):
         'database': 'test_mock',
         'command': 'SELECT * from df_mock',
     }
-
+    
     try:
         df = read(**config)
         assert df.equals(data)
@@ -49,17 +55,13 @@ def test_run(mocker):
         m2 = mocker.patch("pymssql.connect.cursor")
         m2.return_value = None
         
-    except ImportError as e:
-        print(f"Test skipped due to missing module. {e}")
-    
-    config = {
-        'host': 'host_mock',
-        'user': 'user_mock',
-        'password': 'password_mock',
-        'command': 'mock command'
-    }
-    
-    try:
+        config = {
+            'host': 'host_mock',
+            'user': 'user_mock',
+            'password': 'password_mock',
+            'command': 'mock command'
+        }
+        
         df = run(**config)
         assert df == None
 
