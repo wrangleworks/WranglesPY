@@ -98,7 +98,7 @@ def _overlap(
         if matcher.ratio() == 1.0:
             if include_ratio:
                 results.append(
-                    [exact_match if exact_match else a_str, 0]
+                    [exact_match if exact_match else a_str, 1]
                 )
             else:
                 results.append(exact_match if exact_match else a_str)
