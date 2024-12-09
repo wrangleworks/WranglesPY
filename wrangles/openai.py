@@ -127,7 +127,8 @@ def _embedding_thread(
     model: str,
     url: str,
     retries: int = 0,
-    request_params: dict = {}
+    request_params: dict = {},
+    precision: str = "float32"
 ):
     """
     Get embeddings 
@@ -138,6 +139,7 @@ def _embedding_thread(
     :param url: Set the URL. Must implement the OpenAI embeddings API.
     :param retries: Number of times to retry. This will exponentially backoff.
     :param request_params: Additional request parameters to pass to the backend.
+    :param precision: The precision of the embeddings. Default is float32.
     """
     response = None
     backoff_time = 5
@@ -182,7 +184,7 @@ def _embedding_thread(
             _np.frombuffer(
                 _base64.b64decode(row['embedding']),
                 dtype=_np.float32
-            )
+            ).astype(getattr(_np, precision), copy=False)
             for row in response.json()['data']
         ]
     else:
@@ -202,6 +204,7 @@ def embeddings(
     threads: int = 10,
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
+    precision: str = "float32",
     **kwargs
 ) -> list:
     """
@@ -221,8 +224,12 @@ def embeddings(
     :param retries: The number of times to retry. This will exponentially \
           backoff to assist with rate limiting
     :param url: Set the URL. Must implement the OpenAI embeddings API.
+    :param precision: The precision of the embeddings. Default is float32.
     :return: A list of embeddings corresponding to the input
     """
+    if precision not in ["float32", "float16"]:
+        raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         batches = list(_divide_batches(input_list, batch_size))
         results = list(executor.map(
@@ -232,7 +239,8 @@ def embeddings(
             [model] * len(batches),
             [url] * len(batches),
             [retries] * len(batches),
-            [kwargs] * len(batches)
+            [kwargs] * len(batches),
+            [precision] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))

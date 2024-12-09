@@ -233,7 +233,9 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
       - output
     properties:
       input:
-        type: array
+        type:
+          - array
+          - string
         description: List of input columns
       output:
         type: string
@@ -242,8 +244,6 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type: boolean
         description: Whether to include empty columns in the created dictionary
     """
-    
-    # checking if
     index_check = 0
     cols_changed = [] 
     for cols in input:
@@ -284,7 +284,9 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
       - output
     properties:
       input:
-        type: array
+        type:
+          - array
+          - string
         description: List of input columns
       output:
         type: string
