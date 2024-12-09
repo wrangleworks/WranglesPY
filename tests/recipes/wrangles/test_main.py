@@ -5224,3 +5224,62 @@ class TestTry:
             df['numbers'].to_list() == [5, 16, 18] and 
             list(df.columns) == ['header', 'numbers']
         )
+
+    def test_retries(self):
+        """
+        Test a try with retries
+        """
+        global retry_count
+        retry_count = 0
+
+        def retry_fn(df):
+            global retry_count
+            retry_count += 1
+            raise Exception("This is an error")
+        
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - try:
+                retries: 3
+                wrangles:
+                    - custom.retry_fn: {}
+            """,
+            functions=retry_fn
+        )
+        
+        assert retry_count == 4
+
+    def test_retries_zero(self):
+        """
+        Test a try with no retries
+        """
+        global retry_count_zero
+        retry_count_zero = 0
+
+        def retry_fn(df):
+            global retry_count_zero
+            retry_count_zero += 1
+            raise Exception("This is an error")
+        
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - try:
+                wrangles:
+                    - custom.retry_fn: {}
+            """,
+            functions=retry_fn
+        )
+        
+        assert retry_count_zero == 1
