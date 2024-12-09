@@ -7,6 +7,11 @@ from itertools import chain as _chain
 import requests as _requests
 import numpy as _np
 import time as _time
+try:
+    from yaml import CSafeDumper as YAMLDumper
+except ImportError:
+    from yaml import SafeDumper as YAMLDumper
+
 
 def chatGPT(
     data: any,
@@ -33,7 +38,8 @@ def chatGPT(
             indent=2,
             sort_keys=False,
             allow_unicode=True,
-            Dumper=_yaml.CSafeDumper,
+            Dumper=YAMLDumper,
+            width=1000
         )
 
     settings_local = _copy.deepcopy(settings)
