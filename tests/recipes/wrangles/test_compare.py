@@ -382,6 +382,42 @@ class TestCompareTest:
         )
         assert df['output'].values.tolist() == [['@@@@@Mario', 0.67], ['@@@@@Luigi', 0.67], ['Empty A', 0], ['Empty B', 0], ['Both Empty', 0]]
 
+    def test_compare_text_overlap_include_ratio(self):
+        """
+        Using overlap method and including the ratio
+        """
+        data = pd.DataFrame({
+        'col1': [
+            'Mario',
+            'Luigi',
+            'Mario',
+            'Luigi',
+        ],
+        'col2': [
+            'Mario',
+            'Luigi',
+            'Martio',
+            'Luiigi',
+        ]
+        })
+
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: overlap
+            include_ratio: True
+        """
+        df = wrangles.recipe.run(
+            recipe=recipe,
+            dataframe=data,
+        )
+
+        assert df['output'].values.tolist() == [['Mario', 1], ['Luigi', 1], ['Mar*io', 0.909], ['Lui*gi', 0.909]]
+
     def test_compare_overlap_default_settings(self):
         """
         Using overlap method and using the default empty values
