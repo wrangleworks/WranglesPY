@@ -12,6 +12,7 @@ python script finishes executing.
 import uuid as _uuid
 from collections import deque as _deque
 import pandas as _pandas
+import logging as _logging
 
 _schema = {}
 
@@ -48,6 +49,8 @@ def read(id: str = None, orient: str = "tight", **kwargs):
         See pandas.DataFrame.to_dict method for options. \
         Default is tight.
     """
+    _logging.info(f": Reading data from memory :: {id or ''}")
+
     # If there isn't anything saved
     if not dataframes:
         raise RuntimeError("No saved dataframes found.")
@@ -61,7 +64,10 @@ def read(id: str = None, orient: str = "tight", **kwargs):
             raise RuntimeError(f"Dataframe {id} not found.")
         data = dataframes[id]
 
-    if orient == "split":
+    if isinstance(data, _pandas.DataFrame):
+        # If already a dataframe, return it
+        return data
+    elif orient == "split":
         # Ensure custom user keys aren't included
         data = {
             k: v
@@ -120,6 +126,8 @@ def write(df, id: str = None, orient: str = "tight", **kwargs):
         See pandas.DataFrame.to_dict method for options. \
         Default is tight.
     """
+    _logging.info(f": Writing data to memory :: {id or ''}")
+
     if id is None:
         id = _uuid.uuid4()
 

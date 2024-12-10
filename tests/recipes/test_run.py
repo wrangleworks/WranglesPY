@@ -71,3 +71,76 @@ def test_on_failure():
         info.typename == 'KeyError' and
         "Column col111" in info.value.args[0]
     )
+
+def test_if_false():
+    """
+    Test that a run action is not triggered
+    when an if statement is false
+    """
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - recipe:
+                if: 1 == 2
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        header: value
+                write:
+                - memory:
+                    id: run_if_should_not_run
+        """
+    )
+    assert "run_if_should_not_run" not in wrangles.connectors.memory.dataframes
+
+def test_if_true():
+    """
+    Test that run action is triggered
+    when an if statement is true
+    """
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - recipe:
+                if: 1 == 1
+                read:
+                - test:
+                    rows: 1
+                    values:
+                        header: value
+                write:
+                - memory:
+                    id: run_if_should_run
+        """
+    )
+    assert "run_if_should_run" in wrangles.connectors.memory.dataframes
+
+def test_if_variables_syntax():
+    """
+    Test that an if statement runs correctly
+    when using variables using the syntax ${var}
+    """
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - recipe:
+                if: ${var} == 1
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        header: value
+                write:
+                  - memory:
+                      id: run_if_variables_syntax_should_run
+        """,
+        variables={
+            "var": 1
+        }
+    )
+
+    assert "run_if_variables_syntax_should_run" in wrangles.connectors.memory.dataframes

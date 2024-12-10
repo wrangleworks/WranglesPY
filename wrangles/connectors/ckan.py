@@ -38,7 +38,7 @@ def read(host: str, dataset: str, file: str, api_key: str = None, **kwargs) -> _
     :param api_key: API Key for the CKAN site.
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
-    _logging.info(f": Importing Data :: {host}/{dataset}/{file}")
+    _logging.info(f": Reading data from CKAN :: {host} / {dataset} / {file}")
     
     packages = _get_packages_in_dataset(host, dataset, api_key)
 
@@ -85,10 +85,10 @@ def write(df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str, *
     :param api_key: API Key for the CKAN site.
     :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
     """
+    _logging.info(f": Writing data to CKAN :: {host} / {dataset} / {file}")
+
     memory_file = _BytesIO()
-    _file.write(df, name=file, file_object=memory_file, **kwargs)
-    
-    _logging.info(f": Writing File :: {host} / {dataset} / {file}")
+    _file.write(df, name=file, file_object=memory_file, **kwargs)    
 
     packages = _get_packages_in_dataset(host, dataset, api_key)
 

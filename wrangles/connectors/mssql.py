@@ -4,7 +4,11 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-import pymssql as _pymssql
+
+try:
+  import pymssql as _pymssql
+except ImportError:
+    _pymssql = None
 
 
 _schema = {}
@@ -27,7 +31,10 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    _logging.info(f": Importing Data :: {host}")
+    if _pymssql is None:
+       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
+
+    _logging.info(f": Reading data from MSSQL :: {host} / {database}")
 
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
     df = _pd.read_sql(command, conn, params)
@@ -97,7 +104,10 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     """
-    _logging.info(f": Exporting Data :: {host}/{database}/{table}")
+    if _pymssql is None:
+       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
+    
+    _logging.info(f": Writing data to MSSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
@@ -145,39 +155,37 @@ properties:
 """
 
 
-def run(
-  host: str,
-  user: str,
-  password: str,
-  command: _Union[str, list],
-  params: _Union[list, dict] = None,
-  **kwargs
+def run(host: str, user: str, password: str, command: _Union[str, list], params: _Union[list, dict] = None, **kwargs
 ) -> None:
-  """
-  Run a command on a Microsoft SQL Server
+    """
+    Run a command on a Microsoft SQL Server
 
-  >>> from wrangles.connectors import mssql
-  >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
+    >>> from wrangles.connectors import mssql
+    >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
 
-  :param host: Hostname or IP of the database
-  :param user: User with access to the database
-  :param password: Password of user
-  :param command: SQL command or a list of SQL commands to execute
-  :param params: Variables to pass to a parameterized query.
-  """
-  _logging.info(f": Executing Command :: {host}")
+    :param host: Hostname or IP of the database
+    :param user: User with access to the database
+    :param password: Password of user
+    :param command: SQL command or a list of SQL commands to execute
+    :param params: Variables to pass to a parameterized query.
+    """
 
-  # If user has provided a single command, convert to a list of one.
-  if isinstance(command, str): command = [command]
+    if _pymssql is None:
+       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
+    
+    _logging.info(f": Executing MSSQL Command :: {host}")
 
-  # Establish connection
-  conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
-  cursor = conn.cursor()
+    # If user has provided a single command, convert to a list of one.
+    if isinstance(command, str): command = [command]
 
-  for sql in command:
-    cursor.execute(sql, params)
+    # Establish connection
+    conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
+    cursor = conn.cursor()
 
-  conn.close()
+    for sql in command:
+      cursor.execute(sql, params)
+
+    conn.close()
 
 _schema['run'] = """
 type: object

@@ -13,6 +13,8 @@ class classify():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Classify Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -87,6 +89,8 @@ class extract():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Extract Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -161,22 +165,24 @@ class lookup():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Lookup Wrangle data :: {model_id}")
+
         content = _data.model_content(model_id)
         return _pd.DataFrame(content['Data'], columns=content['Columns'])
 
-    # _schema["read"] = """
-    #     type: object
-    #     description: Read the training data for a Lookup Wrangle
-    #     additionalProperties: false
-    #     required:
-    #       - model_id
-    #     properties:
-    #       model_id:
-    #         type: string
-    #         description: Specific model to read
-    #     """
+    _schema["read"] = """
+        type: object
+        description: Read the training data for a Lookup Wrangle
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}) -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -184,8 +190,20 @@ class lookup():
         :param name: Name to give to a new Wrangle that will be created
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
+        :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
         """
         _logging.info(": Training Lookup Wrangle")
+
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+      
+        if variant == 'semantic':
+            variant = 'embedding'
+
+        if 'variant' not in settings.keys():
+            settings['variant'] = variant
 
         _train.lookup(
             {
@@ -198,21 +216,27 @@ class lookup():
             settings
         )
 
-    # _schema["write"] = """
-    #     type: object
-    #     description: Train a new or existing Classify Wrangle
-    #     additionalProperties: false
-    #     properties:
-    #       name:
-    #         type: string
-    #         description: Name to give to a new Wrangle that will be created
-    #       model_id:
-    #         type: string
-    #         description: Model to be updated. Either this or a name must be provided
-    #       columns:
-    #         type: array
-    #         description: Columns to submit
-    #     """
+    _schema["write"] = """
+        type: object
+        description: Train a new or existing Lookup Wrangle
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name to give to a new Wrangle that will be created
+          model_id:
+            type: string
+            description: Model to be updated. Either this or a name must be provided
+          columns:
+            type: array
+            description: Columns to submit
+          variant:
+            type: string
+            description: Variant of the Lookup Wrangle that will be created
+            enum:
+              - key
+              - semantic
+        """
 
 class standardize():
     _schema = {}
@@ -224,6 +248,8 @@ class standardize():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Standardize Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:

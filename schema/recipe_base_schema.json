@@ -40,7 +40,6 @@
       "type": "array",
       "description": "Read data from a variety of sources",
       "minItems": 1,
-      "maxItems": 1,
       "items": {
         "$ref": "#/$defs/read/items"
       }
@@ -80,6 +79,12 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement."
+        }
       }
     },
     "wrangles": {
@@ -111,6 +116,10 @@
         "where_params": {
           "type": ["array", "object"],
           "description": "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
+        },
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
         }
       }
     },
@@ -135,6 +144,10 @@
         "not_columns": {
           "type": ["array", "string"],
           "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
+        },
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
         },
         "where": {
           "type": "string",
@@ -163,6 +176,12 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement."
+        }
       }
     },
     "misc": {

@@ -5,7 +5,7 @@ import json as _json
 import numpy as _np
 
 
-class TestCase:
+class TestConvertCase:
     """
     Test convert.case wrangles
     """
@@ -184,7 +184,7 @@ class TestCase:
         assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
 
-class TestDataType:
+class TestConvertDataType:
     """
     Test convert.data_type wrangles
     """
@@ -267,19 +267,19 @@ class TestDataType:
         """
         Test convert.data_type using where
         """
-        data = pd.DataFrame({
-        'number': [25, 31, 22]
-        })
-        recipe = """
-        wrangles:
-        - convert.data_type:
-            input: number
-            output: number string
-            data_type: str
-            where: number > 25
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['number string'] == "" and df.iloc[1]['number string'] == '31'
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: number
+                data_type: str
+                where: number > 25
+            """,
+            dataframe=pd.DataFrame({
+                'number': [25, 31, 22]
+            })
+        )
+        assert df['number'].values.tolist() == [25, '31', 22]
 
     def test_convert_to_datetime(self):
         data = pd.DataFrame({
@@ -315,7 +315,7 @@ class TestDataType:
         assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
 
 
-class TestFractionToDecimal:
+class TestConvertFractionToDecimal:
     """
     Test convert.fraction_to_decimal wrangle
     """
@@ -449,7 +449,7 @@ class TestFractionToDecimal:
         assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
 
 
-class TestFromJSON:
+class TestConvertFromJSON:
     """
     Test convert.from_json wrangles
     """
@@ -619,7 +619,7 @@ class TestFromJSON:
         )
 
 
-class TestFromYAML:
+class TestConvertFromYAML:
     """
     Test convert.from_yaml wrangle
     """
@@ -708,8 +708,34 @@ class TestFromYAML:
             df["column"][1]["key"] == "val"
         )
 
+    def test_where(self):
+        """
+        Test converting YAML to an object with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+                output: output col
+                where: numbers > 6
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "key: val\nkey2:\n- list1\n- list2\n",
+                    "key3: val\nkey4:\n- list1\n- list2\n",
+                    "key5: val\nkey6:\n- list1\n- list2\n",
+                    ],
+                "numbers": [5, 7, 8]
+            })
+        )
+        assert (
+            df['output col'][0]== '' and
+            df['output col'][1]["key3"] == "val"
+        )
 
-class TestToJSON:
+
+class TestConvertToJSON:
     """
     Test convert.to_json wrangles
     """
@@ -1001,7 +1027,7 @@ class TestToJSON:
         assert df['result'][0] == r'{"column1": "a", "column2": {"b": 1}}'
 
 
-class TestToYAML:
+class TestConvertToYAML:
     """
     Test convert.to_yaml wrangle
     """
@@ -1095,3 +1121,29 @@ class TestToYAML:
             })
         )
         assert df['column'][0] == 'key: this is a ° symbol\n'
+
+    def test_where(self):
+        """
+        Test converting an object to YAML with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+                output: output col
+                where: numbers > 6
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                        {"key": "val", "key2": ["list1", "list2"]},
+                        {"key3": "val", "key4": ["list1", "list2"]},
+                        {"key5": "val", "key6": ["list1", "list2"]},
+                ],
+                "numbers": [5, 7, 8]
+            })
+        )
+        assert (
+            df['output col'][0] == "" and
+            df['output col'][1] == "key3: val\nkey4:\n- list1\n- list2\n"
+        )
