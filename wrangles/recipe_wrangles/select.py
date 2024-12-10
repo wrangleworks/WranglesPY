@@ -2,11 +2,12 @@
 Functions to select data from within columns
 """
 from typing import Union as _Union
+import types as _types
 import re as _re
 import json as _json
 import pandas as _pd
 from .. import select as _select
-
+from ..utils import get_nested_function as _get_nested_function
 
 def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
     """
@@ -233,7 +234,12 @@ def element(
     return df
 
 
-def group_by(df, by = [], **kwargs):
+def group_by(
+    df,
+    by = [],
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+):
     """
     type: object
     description: Group and aggregate the data
@@ -315,6 +321,12 @@ def group_by(df, by = [], **kwargs):
         description: >-
           Get a percentile. Note, you can use any integer here
           for the corresponding percentile.
+      custom.placeholder:
+        type:
+          - string
+          - array
+        description: >-
+          Placeholder for custom functions. Replace 'placeholder' with the name of the function.
     """
     def percentile(n):
         def percentile_(x):
@@ -337,8 +349,12 @@ def group_by(df, by = [], **kwargs):
         if operation[0].lower() == "p" and operation[1:].isnumeric():
             operation = percentile(int(operation[1:])/100)
 
+        # Pass custom functions
+        elif operation.startswith("custom."):
+            operation = _get_nested_function(operation, None, functions)
+
         # Add option to group as a list
-        if operation == "list":
+        elif operation == "list":
             operation = list
 
         if not isinstance(columns, list): columns = [columns]
@@ -375,7 +391,12 @@ def group_by(df, by = [], **kwargs):
         df = df.drop('absjdkbatgg', axis=1, level=0)
 
     # Flatting multilevel headings back to one
-    df.columns = df.columns.map('.'.join).str.strip('.')
+    df.columns = [
+        '.'.join(col).strip('.')
+        if isinstance(col, tuple)
+        else col
+        for col in df.columns
+    ]
 
     # Rename columns back to original names if altered
     df = df.rename(

@@ -2,6 +2,7 @@
 Test custom functions that are passed to recipes
 """
 import wrangles
+from wrangles.connectors import memory
 import pandas as pd
 import pytest
 
@@ -11,11 +12,11 @@ def test_function_not_found():
     Test that if a custom function isn't found
     that the user gets a relevant error message
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(
+    with pytest.raises(ValueError, match="does_not_exist not recognized"):
+        wrangles.recipe.run(
             """
             wrangles:
-              - custom.does_not_exists:
+              - custom.does_not_exist:
                   input: col
                   output: out
             """,
@@ -23,11 +24,6 @@ def test_function_not_found():
                 'col':['Hello World']
             })
         )
-    assert (
-        info.typename == 'ValueError' and
-        '"custom.does_not_exists" not found' in info.value.args[0]
-    )
-
 
 def test_run():
     """
@@ -677,7 +673,7 @@ def test_regex_with_kwargs():
     recipe = """
     wrangles:
       - custom.function:
-          input: P[a-z]*s
+          input: "regex:P[a-z]*s"
           string: this is a string
           output: Stuff
     """
@@ -1265,65 +1261,18 @@ def test_from_file():
     )
     assert df['header2'][0] == "VALUE1"
 
-def test_variable_function():
+class TestVariableFunctions:
     """
-    Test a custom function for variables
-    that does not have any arguments
+    Test using custom functions to define variables
     """
-    def func():
-        return 5
-
-    df = wrangles.recipe.run(
+    def test_variable_function(self):
         """
-        read:
-          - test:
-              rows: ${key}
-              values:
-                header1: value1
-        """,
-        variables={
-            "key": "custom.func"
-        },
-        functions=func
-    )
-
-    assert len(df) == 5
-
-def test_variable_function_with_arg():
-    """
-    Test a custom function for variables
-    that takes an argument
-    """
-    def func(variables):
-        return variables["var"] + 1
-
-    df = wrangles.recipe.run(
+        Test a function that does not have any arguments
         """
-        read:
-          - test:
-              rows: ${key}
-              values:
-                header1: value1
-        """,
-        variables={
-            "var": 5,
-            "key": "custom.func"
-        },
-        functions=func
-    )
+        def func():
+            return 5
 
-    assert len(df) == 6
-
-def test_variable_function_invalid_args():
-    """
-    Test a custom function for variables
-    that does not have the correct arguments
-    """
-    def func(a, b):
-        return 5
-
-    with pytest.raises(TypeError) as error:
-        raise wrangles.recipe.run(
+        df = wrangles.recipe.run(
             """
             read:
             - test:
@@ -1336,10 +1285,180 @@ def test_variable_function_invalid_args():
             },
             functions=func
         )
-    assert (
-        error.typename == 'TypeError' and
-        "must have 0 or 1 arguments" in error.value.args[0]
-    )
+
+        assert len(df) == 5
+
+    def test_kwargs(self):
+        """
+        Test a function that uses kwargs
+        """
+        def func(key1, **kwargs):
+            if key1 != 5:
+                raise ValueError("Invalid key1")
+            if kwargs["key2"] != 6:
+                raise ValueError("Invalid key2")
+            if "key1" in kwargs:
+                raise ValueError("key2 should not be in kwargs")
+            return 5
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "key1": 5,
+                "key2": 6
+            },
+            functions=func
+        )
+        assert len(df) == 5
+
+    def test_arg_default(self):
+        """
+        Test a function that has a default
+        value for an argument
+        """
+        def func(key1, key2 = 1):
+            return key1 + key2
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "key1": 5
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_arg_default_only(self):
+        """
+        Test a function that only has
+        an argument with a default
+        """
+        def func(key1 = 5):
+            return key1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func"
+            },
+            functions=func
+        )
+        assert len(df) == 5
+
+    def test_nested_function(self):
+        """
+        Test referencing a nested custom function
+        """
+        class nested:
+            def func():
+                return 5
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.nested.func"
+            },
+            functions=nested
+        )
+        assert len(df) == 5
+
+    def test_named_variable(self):
+        """
+        Test referencing a variable as a named parameter
+        """
+        def func(named_var):
+            return named_var + 1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "key": "custom.func",
+                "named_var": 5
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_variable_arg(self):
+        """
+        Test a function that uses
+        the variables argument
+        """
+        def func(variables):
+            return variables["var"] + 1
+
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: ${key}
+                values:
+                    header1: value1
+            """,
+            variables={
+                "var": 5,
+                "key": "custom.func"
+            },
+            functions=func
+        )
+        assert len(df) == 6
+
+    def test_variable_function_invalid_args(self):
+        """
+        Test a custom function for variables
+        that does not have the correct arguments
+        gives a clear error message
+        """
+        def func(a, b):
+            return 5
+
+        with pytest.raises(ValueError, match="requires arguments"):
+            raise wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: ${key}
+                    values:
+                        header1: value1
+                """,
+                variables={
+                    "key": "custom.func"
+                },
+                functions=func
+            )
+
 
 def test_clear_errors_df():
     """
@@ -1436,3 +1555,112 @@ def test_clear_errors_write():
             """,
             functions=raise_error
         )
+
+class nested:
+    def read():
+        return pd.DataFrame({
+            "header": ["value"]
+        })
+    
+    def wrangle(df, input):
+        df[input] = df[input] + "1"
+        return df
+
+    def write(df, id):
+        memory.dataframes[id] = df
+
+    def run(id, value):
+        memory.variables[id] = value
+
+def test_nested_read():
+    """
+    Test a nested custom function for read
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - custom.nested.read: {}
+        """,
+        functions=nested
+    )
+    assert df['header'][0] == "value"
+
+def test_nested_wrangle():
+    """
+    Test a nested custom function for wrangles
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - custom.nested.wrangle:
+              input: header
+        """,
+        functions=nested
+    )
+    assert df['header'][0] == "value1"
+
+def test_nested_write():
+    """
+    Test a nested custom function for write
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        write:
+          - custom.nested.write:
+              id: test_nested_write
+        """,
+        functions=nested
+    )
+    assert memory.dataframes["test_nested_write"]["header"][0] == "value"
+
+def test_nested_run():
+    """
+    Test a nested custom function for run
+    """
+    df = wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - custom.nested.run:
+                id: test_nested_run
+                value: value
+        """,
+        functions=nested
+    )
+    assert memory.variables["test_nested_run"] == "value"
+
+def test_common_param_access():
+    """
+    Test that a custom function can access common parameters
+    """
+    def common_param_access(df, input, where):
+        if len(df) != 2:
+            raise ValueError("Dataframe not the correct length")
+        if where != "header > 3":
+            raise ValueError("Where condition not met")
+        if input != "header":
+            raise ValueError("Input not correct")
+        df[input] = df[input] * 2
+        return df
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.common_param_access:
+              input: header
+              where: header > 3
+        """,
+        functions=common_param_access,
+        dataframe=pd.DataFrame({"header": [1,2,3,4,5], "header2": [5,4,3,2,1]})
+    )
+    assert df['header'][4] == 10 and df["header"][0] == 1

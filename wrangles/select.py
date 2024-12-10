@@ -4,7 +4,7 @@ Select subsets of input data
 from typing import Union as _Union
 import json as _json
 import itertools as _itertools
-from .utils import wildcard_expansion_dict
+from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
 
 def highest_confidence(data_list):
     """
@@ -149,7 +149,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     },
                     **row
                 }
-            rename_dict = wildcard_expansion_dict(row.keys(), key)
+            rename_dict = _wildcard_expansion_dict(row.keys(), key)
             results.append({
                 rename_dict[k]: row.get(k, default)
                 for k in rename_dict

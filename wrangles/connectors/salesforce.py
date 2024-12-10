@@ -60,7 +60,7 @@ def read(
     :param domain: (Optional) Use test to connect to a sandbox instance
     :return: A Pandas dataframe of the imported data.
     """
-    _logging.info(f": Importing Data :: {instance} /  {object}")
+    _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
 
     sf = _Salesforce(
         instance=instance,
@@ -158,6 +158,8 @@ def write(
     :param columns: (Optional) A subset of the columns to be written
     :param domain: (Optional) Use test to connect to a sandbox instance
     """
+    _logging.info(f": Writing data to Salesforce :: {instance} /  {object}")
+
     # Select only specific columns if user requests them
     if columns is not None: df = df[columns]
 

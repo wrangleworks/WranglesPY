@@ -7,6 +7,7 @@ import types as _types
 import logging as _logging
 from typing import Union as _Union
 import random as _random
+import time as _time
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
@@ -27,6 +28,7 @@ from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from ..connectors.matrix import _define_permutations
 
 
 def accordion(
@@ -297,6 +299,73 @@ def classify(
     return df
 
 
+def concurrent(
+    df: _pd.DataFrame,
+    wrangles: list,
+    max_concurrency: int = 10,
+    use_multiprocessing: bool = False,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Run multiple wrangles concurrently rather than sequentially.
+      Wrangles must specify output columns to be used concurrently.
+      When using concurrent, Wrangles may not complete in a predictable order
+      and it is not recommended to update overlapping columns with different wrangles.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: >-
+          The wrangles section of a recipe to execute for each
+          combination of variables
+        minItems: 1
+        items:
+          - $ref: "#/$defs/wrangles/items"
+      max_concurrency:
+        type: integer
+        description: The maximum number of wrangles to execute in parallel
+        minimum: 1
+    """
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
+
+    with pool_executor(max_workers=max_concurrency) as executor:
+        futures = []
+        futures_output_map = {}
+        for wrangle_definition in wrangles:
+            if (
+                not isinstance(wrangle_definition, dict) or
+                "output" not in list(wrangle_definition.values())[0]
+            ):
+                raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
+
+            future = executor.submit(
+                _wrangles.recipe.run,
+                recipe= {'wrangles': [wrangle_definition]},
+                dataframe=df.copy(),
+                variables=variables,
+                functions=functions
+            )
+            futures.append(future)
+
+            # Add output columns to reference on completion
+            futures_output_map[future] = list(wrangle_definition.values())[0]["output"]
+        
+        # Wait for all futures to complete
+        for future in _futures.as_completed(futures):
+            df[futures_output_map[future]] = future.result()[futures_output_map[future]]
+
+    return df
+
+
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
     """
     type: object
@@ -481,7 +550,8 @@ def filter(
                 WHERE {where};
                 """,
                 where_params,
-                preserve_index=True
+                preserve_index=True,
+                preserve_data_types=False
             ).index.to_list()
         ]
 
@@ -609,7 +679,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = True
+    log_data: bool = None
 ):
     """
     type: object
@@ -636,7 +706,7 @@ def log(
         description: Log info to the console
       log_data:
         type: boolean
-        description: Whether to log a sample of the contents of the dataframe. Default True.
+        description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
     if columns is not None:
 
@@ -666,10 +736,10 @@ def log(
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        df_tolog = df[columns_to_print]
+        df_tolog = df[columns_to_print].head(20)
 
     else:
-        df_tolog = df
+        df_tolog = df.head(20)
 
     if error:
         _logging.error(error)
@@ -677,14 +747,17 @@ def log(
         _logging.warning(warning)
     if info:
         _logging.info(info)
-    if log_data:
-        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     if write:
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
         )
+
+    if log_data == None and not any([error, warning, info, write]): log_data = True
+        
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     return df
 
@@ -732,6 +805,11 @@ def lookup(
         metadata = _model(model_id)
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+        
+        # Using model_id in wrong function
+        purpose = metadata['purpose']
+        if purpose != 'lookup':
+            raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
         
         # Split input/output if user differentiated e.g. "wrangle_column: output_column"
         wrangle_output = [
@@ -817,6 +895,62 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(' ', '_')
     df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
+    return df
+
+
+def matrix(
+    df: _pd.DataFrame,
+    variables: dict,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "loop",
+):
+    """
+    type: object
+    description: |-
+      Apply a matrix of wrangles to the dataframe.
+      This will run the wrangles for each combination of the variables.
+    required:
+      - variables
+      - wrangles
+    properties:
+      variables:
+        type: object
+        description: |-
+          A dictionary of variables to pass to the wrangle.
+          The key is the variable name and the value is a list of values.
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to apply to the dataframe.
+          Each wrangle will be run for each combination of the variables.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+        strategy:
+          type: string
+          enum:
+            - permutations
+            - loop
+          description: >-
+            Determines how to combine variables when there are multiple.
+            loop (default) iterates over each set of variables, repeating shorter lists 
+            until the longest is completed. permutations uses the combination of all 
+            variables against all other variables.
+    """
+    for permutation in _define_permutations(
+      variables,
+      strategy,
+      functions,
+      df
+    ):
+        df = _wrangles.recipe.run(
+            recipe={'wrangles': wrangles},
+            dataframe=df,
+            variables=permutation,
+            functions=functions
+        )
+
     return df
 
 
@@ -950,9 +1084,10 @@ def python(
 
 def recipe(
     df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
     name: str = None,
     variables = {},
-    output_columns = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
@@ -974,17 +1109,33 @@ def recipe(
     """
     if not name: name = kwargs
 
-    original_df = df.copy() # copy of the original df
+    df_temp = df.copy() # copy of the original df
+
+    # Filter columns if input is specified
+    if input:
+        if not isinstance(input, list): input = [input]
+        df_temp = df_temp[input]
     
-    # Running recipe wrangle
-    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
-    
-    # column output logic
-    if output_columns is None:
-        df = df_temp
+    if output is None and input is not None:
+        output = input
+
+    # If output columns are specified, only apply to those
+    if output:
+        if not isinstance(output, list): output = [output]
+        df[output] = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )[output]
     else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
-        
+        df = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )
+
     return df
 
 
@@ -1109,7 +1260,7 @@ def rename(
         for x in rename_cols:
             if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
         # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns])
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
         
         rename_dict = kwargs
     else:
@@ -1125,7 +1276,7 @@ def rename(
             raise ValueError('The lists for input and output must be the same length.')
         
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns])
+        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
@@ -1257,7 +1408,8 @@ def sql(
     df: _pd.DataFrame,
     command: str,
     params: _Union[list, dict] = None,
-    preserve_index: bool = False
+    preserve_index: bool = False,
+    preserve_data_types: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1278,61 +1430,96 @@ def sql(
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
     """
-    # Copy to ensure the index of the original dataframe isn't mutated
-    df = df.copy()
-
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
 
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
     
-    # List of columns changed
-    cols_changed = []
-    for cols in df.columns:
-        count = 0        
-        for row in df[cols]:
-            # If row contains objects, then convert to json
-            if isinstance(row, dict) or isinstance(row, list):
-                # Check if there is an object in the column and record column name to convert to json
-                cols_changed.append(cols)
-                break
-            # Only check the first 10 rows of a column
-            count += 1
-            if count > 10: break
-            
-        if cols in cols_changed:
-            # If the column is in cols_changed then convert to json
-            _to_json(df=df, input=cols)
+    # Adjust the chunk size based on the number of columns
+    # Large numbers of columns can exceed the
+    # sqlite_max_variable_number limit
+    chunk_size = min(10000 // df.columns.size, 1000)    
 
-    if preserve_index:
-        # Preserve original index and replace with an distinctive name
+    def _fast_fix_objects(df: _pd.DataFrame, n=100):
+        """
+        Attempt to convert columns with objects to json
+        For performance only check the first n rows of a column
+
+        :param df: DataFrame
+        :param n: Number of rows to check
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            count = sum([int(isinstance(row, (dict, list))) for row in list(df[column])[:n]])
+            if count == 0:
+                continue
+            elif count == min(n, len(df)):
+                cols_changed.append(column)
+            else:
+                # Mixed column type.
+                raise ValueError(f"Column '{column}' contains mixed data types which is not supported.")
+            
+        # Convert any objects found to JSON
+        if cols_changed:
+            _to_json(df=df, input=cols_changed)
+        
+        return cols_changed
+
+    def _fallback_fix_objects(df: _pd.DataFrame):
+        """
+        Convert cells with objects to json
+        Check each cell individually
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            for idx, row in zip(df.index, df[column]):
+                # Check each cell for an object
+                if isinstance(row, (dict, list)):
+                    df.loc[idx, column] = _json.dumps(row, ensure_ascii=True, default=str)
+        return cols_changed
+
+    def _sql_preserve_index(df: _pd.DataFrame):
+        # Preserve original index and replace with a distinctive name
         index_names = list(df.index.names)
         df.index.names = ["wrwx_sql_temp_index"]
-
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
-        
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
         df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
-
         # Restore the original index names
         df.index.names = index_names
+        return df
+        
+    if preserve_index:
+        try:
+            df_temp = df.copy()
+            cols_changed = _fast_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
+        except:
+            df_temp = df.copy()
+            cols_changed = _fallback_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
     else:
+        df_temp = df.copy()
+        cols_changed = _fast_fix_objects(df_temp)
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=1000)
+        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=chunk_size)
         # Execute the user's query against the database and return the results
-        df = _pd.read_sql(command, db, params = params)
+        df_temp = _pd.read_sql(command, db, params = params)
 
     db.close()
+
+    if preserve_data_types and cols_changed:
+        # Change the columns back to an object
+        _from_json(
+          df=df_temp,
+          input=[new_col for new_col in df.columns if new_col in cols_changed]
+        )
     
-    # Change the columns back to an object
-    for new_cols in df.columns:
-        if new_cols in cols_changed:
-            # If the column is in cols changed, then change back to an object
-            _from_json(df=df, input=new_cols)
-    
-    return df
+    return df_temp
 
 
 def standardize(
@@ -1518,4 +1705,74 @@ def translate(
             **kwargs
         )
 
+    return df
+
+
+def Try(
+    df: _pd.DataFrame,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list, dict] = {},
+    variables: dict = {},
+    retries: int = 0,
+    **kwargs
+):
+    """
+    type: object
+    description: Try a list of wrangles and catch any errors that occur
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      except:
+        type:
+          - object
+        description: |-
+          An action to take if the wrangles encounter an error.
+          This can contain a list of wrangles or a dictionary of column names and values.
+          If except is not provided, the error will be logged and the recipe will continue.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      retries:
+        type: integer
+        description: Number of times to retry the wrangles if an error occurs. Default 0.
+        minimum: 0
+    """
+    for attempt in range(retries + 1):
+        try:
+            df = _wrangles.recipe.run(
+                recipe={'wrangles': wrangles},
+                dataframe=df,
+                variables=variables,
+                functions=functions
+            )
+            break
+        except Exception as e:
+            _logging.error(f"Try caught error: {e}")
+            if attempt < retries:
+                _time.sleep(1.5 ** attempt)  # Exponential backoff
+            else:
+                if "except" in kwargs:
+                    if isinstance(kwargs["except"], dict):
+                        # Except contains a dict of columns and values
+                        df = df.assign(**{
+                            k: [v] * len(df)
+                            for k, v in kwargs["except"].items()
+                        })
+                    elif isinstance(kwargs["except"], list):
+                        # Except contains a list of wrangles to run
+                        df = _wrangles.recipe.run(
+                            recipe={'wrangles': kwargs['except']},
+                            dataframe=df,
+                            variables=variables,
+                            functions=functions
+                        )
+                    else:
+                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
+    
     return df

@@ -12,6 +12,12 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 import wrangles
 
+# inverse of reserved_word_replacements
+reserved_word_replacements = {
+    v: k
+    for k, v in wrangles.config.reserved_word_replacements.items()
+}
+
 schema = {
     'run': {},
     'read': {},
@@ -93,8 +99,8 @@ schema['read']['union'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: The data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """
@@ -108,8 +114,8 @@ schema['read']['concatenate'] = yaml.safe_load(
     properties:
       sources:
         type: array
-        description: Two data sources to be combined
-        minItems: 2
+        description: The data sources to be combined
+        minItems: 1
         items:
           "$ref": "#/$defs/read/items"
     """
@@ -141,7 +147,9 @@ def getMethodDocs(schema_wrangles, obj, path):
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
             if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
-                schema_wrangles[path[1:]] = schema_wrangle
+                schema_wrangles[
+                    reserved_word_replacements.get(path[1:], path[1:])
+                ] = schema_wrangle
         except Exception as e:
             logging.warning(f'{obj} description={e}')
 
@@ -153,17 +161,23 @@ for wrangle in schema['wrangles']:
     if "properties" not in schema['wrangles'][wrangle]:
         schema['wrangles'][wrangle]["properties"] = {}
 
-    if wrangle not in wrangles.config.no_where_list:
-        schema['wrangles'][wrangle]['properties']['where'] = {
-            "$ref": "#/$defs/wrangles/commonProperties/where"
-        }
-    else:
-        schema['wrangles'][wrangle]['properties']['where'] = {
-            "$ref": "#/$defs/wrangles/commonProperties/where_special"
-        }
-    schema['wrangles'][wrangle]['properties']['where_params'] = {
-        "$ref": "#/$defs/wrangles/commonProperties/where_params"
+    schema['wrangles'][wrangle]['properties']["if"] = {
+        "$ref": f"#/$defs/wrangles/commonProperties/if"
     }
+
+    if wrangle not in wrangles.config.where_not_implemented:
+        if wrangle in wrangles.config.where_overwrite_output:
+            schema['wrangles'][wrangle]['properties']['where'] = {
+                "$ref": "#/$defs/wrangles/commonProperties/where_special"
+            }
+        else:
+            schema['wrangles'][wrangle]['properties']['where'] = {
+                "$ref": "#/$defs/wrangles/commonProperties/where"
+            }
+
+        schema['wrangles'][wrangle]['properties']["where_params"] = {
+            "$ref": f"#/$defs/wrangles/commonProperties/where_params"
+        }
 
 # Add common write properties
 for write in schema['write']:
@@ -172,7 +186,7 @@ for write in schema['write']:
     else:
         write_properties = schema['write'][write]['anyOf'][-1]['properties']
 
-    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+    for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
         write_properties[x] = {
             "$ref": f"#/$defs/write/commonProperties/{x}"
         }
@@ -184,9 +198,21 @@ for read in schema['read']:
     else:
         read_properties = schema['read'][read]['anyOf'][-1]['properties']
 
-    for x in ["columns", "not_columns", "where", "where_params", "order_by"]:
+    for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
         read_properties[x] = {
             "$ref": f"#/$defs/write/commonProperties/{x}"
+        }
+
+# Add common run properties
+for run in schema['run']:
+    if "properties" not in schema['run'][run]:
+        schema['run'][run]['properties'] = {}
+
+    run_properties = schema['run'][run]['properties']
+
+    for x in ["if"]:
+        run_properties[x] = {
+            "$ref": f"#/$defs/run/commonProperties/{x}"
         }
 
 # Construct final schema

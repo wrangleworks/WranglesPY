@@ -25,15 +25,33 @@ class keycloak():
     realm = 'wrwx'
     client_id = 'services'
 
-# wrangles that don't work with where
-no_where_list = [
+# When using where, these Wrangles 
+# overwrite the output rather than
+# trying to merge the contents
+# back to the original dataframe 
+where_overwrite_output = [
     'pandas.transpose',
     'transpose',
     'filter',
-    'rename',
     'sql',
-    'drop',
-    'split.list',
-    'reindex',
-    'select.group_by'
+    'select.group_by',
+    'select.sample',
+    'select.columns',
+    'select.head',
+    'pandas.head',
+    'select.tail',
+    'pandas.tail',
+    'sort'
 ]
+
+# Wrangles that don't work with where
+where_not_implemented = [
+    'drop',
+    'rename',
+    'reindex'
+]
+
+# Recipe names that use forbidden python keywords
+reserved_word_replacements = {
+    "try": "Try"
+}

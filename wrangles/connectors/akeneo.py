@@ -9,6 +9,7 @@ for detailed REST API docs.
 import json as _json
 import pandas as _pd
 import requests as _requests
+import logging as _logging
 
 
 _schema = {}
@@ -47,6 +48,8 @@ def read(
     :param parameters: Set parameters for the query such as filtering the results.
     :return: A Pandas dataframe of the returned results
     """
+    _logging.info(f": Reading data from Akeneo :: {host} / {source}")
+
     # Set to max temporarily
     parameters['limit'] = 100
 
@@ -152,7 +155,6 @@ def write(
     client_id: str,
     client_secret: str,
     source: str,
-    columns: list = None,
 ) -> None:
     """
     Write data into an Akeneo PIM
@@ -175,6 +177,8 @@ def write(
     :param client_secret: Client Secret
     :param source: Type of data to return
     """
+    _logging.info(f": Writing data to Akeneo :: {host} / {source}")
+
     # TODO: handle errors appropriately
     token = _requests.post(
         f"{host}/api/oauth/v1/token",

@@ -12,7 +12,6 @@ from jinja2 import (
     FileSystemLoader as _FileSystemLoader,
     BaseLoader as _BaseLoader
 )
-import requests as _requests
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 
@@ -92,6 +91,10 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
       value:
         type:
           - string
+          - number
+          - object
+          - array
+          - boolean
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
     """
     # If a string provided, convert to list
@@ -137,6 +140,7 @@ def embeddings(
     model: str = "text-embedding-3-small",
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
+    precision: str = "float32",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -188,6 +192,15 @@ def embeddings(
         description: |-
           Override the default url for the AI endpoint.
           Must use the OpenAI embeddings API.
+      precision:
+        type: string
+        description: >-
+          The precision of the embeddings.
+          Default is float32.
+          This should be used with output_type numpy array.
+        enum:
+          - float16
+          - float32
     """
     if output is None: output = input
 
@@ -209,12 +222,13 @@ def embeddings(
             threads,
             retries,
             url,
+            precision,
             **kwargs
         )
 
         if output_type == 'python list':
             df[output_col] = [
-                list(row)
+                row.tolist()
                 for row in df[output_col].values
             ]
 

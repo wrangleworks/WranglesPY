@@ -1,5 +1,10 @@
 import re as _re
 import logging as _logging
+import types as _types
+import inspect as _inspect
+from typing import Union as _Union
+import yaml as _yaml
+
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
     """
@@ -83,3 +88,248 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
                     raise KeyError(f'Column {column} does not exist')
 
     return result_columns
+
+
+def get_nested_function(
+    fn_string: str,
+    stock_functions: _types.ModuleType = None,
+    custom_functions: dict = None,
+    default_stock_functions: str = None
+):
+    """
+    Get a nested function from obj as defined by a string
+    e.g. 'custom.my_function' or 'my_function' or 'my_module.my_function'
+
+    :param fn_string: String defining the function to get
+    :param stock_functions: Module containing stock functions
+    :param custom_functions: Dictionary of user defined custom functions
+    :param default_stock_functions: Some stock functions use a default final function to call
+    """
+    if custom_functions is None and stock_functions is None:
+        raise ValueError('No functions provided')
+
+    fn_list = fn_string.strip().split('.')
+    if fn_list[0] == 'custom':
+        if len(fn_list) == 1:
+            raise ValueError('Custom function not defined correctly')
+        fn_list = fn_list[1:]
+        obj = custom_functions
+    else:
+        if default_stock_functions:
+            fn_list.append(default_stock_functions)
+        obj = stock_functions
+        
+    for fn_name in fn_list:
+        if isinstance(obj, dict):
+            if fn_name not in obj:
+                raise ValueError(f'Function {fn_string} not recognized')
+            obj = obj[fn_name]
+        else:
+            if not hasattr(obj, fn_name):
+                raise ValueError(f'Function {fn_string} not recognized')
+            obj = getattr(obj, fn_name)
+    
+    return obj
+
+
+def validate_function_args(
+    func: _types.FunctionType,
+    args: dict,
+    name: str
+):
+    """
+    Validate that all required arguments are provided for a custom function
+
+    :param func: Function to validate
+    :param args: Arguments provided to the function
+    :param name: Name of the function
+    """
+    argspec = _inspect.getfullargspec(func)
+
+    missing_args = [
+        x
+        for x
+        in argspec.args[:len(argspec.args) - len(argspec.defaults or [])]
+        if x not in args.keys()
+    ]
+
+    if missing_args:
+        raise ValueError(f"Function '{name}' requires arguments: {missing_args}")
+
+
+def add_special_parameters(
+    params: dict,
+    fn: _types.FunctionType,
+    functions: dict = {},
+    variables: dict = {},
+    error: Exception = None,
+    common_params: dict = {}
+):
+    """
+    Add special parameters to the params dictionary if they are required by the function
+
+    :param params: Dictionary of parameters to pass to the function
+    :param fn: Function to check for special parameters
+    :param functions: Dictionary of custom functions
+    :param variables: Dictionary of variables
+    :param error: Exception object
+    :param common_params: These are parameters that are common to all functions. \
+        They will only be passed as a parameter if the function requests them.
+    """
+    # Check args and pass on special parameters if requested
+    argspec = _inspect.getfullargspec(fn).args
+    if ("functions" not in params and "functions" in argspec):
+        params['functions'] = functions
+    if ("variables" not in params and "variables" in argspec):
+        params['variables'] = variables
+
+    if error and "error" not in params and "error" in argspec:
+        params['error'] = error
+
+    # Allow functions to access common
+    # parameters only if they need them
+    if common_params:
+        params = {
+            **params,
+            **{
+                k: v
+                for k, v in common_params.items()
+                if k in argspec
+            }
+        }
+
+    return params
+
+
+def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
+    """
+    Finds matching columns for wildcards or regex from all available columns
+    
+    :param all_columns: List of all available columns in the dataframe
+    :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
+    """
+    def escape_except(text, chars_not_to_escape):
+        """
+        Escape regex characters except for those specified
+        """
+        # Define all regex special characters
+        special_chars = set(r'[]{}()^$.|*+?\\')
+        # Determine the characters to escape
+        chars_to_escape = special_chars - set(chars_not_to_escape)
+        # Create a regex pattern to match any of the characters to escape
+        pattern = _re.compile(f"[{_re.escape(''.join(chars_to_escape))}]")
+        # Use re.sub to replace each match with the escaped version
+        escaped_text = pattern.sub(lambda match: f"\\{match.group(0)}", text)
+        return escaped_text
+
+    if not isinstance(selected_columns, list): selected_columns = [selected_columns]
+
+    # Convert wildcards to regex pattern
+    for i in range(len(selected_columns)):
+        # Catch not syntax errors
+        if isinstance(selected_columns[i], list):
+            newline = '\n'
+            raise ValueError(
+                "Column name is not formatted correctly. " + 
+                f"Got: {_yaml.dump(selected_columns[i]).strip(newline)}. " +
+                "Did you mean to use '-column_name' without a space? "
+            )
+
+        # If column contains * without escape
+        if (
+            _re.search(r'[^\\]?\*', str(selected_columns[i])) and
+            not 'regex:' in str(selected_columns[i]).lower()
+        ):
+            # Replace with a regex pattern and escape
+            # other regex special characters
+            selected_columns[i] = 'regex:' + _re.sub(
+                r'(?<!\\)\*', r'(.*)',
+                escape_except(selected_columns[i], ['*', '\\'])
+            )
+
+    # Using a dict to preserve insert order.
+    # Order is preserved for Dictionaries from Python 3.7+
+    if (
+        all([str(column).startswith('-') for column in selected_columns]) and
+        not any([col in all_columns for col in selected_columns])
+    ):
+        # If all selected columns are not columns then
+        # initialize with all columns
+        result_columns = dict.fromkeys(all_columns)
+    else:
+        # Otherwise initialize with no columns
+        result_columns = {}
+
+    # Identify any matching columns using regex within the list
+    for column in selected_columns:
+        # Rearrange -regex: to regex:- to allow either to work
+        if str(column).lower().startswith('-regex:'):
+            column = "regex:-" + column[7:]
+
+        if column.lower().startswith('regex:'):
+            pattern = column[6:].strip() 
+            if pattern.startswith("-"):
+                # Remove columns that match the negative regex pattern
+                result_columns = {
+                    k: None
+                    for k in result_columns
+                    if not _re.compile(pattern[1:]).fullmatch(k)
+                }
+            else:
+                # Add columns that match the regex pattern
+                result_columns.update(dict.fromkeys(list(
+                    filter(_re.compile(pattern).fullmatch, all_columns)
+                ))) # Read Note below
+        else:
+            if column not in all_columns and str(column).startswith('-'):
+                # Columns prefixed with - indicate not to include them
+                result_columns.pop(column[1:], None)
+                continue
+
+            # Check if a column is indicated as
+            # optional with column_name?
+            optional_column = False
+            if column[-1] == "?" and column not in all_columns:
+                column = column[:-1]
+                optional_column = True
+
+            if column in all_columns:
+                result_columns[column] = None
+            else:
+                if not optional_column:
+                    raise KeyError(f'Column {column} does not exist')
+    
+    # Return, preserving original order
+    return list(result_columns.keys())
+
+
+def evaluate_conditional(statement, variables: dict = {}):
+    """
+    Evaluate a conditional statement using the variables provided
+    to determine if the statement is true or false
+
+    Recipe variables of the style ${var} will be parameterized
+
+    :param statement: Python style statement
+    :param variables: Dictionary of variables to use in the statement
+    """
+    statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
+
+    if _re.match(r'\$\{(.+)\}', statement_modified):
+        raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
+
+    try:
+        # Evaluate the statement
+        result = eval(statement_modified, variables, {})
+
+        # Result was already a boolean
+        if isinstance(result, bool):
+            return result
+        # Result was a string like true or false
+        if isinstance(result, str) and result.strip().lower() in ['true', 'false']:
+            return result.strip().lower() == 'true'
+        # Otherwise return python truthiness
+        else:
+            return bool(result)
+    except:
+        raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None

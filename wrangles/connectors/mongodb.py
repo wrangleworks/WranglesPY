@@ -2,7 +2,7 @@ import pandas as _pd
 import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus as _quote_plus
 
 _schema = {}
 
@@ -21,12 +21,11 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     :param query: mongoDB query
     :param projection: (Optional) Select which fields to include
     """
-    
-    _logging.info(f": Importing Data :: {database}.{collection}")
+    _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
     
     # Encoding password and username using percent encoding
-    user = quote_plus(user)
-    password = quote_plus(password)
+    user = _quote_plus(user)
+    password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
@@ -98,12 +97,12 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     :param action: actions supported INSERT, UPDATE
     :pram query: mongoDB query to search for value to update, only valid when using UPDATE
     :param update: mongoDB query value to update, only valid when using UPDATE
-    
     """
-    
+    _logging.info(f": Writing data to MongoDB :: {host} / {database} / {collection}")
+
     # Encoding password and username using percent encoding
-    user = quote_plus(user)
-    password = quote_plus(password)
+    user = _quote_plus(user)
+    password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
@@ -122,6 +121,7 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
       client.close()
     except:
       pass
+
 _schema['write'] = """
 type: object
 description: Write data into a mongoDB database

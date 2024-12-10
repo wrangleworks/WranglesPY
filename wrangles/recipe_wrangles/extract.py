@@ -4,7 +4,6 @@ Functions to run extraction wrangles
 from typing import Union as _Union
 import re as _re
 import concurrent.futures as _futures
-from collections import OrderedDict as _OrderedDict
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
@@ -176,9 +175,12 @@ def ai(
 
     # Add a default for type array if not already specified.
     # ChatGPT appears to need this to function correctly.
+    # Also ensure examples are in a list.
     for k, v in output.items():
         if v.get("type") == "array" and "items" not in v:
             output[k]["items"] = {"type": "string"}
+        if not isinstance(v.get('examples'), list):
+            output[k]['examples'] = [v.get('examples')]
 
     # Format any user submitted header messages
     if not isinstance(messages, list): messages = [messages]

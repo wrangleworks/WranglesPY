@@ -1,8 +1,6 @@
 """
 Functions to compare data from within columns
 """
-
-from typing import Union as _Union
 import pandas as _pd
 from .. import compare as _compare
 
