@@ -116,84 +116,82 @@ def test_classify_read_four_cols_error(mocker):
         )
 
 
-#
-# Extract
-#
-def test_extract_read():
-    """
-    Read extract wrangle data
-    """
-    recipe = """
-    read:
-      - train.extract:
-          model_id: ee5f020e-d88e-4bd5
-    """
-    df = wrangles.recipe.run(recipe)
-    assert len(df) == 3
+class TestTrainExtract:
+    def test_extract_read(self):
+        """
+        Read extract wrangle data
+        """
+        recipe = """
+        read:
+        - train.extract:
+            model_id: ee5f020e-d88e-4bd5
+        """
+        df = wrangles.recipe.run(recipe)
+        assert len(df) == 3
 
-def test_extract_write():
-    """
-    Writing data to a wrangle (re-training)
-    """
-    recipe = """
-    write:
-      - train.extract:
-          columns:
-            - Entity to Find
-            - Variation (Optional)
-            - Notes
-          model_id: ee5f020e-d88e-4bd5
-    """
-    data = pd.DataFrame({
-        'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
-        'Variation (Optional)': ['', '', ''],
-        'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
-    })
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.iloc[0]['Entity to Find'] == 'Rachel'
+    def test_extract_write(self):
+        """
+        Writing data to a wrangle (re-training)
+        """
+        recipe = """
+        write:
+        - train.extract:
+            columns:
+                - Find
+                - Output (Optional)
+                - Notes
+            model_id: ee5f020e-d88e-4bd5
+        """
+        data = pd.DataFrame({
+            'Find': ['Rachel', 'Dolores', 'TARS'],
+            'Output (Optional)': ['', '', ''],
+            'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Entity to Find'] == 'Rachel'
 
-def test_extract_write_2():
-    """
-    Incorrect columns for extract read
-    """
-    with pytest.raises(ValueError, match="must be provided for train.extract"):
-        wrangles.recipe.run(
-            """
-            write:
-            - train.extract:
-                columns:
-                    - Entity to Find2
-                    - Variation (Optional)2
-                    - Notes2
-                model_id: ee5f020e-d88e-4bd5
-            """,
-            dataframe=pd.DataFrame({
-                'Entity to Find2': ['Rachel', 'Dolores', 'TARS'],
-                'Variation (Optional)2': ['', '', ''],
-                'Notes2': ['Blade Runner', 'Westworld', 'Interstellar'],
-            })
-        )
+    def test_extract_write_2(self):
+        """
+        Incorrect columns for extract read
+        """
+        with pytest.raises(ValueError, match="must be provided for train.extract"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Entity to Find2
+                        - Variation (Optional)2
+                        - Notes2
+                    model_id: ee5f020e-d88e-4bd5
+                """,
+                dataframe=pd.DataFrame({
+                    'Find2': ['Rachel', 'Dolores', 'TARS'],
+                    'Output (Optional)2': ['', '', ''],
+                    'Notes2': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
 
-def test_extract_error():
-    """
-    Not Providing model_id or name in train wrangles
-    """
-    with pytest.raises(ValueError, match="name or a model id must be provided"):
-        wrangles.recipe.run(
-            """
-            write:
-            - train.extract:
-                columns:
-                    - Entity to Find
-                    - Variation (Optional)
-                    - Notes
-            """,
-            dataframe=pd.DataFrame({
-                'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
-                'Variation (Optional)': ['', '', ''],
-                'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
-            })
-        )
+    def test_extract_error(self):
+        """
+        Not Providing model_id or name in train wrangles
+        """
+        with pytest.raises(ValueError, match="name or a model id must be provided"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Find
+                        - Output (Optional)
+                        - Notes
+                """,
+                dataframe=pd.DataFrame({
+                    'Find': ['Rachel', 'Dolores', 'TARS'],
+                    'Output (Optional)': ['', '', ''],
+                    'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
 
 
 class TestTrainLookup:
