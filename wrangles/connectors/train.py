@@ -98,9 +98,9 @@ class extract():
         elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
             [x.append('') for x in tmp_data['Data']]
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output (Optional)', 'Notes']
         elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output (Optional)', 'Notes']
         else:
             raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
 
@@ -132,7 +132,7 @@ class extract():
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+        required_columns = ['Find', 'Output (Optional)', 'Notes']
         if not required_columns == list(df.columns[:3]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
