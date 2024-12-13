@@ -148,7 +148,7 @@ class TestTrainExtract:
             'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
         })
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Entity to Find'] == 'Rachel'
+        assert df.iloc[0]['Find'] == 'Rachel'
 
     def test_extract_write_2(self):
         """
@@ -160,8 +160,8 @@ class TestTrainExtract:
                 write:
                 - train.extract:
                     columns:
-                        - Entity to Find2
-                        - Variation (Optional)2
+                        - Find2
+                        - Output (Optional)2
                         - Notes2
                     model_id: ee5f020e-d88e-4bd5
                 """,
