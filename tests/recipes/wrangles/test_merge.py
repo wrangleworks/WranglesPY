@@ -390,7 +390,7 @@ class TestMergeLists:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['C', 'D', 'F', 'G']
 
-    def test_lists_remove_duplicates():
+    def test_lists_remove_duplicates(self):
         """
         Test merge.lists using remove_duplicates
         """
@@ -410,7 +410,7 @@ class TestMergeLists:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Combined Col'] == ['A', 'B', 'E'] and df.iloc[1]['Combined Col'] == ['C', 'D', 'G']
 
-    def test_lists_single_double_quotes():
+    def test_lists_single_double_quotes(self):
         """
         Tests merge.lists with single and double quotes
         """
