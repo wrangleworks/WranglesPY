@@ -273,6 +273,54 @@ class TestCopy:
             str(info.value) == "copy - Input and output must be the same length"
         )
 
+    def test_pd_copy_rename_style(self):
+        """
+        Test copy without input and output, but a rename dictionary instead
+        """
+        data = pd.DataFrame({
+            'col': ['SuperMario']
+        })
+        recipe = """
+        wrangles:
+        - copy:
+            col: col-copy
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['col', 'col-copy']
+
+    def test_pd_copy_rename_style_column_exists(self):
+        """
+        Test copy rename style where the column already exists
+        """
+        data = pd.DataFrame({
+            'col': ['SuperMario'],
+            'col-copy': ['Luigi']
+        })
+        recipe = """
+        wrangles:
+        - copy:
+            col: col-copy
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['col', 'col-copy'] and df.iloc[0]['col-copy'] == 'SuperMario'
+
+    def test_pd_copy_rename_style_column_does_not_exist(self):
+        """
+        Test copy rename style error where the column does not exist
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(
+                recipe="""
+                wrangles:
+                    - copy:
+                        not col: col-copy
+                """,
+                dataframe=pd.DataFrame({
+                    'col': ['SuperMario']
+                })
+            )
+        assert info.typename == "ValueError" and str(info.value) == 'copy - Column "not col" not found.'
+
 
 class TestDrop:
     """
