@@ -2,7 +2,12 @@ import pandas as _pd
 from typing import Union as _Union
 
 
-def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
+def copy(
+    df: _pd.DataFrame,
+    input: _Union[str, list] = None,
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Make a copy of a column or a list of columns
@@ -22,20 +27,33 @@ def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list])
           - array
         description: Name of the output columns or columns
     """
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    # If short form of paired names is provided, use that
+    if input is None:
+        # Check that column name exists
+        columns_to_copy = list(kwargs.keys())
+        rename_cols = list(kwargs.values())
+        for x in columns_to_copy:
+            if x not in list(df.columns): raise ValueError(f'Column "{x}" not found.')
+        # Check if the new column names exist if so drop them
+        df = df.drop(columns=[x for x in rename_cols if x in df.columns and x not in columns_to_copy])
 
-    # If input is a single column and output is multiple columns, repeat input
-    if len(input) == 1 and len(output) > 1:
-        input = input * len(output)
+        for input_column, output_column in zip(columns_to_copy, rename_cols):
+            df[output_column] = df[input_column].copy()
+    else:
+        # If a string provided, convert to list
+        if not isinstance(input, list): input = [input]
+        if not isinstance(output, list): output = [output]
 
-    # If input is not the same length as output, raise error
-    if len(input) != len(output):
-        raise ValueError("Input and output must be the same length")
-    
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].copy()
+        # If input is a single column and output is multiple columns, repeat input
+        if len(input) == 1 and len(output) > 1:
+            input = input * len(output)
+
+        # If input is not the same length as output, raise error
+        if len(input) != len(output):
+            raise ValueError("Input and output must be the same length")
+        
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].copy()
         
     return df
 
