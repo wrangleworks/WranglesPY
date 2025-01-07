@@ -271,6 +271,39 @@ class TestSelectDictionaryElement:
         )
         assert df['column'][0] == 1
 
+    def test_dictionary_element_string_wildcard(self):
+        """
+        Test selecting elements with a wildcard passed as a string
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: A*
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == {'A1': '1', 'A2': '3'}
+
+    def test_dictionary_element_string_wildcard_nonexistent(self):
+        """
+        Test selecting nonexistent elements with a wildcard passed as a string
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: C*
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == ''
 
 class TestSelectListElement:
     """
