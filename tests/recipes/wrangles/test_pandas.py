@@ -425,6 +425,24 @@ class TestRound:
         )
         assert df['col'].to_list() == [3.1, 1.16, 2.6, 3.2]
 
+    def test_round_mixed(self):
+        """
+        Test round with mixed inputs and outputs
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input:
+                    - col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [3.13, "Something else", 1.16, None]
+            })
+        )
+        assert df['col'].to_list() == [3.1, '', 1.2, '']
+
 
 class TestReindex:
     """
