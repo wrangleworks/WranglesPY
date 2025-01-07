@@ -4,6 +4,7 @@ Select subsets of input data
 from typing import Union as _Union
 import json as _json
 import itertools as _itertools
+import fnmatch as _fnmatch
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
 
 def highest_confidence(data_list):
@@ -105,7 +106,7 @@ def list_element(input, n: _Union[str, int], default = ""):
     ]
 
 
-def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
+def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any = ""):
     """
     Select an element or elements of a dictionary
     """
@@ -114,7 +115,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
     if not isinstance(input, list):
         input = [input]
         single_input = True
-    
+
     if isinstance(key, list):
         key = dict(
             _itertools.chain.from_iterable(
@@ -163,9 +164,29 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
             """
             try:
                 if isinstance(value, dict):
-                    return value.get(key, default)
+                    # Handle wildcard for string keys
+                    if "*" in key:
+                        matching_keys = [
+                            k for k in value.keys() if _fnmatch.fnmatch(k, key)
+                        ]
+                        return {
+                            mk: value.get(mk, default)
+                            for mk in matching_keys
+                        } if matching_keys else default
+                    else:
+                        return value.get(key, default)
                 elif isinstance(value, str) and value.startswith("{"):
-                    return _json.loads(value).get(key, default)
+                    parsed_value = _json.loads(value)
+                    if "*" in key:
+                        matching_keys = [
+                            k for k in parsed_value.keys() if _fnmatch.fnmatch(k, key)
+                        ]
+                        return {
+                            mk: parsed_value.get(mk, default)
+                            for mk in matching_keys
+                        } if matching_keys else default
+                    else:
+                        return parsed_value.get(key, default)
                 else:
                     return default
             except:
