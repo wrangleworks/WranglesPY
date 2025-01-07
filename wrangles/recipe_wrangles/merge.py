@@ -211,7 +211,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         description: Whether to remove duplicates from the created list
       ignore_case:
         type: boolean
-        description: Ignore input and to_remove case
+        description: Ignore case when removing duplicates
     """
     output_list = []
     for row in df[input].values.tolist():
@@ -225,7 +225,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
             output_row = [x for x in output_row if x.lower() not in seen and not seen.add(x.lower())]
 
         # Use dict.fromkeys over set to preserve input order
-        if remove_duplicates and not ignore_case:
+        elif remove_duplicates and not ignore_case:
             output_row = list(dict.fromkeys(output_row))
 
         output_list.append(output_row)
