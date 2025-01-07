@@ -61,7 +61,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
         elif desired_case == 'title':
             df[output_column] = df[input_column].str.title()
         elif desired_case == 'sentence':
-            df[output_column] = df[input_column].str.capitalize()
+            df[output_column] = df[input_column].str.split('.').map(lambda col: '. '.join([s.lstrip().capitalize() for s in col]))
 
     return df
 
