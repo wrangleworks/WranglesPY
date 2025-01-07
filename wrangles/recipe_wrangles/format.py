@@ -143,7 +143,7 @@ def prefix(df: _pd.DataFrame, input: _Union[str, list], value: str, output: _Uni
     return df
 
 
-def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, ignore_case: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Remove duplicates from a list. Preserves input order.
@@ -161,6 +161,9 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
           - string
           - array
         description: Name of the output column
+      ignore_case:
+        type: boolean
+        description: Ignore case when removing duplicates
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -175,7 +178,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist())
+        df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist(), ignore_case)
 
     return df
 
