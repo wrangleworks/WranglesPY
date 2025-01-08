@@ -1340,7 +1340,43 @@ class TestExtractRegex:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
-    
+
+    def test_extract_regex_capture_group_no_param(self):
+        """
+        Tests extract.regex with a capture group in the
+        pattern but without the capture_group parameter
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+).*
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['Pikachu']
+
+    def test_extract_regex_capture_group(self):
+        """
+        Tests extract.regex with the capture_group parameter specified
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            capture_group: 1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['Pikachu']
+
 
 class TestExtractProperties:
     """
