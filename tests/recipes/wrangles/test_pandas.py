@@ -438,11 +438,62 @@ class TestRound:
                 decimals: 1
             """,
             dataframe=pd.DataFrame({
-                'col': [3.13, "Something else", 1.16, None]
+                'col': [3.13, "Something else", 1.16, None, "2.5555"]
             })
         )
-        assert df['col'].to_list() == [3.1, '', 1.2, '']
+        assert df['col'].to_list() == [3.1, '', 1.2, '', 2.6]
 
+    def test_round_string(self):
+        """
+        test round with strings
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': ["3.13", "1.16", "2.5555", "3.15"]
+            })
+        )
+        assert df['col'].to_list() == [3.1, 1.2, 2.6, 3.2]
+
+    def test_round_floatinf(self):
+        """
+        test infinity
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [float('inf'), float('-inf')]
+            })
+        )
+        assert df['col'].to_list() == [float('inf'), float('-inf')]
+
+    def test_round_int(self):
+        """
+        test int values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [3, 1, 2, 3]
+            })
+        )
+        assert df['col'].to_list() == [3.0, 1.0, 2.0, 3.0]
+        
 
 class TestReindex:
     """
