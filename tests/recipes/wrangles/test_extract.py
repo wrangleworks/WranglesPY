@@ -1357,7 +1357,7 @@ class TestExtractRegex:
             find: (\d+).*
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['Pikachu']
+        assert df.iloc[0]['col_out'] == ['55g'] and df.iloc[2]['col_out'] == ['1000kg']
 
     def test_extract_regex_capture_group(self):
         """
@@ -1375,7 +1375,7 @@ class TestExtractRegex:
             capture_group: 1
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['Pikachu']
+        assert df.iloc[0]['col_out'] == ['55'] and df.iloc[2]['col_out'] == ['1000']
 
 
 class TestExtractProperties:
