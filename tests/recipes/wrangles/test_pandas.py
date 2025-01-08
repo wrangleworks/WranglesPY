@@ -273,27 +273,6 @@ class TestCopy:
             str(info.value) == "copy - Input and output must be the same length"
         )
 
-    def test_copy_shorthand(self):
-        """
-        Test copying columns using the shorthand method
-        """
-        df = wrangles.recipe.run(
-            """
-            read:
-            - test:
-                rows: 3
-                values:
-                    col1: val1
-                    col2: val2
-
-            wrangles:
-            - copy:
-                col1: col3
-                col2: col4
-            """
-        )
-        assert list(df['col3'].values) == ['val1', 'val1', 'val1'] and list(df['col4'].values) == ['val2', 'val2', 'val2']   
-
 
 class TestDrop:
     """

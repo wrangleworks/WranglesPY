@@ -2,12 +2,7 @@ import pandas as _pd
 from typing import Union as _Union
 
 
-def copy(
-    df: _pd.DataFrame,
-    input: _Union[str, list] = None,
-    output: _Union[str, list] = None,
-    **kwargs
-) -> _pd.DataFrame:
+def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
     """
     type: object
     description: Make a copy of a column or a list of columns
@@ -27,36 +22,22 @@ def copy(
           - array
         description: Name of the output columns or columns
     """
-    # If short form of paired names is provided, use that
-    if input is None:
-        # Check that column name exists
-        copy_cols = list(kwargs.keys())
-        for x in copy_cols:
-            if x not in list(df.columns): raise ValueError(f'Column to copy "{x}" not found.')
-        # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
-        
-        copy_dict = kwargs
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
 
-        return copy(df, input=list(copy_dict.keys()), output=list(copy_dict.values()))
+    # If input is a single column and output is multiple columns, repeat input
+    if len(input) == 1 and len(output) > 1:
+        input = input * len(output)
+
+    # If input is not the same length as output, raise error
+    if len(input) != len(output):
+        raise ValueError("Input and output must be the same length")
     
-    else:
-        # If a string provided, convert to list
-        if not isinstance(input, list): input = [input]
-        if not isinstance(output, list): output = [output]
-
-        # If input is a single column and output is multiple columns, repeat input
-        if len(input) == 1 and len(output) > 1:
-            input = input * len(output)
-
-        # If input is not the same length as output, raise error
-        if len(input) != len(output):
-            raise ValueError("Input and output must be the same length")
+    for input_column, output_column in zip(input, output):
+        df[output_column] = df[input_column].copy()
         
-        for input_column, output_column in zip(input, output):
-            df[output_column] = df[input_column].copy()
-        
-        return df
+    return df
 
 
 def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:

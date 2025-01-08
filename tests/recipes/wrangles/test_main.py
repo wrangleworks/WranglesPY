@@ -2856,6 +2856,50 @@ class TestDateCalculator:
         assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'
 
 
+class TestCopy:
+    """
+    Test copy
+    """
+    def test_copy(self):
+        """
+        Test copying a column
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 3
+                values:
+                    col1: val1
+
+            wrangles:
+            - copy:
+                input: col1
+                output: col2
+            """
+        )
+        assert list(df['col2'].values) == ['val1', 'val1', 'val1']
+
+    def test_copy_where(self):
+        """
+        Test copying a column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - copy:
+                input: col1
+                output: col3
+                where: col2 >= 2
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["val1", "val1", "val1"],
+                "col2": [1,2,3]
+            })
+        )
+        assert list(df['col3'].values) == ['', 'val1', 'val1']
+
+
 class TestPython:
     """
     Test Python Wrangle
