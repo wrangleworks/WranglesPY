@@ -889,10 +889,10 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list]) -> _pd.DataFrame:
+def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], capture_group: int = None) -> _pd.DataFrame:
     """
     type: object
-    description: Extract single values using regex
+    description: Extract matches or specific capture groups using regex
     additionalProperties: false
     required:
       - input
@@ -912,13 +912,19 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       find:
         type: string
         description: Pattern to find using regex
+      capture_group:
+        type: integer
+        description: Index of the capture group to extract. If None, return the entire match.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None: 
+        output = input
 
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    # If a string is provided, convert to list
+    if not isinstance(input, list): 
+        input = [input]
+    if not isinstance(output, list): 
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
@@ -926,6 +932,14 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
+        if capture_group is None:
+            # Return entire matches
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find, x)])
+        else:
+            # Extract only the specified capture group
+            df[output_column] = df[input_column].apply(lambda x: [
+                match.group(capture_group) for match in _re.finditer(find, x) if match.group(capture_group)
+            ])
     
     return df
+
