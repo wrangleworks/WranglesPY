@@ -552,6 +552,25 @@ class TestSplitText:
             df['col1'][1] == ["1","2"]
         )
 
+    def test_split_text_wildcard_list_output(self):
+        """
+        Test split.text with a wildcard list for output
+        """
+        df = wrangles.recipe.run(
+            r"""
+            wrangles:
+                - split.text:
+                    input: col1
+                    output: 
+                      - out*
+                    char: ' '
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['This is a string that will be split']
+            })
+        )
+        assert len(df.columns.to_list()) == 9 and df.iloc[0]['out4'] == 'string'
+        
 
 class TestSplitList:
     """
