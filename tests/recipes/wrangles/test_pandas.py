@@ -4,7 +4,7 @@ Tests for passthrough pandas capabilities
 import wrangles
 import pandas as pd
 import pytest
-from numpy import float128, float64, float32, float16
+from numpy import half, single, double, longdouble
 
 class TestPandasHead:
     """
@@ -506,7 +506,7 @@ class TestRound:
                 decimals: 1
             """,
             dataframe=pd.DataFrame({
-                'col': [float16(3.333), float32(1003.22), float64(489324.2343), float128(8948293423.23455)]
+                'col': [half(3.333), single(1003.22), double(489324.2343), longdouble(8948293423.23455)]
             })
         )
         assert df['col'].to_list() == [3.3, 1003.2, 489324.2, 8948293423.2]
