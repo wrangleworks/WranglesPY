@@ -4,7 +4,7 @@ Tests for passthrough pandas capabilities
 import wrangles
 import pandas as pd
 import pytest
-
+from numpy import float128, float64, float32, float16
 
 class TestPandasHead:
     """
@@ -493,6 +493,23 @@ class TestRound:
             })
         )
         assert df['col'].to_list() == [3.0, 1.0, 2.0, 3.0]
+
+    def test_round_float(self):
+        """
+        test float values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [float16(3.333), float32(1003.22), float64(489324.2343), float128(8948293423.23455)]
+            })
+        )
+        assert df['col'].to_list() == [3.3, 1003.2, 489324.2, 8948293423.2]
         
 
 class TestReindex:

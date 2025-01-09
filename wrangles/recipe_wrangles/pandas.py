@@ -128,7 +128,7 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
     for input_column, output_column in zip(input, output):
         # coerce input column to floats (nan on error)
         # replace nan with empty string
-        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).replace(_nan, '')
+        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
         
     return df
     
