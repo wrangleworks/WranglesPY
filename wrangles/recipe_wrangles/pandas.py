@@ -1,5 +1,6 @@
 import pandas as _pd
 from typing import Union as _Union
+from numpy import nan as _nan
 
 
 def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
@@ -125,7 +126,9 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
     if not isinstance(output, list): output = [output]
     
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].round(decimals=decimals)
+        # coerce input column to floats (nan on error)
+        # replace nan with empty string
+        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
         
     return df
     
