@@ -303,7 +303,7 @@ class TestSelectDictionaryElement:
             'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
             })
         )
-        assert df['Output'][0] == ''
+        assert df['Output'][0] == {}
 
 class TestSelectListElement:
     """
