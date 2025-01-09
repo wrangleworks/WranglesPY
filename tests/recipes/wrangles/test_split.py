@@ -649,6 +649,41 @@ class TestSplitList:
             df['Col2'].to_list() == ['', 'Mundo!', 'Monde!']
         )
 
+    def test_split_list_wildcard(self):
+        """
+        Test the split.list function using a wildcard output
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert len(df.columns.to_list()) == 5 and df['Col2'][0] == 'Wrangles!'
+
+    def test_split_list_wildcard_list(self):
+        """
+        Test the split.list function using a
+        wildcard output as a list
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: 
+                      - Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert len(df.columns.to_list()) == 5 and df['Col2'][0] == 'Wrangles!'
 
 
 class TestSplitDictionary:
