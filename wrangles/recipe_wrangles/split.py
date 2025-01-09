@@ -139,16 +139,14 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
         for x in results
     ]
 
-    if isinstance(output, str) and '*' in output:
-        # If user has provided a wildcard for the column name
-        # then use that with an incrementing index
-        output_headers = []
-        for i in range(1, len(results[0]) + 1):
-            output_headers.append(output.replace('*', str(i)))
+    # Handle wildcard cases and column assignment
+    if (isinstance(output, str) and '*' in output) or (isinstance(output, _list) and len(output) == 1 and '*' in output[0]):
+        # Use the wildcard pattern for generating output headers
+        wildcard_template = output if isinstance(output, str) else output[0]
+        output_headers = [wildcard_template.replace('*', str(i)) for i in range(1, len(results[0]) + 1)]
         df[output_headers] = results
-
     else:
-        # Else they should have provided a list for all the output columns
+        # Direct assignment for single column
         df[output] = results
 
     return df
