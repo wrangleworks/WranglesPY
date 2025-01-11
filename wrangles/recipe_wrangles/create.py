@@ -14,7 +14,7 @@ from jinja2 import (
 )
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
-from hashlib import sha1 as _sha1, sha256 as _sha256, sha512 as _sha512, md5 as _md5
+import hashlib as _hashlib
 
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
@@ -423,25 +423,28 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
         type:
+          - string
           - array
         description: Name of input column
       output:
         type:
+          - string
           - array
         description: Name of new column
       method:
         type: string
-        description: The method to use to hash the input
+        description: The method to use to hash the input (Default: md5)
         enum:
           - md5
           - sha1
           - sha256
           - sha512
     """
+    if output is None: output = input
+
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
@@ -449,15 +452,7 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         raise ValueError('The lists for input and output must be the same length.')
 
     for in_col, out_col in zip(input, output):
-        if method == 'md5':
-            df[out_col] = df[in_col].apply(lambda x: _md5(str(x).encode('utf-8')).hexdigest())
-        elif method == 'sha1':
-            df[out_col] = df[in_col].apply(lambda x: _sha1(str(x).encode('utf-8')).hexdigest())
-        elif method == 'sha256':
-            df[out_col] = df[in_col].apply(lambda x: _sha256(str(x).encode('utf-8')).hexdigest())
-        elif method == 'sha512':
-            df[out_col] = df[in_col].apply(lambda x: _sha512(str(x).encode('utf-8')).hexdigest())
-        else:
-            raise ValueError('Method must be one of: md5, sha1, sha256, sha512')
+        hash_fn = getattr(_hashlib, method)
+        df[out_col] = df[in_col].apply(lambda x: hash_fn(str(x).encode('utf-8')).hexdigest())
 
     return df
