@@ -14,6 +14,7 @@ from jinja2 import (
 )
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
+import hashlib as _hashlib
 
 def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
     """
@@ -412,5 +413,46 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     # Loop through and create uuid for all requested columns
     for output_column in output:
         df[output_column] = [_uuid.uuid4() for _ in range(len(df.index))]
+
+    return df
+
+def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
+    """
+    type: object
+    description: Create a hash of a column
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - array
+        description: Name of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of new column
+      method:
+        type: string
+        description: The method to use to hash the input (Default: md5)
+        enum:
+          - md5
+          - sha1
+          - sha256
+          - sha512
+    """
+    if output is None: output = input
+
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+
+    for in_col, out_col in zip(input, output):
+        hash_fn = getattr(_hashlib, method)
+        df[out_col] = df[in_col].apply(lambda x: hash_fn(str(x).encode('utf-8')).hexdigest())
 
     return df
