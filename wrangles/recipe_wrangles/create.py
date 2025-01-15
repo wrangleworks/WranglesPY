@@ -450,9 +450,12 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
 
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    if method not in ['md5', 'sha1', 'sha256', 'sha512']:
+        raise ValueError('Method must be one of: md5, sha1, sha256, sha512')
 
     for in_col, out_col in zip(input, output):
         hash_fn = getattr(_hashlib, method)
-        df[out_col] = df[in_col].apply(lambda x: hash_fn(str(x).encode('utf-8')).hexdigest())
+        df[out_col] = [hash_fn(str(x).encode('utf-8')).hexdigest() for x in df[in_col]]
 
     return df
