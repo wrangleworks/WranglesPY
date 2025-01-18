@@ -1359,6 +1359,55 @@ class TestRename:
                 })
             )
 
+    def test_rename_wrangles_variables(self):
+        """
+        Use wrangles to rename columns based on a variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - convert.case:
+                        input: columns
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert df.columns.tolist() == ["HEADER1","HEADER2"]
+
+    def test_rename_wrangles_variables_if(self):
+        """
+        Use wrangles to rename columns based on a variable with an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                variables:
+                  condition: ${condition}
+                wrangles:
+                    - convert.case:
+                        input: columns
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert df.columns.tolist() == ["HEADER1","HEADER2"]
+
 
 class TestSimilarity:
     """
@@ -3849,6 +3898,67 @@ class TestAccordion:
         )
         assert df["list_column"][0] == ["A","B","C"] and df["list_column"][1] == ["e","f","g"]
 
+    def test_accordion_variables(self):
+        """
+        Test an accordion with a variable passed through
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert (
+            len(df) == 5 and
+            df["list_column"][0] == ["A","B","C"]
+        )
+
+    def test_accordion_variables_if(self):
+        """
+        Test an accordion with a variable passed through to an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert (
+            len(df) == 5 and
+            df["list_column"][0] == ["A","B","C"]
+        )
+
 
 class TestBatch:
     """
@@ -4212,6 +4322,51 @@ class TestBatch:
             })
         )     
         assert df['output col'].to_list() == ["A","","C"]
+
+    def test_batch_variables(self):
+        """
+        Test batch wrangle with a variable passed through
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert df['column'].tolist() == ["A"] * 1000
+
+    def test_batch_variable_if(self):
+        """
+        Test batch wrangle with a variable passed to an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert df['column'].tolist() == ["A"] * 1000
 
 
 class TestLookup:

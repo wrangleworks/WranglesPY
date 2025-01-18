@@ -38,6 +38,7 @@ def accordion(
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
 ) -> _pd.DataFrame:
     """
     type: object
@@ -116,7 +117,8 @@ def accordion(
                 ] + wrangles
             },
             dataframe=df_temp,
-            functions=functions
+            functions=functions,
+            variables=variables
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
@@ -129,7 +131,8 @@ def accordion(
                 {"rename": {x + ".list": x for x in output}}
             ]},
             dataframe=df_temp,
-            functions=functions
+            functions=functions,
+            variables=variables
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
@@ -164,6 +167,7 @@ def batch(
     df,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
     batch_size: int = 1000,
     threads: int = 1,
     on_error: dict = None
@@ -222,7 +226,8 @@ def batch(
             return _wrangles.recipe.run(
                 {"wrangles": wrangles},
                 dataframe=df,
-                functions=functions
+                functions=functions,
+                variables=variables
             )
         except Exception as err:
             if on_error:
@@ -1235,7 +1240,8 @@ def rename(
                 dataframe=_pd.DataFrame({
                     "columns": input
                 }),
-                functions=kwargs.get("functions", {})
+                functions=kwargs.get("functions", {}),
+                variables=kwargs.get("variables", {})
             )["columns"].tolist()
         except:
             raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
