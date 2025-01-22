@@ -4,7 +4,9 @@ Select subsets of input data
 from typing import Union as _Union
 import json as _json
 import itertools as _itertools
+import fnmatch as _fnmatch
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
+from .utils import wildcard_expansion as _wildcard_expansion
 
 def highest_confidence(data_list):
     """
@@ -171,10 +173,20 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
             except:
                 return default
             
-        results = [
-            _get_value(row)
-            for row in input
-        ]
+        if 'regex' in key or '*' in key:
+            results = [
+                {
+                    element: 
+                    row[element] for row in input
+                    for element in _wildcard_expansion(row.keys(), key)
+                    if element in row
+                }
+            ]
+        else:
+            results = [
+                _get_value(row)
+                for row in input
+            ]
 
     if single_input:
         return results[0]
