@@ -552,6 +552,25 @@ class TestSplitText:
             df['col1'][1] == ["1","2"]
         )
 
+    def test_split_text_wildcard_list_output(self):
+        """
+        Test split.text with a wildcard list for output
+        """
+        df = wrangles.recipe.run(
+            r"""
+            wrangles:
+                - split.text:
+                    input: col1
+                    output: 
+                      - out*
+                    char: ' '
+            """,
+            dataframe=pd.DataFrame({
+                'col1': ['This is a string that will be split']
+            })
+        )
+        assert len(df.columns.to_list()) == 9 and df.iloc[0]['out4'] == 'string'
+        
 
 class TestSplitList:
     """
@@ -630,6 +649,41 @@ class TestSplitList:
             df['Col2'].to_list() == ['', 'Mundo!', 'Monde!']
         )
 
+    def test_split_list_wildcard(self):
+        """
+        Test the split.list function using a wildcard output
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert len(df.columns.to_list()) == 5 and df['Col2'][0] == 'Wrangles!'
+
+    def test_split_list_wildcard_list(self):
+        """
+        Test the split.list function using a
+        wildcard output as a list
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: 
+                      - Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert len(df.columns.to_list()) == 5 and df['Col2'][0] == 'Wrangles!'
 
 
 class TestSplitDictionary:
