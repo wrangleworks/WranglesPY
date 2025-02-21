@@ -231,18 +231,27 @@ def embeddings(
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        batches = list(_divide_batches(input_list, batch_size))
-        results = list(executor.map(
-            _embedding_thread,
-            batches,
-            [api_key] * len(batches),
-            [model] * len(batches),
-            [url] * len(batches),
-            [retries] * len(batches),
-            [kwargs] * len(batches),
-            [precision] * len(batches)
-        ))
+        futures = {
+            executor.submit(
+                _embedding_thread,
+                batch,
+                api_key,
+                model,
+                url,
+                retries,
+                kwargs,
+                precision
+            ): i
+            for i, batch in enumerate(
+                _divide_batches(input_list, batch_size)
+            )
+        }
 
-    results = list(_chain.from_iterable(results))
+        results = [None] * len(input_list)
+        for future in _futures.as_completed(futures):
+            batch_index = futures[future]
+            batch_results = future.result()
+            start_index = batch_index * batch_size
+            results[start_index:start_index + len(batch_results)] = batch_results
 
     return results
