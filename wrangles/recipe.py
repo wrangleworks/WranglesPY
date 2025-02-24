@@ -30,7 +30,10 @@ from .utils import (
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion
 )
-
+try:
+    from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeLoader as _YamlLoader, SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
 
@@ -122,7 +125,7 @@ def _replace_templated_values(
                 and '\n' in replacement_value
             ):
                 try:
-                    replacement_value = _yaml.safe_load(replacement_value)
+                    replacement_value = _yaml.load(replacement_value, Loader=_YamlLoader)
                 except:
                     # Replacement wasn't YAML
                     pass
@@ -175,7 +178,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False, allow_unicode=True)
+            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_YAMLDumper, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 

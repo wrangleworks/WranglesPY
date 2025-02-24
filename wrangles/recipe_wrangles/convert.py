@@ -8,6 +8,10 @@ import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+try:
+    from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -374,7 +378,7 @@ def from_yaml(
         If no default, raise an error.
         """
         try:
-            return _yaml.safe_load(value, **kwargs) or default
+            return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or default
         except:
             if default != None:
                 return default
@@ -458,6 +462,7 @@ def to_yaml(
                     row,
                     sort_keys=sort_keys,
                     allow_unicode=allow_unicode,
+                    Dumper=_YAMLDumper,
                     **kwargs
                 )
                 for row in df[input_columns].values
@@ -470,6 +475,7 @@ def to_yaml(
                 row,
                 sort_keys=sort_keys,
                 allow_unicode=allow_unicode,
+                Dumper=_YAMLDumper,
                 **kwargs
             )
             for row in df[input].to_dict(orient="records")
