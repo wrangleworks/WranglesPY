@@ -532,7 +532,11 @@ def length(
 ):
   """
   type: object
-  description: Calculate the length of data in a column
+  description: >-
+    Calculate the lengths of data in a column.
+    The length depends on the data type
+    e.g. text will be the length of the text,
+    lists will be the number of elements in the list.
   required:
     - input
   properties:
@@ -540,7 +544,6 @@ def length(
       type:
         - string
         - array
-        - dict
       description: Name of the input column(s).
     output:
       type:
