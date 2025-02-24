@@ -8,9 +8,9 @@ import requests as _requests
 import numpy as _np
 import time as _time
 try:
-    from yaml import CSafeDumper as YAMLDumper
+    from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
-    from yaml import SafeDumper as YAMLDumper
+    from yaml import SafeDumper as _YAMLDumper
 
 
 def chatGPT(
@@ -38,7 +38,7 @@ def chatGPT(
             indent=2,
             sort_keys=False,
             allow_unicode=True,
-            Dumper=YAMLDumper,
+            Dumper=_YAMLDumper,
             width=1000
         )
 
