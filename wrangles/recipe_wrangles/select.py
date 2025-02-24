@@ -525,6 +525,39 @@ def left(
     return df
 
 
+def length(
+  df: _pd.DataFrame,
+  input: _Union[str, list],
+  output: _Union[str, list] = None,
+):
+  """
+  type: object
+  description: Calculate the length of data in a column
+  required:
+    - input
+  properties:
+    input:
+      type:
+        - string
+        - array
+        - dict
+      description: Name of the input column(s).
+    output:
+      type:
+        - string
+        - array
+      description: Name of the output column(s).
+  """
+  if not output: output = input
+  if not isinstance(output, list): output = [output]
+  if not isinstance(input, list): input = [input]
+
+  for input_col, output_col in zip(input, output):
+    df[output_col] = [len(item) for item in df[input_col].values]
+
+  return df
+
+
 def list_element(
     df: _pd.DataFrame,
     input: _Union[str, list],
