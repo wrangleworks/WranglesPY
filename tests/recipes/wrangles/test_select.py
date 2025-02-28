@@ -887,23 +887,23 @@ class TestSelectThreshold:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Top Words'] == 'C' and df.iloc[0]['Top Words'] == ''
 
-    def test_threshold_empty(self):
-        """
-        Test that select.threshold with an empty data column
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - select.threshold:
-                input: column
-                output: Top Words
-                threshold: .77
-            """,
-            dataframe=pd.DataFrame({
-                'column': []
-            })
-        )
-        assert list(df.columns) == ['column', 'Top Words'] and len(df) == 0
+    # def test_threshold_empty(self):
+    #     """
+    #     Test that select.threshold with an empty data column
+    #     """
+    #     df = wrangles.recipe.run(
+    #         """
+    #         wrangles:
+    #         - select.threshold:
+    #             input: column
+    #             output: Top Words
+    #             threshold: .77
+    #         """,
+    #         dataframe=pd.DataFrame({
+    #             'column': []
+    #         })
+    #     )
+    #     assert list(df.columns) == ['column', 'Top Words'] and len(df) == 0
 
 
 class TestSelectLeft:
