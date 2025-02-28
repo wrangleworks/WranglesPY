@@ -155,7 +155,7 @@ class TestConvertCase:
         """
         Test converting to sentence case
         """
-        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        data = pd.DataFrame([['a StRiNg', 'Another String']], columns=['Data1', 'Data2'])
         recipe = """
         wrangles:
         - convert.case:
@@ -165,13 +165,13 @@ class TestConvertCase:
             case: sentence
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Data1'] == 'A string' and df.iloc[0]['Data2'] == 'Another string'
+        assert df.iloc[0]['Data1'] == 'A StRiNg' and df.iloc[0]['Data2'] == 'Another String'
 
     def test_multiple_sentence(self):
         """
         Test converting to sentence case with multiple sentences
         """
-        data = pd.DataFrame({'Data': ['A StRiNg. Another String.', ' a StRiNg. Another String.   a THIRD STring.']})
+        data = pd.DataFrame({'Data': ['a StRiNg. Another String.', ' a StRiNg. another String.   a THIRD STring.']})
         recipe = """
         wrangles:
         - convert.case:
@@ -179,7 +179,7 @@ class TestConvertCase:
             case: sentence
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Data'].values.tolist() == ['A string. Another string.', 'A string. Another string. A third string.']
+        assert df['Data'].values.tolist() == ['A StRiNg. Another String.', ' A StRiNg. Another String.   A THIRD STring.']
 
     def test_where(self):
         """
