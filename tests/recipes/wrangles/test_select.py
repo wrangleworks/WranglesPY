@@ -271,6 +271,41 @@ class TestSelectDictionaryElement:
         )
         assert df['column'][0] == 1
 
+    def test_dictionary_element_empty_dict(self):
+        """
+        Test the select.dictionary_element works even
+        if the input is an empty dictionary
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: column
+                element: a
+            """,
+            dataframe=pd.DataFrame({
+                'column': [{}]
+            })
+        )
+        assert df['column'][0] == ''
+
+    def test_dictionary_element_empty(self):
+        """
+        Test the select.dictionary_element with an empty data column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: column
+                element: a
+            """,
+            dataframe=pd.DataFrame({
+                'column': []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
+
 
 class TestSelectListElement:
     """
@@ -499,6 +534,41 @@ class TestSelectListElement:
         )
         assert df['column'][0] == 'B'
 
+    def test_list_element_empty_list(self):
+        """
+        Test that select.list_element works even if
+        the input is an empty list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: column
+                element: 1
+            """,
+            dataframe=pd.DataFrame({
+                'column': [[]]
+            })
+        )
+        assert df['column'][0] == ''
+
+    def test_list_element_empty(self):
+        """
+        Test that select.list_element with an empty data column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: column
+                element: 1
+            """,
+            dataframe=pd.DataFrame({
+                'column': []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
+
 
 class TestHighestConfidence:
     """
@@ -679,6 +749,23 @@ class TestHighestConfidence:
                 })
             )
 
+    def test_highest_confidence_empty(self):
+        """
+        Test that select.highest_confidence with an empty data column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.highest_confidence:
+                input: column
+                output: Winner
+            """,
+            dataframe=pd.DataFrame({
+                'column': []
+            })
+        )
+        assert list(df.columns) == ['column', 'Winner'] and len(df) == 0
+
 
 class TestSelectThreshold:
     """
@@ -799,6 +886,24 @@ class TestSelectThreshold:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Top Words'] == 'C' and df.iloc[0]['Top Words'] == ''
+
+    def test_threshold_empty(self):
+        """
+        Test that select.threshold with an empty data column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.threshold:
+                input: column
+                output: Top Words
+                threshold: .77
+            """,
+            dataframe=pd.DataFrame({
+                'column': []
+            })
+        )
+        assert list(df.columns) == ['column', 'Top Words'] and len(df) == 0
 
 
 class TestSelectLeft:

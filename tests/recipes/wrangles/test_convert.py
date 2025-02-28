@@ -183,6 +183,40 @@ class TestConvertCase:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Col1'] == 'Ball Bearing' and df.iloc[2]['Col1'] == "needle bearing"
 
+    def test_where_empty(self):
+        """
+        Test converting to title case using where
+        """
+        data = pd.DataFrame({
+        'Col1': ['ball bearing', 'roller bearing', 'needle bearing'],
+        'number': [25, 31, 22]
+        })
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Col1
+            case: title
+            where: number > 35
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Col1'] == 'ball bearing' and df.iloc[2]['Col1'] == "needle bearing" 
+
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.case:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
+
 
 class TestConvertDataType:
     """
@@ -313,6 +347,23 @@ class TestConvertDataType:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['date_type'] == '0' and df.iloc[0]['date_type'].week == 51
+
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: column
+                data_type: str
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
 
 
 class TestConvertFractionToDecimal:
@@ -447,6 +498,22 @@ class TestConvertFractionToDecimal:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
+
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.fraction_to_decimal:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
 
 
 class TestConvertFromJSON:
@@ -618,6 +685,22 @@ class TestConvertFromJSON:
             df["header1"][1] == [1,2,3]
         )
 
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input: header1
+            """,
+            dataframe=pd.DataFrame({
+                "header1": []
+            })
+        )
+        assert list(df.columns) == ['header1'] and len(df) == 0
+
 
 class TestConvertFromYAML:
     """
@@ -733,6 +816,22 @@ class TestConvertFromYAML:
             df['output col'][0]== '' and
             df['output col'][1]["key3"] == "val"
         )
+
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
 
 
 class TestConvertToJSON:
@@ -1026,6 +1125,22 @@ class TestConvertToJSON:
         )
         assert df['result'][0] == r'{"column1": "a", "column2": {"b": 1}}'
 
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_json:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
+
 
 class TestConvertToYAML:
     """
@@ -1147,3 +1262,19 @@ class TestConvertToYAML:
             df['output col'][0] == "" and
             df['output col'][1] == "key3: val\nkey4:\n- list1\n- list2\n"
         )
+
+    def test_empty(self):
+        """
+        Test that empty values are handled correctly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.to_yaml:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+        assert list(df.columns) == ['column'] and len(df) == 0
