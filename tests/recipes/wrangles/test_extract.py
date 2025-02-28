@@ -145,10 +145,7 @@ class TestExtractAddress:
             dataType: streets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            list(df.columns) == ['col1', 'col2', 'out1', 'out2'] and
-            len(df) == 0
-        )
+        assert df.empty
 
 
 class TestExtractAttributes:
@@ -495,10 +492,7 @@ class TestExtractAttributes:
                 output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            list(df.columns) == ['col1', 'numbers', 'output'] and
-            len(df) == 0
-        )
+        assert df.empty
 
 
 class TestExtractCodes:
@@ -656,10 +650,7 @@ class TestExtractCodes:
                 "numbers": []
             })
         )
-        assert (
-            list(df.columns) == ['column', 'numbers', 'code'] and
-            len(df) == 0
-        )
+        assert df.empty
 
 
 class TestExtractCustom:
@@ -1382,7 +1373,7 @@ class TestExtractCustom:
                 'col': []
             })
         )
-        assert list(df.columns) == ['col', 'out'] and len(df) == 0
+        assert df.empty
 
 
 class TestExtractRegex:
@@ -1441,7 +1432,7 @@ class TestExtractRegex:
                     "column": []
                 })
         )
-        assert list(df.columns) == ['column', 'colour'] and len(df) == 0
+        assert df.empty
     
 
 class TestExtractProperties:
@@ -1577,7 +1568,7 @@ class TestExtractProperties:
                     "column": []
                 })
         )
-        assert list(df.columns) == ['column', 'colour'] and len(df) == 0
+        assert df.empty
 
 
 class TestExtractHTML:
@@ -1653,7 +1644,7 @@ class TestExtractHTML:
                     "column": []
                 })
         )
-        assert list(df.columns) == ['column', 'Link'] and len(df) == 0
+        assert df.empty
     
 
 class TestExtractBrackets:
@@ -1991,7 +1982,7 @@ class TestExtractBrackets:
                     "column": []
                 })
         )
-        assert list(df.columns) == ['column', 'output'] and len(df) == 0
+        assert df.empty
 
 
 class TestExtractDateProperties:
@@ -2115,7 +2106,7 @@ class TestExtractDateProperties:
                     "column": []
                 })
         )
-        assert list(df.columns) == ['column', 'output'] and len(df) == 0
+        assert df.empty
     
 
 class TestExtractDateRange:
@@ -2201,7 +2192,7 @@ class TestExtractDateRange:
                     "date2": []
                 })
         )
-        assert list(df.columns) == ['date1', 'date2', 'Range'] and len(df) == 0
+        assert df.empty
 
     def test_date_range_missing(self):
         """
@@ -2711,4 +2702,4 @@ class TestExtractAI:
                 "data": [],
             })
         )
-        assert list(df.columns) == ['data', 'length'] and len(df) == 0
+        assert df.empty

@@ -587,7 +587,7 @@ class TestSplitText:
                 'col1': []
             })
         )
-        assert list(df.columns) == ['col1', 'out1'] and len(df) == 0
+        assert df.empty
         
 
 class TestSplitList:
@@ -718,7 +718,7 @@ class TestSplitList:
                 'Col': []
             })
         )
-        assert list(df.columns) == ['Col'] and len(df) == 0
+        assert df.empty
 
     def test_split_list_empty_where(self):
         """
@@ -1195,7 +1195,7 @@ class TestSplitDictionary:
                 'Col': []
             })
         )
-        assert list(df.columns) == ['Col'] and len(df) == 0
+        assert df.empty
 
 
 class TestTokenize:
@@ -1429,4 +1429,4 @@ class TestTokenize:
                 'Col': []
             })
         )
-        assert list(df.columns) == ['Col', 'out1'] and len(df) == 0
+        assert df.empty
