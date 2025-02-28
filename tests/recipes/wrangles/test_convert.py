@@ -210,12 +210,13 @@ class TestConvertCase:
             wrangles:
             - convert.case:
                 input: column
+                case: upper
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertDataType:
@@ -363,7 +364,7 @@ class TestConvertDataType:
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertFractionToDecimal:
@@ -499,7 +500,7 @@ class TestConvertFractionToDecimal:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[2]['out1'] == "" and df.iloc[0]['out1'] == "The length is 0.5 wide 0.3333 high"
 
-    def test_empty(self):
+    def test_convert_fraction_empty(self):
         """
         Test that empty values are handled correctly
         """
@@ -513,7 +514,7 @@ class TestConvertFractionToDecimal:
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertFromJSON:
@@ -699,7 +700,7 @@ class TestConvertFromJSON:
                 "header1": []
             })
         )
-        assert list(df.columns) == ['header1'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertFromYAML:
@@ -831,7 +832,7 @@ class TestConvertFromYAML:
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertToJSON:
@@ -1139,7 +1140,7 @@ class TestConvertToJSON:
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty
 
 
 class TestConvertToYAML:
@@ -1277,4 +1278,4 @@ class TestConvertToYAML:
                 "column": []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert df.empty

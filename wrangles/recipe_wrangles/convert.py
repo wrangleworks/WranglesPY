@@ -51,6 +51,9 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Return early for empty dataframe
+    if df.empty: return df
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
