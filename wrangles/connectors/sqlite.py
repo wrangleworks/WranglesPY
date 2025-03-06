@@ -102,5 +102,5 @@ properties:
     description: Action to be taken on the database, defaults to 'INSERT'. Options are 'INSERT', 'UPDATE', 'DELETE', etc
   columns:
     type: array
-    description: A list with a subset of the columns to import. If ommitted, all columns will be written to
+    description: A list with a subset of the columns to import. If omitted, all columns will be written to
 """
