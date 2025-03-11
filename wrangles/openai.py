@@ -242,6 +242,14 @@ def embeddings(
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 
+    # Ensure input is treated as a list
+    # and store the original type to
+    # mirror the output as later
+    user_input_was_list = True
+    if not isinstance(input_list, list):
+        user_input_was_list = False
+        input_list = [input_list]
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         batches = list(_divide_batches(input_list, batch_size))
         results = list(executor.map(
@@ -257,4 +265,9 @@ def embeddings(
 
     results = list(_chain.from_iterable(results))
 
-    return results
+    # If user provided a list, return as list
+    # else return the embeddings
+    if user_input_was_list:
+        return results
+    else:
+        return results[0]
