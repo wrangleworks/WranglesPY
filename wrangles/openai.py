@@ -247,7 +247,7 @@ def embeddings(
     # mirror the output as later
     user_input_was_list = True
     if not isinstance(input_list, list):
-        user_input_list_type = False
+        user_input_was_list = False
         input_list = [input_list]
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
