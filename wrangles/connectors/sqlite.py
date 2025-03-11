@@ -92,7 +92,7 @@ def run(
     """
     Run a command on a SQLite Database
 
-    >>> wrangles.connectors.postgres.run(
+    >>> wrangles.connectors.sqlite.run(
     >>>    database='db',
     >>>    command='<SQL COMMAND>'
     >>> )

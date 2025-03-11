@@ -20,7 +20,7 @@ def test_read_sql():
 
 def test_write_sql():
     """
-    Test a basic read
+    Test writing to a database
     """
     df = pd.DataFrame({'Col1': ['Data1', 'Data2']})
     sqlite.write(
