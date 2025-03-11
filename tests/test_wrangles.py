@@ -2,6 +2,7 @@ import pytest
 import wrangles
 import pandas as pd
 from wrangles.train import train
+import os
 
 
 # Classify
@@ -344,3 +345,29 @@ def test_lookup_list_value_list_column():
     """
     result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", ["Value"])
     assert result == [[1]]
+
+def test_embedding_single():
+    """
+    Test generating an embedding from a single value
+    """
+    result = wrangles.openai.embeddings(
+        "test string",
+        api_key=os.environ["OPENAI_API_KEY"],
+        model="text-embedding-3-small"
+    )
+    assert len(result) == 1536
+    assert [round(float(x), 3) for x in result[:3]] == [0.007, -0.045, 0.025]
+
+def test_embedding_list():
+    """
+    Test generating embeddings for a list
+    """
+    result = wrangles.openai.embeddings(
+        ["test string", "test string 2"],
+        api_key=os.environ["OPENAI_API_KEY"],
+        model="text-embedding-3-small"
+    )
+    assert len(result) == 2
+    assert len(result[0]) == 1536
+    assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
+
