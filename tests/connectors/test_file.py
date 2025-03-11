@@ -124,6 +124,54 @@ def test_write_file_indexed():
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
+def test_write_file_optional_col():
+    """
+    Tests an optional column that is there
+    """
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            output: find
+            case: lower
+    write:
+        file:
+          name: tests/temp/write_data.xlsx
+          columns:
+            - Find
+            - Replace
+            - find?
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace', 'find']
+
+def test_write_file_optional_not_col():
+    """
+    Tests an optional column that is not there
+    """
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            output: Find
+            case: lower
+    write:
+        file:
+          name: tests/temp/write_data.xlsx
+          columns:
+            - Find
+            - Replace
+            - find?
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+
 def test_write_csv():
     """
     Test exporting a .csv

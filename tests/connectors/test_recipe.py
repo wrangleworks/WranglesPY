@@ -161,6 +161,61 @@ def test_write():
     )
     assert memory.dataframes["recipe_write"]["data"][0][0] == "VALUE1"
 
+def test_write_optional_col():
+    """
+    Test write defined within the recipe with an optional column
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        wrangles:
+          - convert.case:
+              input: header1
+              output: HEADER!
+              case: upper
+        write:
+          - recipe:
+              columns:
+                - header1
+                - HEADER!?
+              write:
+                - memory:
+                    id: recipe_write
+        """
+    )
+    assert memory.dataframes['recipe_write']['columns'] == ['header1', 'HEADER!']
+
+def test_write_optional_no_col():
+    """
+    Test write defined within the recipe with an optional column that does not exist
+    """
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                header1: value1
+        wrangles:
+          - convert.case:
+              input: header1
+              case: upper
+        write:
+          - recipe:
+              columns:
+                - header1
+                - HEADER!?
+              write:
+                - memory:
+                    id: recipe_write
+        """
+    )
+    assert memory.dataframes['recipe_write']['columns'] == ['header1']
+
 def test_run():
     """
     Test run defined within the recipe
