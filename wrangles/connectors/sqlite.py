@@ -107,10 +107,10 @@ def run(
     if isinstance(command, str): command = [command]
 
     with _sqlite3.connect(database) as conn:
-        conn.autocommit = True
         cursor = conn.cursor()
         for sql in command:
             cursor.execute(sql, params)
+            conn.commit()
 
 _schema['run'] = r"""
 type: object
