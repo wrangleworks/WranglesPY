@@ -81,7 +81,7 @@ def chatGPT(
                     return {
                         param: e
                         for param in 
-                        settings_local.get("tolls", [])[0]["function"]["parameters"]["required"]
+                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return e
