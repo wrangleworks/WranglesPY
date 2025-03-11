@@ -215,6 +215,25 @@ class TestFormatTrim:
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
+    
+    def test_trim_invalid_data(self):
+        """
+        Test that trim fails gracefully with invalid data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - format.trim:
+                input: List
+            """,
+            dataframe=pd.DataFrame({
+                'List': [["item1 ", " item2"], "  item3  "]
+            })
+        )
+        assert (
+            df['List'][0] == ["item1 ", " item2"] and
+            df['List'][1] == "item3"
+        )
 
 
 class TestFormatPrefix:
