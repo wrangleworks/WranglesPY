@@ -242,8 +242,10 @@ def embeddings(
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 
-    user_input_list_type = True
-    # Ensure input_list is a list
+    # Ensure input is treated as a list
+    # and store the original type to
+    # mirror the output as later
+    user_input_was_list = True
     if not isinstance(input_list, list):
         user_input_list_type = False
         input_list = [input_list]
@@ -265,7 +267,7 @@ def embeddings(
 
     # If user provided a list, return as list
     # else return the embeddings
-    if user_input_list_type:
+    if user_input_was_list:
         return results
     else:
         return results[0]
