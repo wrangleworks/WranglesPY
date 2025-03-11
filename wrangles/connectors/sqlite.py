@@ -4,17 +4,18 @@ Connector to read/write from SQLite database
 import pandas as _pd
 import logging as _logging
 import sqlite3 as _sqlite3
+from typing import Union as _Union
 
 _schema = {}
 
 def read(database: str, command: str, **kwargs) -> _pd.DataFrame:
     """
-    Import data from a SQLite database.
+    Read data from a SQLite database.
 
     >>> from wrangles.connectors import sqlite
     >>> df = sqlite.read(database = 'database.db', command='SELECT * FROM table')
 
-    :param database: Database to be queried
+    :param database: The database to connect to including the file path. e.g. directory/database.db
     :param command: SQL command or table name
     """
     _logging.info(f": Reading data from SQLite :: {database}")
@@ -33,7 +34,7 @@ required:
 properties:
   database:
     type: string
-    description: The database to connect to
+    description: The database to connect to including the file path. e.g. directory/database.db
   command:
     type: string
     description: |-
@@ -80,4 +81,57 @@ properties:
   table:
     type: string
     description: The table to write to
+"""
+
+
+def run(
+    database: str,
+    command: _Union[str, list],
+    params: _Union[list, dict] = ()
+) -> None:
+    """
+    Run a command on a SQLite Database
+
+    >>> wrangles.connectors.postgres.run(
+    >>>    database='db',
+    >>>    command='<SQL COMMAND>'
+    >>> )
+
+    :param database: The name of the database
+    :param command: SQL command or a list of SQL commands to execute
+    :param params: Variables to pass to a parameterized query.
+    """
+    _logging.info(f": Executing SQLite Command :: {database}")
+
+    # If user has provided a single command, convert to a list.
+    if isinstance(command, str): command = [command]
+
+    with _sqlite3.connect(database) as conn:
+        conn.autocommit = True
+        cursor = conn.cursor()
+        for sql in command:
+            cursor.execute(sql, params)
+
+_schema['run'] = r"""
+type: object
+description: Run a command against a SQLite Database
+required:
+  - database
+  - command
+properties:
+  database:
+    type: string
+    description: The database to connect to including the file path. e.g. directory/database.db
+  command:
+    type:
+      - string
+      - array
+    description: SQL command or a list of SQL commands to execute
+  params:
+    type:
+      - array
+      - object
+    description: |-
+      Variables to pass to a parameterized query.
+      This may use %s or %(name)s syntax
 """
