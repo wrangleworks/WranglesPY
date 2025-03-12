@@ -14,9 +14,9 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install package + dependencies
-RUN pip install --no-cache-dir wheel
+RUN pip install --no-cache-dir wheel setuptools
 # Special install for numpy to reduce size
-RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy==1.24.3
+RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy==1.26.4
 # Regular install (without cache) for everything else
 RUN pip install --no-cache-dir /pkg
 
