@@ -6,7 +6,7 @@ COPY . /pkg
 # Install compile requirements
 RUN apt-get update \
     && apt-get install -y build-essential gcc \
-    gfortran python3-dev \
+    gfortran python3-dev libssl-dev \
     --no-install-recommends
 
 # Create a virtual env
