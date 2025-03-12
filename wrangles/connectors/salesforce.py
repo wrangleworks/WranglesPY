@@ -27,6 +27,7 @@ from simple_salesforce import (
 )
 import pandas as _pd
 import logging as _logging
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 _schema = {}
@@ -84,7 +85,9 @@ def read(
     df = _pd.DataFrame(results).drop('attributes',axis=1)
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     return df
 
@@ -161,7 +164,9 @@ def write(
     _logging.info(f": Writing data to Salesforce :: {instance} /  {object}")
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     sf = _Salesforce(
         instance=instance,

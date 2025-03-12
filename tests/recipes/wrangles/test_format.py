@@ -135,7 +135,7 @@ class TestFormatTrim:
     Test format.trim
     """
     def test_trim_1(self):
-        data = pd.DataFrame([['         Wilson!         ']], columns=['Alone'])
+        data = pd.DataFrame([['         Wilson!         '], ['VAC']], columns=['Alone'])
         recipe = """
         wrangles:
         - format.trim:

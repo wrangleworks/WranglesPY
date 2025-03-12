@@ -4,6 +4,7 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 try:
   import pymssql as _pymssql
@@ -39,7 +40,9 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
     df = _pd.read_sql(command, conn, params)
 
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     return df
 
@@ -113,7 +116,9 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     if action.upper() == 'INSERT':
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)

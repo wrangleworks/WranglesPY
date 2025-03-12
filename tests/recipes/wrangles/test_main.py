@@ -30,6 +30,30 @@ class TestClassify:
         )
         assert df['Class'][0] == 'Meat'
 
+    def test_include_confidence(self):
+        """
+        Test setting include_confidence = True
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: Chicken
+            wrangles:
+                - classify:
+                    input: Col1
+                    output: Class
+                    model_id: a62c7480-500e-480c
+                    include_confidence: True
+            """
+        )
+        assert (
+            df['Class'][0]['Label'] == 'Meat' and
+            df['Class'][0]['Confidence'] > 0.2
+        )
+
     def test_classify_multi_input_output(self):
         """
         Multiple column input and output

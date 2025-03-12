@@ -7,6 +7,7 @@ from typing import Union as _Union
 import types as _types
 from .. import recipe as _recipe
 import pandas as _pd
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 _schema = {}
@@ -69,7 +70,9 @@ def read(
     df = _recipe.run(name, variables=variables, functions=functions)
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     return df
 
@@ -117,7 +120,9 @@ def write(
     """
     if not name: name = kwargs
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     _recipe.run(name, dataframe=df, variables=variables, functions=functions)
 

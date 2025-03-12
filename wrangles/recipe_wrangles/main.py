@@ -281,6 +281,9 @@ def classify(
       model_id:
         type: string
         description: ID of the classification model to be used
+      include_confidence:
+        type: boolean
+        description: For models that support it, include the confidence level in the output
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input

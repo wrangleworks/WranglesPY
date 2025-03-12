@@ -9,6 +9,7 @@ from typing import Union as _Union
 from io import BytesIO as _BytesIO
 import os as _os
 import re as _re
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 _schema = {}
@@ -69,7 +70,9 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
 
     # If the user specifies only certain columns, only include those
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     return df
 
@@ -141,7 +144,9 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     _logging.info(f": Writing data to file :: {name}")
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     # If user does not pass a file object then write to disk
     if file_object is None:

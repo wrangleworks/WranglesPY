@@ -3,6 +3,7 @@ import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
 from urllib.parse import quote_plus as _quote_plus
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 _schema = {}
 
@@ -109,8 +110,9 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     db = client[database]
     col = db[collection]
     
-    # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     if action.upper() == 'INSERT':
         col.insert_many(df.to_dict(orient='records'))
