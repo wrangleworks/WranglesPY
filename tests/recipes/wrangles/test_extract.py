@@ -2023,7 +2023,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2060,7 +2060,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2105,7 +2105,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2148,7 +2148,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2217,7 +2217,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 0.1
@@ -2259,7 +2259,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2299,9 +2299,10 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
-                seed: 1
+                seed: 2
+                temperature: 0.2
                 timeout: 60
                 retries: 2
                 output:
@@ -2329,7 +2330,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2470,3 +2471,30 @@ class TestExtractAI:
             df['length'][2] == '3mm'
         ])
         assert matches >= 2
+
+    def test_model_id(self):
+        """
+        Test using extract.ai with a saved model
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: 0e81f1ad-c0a3-42b4
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                temperature: 0.2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "yellow square",
+                    "blue circle",
+                    "green diamond"
+                ],
+            })
+        )
+        assert (
+            isinstance(df['Colors'][0], list) and
+            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
+        )
+

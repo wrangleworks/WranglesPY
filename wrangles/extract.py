@@ -3,10 +3,14 @@ Functions to extract information from unstructured text.
 """
 import re as _re
 from typing import Union as _Union
+import concurrent.futures as _futures
+import json as _json
+import pandas as _pd
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
+from . import openai as _openai
 
 
 def address(
@@ -43,7 +47,229 @@ def address(
     
     return results
 
-    
+
+def ai(
+    input,
+    api_key: str,
+    output: dict = None,
+    model_id: str = None,
+    model: str = "gpt-4o-mini",
+    threads: int = 10,
+    timeout: int = 25,
+    retries: int = 0,
+    messages: list = [],
+    url: str = "https://api.openai.com/v1/chat/completions",
+    **kwargs
+) -> _Union[dict, list]:
+    """
+    >>> wrangles.extract.ai(
+    >>>   "Yellow Submarine",
+    >>>   api_key="...",
+    >>>   output={
+    >>>       "type": "string",
+    >>>       "description": "The names of any colors in the input"
+    >>>   }
+    >>> )
+
+    :param input: A single value or list of values to extract information from.
+    :param api_key: API Key
+    :param output: (Optional) A JSON schema definition of the output requested
+    :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output.
+    :param model: (Optional) The model to use for the extraction.
+    :param threads: (Optional) Number of threads to use for parallel processing.
+    :param timeout: (Optional) Timeout in seconds for each API call.
+    :param retries: (Optional) Number of retries to attempt on failure.
+    :param messages: (Optional) Overall prompts to pass instructions.
+    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema.
+
+    """
+    # Ensure input is a list
+    input_was_scalar = False
+    if not isinstance(input, list):
+        input_was_scalar = True
+        input = [input]
+
+    if output is None and model_id is None:
+        raise ValueError("output or model_id must be specified.")
+
+    output_generic_key = False
+    # If output was provided as a string
+    # Then convert to JSON schema structure
+    if isinstance(output, str):
+        output_generic_key = True
+        output = {"output": {"description": output}}
+
+    # If output was a single JSON schema object
+    # nest with a generic key
+    elif (
+        isinstance(output, dict) and
+        'description' in output and
+        not isinstance(output['description'], dict)
+    ):
+        output_generic_key = True
+        output = {"output": output}
+
+    # If output was provided as a list
+    # then merge to a single dict
+    elif isinstance(output, list):
+        temp_dict = {}
+        for item in output:
+            if not isinstance(item, dict):
+                raise ValueError("Output is not correctly formatted")
+            temp_dict.update(item)
+        output = temp_dict
+
+    if model_id is not None:
+        if output_generic_key:
+            raise ValueError("Output must be set with keys when combining with a model_id")
+
+        # Get model definition, make sure keys are case insensitive
+        model_definition = {
+            str(k).lower(): v
+            for k, v in _data.model_content(model_id).items()
+        }
+
+        try:
+            model_definition = {
+                x["find"]: {
+                    k: v
+                    for k, v in x.items()
+                    if k not in ["find", "notes"] # find is key, notes is for info only
+                    and v not in ("", None) # ignore empty values but allow False and 0 as real possibilities
+                }
+                for x in _pd.DataFrame(
+                    model_definition['data'],
+                    columns=[str(x).lower() for x in model_definition['columns']]
+                ).to_dict(orient='records')
+            }
+        except:
+            raise ValueError(f"Model definition for {model_id} is not correctly formatted")
+        
+        output = {
+            **model_definition,
+            **(output or {})
+        }
+
+    # Parse any JSON values
+    def safe_json_parse(value):
+        try:
+            return _json.loads(value)
+        except:
+            return value
+
+    # Fix misc schema issues
+    for k, v in output.items():
+        if not isinstance(v, dict):
+            raise ValueError(f"Output for {k} is not correctly formatted")
+
+        # If type isn't specified, assume string
+        if "type" not in v:
+            v['type'] = "string"
+
+        # Ensure array types have a default item type
+        # This appears to be needed by GPT
+        if v.get("type") == "array" and "items" not in v:
+            v["items"] = {"type": "string"}
+
+        # Parse any JSON columns
+        v = {
+            label: safe_json_parse(value)
+            if (
+                isinstance(value, str) and
+                (value.startswith("{") or value.startswith("["))
+            )
+            else value
+            for label, value in v.items()
+        }
+        
+        # Parse any comma separated values into lists
+        v = {
+            label: [x.strip() for x in value.split(",")]
+            if label in ("examples", "enum")
+            and isinstance(value, str)
+            else value
+            for label, value in v.items()
+        }
+
+        # Ensure examples are a list if provided
+        if (
+            'examples' in v and
+            not isinstance(v['examples'], list) and
+            v['example'] not in ("", None)
+        ):
+            output[k]['examples'] = [v.get('examples')]
+
+        output[k] = v
+
+    # Format any user submitted header messages
+    if messages and not isinstance(messages, list):
+        messages = [messages]
+
+    messages = [
+        {
+            "role": "system",
+            "content": " ".join([
+                "You are a data analyst.",
+                "Your job is to extract and standardize information as provided by the user.",
+                "The data may be provided as a single value or as YAML syntax with keys and values."
+            ])
+        },
+        {
+            "role": "system",
+            "content": " ".join([
+                "Use the function parse_output to return the data to be submitted.",
+                "Only use the functions you have been provided with.",
+            ])
+        },
+    ] + [
+        {
+            "role": "user",
+            "content": message
+        }
+        for message in messages
+    ]
+
+    settings = {
+        "model": model,
+        "messages": messages,
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "parse_output",
+                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
+                "parameters": {
+                    "type": "object",
+                    "properties": output,
+                    "required": list(output.keys())
+                }
+            }
+        }],
+        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
+        **kwargs
+    }
+
+    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        results = list(executor.map(
+            _openai.chatGPT,
+            input, 
+            [api_key] * len(input),
+            [settings] * len(input),
+            [url] * len(input),
+            [timeout] * len(input),
+            [retries] * len(input),
+        ))
+
+    if input_was_scalar:
+        if output_generic_key:
+            return results[0]['output']
+        else:
+            return results[0]
+    else:
+        if output_generic_key:
+            return [x['output'] for x in results]
+        else:
+            return results
+
 def attributes(
     input: _Union[str, list],
     responseContent: str = 'span',

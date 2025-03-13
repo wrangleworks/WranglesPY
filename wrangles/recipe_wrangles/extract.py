@@ -3,11 +3,9 @@ Functions to run extraction wrangles
 """
 from typing import Union as _Union
 import re as _re
-import concurrent.futures as _futures
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
-from .. import openai as _openai
 
 
 def address(
@@ -74,15 +72,9 @@ def address(
 
 def ai(
     df: _pd.DataFrame,
-    output: list,
     api_key: str,
     input: list = None,
-    model: str = "gpt-4o-mini",
-    threads: int = 10,
-    timeout: int = 25,
-    retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
+    output: dict = None,
     **kwargs
 ):
     """
@@ -105,7 +97,7 @@ def ai(
         type: object
         description: List and description of the output you want
         patternProperties:
-          "^[a-zA-Z0-9]+$":
+          "^[a-zA-Z0-9 _-]+$":
             type: object
             properties:
               type:
@@ -173,73 +165,12 @@ def ai(
     else:
         df_temp = df
 
-    # Add a default for type array if not already specified.
-    # ChatGPT appears to need this to function correctly.
-    # Also ensure examples are in a list.
-    for k, v in output.items():
-        if v.get("type") == "array" and "items" not in v:
-            output[k]["items"] = {"type": "string"}
-        if not isinstance(v.get('examples'), list):
-            output[k]['examples'] = [v.get('examples')]
-
-    # Format any user submitted header messages
-    if not isinstance(messages, list): messages = [messages]
-    messages = [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
-    ]
-
-    system_messages = [
-        {
-            "role": "system",
-            "content": " ".join([
-                "You are a data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
-            ])
-        },
-        {
-            "role": "system",
-            "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
-            ])
-        },
-    ] + messages
-
-    settings = {
-        "model": model,
-        "messages": system_messages,
-        "temperature": 0,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "parse_output",
-                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys())
-                }
-            }
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
+    results = _extract.ai(
+        df_temp.to_dict(orient='records'),
+        api_key=api_key,
+        output=output,
         **kwargs
-    }
-
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            df_temp.to_dict(orient='records'), 
-            [api_key] * len(df),
-            [settings] * len(df),
-            [url] * len(df),
-            [timeout] * len(df),
-            [retries] * len(df),
-        ))
+    )
 
     try:
       exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
@@ -248,10 +179,14 @@ def ai(
 
     # Ensure all the required keys are included in the output,
     # even if chatGPT doesn't preserve them
-    for col in output.keys():
-        if col not in exploded_df.columns:
-            exploded_df[col] = ""
-    df[list(output.keys())] = exploded_df[list(output.keys())]
+    if output:
+        for col in output.keys():
+            if col not in exploded_df.columns:
+                exploded_df[col] = ""
+
+    # Merge back into the original dataframe
+    df[exploded_df.columns] = exploded_df
+
     return df
 
 
