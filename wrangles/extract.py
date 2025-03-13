@@ -389,10 +389,18 @@ def custom(
         'use_spellcheck': use_spellcheck,
         **kwargs
     }
+
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
-    if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
-    batch_size = model_properties['batch_size'] or 10000
+    if model_properties.get('message', None) == 'error':
+        raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+
+    # Set appropriate batch_size
+    if 'ai' in (model_properties.get('variant', '') or ''):
+        batch_size = 20
+    else:
+        batch_size = 10000
+    batch_size = model_properties['batch_size'] or batch_size
     
     # Using model_id in wrong function
     purpose = model_properties['purpose']
