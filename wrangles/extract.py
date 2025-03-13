@@ -157,6 +157,8 @@ def ai(
         except:
             return value
 
+    json_schema_basic_types = ["string", "number", "integer", "boolean"]
+
     # Fix misc schema issues
     for k, v in output.items():
         if not isinstance(v, dict):
@@ -164,12 +166,12 @@ def ai(
 
         # If type isn't specified, assume string
         if "type" not in v:
-            v['type'] = "string"
+            v['type'] = json_schema_basic_types
 
         # Ensure array types have a default item type
         # This appears to be needed by GPT
         if v.get("type") == "array" and "items" not in v:
-            v["items"] = {"type": "string"}
+            v["items"] = {"type": json_schema_basic_types}
 
         # Parse any JSON columns
         v = {
@@ -209,7 +211,7 @@ def ai(
         {
             "role": "system",
             "content": " ".join([
-                "You are a data analyst.",
+                "You are an expert data analyst.",
                 "Your job is to extract and standardize information as provided by the user.",
                 "The data may be provided as a single value or as YAML syntax with keys and values."
             ])
