@@ -134,8 +134,6 @@ class extract():
         :param model_id: Model to be updated. Either this or name must be provided
         """
         _logging.info(f": Training Extract Wrangle")
-        
-
 
         # Error handling for name, model_id and settings
         if name and model_id:
