@@ -39,7 +39,7 @@ class train():
 
         return response
 
-    def extract(training_data: list, name: str = None, model_id: str = None, variant: str = 'pattern matching'):
+    def extract(training_data: list, name: str = None, model_id: str = None, variant: str = 'pattern'):
         """
         Train an extraction model. This can extract custom entities from the input.
         Requires WrangleWorks Account and Subscription.
@@ -50,7 +50,7 @@ class train():
         """
         # If input is a list, check to make sure that all sublists are length of 2
         # Must have both values filled ('' counts as filled, None does not count)
-        if isinstance(training_data, list) and variant == 'pattern matching':
+        if isinstance(training_data, list) and variant == 'pattern':
             check_index = [training_data.index(x) for x in training_data if len(x) != 3]
             if len(check_index) != 0: # If an index does not have len() of 2 then raise error
                 raise ValueError(f"Training_data list must contain a list of two elements, plus optional Notes. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use \'\'\n"

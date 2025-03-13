@@ -118,7 +118,7 @@ class extract():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None, variant: str = 'pattern matching') -> None:
+    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None, variant: str = 'pattern') -> None:
         """
         Train a new or existing extract wrangle
 
@@ -133,8 +133,8 @@ class extract():
         if variant == 'ai':
             variant = 'extract-ai'
 
-        if variant not in ['pattern matching', 'extract-ai']:
-            raise ValueError("The variant must be either 'pattern matching' or 'ai'")
+        if variant not in ['pattern', 'extract-ai']:
+            raise ValueError("The variant must be either 'pattern' or 'ai'")
         
         # Error handling for name, model_id and settings
         if name and model_id:
@@ -146,7 +146,7 @@ class extract():
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        if variant == 'pattern matching':
+        if variant == 'pattern':
             required_columns = ['Find', 'Output (Optional)', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':

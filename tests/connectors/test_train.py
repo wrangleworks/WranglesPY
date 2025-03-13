@@ -224,7 +224,7 @@ class TrainExtractTests:
         """
         Writing data to an extract.ai wrangle with the wrong variant
         """
-        with pytest.raises(ValueError, match="The variant must be either 'pattern matching' or 'ai'"):
+        with pytest.raises(ValueError, match="The variant must be either 'pattern' or 'ai'"):
             wrangles.recipe.run(
                 """
                 write:
