@@ -118,7 +118,13 @@ class extract():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None, variant: str = 'pattern') -> None:
+    def write(
+        df: _pd.DataFrame,
+        columns: list = None,
+        name: str = None,
+        model_id: str = None,
+        variant: str = None
+    ) -> None:
         """
         Train a new or existing extract wrangle
 
@@ -128,14 +134,9 @@ class extract():
         :param model_id: Model to be updated. Either this or name must be provided
         """
         _logging.info(f": Training Extract Wrangle")
-
-        # Error handling for variant
-        if variant == 'ai':
-            variant = 'extract-ai'
-
-        if variant not in ['pattern', 'extract-ai']:
-            raise ValueError("The variant must be either 'pattern' or 'ai'")
         
+
+
         # Error handling for name, model_id and settings
         if name and model_id:
             raise ValueError("Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
@@ -143,10 +144,20 @@ class extract():
         if name is None and model_id is None:
             raise ValueError("Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
 
+        if variant not in ['pattern', 'ai', None]:
+            raise ValueError("The variant must be either 'pattern' or 'ai'")
+
+        # Error handling for variant
+        if variant == 'ai':
+            variant = 'extract-ai'
+
+        if model_id and variant:
+            raise ValueError(f"It is not possible to set the variant of an existing model.")
+
         # Select only specific columns if user requests them
         if columns is not None: df = df[columns]
 
-        if variant == 'pattern':
+        if variant in (None,'pattern'):
             required_columns = ['Find', 'Output (Optional)', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
