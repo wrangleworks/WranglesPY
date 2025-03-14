@@ -54,7 +54,7 @@ def ai(
     output: dict = None,
     model_id: str = None,
     model: str = "gpt-4o-mini",
-    threads: int = 10,
+    threads: int = 20,
     timeout: int = 25,
     retries: int = 0,
     messages: list = [],
@@ -71,17 +71,21 @@ def ai(
     >>>   }
     >>> )
 
-    :param input: A single value or list of values to extract information from.
+    :param input: A single value or list of values to extract information from. If a list is provided, \
+        each element will be analyzed individually and a list of equal length will be returned.
     :param api_key: API Key
-    :param output: (Optional) A JSON schema definition of the output requested
-    :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output.
+    :param output: (Optional) This can be a string prompting the output, a JSON schema definition \
+        of the output requested or a dict of JSON schema definitions.
+    :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
+        If both are provided, output that precedence over the definition from the model_id.
     :param model: (Optional) The model to use for the extraction.
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
-    :param messages: (Optional) Overall prompts to pass instructions.
-    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema.
+    :param messages: (Optional) Overall prompts to pass additional instructions.
+    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
 
+    :return: A scalar or list of extracted information.
     """
     # Ensure input is a list
     input_was_scalar = False
@@ -109,15 +113,13 @@ def ai(
         output_generic_key = True
         output = {"output": output}
 
-    # If output was provided as a list
-    # then merge to a single dict
-    elif isinstance(output, list):
-        temp_dict = {}
-        for item in output:
-            if not isinstance(item, dict):
-                raise ValueError("Output is not correctly formatted")
-            temp_dict.update(item)
-        output = temp_dict
+    # Ensure output values are JSON schema objects
+    output = {
+        k: v
+        if isinstance(v, dict)
+        else {"description": str(v)}
+        for k, v in output.items()
+    }
 
     if model_id is not None:
         if output_generic_key:
@@ -205,7 +207,7 @@ def ai(
 
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
-        messages = [messages]
+        messages = [str(messages)]
 
     messages = [
         {
@@ -230,6 +232,17 @@ def ai(
         }
         for message in messages
     ]
+    
+    default_settings = {
+        "gpt-4o-mini": {"temperature": 0.2},
+        "gpt-4o": {"temperature": 0.2}
+    }
+
+    # Blend default settings into kwargs
+    kwargs = {
+        **default_settings.get(model, {}),
+        **kwargs
+    }
 
     settings = {
         "model": model,

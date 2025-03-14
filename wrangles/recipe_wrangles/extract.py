@@ -98,7 +98,7 @@ def ai(
         description: List and description of the output you want
         patternProperties:
           "^[a-zA-Z0-9 _-]+$":
-            type: object
+            type: [object, string]
             properties:
               type:
                 type: string
@@ -164,6 +164,22 @@ def ai(
         df_temp = df[input]
     else:
         df_temp = df
+
+    # If a single value is provided, convert to an
+    # empty dictionary for compatibility with JSON schema
+    if not isinstance(output, (dict, list)):
+        output = {str(output): {}}
+
+    # If output was provided as a list
+    # then merge to a single dict
+    elif isinstance(output, list):
+        temp_dict = {}
+        for item in output:
+            if isinstance(item, dict):
+                temp_dict.update(item)
+            else:
+                temp_dict.update({str(item): {}})
+        output = temp_dict
 
     results = _extract.ai(
         df_temp.to_dict(orient='records'),
