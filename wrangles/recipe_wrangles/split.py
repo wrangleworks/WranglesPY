@@ -131,6 +131,9 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
         row if isinstance(row, _list) else _json.loads(row)
         for row in df[input].values
     ]
+    # If column is empty, return early
+    if len(results) == 0:
+        return df
     # Generate results and pad to a consistent length
     # as long as the max length
     max_len = max([len(x) for x in results])

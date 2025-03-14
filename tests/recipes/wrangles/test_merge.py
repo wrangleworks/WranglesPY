@@ -129,6 +129,27 @@ class TestMergeCoalesce:
                 """
             )
 
+    def test_coalesce_empty_dataframe(self):
+        """
+        Test coalesce with empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': []
+        })
+        recipe = """
+        wrangles:
+        - merge.coalesce:
+            input:
+                - Col1
+                - Col2
+                - Col3
+            output: Output Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
+
 class TestMergeConcatenate:
     """
     All concatenate tests
@@ -345,6 +366,28 @@ class TestMergeConcatenate:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Output Col'] == 'AAAAAA' and df.iloc[2]['Output Col'] == 'HHHHHH'
 
+    def test_concatenate_empty_dataframe(self):
+        """
+        Test concatenate with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': []
+        })
+        recipe = """
+        wrangles:
+            - merge.concatenate:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Output Col
+                char: ', '
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
+
 
 class TestMergeLists:
     """
@@ -472,6 +515,27 @@ class TestMergeLists:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'B'] and df.iloc[1]['Combined Col'] == ['f', 'G', 'F', 'g']
 
+    def test_lists_empty_dataframe(self):
+        """
+        Test merge.lists with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': []
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Combined Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
+
 
 class TestMergeToList:
     """
@@ -517,6 +581,27 @@ class TestMergeToList:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['D', 'E', 'F']
+
+    def test_to_lists_empty_dataframe(self):
+        """
+        Test merge.to_list with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': []
+        })
+        recipe = """
+        wrangles:
+            - merge.to_list:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Combined Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
 
 
 class TestMergeToDict:
@@ -594,6 +679,27 @@ class TestMergeToDict:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Dict Col'] == {'Col1': 'A', 'Col2': 'B'} and df.iloc[2]['Dict Col'] == ''
+
+    def test_to_dict_empty_dataframe(self):
+        """
+        Test merge.to_dict with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': []
+        })
+        recipe = """
+        wrangles:
+            - merge.to_dict:
+                input: 
+                    - Col1
+                    - Col2
+                    - Col3
+                output: Dict Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
 
 
 class TestMergeKeyValuePairs:
@@ -698,6 +804,26 @@ class TestMergeKeyValuePairs:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Object'] == {'A': 'a', True: False}
+
+    def test_key_value_pais_empty_dataframe(self):
+        """
+        Test merge.key_value_pairs with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'key1': [],
+            'key2': [],
+            'value1': [],
+            'value2': []
+        })
+        recipe = """
+        wrangles:
+            - merge.key_value_pairs:
+                input:
+                  key*: value*
+                output: Object
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty
     
 
 class TestMergeDictionaries:
@@ -740,3 +866,24 @@ class TestMergeDictionaries:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['out'] == {'Hello': 'Moto', 'Hola': 'Hello'} and df.iloc[0]['out'] == ''
+
+    def test_merge_dicts_empty_dataframe(self):
+        """
+        Test merge.dictionaries with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'd1': [],
+            'd2': [],
+            'd3': []
+        })
+        recipe = """
+        wrangles:
+        - merge.dictionaries:
+            input:
+                - d1
+                - d2
+                - d3
+            output: out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty

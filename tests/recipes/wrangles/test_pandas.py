@@ -45,6 +45,21 @@ class TestPandasHead:
         )
         assert df['header'].to_list() == [3, 4]
 
+    def test_pandas_head_empty(self):
+        """
+        Test using pandas head function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - pandas.head:
+                parameters:
+                    n: 2
+            """,
+            dataframe=pd.DataFrame()
+        )
+        assert df.empty
+
 
 class TestPandasTail:
     """
@@ -84,6 +99,21 @@ class TestPandasTail:
             )
         )
         assert df['header'].to_list() == [2, 3]
+
+    def test_pandas_tail_empty(self):
+        """
+        Test using pandas tail function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - pandas.tail:
+                parameters:
+                    n: 2
+            """,
+            dataframe=pd.DataFrame()
+        )
+        assert df.empty
 
 
 class TestPandasRound:
@@ -126,6 +156,23 @@ class TestPandasRound:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['numbers'][0] == 3.14 and df['numbers'][1] == 2.718281828
 
+    def test_pandas_round_empty(self):
+        """
+        Test using pandas round function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - pandas.round:
+                input: numbers
+                output: round_num
+                parameters:
+                    decimals: 2
+            """,
+            dataframe=pd.DataFrame({'numbers': []})
+        )
+        assert df.empty
+
 
 class TestPandasTranspose:
     """
@@ -164,6 +211,22 @@ class TestPandasTranspose:
             })
         )
         assert df.index.to_list() == ['col', 'col2', 'numbers'] and df.columns.to_list() == [0, 2]
+
+    def test_transpose_empty(self):
+        """
+        Test using pandas transpose function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - pandas.transpose: {}
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [],
+                'col2': [],
+            })
+        )
+        assert df.empty
 
 
 #
@@ -292,7 +355,22 @@ class TestCopy:
                 col2: col4
             """
         )
-        assert list(df['col3'].values) == ['val1', 'val1', 'val1'] and list(df['col4'].values) == ['val2', 'val2', 'val2']   
+        assert list(df['col3'].values) == ['val1', 'val1', 'val1'] and list(df['col4'].values) == ['val2', 'val2', 'val2'] 
+
+    def test_copy_empty(self):
+        """
+        Test using copy function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - copy:
+                input: col
+                output: col-copy
+            """,
+            dataframe=pd.DataFrame({'col': []})
+        )
+        assert df.empty  
 
 
 class TestDrop:
@@ -352,6 +430,20 @@ class TestDrop:
                     'numbers': [4, 2, 8]
                 })
             )
+
+    def test_drop_empty(self):
+        """
+        Test using drop function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - drop:
+                columns: col
+            """,
+            dataframe=pd.DataFrame({'col': []})
+        )
+        assert df.empty
 
 
 class TestRound:
@@ -531,6 +623,21 @@ class TestRound:
             })
         )
         assert df['col'].to_list() == [3.3, 1003.2, 489324.2, 8948293423.2]
+
+    def test_round_empty(self):
+        """
+        Test using round function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({'col': []})
+        )
+        assert df.empty
         
 
 class TestReindex:
@@ -810,6 +917,20 @@ class TestExplode:
             df['numbers'].tolist() == [4, 7, 14, 14, 14, 14, 19]
         )
 
+    def test_explode_empty(self):
+        """
+        Test using explode function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - explode:
+                input: column
+            """,
+            dataframe=pd.DataFrame({'column': []})
+        )
+        assert df.empty
+
 
 class TestSort:
     """
@@ -877,3 +998,17 @@ class TestSort:
             })
         )
         assert df["column"].tolist() == [2, 4, 5]
+
+    def test_sort_empty(self):
+        """
+        Test using sort function with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: column
+            """,
+            dataframe=pd.DataFrame({'column': []})
+        )
+        assert df.empty

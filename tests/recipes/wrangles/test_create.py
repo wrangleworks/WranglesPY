@@ -346,6 +346,23 @@ class TestCreateColumn:
             len(df["column"][0]) == 3
         )
 
+    def test_create_empty_column(self):
+        """
+        Test creating an empty column
+        """
+        data = pd.DataFrame({
+            'col1': []
+        })
+        df = wrangles.recipe.run(
+            recipe="""
+            wrangles:
+            - create.column:
+                output: col2
+            """,
+            dataframe=data
+        )
+        assert df.empty and list(df.columns) == ['col1', 'col2']
+
 
 class TestCreateIndex:
     """
@@ -472,6 +489,20 @@ class TestCreateIndex:
         )
         assert df["grouped_index"].values.tolist() == [0,2,0,2,4]
 
+    def test_create_index_column_empty_dataframe(self):
+        """
+        Test create.index with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.index:
+                output: index_col
+            """,
+            dataframe=pd.DataFrame({'Col1': []})
+        )
+        assert df.empty and list(df.columns) == ['Col1', 'index_col']
+
 
 class TestCreateGUID:
     """
@@ -505,6 +536,18 @@ class TestCreateGUID:
             df.iloc[2]['GUID Col'] == '' and
             isinstance(df.iloc[0]['GUID Col'], uuid.UUID)
         )
+
+    def test_guid_empty(self):
+        data = pd.DataFrame({
+        'Product': [],
+        })
+        recipe = """
+        wrangles:
+            - create.guid:
+                output: GUID Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and list(df.columns) == ['Product', 'GUID Col']
 
 
 class TestCreateJinja:
@@ -774,6 +817,22 @@ class TestCreateJinja:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['description'][0] == 'This is a 3 inch phillips head screwdriver'
 
+    def test_create_jinja_empty(self):
+        """
+        Test create.jinja with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.jinja:
+                output: description
+                template: 
+                    string: This is a {{length}} {{type}} screwdriver
+            """,
+            dataframe=pd.DataFrame({'data column': []})
+        )
+        assert df.empty and list(df.columns) == ['data column', 'description']
+
 
 class TestCreateUUID:
     """
@@ -807,6 +866,18 @@ class TestCreateUUID:
             df.iloc[2]['UUID Col'] == '' and
             isinstance(df.iloc[1]['UUID Col'], uuid.UUID)
         )
+
+    def test_uuid_empty(self):
+        data = pd.DataFrame({
+        'Product': [],
+        })
+        recipe = """
+        wrangles:
+            - create.uuid:
+                output: UUID Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and list(df.columns) == ['Product', 'UUID Col']
 
 
 class TestCreateBins:
@@ -974,6 +1045,34 @@ class TestCreateBins:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Pricing'] == '10-20' and df.iloc[0]['Pricing'] == ''
+
+    def test_create_bins_empty(self):
+        """
+        Test create.bins with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.bins:
+                input: col
+                output: Pricing
+                bins:
+                    - '-'
+                    - 10
+                    - 20
+                    - 50
+                    - 70
+                    - '+'
+                labels:
+                    - 'under 10'
+                    - '10-20'
+                    - '20-40'
+                    - '40-70'
+                    - '100 and above'
+            """,
+            dataframe=pd.DataFrame({'col': []})
+        )
+        assert df.empty and list(df.columns) == ['col', 'Pricing']
 
 
 class TestCreateEmbeddings:
@@ -1323,6 +1422,23 @@ class TestCreateEmbeddings:
             round(float(df['embeddings_32'][0][0]), 3) == round(float(df['embeddings_16'][0][0]), 3)
         )
 
+    def test_create_embeddings_empty_dataframe(self):
+        """
+        Test create.embeddings with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.embeddings:
+                input: text
+                output: embedding
+                api_key: ${OPENAI_API_KEY}
+                retries: 1
+            """,
+            dataframe=pd.DataFrame({'text': []})
+        )
+        assert df.empty and list(df.columns) == ['text', 'embedding']
+
 class TestCreateHash:
     def test_create_md5_hash(self):
         """
@@ -1443,3 +1559,19 @@ class TestCreateHash:
 
         assert df["hash"][0] == "c7be1ed902fb8dd4d48997c6452f5d7e509fbcdbe2808b16bcf4edce4c07d14e"
         assert df["hash2"][0] == "ce114e4501d2f4e2dcea3e17b546f339"
+
+    def test_create_hash_empty(self):
+        """
+        Test create.hash with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha256
+            """,
+            dataframe=pd.DataFrame({'text': []})
+        )
+        assert df.empty and list(df.columns) == ['text', 'hash']
