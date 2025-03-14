@@ -6,6 +6,7 @@ import re as _re
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
+from .. import data as _data
 
 
 def address(
@@ -75,6 +76,7 @@ def ai(
     api_key: str,
     input: list = None,
     output: dict = None,
+    model_id: str = None,
     **kwargs
 ):
     """
@@ -94,7 +96,7 @@ def ai(
           to use to determine the output. If not specified, all
           columns will be used.
       output:
-        type: object
+        type: [object, string, array]
         description: List and description of the output you want
         patternProperties:
           "^[a-zA-Z0-9 _-]+$":
@@ -158,16 +160,49 @@ def ai(
           - array
         description: Optional. Provide additional overall instructions for the AI.
     """
+    # If input is provided, extract only those columns
+    # Otherwise, provide the whole dataframe
     if input is not None:
         if not isinstance(input, list):
             input = [input]
         df_temp = df[input]
     else:
         df_temp = df
+    
+    # Target columns will contain a list of column names
+    # to insert to created results into
+    target_columns = None
+
+    if model_id is not None and output is not None:
+        # If user provided a model_id and output then
+        # output sets the columns for the results
+
+        # Ensure output is a list
+        if isinstance(output, list):
+            target_columns = output
+        else:
+            target_columns = [output]
+
+        output = None
+
+        # If more than one column is expected to be output
+        # check that matches the length of the model defined
+        if len(target_columns) > 1:
+            metadata = {
+                str(k).lower(): v
+                for k, v in _data.model_content(model_id).items()
+            }
+            if len(target_columns) != len(metadata['data']):
+                raise ValueError(
+                  f"The number of columns does not match the number defined in model_id {model_id}. ",
+                  f"Expected {len(metadata['data'])}"
+                )
+
+    # Otherwise output defines the schema the AI is expected to produce
 
     # If a single value is provided, convert to an
     # empty dictionary for compatibility with JSON schema
-    if not isinstance(output, (dict, list)):
+    elif output is not None and not isinstance(output, (dict, list)):
         output = {str(output): {}}
 
     # If output was provided as a list
@@ -181,27 +216,38 @@ def ai(
                 temp_dict.update({str(item): {}})
         output = temp_dict
 
+    # If a schema has been provided, define the target columns
+    if not target_columns and output is not None:
+        target_columns = list(output.keys())
+
     results = _extract.ai(
         df_temp.to_dict(orient='records'),
         api_key=api_key,
         output=output,
+        model_id=model_id,
         **kwargs
     )
 
     try:
-      exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+
+        if target_columns and len(target_columns) == 1 and len(exploded_df.columns) != 1:
+            df[target_columns[0]] = results
+        else:
+            # Merge back into the original dataframe
+            df[target_columns] = exploded_df
+
+            if not target_columns:
+                target_columns = exploded_df.columns
     except:
       raise RuntimeError("Unable to parse response from AI model")
 
     # Ensure all the required keys are included in the output,
     # even if chatGPT doesn't preserve them
-    if output:
-        for col in output.keys():
-            if col not in exploded_df.columns:
-                exploded_df[col] = ""
-
-    # Merge back into the original dataframe
-    df[exploded_df.columns] = exploded_df
+    if target_columns:
+        for col in target_columns:
+            if col not in df.columns:
+                df[col] = ""
 
     return df
 

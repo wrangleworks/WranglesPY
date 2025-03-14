@@ -113,13 +113,14 @@ def ai(
         output_generic_key = True
         output = {"output": output}
 
-    # Ensure output values are JSON schema objects
-    output = {
-        k: v
-        if isinstance(v, dict)
-        else {"description": str(v)}
-        for k, v in output.items()
-    }
+    if output is not None:
+        # Ensure output values are JSON schema objects
+        output = {
+            k: v
+            if isinstance(v, dict)
+            else {"description": str(v)}
+            for k, v in output.items()
+        }
 
     if model_id is not None:
         if output_generic_key:

@@ -2672,21 +2672,40 @@ class TestExtractAI:
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
         )
 
-    def test_output_overrides_model_id(self):
+    def test_model_id_additional_properties(self):
         """
-        Test using output overrides any values from model_id
+        Test non-explicitly passed properties, i.e. kwargs
+        This is set to specify a type of integer for the items in the array
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: d7c8270d-f15a-4c9c
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "3.141 is pi, 2.718 is e",
+                ],
+            })
+        )
+        assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
+
+    def test_model_id_named_output_single_column(self):
+        """
+        Test using a predefined model that specifies
+        one output for all extracted data
         """
         df = wrangles.recipe.run(
             """
             wrangles:
             - extract.ai:
                 model_id: 0e81f1ad-c0a3-42b4
-                output:
-                  Colors:
-                    description: Find the colors in the text
-                    type: string
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                output: result
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -2697,7 +2716,37 @@ class TestExtractAI:
             })
         )
         assert (
-            isinstance(df['Colors'][0], str) and
-            ('yellow' in df['Colors'].values or 'blue' in df['Colors'].values or 'green' in df['Colors'].values) and
-            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
+            df.columns.to_list() == ['data', 'result'] and
+            isinstance(df['result'][0], dict) and
+            'Colors' in df['result'][0]
+        )
+
+    def test_model_id_named_output_multi_column(self):
+        """
+        Test using a predefined model that specifies
+        one output per model row
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: 0e81f1ad-c0a3-42b4
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                output:
+                  - result1
+                  - result2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "yellow square",
+                    "blue circle",
+                    "green diamond"
+                ],
+            })
+        )
+        assert (
+            df.columns.to_list() == ['data', 'result1', 'result2'] and
+            isinstance(df['result1'][0], list) and
+            ('square' in df['result2'].values or 'circle' in df['result2'].values)
         )
