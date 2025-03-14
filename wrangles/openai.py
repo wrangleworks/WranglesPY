@@ -30,9 +30,7 @@ def chatGPT(
     :param timeout: Time limit to apply to the request
     :param retries: Number of times to retry if the request fails
     """
-    if len(data) == 1:
-        content = list(data.values())[0]
-    else:
+    if isinstance(data, (dict, list)):
         content = _yaml.dump(
             data,
             indent=2,
@@ -41,6 +39,8 @@ def chatGPT(
             Dumper=_YAMLDumper,
             width=1000
         )
+    else:
+        content = str(data)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(
