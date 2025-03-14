@@ -2150,9 +2150,9 @@ class TestExtractAI:
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
         matches = sum([
-            int(df['length (mm)'][0]) == 25,
-            int(df['length (mm)'][1]) == 6000,
-            int(df['length (mm)'][2]) == 3
+            str(df['length (mm)'][0]) == '25',
+            str(df['length (mm)'][1]) == '6000',
+            str(df['length (mm)'][2]) == '3'
         ])
         assert matches >= 1
 
@@ -2183,9 +2183,9 @@ class TestExtractAI:
         # This is temperamental
         # Score as 1/3 as good enough for test to pass
         matches = sum([
-            int(df['length (mm)'][0]) == 25,
-            int(df['length (mm)'][1]) == 6000,
-            int(df['length (mm)'][2]) == 3
+            str(df['length (mm)'][0]) == '25',
+            str(df['length (mm)'][1]) == '6000',
+            str(df['length (mm)'][2]) == '3'
         ])
         assert matches >= 1
 
