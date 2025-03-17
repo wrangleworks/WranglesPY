@@ -231,23 +231,28 @@ def ai(
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
 
-        if target_columns and len(target_columns) == 1 and len(exploded_df.columns) != 1:
-            df[target_columns[0]] = results
+        if target_columns and len(target_columns) == 1:
+            if len(exploded_df.columns) == 1:
+                # If the AI model only returns a single column
+                # then use the contents of that columns as the output
+                df[target_columns[0]] = exploded_df[exploded_df.columns[0]]
+            else:
+                # Else insert as a dict to the target column
+                df[target_columns[0]] = results
         else:
-            # Merge back into the original dataframe
-            df[target_columns] = exploded_df
-
             if not target_columns:
                 target_columns = exploded_df.columns
+            else:
+                # Ensure all the required keys are included in the output,
+                # even if chatGPT doesn't preserve them
+                for col in target_columns:
+                  if col not in exploded_df.columns:
+                      exploded_df[col] = ""
+
+            # Merge back into the original dataframe
+            df[target_columns] = exploded_df[target_columns]
     except:
       raise RuntimeError("Unable to parse response from AI model")
-
-    # Ensure all the required keys are included in the output,
-    # even if chatGPT doesn't preserve them
-    if target_columns:
-        for col in target_columns:
-            if col not in df.columns:
-                df[col] = ""
 
     return df
 

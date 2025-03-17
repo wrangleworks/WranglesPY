@@ -2734,8 +2734,8 @@ class TestExtractAI:
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 output:
-                  - result1
-                  - result2
+                  - Colors
+                  - Shapes
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -2746,7 +2746,7 @@ class TestExtractAI:
             })
         )
         assert (
-            df.columns.to_list() == ['data', 'result1', 'result2'] and
-            isinstance(df['result1'][0], list) and
-            ('square' in df['result2'].values or 'circle' in df['result2'].values)
+            df.columns.to_list() == ['data', 'Colors', 'Shapes'] and
+            isinstance(df['Colors'][0], list) and
+            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
