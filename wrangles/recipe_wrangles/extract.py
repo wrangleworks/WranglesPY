@@ -3,11 +3,10 @@ Functions to run extraction wrangles
 """
 from typing import Union as _Union
 import re as _re
-import concurrent.futures as _futures
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
-from .. import openai as _openai
+from .. import data as _data
 
 
 def address(
@@ -74,15 +73,10 @@ def address(
 
 def ai(
     df: _pd.DataFrame,
-    output: list,
     api_key: str,
     input: list = None,
-    model: str = "gpt-4o-mini",
-    threads: int = 10,
-    timeout: int = 25,
-    retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
+    output: dict = None,
+    model_id: str = None,
     **kwargs
 ):
     """
@@ -102,11 +96,11 @@ def ai(
           to use to determine the output. If not specified, all
           columns will be used.
       output:
-        type: object
+        type: [object, string, array]
         description: List and description of the output you want
         patternProperties:
-          "^[a-zA-Z0-9]+$":
-            type: object
+          "^[a-zA-Z0-9 _-]+$":
+            type: [object, string]
             properties:
               type:
                 type: string
@@ -166,92 +160,100 @@ def ai(
           - array
         description: Optional. Provide additional overall instructions for the AI.
     """
+    # If input is provided, extract only those columns
+    # Otherwise, provide the whole dataframe
     if input is not None:
         if not isinstance(input, list):
             input = [input]
         df_temp = df[input]
     else:
         df_temp = df
+    
+    # Target columns will contain a list of column names
+    # to insert to created results into
+    target_columns = None
 
-    # Add a default for type array if not already specified.
-    # ChatGPT appears to need this to function correctly.
-    # Also ensure examples are in a list.
-    for k, v in output.items():
-        if v.get("type") == "array" and "items" not in v:
-            output[k]["items"] = {"type": "string"}
-        if not isinstance(v.get('examples'), list):
-            output[k]['examples'] = [v.get('examples')]
+    if model_id is not None and output is not None:
+        # If user provided a model_id and output then
+        # output sets the columns for the results
 
-    # Format any user submitted header messages
-    if not isinstance(messages, list): messages = [messages]
-    messages = [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
-    ]
+        # Ensure output is a list
+        if isinstance(output, list):
+            target_columns = output
+        else:
+            target_columns = [output]
 
-    system_messages = [
-        {
-            "role": "system",
-            "content": " ".join([
-                "You are a data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
-            ])
-        },
-        {
-            "role": "system",
-            "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
-            ])
-        },
-    ] + messages
+        output = None
 
-    settings = {
-        "model": model,
-        "messages": system_messages,
-        "temperature": 0,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "parse_output",
-                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys())
-                }
+        # If more than one column is expected to be output
+        # check that matches the length of the model defined
+        if len(target_columns) > 1:
+            metadata = {
+                str(k).lower(): v
+                for k, v in _data.model_content(model_id).items()
             }
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **kwargs
-    }
+            if len(target_columns) != len(metadata['data']):
+                raise ValueError(
+                  f"The number of columns does not match the number defined in model_id {model_id}. ",
+                  f"Expected {len(metadata['data'])}"
+                )
 
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            df_temp.to_dict(orient='records'), 
-            [api_key] * len(df),
-            [settings] * len(df),
-            [url] * len(df),
-            [timeout] * len(df),
-            [retries] * len(df),
-        ))
+    # Otherwise output defines the schema the AI is expected to produce
+
+    # If a single value is provided, convert to an
+    # empty dictionary for compatibility with JSON schema
+    elif output is not None and not isinstance(output, (dict, list)):
+        output = {str(output): {}}
+
+    # If output was provided as a list
+    # then merge to a single dict
+    elif isinstance(output, list):
+        temp_dict = {}
+        for item in output:
+            if isinstance(item, dict):
+                temp_dict.update(item)
+            else:
+                temp_dict.update({str(item): {}})
+        output = temp_dict
+
+    # If a schema has been provided, define the target columns
+    if not target_columns and output is not None:
+        target_columns = list(output.keys())
+
+    results = _extract.ai(
+        df_temp.to_dict(orient='records'),
+        api_key=api_key,
+        output=output,
+        model_id=model_id,
+        **kwargs
+    )
 
     try:
-      exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+
+        if target_columns and len(target_columns) == 1:
+            if len(exploded_df.columns) == 1:
+                # If the AI model only returns a single column
+                # then use the contents of that columns as the output
+                df[target_columns[0]] = exploded_df[exploded_df.columns[0]]
+            else:
+                # Else insert as a dict to the target column
+                df[target_columns[0]] = results
+        else:
+            if not target_columns:
+                target_columns = exploded_df.columns
+            else:
+                # Ensure all the required keys are included in the output,
+                # even if chatGPT doesn't preserve them
+                for col in target_columns:
+                  if col not in exploded_df.columns:
+                      exploded_df[col] = ""
+
+            # Merge back into the original dataframe
+            df[target_columns] = exploded_df[target_columns]
     except:
       raise RuntimeError("Unable to parse response from AI model")
 
-    # Ensure all the required keys are included in the output,
-    # even if chatGPT doesn't preserve them
-    for col in output.keys():
-        if col not in exploded_df.columns:
-            exploded_df[col] = ""
-    df[list(output.keys())] = exploded_df[list(output.keys())]
     return df
 
 
