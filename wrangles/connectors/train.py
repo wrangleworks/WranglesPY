@@ -121,7 +121,13 @@ class extract():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
+    def write(
+        df: _pd.DataFrame,
+        columns: list = None,
+        name: str = None,
+        model_id: str = None,
+        variant: str = None
+    ) -> None:
         """
         Train a new or existing extract wrangle
 
@@ -132,16 +138,38 @@ class extract():
         """
         _logging.info(f": Training Extract Wrangle")
 
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+        if name is None and model_id is None:
+            raise ValueError("Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
+
+        if variant not in ['pattern', 'ai', None]:
+            raise ValueError("The variant must be either 'pattern' or 'ai'")
+
+        # Error handling for variant
+        if variant == 'ai':
+            variant = 'extract-ai'
+
+        if model_id and variant:
+            raise ValueError(f"It is not possible to set the variant of an existing model.")
+
         # Select only specific columns if user requests them
         if columns is not None:
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
-        required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        if not required_columns == list(df.columns[:3]):
+        if variant in (None,'pattern'):
+            required_columns = ['Find', 'Output (Optional)', 'Notes']
+            col_len = 3
+        elif variant == 'extract-ai':
+            required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
+            col_len = 7
+        if not required_columns == list(df.columns[:col_len]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
-        _train.extract(df[required_columns].values.tolist(), name, model_id)
+        _train.extract(df[required_columns].values.tolist(), name, model_id, variant)
 
     _schema["write"] = """
         type: object
