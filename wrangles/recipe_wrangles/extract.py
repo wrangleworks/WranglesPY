@@ -936,10 +936,10 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
             # Return entire matches
             df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find, x)])
         else:
-            # Extract only the specified capture group
+            # Return specific capture groups in the pattern the were passed
             df[output_column] = df[input_column].apply(lambda x: [
-                match.group(capture_group) for match in _re.finditer(find, x) if match.group(capture_group)
+                _re.sub(find, capture_group, x)
             ])
-    
+
     return df
 
