@@ -891,10 +891,10 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list]) -> _pd.DataFrame:
-    """
+def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
+    r"""
     type: object
-    description: Extract single values using regex
+    description: Extract matches or specific capture groups using regex
     additionalProperties: false
     required:
       - input
@@ -914,20 +914,37 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       find:
         type: string
         description: Pattern to find using regex
+      output_pattern:
+        type: string
+        description: |
+          Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+
+          **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None: 
+        output = input
 
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    # If a string is provided, convert to list
+    if not isinstance(input, list): 
+        input = [input]
+    if not isinstance(output, list): 
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
+    find_pattern = _re.compile(find)
+        
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
-    
+        if output_pattern is None:
+            # Return entire matches
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
+        else:
+            # Return specific capture groups in the pattern the were passed
+            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
+
     return df
+
