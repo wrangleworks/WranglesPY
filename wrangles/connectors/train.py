@@ -2,6 +2,7 @@ import logging as _logging
 import pandas as _pd
 from ..train import train as _train
 from .. import data as _data
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 class classify():
     _schema = {}
@@ -54,7 +55,9 @@ class classify():
         _logging.info(": Training Classify Wrangle")
 
         # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         required_columns = ['Example', 'Category', 'Notes']
         if not required_columns == list(df.columns[:3]):
@@ -130,7 +133,9 @@ class extract():
         _logging.info(f": Training Extract Wrangle")
 
         # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
         if not required_columns == list(df.columns[:3]):
@@ -289,7 +294,9 @@ class standardize():
         _logging.info(f": Training Standardize Wrangle")
 
         # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         required_columns = ['Find', 'Replace', 'Notes']
         if not required_columns == list(df.columns[:3]):

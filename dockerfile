@@ -1,4 +1,4 @@
-FROM python:3.10.13-slim-bookworm AS compile-image
+FROM python:3.10.16-slim-bookworm AS compile-image
 
 # Copy package
 COPY . /pkg
@@ -29,7 +29,7 @@ RUN cp -r /tmp/s3 /tmp/_retry.json /tmp/endpoints.json /tmp/partitions.json /tmp
 RUN rm -r /opt/venv/lib/python3.10/site-packages/pandas/tests/*
 
 # Create build image
-FROM python:3.10.13-slim-bookworm AS build-image
+FROM python:3.10.16-slim-bookworm AS build-image
 COPY --from=compile-image /opt/venv /opt/venv
 
 LABEL maintainer="WrangleWorks"

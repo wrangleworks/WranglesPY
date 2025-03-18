@@ -7,6 +7,11 @@ from itertools import chain as _chain
 import requests as _requests
 import numpy as _np
 import time as _time
+try:
+    from yaml import CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeDumper as _YAMLDumper
+
 
 def chatGPT(
     data: any,
@@ -28,7 +33,14 @@ def chatGPT(
     if len(data) == 1:
         content = list(data.values())[0]
     else:
-        content = _yaml.dump(data, indent=2, sort_keys=False, allow_unicode=True)
+        content = _yaml.dump(
+            data,
+            indent=2,
+            sort_keys=False,
+            allow_unicode=True,
+            Dumper=_YAMLDumper,
+            width=1000
+        )
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(
@@ -69,7 +81,7 @@ def chatGPT(
                     return {
                         param: e
                         for param in 
-                        settings_local.get("tolls", [])[0]["function"]["parameters"]["required"]
+                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return e
@@ -230,6 +242,14 @@ def embeddings(
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 
+    # Ensure input is treated as a list
+    # and store the original type to
+    # mirror the output as later
+    user_input_was_list = True
+    if not isinstance(input_list, list):
+        user_input_was_list = False
+        input_list = [input_list]
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         batches = list(_divide_batches(input_list, batch_size))
         results = list(executor.map(
@@ -245,4 +265,9 @@ def embeddings(
 
     results = list(_chain.from_iterable(results))
 
-    return results
+    # If user provided a list, return as list
+    # else return the embeddings
+    if user_input_was_list:
+        return results
+    else:
+        return results[0]

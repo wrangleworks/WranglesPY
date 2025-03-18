@@ -1139,7 +1139,7 @@ class TestExtractCustom:
                 model_id: 8e4ce4c6-9908-4f67
             """
         )
-        assert df["results"][0] == '["1", "2", "3", "4", "5"]'
+        assert df["results"][0] == ["1", "2", "3", "4", "5"]
 
     def test_extract_custom_ai_multiple_output(self):
         """

@@ -161,17 +161,33 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
     return df_output
 
 
-def remove_duplicates(input_list: list) -> list:
+def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
     """
     Remove duplicates from a list. Preserves input order.
     """
     results = []
     for row in input_list:
-        if isinstance(row, list):
+        # If row is a list, remove duplicates while ignoring case
+        if isinstance(row, list) and ignore_case:
+            seen = set()
+            results.append([x for x in row if x.lower() not in seen and not seen.add(x.lower())])
+
+        # If row is a list, remove duplicates whith case considered
+        elif isinstance(row, list) and not ignore_case:
             results.append(list(dict.fromkeys(row)))
         
+        # If row is a string, recursively remove duplicates and return a string while ignoring case
+        elif isinstance(row, str) and ignore_case:
+            seen = set()
+            result = []
+            for word in row.split(' '):
+                if word.lower() not in seen:
+                    seen.add(word.lower())
+                    result.append(word)
+            results.append(' '.join(result))
+        
         # If row is a string, recursively remove duplicates and return a string
-        elif isinstance(row, str):
+        elif isinstance(row, str) and not ignore_case:
             # Convert row to a list
             split_row = row.split(' ')
             # Recursion

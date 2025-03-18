@@ -191,7 +191,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
     return df
 
 
-def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False) -> _pd.DataFrame:
+def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Take lists in multiple columns and merge them to a single list.
@@ -209,6 +209,9 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
       remove_duplicates:
         type: boolean
         description: Whether to remove duplicates from the created list
+      ignore_case:
+        type: boolean
+        description: Ignore case when removing duplicates
     """
     output_list = []
     for row in df[input].values.tolist():
@@ -216,8 +219,15 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         for col in row:
             if not isinstance(col, list): col = [str(col)]
             output_row += col
+        # Remove duplicates, regardless of case
+        if remove_duplicates and ignore_case:
+            seen = set()
+            output_row = [x for x in output_row if x.lower() not in seen and not seen.add(x.lower())]
+
         # Use dict.fromkeys over set to preserve input order
-        if remove_duplicates: output_row = list(dict.fromkeys(output_row))
+        elif remove_duplicates and not ignore_case:
+            output_row = list(dict.fromkeys(output_row))
+
         output_list.append(output_row)
     df[output] = output_list
     return df

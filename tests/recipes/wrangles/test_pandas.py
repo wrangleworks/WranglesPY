@@ -4,7 +4,7 @@ Tests for passthrough pandas capabilities
 import wrangles
 import pandas as pd
 import pytest
-
+from numpy import half, single, double, longdouble
 
 class TestPandasHead:
     """
@@ -273,6 +273,27 @@ class TestCopy:
             str(info.value) == "copy - Input and output must be the same length"
         )
 
+    def test_copy_shorthand(self):
+        """
+        Test copying columns using the shorthand method
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 3
+                values:
+                    col1: val1
+                    col2: val2
+
+            wrangles:
+            - copy:
+                col1: col3
+                col2: col4
+            """
+        )
+        assert list(df['col3'].values) == ['val1', 'val1', 'val1'] and list(df['col4'].values) == ['val2', 'val2', 'val2']   
+
 
 class TestDrop:
     """
@@ -425,6 +446,92 @@ class TestRound:
         )
         assert df['col'].to_list() == [3.1, 1.16, 2.6, 3.2]
 
+    def test_round_mixed(self):
+        """
+        Test round with mixed inputs and outputs
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input:
+                    - col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [3.13, "Something else", 1.16, None, "2.5555"]
+            })
+        )
+        assert df['col'].to_list() == [3.1, '', 1.2, '', 2.6]
+
+    def test_round_string(self):
+        """
+        test round with strings
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': ["3.13", "1.16", "2.5555", "3.15"]
+            })
+        )
+        assert df['col'].to_list() == [3.1, 1.2, 2.6, 3.2]
+
+    def test_round_floatinf(self):
+        """
+        test infinity
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [float('inf'), float('-inf')]
+            })
+        )
+        assert df['col'].to_list() == [float('inf'), float('-inf')]
+
+    def test_round_int(self):
+        """
+        test int values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [3, 1, 2, 3]
+            })
+        )
+        assert df['col'].to_list() == [3.0, 1.0, 2.0, 3.0]
+
+    def test_round_float(self):
+        """
+        test float values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col
+                decimals: 1
+            """,
+            dataframe=pd.DataFrame({
+                'col': [half(3.333), single(1003.22), double(489324.2343), longdouble(8948293423.23455)]
+            })
+        )
+        assert df['col'].to_list() == [3.3, 1003.2, 489324.2, 8948293423.2]
+        
 
 class TestReindex:
     """

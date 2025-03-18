@@ -390,6 +390,88 @@ class TestMergeLists:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Combined Col'] == '' and df.iloc[1]['Combined Col'] == ['C', 'D', 'F', 'G']
 
+    def test_lists_remove_duplicates(self):
+        """
+        Test merge.lists using remove_duplicates
+        """
+        data = pd.DataFrame({
+            'Col1': [['A', 'B', 'C'], ['F', 'G', 'H']],
+            'Col2': [['D', 'E', 'C'], ['F', 'G', 'I']]
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                remove_duplicates: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['A', 'B', 'C', 'D', 'E'] and df.iloc[1]['Combined Col'] == ['F', 'G', 'H', 'I']
+
+    def test_lists_remove_duplicates_ignore_case_true(self):
+        """
+        Test merge.lists using remove_duplicates with ignore_case set to true
+        """
+        data = pd.DataFrame({
+            'Col1': [['A', 'B', 'c'], ['f', 'G', 'H']],
+            'Col2': [['D', 'E', 'C'], ['F', 'g', 'I']]
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                remove_duplicates: true
+                ignore_case: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['A', 'B', 'c', 'D', 'E'] and df.iloc[1]['Combined Col'] == ['f', 'G', 'H', 'I']
+
+    def test_lists_remove_duplicates_ignore_case_false(self):
+        """
+        Test merge.lists using remove_duplicates with ignore_case set to false
+        """
+        data = pd.DataFrame({
+            'Col1': [['A', 'B', 'c'], ['f', 'G', 'H']],
+            'Col2': [['D', 'E', 'C'], ['F', 'g', 'I']]
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                remove_duplicates: true
+                ignore_case: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['A', 'B', 'c', 'D', 'E', 'C'] and df.iloc[1]['Combined Col'] == ['f', 'G', 'H', 'F', 'g', 'I']
+
+    def test_lists_ignore_case_false(self):
+        """
+        Test merge.lists using with ignore_case without remove_duplicates
+        """
+        data = pd.DataFrame({
+            'Col1': [['A', 'B'], ['f', 'G']],
+            'Col2': [['D', 'B'], ['F', 'g']]
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                ignore_case: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['A', 'B', 'D', 'B'] and df.iloc[1]['Combined Col'] == ['f', 'G', 'F', 'g']
+
 
 class TestMergeToList:
     """

@@ -2458,3 +2458,87 @@ class TestSelectSample:
             len(df) == 2 and
             all([x < 0 for x in df["header2"]])
         )
+
+class TestSelectLength:
+    def test_select_string_length(self):
+        """
+        Test select.length on strings
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.length:
+                input: Col1
+                output: length
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": ["One Two Three Four", "Five Six Seven Eight", "Nine Ten Eleven Twelve"]
+            })
+        )
+        assert df["length"].to_list() == [18, 20, 22]
+
+    def test_select_array_length(self):
+        """
+        Test select.length on arrays
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.length:
+                input: Col1
+                output: length
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": [[1,2,3,4], [5,6,7,8], [9,10,11,12]]
+            })
+        )
+        assert df["length"].to_list() == [4, 4, 4]
+
+    def test_select_dictionary_length(self):
+        """
+        Test select.length on dictionaries
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.length:
+                input: Col1
+                output: length
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": [{"a": 1, "b": 2, "c": 3}, {"d": 4, "e": 5}, {"f": 6}]
+            })
+        )
+        assert df["length"].to_list() == [3, 2, 1]
+
+    def test_select_empty_length(self):
+        """
+        Test select.length on empty values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.length:
+                input: Col1
+                output: length
+            """,
+            dataframe=pd.DataFrame({
+                "Col1": ["", [], {}]
+            })
+        )
+        assert df["length"].to_list() == [0, 0, 0]
+
+    def test_select_empty_dataframe(self):
+        """
+        Test select.length on an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.length:
+                input: Col1
+                output: length
+            """,
+            dataframe=pd.DataFrame({"Col1": []})
+        )
+        assert len(df) == 0

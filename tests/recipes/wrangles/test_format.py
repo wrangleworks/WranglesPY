@@ -99,13 +99,43 @@ class TestFormatRemoveDuplicates:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['duplicates'] == 'duplicate' and df.iloc[1]['duplicates'] == 'and another and another'
 
+    def test_remove_duplicates_list_ignore_case(self):
+        """
+        Test remove_duplicates where input is a list with ignore_case
+        """
+        data = pd.DataFrame([[['Agent Smith', 'agent smith', 'AGENT SMITH']]], columns=['Agents'])
+        recipe = """
+        wrangles:
+        - format.remove_duplicates:
+            input: Agents
+            output: Remove
+            ignore_case: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Remove'] == ['Agent Smith']
+
+    def test_remove_duplicates_string_ignore_case(self):
+        """
+        Test remove_duplicates where input is a string with ignore_case
+        """
+        data = pd.DataFrame([['Agent Smith agent smith AGENT SMITH']], columns=['Agents'])
+        recipe = """
+        wrangles:
+        - format.remove_duplicates:
+            input: Agents
+            output: Remove
+            ignore_case: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Remove'] == 'Agent Smith'
+
 
 class TestFormatTrim:
     """
     Test format.trim
     """
     def test_trim_1(self):
-        data = pd.DataFrame([['         Wilson!         ']], columns=['Alone'])
+        data = pd.DataFrame([['         Wilson!         '], ['VAC']], columns=['Alone'])
         recipe = """
         wrangles:
         - format.trim:

@@ -3,6 +3,8 @@ import pandas as pd
 import pytest
 import numpy as np
 import uuid
+import random
+from datetime import datetime
 
 
 class TestCreateColumn:
@@ -1320,3 +1322,124 @@ class TestCreateEmbeddings:
             df['embeddings_32'][0].dtype == np.float32 and
             round(float(df['embeddings_32'][0][0]), 3) == round(float(df['embeddings_16'][0][0]), 3)
         )
+
+class TestCreateHash:
+    def test_create_md5_hash(self):
+        """
+        Test create.hash with md5
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: md5
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["This is a test"]
+            })
+        )
+
+        assert df["hash"][0] == "ce114e4501d2f4e2dcea3e17b546f339"
+
+    def test_create_sha1_hash(self):
+        """
+        Test create.hash with sha1
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha1
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["This is a test"]
+            })
+        )
+
+        assert df["hash"][0] == "a54d88e06612d820bc3be72877c74f257b561b19"
+
+    def test_create_sha256_hash(self):
+        """
+        Test create.hash with sha256
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha256
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["Hello, World!"]
+            })
+        )
+
+        assert df["hash"][0] == "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
+
+    def test_create_sha512_hash(self):
+        """
+        Test create.hash with sha512
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha512
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["Hello, World!"]
+            })
+        )
+
+        assert df["hash"][0] == "374d794a95cdcfd8b35993185fef9ba368f160d8daf432d08ba9f1ed1e5abe6cc69291e0fa2fe0006a52570ef18c19def4e617c33ce52ef0a6e5fbe318cb0387"
+
+    def test_create_mixed_input_hash(self):
+        """
+        Test create.hash with multiple inputs
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha256
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["This is a test", 256, 3.14]
+            })
+        )
+        assert df["hash"].to_list() == ["c7be1ed902fb8dd4d48997c6452f5d7e509fbcdbe2808b16bcf4edce4c07d14e", 
+                                        "51e8ea280b44e16934d4d611901f3d3afc41789840acdff81942c2f65009cd52", 
+                                        "2efff1261c25d94dd6698ea1047f5c0a7107ca98b0a6c2427ee6614143500215"]
+        
+    def test_create_mixed_hash(self):
+        """
+        Test create.hash with multiple methods
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: text
+                output: hash
+                method: sha256
+            - create.hash:
+                input: text
+                output: hash2
+                method: md5
+            """,
+            dataframe=pd.DataFrame({
+                "text": ["This is a test"]
+            })
+        )
+
+        assert df["hash"][0] == "c7be1ed902fb8dd4d48997c6452f5d7e509fbcdbe2808b16bcf4edce4c07d14e"
+        assert df["hash2"][0] == "ce114e4501d2f4e2dcea3e17b546f339"
