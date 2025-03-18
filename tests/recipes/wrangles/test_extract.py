@@ -1366,16 +1366,52 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['55g', '120v', '1000kg']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
             output: col_out
             find: (\d+)(.*)
-            capture_group: 1
+            capture_group: \2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['55'] and df.iloc[2]['col_out'] == ['1000']
+        assert df.iloc[0]['col_out'] == ['g'] and df.iloc[2]['col_out'] == ['kg']
+
+    def test_extract_regex_capture_multiple_groups(self):
+        """
+        Tests extract.regex with multiple capture groups
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            capture_group: \2 \1
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['g 55'] and df.iloc[2]['col_out'] == ['kg 1000']
+
+    def test_extract_regex_capture_plus(self):
+        """
+        Tests extract.regex with multiple capture groups separated by a string
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            capture_group: \2 stuff \1
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['g stuff 55'] and df.iloc[2]['col_out'] == ['kg stuff 1000']
 
 
 class TestExtractProperties:
