@@ -913,7 +913,7 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
         type: string
         description: Pattern to find using regex
       output_pattern:
-        type: integer
+        type: string
         description: Index of the capture group to extract. If None, return the entire match.
     """
     # If output is not specified, overwrite input columns in place
