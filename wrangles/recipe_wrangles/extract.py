@@ -889,7 +889,7 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], capture_group: int = None) -> _pd.DataFrame:
+def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Extract matches or specific capture groups using regex
@@ -912,7 +912,7 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       find:
         type: string
         description: Pattern to find using regex
-      capture_group:
+      output_pattern:
         type: integer
         description: Index of the capture group to extract. If None, return the entire match.
     """
@@ -930,16 +930,16 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
+    find_pattern = _re.compile(find)
+        
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if capture_group is None:
+        if output_pattern is None:
             # Return entire matches
-            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find, x)])
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
         else:
             # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(lambda x: [
-                _re.sub(find, capture_group, x)
-            ])
+            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
 
     return df
 
