@@ -1109,6 +1109,24 @@ class TestSelectLeft:
         )
         assert df["Col1"][0] == ""
 
+    def test_select_left_empty_df(self):
+        """
+        Test select.left with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - select.left:
+                    input: Col1
+                    output: output column
+                    length: 3
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert df.empty
+
 
 class TestSelectRight:
     """
@@ -1311,6 +1329,24 @@ class TestSelectRight:
         )
         assert df["Col1"][0] == ""
 
+    def test_select_right_empty_df(self):
+        """
+        Test select.left with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - select.right:
+                    input: Col1
+                    output: output column
+                    length: 3
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert df.empty
+
 
 class TestSelectSubstring:
     """
@@ -1455,6 +1491,25 @@ class TestSelectSubstring:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[2]['Out1'] == ' Ten' and df.iloc[0]['Out1'] == ''
+
+    def test_select_substring_empty_df(self):
+        """
+        Test select.substring with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - select.substring:
+                  input: Col1
+                  output: Out1
+                  start: 1
+                  length: 3
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert df.empty
 
 
 class TestGroupBy:
@@ -1823,6 +1878,22 @@ class TestGroupBy:
             list(df.columns) == ['to_group'] and
             df["to_group"].tolist() == ["a", "b"]
         )
+
+    def test_group_by_empty_df(self):
+        """
+        Test group_by with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - select.group_by:
+                  by: to_group
+            """,
+            dataframe=pd.DataFrame({
+                "to_group": [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['to_group']
 
 
 class TestSelectElement:
@@ -2230,6 +2301,23 @@ class TestSelectElement:
         )
         assert df["result"][0] == "" and df["result"][1] == 1 and df["result"][2] == "do"
 
+    def test_select_element_empty_df(self):
+        """
+        Test select.element with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.element:
+                input: col[0]
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "col": []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col', 'result']
+
 
 class TestSelectColumns:
     """
@@ -2330,6 +2418,28 @@ class TestSelectColumns:
             df['Col5'].to_list() == [12]
         )
 
+    def test_select_columns_empty_df(self):
+        """
+        Test select.columns with an empty dataframe
+        """
+        data = pd.DataFrame({
+            'Col1': [],
+            'Col2': [],
+            'Col3': [],
+            'Col4': [],
+            'Col5': []
+        })
+        recipe = """
+        wrangles:
+            - select.columns:
+                input:
+                    - Col1
+                    - Col5
+
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col5']
+
 
 class TestSelectHead:
     """
@@ -2369,6 +2479,23 @@ class TestSelectHead:
         )
         assert df['heading'].to_list() == [1, 3]
 
+    def test_head_empty_df(self):
+        """
+        Test using head with where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.head:
+                n: 2
+            """,
+            dataframe=pd.DataFrame({
+                'heading': [],
+                'numbers': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['heading', 'numbers']
+
 
 class TestSelectTail:
     """
@@ -2407,6 +2534,22 @@ class TestSelectTail:
             })
         )
         assert df['heading'].to_list() == [4, 6]
+
+    def test_tail_empty_df(self):
+        """
+        Test select.tail with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.tail:
+                n: 3
+            """,
+            dataframe=pd.DataFrame({
+                "heading": []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['heading']
 
 
 class TestSelectSample:
@@ -2568,3 +2711,19 @@ class TestSelectSample:
             len(df) == 2 and
             all([x < 0 for x in df["header2"]])
         )
+
+    def test_select_sample_empty_df(self):
+        """
+        Test select.sample with an empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.sample:
+                rows: 2
+            """,
+            dataframe=pd.DataFrame({
+                "heading": []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['heading']
