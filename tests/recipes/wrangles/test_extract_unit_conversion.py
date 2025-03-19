@@ -1218,4 +1218,4 @@ def test_empty_conversion():
         """,
         dataframe=data
     )
-    assert df.empty
+    assert df.empty and df.columns.to_list() == ['col', 'out']

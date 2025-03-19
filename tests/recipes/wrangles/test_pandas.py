@@ -171,7 +171,7 @@ class TestPandasRound:
             """,
             dataframe=pd.DataFrame({'numbers': []})
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['numbers', 'round_num']
 
 
 class TestPandasTranspose:
@@ -370,7 +370,7 @@ class TestCopy:
             """,
             dataframe=pd.DataFrame({'col': []})
         )
-        assert df.empty  
+        assert df.empty and df.columns.to_list() == ['col', 'col-copy']
 
 
 class TestDrop:
@@ -443,7 +443,7 @@ class TestDrop:
             """,
             dataframe=pd.DataFrame({'col': []})
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == []
 
 
 class TestRound:
@@ -633,11 +633,12 @@ class TestRound:
             wrangles:
             - round:
                 input: col
+                output: output column
                 decimals: 1
             """,
             dataframe=pd.DataFrame({'col': []})
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col', 'output column']
         
 
 class TestReindex:

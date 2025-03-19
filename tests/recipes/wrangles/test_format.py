@@ -141,7 +141,7 @@ class TestFormatRemoveDuplicates:
             output: Remove
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Agents', 'Remove']
 
 
 class TestFormatTrim:
@@ -242,7 +242,7 @@ class TestFormatTrim:
             output: Trim
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Alone', 'Trim']
 
 class TestFormatPrefix:
     """
@@ -359,7 +359,7 @@ class TestFormatPrefix:
             value: extra-
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col', 'pre-col']
 
 
 class TestFormatSuffix:
@@ -476,7 +476,7 @@ class TestFormatSuffix:
             value: -cy
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col', 'col-suf']
     
 
 class TestFormatDates:
@@ -523,10 +523,11 @@ class TestFormatDates:
         wrangles:
         - format.dates:
             input: col
+            output: output column
             format: "%Y-%m-%d"
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col', 'output column']
 
 
 class TestFormatPad:
@@ -653,7 +654,7 @@ class TestFormatPad:
                 char: 0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
 
 
 class TestFormatSignificantFigures:
@@ -782,4 +783,4 @@ class TestFormatSignificantFigures:
                 output: out1
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']

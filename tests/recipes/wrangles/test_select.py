@@ -298,13 +298,14 @@ class TestSelectDictionaryElement:
             wrangles:
             - select.dictionary_element:
                 input: column
+                output: output column
                 element: a
             """,
             dataframe=pd.DataFrame({
                 'column': []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
 
 class TestSelectListElement:
@@ -561,13 +562,14 @@ class TestSelectListElement:
             wrangles:
             - select.list_element:
                 input: column
+                output: output column
                 element: 1
             """,
             dataframe=pd.DataFrame({
                 'column': []
             })
         )
-        assert list(df.columns) == ['column'] and len(df) == 0
+        assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
 
 class TestHighestConfidence:
@@ -887,23 +889,26 @@ class TestSelectThreshold:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['Top Words'] == 'C' and df.iloc[0]['Top Words'] == ''
 
-    # def test_threshold_empty(self):
-    #     """
-    #     Test that select.threshold with an empty data column
-    #     """
-    #     df = wrangles.recipe.run(
-    #         """
-    #         wrangles:
-    #         - select.threshold:
-    #             input: column
-    #             output: Top Words
-    #             threshold: .77
-    #         """,
-    #         dataframe=pd.DataFrame({
-    #             'column': []
-    #         })
-    #     )
-    #     assert list(df.columns) == ['column', 'Top Words'] and len(df) == 0
+    def test_threshold_empty(self):
+        """
+        Test that select.threshold with an empty data column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.threshold:
+                input:
+                  - column1
+                  - column2
+                output: Top Words
+                threshold: .77
+            """,
+            dataframe=pd.DataFrame({
+                'column1': [],
+                'column2': []
+            })
+        )
+        assert list(df.columns) == ['column1', 'column2', 'Top Words'] and len(df) == 0
 
 
 class TestSelectLeft:

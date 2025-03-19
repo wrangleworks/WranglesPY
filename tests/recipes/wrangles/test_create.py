@@ -361,7 +361,7 @@ class TestCreateColumn:
             """,
             dataframe=data
         )
-        assert df.empty and list(df.columns) == ['col1', 'col2']
+        assert df.empty and df.empty and list(df.columns) == ['col1', 'col2']
 
 
 class TestCreateIndex:

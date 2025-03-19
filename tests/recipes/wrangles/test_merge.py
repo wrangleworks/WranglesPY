@@ -148,7 +148,7 @@ class TestMergeCoalesce:
             output: Output Col
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Output Col']
 
 class TestMergeConcatenate:
     """
@@ -386,7 +386,7 @@ class TestMergeConcatenate:
                 char: ', '
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Output Col']
 
 
 class TestMergeLists:
@@ -534,7 +534,7 @@ class TestMergeLists:
                 output: Combined Col
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Combined Col']
 
 
 class TestMergeToList:
@@ -601,7 +601,7 @@ class TestMergeToList:
                 output: Combined Col
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Combined Col']
 
 
 class TestMergeToDict:
@@ -699,7 +699,7 @@ class TestMergeToDict:
                 output: Dict Col
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Dict Col']
 
 
 class TestMergeKeyValuePairs:
@@ -823,7 +823,7 @@ class TestMergeKeyValuePairs:
                 output: Object
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['key1', 'key2', 'value1', 'value2', 'Object']
     
 
 class TestMergeDictionaries:
@@ -886,4 +886,4 @@ class TestMergeDictionaries:
             output: out
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['d1', 'd2', 'd3', 'out']

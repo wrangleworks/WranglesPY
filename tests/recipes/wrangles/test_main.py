@@ -193,7 +193,7 @@ class TestClassify:
                 'Col1': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.tolist() == ['Col1', 'Class1']
 
 
 class TestFilter:
@@ -561,7 +561,7 @@ class TestFilter:
                 'Random': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.tolist() == ['Random']
 
 
 @pytest.mark.usefixtures("caplog")
@@ -1049,13 +1049,14 @@ class TestRemoveWords:
             wrangles:
                 - remove_words:
                     input: Random
+                    output: output column
                     to_remove: App
             """,
             dataframe=pd.DataFrame({
                 'Random': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
 
 class TestRename:
@@ -1914,7 +1915,7 @@ class TestSimilarity:
                 'col2': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'Cos Sim']
 
 
 class TestStandardize:
@@ -2278,7 +2279,7 @@ class TestStandardize:
                 'Abbrev': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Abbrev', 'Abbreviations']
 
 
 class TestReplace:
@@ -2457,6 +2458,7 @@ class TestReplace:
             wrangles:
                 - replace:
                     input: Abbrev
+                    output: output column
                     find: ETA
                     replace: Estimated Time of Arrival
             """,
@@ -2464,7 +2466,7 @@ class TestReplace:
                 'Abbrev': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Abbrev', 'output column']
 
 
 class TestTranslate:
@@ -2589,7 +2591,7 @@ class TestTranslate:
                 'Español': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Español', 'English']
 
 
 class TestMath:
@@ -2692,7 +2694,7 @@ class TestMath:
                 'col2': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'result']
 
 
 class TestSQL:
@@ -2839,7 +2841,7 @@ class TestSQL:
             wrangles:
                 - sql:
                     command: |
-                        SELECT header1, header2
+                        SELECT header1
                         FROM df
             """,
             dataframe=pd.DataFrame({
@@ -2847,7 +2849,7 @@ class TestSQL:
                 'header2': [],
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['header1']
 
 
 class TestRecipe:

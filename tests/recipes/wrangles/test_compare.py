@@ -513,4 +513,5 @@ class TestCompareTest:
                 'col3': []
             }),
         )
-        assert df.empty
+        
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'col3', 'output']

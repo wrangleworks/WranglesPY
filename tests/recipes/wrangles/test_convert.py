@@ -210,13 +210,14 @@ class TestConvertCase:
             wrangles:
             - convert.case:
                 input: column
+                output: upper column
                 case: upper
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'upper column']
 
 
 class TestConvertDataType:
@@ -358,13 +359,14 @@ class TestConvertDataType:
             wrangles:
             - convert.data_type:
                 input: column
+                output: output column
                 data_type: str
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
 class TestConvertFractionToDecimal:
@@ -509,12 +511,13 @@ class TestConvertFractionToDecimal:
             wrangles:
             - convert.fraction_to_decimal:
                 input: column
+                output: output column
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
 class TestConvertFromJSON:
@@ -695,12 +698,13 @@ class TestConvertFromJSON:
             wrangles:
             - convert.from_json:
                 input: header1
+                output: output column
             """,
             dataframe=pd.DataFrame({
                 "header1": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['header1', 'output column']
 
 
 class TestConvertFromYAML:
@@ -827,12 +831,13 @@ class TestConvertFromYAML:
             wrangles:
             - convert.from_yaml:
                 input: column
+                output: output column
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
 class TestConvertToJSON:
@@ -1135,12 +1140,13 @@ class TestConvertToJSON:
             wrangles:
             - convert.to_json:
                 input: column
+                output: output column
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
 class TestConvertToYAML:
@@ -1273,9 +1279,10 @@ class TestConvertToYAML:
             wrangles:
             - convert.to_yaml:
                 input: column
+                output: output column
             """,
             dataframe=pd.DataFrame({
                 "column": []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['column', 'output column']

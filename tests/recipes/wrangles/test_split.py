@@ -587,7 +587,7 @@ class TestSplitText:
                 'col1': []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
         
 
 class TestSplitList:
@@ -712,13 +712,13 @@ class TestSplitList:
             wrangles:
                 - split.list:
                     input: Col
-                    output: Col*
+                    output: output*
             """,
             dataframe=pd.DataFrame({
                 'Col': []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col']
 
     def test_split_list_empty_where(self):
         """
@@ -1195,7 +1195,7 @@ class TestSplitDictionary:
                 'Col': []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col']
 
 
 class TestTokenize:
@@ -1429,4 +1429,4 @@ class TestTokenize:
                 'Col': []
             })
         )
-        assert df.empty
+        assert df.empty and df.columns.to_list() == ['Col', 'out1']
