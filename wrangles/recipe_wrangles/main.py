@@ -1196,7 +1196,9 @@ def remove_words(
         raise ValueError('The lists for input and output must be the same length.')
 
     # Early return for empty df
-    if df.empty: return df
+    if df.empty:
+        df[output] = None
+        return df
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
