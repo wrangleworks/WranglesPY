@@ -805,7 +805,7 @@ class TestMergeKeyValuePairs:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Object'] == {'A': 'a', True: False}
 
-    def test_key_value_pais_empty_dataframe(self):
+    def test_key_value_pairs_empty_dataframe(self):
         """
         Test merge.key_value_pairs with an empty dataframe
         """
