@@ -507,11 +507,13 @@ def filter(
         type:
           - array
           - string
+          - boolean
         description: Select rows where the values are in a given list.
       not_in:
         type:
           - array
           - string
+          - boolean
         description: Select rows where the values are not in a given list.
       is_null:
         type: boolean
