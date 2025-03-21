@@ -566,6 +566,9 @@ def filter(
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
 
+    # Return early on empty df
+    if df.empty: return df
+
     for input_column in input: 
         if equal != None:
             if not isinstance(equal, list): equal = [equal]
@@ -1194,6 +1197,11 @@ def remove_words(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+
+    # Early return for empty df
+    if df.empty:
+        df[output] = None
+        return df
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):

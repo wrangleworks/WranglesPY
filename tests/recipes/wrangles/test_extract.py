@@ -125,6 +125,28 @@ class TestExtractAddress:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['out'] == ['221 B Baker St.']
 
+    def test_address_empty(self):
+        """
+        Test extract.address with an empty input
+        """
+        data = pd.DataFrame({
+            'col1': [],
+            'col2': []
+        })
+        recipe = """
+        wrangles:
+        - extract.address:
+            input:
+                - col1
+                - col2
+            output:
+                - out1
+                - out2
+            dataType: streets
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'out1', 'out2']
+
 
 class TestExtractAttributes:
     """
@@ -455,6 +477,23 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == {'length': ['13mm']}
 
+    def test_attributes_empty(self):
+        """
+        Test extract.attributes with an empty input
+        """
+        data = pd.DataFrame({
+            'col1': [],
+            'numbers': []
+        })
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: col1
+                output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'numbers', 'output']
+
 
 class TestExtractCodes:
     """
@@ -594,6 +633,24 @@ class TestExtractCodes:
                 })
             )
         assert df.iloc[1]['code'] == ['Z151HG52'] and df.iloc[0]['code'] == ''
+
+    def test_extract_codes_empty(self):
+        """
+        Test extract.codes with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.codes:
+                input: column
+                output: code
+            """,
+            dataframe=pd.DataFrame({
+                "column": [],
+                "numbers": []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'numbers', 'code']
 
 
 class TestExtractCustom:
@@ -1300,6 +1357,24 @@ class TestExtractCustom:
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': 'red'}
 
+    def test_extract_custom_empty(self):
+        """
+        Test extract.custom with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col
+                output: out
+                model_id: 829c1a73-1bfd-4ac0
+            """,
+            dataframe=pd.DataFrame({
+                'col': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col', 'out']
+
 
 class TestExtractRegex:
     """
@@ -1341,6 +1416,24 @@ class TestExtractRegex:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
 
+    def test_extract_regex_empty(self):
+        """
+        Test extract.regex with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.regex:
+                input: column
+                output: colour
+                find: \w+
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'colour']
+    
     def test_extract_regex_output_pattern_no_param(self):
         """
         Tests extract.regex with a capture group in the
@@ -1549,6 +1642,24 @@ class TestExtractProperties:
         )
         assert df['colour'][0] == '' and df['colour'][1] == ['White']
 
+    def test_extract_properties_empty(self):
+        """
+        Test extract.properties with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.properties:
+                input: column
+                output: colour
+                property_type: colours
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'colour']
+
 
 class TestExtractHTML:
     """
@@ -1606,6 +1717,24 @@ class TestExtractHTML:
                 })
         )
         assert df['Link'][0] == '' and df['Link'][1] == ['https://www.wrangleworks.com/']
+
+    def test_extract_html_empty(self):
+        """
+        Test extract.html with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.html:
+                input: column
+                output: Link
+                data_type: links
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'Link']
     
 
 class TestExtractBrackets:
@@ -1928,6 +2057,23 @@ class TestExtractBrackets:
         )
         assert df['output'].values.tolist() == ['x', '']
 
+    def test_brackets_empty(self):
+        """
+        Test extract.brackets with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.brackets:
+                input: column
+                output: output
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'output']
+
 
 class TestExtractDateProperties:
     """
@@ -2033,6 +2179,24 @@ class TestExtractDateProperties:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['out1'] == 'Tuesday' and df.iloc[2]['out2'] == ""
+
+    def test_extract_date_empty(self):
+        """
+        Test extract.date_properties with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_properties:
+                input: column
+                output: output
+                property: quarter
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'output']
     
 
 class TestExtractDateRange:
@@ -2099,6 +2263,49 @@ class TestExtractDateRange:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Range'] == '' and df.iloc[1]['Range'] == 36 and df.iloc[2]['Range'] == 90
+
+    def test_date_range_empty(self):
+        """
+        Test extract.date_range with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_range:
+                start_time: date1
+                end_time: date2
+                output: Range
+                range: years
+            """,
+            dataframe=pd.DataFrame({
+                    "date1": [],
+                    "date2": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['date1', 'date2', 'Range']
+
+    def test_date_range_missing(self):
+        """
+        Test extract.date_range with missing values
+        """
+        recipe = """
+            wrangles:
+            - extract.date_range:
+                start_time: date1
+                end_time: date2
+                output: Range
+                range: years
+            """
+        data = pd.DataFrame({
+                "date1": ['08-13-1992'],
+                "date2": ['']
+            })
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Neither `start` nor `end` can be NaT' in info.value.args[0]
+        )
 
 
 class TestExtractAI:
@@ -2698,6 +2905,32 @@ class TestExtractAI:
             df['length'][2] == '3mm'
         ])
         assert matches >= 2
+
+    def test_ai_empty(self):
+        """
+        Test extract.ai with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['data', 'length']
 
     def test_ai_o3_mini(self):
         """
