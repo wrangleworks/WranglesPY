@@ -1342,8 +1342,16 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+
+    # def custom_replacement(x, find, replace):
+    #     if not isinstance(x, str):  # Check if the input is a list
+    #         return x  # Return the list as-is without modification
+    #     return _re.sub(str(find), str(replace), str(x))  # Apply the regex substitution
     
-    # Loop through and apply for all columns
+    # # Loop through and apply for all columns
+    # for input_column, output_column in zip(input, output):
+    #     df[output_column] = df[input_column].apply(lambda x: custom_replacement(x, find, replace))
+
     for input_column, output_column in zip(input, output):
         df[output_column] = df[input_column].apply(lambda x: _re.sub(str(find), str(replace), str(x)))
         
