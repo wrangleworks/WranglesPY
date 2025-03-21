@@ -496,24 +496,24 @@ def filter(
           - string
           - array
           - boolean
+          - number
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
           - array
           - boolean
+          - number
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
           - array
           - string
-          - boolean
         description: Select rows where the values are in a given list.
       not_in:
         type:
           - array
           - string
-          - boolean
         description: Select rows where the values are not in a given list.
       is_null:
         type: boolean
