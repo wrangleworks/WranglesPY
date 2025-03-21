@@ -1720,7 +1720,7 @@ class TestExtractHTML:
 
     def test_extract_html_empty(self):
         """
-        Test extract.properties with an empty input
+        Test extract.html with an empty input
         """
         df = wrangles.recipe.run(
             """
