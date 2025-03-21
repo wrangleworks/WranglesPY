@@ -495,11 +495,15 @@ def filter(
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
