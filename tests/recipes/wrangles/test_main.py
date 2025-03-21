@@ -2492,6 +2492,78 @@ class TestReplace:
         )
         assert df.empty and df.columns.to_list() == ['Abbrev', 'output column']
 
+    def test_replace_list(self):
+        """
+        Test replace with a list for the input
+        """
+        data = pd.DataFrame({
+        'List': [['random ASAP random', 'random ETA random']],
+        })
+        recipe = """
+        wrangles:
+            - replace:
+                input: List
+                output: Still a List
+                find: ETA
+                replace: Estimated Time of Arrival
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Still a List'] == ['random ASAP random', 'random ETA random'] and isinstance(df.iloc[0]['Still a List'], list) == True
+
+    def test_replace_bool(self):
+        """
+        Test replace with a boolean for the input
+        """
+        data = pd.DataFrame({
+        'Bool': [True, False],
+        })
+        recipe = """
+        wrangles:
+            - replace:
+                input: Bool
+                output: Not a Bool
+                find: False
+                replace: This is so True, there has never ever been anything more True
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['Not a Bool'] == 'This is so True, there has never ever been anything more True' and isinstance(df.iloc[0]['Not a Bool'], str) == True
+
+    def test_replace_integer(self):
+        """
+        Test replace with an integer for the input
+        """
+        data = pd.DataFrame({
+        'Integers': [10, 20],
+        })
+        recipe = """
+        wrangles:
+            - replace:
+                input: Integers
+                output: Not Integers
+                find: 0
+                replace: 9
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['Not Integers'] == '29' and isinstance(df.iloc[0]['Not Integers'], str) == True
+
+    def test_replace_dict(self):
+        """
+        Test replace with an integer for the input
+        """
+        data = pd.DataFrame({
+        'Dictionaries': [{'This': 'is a dictionary'}, {'So': 'is this'}],
+        })
+        recipe = """
+        wrangles:
+            - replace:
+                input: Dictionaries
+                output: Not Dictionaries
+                find: Doesn't Matter
+                replace: That's true, it doesn't
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['Not Dictionaries'] == {'So': 'is this'} and isinstance(df.iloc[0]['Not Dictionaries'], dict) == True
+
 
 class TestTranslate:
     """
