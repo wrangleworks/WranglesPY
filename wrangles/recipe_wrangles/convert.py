@@ -70,7 +70,27 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
         elif desired_case == 'title':
             df[output_column] = df[input_column].str.title()
         elif desired_case == 'sentence':
-            df[output_column] = df[input_column].str.capitalize()
+            def getSentenceCase(source: str):
+                output = ""
+                isFirstWord = True
+
+                if not isinstance(source, str):
+                    return source
+
+                for character in source:
+                    if isFirstWord and not character.isspace():
+                        character = character.upper()
+                        isFirstWord = False
+                    elif not isFirstWord and character in ".!?":
+                        isFirstWord = True
+                    else:
+                        character = character.lower()
+
+                    output = output + character
+
+                return output
+
+            df[output_column] = df[input_column].apply(getSentenceCase)
 
     return df
 
