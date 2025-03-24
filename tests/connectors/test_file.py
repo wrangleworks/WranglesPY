@@ -172,6 +172,30 @@ def test_write_file_optional_not_col():
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
+def test_write_file_format():
+    """
+    Test the format function when writing to a file
+    """
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    write:
+      file:
+        name: tests/temp/write_data.xlsx
+        format:
+          Find:
+            width: 10
+            header_fill_color: blue
+            font_size: 18
+          Replace:
+            width: 20
+            header_fill_color: red
+            font_size: 11
+    """
+    df = wrangles.recipe.run(recipe=recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+
 def test_write_csv():
     """
     Test exporting a .csv
