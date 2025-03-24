@@ -8,6 +8,10 @@ import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+try:
+    from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
 
 
 def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
@@ -51,6 +55,11 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Return early for empty dataframe
+    if df.empty: 
+        df[output] = None
+        return df
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -394,7 +403,7 @@ def from_yaml(
         If no default, raise an error.
         """
         try:
-            return _yaml.safe_load(value, **kwargs) or default
+            return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or default
         except:
             if default != None:
                 return default
@@ -478,6 +487,7 @@ def to_yaml(
                     row,
                     sort_keys=sort_keys,
                     allow_unicode=allow_unicode,
+                    Dumper=_YAMLDumper,
                     **kwargs
                 )
                 for row in df[input_columns].values
@@ -490,6 +500,7 @@ def to_yaml(
                 row,
                 sort_keys=sort_keys,
                 allow_unicode=allow_unicode,
+                Dumper=_YAMLDumper,
                 **kwargs
             )
             for row in df[input].to_dict(orient="records")

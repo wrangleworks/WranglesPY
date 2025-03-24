@@ -34,6 +34,10 @@ def classify(
     # Checking to see if GUID format is correct
     if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    
+    # Alter variable to match API
+    if 'include_confidence' in kwargs:
+        kwargs['includeConfidence'] = kwargs.pop('include_confidence')
        
     url = f'{_config.api_host}/wrangles/classify'
     params = {'responseFormat': 'array', 'model_id': model_id, **kwargs}
@@ -41,8 +45,7 @@ def classify(
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
     batch_size = model_properties['batch_size'] or 5000
-    
-    
+
     # Using model_id in wrong function
     purpose = model_properties['purpose']
     if purpose != 'classify':
@@ -50,6 +53,7 @@ def classify(
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if isinstance(input, str): results = results[0]
+    if isinstance(input, str):
+        results = results[0]
 
     return results

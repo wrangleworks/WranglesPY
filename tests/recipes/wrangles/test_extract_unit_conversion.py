@@ -1196,4 +1196,26 @@ def test_energy_conversion_2_obj():
     )
     assert df['out'][3] == [{'span': '1 kwh', 'standard': '3600000 J', 'symbol': 'J', 'unit': 'joule', 'value': 3600000}]
     
-    
+#
+# Emtpy Dataframe test
+#
+
+def test_empty_conversion():
+    """
+    Test empty dataframe
+    """
+    data = pd.DataFrame(
+        {'col': []}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: energy
+              desired_unit: joules
+        """,
+        dataframe=data
+    )
+    assert df.empty and df.columns.to_list() == ['col', 'out']

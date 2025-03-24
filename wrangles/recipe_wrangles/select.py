@@ -493,6 +493,10 @@ def left(
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
+    if df.empty:
+        df[output] = None
+        return df
+
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
@@ -523,6 +527,42 @@ def left(
             df[output_column] = df[input_column].str[-1*length:]
 
     return df
+
+
+def length(
+  df: _pd.DataFrame,
+  input: _Union[str, list],
+  output: _Union[str, list] = None,
+):
+  """
+  type: object
+  description: >-
+    Calculate the lengths of data in a column.
+    The length depends on the data type
+    e.g. text will be the length of the text,
+    lists will be the number of elements in the list.
+  required:
+    - input
+  properties:
+    input:
+      type:
+        - string
+        - array
+      description: Name of the input column(s).
+    output:
+      type:
+        - string
+        - array
+      description: Name of the output column(s).
+  """
+  if not output: output = input
+  if not isinstance(output, list): output = [output]
+  if not isinstance(input, list): input = [input]
+
+  for input_col, output_col in zip(input, output):
+    df[output_col] = [len(item) for item in df[input_col].values]
+
+  return df
 
 
 def list_element(
@@ -618,6 +658,10 @@ def right(
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
@@ -725,6 +769,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]

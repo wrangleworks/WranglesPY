@@ -38,6 +38,7 @@ def accordion(
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
 ) -> _pd.DataFrame:
     """
     type: object
@@ -116,7 +117,8 @@ def accordion(
                 ] + wrangles
             },
             dataframe=df_temp,
-            functions=functions
+            functions=functions,
+            variables=variables
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
@@ -129,7 +131,8 @@ def accordion(
                 {"rename": {x + ".list": x for x in output}}
             ]},
             dataframe=df_temp,
-            functions=functions
+            functions=functions,
+            variables=variables
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
@@ -164,6 +167,7 @@ def batch(
     df,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
     batch_size: int = 1000,
     threads: int = 1,
     on_error: dict = None
@@ -222,7 +226,8 @@ def batch(
             return _wrangles.recipe.run(
                 {"wrangles": wrangles},
                 dataframe=df,
-                functions=functions
+                functions=functions,
+                variables=variables
             )
         except Exception as err:
             if on_error:
@@ -276,6 +281,9 @@ def classify(
       model_id:
         type: string
         description: ID of the classification model to be used
+      include_confidence:
+        type: boolean
+        description: For models that support it, include the confidence level in the output
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -487,11 +495,15 @@ def filter(
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
@@ -557,6 +569,9 @@ def filter(
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
+
+    # Return early on empty df
+    if df.empty: return df
 
     for input_column in input: 
         if equal != None:
@@ -1186,6 +1201,11 @@ def remove_words(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+
+    # Early return for empty df
+    if df.empty:
+        df[output] = None
+        return df
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -1235,7 +1255,8 @@ def rename(
                 dataframe=_pd.DataFrame({
                     "columns": input
                 }),
-                functions=kwargs.get("functions", {})
+                functions=kwargs.get("functions", {}),
+                variables=kwargs.get("variables", {})
             )["columns"].tolist()
         except:
             raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
