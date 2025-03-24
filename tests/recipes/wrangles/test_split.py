@@ -570,6 +570,24 @@ class TestSplitText:
             })
         )
         assert len(df.columns.to_list()) == 9 and df.iloc[0]['out4'] == 'string'
+
+    def test_split_text_empty(self):
+        """
+        Test split.text with an empty string
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.text:
+                    input: col1
+                    output: out1
+                    char: ' '
+            """,
+            dataframe=pd.DataFrame({
+                'col1': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
         
 
 class TestSplitList:
@@ -684,6 +702,42 @@ class TestSplitList:
             })
         )
         assert len(df.columns.to_list()) == 5 and df['Col2'][0] == 'Wrangles!'
+
+    def test_split_list_empty(self):
+        """
+        Test split.list with an empty column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: output*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Col']
+
+    def test_split_list_empty_where(self):
+        """
+        Test split.list with an empty where result
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: Col*
+                    where: numbers > 4
+            """,
+            dataframe=pd.DataFrame({
+                'Col': ['Hello', 'Wrangles!'],
+                'numbers': [4, 3]
+            })
+        )
+        assert list(df.columns) == ['Col', 'numbers'] and len(df) == 2
 
 
 class TestSplitDictionary:
@@ -1127,6 +1181,22 @@ class TestSplitDictionary:
                 })
             )
 
+    def test_split_dictionary_empty(self):
+        """
+        Test split.dictionary with an empty column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.dictionary:
+                    input: Col
+            """,
+            dataframe=pd.DataFrame({
+                'Col': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Col']
+
 
 class TestTokenize:
     """
@@ -1343,3 +1413,20 @@ class TestTokenize:
                     method: invalid_value
                 """
             )
+
+    def test_token_empty(self):
+        """
+        Test split.tokenize with an empty column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.tokenize:
+                    input: Col
+                    output: out1
+            """,
+            dataframe=pd.DataFrame({
+                'Col': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Col', 'out1']

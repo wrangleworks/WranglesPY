@@ -129,6 +129,20 @@ class TestFormatRemoveDuplicates:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Remove'] == 'Agent Smith'
 
+    def test_remove_duplicates_empty_dataframe(self):
+        """
+        Test remove_duplicates with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['Agents'])
+        recipe = """
+        wrangles:
+        - format.remove_duplicates:
+            input: Agents
+            output: Remove
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['Agents', 'Remove']
+
 
 class TestFormatTrim:
     """
@@ -216,6 +230,19 @@ class TestFormatTrim:
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
+    def test_trim_empty_dataframe(self):
+        """
+        Test trim with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['Alone'])
+        recipe = """
+        wrangles:
+        - format.trim:
+            input: Alone
+            output: Trim
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['Alone', 'Trim']
 
 class TestFormatPrefix:
     """
@@ -319,6 +346,21 @@ class TestFormatPrefix:
         )
         assert df['col'][0] == 'terrestrial' and df['col'][2] == 'extra-califragilisticexpialidocious'
 
+    def test_prefix_empty_dataframe(self):
+        """
+        Test prefix with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['col'])
+        recipe = """
+        wrangles:
+        - format.prefix:
+            input: col
+            output: pre-col
+            value: extra-
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col', 'pre-col']
+
 
 class TestFormatSuffix:
     """
@@ -420,6 +462,21 @@ class TestFormatSuffix:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col'] == 'urgen' and df.iloc[2]['col'] == 'supercalifragilisticexpialidocious-cy'
+
+    def test_suffix_empty_dataframe(self):
+        """
+        Test suffix with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['col'])
+        recipe = """
+        wrangles:
+        - format.suffix:
+            input: col
+            output: col-suf
+            value: -cy
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col', 'col-suf']
     
 
 class TestFormatDates:
@@ -456,6 +513,21 @@ class TestFormatDates:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['date'] == '1992-08-13' and df.iloc[1]['date'] == '11/10/1987'
+
+    def test_date_format_empty_dataframe(self):
+        """
+        Test date_format with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['col'])
+        recipe = """
+        wrangles:
+        - format.dates:
+            input: col
+            output: output column
+            format: "%Y-%m-%d"
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col', 'output column']
 
 
 class TestFormatPad:
@@ -566,6 +638,23 @@ class TestFormatPad:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col1'] == '007' and df.iloc[2]['col1'] == '9'
+
+    def test_pad_empty_dataframe(self):
+        """
+        Test pad with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['col1'])
+        recipe = """
+        wrangles:
+            - format.pad:
+                input: col1
+                output: out1
+                pad_length: 3
+                side: left
+                char: 0
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
 
 
 class TestFormatSignificantFigures:
@@ -681,3 +770,17 @@ class TestFormatSignificantFigures:
                 ''
             ]
         )
+
+    def test_sig_figs_empty_dataframe(self):
+        """
+        Test significant_figures with an empty dataframe
+        """
+        data = pd.DataFrame(columns=['col1'])
+        recipe = """
+        wrangles:
+            - format.significant_figures:
+                input: col1
+                output: out1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
