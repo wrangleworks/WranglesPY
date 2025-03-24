@@ -5,6 +5,7 @@ import pandas as _pd
 import requests as _requests
 import logging as _logging
 import json as _json
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 # TODO: JWT auth rather than basic auth
@@ -226,7 +227,9 @@ def read(
         )
 
     # Reduce to user's columns if specified
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     return df
 
@@ -309,7 +312,9 @@ def write(
     target_code = _target_types.get(target.lower(), target)
 
     # Reduce to user's columns if specified
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     # LookupTables (LT) have multiple specific subtypes.
     # Find the specific code for the user's requested table.

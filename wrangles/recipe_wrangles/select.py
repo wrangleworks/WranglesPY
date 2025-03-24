@@ -493,6 +493,10 @@ def left(
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
+    if df.empty:
+        df[output] = None
+        return df
+
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
@@ -655,6 +659,10 @@ def right(
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
+    if df.empty:
+        df[output] = None
+        return df
+
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
     if isinstance(output, str): output = [output]
@@ -761,6 +769,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]

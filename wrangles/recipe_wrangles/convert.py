@@ -57,6 +57,11 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
     
+    # Return early for empty dataframe
+    if df.empty: 
+        df[output] = None
+        return df
+    
     warnings = {
         "invalid_data": {
             "logged": False,

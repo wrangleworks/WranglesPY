@@ -371,3 +371,87 @@ def test_embedding_list():
     assert len(result[0]) == 1536
     assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
 
+def test_extract_ai_model_id():
+    """
+    Test using python api for extract.ai
+    using a pre-created model_id
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        model_id="0e81f1ad-c0a3-42b4",
+        api_key=os.environ['OPENAI_API_KEY']
+    )
+
+    assert (
+        'Colors' in results and
+        'Shapes' in results and
+        isinstance(results['Colors'], list)
+    )
+
+def test_extract_ai_model_id_list():
+    """
+    Test using python api for extract.ai
+    using a pre-created model_id with a list
+    """
+    results = wrangles.extract.ai(
+        ["yellow square", "red circle"],
+        model_id="0e81f1ad-c0a3-42b4",
+        api_key=os.environ['OPENAI_API_KEY']
+    )
+
+    assert (
+        isinstance(results, list) and
+        'Colors' in results[0] and
+        'Shapes' in results[1] and
+        isinstance(results[1]['Colors'], list)
+    )
+
+def test_extract_ai_output_schema_keys():
+    """
+    Test using python api for extract.ai
+    using an output definition with keys
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "Colors": {
+                "type": "string",
+                "description": "Any colors found in the input"
+            }
+        }
+    )
+
+    assert (
+        'Colors' in results and
+        isinstance(results['Colors'], str)
+    )
+
+def test_extract_ai_output_schema():
+    """
+    Test using python api for extract.ai
+    using an output without keys
+    """
+    results = wrangles.extract.ai(
+        "12 penguins",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "number",
+            "description": "The number of penguins"
+        }
+    )
+
+    assert results == 12
+
+def test_extract_ai_output_string():
+    """
+    Test using python api for extract.ai
+    using an output that is just a description
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output="The names of any colors found in the input"
+    )
+
+    assert "yellow" in results
