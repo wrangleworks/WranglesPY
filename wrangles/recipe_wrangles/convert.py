@@ -71,7 +71,31 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
+        if desired_case != 'sentence':
+            df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
+
+        elif desired_case == 'sentence':
+            def getSentenceCase(source: str):
+                output = ""
+                isFirstWord = True
+
+                if not isinstance(source, str):
+                    return source
+
+                for character in source:
+                    if isFirstWord and not character.isspace():
+                        character = character.upper()
+                        isFirstWord = False
+                    elif not isFirstWord and character in ".!?":
+                        isFirstWord = True
+                    else:
+                        character = character.lower()
+
+                    output = output + character
+
+                return output
+
+            df[output_column] = df[input_column].apply(getSentenceCase)
 
     return df
 
