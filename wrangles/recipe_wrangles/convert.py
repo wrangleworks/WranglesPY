@@ -61,12 +61,27 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
         elif desired_case == 'title':
             df[output_column] = df[input_column].str.title()
         elif desired_case == 'sentence':
-            def capitalize_first_alpha(s: str):
-                idx = 0
-                while idx < len(s) and not s[idx].isalpha():
-                    idx += 1
-                return s[:idx] + s[idx:idx+1].capitalize() + s[idx+1:]
-            df[output_column] = ['. '.join(map(capitalize_first_alpha, input.split('. '))) for input in df[input_column]]
+            def getSentenceCase(source: str):
+                output = ""
+                isFirstWord = True
+
+                if not isinstance(source, str):
+                    return source
+
+                for character in source:
+                    if isFirstWord and not character.isspace():
+                        character = character.upper()
+                        isFirstWord = False
+                    elif not isFirstWord and character in ".!?":
+                        isFirstWord = True
+                    else:
+                        character = character.lower()
+
+                    output = output + character
+
+                return output
+
+            df[output_column] = df[input_column].apply(getSentenceCase)
 
     return df
 
