@@ -6,6 +6,50 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 import math
 
 
+
+
+
+########## Notes ##########
+
+# Need to think about how to be able to just pass values through that then do available formatting in Excel. Borders or something niche for example.
+
+# Speaking of borders, drop names like separator_column for what it is in Excel (borders)
+
+
+# Separating out header formatting from body formatting like so:
+"""
+file:
+name: tests/temp/write_data.xlsx
+format:
+    Find:
+        width: 10
+        header:
+            fill_color: blue
+            font_size: 14
+        fill_color: yellow
+        font_size: 18
+    Replace:
+        width: 20
+        header_fill_color: red # old, ignore the name compared to the above
+        font_size: 11
+    """
+
+# What about conditional formatting?
+
+# What about the ability to freeze panes?
+
+# What about striping or whatever Chris called it?
+
+# Add font, but cell based, row based, column based, sheet based, or all of it?
+
+
+
+
+
+
+
+
+
 def convert_worksheets_to_tables(
     file_name,
     column_settings,
@@ -25,6 +69,9 @@ def convert_worksheets_to_tables(
         "purple": "FF9966CC",
         "gray":   "FFBFBFBF",
     }
+    # If default is passed as Default, add the lowercase
+    if 'Default' in column_settings.keys():
+        column_settings['default'] = column_settings['Default']
 
     def parse_fill_color(color_str):
         """Convert a semantic color name or a hex string into an ARGB color code."""
@@ -41,12 +88,12 @@ def convert_worksheets_to_tables(
             raise ValueError(f"Invalid color code: '{color_str}'")
         return color_str.upper()
 
-    fill1 = PatternFill("solid", fgColor="D9D9D9")
-    fill2 = PatternFill("solid", fgColor="BFBFBF")
+    fill1 = PatternFill("solid", fgColor="6efdfd")
+    # fill1 = PatternFill("solid", fgColor="D9D9D9")
+    fill2 = PatternFill("solid", fgColor="f231f2")
+    # fill2 = PatternFill("solid", fgColor="BFBFBF")
 
-    medium_black_side = Side(style='medium', color='FF000000')
-
-    default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True) ########## Need to be able to handle alignment ##########
     default_table_style = TableStyleInfo(
         name="TableStyleMedium9",
         showFirstColumn=False,
@@ -57,25 +104,32 @@ def convert_worksheets_to_tables(
 
     wb = load_workbook(buffer)
 
+    ########### Do we actually need this part if we are just handling one df at a time? ##########
     for ws in wb.worksheets:
         # Handle columns that are missing from column_settings (ie Additional_Input)
         column_names = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]  # Row 1
 
-        for col in column_names:
-            column_settings[col] = {'width': 30, 'header_fill_color': 'blue'}
+        print()
 
-        # Skip if effectively empty
-        if ws.max_row == 1 and ws.max_column == 1 and ws['A1'].value is None:
+        for col in column_names:
+            if 'default' in column_settings.keys():
+                column_settings[col] = column_settings['default']
+            else:
+                column_settings[col] = {'width': 30, 'header_fill_color': 'blue'}
+
+        # Skip if sheet is effectively empty
+        if ws.max_row == 1 and ws.max_column == 1 and ws['A1'].value is None: ######## Do we want to skip empties? ########
             continue
 
         # Need at least 2 rows (header + data)
-        if (ws.max_row - ws.min_row) < 1:
+        if (ws.max_row - ws.min_row) < 1: ########## Do we want to skip if there is only one row? ##########
             print(f"Skipping worksheet '{ws.title}' - not enough data for a table.")
             continue
 
-        min_row, max_row = ws.min_row, ws.max_row
+        min_row, max_row = ws.min_row, ws.max_row ###### min_row and min_col will always be 1 for us ########
         min_col, max_col = ws.min_column, ws.max_column
 
+        ######## Set a table name based off sheet name, replace spaces and non alphanumeric characters ########
         # 1) Define and add the table
         # from string import ascii_letters, digits
         table_name = f"Table_{ws.title.replace(' ', '_')}"
@@ -83,6 +137,7 @@ def convert_worksheets_to_tables(
         if table_name[0].isdigit():
             table_name = f"_{table_name}"
 
+        ######## Is this necessary? It should always be A1 with the way our system works ########
         first_cell = f"{get_column_letter(min_col)}{min_row}"
         last_cell = f"{get_column_letter(max_col)}{max_row}"
         table_ref = f"{first_cell}:{last_cell}"
@@ -96,17 +151,17 @@ def convert_worksheets_to_tables(
                                       min_col=min_col, max_col=max_col):
             for cell in row_cells:
                 cell.alignment = default_alignment
-                cell.font = Font(name='Calibri', size=11, bold=False, color='FF000000')
+                cell.font = Font(name='Calibri', size=11, bold=False, color='FF000000') ######## We will definitely want to allow different fonts ########
 
         # 3) Identify header row & build a column map
-        header_row = list(ws.iter_rows(
+        header_row = list(ws.iter_rows( ######## header_row will always be the same for us, but length will differ ########
             min_row=min_row, max_row=min_row,
             min_col=min_col, max_col=max_col
         ))[0]
 
         column_map = {}
         for idx, header_cell in enumerate(header_row, start=min_col):
-            header_text = str(header_cell.value).strip() if header_cell.value else ""
+            header_text = str(header_cell.value).strip() if header_cell.value else "" ######## Why are we stripping extra spaces? ########
             column_map[header_text] = (idx, get_column_letter(idx))
 
         # 4) Column-specific settings
@@ -118,9 +173,9 @@ def convert_worksheets_to_tables(
                 ws.column_dimensions[col_letter].width = settings.get("width", 20)
 
                 # Desired alignment, font
-                desired_halign = settings.get("horizontal")
+                desired_halign = settings.get("horizontal") ####### No default for these. No vertical alignment? This shows that horizontal can be passed through in settings ########
                 desired_font_size = settings.get("font_size")
-                desired_bold = settings.get("bold")
+                desired_bold = settings.get("bold") ######### Add italic, underline, etc. #########
 
                 for cell_tuple in ws.iter_rows(
                     min_row=min_row + 1,
@@ -131,24 +186,24 @@ def convert_worksheets_to_tables(
                     cell_obj = cell_tuple[0]
 
                     # Alignment
-                    if desired_halign:
+                    if desired_halign: ####### Why all of this just based off of horizontal alignment? ########
                         curr_align = cell_obj.alignment
                         cell_obj.alignment = Alignment(
                             horizontal=desired_halign,
-                            vertical=curr_align.vertical or 'top',
+                            vertical=curr_align.vertical or 'top', ######## Vertical alignment is preserved or set to top here ########
                             wrap_text=curr_align.wrap_text,
-                            text_rotation=curr_align.text_rotation,
+                            text_rotation=curr_align.text_rotation, ######## All of these are possible fields to allow users to set ########
                             shrink_to_fit=curr_align.shrink_to_fit,
                             indent=curr_align.indent
                         )
 
                     # Font
                     if desired_font_size or (desired_bold is not None):
-                        curr_font = cell_obj.font
+                        curr_font = cell_obj.font ####### Same ideas as above, but for font ########
                         cell_obj.font = Font(
                             name=curr_font.name,
                             size=desired_font_size if desired_font_size else curr_font.size,
-                            bold=desired_bold if desired_bold is not None else curr_font.bold,
+                            bold=desired_bold if desired_bold is not None else curr_font.bold, ######## Instead of current, can just set defaults ########
                             italic=curr_font.italic,
                             vertAlign=curr_font.vertAlign,
                             underline=curr_font.underline,
@@ -157,7 +212,7 @@ def convert_worksheets_to_tables(
                         )
 
                     # Number format (if numeric)
-                    if "number_format" in settings:
+                    if "number_format" in settings: ######### cell_obj.number_format allows for General, Text, etc. #########
                         if isinstance(cell_obj.value, (int, float)):
                             cell_obj.number_format = settings["number_format"]
 
@@ -168,7 +223,7 @@ def convert_worksheets_to_tables(
                             display_text = str(cell_obj.value).strip()
 
                             # 2) Determine the actual hyperlink target
-                            if display_text.lower().startswith("http://") or display_text.lower().startswith("https://"):
+                            if display_text.lower().startswith("http://") or display_text.lower().startswith("https://"): ####### Surprisingly necessary to avoid a non trusted link pop up ########
                                 hyperlink_target = display_text
                             else:
                                 hyperlink_target = "https://" + display_text  # Prepend https:// if missing
@@ -182,7 +237,7 @@ def convert_worksheets_to_tables(
 
                             # 5) Ensure wrap_text is enabled by preserving existing alignment and setting wrap_text=True
                             current_alignment = cell_obj.alignment
-                            cell_obj.alignment = Alignment(
+                            cell_obj.alignment = Alignment( ####### Why does this seem to be repeating what was done above? ########
                                 horizontal=current_alignment.horizontal,
                                 vertical=current_alignment.vertical,
                                 wrap_text=True, # otherwise, hyperlink overrides wrap_text
@@ -194,17 +249,17 @@ def convert_worksheets_to_tables(
         # 5) Style the header row
         for header_text, (col_idx, col_letter) in column_map.items():
             header_cell = ws.cell(row=min_row, column=col_idx)
-            header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-            header_cell.font = Font(name='Calibri', size=12, bold=True, color='FFFFFFFF')
+            header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True) ######## Hard coded header alignment ########
+            header_cell.font = Font(name='Calibri', size=12, bold=True, color='FFFFFFFF') ######## Hard coded header font ########
 
             # Optional header fill
-            header_fill_color = column_settings.get(header_text, {}).get("header_fill_color")
+            header_fill_color = column_settings.get(header_text, {}).get("header_fill_color") ####### header_fill_color versus what other fill color? ########
             if header_fill_color:
                 try:
-                    argb = parse_fill_color(header_fill_color)
-                    header_cell.fill = PatternFill(fill_type="solid", fgColor=argb)
+                    argb = parse_fill_color(header_fill_color) ########## Looks up color values based on name in the dictionary, and formats the color code properly for color codes that are passed through ##########
+                    header_cell.fill = PatternFill(fill_type="solid", fgColor=argb) ####### What other fill_types are there? Something to allow to be set or is it useless? ########
                 except ValueError as ve:
-                    print(f"Warning: {ve}. Skipping fill for header '{header_text}'.")
+                    print(f"Warning: {ve}. Skipping fill for header '{header_text}'.") ######### Does this mean that there is not a default fill color? #########
 
         # 6) Adjust row heights
         for row_idx in range(min_row, max_row + 1):
@@ -212,8 +267,8 @@ def convert_worksheets_to_tables(
                 len(str(ws.cell(row=row_idx, column=col).value or ''))
                 for col in range(min_col, max_col + 1)
             )
-            calculated_height = math.ceil(max_cell_length / 10) * 15
-            ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height)
+            calculated_height = math.ceil(max_cell_length / 10) * 15 ####### 10 and 15 seem arbitrary ########
+            ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
 
         # 7) Separator columns
         for col_name, settings in column_settings.items():
@@ -222,7 +277,7 @@ def convert_worksheets_to_tables(
                 header_fill_color = settings.get("header_fill_color")
                 if header_fill_color:
                     try:
-                        border_color = parse_fill_color(header_fill_color)
+                        border_color = parse_fill_color(header_fill_color) ########## Looks up color values based on name in the dictionary, and formats the color code properly for color codes that are passed through ##########
                     except ValueError:
                         print(f"Warning: Invalid header_fill_color for '{col_name}'. Using black.")
                         border_color = "FF000000"
@@ -232,7 +287,7 @@ def convert_worksheets_to_tables(
                 medium_side = Side(style='medium', color=border_color)
                 for row_idx in range(min_row + 1, max_row + 1):
                     cell = ws.cell(row=row_idx, column=col_index)
-                    cell.border = Border(
+                    cell.border = Border( ######### All of these setting type things seem very redundant #########
                         left=medium_side,
                         right=cell.border.right,
                         top=cell.border.top,
@@ -245,7 +300,7 @@ def convert_worksheets_to_tables(
                     )
 
         # 8) Freeze panes
-        freeze_cols = []
+        freeze_cols = [] ######### Going to need to try to use what we have currently. See issue for details on options #########
         for c_name, (c_idx, c_letter) in column_map.items():
             if column_settings.get(c_name, {}).get("freeze_pane", False):
                 freeze_cols.append((c_idx, c_letter))
@@ -273,7 +328,7 @@ def convert_worksheets_to_tables(
             for row_idx in range(min_row + 1, max_row + 1):
                 row_key = get_group_key(row_idx)
                 if row_key != current_key:
-                    current_fill = fill2 if current_fill == fill1 else fill1
+                    current_fill = fill2 if current_fill == fill1 else fill1 ######## Fill1 and fill2 are used for banding, currently hardcoded but we can make that a parameter ########
                     current_key = row_key
 
                 for col_i in range(min_col, max_col + 1):
