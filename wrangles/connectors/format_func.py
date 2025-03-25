@@ -118,15 +118,15 @@ def convert_worksheets_to_tables(
                 column_settings[col] = {'width': 30, 'header_fill_color': 'blue'}
 
         # Skip if sheet is effectively empty
-        if ws.max_row == 1 and ws.max_column == 1 and ws['A1'].value is None: ######## Do we want to skip empties? ########
+        if ws.max_row == 1 and ws.max_column == 1 and ws['A1'].value is None:
             continue
 
         # Need at least 2 rows (header + data)
-        if (ws.max_row - ws.min_row) < 1: ########## Do we want to skip if there is only one row? ##########
+        if (ws.max_row - ws.min_row) < 1:
             print(f"Skipping worksheet '{ws.title}' - not enough data for a table.")
             continue
 
-        min_row, max_row = ws.min_row, ws.max_row ###### min_row and min_col will always be 1 for us ########
+        min_row, max_row = ws.min_row, ws.max_row
         min_col, max_col = ws.min_column, ws.max_column
 
         ######## Set a table name based off sheet name, replace spaces and non alphanumeric characters ########
@@ -137,7 +137,6 @@ def convert_worksheets_to_tables(
         if table_name[0].isdigit():
             table_name = f"_{table_name}"
 
-        ######## Is this necessary? It should always be A1 with the way our system works ########
         first_cell = f"{get_column_letter(min_col)}{min_row}"
         last_cell = f"{get_column_letter(max_col)}{max_row}"
         table_ref = f"{first_cell}:{last_cell}"
@@ -146,15 +145,21 @@ def convert_worksheets_to_tables(
         tab.tableStyleInfo = default_table_style
         ws.add_table(tab)
 
+        # Unpack font data
+        font_name = column_settings.pop('font', 'Calibri')
+        font_size = column_settings.pop('font_size', 11)
+        font_color = column_settings.pop('font_color', 'FF000000')
+
         # 2) Default styling for all cells
         for row_cells in ws.iter_rows(min_row=min_row, max_row=max_row,
                                       min_col=min_col, max_col=max_col):
+
             for cell in row_cells:
                 cell.alignment = default_alignment
-                cell.font = Font(name='Calibri', size=11, bold=False, color='FF000000') ######## We will definitely want to allow different fonts ########
+                cell.font = Font(name=font_name, size=font_size, bold=False, color=font_color)
 
         # 3) Identify header row & build a column map
-        header_row = list(ws.iter_rows( ######## header_row will always be the same for us, but length will differ ########
+        header_row = list(ws.iter_rows(
             min_row=min_row, max_row=min_row,
             min_col=min_col, max_col=max_col
         ))[0]
