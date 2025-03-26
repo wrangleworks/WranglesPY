@@ -179,21 +179,35 @@ def test_write_file_format():
     recipe = """
     read:
       file:
-        name: tests/samples/data.xlsx
+        name: tests/temp/excel.xlsx
+    wrangles:
+      - custom.blah: {}
     write:
       file:
         name: tests/temp/write_data.xlsx
         format:
-          Find:
+          font: Edwardian Script ITC
+          font_size: 15
+          col1:
             width: 10
-            header_fill_color: blue
-            font_size: 18
-          Replace:
+            # header:
+            #   fill_color: blue
+            #   font_size: 14
+            # fill_color: yellow
+            # font_size: 18
+          col2:
             width: 20
-            header_fill_color: red
+            header_fill_color: '#6565bf'
             font_size: 11
+            group_on: True
+          Default:
+            width: 15
+            header_fill_color: '#00FF7F'
+            font_size: 12
     """
-    df = wrangles.recipe.run(recipe=recipe)
+    def blah(df):
+        return df
+    df = wrangles.recipe.run(recipe=recipe, functions=[blah])
     assert df.columns.tolist() == ['Find', 'Replace']
 
 def test_write_csv():
