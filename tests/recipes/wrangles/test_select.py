@@ -307,6 +307,56 @@ class TestSelectDictionaryElement:
         )
         assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
+    def test_dictionary_column_input(self):
+        """
+        Test select.dictionary_element with a column as input
+        """
+        data = pd.DataFrame({
+        'Attribute Dict': [
+            {'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+            {'colours': ['green', 'white', 'red'], 'shapes': 'square', 'materials': 'aluminum'},
+            {'colours': ['black', 'purple', 'yellow'], 'shapes': 'triangular', 'materials': 'steel'},
+            ],
+        'Attributes': ['materials', 'colors', 'shapes']
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: Attribute Dict
+            output: output col
+            element:
+              columns: Attributes
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['output col'].to_list() == ['tungsten', '', 'triangular']
+
+    def test_dictionary_columns_missing(self):
+        """
+        Test select.dictionary_element with a column as input
+        """
+        data = pd.DataFrame({
+        'Attribute Dict': [
+            {'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+            {'colours': ['green', 'white', 'red'], 'shapes': 'square', 'materials': 'aluminum'},
+            {'colours': ['black', 'purple', 'yellow'], 'shapes': 'triangular', 'materials': 'steel'},
+            ],
+        'Attributes': ['materials', 'colors', 'shapes']
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: Attribute Dict
+            output: output col
+            element:
+              not_columns: Attributes
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            "The 'columns' key must be present if trying to reference column values." in info.value.args[0]
+        )
+
 
 class TestSelectListElement:
     """
