@@ -357,6 +357,68 @@ class TestSelectDictionaryElement:
             "The 'columns' key must be present if trying to reference column values." in info.value.args[0]
         )
 
+    def test_dictionary_multiple_column_element(self):
+        """
+        Test select.dictionary_element with multiple columns as input
+        """
+        data = pd.DataFrame({
+        'Attribute Dict': [
+            {'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+            {'colours': ['green', 'white', 'red'], 'shapes': 'square', 'materials': 'aluminum'},
+            {'colours': ['black', 'purple', 'yellow'], 'shapes': 'triangular', 'materials': 'steel'},
+            ],
+        'Attributes1': ['materials', 'colors', 'shapes'],
+        'Attributes2': ['colours', 'shapes', 'materials']
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: Attribute Dict
+            output: output col
+            element:
+              columns: 
+                - Attributes1
+                - Attributes2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output col'] == {'materials': 'tungsten', 'colours': ['red', 'white', 'blue']} and df.iloc[2]['output col'] == {'shapes': 'triangular', 'materials': 'steel'}
+
+    def test_dictionary_multiple_column_input_and_element(self):
+        """
+        Test select.dictionary_element with multiple columns as input
+        """
+        data = pd.DataFrame({
+        'Attribute Dict1': [
+            {'colours': ['red', 'white', 'blue'], 'shapes': 'round', 'materials': 'tungsten'},
+            {'colours': ['green', 'white', 'red'], 'shapes': 'square', 'materials': 'aluminum'},
+            {'colours': ['black', 'purple', 'yellow'], 'shapes': 'triangular', 'materials': 'steel'},
+            ],
+        'Attribute Dict2': [
+            {'colours': ['pink', 'grey', 'violet'], 'shapes': 'tubular', 'materials': 'plastic'},
+            {'colours': ['gold', 'black', 'silver'], 'shapes': 'cubic', 'materials': 'stainless steel'},
+            {'colours': ['magenta', 'maroon', 'beige'], 'shapes': 'spherical', 'materials': 'nickel'},
+            ],
+        'Attributes1': ['materials', 'colors', 'shapes'],
+        'Attributes2': ['colours', 'shapes', 'materials']
+        })
+        recipe = """
+        wrangles:
+        - select.dictionary_element:
+            input: 
+              - Attribute Dict1
+              - Attribute Dict2
+            output: 
+              - output1
+              - output2
+            element:
+              columns: 
+                - Attributes1
+                - Attributes2
+            default: Not Found
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[1]['output1'] == {'colors': 'Not Found', 'shapes': 'square'} and df.iloc[0]['output2'] == {'materials': 'plastic', 'colours': ['pink', 'grey', 'violet']}
+
 
 class TestSelectListElement:
     """
