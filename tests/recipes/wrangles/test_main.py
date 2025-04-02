@@ -2548,7 +2548,7 @@ class TestReplace:
 
     def test_replace_dict(self):
         """
-        Test replace with an integer for the input
+        Test replace with a dictionary for the input
         """
         data = pd.DataFrame({
         'Dictionaries': [{'This': 'is a dictionary'}, {'So': 'is this'}],
