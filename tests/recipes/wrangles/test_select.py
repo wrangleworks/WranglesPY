@@ -411,8 +411,7 @@ class TestSelectDictionaryElement:
               - output1
               - output2
             element:
-              columns: 
-                - Attributes1
+                - {{Attributes1}}
                 - Attributes2
             default: Not Found
         """

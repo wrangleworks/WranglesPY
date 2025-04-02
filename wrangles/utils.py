@@ -158,6 +158,7 @@ def validate_function_args(
 
 
 def add_special_parameters(
+        df, # Pass through the df and figure out some sort of special character wrapper to handle them (ie ...element)
     params: dict,
     fn: _types.FunctionType,
     functions: dict = {},
@@ -197,6 +198,9 @@ def add_special_parameters(
                 if k in argspec
             }
         }
+
+    # Use recursion to do all the stiff Chris said and unpack the element values, then send back to be used in the wrangle
+    # Going to need to read the values from the df and build out the elements    
 
     return params
 

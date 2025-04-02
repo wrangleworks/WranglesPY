@@ -91,14 +91,19 @@ def dictionary_element(
     if isinstance(element, dict):
         if 'columns' not in element:
             raise ValueError("The 'columns' key must be present if trying to reference column values.")
-        
-        column_key = element['columns']
-        
+
+        element = element['columns']
+        if not isinstance(element, list):
+            element = [element]
+
+        element_values = df[element].values.tolist()  # extract once
+
         for in_col, out_col in zip(input, output):
             df[out_col] = [
-                _select.dict_element(row_in, row_elem, default=default)
-                for row_in, row_elem in zip(df[in_col], df[column_key])
+                _select.dict_element(df[in_col][i], element_values[i], default=default)
+                for i in range(len(df))
             ]
+
         return df
     
     else:
