@@ -3073,3 +3073,46 @@ class TestExtractAI:
             isinstance(df['Colors'][0], list) and
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
+
+    def test_model_id_object_with_properties(self):
+        """
+        Test a model_id that contains an output of type object
+        that contains properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: c3e6715a-6214-4517
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner",
+                    "transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
+
+    def test_model_id_array_of_objects(self):
+        """
+        Test a model_id that contains an output of type array
+        that contains items as objects with properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: d168c456-514f-4513
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner + transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
