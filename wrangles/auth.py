@@ -5,6 +5,7 @@ from datetime import datetime as _datetime, timedelta as _timedelta
 import requests as _requests
 from . import config as _config
 import urllib.parse as _urlparse
+import time as _time
 
 
 _access_token = None
@@ -26,7 +27,24 @@ def _refresh_access_token():
     payload = f"grant_type=password&username={username}&password={password}&client_id={_config.keycloak.client_id}"
     headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
 
-    response = _requests.post(url, headers=headers, data=payload)
+    # Query token. Retry up to 3 times on unexpected failures.
+    retries = 3
+    backoff_time = 0.5
+    while (retries > 0):
+        try:
+            response = _requests.post(url, headers=headers, data=payload, timeout=5)
+        except Exception as e:
+            response = None
+            # If we've exhausted retries, raise the error
+            if (retries-1) <= 0:
+                raise e
+
+        if response and (response.ok or response.status_code in [401, 403]):
+            break 
+
+        _time.sleep(backoff_time)
+        retries -= 1
+        backoff_time *= 2
 
     return response
 
@@ -40,9 +58,9 @@ def get_access_token():
 
     if _access_token == None or _access_token_expiry < _datetime.now():
         response = _refresh_access_token()
-        if response.status_code == 200:
+        if response and response.ok:
             _access_token = response.json()['access_token']
-        elif response.status_code == 401:
+        elif response and response.status_code in [401, 403]:
             raise RuntimeError('Invalid login details provided')
         else:
             raise RuntimeError('Unexpected error when authenticating')
