@@ -204,8 +204,7 @@ def ai(
             not isinstance(node['examples'], list) and
             node['example'] not in ("", None)
         ):
-            output[node]['examples'] = [node.get('examples')]
-
+            node['examples'] = [node.get('examples')]
         # 
         if 'properties' in node:
             # Allows user to define properties as a comma separated or JSON list
