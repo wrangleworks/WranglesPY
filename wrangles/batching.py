@@ -2,7 +2,7 @@
 Code to batch API calls for large volumes of data that
 are unable to be processed in a single request
 """
-
+import time as _time
 import requests as _requests
 from . import auth as _auth
 
@@ -18,11 +18,38 @@ def batch_api_calls(url, params, input_list, batch_size):
 
     results = None
     for i in range(0, len(input_list), batch_size):
-        headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
-        response = _requests.post(url, params=params, headers=headers, json=input_list[i:i + batch_size])
+        retries = 1
+        backoff_time = 1
+        while retries > 0:
+            try:
+                # Attempt to make the API call
+                response = _requests.post(
+                    url,
+                    params=params,
+                    headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                    json=input_list[i:i + batch_size],
+                    timeout=29
+                )
+            except Exception as e:
+                response = None
+                # If we've exhausted retries, raise the error
+                if (retries-1) <= 0:
+                    raise e
+
+            if response and not str(response.status_code).startswith('5'):
+                break
+
+            # If we get a 5xx error, wait and retry
+            _time.sleep(backoff_time)
+            retries -= 1
+            backoff_time *= 2
         
-        # Checking status code
-        if str(response.status_code)[0] != '2':
+        # If we totally failed to get a valid response
+        if not response:
+            raise ValueError("No response from API.")
+
+        # If we get a 4xx error, notify the user
+        if not response.ok:
             raise ValueError(f"Status Code: {response.status_code} - {response.reason}. {response.text} \n")
         
         if isinstance(response.json(), list):
