@@ -153,58 +153,92 @@ def ai(
             **(output or {})
         }
 
+    json_schema_basic_types = ["string", "number", "boolean"]
+
     # Parse any JSON values
-    def safe_json_parse(value):
+    def _safe_json_parse(value):
         try:
             return _json.loads(value)
         except:
             return value
 
-    json_schema_basic_types = ["string", "number", "integer", "boolean"]
+    def _standardize_schema(node):
+        """
+        Make schema JSON schema compliant allowing for simpler user input
 
-    # Fix misc schema issues
-    for k, v in output.items():
-        if not isinstance(v, dict):
-            raise ValueError(f"Output for {k} is not correctly formatted")
+        Add default types if not specified.
+        Parse any inputs that are JSON and not true objects.
+        Parse any lists that are comma separated values.
+        Convert properties as lists of keys
+        """
+        if not isinstance(node, dict):
+            raise ValueError(f"Output is not correctly formatted: {str(node)}")
 
-        # If type isn't specified, assume string
-        if "type" not in v:
-            v['type'] = json_schema_basic_types
-
-        # Ensure array types have a default item type
-        # This appears to be needed by GPT
-        if v.get("type") == "array" and "items" not in v:
-            v["items"] = {"type": json_schema_basic_types}
+        # If type isn't specified, assume basic scalar value
+        if not node.get("type", ''):
+            node['type'] = json_schema_basic_types
 
         # Parse any JSON columns
-        v = {
-            label: safe_json_parse(value)
+        node = {
+            label: _safe_json_parse(value)
             if (
                 isinstance(value, str) and
                 (value.startswith("{") or value.startswith("["))
             )
             else value
-            for label, value in v.items()
+            for label, value in node.items()
         }
         
         # Parse any comma separated values into lists
-        v = {
+        node = {
             label: [x.strip() for x in value.split(",")]
-            if label in ("examples", "enum")
+            if label in ("examples", "enum", "properties")
             and isinstance(value, str)
             else value
-            for label, value in v.items()
+            for label, value in node.items()
         }
 
         # Ensure examples are a list if provided
         if (
-            'examples' in v and
-            not isinstance(v['examples'], list) and
-            v['example'] not in ("", None)
+            'examples' in node and
+            not isinstance(node['examples'], list) and
+            node['example'] not in ("", None)
         ):
-            output[k]['examples'] = [v.get('examples')]
+            output[node]['examples'] = [node.get('examples')]
 
-        output[k] = v
+        # 
+        if 'properties' in node:
+            # Allows user to define properties as a comma separated or JSON list
+            # Rather than having to give a full JSON schema object
+            if isinstance(node['properties'], list):
+                node['properties'] = {
+                    v: {}
+                    for v in node['properties']
+                }
+            
+            # Clean up sub properties
+            node['properties'] = {
+                k: _standardize_schema(v)
+                for k, v in node['properties'].items()
+            }
+
+        
+        if node["type"] == "array":
+            # Ensure array types specify the items
+            if "items" not in node:
+                node["items"] = {}
+
+            # Clean any sub item schema
+            if isinstance(node["items"], dict):
+                node["items"] = _standardize_schema(node["items"])
+
+        return node
+
+    # Fix misc schema issues
+    output = {
+        k: _standardize_schema(v)
+        for k, v in output.items()
+    }
 
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
@@ -277,12 +311,12 @@ def ai(
 
     if input_was_scalar:
         if output_generic_key:
-            return results[0]['output']
+            return results[0].get('output', 'Failed')
         else:
             return results[0]
     else:
         if output_generic_key:
-            return [x['output'] for x in results]
+            return [x.get('output', 'Failed') for x in results]
         else:
             return results
 

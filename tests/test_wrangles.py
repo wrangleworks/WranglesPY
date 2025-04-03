@@ -455,3 +455,21 @@ def test_extract_ai_output_string():
     )
 
     assert "yellow" in results
+
+def test_extract_ai_properties_list():
+    """
+    Test using a simplier syntax for properties without defining type etc.
+    """
+    result = wrangles.extract.ai(
+        "12mm spanner",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "array",
+            "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
+            "items": {
+                "type": "object",
+                "properties": "unit,value"
+            }
+        }
+    )
+    assert isinstance(result, list) and 'unit' in result[0]
