@@ -29,7 +29,7 @@ def _refresh_access_token():
 
     # Query token. Retry up to 3 times on unexpected failures.
     retries = 3
-    backoff_time = 0.5
+    backoff_time = 1
     while (retries > 0):
         try:
             response = _requests.post(url, headers=headers, data=payload, timeout=5)
@@ -39,8 +39,11 @@ def _refresh_access_token():
             if (retries-1) <= 0:
                 raise e
 
-        if response and (response.ok or response.status_code in [401, 403]):
-            break 
+        if response:
+            if response.ok:
+                break
+            if response.status_code in [401, 403]:
+                raise RuntimeError('Invalid login details provided')
 
         _time.sleep(backoff_time)
         retries -= 1
@@ -60,11 +63,8 @@ def get_access_token():
         response = _refresh_access_token()
         if response and response.ok:
             _access_token = response.json()['access_token']
-        elif response and response.status_code in [401, 403]:
-            raise RuntimeError('Invalid login details provided')
+            _access_token_expiry = _datetime.now() + _timedelta(0, response.json()['expires_in'] - 30)
         else:
             raise RuntimeError('Unexpected error when authenticating')
-
-        _access_token_expiry = _datetime.now() + _timedelta(0, response.json()['expires_in'] - 30)
 
     return _access_token
