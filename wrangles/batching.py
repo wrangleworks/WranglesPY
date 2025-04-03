@@ -36,7 +36,7 @@ def batch_api_calls(url, params, input_list, batch_size):
                 if (retries-1) <= 0:
                     raise e
 
-            if response and not str(response.status_code).startswith('5'):
+            if response is not None and not str(response.status_code).startswith('5'):
                 break
 
             # If we get a 5xx error, wait and retry
@@ -45,7 +45,7 @@ def batch_api_calls(url, params, input_list, batch_size):
             backoff_time *= 2
         
         # If we totally failed to get a valid response
-        if not response:
+        if response is None:
             raise ValueError("No response from API.")
 
         # If we get a 4xx error, notify the user
