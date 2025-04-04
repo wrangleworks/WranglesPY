@@ -163,6 +163,35 @@ def accordion(
     return df
 
 
+def _batch_thread(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
+    timeout: float = None,
+    on_error: dict = None
+):
+    """
+    Function called by batch
+    """
+    try:
+        return _wrangles.recipe.run(
+            {"wrangles": wrangles},
+            dataframe=df,
+            functions=functions,
+            variables=variables,
+            timeout=timeout
+        )
+    except Exception as err:
+        if on_error:
+            _logging.error(f"Suppressed error in batch: {str(err)}")
+            return df.assign(**{
+                k: [v] * len(df)
+                for k, v in on_error.items()
+            })
+        else:
+            raise err from None
+
 def batch(
     df,
     wrangles: list,
@@ -170,7 +199,9 @@ def batch(
     variables: dict = {},
     batch_size: int = 1000,
     threads: int = 1,
-    on_error: dict = None
+    on_error: dict = None,
+    timeout: float = None,
+    use_multiprocessing: bool = False
 ):
     """
     type: object
@@ -201,6 +232,9 @@ def batch(
       on_error:
         type: object
         description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
+      timeout:
+        type: number
+        description: The number of seconds to wait for a batch to complete before raising an error
     """
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
@@ -220,33 +254,25 @@ def batch(
             raise ValueError('threads must be an integer greater than 0')
     if threads < 1:
         raise ValueError('threads must be an integer greater than 0')
-    
-    def _batch_thread(df, wrangles, functions):
-        try:
-            return _wrangles.recipe.run(
-                {"wrangles": wrangles},
-                dataframe=df,
-                functions=functions,
-                variables=variables
-            )
-        except Exception as err:
-            if on_error:
-                return df.assign(**{
-                    k: [v] * len(df)
-                    for k, v in on_error.items()
-                })
-            else:
-                raise err from None
+  
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
 
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+    with pool_executor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
 
-        results = list(executor.map(
+        results = executor.map(
             _batch_thread,
             batches,
             [wrangles] * len(batches),
-            [functions] * len(batches)
-        ))
+            [functions] * len(batches),
+            [variables] * len(batches),
+            [timeout] * len(batches),
+            [on_error] * len(batches)
+        )
 
     return _pd.concat(results)
 
