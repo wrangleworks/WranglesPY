@@ -184,7 +184,7 @@ def _batch_thread(
         )
     except Exception as err:
         if on_error:
-            _logging.error(f"Suppressed error in batch: {str(err)}")
+            _logging.error(f": Suppressed error in batch: {str(err)}")
             return df.assign(**{
                 k: [v] * len(df)
                 for k, v in on_error.items()
