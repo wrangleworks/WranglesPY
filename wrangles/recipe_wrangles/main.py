@@ -263,6 +263,10 @@ def batch(
 
     with pool_executor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
+        
+        # Set a chunk size for process pool executor
+        # to reduce overhead of process creation
+        chunksize = min(max(len(batches) // threads, 1), 20)
 
         results = executor.map(
             _batch_thread,
@@ -271,7 +275,8 @@ def batch(
             [functions] * len(batches),
             [variables] * len(batches),
             [timeout] * len(batches),
-            [on_error] * len(batches)
+            [on_error] * len(batches),
+            chunksize = chunksize
         )
 
     return _pd.concat(results)
