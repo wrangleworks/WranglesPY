@@ -136,6 +136,21 @@ class TestConvertCase:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Data1'] == 'A STRING'
+
+    def test_upper_list(self):
+        """
+        Test the output when trying to convert a list to upper case
+        """
+        data = pd.DataFrame({'Data': [['A StRiNg', 'Another String']]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: output data
+            case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output data'] == ['A StRiNg', 'Another String']
         
     def test_title(self):
         """
