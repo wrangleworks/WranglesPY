@@ -4446,6 +4446,28 @@ class TestBatch:
                 """
             )
 
+    def test_batch_error_multiprocess(self):
+        """
+        Test that an error is raised correctly when using multiprocessing
+        """
+        with pytest.raises(KeyError, match="column1 does not exist"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        column: a
+                wrangles:
+                - batch:
+                    use_multiprocessing: true
+                    wrangles:
+                        - convert.case:
+                            input: column1
+                            case: upper
+                """
+            )
+
     def test_batch_error_catch(self):
         """
         Test that an error is caught and
