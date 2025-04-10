@@ -182,7 +182,6 @@ class TestTrainExtract:
         write:
         - train.extract:
             model_id: d188e7a7-9de8-4565
-            variant: ai
         """
         data = pd.DataFrame({
             'Find': ['Finish', 'Length', 'Product Type'],
