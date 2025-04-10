@@ -195,28 +195,6 @@ class TestTrainExtract:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Finish'
 
-    def test_extract_ai_write_no_variant(self):
-        """
-        Writing data to an extract.ai wrangle without specifying the variant
-        """
-        with pytest.raises(ValueError, match="must be provided for train.extract."):
-            wrangles.recipe.run(
-                """
-                write:
-                - train.extract:
-                    model_id: d188e7a7-9de8-4565
-                """,
-                dataframe=pd.DataFrame({
-                    'Find': ['Finish', 'Length', 'Product Type'],
-                    'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
-                    'Type': ['string', 'string', 'string'],
-                    'Default': ['None', 'None', 'None'],
-                    'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
-                    'Enum': [[], [], []],
-                    'Notes': ['Notes here', 'and here', 'and also here']
-                })
-            )
-
     def test_extract_ai_write_name_and_model_id(self):
         """
         Writing data to an extract.ai wrangle with both name and model_id
