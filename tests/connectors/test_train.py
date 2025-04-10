@@ -116,11 +116,11 @@ def test_classify_read_four_cols_error(mocker):
         )
 
 
-class TrainExtractTests:
+class TestTrainExtract:
     """
     All tests for training extract wrangles
     """
-    def test_extract_read():
+    def test_extract_read(self):
         """
         Read extract wrangle data
         """
@@ -132,7 +132,28 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe)
         assert len(df) == 3
 
-    def test_extract_write():
+    def test_extract_write_backwards_compatible(self):
+        """
+        Writing data to a wrangle using backwards compatibility
+        """
+        recipe = """
+        write:
+        - train.extract:
+            columns:
+              - Entity to Find
+              - Variation (Optional)
+              - Notes
+            model_id: ee5f020e-d88e-4bd5
+        """
+        data = pd.DataFrame({
+            'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
+            'Variation (Optional)': ['', '', ''],
+            'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Entity to Find'] == 'Rachel'
+
+    def test_extract_write(self):
         """
         Writing data to a wrangle (re-training)
         """
@@ -153,7 +174,7 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Rachel'
 
-    def test_extract_ai_write():
+    def test_extract_ai_write(self):
         """
         Writing data to a wrangle (re-training)
         """
@@ -175,7 +196,7 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Finish'
 
-    def test_extract_ai_write_no_variant():
+    def test_extract_ai_write_no_variant(self):
         """
         Writing data to an extract.ai wrangle without specifying the variant
         """
@@ -197,7 +218,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_ai_write_name_and_model_id():
+    def test_extract_ai_write_name_and_model_id(self):
         """
         Writing data to an extract.ai wrangle with both name and model_id
         """
@@ -220,7 +241,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_ai_write_wrong_variant():
+    def test_extract_ai_write_wrong_variant(self):
         """
         Writing data to an extract.ai wrangle with the wrong variant
         """
@@ -243,7 +264,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_ai_write_wrong_columns():
+    def test_extract_ai_write_wrong_columns(self):
         """
         Writing data to an extract.ai wrangle with the wrong variant
         """
@@ -263,7 +284,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_write_2():
+    def test_extract_write_2(self):
         """
         Incorrect columns for extract read
         """
@@ -285,7 +306,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_error():
+    def test_extract_error(self):
         """
         Not Providing model_id or name in train wrangles
         """
