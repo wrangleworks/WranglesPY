@@ -160,8 +160,16 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
-        if variant in (None,'pattern'):
-            required_columns = ['Find', 'Output (Optional)', 'Notes']
+        pattern_columns = ['Find', 'Output (Optional)', 'Notes']
+        deprecated_pattern_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+        
+        # if variant in (None,'pattern') and pattern_columns in df.columns.to_list():
+        if variant in (None,'pattern') and all(elem in df.columns.to_list() for elem in pattern_columns):
+            required_columns = pattern_columns
+            col_len = 3
+        # elif variant in (None,'pattern') and deprecated_pattern_columns in df.columns.to_list():
+        elif variant in (None,'pattern') and all(elem in df.columns.to_list() for elem in deprecated_pattern_columns):
+            required_columns = deprecated_pattern_columns
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
