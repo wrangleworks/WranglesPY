@@ -251,7 +251,6 @@ class TestTrainExtract:
                 write:
                 - train.extract:
                     model_id: d188e7a7-9de8-4565
-                    variant: ai
                 """,
                 dataframe=pd.DataFrame({
                     'Default': ['None', 'None', 'None'],
@@ -263,7 +262,7 @@ class TestTrainExtract:
 
     def test_extract_write_2(self):
         """
-        Incorrect columns for extract read
+        Incorrect columns for extract write
         """
         with pytest.raises(ValueError, match="must be provided for train.extract"):
             wrangles.recipe.run(
