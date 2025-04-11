@@ -3,6 +3,7 @@ import pandas as _pd
 from ..train import train as _train
 from .. import data as _data
 from ..utils import wildcard_expansion as _wildcard_expansion
+from ..data import model as _model
 
 class classify():
     _schema = {}
@@ -160,16 +161,25 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
+        # Lookup the variant if retraining a model
+        if variant == None:
+            variant = _model(model_id)['variant']
+            if variant == None: # Older versions do not have a variant, default to pattern
+                variant = 'pattern'
+
         versions = [
-            {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'current'},
-            {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'deprecated'}
+            {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+            {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
         ]
 
-        if variant in (None,'pattern') and any(set(version["columns"]).issubset(set(df.columns.to_list())) for version in versions):
-            required_columns = [
-                    version for version in versions
-                    if set(version["columns"]).issubset(set(df.columns.to_list()))
-                ][0]['columns']
+        if variant == 'pattern':
+            try:
+                required_columns = [
+                        version for version in versions
+                        if set(version["columns"]).issubset(set(df.columns.to_list()))
+                    ][0]['columns']
+            except:
+                required_columns = ['Find', 'Output (Optional)', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
