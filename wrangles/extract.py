@@ -221,8 +221,10 @@ def ai(
                 for k, v in node['properties'].items()
             }
 
-        
-        if node["type"] == "array":
+        if (
+            (isinstance(node['type'], list) and "array" in node["type"])
+            or node["type"] == "array"
+        ):
             # Ensure array types specify the items
             if "items" not in node:
                 node["items"] = {}
