@@ -241,6 +241,29 @@ class TestTrainExtract:
                 })
             )
 
+    def test_extract_ai_write_model_and_variant(self):
+        """
+        Writing data to an extract.ai wrangle with a model id and a variant
+        """
+        with pytest.raises(ValueError, match="It is not possible to set the variant of an existing model"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    model_id: d188e7a7-9de8-4565
+                    variant: ai
+                """,
+                dataframe=pd.DataFrame({
+                    'Find': ['Finish', 'Length', 'Product Type'],
+                    'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+                    'Type': ['string', 'string', 'string'],
+                    'Default': ['None', 'None', 'None'],
+                    'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                    'Enum': [[], [], []],
+                    'Notes': ['Notes here', 'and here', 'and also here']
+                })
+            )
+
     def test_extract_ai_write_wrong_columns(self):
         """
         Writing data to an extract.ai wrangle with the wrong variant
