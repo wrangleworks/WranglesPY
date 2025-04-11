@@ -167,12 +167,11 @@ class extract():
             if variant == None: # Older versions do not have a variant, default to pattern
                 variant = 'pattern'
 
-        versions = [
-            {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
-            {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
-        ]
-
         if variant == 'pattern':
+            versions = [
+                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
+            ]
             try:
                 required_columns = [
                         version for version in versions
