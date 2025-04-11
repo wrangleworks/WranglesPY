@@ -75,7 +75,7 @@ def ai(
     df: _pd.DataFrame,
     api_key: str,
     input: list = None,
-    output: dict = None,
+    output: _Union[dict, str, list] = None,
     model_id: str = None,
     **kwargs
 ):
@@ -137,7 +137,7 @@ def ai(
         description: API Key for the model
       model:
         type: string
-        description: The name of the model
+        description: The name of the AI model to use
       threads:
         type: integer
         description: The number of requests to send in parallel
@@ -159,6 +159,9 @@ def ai(
           - string
           - array
         description: Optional. Provide additional overall instructions for the AI.
+      model_id:
+        type: string
+        description: Use a saved definition from an extract ai wrangle.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
