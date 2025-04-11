@@ -227,7 +227,7 @@ class TestTrainExtract:
                 """
                 write:
                 - train.extract:
-                    model_id: d188e7a7-9de8-4565
+                    name: My Wrangle
                     variant: WRONG
                 """,
                 dataframe=pd.DataFrame({
