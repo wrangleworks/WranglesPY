@@ -8,6 +8,7 @@ import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+from ..utils import safe_str_transform as _safe_str_transform
 try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
 except ImportError:
@@ -60,35 +61,38 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     if df.empty: 
         df[output] = None
         return df
+    
+    warnings = {
+        "invalid_data": {
+            "logged": False,
+            "message": 'Found invalid values when using convert.case. Non-string values will be skipped.'
+        }
+    }
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if desired_case == 'lower':
-            df[output_column] = df[input_column].str.lower()
-        elif desired_case == 'upper':
-            df[output_column] = df[input_column].str.upper()
-        elif desired_case == 'title':
-            df[output_column] = df[input_column].str.title()
+        if desired_case != 'sentence':
+            df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
+
         elif desired_case == 'sentence':
             def getSentenceCase(source: str):
-                output = ""
-                isFirstWord = True
-
                 if not isinstance(source, str):
                     return source
 
+                output = []
+                isFirstWord = True
+
                 for character in source:
                     if isFirstWord and not character.isspace():
-                        character = character.upper()
+                        output.append(character.upper())
                         isFirstWord = False
                     elif not isFirstWord and character in ".!?":
                         isFirstWord = True
+                        output.append(character.upper())
                     else:
-                        character = character.lower()
+                        output.append(character.lower())
 
-                    output = output + character
-
-                return output
+                return ''.join(output)
 
             df[output_column] = df[input_column].apply(getSentenceCase)
 
