@@ -69,9 +69,9 @@ def convert_worksheets_to_tables(
         "purple": "FF9966CC",
         "gray":   "FFBFBFBF",
     }
-    # If default is passed as Default, add the lowercase
-    if 'Default' in column_settings.keys():
-        column_settings['default'] = column_settings['Default']
+    ######### I don't think we are going to allow this. Just pass default values through as their own key #########
+    # if 'Default' in column_settings.keys():
+    #     column_settings['default'] = column_settings.pop('Default')
 
     def parse_fill_color(color_str):
         """Convert a semantic color name or a hex string into an ARGB color code."""
@@ -109,27 +109,18 @@ def convert_worksheets_to_tables(
     columns = [cell.value for cell in ws[ws.min_row]]
 
     # Handle columns that are missing from column_settings
-    unspecified_columns = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]  # Row 1
+    unspecified_columns = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]
 
-    default_settings = [key for key in list(column_settings.keys()) if key not in columns]
+    column_settings['default'] = {key: value for key, value in zip(list(column_settings.keys()), list(column_settings.values())) if key not in columns}
 
     for col in unspecified_columns:
         if 'default' in column_settings.keys():
             column_settings[col] = column_settings['default']
-        # else:
-        #     column_settings[col] = {'width': 30, 'header_fill_color': 'blue'} ######### This is the default, but it is not being set anywhere #########
+        else:
+            column_settings[col] = {'width': 30, 'header_fill_color': 'blue'}
 
-    # Delete the default key from column_settings
+    # Delete the default key from column_settings since it has already been applied to the unspecified columns
     if 'default' in column_settings.keys(): del column_settings['default']
-
-    # # Skip if sheet is effectively empty
-    # if ws.max_row == 1 and ws.max_column == 1 and ws['A1'].value is None:
-    #     continue
-
-    # # Need at least 2 rows (header + data)
-    # if (ws.max_row - ws.min_row) < 1:
-    #     print(f"Skipping worksheet '{ws.title}' - not enough data for a table.")
-    #     continue
 
     min_row, max_row = ws.min_row, ws.max_row
     min_col, max_col = ws.min_column, ws.max_column
