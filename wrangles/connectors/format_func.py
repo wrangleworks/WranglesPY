@@ -88,12 +88,19 @@ def convert_worksheets_to_tables(
             raise ValueError(f"Invalid color code: '{color_str}'")
         return color_str.upper()
 
+
+
+
+
+
+
+    ########## Come back to these ##########
+
     fill1 = PatternFill("solid", fgColor="6efdfd")
     # fill1 = PatternFill("solid", fgColor="D9D9D9")
     fill2 = PatternFill("solid", fgColor="f231f2")
     # fill2 = PatternFill("solid", fgColor="BFBFBF")
 
-    default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True) ########## Need to be able to handle alignment ##########
     default_table_style = TableStyleInfo(
         name="TableStyleMedium9",
         showFirstColumn=False,
@@ -101,6 +108,14 @@ def convert_worksheets_to_tables(
         showRowStripes=False,
         showColumnStripes=False
     )
+
+
+
+
+
+
+
+
 
     wb = load_workbook(buffer)
 
@@ -125,19 +140,18 @@ def convert_worksheets_to_tables(
     min_row, max_row = ws.min_row, ws.max_row
     min_col, max_col = ws.min_column, ws.max_column
 
-    ######## Set a table name based off sheet name, replace spaces and non alphanumeric characters ########
-    # 1) Define and add the table
-    # from string import ascii_letters, digits
+    # Set a table name based off sheet name, replace spaces and non alphanumeric characters
     table_name = f"Table_{ws.title.replace(' ', '_')}"
     table_name = ''.join(c if c.isalnum() or c == '_' else '_' for c in table_name)
     if table_name[0].isdigit():
         table_name = f"_{table_name}"
 
+    # Build out table reference (the cell range for the table)
     first_cell = f"{get_column_letter(min_col)}{min_row}"
     last_cell = f"{get_column_letter(max_col)}{max_row}"
     table_ref = f"{first_cell}:{last_cell}"
 
-    tab = Table(displayName=table_name, ref=table_ref)
+    tab = Table(displayName=table_name, ref=table_ref) # Named tab to avoid confusion with the table object
     tab.tableStyleInfo = default_table_style
     ws.add_table(tab)
 
@@ -146,15 +160,25 @@ def convert_worksheets_to_tables(
     font_size = column_settings.pop('font_size', 11)
     font_color = column_settings.pop('font_color', 'FF000000')
 
-    # 2) Default styling for all cells
+    # Set cell alignment
+    default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+    if 'alignment' in column_settings.keys():
+        alignment = column_settings.pop('alignment')
+        alignment = Alignment(horizontal=alignment.get('horizontal', 'left'),
+                              vertical=alignment.get('vertical', 'top'),
+                              wrap_text=alignment.get('wrap_text', True))
+    else:
+        alignment = default_alignment
+
+    # Styling for all cells
     for row_cells in ws.iter_rows(min_row=min_row, max_row=max_row,
                                     min_col=min_col, max_col=max_col):
 
         for cell in row_cells:
-            cell.alignment = default_alignment
+            cell.alignment = alignment
             cell.font = Font(name=font_name, size=font_size, bold=False, color=font_color)
 
-    # 3) Identify header row & build a column map
+    # 3) Identify header row & build a column map ######### What is this doing? #########
     header_row = list(ws.iter_rows(
         min_row=min_row, max_row=min_row,
         min_col=min_col, max_col=max_col
@@ -162,7 +186,7 @@ def convert_worksheets_to_tables(
 
     column_map = {}
     for idx, header_cell in enumerate(header_row, start=min_col):
-        header_text = str(header_cell.value).strip() if header_cell.value else "" ######## Why are we stripping extra spaces? ########
+        header_text = header_cell.value if header_cell.value else ""
         column_map[header_text] = (idx, get_column_letter(idx))
 
     # 4) Column-specific settings
