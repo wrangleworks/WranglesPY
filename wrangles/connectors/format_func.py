@@ -133,7 +133,7 @@ def convert_worksheets_to_tables(
         if 'default' in column_settings.keys():
             column_settings[col] = column_settings['default']
         else:
-            column_settings[col] = {'width': 30, 'header_fill_color': 'blue'}
+            column_settings[col] = {'width': 30, 'header_fill_color': 'blue'} ####### Should probably add more parameters here ########
 
     # Delete the default key from column_settings since it has already been applied to the unspecified columns
     if 'default' in column_settings.keys(): del column_settings['default']
@@ -165,14 +165,13 @@ def convert_worksheets_to_tables(
     underline = column_settings.pop('underline', None)
 
     # Set cell alignment
-    default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
     if 'alignment' in column_settings.keys():
         alignment = column_settings.pop('alignment')
         alignment = Alignment(horizontal=alignment.get('horizontal', 'left'),
                               vertical=alignment.get('vertical', 'top'),
                               wrap_text=alignment.get('wrap_text', True))
     else:
-        alignment = default_alignment
+        alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
     # Styling for all cells
     for row_cells in ws.iter_rows(min_row=min_row, max_row=max_row,
@@ -209,44 +208,41 @@ def convert_worksheets_to_tables(
             # Column width
             ws.column_dimensions[col_letter].width = settings.pop("width", 20)
 
-            # Desired alignment, font
-            desired_halign = settings.get("horizontal") ####### No default for these. No vertical alignment? This shows that horizontal can be passed through in settings ########
-            desired_font_size = settings.get("font_size")
-            desired_bold = settings.get("bold") ######### Add italic, underline, etc. #########
+
 
             for cell_tuple in ws.iter_rows(
-                min_row=min_row + 1,
-                max_row=max_row,
-                min_col=col_index,
-                max_col=col_index
-            ):
+                    min_row=min_row + 1,
+                    max_row=max_row,
+                    min_col=col_index,
+                    max_col=col_index
+                ):
                 cell_obj = cell_tuple[0]
 
                 # Alignment
-                if desired_halign: ####### Why all of this just based off of horizontal alignment? ########
+                if 'alignment' in settings.keys():
+                    column_alignment = settings.get('alignment')
                     curr_align = cell_obj.alignment
                     cell_obj.alignment = Alignment(
-                        horizontal=desired_halign,
-                        vertical=curr_align.vertical or 'top', ######## Vertical alignment is preserved or set to top here ########
-                        wrap_text=curr_align.wrap_text,
+                        horizontal=column_alignment.get('horizontal', 'left'),
+                        vertical=column_alignment.get('vertical', 'top'),
+                        wrap_text=column_alignment.get('wrap_text', True),
                         text_rotation=curr_align.text_rotation, ######## All of these are possible fields to allow users to set ########
                         shrink_to_fit=curr_align.shrink_to_fit,
                         indent=curr_align.indent
                     )
 
                 # Font
-                if desired_font_size or (desired_bold is not None):
-                    curr_font = cell_obj.font ####### Same ideas as above, but for font ########
-                    cell_obj.font = Font(
-                        name=curr_font.name,
-                        size=desired_font_size if desired_font_size else curr_font.size,
-                        bold=desired_bold if desired_bold is not None else curr_font.bold, ######## Instead of current, can just set defaults ########
-                        italic=curr_font.italic,
-                        vertAlign=curr_font.vertAlign,
-                        underline=curr_font.underline,
-                        strike=curr_font.strike,
-                        color=curr_font.color
-                    )
+                curr_font = cell_obj.font ####### Same ideas as above, but for font ########
+                cell_obj.font = Font(
+                    name=settings.get('font', curr_font.name),
+                    size=settings.get('font_size', curr_font.size),
+                    color=settings.get('font_color',curr_font.color),
+                    bold=settings.get('bold', curr_font.bold),
+                    italic=settings.get('italic', curr_font.italic),
+                    underline=settings.get('underline', curr_font.underline),
+                    vertAlign=curr_font.vertAlign, ##### Not sure exactly what this is doing, but it could be allowed in the future. Possible values: ‘superscript’, ‘baseline’, ‘subscript’
+                    strike=curr_font.strike
+                )
 
                 # Number format (if numeric)
                 if "number_format" in settings: ######### cell_obj.number_format allows for General, Text, etc. #########
@@ -283,22 +279,23 @@ def convert_worksheets_to_tables(
                             indent=current_alignment.indent
                         )
 
-    # 5) Style the header row
+    # Style the header row
     for header_text, (col_idx, col_letter) in column_map.items():
+        # Set header height
+
         header_cell = ws.cell(row=min_row, column=col_idx)
         header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True) ######## Hard coded header alignment ########
-        header_cell.font = Font(name='Calibri', size=12, bold=True, color='FFFFFFFF') ######## Hard coded header font ########
 
         # Optional header fill
-        header_fill_color = column_settings.get(header_text, {}).get("header_fill_color") ####### header_fill_color versus what other fill color? ########
+        header_fill_color = column_settings.get(header_text, {}).get("header_fill_color")
         if header_fill_color:
             try:
                 argb = parse_fill_color(header_fill_color) ########## Looks up color values based on name in the dictionary, and formats the color code properly for color codes that are passed through ##########
-                header_cell.fill = PatternFill(fill_type="solid", fgColor=argb) ####### What other fill_types are there? Something to allow to be set or is it useless? ########
+                header_cell.fill = PatternFill(fill_type="solid", fgColor=argb) ####### fill_type values according to Google: 'none, 'solid, 'darkDown, 'darkGray, 'darkTrellis, 'darkGrid, 'darkHorizontal, 'darkUp, 'darkVertical, 'lightGrid, 'gray0625, 'gray125, 'lightDown, 'lightGray, 'lightHorizontal, 'lightTrellis, 'lightUp, 'lightVertical, and 'mediumGray' ########
             except ValueError as ve:
                 print(f"Warning: {ve}. Skipping fill for header '{header_text}'.") ######### Does this mean that there is not a default fill color? #########
 
-    # 6) Adjust row heights
+    # Adjust row heights ######## Should allow a seperation of row heights and column header heights ########
     for row_idx in range(min_row, max_row + 1):
         max_cell_length = max(
             len(str(ws.cell(row=row_idx, column=col).value or ''))
@@ -306,10 +303,15 @@ def convert_worksheets_to_tables(
         )
         calculated_height = math.ceil(max_cell_length / 10) * 15 ####### 10 and 15 seem arbitrary, but what is the actual math doing and why? ########
         # ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
-        row_height = column_settings.pop("row_height", 15)
+        row_height = column_settings.get("row_height", 15)
         ws.row_dimensions[row_idx].height = min(row_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
 
-    # 7) Separator columns
+    # Set header height if specified
+    if column_settings.get('header_height', None):
+        header_height = column_settings.get('header_height')
+        ws.row_dimensions[min_row].height = header_height
+
+    # Borders
     for col_name, settings in column_settings.items():
         if col_name in column_map and settings.get("separator_column", False):
             col_index, col_letter = column_map[col_name]
