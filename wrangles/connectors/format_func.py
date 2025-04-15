@@ -126,6 +126,7 @@ def convert_worksheets_to_tables(
     # Handle columns that are missing from column_settings
     unspecified_columns = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]
 
+    # Build default column settings to be applied to every column not specified
     column_settings['default'] = {key: value for key, value in zip(list(column_settings.keys()), list(column_settings.values())) if key not in columns}
 
     for col in unspecified_columns:
@@ -159,6 +160,9 @@ def convert_worksheets_to_tables(
     font_name = column_settings.pop('font', 'Calibri')
     font_size = column_settings.pop('font_size', 11)
     font_color = column_settings.pop('font_color', 'FF000000')
+    bold = column_settings.pop('bold', False)
+    italicize = column_settings.pop('italic', False)
+    underline = column_settings.pop('underline', None)
 
     # Set cell alignment
     default_alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
@@ -176,20 +180,28 @@ def convert_worksheets_to_tables(
 
         for cell in row_cells:
             cell.alignment = alignment
-            cell.font = Font(name=font_name, size=font_size, bold=False, color=font_color)
+            cell.font = Font(
+                name=font_name,
+                size=font_size,
+                color=font_color,
+                bold=bold,
+                italic=italicize,
+                underline=underline # Accounting underlines the entire cell, not just the text
+            )
 
-    # 3) Identify header row & build a column map ######### What is this doing? #########
+    # Identify header row & build a column map
     header_row = list(ws.iter_rows(
         min_row=min_row, max_row=min_row,
         min_col=min_col, max_col=max_col
     ))[0]
 
+    # Build column map to set header specific formatting
     column_map = {}
     for idx, header_cell in enumerate(header_row, start=min_col):
         header_text = header_cell.value if header_cell.value else ""
         column_map[header_text] = (idx, get_column_letter(idx))
 
-    # 4) Column-specific settings
+    # 4) Column-specific settings ########## Does this mean we can drop all of the above if we are doing column specific stuff? ##########
     for col_name, settings in column_settings.items():
         if col_name in column_map:
             col_index, col_letter = column_map[col_name]
