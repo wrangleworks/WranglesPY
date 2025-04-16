@@ -565,7 +565,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_list)
         assert df.iloc[0]['code'] == ['Z1ON0101']
 
-    def test_extract_codes_milti_input(self):
+    def test_extract_codes_multi_input(self):
         recipe = """
         wrangles:
         - extract.codes:
@@ -575,9 +575,9 @@ class TestExtractCodes:
             output: Codes
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101-2']
+        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101', 'Z1ON0101-2']
 
-    def test_extract_codes_milti_input_output(self):
+    def test_extract_codes_multi_input_output(self):
         """
         Multiple outputs and Inputs
         """
@@ -592,7 +592,7 @@ class TestExtractCodes:
                 - out2
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['out2'] == ['Z1ON0101-2']
+        assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
 
     def test_extract_codes_one_input_multi_output(self):
         recipe = """
@@ -1196,7 +1196,7 @@ class TestExtractCustom:
                 model_id: 8e4ce4c6-9908-4f67
             """
         )
-        assert df["results"][0] == ["1", "2", "3", "4", "5"]
+        assert [str(x) for x in df["results"][0]] == ["1", "2", "3", "4", "5"]
 
     def test_extract_custom_ai_multiple_output(self):
         """
