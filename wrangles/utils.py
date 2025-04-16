@@ -4,6 +4,7 @@ import types as _types
 import inspect as _inspect
 from typing import Union as _Union
 import yaml as _yaml
+import importlib as _importlib
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -333,3 +334,18 @@ def evaluate_conditional(statement, variables: dict = {}):
             return bool(result)
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
+
+
+def optional_import(module_name):
+    """
+    Attempt to import a module and raise an ImportError if it fails
+
+    :param module_name: Name of the module to import
+    """
+    try:
+        return _importlib.import_module(module_name)
+    except ImportError as e:
+        raise ImportError(
+            f"Optional dependency '{module_name}' is required for this feature. "
+            f"Please install it with: pip install {module_name}"
+        ) from e

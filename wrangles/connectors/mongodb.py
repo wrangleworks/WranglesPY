@@ -1,9 +1,15 @@
 import pandas as _pd
-import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
 from urllib.parse import quote_plus as _quote_plus
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  optional_import as _optional_import
+)
+
+# Store lazy imports
+_lazy_imports = {}
+
 
 _schema = {}
 
@@ -24,12 +30,16 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     """
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
     
+    # Lazy import external dependencies
+    if not _lazy_imports.get('pymongo'):
+        _lazy_imports['pymongo'] = _optional_import('pymongo')
+
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = _pymongo.MongoClient(conn)
+    client = _lazy_imports['pymongo'].MongoClient(conn)
     db = client[database]
     col = db[collection]
     
@@ -101,12 +111,16 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     """
     _logging.info(f": Writing data to MongoDB :: {host} / {database} / {collection}")
 
+    # Lazy import external dependencies
+    if not _lazy_imports.get('pymongo'):
+        _lazy_imports['pymongo'] = _optional_import('pymongo')
+
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = _pymongo.MongoClient(conn)
+    client = _lazy_imports['pymongo'].MongoClient(conn)
     db = client[database]
     col = db[collection]
     

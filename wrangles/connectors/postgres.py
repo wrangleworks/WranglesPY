@@ -6,9 +6,13 @@ from typing import Union as _Union
 import logging as _logging
 import csv as _csv
 from io import StringIO as _StringIO
-import psycopg2 as _psycopg2
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  optional_import as _optional_import
+)
 
+# Store lazy imports
+_lazy_imports = {}
 
 _schema = {}
 
@@ -220,11 +224,15 @@ def run(
     """
     _logging.info(f": Executing PostgreSQL Command :: {host}")
 
+    # Lazy import external libraries
+    if not _lazy_imports.get('psycopg2'):
+        _lazy_imports['psycopg2'] = _optional_import('psycopg2')
+
     # If user has provided a single command, convert to a list of one.
     if isinstance(command, str): command = [command]
 
     # Establish connection
-    conn = _psycopg2.connect(
+    conn = _lazy_imports['psycopg2'].connect(
         host = host,
         port = port,
         dbname = database,
