@@ -151,7 +151,7 @@ def accordion(
     ).filter(regex='^(?!.*_TOBEDROPPED)')
 
     # Ensure output columns contain empty lists if no data remaining
-    df[output] = df[output].applymap(lambda d: d if isinstance(d, list) else [])
+    df[output] = df[output].map(lambda d: d if isinstance(d, list) else [])
 
     # Ensure output columns are in the same order as the original columns
     all_columns = original_columns + [
@@ -823,8 +823,13 @@ def lookup(
       - model_id
     properties:
       input:
-        type: string
-        description: Name of the column(s) to lookup.
+        type:
+          - string
+          - array
+        description: |-
+          Name of the column(s) to use to lookup with.
+          Key-based lookups may only use one column.
+          Semantic lookups can use multiple columns.
       model_id:
         type: string
         description: The model_id to use lookup against
@@ -834,12 +839,9 @@ def lookup(
           - array
         description: Name of the output column(s)
     """
-    # Ensure input is only 1 value
-    if isinstance(input, list):
-        if len(input) == 1:
-            input = input[0]
-        else:
-            raise ValueError('Input only allows one column.')
+    # Ensure input is a list
+    if not isinstance(input, list):
+        input = [input]
     
     if output is None: output = input
 
@@ -871,7 +873,7 @@ def lookup(
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
             data = _lookup(
-                df[input].values.tolist(),
+                df[input[0]].values.tolist() if len(output) == 1 else df[input].to_dict(orient="tight"),
                 model_id,
                 columns=wrangle_output,
                 **kwargs
@@ -881,7 +883,7 @@ def lookup(
             # User specified no columns from the wrangle
             # Add dict of all values to those columns
             data = _lookup(
-                df[input].values.tolist(),
+                df[input[0]].values.tolist() if len(output) == 1 else df[input].to_dict(orient="tight"),
                 model_id,
                 **kwargs
             )
