@@ -311,7 +311,7 @@ def convert_worksheets_to_tables(
         header_height = column_settings.get('header_height')
         ws.row_dimensions[min_row].height = header_height
 
-    # Borders
+    # Borders ########### Move this to column specific section since it uses the same loop ##########
     for col_name, settings in column_settings.items():
         if col_name in column_map and settings.get("separator_column", False):
             col_index, col_letter = column_map[col_name]
@@ -325,6 +325,14 @@ def convert_worksheets_to_tables(
             else:
                 border_color = "FF000000"
 
+            # Get border settings, with some sort of default. Should probably copy whatever alignment does
+            # then pass that through below 
+            # Style and color will be passed through as whatever, the each side will be a bool 
+            # that defaults to false
+            # That sounds easy, there must be something that I am missing
+
+
+            # Style value must be one of {‘mediumDashed’, ‘mediumDashDotDot’, ‘dashDot’, ‘dashed’, ‘slantDashDot’, ‘dashDotDot’, ‘thick’, ‘thin’, ‘dotted’, ‘double’, ‘medium’, ‘hair’, ‘mediumDashDot’}
             medium_side = Side(style='medium', color=border_color)
             for row_idx in range(min_row + 1, max_row + 1):
                 cell = ws.cell(row=row_idx, column=col_index)
