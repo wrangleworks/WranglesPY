@@ -151,7 +151,7 @@ def accordion(
     ).filter(regex='^(?!.*_TOBEDROPPED)')
 
     # Ensure output columns contain empty lists if no data remaining
-    df[output] = df[output].applymap(lambda d: d if isinstance(d, list) else [])
+    df[output] = df[output].map(lambda d: d if isinstance(d, list) else [])
 
     # Ensure output columns are in the same order as the original columns
     all_columns = original_columns + [

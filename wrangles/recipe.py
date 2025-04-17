@@ -792,11 +792,13 @@ def _execute_wrangles(
                         [x for x in df.columns if x not in df_original.columns]
                     ]
 
-                # Clean up NaN's
-                df = df.fillna('')
-                # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
-                # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-                df = df.fillna('0')
+                with _pandas.option_context('future.no_silent_downcasting', True):
+                    # Clean up NaN's
+                    df = df.fillna('')
+                    # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+                    # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+                    df = df.fillna('0')
+
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__) from None

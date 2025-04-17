@@ -1421,7 +1421,7 @@ class TestExtractRegex:
         Test extract.regex with an empty input
         """
         df = wrangles.recipe.run(
-            """
+            r"""
             wrangles:
             - extract.regex:
                 input: column
@@ -1442,7 +1442,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['55g', '120v', '1000kg']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
