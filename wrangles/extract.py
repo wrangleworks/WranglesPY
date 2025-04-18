@@ -133,6 +133,10 @@ def ai(
         }
 
         try:
+            # Use saved model general settings
+            model = model_definition.get('settings', {}).get('GPTModel', model)
+            messages = model_definition.get('settings', {}).get('AdditionalMessages', messages)
+
             model_definition = {
                 x["find"]: {
                     k: v
