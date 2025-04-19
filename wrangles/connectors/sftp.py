@@ -4,12 +4,14 @@ Import a file from an SFTP server
 Supports Excel, CSV, JSON and JSONL files.
 """
 from typing import Union as _Union
-import fabric as _fabric
 import pandas as _pd
 import io as _io
 import logging as _logging
 from . import file as _file
+from ..utils import optional_import as _optional_import
 
+# Store lazy imports
+_lazy_imports = {}
 
 _schema = {}
 
@@ -30,9 +32,13 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
     """
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
+    # Lazy import external dependencies
+    if not _lazy_imports.get('fabric'):
+        _lazy_imports['fabric'] = _optional_import('fabric')
+
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
-    with _fabric.Connection(
+    with _lazy_imports['fabric'].Connection(
         host,
         user=user,
         port=port,
@@ -117,6 +123,10 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     """
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
+    # Lazy import external dependencies
+    if not _lazy_imports.get('fabric'):
+        _lazy_imports['fabric'] = _optional_import('fabric')
+
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
     _file.write(df, name=file.split("/")[-1], file_object=tempFile, **kwargs)
@@ -124,7 +134,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
 
     # Export to SFTP server
     _logging.info(f": Exporting data via SFTP :: {host}")
-    with _fabric.Connection(
+    with _lazy_imports['fabric'].Connection(
         host,
         user=user,
         port=port,
@@ -237,6 +247,10 @@ class download_files:
         """
         _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
+        # Lazy import external dependencies
+        if not _lazy_imports.get('fabric'):
+            _lazy_imports['fabric'] = _optional_import('fabric')
+
         # Ensure files and local are both lists and 
         if not isinstance(files, list): files = [files]
         if not isinstance(local, list): local = [local]
@@ -251,7 +265,7 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
-        with _fabric.Connection(
+        with _lazy_imports['fabric'].Connection(
             host,
             user=user,
             port=port,
@@ -329,6 +343,10 @@ class upload_files:
         """
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
+        # Lazy import external dependencies
+        if not _lazy_imports.get('fabric'):
+            _lazy_imports['fabric'] = _optional_import('fabric')
+            
         # Ensure files and remote are both lists
         if not isinstance(files, list): files = [files]
         if not isinstance(remote, list): remote = [remote]
@@ -343,7 +361,7 @@ class upload_files:
                 "If provided, the lists of files and remote files must be the same length"
             )
 
-        with _fabric.Connection(
+        with _lazy_imports['fabric'].Connection(
             host,
             user=user,
             port=port,

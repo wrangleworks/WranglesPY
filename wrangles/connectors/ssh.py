@@ -1,11 +1,13 @@
 """
 Connector for SSH
 """
-from fabric import Connection as _Connection
 from typing import Union as _Union
-from paramiko import RSAKey as _RSAKey
 from io import StringIO as _StringIO
 import logging as _logging
+from ..utils import optional_import as _optional_import
+
+# Store lazy imports
+_lazy_imports = {}
 
 
 _schema = {}
@@ -23,6 +25,10 @@ def run(host: str, user: str, command: _Union[str, list], password: str = None, 
     """
     _logging.info(f": Executing SSH command :: {host}")
 
+    # Lazy import external dependencies
+    if not _lazy_imports.get('fabric'):
+        _lazy_imports['fabric'] = _optional_import('fabric')
+
     # If user has passed a single command, convert to a list of one
     if isinstance(command, str): command = [command]
 
@@ -31,13 +37,18 @@ def run(host: str, user: str, command: _Union[str, list], password: str = None, 
     elif key_filename is not None:
         connect_kwargs = {'key_filename': key_filename}
     elif private_key is not None:
-        pkey = _RSAKey.from_private_key(_StringIO(private_key))
-        connect_kwargs = {'pkey': pkey}
+        # Lazy import external dependencies
+        if not _lazy_imports.get('paramiko'):
+            _lazy_imports['paramiko'] = _optional_import('paramiko')
+
+        connect_kwargs = {
+            'pkey': _lazy_imports['paramiko'].RSAKey.from_private_key(_StringIO(private_key))
+        }
     else:
         raise ValueError('A password or private key is required for the SSH connection')
 
     # Establish connection and run all the commands
-    with _Connection(host, user=user, connect_kwargs=connect_kwargs) as conn:
+    with _lazy_imports['fabric'].Connection(host, user=user, connect_kwargs=connect_kwargs) as conn:
         for ssh_command in command:
             conn.run(ssh_command)
 

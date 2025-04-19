@@ -2,8 +2,11 @@ import logging as _logging
 from io import BytesIO as _BytesIO
 from typing import Union as _Union
 import pandas as _pd
-import boto3 as _boto3
 from . import file as _file
+from ..utils import optional_import as _optional_import
+
+# Store lazy imports
+_lazy_imports = {}
 
 
 _schema = {}
@@ -25,13 +28,17 @@ def read(
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
     _logging.info(f": Reading data from S3 :: {bucket} / {key}")
-    
+
+    # Lazy import external dependencies
+    if not _lazy_imports.get('boto3'):
+        _lazy_imports['boto3'] = _optional_import('boto3')
+
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
-        s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
+        s3 = _lazy_imports['boto3'].client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
         # if using environment variables
-        s3 = _boto3.client('s3')
+        s3 = _lazy_imports['boto3'].client('s3')
     
     try:
         response = s3.get_object(Bucket=bucket, Key=key)['Body']
@@ -84,12 +91,16 @@ def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secr
     """
     _logging.info(f": Writing data to S3 :: {bucket} / {key}")
 
+    # Lazy import external dependencies
+    if not _lazy_imports.get('boto3'):
+        _lazy_imports['boto3'] = _optional_import('boto3')
+
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
-        s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
+        s3 = _lazy_imports['boto3'].client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
     # if using environment variables
-        s3 = _boto3.client('s3')
+        s3 = _lazy_imports['boto3'].client('s3')
         
     memory_file = _BytesIO()
     _file.write(df, name=key, file_object=memory_file, **kwargs)
@@ -177,7 +188,11 @@ class download_files:
         """
         _logging.info(f": Downloading files from S3 :: {bucket} / {key}")
 
-        s3 = _boto3.client('s3', **kwargs)
+        # Lazy import external dependencies
+        if not _lazy_imports.get('boto3'):
+            _lazy_imports['boto3'] = _optional_import('boto3')
+
+        s3 = _lazy_imports['boto3'].client('s3', **kwargs)
 
         if isinstance(key, str): key = [key]
 
@@ -255,7 +270,11 @@ class upload_files:
         """
         _logging.info(f": Uploading files to S3 :: {bucket} / {key}")
 
-        s3 = _boto3.client('s3', **kwargs)
+        # Lazy import external dependencies
+        if not _lazy_imports.get('boto3'):
+            _lazy_imports['boto3'] = _optional_import('boto3')
+
+        s3 = _lazy_imports['boto3'].client('s3', **kwargs)
 
         if isinstance(file, str): file = [file]
 
