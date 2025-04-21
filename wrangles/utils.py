@@ -4,6 +4,7 @@ import types as _types
 import inspect as _inspect
 from typing import Union as _Union
 import yaml as _yaml
+import importlib as _importlib
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -347,3 +348,27 @@ def evaluate_conditional(statement, variables: dict = {}):
             return bool(result)
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
+
+
+class LazyLoader:
+    """
+    Use to lazy load optional dependencies
+
+    Will load the dependency when it is first accessed
+
+    :param module_name: Name of the module to load
+    """
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self._module = None
+
+    def __getattr__(self, item):
+        if self._module is None:
+            try:
+                self._module = _importlib.import_module(self.module_name)
+            except ImportError as e:
+                raise ImportError(
+                    f"Optional dependency '{self.module_name}' is required for this feature. "
+                    f"Please install it with: pip install {self.module_name}"
+                ) from e
+        return getattr(self._module, item)

@@ -1,9 +1,15 @@
 import pandas as _pd
-import pymongo as _pymongo
 import logging as _logging
 from typing import Union as _Union
 from urllib.parse import quote_plus as _quote_plus
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
+
+# Lazy load external dependency
+_pymongo = _LazyLoader('pymongo')
+
 
 _schema = {}
 
@@ -23,7 +29,7 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     :param projection: (Optional) Select which fields to include
     """
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
-    
+
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
@@ -36,8 +42,7 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     # checking if database and collections are in mongoDB
     if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
     if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
-    
-    
+
     result = []
     for x in col.find(query, projection):
         result.append(x)
@@ -45,9 +50,10 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     df = _pd.DataFrame(result)
     
     try:
-      client.close()
+        client.close()
     except:
-      pass
+        pass
+
     return df
 
 _schema['read'] = """

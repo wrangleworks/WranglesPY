@@ -1,9 +1,11 @@
 """
 Send notifications to a varity of services
 """
-import apprise as _apprise
 from typing import Union as _Union
+from ..utils import LazyLoader as _LazyLoader
 
+# Lazy load external dependency
+_apprise = _LazyLoader('apprise')
 
 _schema = {}
 
