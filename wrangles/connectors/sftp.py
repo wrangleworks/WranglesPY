@@ -330,7 +330,7 @@ class upload_files:
         :param port: The port to connect to. Default 22.
         """
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
-            
+
         # Ensure files and remote are both lists
         if not isinstance(files, list): files = [files]
         if not isinstance(remote, list): remote = [remote]
