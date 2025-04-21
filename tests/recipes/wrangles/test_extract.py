@@ -2981,6 +2981,7 @@ class TestExtractAI:
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 temperature: 0.2
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -3007,6 +3008,7 @@ class TestExtractAI:
                 model_id: d7c8270d-f15a-4c9c
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -3028,6 +3030,7 @@ class TestExtractAI:
                 model_id: 0e81f1ad-c0a3-42b4
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
                 output: result
             """,
             dataframe=pd.DataFrame({
@@ -3056,6 +3059,7 @@ class TestExtractAI:
                 model_id: 0e81f1ad-c0a3-42b4
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
                 output:
                   - Colors
                   - Shapes
@@ -3086,6 +3090,7 @@ class TestExtractAI:
                 model_id: c3e6715a-6214-4517
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -3108,6 +3113,7 @@ class TestExtractAI:
                 model_id: d168c456-514f-4513
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [

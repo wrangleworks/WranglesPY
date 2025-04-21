@@ -5165,6 +5165,7 @@ class TestMatrix:
                         input: Description
                         api_key: ${OPENAI_API_KEY}
                         seed: 1
+                        retries: 2
                         output:
                           ${Category}:
                             type: string
