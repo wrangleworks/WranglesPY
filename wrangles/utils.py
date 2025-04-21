@@ -336,21 +336,14 @@ def evaluate_conditional(statement, variables: dict = {}):
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
 
 
-def optional_import(module_name):
-    """
-    Attempt to import a module and raise an ImportError if it fails
-
-    :param module_name: Name of the module to import
-    """
-    try:
-        return _importlib.import_module(module_name)
-    except ImportError as e:
-        raise ImportError(
-            f"Optional dependency '{module_name}' is required for this feature. "
-            f"Please install it with: pip install {module_name}"
-        ) from e
-
 class LazyLoader:
+    """
+    Use to lazy load optional dependencies
+
+    Will load the dependency when it is first accessed
+
+    :param module_name: Name of the module to load
+    """
     def __init__(self, module_name):
         self.module_name = module_name
         self._module = None
