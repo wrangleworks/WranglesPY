@@ -2,10 +2,10 @@
 Send notifications to a varity of services
 """
 from typing import Union as _Union
-from ..utils import optional_import as _optional_import
+from ..utils import LazyLoader as _LazyLoader
 
-# Store lazy imports
-_lazy_imports = {}
+# Lazy load external dependency
+_apprise = _LazyLoader('apprise')
 
 _schema = {}
 
@@ -24,11 +24,7 @@ def run(
     :param body: The body of the notification
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
-   # Lazy import external dependencies
-    if not _lazy_imports.get('apprise'):
-        _lazy_imports['apprise'] = _optional_import('apprise')
-
-    app_object = _lazy_imports['apprise'].Apprise()
+    app_object = _apprise.Apprise()
     app_object.add(url)
     app_object.notify(
        body,

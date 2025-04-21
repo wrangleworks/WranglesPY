@@ -25,11 +25,11 @@ import pandas as _pd
 import logging as _logging
 from ..utils import (
   wildcard_expansion as _wildcard_expansion,
-  optional_import as _optional_import
+  LazyLoader as _LazyLoader
 )
 
-# Store lazy imports
-_lazy_imports = {}
+# Lazy load external dependency
+_salesforce = _LazyLoader('simple_salesforce')
 
 _schema = {}
 
@@ -64,11 +64,7 @@ def read(
     """
     _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
 
-    # Lazy import external dependencies
-    if not _lazy_imports.get('simple_salesforce'):
-        _lazy_imports['simple_salesforce'] = _optional_import('simple_salesforce')
-
-    sf = _lazy_imports['simple_salesforce'].Salesforce(
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,
@@ -79,7 +75,7 @@ def read(
     sf_object = getattr(sf.bulk, object)
 
     if params:
-        command = _lazy_imports['simple_salesforce'].format_soql(command, **params)
+        command = _salesforce.format_soql(command, **params)
     
     responses = sf_object.query(command, lazy_operation=True)
 
@@ -168,16 +164,12 @@ def write(
     """
     _logging.info(f": Writing data to Salesforce :: {instance} /  {object}")
 
-    # Lazy import external dependencies
-    if not _lazy_imports.get('simple_salesforce'):
-        _lazy_imports['simple_salesforce'] = _optional_import('simple_salesforce')
-
     # Select only specific columns if user requests them
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    sf = _lazy_imports['simple_salesforce'].Salesforce(
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,
