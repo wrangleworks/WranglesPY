@@ -464,3 +464,35 @@ def test_write_if_row_count_variable():
         """
     )
     assert len(df) == 100000
+
+def test_overwrite_write():
+    """
+    Test using a custom function to overwrite a standard connector for write
+    """
+    check_var = {}
+
+    class file:
+        def write(df, name):
+            check_var['len'] = len(df)
+            check_var['columns'] = df.columns.tolist()
+            check_var['name'] = name
+        
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 10
+              values:
+                header: value
+        write:
+          - file:
+              name: abc
+        """,
+        functions=file
+    )
+    
+    assert (
+        check_var['len'] == 10 and
+        check_var['columns'] == ['header'] and
+        check_var['name'] == 'abc'
+    )

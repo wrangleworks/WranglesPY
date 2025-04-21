@@ -117,8 +117,22 @@ def get_nested_function(
     else:
         if default_stock_functions:
             fn_list.append(default_stock_functions)
-        obj = stock_functions
-        
+
+        if custom_functions:
+            obj = {
+                name: getattr(stock_functions, name)
+                for name in dir(stock_functions)
+                if isinstance(
+                    getattr(stock_functions, name),
+                    (_types.FunctionType, _types.ModuleType, type)
+                )
+                and not name.startswith("_")
+            }
+
+            obj = {**obj, **custom_functions}
+        else:
+            obj = stock_functions
+
     for fn_name in fn_list:
         if isinstance(obj, dict):
             if fn_name not in obj:
