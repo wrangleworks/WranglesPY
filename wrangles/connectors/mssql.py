@@ -6,17 +6,11 @@ from typing import Union as _Union
 import logging as _logging
 from ..utils import (
   wildcard_expansion as _wildcard_expansion,
-  optional_import as _optional_import
+  LazyLoader as _LazyLoader
 )
 
-# Store lazy imports
-_lazy_imports = {}
-
-try:
-  import pymssql as _pymssql
-except ImportError:
-    _pymssql = None
-
+# Lazy load external dependency
+_pymssql = _LazyLoader('pymssql')
 
 _schema = {}
 
@@ -39,10 +33,6 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :return: Pandas Dataframe of the imported data
     """
     _logging.info(f": Reading data from MSSQL :: {host} / {database}")
-
-    # Lazy import external dependencies
-    if not _lazy_imports.get('pymssql'):
-        _lazy_imports['pymssql'] = _optional_import('pymssql')
 
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
     df = _pd.read_sql(command, conn, params)
@@ -116,10 +106,6 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     """    
     _logging.info(f": Writing data to MSSQL :: {host} / {database} / {table}")
 
-    # Lazy import external dependencies
-    if not _lazy_imports.get('pymssql'):
-        _lazy_imports['pymssql'] = _optional_import('pymssql')
-
     # Create appropriate connection string
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
 
@@ -183,10 +169,6 @@ def run(host: str, user: str, password: str, command: _Union[str, list], params:
     :param params: Variables to pass to a parameterized query.
     """    
     _logging.info(f": Executing MSSQL Command :: {host}")
-
-    # Lazy import external dependencies
-    if not _lazy_imports.get('pymssql'):
-        _lazy_imports['pymssql'] = _optional_import('pymssql')
 
     # If user has provided a single command, convert to a list of one.
     if isinstance(command, str): command = [command]

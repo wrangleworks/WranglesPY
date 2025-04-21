@@ -1,10 +1,10 @@
 """
 Use JINJA to manipulate a template
 """
-from ..utils import optional_import as _optional_import
+from ..utils import LazyLoader as _LazyLoader
 
-# Store lazy imports
-_lazy_imports = {}
+# Lazy load external dependency
+_jinja = _LazyLoader('jinja2')
 
 
 _schema = {}
@@ -17,19 +17,15 @@ def run(template: dict, context: dict, output_file: str):
     :param context: A dictionary used to define the output template
     :param output_file: File name/path for the file to be output
     """
-    # Lazy import external dependencies
-    if not _lazy_imports.get('jinja2'):
-        _lazy_imports['jinja2'] = _optional_import('jinja2')
-
     if 'file' in template:
-        template = _lazy_imports['jinja2'].Environment(
-            loader=_lazy_imports['jinja2'].FileSystemLoader(''),
+        template = _jinja.Environment(
+            loader=_jinja.FileSystemLoader(''),
             trim_blocks=True,
             lstrip_blocks=True
         ).get_template(template['file'])
 
     elif 'string' in template:
-       template = _lazy_imports['jinja2'].Environment(loader=_lazy_imports['jinja2'].BaseLoader).from_string(template['string'])
+       template = _jinja.Environment(loader=_jinja.BaseLoader).from_string(template['string'])
 
     else:
        raise ValueError('jinja: Either a file or string must be provided for the template')

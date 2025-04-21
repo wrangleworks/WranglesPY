@@ -4,11 +4,11 @@ from typing import Union as _Union
 from urllib.parse import quote_plus as _quote_plus
 from ..utils import (
   wildcard_expansion as _wildcard_expansion,
-  optional_import as _optional_import
+  LazyLoader as _LazyLoader
 )
 
-# Store lazy imports
-_lazy_imports = {}
+# Lazy load external dependency
+_pymongo = _LazyLoader('pymongo')
 
 
 _schema = {}
@@ -29,25 +29,20 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     :param projection: (Optional) Select which fields to include
     """
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
-    
-    # Lazy import external dependencies
-    if not _lazy_imports.get('pymongo'):
-        _lazy_imports['pymongo'] = _optional_import('pymongo')
 
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = _lazy_imports['pymongo'].MongoClient(conn)
+    client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
     
     # checking if database and collections are in mongoDB
     if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
     if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
-    
-    
+
     result = []
     for x in col.find(query, projection):
         result.append(x)
@@ -55,9 +50,10 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     df = _pd.DataFrame(result)
     
     try:
-      client.close()
+        client.close()
     except:
-      pass
+        pass
+
     return df
 
 _schema['read'] = """
@@ -111,16 +107,12 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     """
     _logging.info(f": Writing data to MongoDB :: {host} / {database} / {collection}")
 
-    # Lazy import external dependencies
-    if not _lazy_imports.get('pymongo'):
-        _lazy_imports['pymongo'] = _optional_import('pymongo')
-
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
     
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
-    client = _lazy_imports['pymongo'].MongoClient(conn)
+    client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
     
