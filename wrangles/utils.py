@@ -349,3 +349,19 @@ def optional_import(module_name):
             f"Optional dependency '{module_name}' is required for this feature. "
             f"Please install it with: pip install {module_name}"
         ) from e
+
+class LazyLoader:
+    def __init__(self, module_name):
+        self.module_name = module_name
+        self._module = None
+
+    def __getattr__(self, item):
+        if self._module is None:
+            try:
+                self._module = _importlib.import_module(self.module_name)
+            except ImportError as e:
+                raise ImportError(
+                    f"Optional dependency '{self.module_name}' is required for this feature. "
+                    f"Please install it with: pip install {self.module_name}"
+                ) from e
+        return getattr(self._module, item)
