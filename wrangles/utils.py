@@ -130,6 +130,8 @@ def get_nested_function(
             }
 
             obj = {**obj, **custom_functions}
+        else:
+            obj = stock_functions
 
     for fn_name in fn_list:
         if isinstance(obj, dict):
