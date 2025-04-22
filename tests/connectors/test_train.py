@@ -360,6 +360,23 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
 
+    def test_lookup_write_duplicates(self):
+        """
+        Test the error when attempting to train a lookup with duplicate keys
+        """
+        recipe = """
+        write:
+          - train.lookup:
+              name: This is Temporary
+              variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Not Rachel', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+
     def test_lookup_write_columns(self):
         """
         Writing data to a Lookup Wrangle (re-training)
