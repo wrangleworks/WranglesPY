@@ -231,7 +231,7 @@ def batch(
         description: The number of threads to use for parallel processing. Default 1.
       on_error:
         type: object
-        description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
+        description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
       timeout:
         type: number
         description: The number of seconds to wait for a batch to complete before raising an error
