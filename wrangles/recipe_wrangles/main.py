@@ -922,26 +922,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: |
-          The mathematical expression using column names. e.g. column1 * column2
-          + column3. Note: spaces within column names are replaced by underscores (_).
-      output:
-        type: string
-        description: The column to output the results to
+    Deprecated - use math
     """
-    df_temp = df.copy()
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
-    return df
+    return math(df, input, output)
 
 
 def matrix(
