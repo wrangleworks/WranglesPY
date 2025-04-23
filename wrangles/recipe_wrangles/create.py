@@ -436,7 +436,7 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         description: Name of new column
       method:
         type: string
-        description: The method to use to hash the input (Default: md5)
+        description: 'The method to use to hash the input (Default: md5)'
         enum:
           - md5
           - sha1
