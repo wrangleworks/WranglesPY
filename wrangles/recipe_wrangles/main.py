@@ -956,16 +956,16 @@ def matrix(
         minItems: 1
         items:
           "$ref": "#/$defs/wrangles/items"
-        strategy:
-          type: string
-          enum:
-            - permutations
-            - loop
-          description: >-
-            Determines how to combine variables when there are multiple.
-            loop (default) iterates over each set of variables, repeating shorter lists 
-            until the longest is completed. permutations uses the combination of all 
-            variables against all other variables.
+      strategy:
+        type: string
+        enum:
+          - permutations
+          - loop
+        description: >-
+          Determines how to combine variables when there are multiple.
+          loop (default) iterates over each set of variables, repeating shorter lists 
+          until the longest is completed. permutations uses the combination of all 
+          variables against all other variables.
     """
     for permutation in _define_permutations(
       variables,
