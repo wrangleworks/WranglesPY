@@ -924,6 +924,7 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     Deprecated - use math
     """
+    _logging.warning('maths is deprecated, use math instead')
     return math(df, input, output)
 
 
