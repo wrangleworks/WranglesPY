@@ -231,7 +231,7 @@ def batch(
         description: The number of threads to use for parallel processing. Default 1.
       on_error:
         type: object
-        description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
+        description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
       timeout:
         type: number
         description: The number of seconds to wait for a batch to complete before raising an error
@@ -922,26 +922,10 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: |
-          The mathematical expression using column names. e.g. column1 * column2
-          + column3. Note: spaces within column names are replaced by underscores (_).
-      output:
-        type: string
-        description: The column to output the results to
+    Deprecated - use math
     """
-    df_temp = df.copy()
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
-    return df
+    _logging.warning('maths is deprecated, use math instead')
+    return math(df, input, output)
 
 
 def matrix(
@@ -973,16 +957,16 @@ def matrix(
         minItems: 1
         items:
           "$ref": "#/$defs/wrangles/items"
-        strategy:
-          type: string
-          enum:
-            - permutations
-            - loop
-          description: >-
-            Determines how to combine variables when there are multiple.
-            loop (default) iterates over each set of variables, repeating shorter lists 
-            until the longest is completed. permutations uses the combination of all 
-            variables against all other variables.
+      strategy:
+        type: string
+        enum:
+          - permutations
+          - loop
+        description: >-
+          Determines how to combine variables when there are multiple.
+          loop (default) iterates over each set of variables, repeating shorter lists 
+          until the longest is completed. permutations uses the combination of all 
+          variables against all other variables.
     """
     for permutation in _define_permutations(
       variables,
