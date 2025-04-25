@@ -193,8 +193,11 @@ def _load_recipe(
         recipe_string = response.text
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
-    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
-        metadata = _data.model(recipe)
+    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.split(':')[0].strip()):
+        model_id = recipe.split(':')[0].strip()
+        version_id = recipe.split(':')[1].strip() if ':' in recipe else None
+
+        metadata = _data.model(model_id)
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -203,10 +206,10 @@ def _load_recipe(
         purpose = metadata['purpose']
         if purpose != 'recipe':
             raise ValueError(
-                f'Using {purpose} model_id {recipe} in a recipe wrangle.'
+                f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
         
-        model_contents = _data.model_content(recipe)
+        model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
         if model_functions:
