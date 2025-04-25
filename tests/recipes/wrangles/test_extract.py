@@ -3122,3 +3122,47 @@ class TestExtractAI:
             })
         )
         assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
+
+    def test_extract_ai_bug(self):
+        """
+        This test is set up to show the bug referenced in issue #771
+        """
+        data = pd.DataFrame({
+            'Display Name Refined': [
+                'repair clamp stainless steel 2" IPS x 6" Two bolt rubber',
+                'flush valve closet 3.5 GPF with Bed Pan Cleaner Sloan Royal chrome',
+                'Blade Hackzall Ductal stainless steel rubber',
+                'pex white',
+                'spray valve Bedpan Cleaner chicago faucet rough brass copper',
+                'vacuum breaker repair kit Watts 288A 1/2" polished brass brass',
+                'coupling, brass, -Pex, 3/4" plastic',
+                'CERAMIX DISC cartridge. with SEALS ceramic',
+                'elbow, plastic, 1/4od X 1/4 Mip brushed nickel black iron',
+                'shower head Piston replacement Kit 2.5 GPMAct-O-Matic Sloan satin abs'
+                ]
+        })
+
+        variables = {
+            'output_dict': {
+                'Webstore Description': {
+                    'type': 'string',
+                    'description': 'You will receive two product descriptions with features and attributes. Your job is to write a new description, targeted at plumbing professionals, which describes the product in a professional tone. The description should start with the brand and type of product, if available, then describe and attributes. Descriptions should primarily focus on information from the "display name" column like this: "Total rubber kits for checks and relief valve. Suitable for sizes 1-1/4" to 2"." Do not under any circumstances describe an item as such: "Complete Faucets - Manual" or "Moen Faucet Parts - Manual". If the item classification does not the match the display name, use the display name information to generate descriptions.',
+                    'examples': ['Total rubber kits for checks and relief valve. Suitable for sizes 1-1/4" to 2". ']
+                    }
+            },
+            'other stuff': 'other stuff',
+            'things that don not matter': 'things'
+        }
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                input: Display Name Refined
+                api_key: ${OPENAI_API_KEY}
+                output: ${output_dict}
+            """,
+            dataframe=data,
+            variables=variables
+        )
+
+        assert df
