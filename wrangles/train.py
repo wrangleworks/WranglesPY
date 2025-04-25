@@ -115,6 +115,13 @@ class train():
             if settings['variant'] =='key' and "Key" not in data["Columns"]:
                 raise ValueError("Lookup: Data must contain one column named Key")
             
+            key_index = data['Columns'].index('Key')
+
+            number_keys = len([row[key_index] for row in data['Data']])
+            without_duplicates = len(set([row[key_index] for row in data['Data']]))
+            if number_keys != without_duplicates:
+                raise ValueError("Lookup: All Keys must be unique")
+            
         if name is not None and settings.get("variant", "") not in ["key", "embedding", "fuzzy", "recipe"]:
             raise ValueError(
                 "A new lookup must contain a value (key or semantic) for setting/variant."
