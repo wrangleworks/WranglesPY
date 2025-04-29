@@ -241,6 +241,17 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
     # Convert wildcards to regex pattern
     for i in range(len(selected_columns)):
+        if isinstance(selected_columns[i], int):
+            if selected_columns[i] < 0 or selected_columns[i] >= len(all_columns):
+                raise ValueError(
+                    f"Column index {selected_columns[i]} is out of range. " +
+                    f"Must be between 0 and {len(all_columns)}"
+                )
+
+            # If the column is an integer, convert it to a string
+            selected_columns[i] = all_columns[selected_columns[i]]
+            continue
+
         # Catch not syntax errors
         if isinstance(selected_columns[i], list):
             newline = '\n'

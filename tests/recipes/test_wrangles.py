@@ -461,3 +461,68 @@ class TestIf:
             variables={"should_be_parameterized": "1 == 2"}
         )
         assert df["header"][0] == "value"
+
+class TestPositionInput:
+    """
+    Test using column indexes rather than names for input
+    """
+    def test_position_index(self):
+        """
+        Test using a position index for input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: 0
+                case: upper
+            """
+        )
+        assert df["header"][0] == "VALUE"
+
+    def test_position_index_as_list(self):
+        """
+        Test using a position index for input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input:
+                  - 0
+                case: upper
+            """
+        )
+        assert df["header"][0] == "VALUE"
+
+    def test_position_index_as_list_multiple(self):
+        """
+        Test using a position index for input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - convert.case:
+                input:
+                  - 0
+                  - 1
+                case: upper
+            """
+        )
+        assert df["header1"][0] == "VALUE1" and df["header2"][0] == "VALUE2"
