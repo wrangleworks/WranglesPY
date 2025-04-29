@@ -685,11 +685,25 @@ def _execute_wrangles(
                                 result_type=result_type
                             )
                         else:
-                            df[params['output']] = df_temp.apply(
-                                lambda _: func(**params_temp),
-                                axis=1,
-                                result_type=result_type
-                            )
+                            vars_count = len(params_temp) + len(df_temp.columns)
+                            if (
+                                fn_argspec.varargs or
+                                (
+                                    vars_count <= len(fn_argspec.args) and 
+                                    vars_count >= len(fn_argspec.args) - len(fn_argspec.defaults or [])
+                                )
+                            ):
+                                df[params['output']] = df_temp.apply(
+                                    lambda x: func(*x, **params_temp),
+                                    axis=1,
+                                    result_type=result_type
+                                )
+                            else:
+                                df[params['output']] = df_temp.apply(
+                                    lambda _: func(**params_temp),
+                                    axis=1,
+                                    result_type=result_type
+                                )
 
                 else:
                     # Get the requested function from the recipe_wrangles module
