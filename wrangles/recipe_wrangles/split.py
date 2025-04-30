@@ -7,7 +7,6 @@ import pandas as _pd
 from .. import format as _format
 import json as _json
 import itertools as _itertools
-import re as _re
 from ..utils import (
     wildcard_expansion_dict as _wildcard_expansion_dict,
     get_nested_function as _get_nested_function
@@ -15,7 +14,7 @@ from ..utils import (
 
 def dictionary(
     df: _pd.DataFrame,
-    input: _Union[str, _list],
+    input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
     default: dict = {}
 ) -> _pd.DataFrame:
@@ -32,6 +31,7 @@ def dictionary(
       input:
         type: 
           - string
+          - integer
           - array
         description: |-
           Name or lists of the column(s) containing dictionaries to be split.
@@ -105,7 +105,7 @@ def dictionary(
     return df
 
     
-def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataFrame:
+def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns.
@@ -115,7 +115,9 @@ def list(df: _pd.DataFrame, input: str, output: _Union[str, _list]) -> _pd.DataF
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - int
         description: Name of the column to be split
       output:
         type:
@@ -259,7 +261,7 @@ def text(
 
 def tokenize(
     df: _pd.DataFrame,
-    input: _Union[str, _list],
+    input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
     method: str = 'space',
     functions: dict = {}
@@ -276,6 +278,7 @@ def tokenize(
       input:
         type:
           - string
+          - integer
           - array
         description: Column(s) to be split into tokens
       output:
