@@ -138,11 +138,11 @@
       },
       "commonProperties": {
         "columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to include.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "not_columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "if": {
