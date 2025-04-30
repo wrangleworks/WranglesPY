@@ -719,3 +719,72 @@ class TestPositionInput:
             """
         )
         assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+
+    def test_position_index_as_string(self):
+        """
+        Test using a position index for input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - convert.case:
+                input: "0"
+                case: upper
+            """
+        )
+        assert df["header"][0] == "VALUE"
+
+    def test_numbered_columns(self):
+        """
+        Test that columns that have a number as their heading
+        are still correctly identified rather than being interpreted
+        as a position index
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    "2": value2
+                    "1": value1
+                    "0": value0
+            wrangles:
+            - select.columns:
+                input:
+                  - "0"
+                  - "1"
+                  - "2"
+            """
+        )
+        assert df.iloc[0].tolist() == ['value0', 'value1', 'value2']
+
+    def test_numbered_columns_position(self):
+        """
+        Test that columns that have a number as their heading
+        are still correctly identified rather than being interpreted
+        as a position index
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    "2": value2
+                    "1": value1
+                    "0": value0
+            wrangles:
+            - select.columns:
+                input:
+                  - 0
+                  - 1
+                  - 2
+            """
+        )
+        assert df.iloc[0].tolist() == ['value2', 'value1', 'value0']

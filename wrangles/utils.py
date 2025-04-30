@@ -237,40 +237,47 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         escaped_text = pattern.sub(lambda match: f"\\{match.group(0)}", text)
         return escaped_text
 
-    if not isinstance(selected_columns, list): selected_columns = [selected_columns]
+    if not isinstance(selected_columns, list):
+        selected_columns = [selected_columns]
 
     # Convert wildcards to regex pattern
-    for i in range(len(selected_columns)):
-        if isinstance(selected_columns[i], int):
-            if selected_columns[i] < 0 or selected_columns[i] >= len(all_columns):
-                raise ValueError(
-                    f"Column index {selected_columns[i]} is out of range. " +
-                    f"Must be between 0 and {len(all_columns)}"
-                )
-
-            # If the column is an integer, convert it to a string
-            selected_columns[i] = all_columns[selected_columns[i]]
+    for i, val in enumerate(selected_columns):
+        if val in all_columns:
+            # If the column is already in all_columns, skip it
             continue
 
         # Catch not syntax errors
-        if isinstance(selected_columns[i], list):
+        if isinstance(val, list):
             newline = '\n'
             raise ValueError(
                 "Column name is not formatted correctly. " + 
-                f"Got: {_yaml.dump(selected_columns[i]).strip(newline)}. " +
+                f"Got: {_yaml.dump(val).strip(newline)}. " +
                 "Did you mean to use '-column_name' without a space? "
             )
 
+        # If the column is an integer - a positional index
+        if isinstance(val, int) or _re.fullmatch(r"-?\d+", str(val)):
+            val = int(val)
+            if val < 0 or val >= len(all_columns):
+                raise ValueError(
+                    f"Column index {val} is out of range. " +
+                    f"Must be between 0 and {len(all_columns) - 1}"
+                )
+
+            # Get the name of the column at the index
+            selected_columns[i] = all_columns[val]
+            continue
+
         # If column contains * without escape
         if (
-            _re.search(r'[^\\]?\*', str(selected_columns[i])) and
-            not 'regex:' in str(selected_columns[i]).lower()
+            _re.search(r'[^\\]?\*', str(val)) and
+            not 'regex:' in str(val).lower()
         ):
             # Replace with a regex pattern and escape
             # other regex special characters
             selected_columns[i] = 'regex:' + _re.sub(
                 r'(?<!\\)\*', r'(.*)',
-                escape_except(selected_columns[i], ['*', '\\'])
+                escape_except(val, ['*', '\\'])
             )
 
     # Using a dict to preserve insert order.
@@ -289,6 +296,11 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
+        # If the column is already in all_columns, add it
+        if column in all_columns:
+            result_columns[column] = None
+            continue
+
         # Rearrange -regex: to regex:- to allow either to work
         if str(column).lower().startswith('-regex:'):
             column = "regex:-" + column[7:]
@@ -307,35 +319,37 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                 result_columns.update(dict.fromkeys(list(
                     filter(_re.compile(pattern).fullmatch, all_columns)
                 ))) # Read Note below
-        else:
-            if ":" in column:
-                # If the column contains a colon, check if it is slicing notation
-                slices = column.split(":")
-                if len(slices) <= 3 and all([_re.fullmatch(r"-?\d+|", idx) for idx in slices]):
-                    result_columns.update(
-                        dict.fromkeys(
-                            all_columns[slice(*[None if idx == "" else int(idx) for idx in slices])]
-                        )
-                    )
-                    continue
+            
+            continue
 
-            if column not in all_columns and str(column).startswith('-'):
-                # Columns prefixed with - indicate not to include them
-                result_columns.pop(column[1:], None)
+        if ":" in column:
+            # If the column contains a colon, check if it is slicing notation
+            slices = column.split(":")
+            if len(slices) <= 3 and all([_re.fullmatch(r"-?\d+|", idx) for idx in slices]):
+                result_columns.update(
+                    dict.fromkeys(
+                        all_columns[slice(*[None if idx == "" else int(idx) for idx in slices])]
+                    )
+                )
                 continue
 
-            # Check if a column is indicated as
-            # optional with column_name?
-            optional_column = False
-            if column[-1] == "?" and column not in all_columns:
-                column = column[:-1]
-                optional_column = True
+        if column not in all_columns and str(column).startswith('-'):
+            # Columns prefixed with - indicate not to include them
+            result_columns.pop(column[1:], None)
+            continue
 
-            if column in all_columns:
-                result_columns[column] = None
-            else:
-                if not optional_column:
-                    raise KeyError(f'Column {column} does not exist')
+        # Check if a column is indicated as
+        # optional with column_name?
+        optional_column = False
+        if column[-1] == "?" and column not in all_columns:
+            column = column[:-1]
+            optional_column = True
+
+        if column in all_columns:
+            result_columns[column] = None
+        else:
+            if not optional_column:
+                raise KeyError(f'Column {column} does not exist')
     
     # Return, preserving original order
     return list(result_columns.keys())
