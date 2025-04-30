@@ -34,7 +34,7 @@ from ..connectors.matrix import _define_permutations
 def accordion(
     df: _pd.DataFrame,
     wrangles: list,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
@@ -54,6 +54,7 @@ def accordion(
       input:
         type:
           - string
+          - integer
           - array
         description: >-
           The column(s) containing the list(s) that the
@@ -284,7 +285,7 @@ def batch(
 
 def classify(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     model_id: str,
     **kwargs
@@ -302,6 +303,7 @@ def classify(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -414,7 +416,9 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: Name of the dates column
       operation:
         type: string
@@ -479,7 +483,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 def filter(
     df: _pd.DataFrame,
-    input: _Union[str, list] = [],
+    input: _Union[str, int, list] = [],
     equal: _Union[str, list] = None,
     not_equal: _Union[str, list] = None,
     is_in: _Union[str, list] = None,
@@ -518,6 +522,7 @@ def filter(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name of the column to filter on.
@@ -656,7 +661,7 @@ def filter(
 
 def huggingface(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     api_token: str,
     model: str,
     output: _Union[str, list] = None,
@@ -673,6 +678,7 @@ def huggingface(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -823,7 +829,9 @@ def lookup(
       - model_id
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: Name of the column(s) to lookup.
       model_id:
         type: string
@@ -906,7 +914,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: |
           The mathematical expression using column names. e.g. column1 * column2
           + column3.  Note: spaces within column names are replaced by underscores (_).
@@ -988,7 +998,7 @@ def python(
     df: _pd.DataFrame,
     command: str,
     output: _Union[str, list],
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -1009,6 +1019,7 @@ def python(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name or list of input column(s) to filter the data available
@@ -1114,7 +1125,7 @@ def python(
 
 def recipe(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     name: str = None,
     variables = {},
@@ -1171,7 +1182,7 @@ def recipe(
 
 def remove_words(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     to_remove: str,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = False,
@@ -1189,6 +1200,7 @@ def remove_words(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of column to remove words from
       to_remove:
@@ -1231,7 +1243,7 @@ def remove_words(
 
 def rename(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     wrangles: list = None,
     **kwargs
@@ -1243,6 +1255,7 @@ def rename(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -1320,7 +1333,7 @@ def rename(
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -1333,6 +1346,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input column
       output:
@@ -1560,7 +1574,7 @@ def sql(
 
 def standardize(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     model_id: _Union[str, list],
     output: _Union[str, list] = None,
     case_sensitive: bool = False,
@@ -1575,6 +1589,7 @@ def standardize(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -1634,7 +1649,7 @@ def standardize(
 
 def translate(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     target_language: str,
     source_language: str = 'AUTO',
@@ -1653,6 +1668,7 @@ def translate(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column to translate
       output:

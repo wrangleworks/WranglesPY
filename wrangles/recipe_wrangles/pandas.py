@@ -5,7 +5,7 @@ from numpy import nan as _nan
 
 def copy(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
@@ -20,6 +20,7 @@ def copy(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input columns or columns
       output:
@@ -116,7 +117,7 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
     )
 
 
-def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
+def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Round column(s) to the specified decimals
@@ -127,6 +128,7 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column(s)
       output:
@@ -196,7 +198,7 @@ def reindex(
 
 def explode(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     reset_index: bool = True,
     drop_empty: bool = False,
     where = None
@@ -211,6 +213,7 @@ def explode(
         input:
           type:
             - string
+            - integer
             - array
           description: >-
             Name of the column(s) to explode. If multiple

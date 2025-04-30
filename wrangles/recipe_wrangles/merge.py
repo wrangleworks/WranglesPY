@@ -23,6 +23,7 @@ def coalesce(
         type:
           - array
           - string
+          - integer
         description: List of input columns or a single column containing lists
       output:
         type: string
@@ -55,7 +56,7 @@ def coalesce(
 
 def concatenate(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: str,
     char: str = ',',
     skip_empty: bool = False
@@ -73,6 +74,7 @@ def concatenate(
         type: 
           - array
           - string
+          - integer
         description: Either a single column name or list of columns
       output:
         type: string
@@ -246,6 +248,7 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type:
           - array
           - string
+          - integer
         description: List of input columns
       output:
         type: string
@@ -297,6 +300,7 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type:
           - array
           - string
+          - integer
         description: List of input columns
       output:
         type: string
