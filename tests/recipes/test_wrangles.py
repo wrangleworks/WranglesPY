@@ -526,3 +526,196 @@ class TestPositionInput:
             """
         )
         assert df["header1"][0] == "VALUE1" and df["header2"][0] == "VALUE2"
+
+    def test_position_index_slice(self):
+        """
+        Test using slicing for input
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input: "0:2"
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+
+    def test_position_index_slice_empty_start(self):
+        """
+        Test using slicing for input like ":2"
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input: ":2"
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+
+    def test_position_index_slice_empty_end(self):
+        """
+        Test using slicing for input like "1:"
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input: "2:"
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['value1', 'value2', 'VALUE3']
+
+    def test_position_index_slice_step(self):
+        """
+        Test using slicing with a step
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input: "::2"
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'value2', 'VALUE3']
+
+    def test_position_index_list_slice(self):
+        """
+        Test using slicing in a list with other inputs
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                    header4: value4
+            wrangles:
+            - convert.case:
+                input:
+                  - ":2"
+                  - header4
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3', 'VALUE4']
+
+    def test_position_index_slice_negative_step(self):
+        """
+        Test using slicing with a negative step to reverse the order
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - select.columns:
+                input: "::-1"
+            """
+        )
+        assert df.columns.tolist() == ['header3', 'header2', 'header1']
+
+    def test_position_index_slice_last_n(self):
+        """
+        Test using slicing to get the last n columns
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - select.columns:
+                input: "-2:"
+            """
+        )
+        assert df.columns.tolist() == ['header2', 'header3']
+
+    def test_position_index_slice_bad_syntax(self):
+        """
+        Test using slicing that doesn't wrap
+        in quotes - interpreted as a dict in YAML
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input: 0:2
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+
+    def test_position_index_slice_bad_syntax_list(self):
+        """
+        Test using slicing that doesn't wrap
+        in quotes - interpreted as a dict in YAML
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+            wrangles:
+            - convert.case:
+                input:
+                  - 0:2
+                case: upper
+            """
+        )
+        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']

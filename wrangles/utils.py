@@ -277,7 +277,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     # Order is preserved for Dictionaries from Python 3.7+
     if (
         all([str(column).startswith('-') for column in selected_columns]) and
-        not any([col in all_columns for col in selected_columns])
+        not any([col in all_columns for col in selected_columns]) and
+        not any([":" in col for col in selected_columns])
     ):
         # If all selected columns are not columns then
         # initialize with all columns
@@ -307,6 +308,17 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                     filter(_re.compile(pattern).fullmatch, all_columns)
                 ))) # Read Note below
         else:
+            if ":" in column:
+                # If the column contains a colon, check if it is slicing notation
+                slices = column.split(":")
+                if len(slices) <= 3 and all([_re.fullmatch(r"-?\d+|", idx) for idx in slices]):
+                    result_columns.update(
+                        dict.fromkeys(
+                            all_columns[slice(*[None if idx == "" else int(idx) for idx in slices])]
+                        )
+                    )
+                    continue
+
             if column not in all_columns and str(column).startswith('-'):
                 # Columns prefixed with - indicate not to include them
                 result_columns.pop(column[1:], None)
