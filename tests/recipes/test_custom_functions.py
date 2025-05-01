@@ -1838,3 +1838,123 @@ def test_position_and_named_args():
         functions=my_sum
     )
     assert df['sum'][0] == 6
+
+def test_positional_and_kwargs():
+    """
+    Test using positional args with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, **kwargs):
+        return ([arg1, arg2], kwargs)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_dict
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_dict'][0] == {'col3': 3, 'col4': 4}
+    )
+
+def test_positional_named_and_kwargs():
+    """
+    Test using positional args with a named column and with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, col3, **kwargs):
+        return ([arg1, arg2], kwargs)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_dict
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_dict'][0] == {'col4': 4}
+    )
+
+def test_positional_and_named_column():
+    """
+    Test using positional args with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, col3):
+        return ([arg1, arg2], col3)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_scalar'][0] == 3
+    )
+
+def test_positional_and_named_column_extras():
+    """
+    Test using positional args and named args with the named
+    arg being first
+    """
+    def my_func(arg1, arg2, col1):
+        return ([arg1, arg2], col1)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [2, 3] and
+        df['result_scalar'][0] == 1
+    )
