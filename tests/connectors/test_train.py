@@ -360,15 +360,33 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
 
-    def test_lookup_write_duplicates(self):
+    def test_key_lookup_write_duplicates(self):
         """
         Test the error when attempting to train a lookup with duplicate keys
+        """
+        with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.lookup:
+                      name: This is Temporary
+                      variant: key
+                """,
+                dataframe=pd.DataFrame({
+                  'Key': ['Rachel', 'Rachel', 'Dolores', 'TARS'],
+                  'Value': ['Blade Runner', 'Not Rachel', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_semantic_lookup_write_duplicates(self):
+        """
+        Test that semantic lookups are allowed to have duplicate keys
         """
         recipe = """
         write:
           - train.lookup:
               name: This is Temporary
-              variant: key
+              variant: semantic
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Rachel', 'Dolores', 'TARS'],
