@@ -385,8 +385,7 @@ class TestTrainLookup:
         recipe = """
         write:
           - train.lookup:
-              name: This is Temporary
-              variant: semantic
+              model_id: e8658a6f-c694-45d0
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Rachel', 'Dolores', 'TARS'],
