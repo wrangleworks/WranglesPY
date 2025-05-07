@@ -248,6 +248,10 @@ class lookup():
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
         
+        # Read in variant if there is a model_id
+        if model_id:
+            content = _data.model_content(model_id)
+            variant = content['Settings']['variant']
       
         if variant == 'semantic':
             variant = 'embedding'
