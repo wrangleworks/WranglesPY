@@ -250,8 +250,8 @@ class lookup():
         
         # Read in variant if there is a model_id
         if model_id:
-            content = _data.model_content(model_id)
-            variant = content['Settings']['variant']
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
       
         if variant == 'semantic':
             variant = 'embedding'
