@@ -1,6 +1,7 @@
 """
 Send notifications to a varity of services
 """
+import time as _time
 from typing import Union as _Union
 from ..utils import LazyLoader as _LazyLoader
 
@@ -24,13 +25,24 @@ def run(
     :param body: The body of the notification
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
-    app_object = _apprise.Apprise()
-    app_object.add(url)
-    app_object.notify(
-       body,
-       title,
-       attach=attachment
-    )
+    retries = 2
+    backoff_time = 1
+    while (retries + 1):
+        try:
+            app_object = _apprise.Apprise()
+            app_object.add(url)
+            app_object.notify(
+              body,
+              title,
+              attach=attachment
+            )
+        except Exception as e:
+            if retries == 0:
+                return e
+
+        retries -=1
+        _time.sleep(backoff_time)
+        backoff_time *= 2
 
 _schema['run'] = """
 type: object
@@ -115,9 +127,20 @@ class telegram():
     :param body: The body of the message
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
-    url = f"tgram://{bot_token}/{chat_id}/"
-    run(url, title, body, attachment)
+    retries = 2
+    backoff_time = 1
+    while (retries + 1):
+        try:
+            url = f"tgram://{bot_token}/{chat_id}/"
+            run(url, title, body, attachment)
 
+        except Exception as e:
+            if retries == 0:
+                return e
+
+        retries -=1
+        _time.sleep(backoff_time)
+        backoff_time *= 2
 
 class email():
   """
@@ -236,7 +259,19 @@ class email():
         if isinstance(bcc, str): bcc = [bcc]
         url = url + f"&bcc={','.join(bcc)}".replace('@', '%40')
 
-    run(url, subject, body, attachment)
+    retries = 2
+    backoff_time = 1
+    while (retries + 1):
+        try:
+            run(url, subject, body, attachment)
+
+        except Exception as e:
+            if retries == 0:
+                return e
+
+        retries -=1
+        _time.sleep(backoff_time)
+        backoff_time *= 2
     
     
 class slack():
@@ -280,5 +315,16 @@ class slack():
   ):
       # Apprise supports this Slack Webhook as-is (as of v0.7.7); 
       # you no longer need to parse the URL any further
-      run(web_hook, title, message, attachment)
-      
+    retries = 2
+    backoff_time = 1
+    while (retries + 1):
+        try:
+            run(web_hook, title, message, attachment)
+
+        except Exception as e:
+            if retries == 0:
+                return e
+
+        retries -=1
+        _time.sleep(backoff_time)
+        backoff_time *= 2
