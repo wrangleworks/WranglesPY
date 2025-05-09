@@ -256,8 +256,7 @@ class lookup():
         if variant == 'semantic':
             variant = 'embedding'
 
-        if 'variant' not in settings.keys():
-            settings['variant'] = variant
+        settings['variant'] = variant
 
         _train.lookup(
             {
