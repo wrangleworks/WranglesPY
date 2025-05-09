@@ -120,8 +120,9 @@ class train():
                 # Check that all keys are unique
                 key_index = data['Columns'].index('Key')
 
-                number_keys = len([row[key_index] for row in data['Data']])
-                without_duplicates = len(set([row[key_index] for row in data['Data']]))
+                keys = [row[key_index] for row in data['Data']]
+                number_keys = len(keys)
+                without_duplicates = len(set(keys))
                 if number_keys != without_duplicates:
                     raise ValueError("Lookup: All Keys must be unique")
             
