@@ -1,9 +1,11 @@
-
+from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import wildcard_expansion_dict as _wildcard_expansion_dict
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 from openpyxl.worksheet.table import Table, TableStyleInfo
 import math
+import re as _re
 
 
 
@@ -35,10 +37,12 @@ format:
     """
 
 # What about conditional formatting?
+# Going to plan on using wrangles to create a column, then using that column as the condition
 
 # What about the ability to freeze panes?
 
-# What about striping or whatever Chris called it?
+# What about banding or whatever Chris called it?
+# See above about using wrangles to create a column, then using that column as the condition
 
 # Add font, but cell based, row based, column based, sheet based, or all of it?
 
@@ -122,6 +126,44 @@ def convert_worksheets_to_tables(
     ws = wb.worksheets[0]
 
     columns = [cell.value for cell in ws[ws.min_row]]
+
+
+    # Split inputs on comma, but not on escaped commas
+    # new_data = {}
+    # for key, value in column_settings.items():
+    #     # If the key contains an unescaped comma, we want to split it
+    #     if ',' in key:
+    #         # Split on unescaped commas
+    #         parts = _re.split(r'(?<!\\),', key)
+    #         # Clean up escaped commas
+    #         parts = [p.replace('\\,', ',').strip() for p in parts]
+    #         if len(parts) > 1:
+    #             for part in parts:
+    #                 new_data[part] = value
+    #         else:
+    #             new_data[key] = value
+    #     else:
+    #         new_data[key] = value
+
+    # new_cols = []
+    # for col in columns:
+    #     new_cols.append(_re.split(r'(?<!\\),', col))
+
+    wild_card_columns = [col for col in column_settings.keys() if col.endswith('*')]
+
+    if wild_card_columns:
+        for col in wild_card_columns:
+            columns_to_expand = _wildcard_expansion(
+                            all_columns=columns,
+                            selected_columns=[col]
+                        )
+            for other_col in columns_to_expand:
+                column_settings[other_col]= column_settings[col]
+        
+
+    print()
+
+
 
     # Handle columns that are missing from column_settings
     unspecified_columns = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]
@@ -364,7 +406,7 @@ def convert_worksheets_to_tables(
     grouping_columns = [
         (c_name, column_map[c_name][0])
         for c_name, cfg in column_settings.items()
-        if c_name in column_map and cfg.get("group_on", False)
+        if c_name in column_map and cfg.get("group_on", True)
     ]
     if grouping_columns:
         grouping_columns.sort(key=lambda x: x[1])

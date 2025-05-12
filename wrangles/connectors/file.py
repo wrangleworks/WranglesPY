@@ -125,7 +125,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, format: dict = None, **kwargs) -> None:
+def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -170,13 +170,13 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # Write an Excel file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
-        if format:
+        if formatting:
             # Write to memory buffer and pass through to formatting function
             buffer = _io.BytesIO()
             with _pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False)
             buffer.seek(0)
-            _convert_worksheets_to_tables(file_name=file_object, column_settings=format, buffer=buffer)
+            _convert_worksheets_to_tables(file_name=file_object, column_settings=formatting, buffer=buffer)
             
         else:
             df.to_excel(file_object, **kwargs)
