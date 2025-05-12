@@ -2,7 +2,6 @@
 Send notifications to a varity of services
 """
 import time as _time
-from smtplib import SMTPServerDisconnected
 from typing import Union as _Union
 from ..utils import LazyLoader as _LazyLoader
 
