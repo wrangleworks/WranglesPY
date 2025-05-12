@@ -176,7 +176,8 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
             with _pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False)
             buffer.seek(0)
-            _convert_worksheets_to_tables(file_name=file_object, column_settings=formatting, buffer=buffer)
+            other_params = {k: v for k, v in formatting.items() if k not in ['columns']}
+            _convert_worksheets_to_tables(file_name=file_object, column_settings=formatting['columns'], buffer=buffer, kwargs=other_params)
             
         else:
             df.to_excel(file_object, **kwargs)
