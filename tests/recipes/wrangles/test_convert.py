@@ -155,15 +155,33 @@ class TestConvertCase:
         """
         Test converting to sentence case
         """
-        data = pd.DataFrame([['A StRiNg', 'Another String']], columns=['Data1', 'Data2'])
+        data = pd.DataFrame({
+            'Data': ["will this be capitalized correctly? i'm not so sure! probably not... but maybe", 'i LOST! mY 13.5mm WRENCH.']
+        })
         recipe = """
         wrangles:
         - convert.case:
-            input: Data1
+            input: Data
+            output: output data
             case: sentence
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Data1'] == 'A string'
+        assert df.iloc[0]['output data'] == "Will this be capitalized correctly? I'm not so sure! Probably not... But maybe" and df.iloc[1]['output data'] == 'I lost! My 13.5mm wrench.'
+
+    def test_list_sentence(self):
+        """
+        Test converting case with a list of strings
+        """
+        data = pd.DataFrame({'Data': [['a StRiNg.', ' YET another StRiNg.', '   a THIRD STring.']]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: output data
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output data'] == ['a StRiNg.', ' YET another StRiNg.', '   a THIRD STring.']
 
     def test_where(self):
         """

@@ -11,7 +11,7 @@ from .. import data as _data
 
 def address(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     dataType: str,
     **kwargs
@@ -26,6 +26,7 @@ def address(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -75,7 +76,7 @@ def ai(
     df: _pd.DataFrame,
     api_key: str,
     input: list = None,
-    output: dict = None,
+    output: _Union[dict, str, list] = None,
     model_id: str = None,
     **kwargs
 ):
@@ -90,6 +91,7 @@ def ai(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name or list of input columns to give to the AI
@@ -137,7 +139,7 @@ def ai(
         description: API Key for the model
       model:
         type: string
-        description: The name of the model
+        description: The name of the AI model to use
       threads:
         type: integer
         description: The number of requests to send in parallel
@@ -159,6 +161,9 @@ def ai(
           - string
           - array
         description: Optional. Provide additional overall instructions for the AI.
+      model_id:
+        type: string
+        description: Use a saved definition from an extract ai wrangle.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
@@ -259,7 +264,7 @@ def ai(
 
 def attributes(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     responseContent: str = 'span',
     attribute_type: str = None,
@@ -277,6 +282,7 @@ def attributes(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -369,7 +375,7 @@ def attributes(
 
 def brackets(
     df: _pd.DataFrame, 
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     find: _Union[str, list] = 'all',
     include_brackets: bool = False
@@ -385,6 +391,7 @@ def brackets(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -434,7 +441,7 @@ def brackets(
 
 def codes(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     **kwargs
 ) -> _pd.DataFrame:
@@ -448,6 +455,7 @@ def codes(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -485,7 +493,7 @@ def codes(
 
 def custom(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     model_id: _Union[str, list],
     output: _Union[str, list] = None,
     use_labels: bool = False,
@@ -505,6 +513,7 @@ def custom(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -597,6 +606,7 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -768,7 +778,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
 
 def html(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     data_type: str,
     output: _Union[str, list] = None,
     **kwargs
@@ -784,6 +794,7 @@ def html(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -822,7 +833,7 @@ def html(
 
 def properties(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     property_type: str = None,
     return_data_type: str = 'list',
@@ -838,6 +849,7 @@ def properties(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -891,7 +903,7 @@ def properties(
     return df
 
 
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
+def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
     r"""
     type: object
     description: Extract matches or specific capture groups using regex
@@ -904,6 +916,7 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column(s).
       output:

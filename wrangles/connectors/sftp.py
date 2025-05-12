@@ -4,12 +4,14 @@ Import a file from an SFTP server
 Supports Excel, CSV, JSON and JSONL files.
 """
 from typing import Union as _Union
-import fabric as _fabric
 import pandas as _pd
 import io as _io
 import logging as _logging
 from . import file as _file
+from ..utils import LazyLoader as _LazyLoader
 
+# Lazy load external dependencies
+_fabric = _LazyLoader('fabric')
 
 _schema = {}
 

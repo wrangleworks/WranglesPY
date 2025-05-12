@@ -4,13 +4,13 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
-try:
-  import pymssql as _pymssql
-except ImportError:
-    _pymssql = None
-
+# Lazy load external dependency
+_pymssql = _LazyLoader('pymssql')
 
 _schema = {}
 
@@ -32,9 +32,6 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    if _pymssql is None:
-       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
-
     _logging.info(f": Reading data from MSSQL :: {host} / {database}")
 
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
@@ -106,10 +103,7 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param action: Only INSERT is supported at this time, defaults to INSERT
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
-    """
-    if _pymssql is None:
-       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
-    
+    """    
     _logging.info(f": Writing data to MSSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
@@ -173,11 +167,7 @@ def run(host: str, user: str, password: str, command: _Union[str, list], params:
     :param password: Password of user
     :param command: SQL command or a list of SQL commands to execute
     :param params: Variables to pass to a parameterized query.
-    """
-
-    if _pymssql is None:
-       raise ImportError("The 'pymssql' module is not installed. Please install it using 'pip install pymssql'.")
-    
+    """    
     _logging.info(f": Executing MSSQL Command :: {host}")
 
     # If user has provided a single command, convert to a list of one.

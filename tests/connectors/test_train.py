@@ -116,11 +116,11 @@ def test_classify_read_four_cols_error(mocker):
         )
 
 
-class TrainExtractTests:
+class TestTrainExtract:
     """
     All tests for training extract wrangles
     """
-    def test_extract_read():
+    def test_extract_read(self):
         """
         Read extract wrangle data
         """
@@ -132,7 +132,28 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe)
         assert len(df) == 3
 
-    def test_extract_write():
+    def test_extract_write_backwards_compatible(self):
+        """
+        Writing data to a wrangle using backwards compatibility
+        """
+        recipe = """
+        write:
+        - train.extract:
+            columns:
+              - Entity to Find
+              - Variation (Optional)
+              - Notes
+            model_id: ee5f020e-d88e-4bd5
+        """
+        data = pd.DataFrame({
+            'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
+            'Variation (Optional)': ['', '', ''],
+            'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Entity to Find'] == 'Rachel'
+
+    def test_extract_write(self):
         """
         Writing data to a wrangle (re-training)
         """
@@ -153,7 +174,7 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Rachel'
 
-    def test_extract_ai_write():
+    def test_extract_ai_write(self):
         """
         Writing data to a wrangle (re-training)
         """
@@ -161,7 +182,6 @@ class TrainExtractTests:
         write:
         - train.extract:
             model_id: d188e7a7-9de8-4565
-            variant: ai
         """
         data = pd.DataFrame({
             'Find': ['Finish', 'Length', 'Product Type'],
@@ -175,29 +195,7 @@ class TrainExtractTests:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Finish'
 
-    def test_extract_ai_write_no_variant():
-        """
-        Writing data to an extract.ai wrangle without specifying the variant
-        """
-        with pytest.raises(ValueError, match="must be provided for train.extract."):
-            wrangles.recipe.run(
-                """
-                write:
-                - train.extract:
-                    model_id: d188e7a7-9de8-4565
-                """,
-                dataframe=pd.DataFrame({
-                    'Find': ['Finish', 'Length', 'Product Type'],
-                    'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
-                    'Type': ['string', 'string', 'string'],
-                    'Default': ['None', 'None', 'None'],
-                    'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
-                    'Enum': [[], [], []],
-                    'Notes': ['Notes here', 'and here', 'and also here']
-                })
-            )
-
-    def test_extract_ai_write_name_and_model_id():
+    def test_extract_ai_write_name_and_model_id(self):
         """
         Writing data to an extract.ai wrangle with both name and model_id
         """
@@ -220,7 +218,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_ai_write_wrong_variant():
+    def test_extract_ai_write_wrong_variant(self):
         """
         Writing data to an extract.ai wrangle with the wrong variant
         """
@@ -229,7 +227,7 @@ class TrainExtractTests:
                 """
                 write:
                 - train.extract:
-                    model_id: d188e7a7-9de8-4565
+                    name: My Wrangle
                     variant: WRONG
                 """,
                 dataframe=pd.DataFrame({
@@ -243,7 +241,30 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_ai_write_wrong_columns():
+    def test_extract_ai_write_model_and_variant(self):
+        """
+        Writing data to an extract.ai wrangle with a model id and a variant
+        """
+        with pytest.raises(ValueError, match="It is not possible to set the variant of an existing model"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    model_id: d188e7a7-9de8-4565
+                    variant: ai
+                """,
+                dataframe=pd.DataFrame({
+                    'Find': ['Finish', 'Length', 'Product Type'],
+                    'Description': ['The finish of the product', 'The length of the item in inches', 'The type of product'],
+                    'Type': ['string', 'string', 'string'],
+                    'Default': ['None', 'None', 'None'],
+                    'Examples': [['Chrome', 'Matte', 'Gloss'], ['12', '24', '36'], ['Furniture', 'Electronics', 'Clothing']],
+                    'Enum': [[], [], []],
+                    'Notes': ['Notes here', 'and here', 'and also here']
+                })
+            )
+
+    def test_extract_ai_write_wrong_columns(self):
         """
         Writing data to an extract.ai wrangle with the wrong variant
         """
@@ -253,7 +274,6 @@ class TrainExtractTests:
                 write:
                 - train.extract:
                     model_id: d188e7a7-9de8-4565
-                    variant: ai
                 """,
                 dataframe=pd.DataFrame({
                     'Default': ['None', 'None', 'None'],
@@ -263,9 +283,9 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_write_2():
+    def test_extract_write_2(self):
         """
-        Incorrect columns for extract read
+        Incorrect columns for extract write
         """
         with pytest.raises(ValueError, match="must be provided for train.extract"):
             wrangles.recipe.run(
@@ -285,7 +305,7 @@ class TrainExtractTests:
                 })
             )
 
-    def test_extract_error():
+    def test_extract_error(self):
         """
         Not Providing model_id or name in train wrangles
         """

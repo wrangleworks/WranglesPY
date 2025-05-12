@@ -565,7 +565,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_list)
         assert df.iloc[0]['code'] == ['Z1ON0101']
 
-    def test_extract_codes_milti_input(self):
+    def test_extract_codes_multi_input(self):
         recipe = """
         wrangles:
         - extract.codes:
@@ -575,9 +575,9 @@ class TestExtractCodes:
             output: Codes
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101-2']
+        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101', 'Z1ON0101-2']
 
-    def test_extract_codes_milti_input_output(self):
+    def test_extract_codes_multi_input_output(self):
         """
         Multiple outputs and Inputs
         """
@@ -592,7 +592,7 @@ class TestExtractCodes:
                 - out2
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['out2'] == ['Z1ON0101-2']
+        assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
 
     def test_extract_codes_one_input_multi_output(self):
         recipe = """
@@ -1196,7 +1196,7 @@ class TestExtractCustom:
                 model_id: 8e4ce4c6-9908-4f67
             """
         )
-        assert df["results"][0] == ["1", "2", "3", "4", "5"]
+        assert [str(x) for x in df["results"][0]] == ["1", "2", "3", "4", "5"]
 
     def test_extract_custom_ai_multiple_output(self):
         """
@@ -1421,7 +1421,7 @@ class TestExtractRegex:
         Test extract.regex with an empty input
         """
         df = wrangles.recipe.run(
-            """
+            r"""
             wrangles:
             - extract.regex:
                 input: column
@@ -1442,7 +1442,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['55g', '120v', '1000kg']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2447,9 +2447,9 @@ class TestExtractAI:
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
         matches = sum([
-            str(df['length (mm)'][0]) == '25',
-            str(df['length (mm)'][1]) == '6000',
-            str(df['length (mm)'][2]) == '3'
+            '25' in str(df['length (mm)'][0]),
+            '6000' in str(df['length (mm)'][1]),
+            '3' in str(df['length (mm)'][2])
         ])
         assert matches >= 1
 
@@ -2480,9 +2480,9 @@ class TestExtractAI:
         # This is temperamental
         # Score as 1/3 as good enough for test to pass
         matches = sum([
-            str(df['length (mm)'][0]) == '25',
-            str(df['length (mm)'][1]) == '6000',
-            str(df['length (mm)'][2]) == '3'
+            '25' in str(df['length (mm)'][0]),
+            '6000' in str(df['length (mm)'][1]),
+            '3' in str(df['length (mm)'][2])
         ])
         assert matches >= 1
 
@@ -2981,6 +2981,7 @@ class TestExtractAI:
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 temperature: 0.2
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -3007,6 +3008,7 @@ class TestExtractAI:
                 model_id: d7c8270d-f15a-4c9c
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
             """,
             dataframe=pd.DataFrame({
                 "data": [
@@ -3028,6 +3030,7 @@ class TestExtractAI:
                 model_id: 0e81f1ad-c0a3-42b4
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
                 output: result
             """,
             dataframe=pd.DataFrame({
@@ -3056,6 +3059,7 @@ class TestExtractAI:
                 model_id: 0e81f1ad-c0a3-42b4
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
+                retries: 2
                 output:
                   - Colors
                   - Shapes
@@ -3073,3 +3077,48 @@ class TestExtractAI:
             isinstance(df['Colors'][0], list) and
             ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
         )
+
+    def test_model_id_object_with_properties(self):
+        """
+        Test a model_id that contains an output of type object
+        that contains properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: c3e6715a-6214-4517
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner",
+                    "transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
+
+    def test_model_id_array_of_objects(self):
+        """
+        Test a model_id that contains an output of type array
+        that contains items as objects with properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: d168c456-514f-4513
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner + transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]

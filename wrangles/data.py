@@ -44,16 +44,20 @@ def model(id: str):
         raise RuntimeError(f'Something went wrong trying to access model {id}')
 
 
-def model_content(id: str) -> list:
+def model_content(id: str, version_id: str = None) -> list:
     """
     Get the training data for a model
 
     :param id: Model ID
+    :param version_id: (Optional) Version ID. If not provided, the latest version will be used.
     :return: Model data with Settings, Columns and Data as a 2D array
     """
     response = _requests.get(
         f'{_config.api_host}/model/content',
-        params = {'model_id': id},
+        params = {
+            **{'model_id': id},
+            **({'version_id': version_id} if version_id else {})
+        },
         headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
     )
     if response.ok:
