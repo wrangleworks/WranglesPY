@@ -47,6 +47,9 @@ format:
 # Add font, but cell based, row based, column based, sheet based, or all of it?
 
 
+###### Going to need to think about the hierarchy of formatting. You don't want to format specific
+###### cells first, only to have that overwritten by banding or something less specific. ######
+
 
 
 
@@ -58,7 +61,8 @@ def convert_worksheets_to_tables(
     file_name,
     column_settings,
     buffer,
-    max_row_height=60
+    max_row_height=60,
+    kwargs=None
 ):
     """
     Convert each worksheet in the given workbook into a formatted table, **without** any filtering logic.
@@ -403,27 +407,37 @@ def convert_worksheets_to_tables(
         ws.freeze_panes = freeze_pane_cell
 
     # 9) Row banding if group_on=True
-    grouping_columns = [
-        (c_name, column_map[c_name][0])
-        for c_name, cfg in column_settings.items()
-        if c_name in column_map and cfg.get("group_on", True)
-    ]
-    if grouping_columns:
-        grouping_columns.sort(key=lambda x: x[1])
+    if kwargs.get('banding', False):
+        grouping_columns = [
+            (c_name, column_map[c_name][0])
+            for c_name, cfg in column_settings.items()
+            if c_name in column_map and cfg.get("group_on", True)
+        ]
+        if grouping_columns:
+            grouping_columns.sort(key=lambda x: x[1])
 
-        def get_group_key(r):
-            return tuple(ws.cell(row=r, column=col_idx).value for (_, col_idx) in grouping_columns)
+            def get_group_key(r):
+                return tuple(ws.cell(row=r, column=col_idx).value for (_, col_idx) in grouping_columns)
 
-        current_key = None
-        current_fill = fill1
-        for row_idx in range(min_row + 1, max_row + 1):
-            row_key = get_group_key(row_idx)
-            if row_key != current_key:
-                current_fill = fill2 if current_fill == fill1 else fill1 ######## Fill1 and fill2 are used for banding, currently hardcoded but we can make that a parameter ########
-                current_key = row_key
+            current_key = None
+            current_fill = fill1
+            for row_idx in range(min_row + 1, max_row + 1):
+                row_key = get_group_key(row_idx)
+                if row_key != current_key:
+                    ###### Use this for conditional formatting/banding ########
+                    # col_idx = headers.index(target_col) + 1  # openpyxl uses 1-based indexing
 
-            for col_i in range(min_col, max_col + 1):
-                ws.cell(row=row_idx, column=col_i).fill = current_fill
+                    # # 3. Extract all values from that column (excluding the header row)
+                    # column_values = [ws.cell(row=row, column=col_idx).value for row in range(2, ws.max_row + 1)]
+
+                    # [i for i, val in enumerate(my_list) if val] 
+                    ######## Should be able to use the above to get a list of row indexes, then format/band from there ########
+                    
+                    current_fill = fill2 if current_fill == fill1 else fill1 ######## Fill1 and fill2 are used for banding, currently hardcoded but we can make that a parameter ########
+                    current_key = row_key
+
+                for col_i in range(min_col, max_col + 1):
+                    ws.cell(row=row_idx, column=col_i).fill = current_fill
 
     # Finally, save the changes
     wb.save(file_name)
