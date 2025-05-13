@@ -492,3 +492,26 @@ class TestCompareTest:
             df['output'][1] == '' and
             df['output'][2] == 'Normal Blue Plastic'
         )
+
+    def test_compare_text_where_empty_values(self):
+        """
+        Test Compare Text with empty dataframe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - compare.text:
+                input:
+                - col1
+                - col2
+                output: output
+                method: difference
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [],
+                'col2': [],
+                'col3': []
+            }),
+        )
+        
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'col3', 'output']

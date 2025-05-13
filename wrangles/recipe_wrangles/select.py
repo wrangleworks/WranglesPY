@@ -9,7 +9,7 @@ import pandas as _pd
 from .. import select as _select
 from ..utils import get_nested_function as _get_nested_function
 
-def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
+def columns(df: _pd.DataFrame, input: _Union[str, int, list]) -> _pd.DataFrame:
     """
     type: object
     description: Select columns from the dataframe
@@ -20,6 +20,7 @@ def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to select
     """
@@ -32,7 +33,7 @@ def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
 
 def dictionary_element(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     element: str,
     output: _Union[str, list] = None,
     default: any = ''
@@ -48,6 +49,7 @@ def dictionary_element(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -96,7 +98,7 @@ def dictionary_element(
 
 def element(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     default: any = None
 ) -> _pd.DataFrame:
@@ -112,6 +114,7 @@ def element(
       input:
         type: 
           - string
+          - integer
           - array
         description: >-
           Name of the input column and sub elements
@@ -458,7 +461,7 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list])
 
 def left(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     length: int,
     output: _Union[str, list] = None
 ) -> _pd.DataFrame:
@@ -475,6 +478,7 @@ def left(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -492,6 +496,10 @@ def left(
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
@@ -525,9 +533,46 @@ def left(
     return df
 
 
+def length(
+  df: _pd.DataFrame,
+  input: _Union[str, int, list],
+  output: _Union[str, list] = None,
+):
+  """
+  type: object
+  description: >-
+    Calculate the lengths of data in a column.
+    The length depends on the data type
+    e.g. text will be the length of the text,
+    lists will be the number of elements in the list.
+  required:
+    - input
+  properties:
+    input:
+      type:
+        - string
+        - integer
+        - array
+      description: Name of the input column(s).
+    output:
+      type:
+        - string
+        - array
+      description: Name of the output column(s).
+  """
+  if not output: output = input
+  if not isinstance(output, list): output = [output]
+  if not isinstance(input, list): input = [input]
+
+  for input_col, output_col in zip(input, output):
+    df[output_col] = [len(item) for item in df[input_col].values]
+
+  return df
+
+
 def list_element(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     element: int = 0,
     default: any = ''
@@ -543,6 +588,7 @@ def list_element(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -584,7 +630,7 @@ def list_element(
 
 def right(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     length: int,
     output: _Union[str, list] = None
 ) -> _pd.DataFrame:
@@ -601,6 +647,7 @@ def right(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -618,6 +665,10 @@ def right(
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
@@ -689,7 +740,7 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
         return df.sample(frac=rows, ignore_index=True, **kwargs)
 
 
-def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
+def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Return characters from the middle of text.
@@ -702,6 +753,7 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -725,6 +777,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]

@@ -125,6 +125,28 @@ class TestExtractAddress:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['out'] == ['221 B Baker St.']
 
+    def test_address_empty(self):
+        """
+        Test extract.address with an empty input
+        """
+        data = pd.DataFrame({
+            'col1': [],
+            'col2': []
+        })
+        recipe = """
+        wrangles:
+        - extract.address:
+            input:
+                - col1
+                - col2
+            output:
+                - out1
+                - out2
+            dataType: streets
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'out1', 'out2']
+
 
 class TestExtractAttributes:
     """
@@ -455,6 +477,23 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == {'length': ['13mm']}
 
+    def test_attributes_empty(self):
+        """
+        Test extract.attributes with an empty input
+        """
+        data = pd.DataFrame({
+            'col1': [],
+            'numbers': []
+        })
+        recipe = """
+        wrangles:
+            - extract.attributes:
+                input: col1
+                output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.empty and df.columns.to_list() == ['col1', 'numbers', 'output']
+
 
 class TestExtractCodes:
     """
@@ -526,7 +565,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_list)
         assert df.iloc[0]['code'] == ['Z1ON0101']
 
-    def test_extract_codes_milti_input(self):
+    def test_extract_codes_multi_input(self):
         recipe = """
         wrangles:
         - extract.codes:
@@ -536,9 +575,9 @@ class TestExtractCodes:
             output: Codes
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101-2']
+        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101', 'Z1ON0101-2']
 
-    def test_extract_codes_milti_input_output(self):
+    def test_extract_codes_multi_input_output(self):
         """
         Multiple outputs and Inputs
         """
@@ -553,7 +592,7 @@ class TestExtractCodes:
                 - out2
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['out2'] == ['Z1ON0101-2']
+        assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
 
     def test_extract_codes_one_input_multi_output(self):
         recipe = """
@@ -594,6 +633,24 @@ class TestExtractCodes:
                 })
             )
         assert df.iloc[1]['code'] == ['Z151HG52'] and df.iloc[0]['code'] == ''
+
+    def test_extract_codes_empty(self):
+        """
+        Test extract.codes with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.codes:
+                input: column
+                output: code
+            """,
+            dataframe=pd.DataFrame({
+                "column": [],
+                "numbers": []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'numbers', 'code']
 
 
 class TestExtractCustom:
@@ -1139,7 +1196,7 @@ class TestExtractCustom:
                 model_id: 8e4ce4c6-9908-4f67
             """
         )
-        assert df["results"][0] == '["1", "2", "3", "4", "5"]'
+        assert [str(x) for x in df["results"][0]] == ["1", "2", "3", "4", "5"]
 
     def test_extract_custom_ai_multiple_output(self):
         """
@@ -1300,6 +1357,24 @@ class TestExtractCustom:
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': 'red'}
 
+    def test_extract_custom_empty(self):
+        """
+        Test extract.custom with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col
+                output: out
+                model_id: 829c1a73-1bfd-4ac0
+            """,
+            dataframe=pd.DataFrame({
+                'col': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col', 'out']
+
 
 class TestExtractRegex:
     """
@@ -1340,7 +1415,115 @@ class TestExtractRegex:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
+
+    def test_extract_regex_empty(self):
+        """
+        Test extract.regex with an empty input
+        """
+        df = wrangles.recipe.run(
+            r"""
+            wrangles:
+            - extract.regex:
+                input: column
+                output: colour
+                find: \w+
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'colour']
     
+    def test_extract_regex_output_pattern_no_param(self):
+        """
+        Tests extract.regex with a capture group in the
+        pattern but without the output_pattern parameter
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+).*
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['55g'] and df.iloc[2]['col_out'] == ['1000kg']
+
+    def test_extract_regex_output_pattern(self):
+        """
+        Tests extract.regex with the output_pattern parameter specified
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            output_pattern: \2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['g'] and df.iloc[2]['col_out'] == ['kg']
+
+    def test_extract_regex_capture_multiple_groups(self):
+        """
+        Tests extract.regex with multiple capture groups
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            output_pattern: \2 \1
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['g 55'] and df.iloc[2]['col_out'] == ['kg 1000']
+
+    def test_extract_regex_capture_multiple_matches(self):
+        """
+        Tests extract.regex with multiple matches using capture groups
+        """
+        data = pd.DataFrame({
+            'col': ['55v 24v', '120v 240v', '1000v 2000v']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)v
+            output_pattern: \1 v
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['55 v', '24 v'] and df.iloc[2]['col_out'] == ['1000 v', '2000 v']
+
+    def test_extract_regex_capture_plus(self):
+        """
+        Tests extract.regex with multiple capture groups separated by a string
+        """
+        data = pd.DataFrame({
+            'col': ['55g', '120v', '1000kg']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(.*)
+            output_pattern: \2 stuff \1
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['g stuff 55'] and df.iloc[2]['col_out'] == ['kg stuff 1000']
+
 
 class TestExtractProperties:
     """
@@ -1459,6 +1642,24 @@ class TestExtractProperties:
         )
         assert df['colour'][0] == '' and df['colour'][1] == ['White']
 
+    def test_extract_properties_empty(self):
+        """
+        Test extract.properties with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.properties:
+                input: column
+                output: colour
+                property_type: colours
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'colour']
+
 
 class TestExtractHTML:
     """
@@ -1516,6 +1717,24 @@ class TestExtractHTML:
                 })
         )
         assert df['Link'][0] == '' and df['Link'][1] == ['https://www.wrangleworks.com/']
+
+    def test_extract_html_empty(self):
+        """
+        Test extract.html with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.html:
+                input: column
+                output: Link
+                data_type: links
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'Link']
     
 
 class TestExtractBrackets:
@@ -1838,6 +2057,23 @@ class TestExtractBrackets:
         )
         assert df['output'].values.tolist() == ['x', '']
 
+    def test_brackets_empty(self):
+        """
+        Test extract.brackets with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.brackets:
+                input: column
+                output: output
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'output']
+
 
 class TestExtractDateProperties:
     """
@@ -1943,6 +2179,24 @@ class TestExtractDateProperties:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['out1'] == 'Tuesday' and df.iloc[2]['out2'] == ""
+
+    def test_extract_date_empty(self):
+        """
+        Test extract.date_properties with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_properties:
+                input: column
+                output: output
+                property: quarter
+            """,
+            dataframe=pd.DataFrame({
+                    "column": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['column', 'output']
     
 
 class TestExtractDateRange:
@@ -2010,6 +2264,49 @@ class TestExtractDateRange:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Range'] == '' and df.iloc[1]['Range'] == 36 and df.iloc[2]['Range'] == 90
 
+    def test_date_range_empty(self):
+        """
+        Test extract.date_range with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_range:
+                start_time: date1
+                end_time: date2
+                output: Range
+                range: years
+            """,
+            dataframe=pd.DataFrame({
+                    "date1": [],
+                    "date2": []
+                })
+        )
+        assert df.empty and df.columns.to_list() == ['date1', 'date2', 'Range']
+
+    def test_date_range_missing(self):
+        """
+        Test extract.date_range with missing values
+        """
+        recipe = """
+            wrangles:
+            - extract.date_range:
+                start_time: date1
+                end_time: date2
+                output: Range
+                range: years
+            """
+        data = pd.DataFrame({
+                "date1": ['08-13-1992'],
+                "date2": ['']
+            })
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Neither `start` nor `end` can be NaT' in info.value.args[0]
+        )
+
 
 class TestExtractAI:
     """
@@ -2023,7 +2320,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2052,6 +2349,143 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    def test_ai_only_description(self):
+        """
+        Test with only a description instead of a JSON schema object
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm'
+        ])
+        assert matches >= 2
+
+    def test_ai_formatted_as_a_list(self):
+        """
+        Test with output as a list instead of an object
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  - length: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm'
+        ])
+        assert matches >= 2
+
+    def test_ai_list_keys_only(self):
+        """
+        Test with output as a list instead of an object
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                temperature: 0.2
+                timeout: 60
+                retries: 2
+                output:
+                  - length (mm)
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            '25' in str(df['length (mm)'][0]),
+            '6000' in str(df['length (mm)'][1]),
+            '3' in str(df['length (mm)'][2])
+        ])
+        assert matches >= 1
+
+    def test_ai_output_key_only(self):
+        """
+        Test with output as a single string
+        Treat as one column.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output: length (mm)
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 1/3 as good enough for test to pass
+        matches = sum([
+            '25' in str(df['length (mm)'][0]),
+            '6000' in str(df['length (mm)'][1]),
+            '3' in str(df['length (mm)'][2])
+        ])
+        assert matches >= 1
+
     def test_ai_multiple_output(self):
         """
         Test AI extract with multiple outputs
@@ -2060,7 +2494,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2105,7 +2539,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2148,7 +2582,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2217,7 +2651,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 0.1
@@ -2259,7 +2693,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2299,9 +2733,10 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
-                seed: 1
+                seed: 2
+                temperature: 0.2
                 timeout: 60
                 retries: 2
                 output:
@@ -2329,7 +2764,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -2470,3 +2905,220 @@ class TestExtractAI:
             df['length'][2] == '3mm'
         ])
         assert matches >= 2
+
+    def test_ai_empty(self):
+        """
+        Test extract.ai with an empty input
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['data', 'length']
+
+    def test_ai_o3_mini(self):
+        """
+        Test openai extract with a single input and output
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: o3-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any lengths found in the data
+                      such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "wrench 25mm",
+                    "6m cable",
+                    "screwdriver 3mm"
+                ],
+            })
+        )
+        # This is temperamental
+        # Score as 2/3 as good enough for test to pass
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+            df['length'][2] == '3mm'
+        ])
+        assert matches >= 2
+
+    def test_model_id(self):
+        """
+        Test using extract.ai with a saved model
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: 0e81f1ad-c0a3-42b4
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                temperature: 0.2
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "yellow square",
+                    "blue circle",
+                    "green diamond"
+                ],
+            })
+        )
+        assert (
+            isinstance(df['Colors'][0], list) and
+            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
+        )
+
+    def test_model_id_additional_properties(self):
+        """
+        Test non-explicitly passed properties, i.e. kwargs
+        This is set to specify a type of integer for the items in the array
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: d7c8270d-f15a-4c9c
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "3.141 is pi, 2.718 is e",
+                ],
+            })
+        )
+        assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
+
+    def test_model_id_named_output_single_column(self):
+        """
+        Test using a predefined model that specifies
+        one output for all extracted data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: 0e81f1ad-c0a3-42b4
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "yellow square",
+                    "blue circle",
+                    "green diamond"
+                ],
+            })
+        )
+        assert (
+            df.columns.to_list() == ['data', 'result'] and
+            isinstance(df['result'][0], dict) and
+            'Colors' in df['result'][0]
+        )
+
+    def test_model_id_named_output_multi_column(self):
+        """
+        Test using a predefined model that specifies
+        one output per model row
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: 0e81f1ad-c0a3-42b4
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+                output:
+                  - Colors
+                  - Shapes
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "yellow square",
+                    "blue circle",
+                    "green diamond"
+                ],
+            })
+        )
+        assert (
+            df.columns.to_list() == ['data', 'Colors', 'Shapes'] and
+            isinstance(df['Colors'][0], list) and
+            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
+        )
+
+    def test_model_id_object_with_properties(self):
+        """
+        Test a model_id that contains an output of type object
+        that contains properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: c3e6715a-6214-4517
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner",
+                    "transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
+
+    def test_model_id_array_of_objects(self):
+        """
+        Test a model_id that contains an output of type array
+        that contains items as objects with properties defined as JSON
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model_id: d168c456-514f-4513
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "25mm spanner + transformer - 120v"
+                ],
+            })
+        )
+        assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]

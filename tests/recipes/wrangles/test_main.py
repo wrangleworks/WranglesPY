@@ -30,6 +30,30 @@ class TestClassify:
         )
         assert df['Class'][0] == 'Meat'
 
+    def test_include_confidence(self):
+        """
+        Test setting include_confidence = True
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Col1: Chicken
+            wrangles:
+                - classify:
+                    input: Col1
+                    output: Class
+                    model_id: a62c7480-500e-480c
+                    include_confidence: True
+            """
+        )
+        assert (
+            df['Class'][0]['Label'] == 'Meat' and
+            df['Class'][0]['Confidence'] > 0.2
+        )
+
     def test_classify_multi_input_output(self):
         """
         Multiple column input and output
@@ -176,6 +200,24 @@ class TestClassify:
             })
         )
         assert df['Class1'][0] == "" and df['Class1'][1] == 'Dairy'
+
+    def test_classify_empty(self):
+        """
+        Test classify with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - classify:
+                    input: Col1
+                    output: Class1
+                    model_id: a62c7480-500e-480c
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert df.empty and df.columns.tolist() == ['Col1', 'Class1']
 
 
 class TestFilter:
@@ -528,6 +570,23 @@ class TestFilter:
         )
         assert len(df) == 1
 
+    def test_filter_empty(self):
+        """
+        Test filter with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - filter:
+                    input: Random
+                    contains: App
+            """,
+            dataframe=pd.DataFrame({
+                'Random': [],
+            })
+        )
+        assert df.empty and df.columns.tolist() == ['Random']
+
 
 @pytest.mark.usefixtures("caplog")
 class TestLog:
@@ -670,6 +729,21 @@ class TestLog:
         """
         wrangles.recipe.run(recipe, dataframe=data)
         assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n1  Chicken\n2   Cheese\n'
+
+    def test_log_empty(self, caplog):
+        """
+        Test log with empty data
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - log: {}
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
 
 
 class TestRemoveWords:
@@ -989,6 +1063,24 @@ class TestRemoveWords:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['Out'].iloc[0] == 'Plus and DataSomething and StringTheory and Relativity and 2288 and 2323'
+
+    def test_remove_words_empty(self):
+        """
+        Test remove_words with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - remove_words:
+                    input: Random
+                    output: output column
+                    to_remove: App
+            """,
+            dataframe=pd.DataFrame({
+                'Random': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
 
 class TestRename:
@@ -1358,6 +1450,73 @@ class TestRename:
                     'numbers': [4, 6, 8]
                 })
             )
+
+    def test_rename_wrangles_variables(self):
+        """
+        Use wrangles to rename columns based on a variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - convert.case:
+                        input: columns
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert df.columns.tolist() == ["HEADER1","HEADER2"]
+
+    def test_rename_wrangles_variables_if(self):
+        """
+        Use wrangles to rename columns based on a variable with an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                variables:
+                  condition: ${condition}
+                wrangles:
+                    - convert.case:
+                        input: columns
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert df.columns.tolist() == ["HEADER1","HEADER2"]
+
+    def test_rename_empty(self):
+        """
+        Test rename with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    Manufacturer Name: Company
+                    Part Number: MPN
+            """,
+            dataframe=pd.DataFrame({
+                'Manufacturer Name': [],
+                'Part Number': [],
+            })
+        )
+        assert df.empty and df.columns.tolist() == ['Company', 'MPN']
 
 
 class TestSimilarity:
@@ -1761,6 +1920,27 @@ class TestSimilarity:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Cos Sim'] == '' and df.iloc[1]['Cos Sim'] == 1.0
 
+    def test_similarity_empty(self):
+        """
+        Test similarity with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - similarity:
+                    input:
+                    - col1
+                    - col2
+                    output: Cos Sim
+                    method: cosine
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [],
+                'col2': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'Cos Sim']
+
 
 class TestStandardize:
     """
@@ -2107,6 +2287,24 @@ class TestStandardize:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == 'As Soon As Possible' and df.iloc[3]['output'] == 'on my way'
 
+    def test_standardize_empty(self):
+        """
+        Test standardize with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - standardize:
+                    input: Abbrev
+                    output: Abbreviations
+                    model_id: 6ca4ab44-8c66-40e8
+            """,
+            dataframe=pd.DataFrame({
+                'Abbrev': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Abbrev', 'Abbreviations']
+
 
 class TestReplace:
     """
@@ -2275,6 +2473,25 @@ class TestReplace:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[1]['replaced numbers'] == 'fifty-5'
 
+    def test_replace_empty(self):
+        """
+        Test replace with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - replace:
+                    input: Abbrev
+                    output: output column
+                    find: ETA
+                    replace: Estimated Time of Arrival
+            """,
+            dataframe=pd.DataFrame({
+                'Abbrev': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Abbrev', 'output column']
+
 
 class TestTranslate:
     """
@@ -2381,6 +2598,25 @@ class TestTranslate:
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['English'] == "" and df.iloc[1]['English'] == 'My name is Johnny Number Five'
 
+    def test_translate_empty(self):
+        """
+        Test translate with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - translate:
+                    input: Español
+                    output: English
+                    source_language: Spanish
+                    target_language: English
+            """,
+            dataframe=pd.DataFrame({
+                'Español': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Español', 'English']
+
 
 class TestMath:
     """
@@ -2465,6 +2701,24 @@ class TestMath:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['result'] == 3
+
+    def test_math_empty(self):
+        """
+        Test math with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - math:
+                    input: col1 + col2
+                    output: result
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [],
+                'col2': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'result']
 
 
 class TestSQL:
@@ -2601,6 +2855,25 @@ class TestSQL:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['header1'] == 2
+
+    def test_sql_empty(self):
+        """
+        Test sql with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - sql:
+                    command: |
+                        SELECT header1
+                        FROM df
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [],
+                'header2': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['header1']
 
 
 class TestRecipe:
@@ -2854,50 +3127,6 @@ class TestDateCalculator:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['out1'] == '0' and df.iloc[1]['out1']._date_repr == '2022-12-30'
-
-
-class TestCopy:
-    """
-    Test copy
-    """
-    def test_copy(self):
-        """
-        Test copying a column
-        """
-        df = wrangles.recipe.run(
-            """
-            read:
-            - test:
-                rows: 3
-                values:
-                    col1: val1
-
-            wrangles:
-            - copy:
-                input: col1
-                output: col2
-            """
-        )
-        assert list(df['col2'].values) == ['val1', 'val1', 'val1']
-
-    def test_copy_where(self):
-        """
-        Test copying a column
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - copy:
-                input: col1
-                output: col3
-                where: col2 >= 2
-            """,
-            dataframe=pd.DataFrame({
-                "col1": ["val1", "val1", "val1"],
-                "col2": [1,2,3]
-            })
-        )
-        assert list(df['col3'].values) == ['', 'val1', 'val1']
 
 
 class TestPython:
@@ -3893,6 +4122,67 @@ class TestAccordion:
         )
         assert df["list_column"][0] == ["A","B","C"] and df["list_column"][1] == ["e","f","g"]
 
+    def test_accordion_variables(self):
+        """
+        Test an accordion with a variable passed through
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert (
+            len(df) == 5 and
+            df["list_column"][0] == ["A","B","C"]
+        )
+
+    def test_accordion_variables_if(self):
+        """
+        Test an accordion with a variable passed through to an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    list_column:
+                    - a
+                    - b
+                    - c
+
+            wrangles:
+            - accordion:
+                input: list_column
+                wrangles:
+                    - convert.case:
+                        input: list_column
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert (
+            len(df) == 5 and
+            df["list_column"][0] == ["A","B","C"]
+        )
+
 
 class TestBatch:
     """
@@ -4156,6 +4446,28 @@ class TestBatch:
                 """
             )
 
+    def test_batch_error_multiprocess(self):
+        """
+        Test that an error is raised correctly when using multiprocessing
+        """
+        with pytest.raises(KeyError, match="column1 does not exist"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        column: a
+                wrangles:
+                - batch:
+                    use_multiprocessing: true
+                    wrangles:
+                        - convert.case:
+                            input: column1
+                            case: upper
+                """
+            )
+
     def test_batch_error_catch(self):
         """
         Test that an error is caught and
@@ -4256,6 +4568,51 @@ class TestBatch:
             })
         )     
         assert df['output col'].to_list() == ["A","","C"]
+
+    def test_batch_variables(self):
+        """
+        Test batch wrangle with a variable passed through
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: ${case}
+            """,
+            variables={"case": "upper"}
+        )
+        assert df['column'].tolist() == ["A"] * 1000
+
+    def test_batch_variable_if(self):
+        """
+        Test batch wrangle with a variable passed to an if
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1000
+                values:
+                    column: a
+            wrangles:
+              - batch:
+                  wrangles:
+                    - convert.case:
+                        input: column
+                        case: upper
+                        if: ${condition}
+            """,
+            variables={"condition": True}
+        )
+        assert df['column'].tolist() == ["A"] * 1000
 
 
 class TestLookup:
@@ -4808,6 +5165,7 @@ class TestMatrix:
                         input: Description
                         api_key: ${OPENAI_API_KEY}
                         seed: 1
+                        retries: 2
                         output:
                           ${Category}:
                             type: string

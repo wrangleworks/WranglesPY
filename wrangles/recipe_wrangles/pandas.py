@@ -1,8 +1,14 @@
 import pandas as _pd
 from typing import Union as _Union
+from numpy import nan as _nan
 
 
-def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]) -> _pd.DataFrame:
+def copy(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list] = None,
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Make a copy of a column or a list of columns
@@ -14,6 +20,7 @@ def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list])
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input columns or columns
       output:
@@ -22,22 +29,36 @@ def copy(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list])
           - array
         description: Name of the output columns or columns
     """
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-
-    # If input is a single column and output is multiple columns, repeat input
-    if len(input) == 1 and len(output) > 1:
-        input = input * len(output)
-
-    # If input is not the same length as output, raise error
-    if len(input) != len(output):
-        raise ValueError("Input and output must be the same length")
-    
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].copy()
+    # If short form of paired names is provided, use that
+    if input is None:
+        # Check that column name exists
+        copy_cols = list(kwargs.keys())
+        for x in copy_cols:
+            if x not in list(df.columns): raise ValueError(f'Column to copy "{x}" not found.')
+        # Check if the new column names exist if so drop them
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
         
-    return df
+        copy_dict = kwargs
+
+        return copy(df, input=list(copy_dict.keys()), output=list(copy_dict.values()))
+    
+    else:
+        # If a string provided, convert to list
+        if not isinstance(input, list): input = [input]
+        if not isinstance(output, list): output = [output]
+
+        # If input is a single column and output is multiple columns, repeat input
+        if len(input) == 1 and len(output) > 1:
+            input = input * len(output)
+
+        # If input is not the same length as output, raise error
+        if len(input) != len(output):
+            raise ValueError("Input and output must be the same length")
+        
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].copy()
+        
+        return df
 
 
 def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
@@ -96,7 +117,7 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
     )
 
 
-def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
+def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Round column(s) to the specified decimals
@@ -107,6 +128,7 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column(s)
       output:
@@ -125,7 +147,9 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
     if not isinstance(output, list): output = [output]
     
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].round(decimals=decimals)
+        # coerce input column to floats (nan on error)
+        # replace nan with empty string
+        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
         
     return df
     
@@ -174,7 +198,7 @@ def reindex(
 
 def explode(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     reset_index: bool = True,
     drop_empty: bool = False,
     where = None
@@ -189,6 +213,7 @@ def explode(
         input:
           type:
             - string
+            - integer
             - array
           description: >-
             Name of the column(s) to explode. If multiple

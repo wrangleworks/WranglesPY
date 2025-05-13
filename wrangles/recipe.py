@@ -30,7 +30,10 @@ from .utils import (
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion
 )
-
+try:
+    from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeLoader as _YamlLoader, SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
 
@@ -122,7 +125,7 @@ def _replace_templated_values(
                 and '\n' in replacement_value
             ):
                 try:
-                    replacement_value = _yaml.safe_load(replacement_value)
+                    replacement_value = _yaml.load(replacement_value, Loader=_YamlLoader)
                 except:
                     # Replacement wasn't YAML
                     pass
@@ -175,7 +178,7 @@ def _load_recipe(
     if not isinstance(recipe, str):
         try:
             # If user passes in a pre-parsed recipe, convert back to YAML
-            recipe = _yaml.dump(recipe, sort_keys=False, allow_unicode=True)
+            recipe = _yaml.dump(recipe, sort_keys=False, Dumper=_YAMLDumper, allow_unicode=True)
         except:
             raise ValueError('Recipe passed in as an invalid type')
 
@@ -190,8 +193,11 @@ def _load_recipe(
         recipe_string = response.text
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
-    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.strip()):
-        metadata = _data.model(recipe)
+    elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.split(':')[0].strip()):
+        model_id = recipe.split(':')[0].strip()
+        version_id = recipe.split(':')[1].strip() if ':' in recipe else None
+
+        metadata = _data.model(model_id)
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -200,10 +206,10 @@ def _load_recipe(
         purpose = metadata['purpose']
         if purpose != 'recipe':
             raise ValueError(
-                f'Using {purpose} model_id {recipe} in a recipe wrangle.'
+                f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
         
-        model_contents = _data.model_content(recipe)
+        model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
         if model_functions:
@@ -789,11 +795,13 @@ def _execute_wrangles(
                         [x for x in df.columns if x not in df_original.columns]
                     ]
 
-                # Clean up NaN's
-                df = df.fillna('')
-                # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
-                # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
-                df = df.fillna('0')
+                with _pandas.option_context('future.no_silent_downcasting', True):
+                    # Clean up NaN's
+                    df = df.fillna('')
+                    # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
+                    # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
+                    df = df.fillna('0')
+
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
                 raise e.__class__(f"{wrangle} - {e}").with_traceback(e.__traceback__) from None
