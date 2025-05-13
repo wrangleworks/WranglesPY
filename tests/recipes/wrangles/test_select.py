@@ -303,7 +303,7 @@ class TestSelectDictionaryElement:
             'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
             })
         )
-        assert df['Output'][0] == {}
+        assert df['Output'][0] == ''
 
     def test_dictionary_element_wildcard_single_element(self):
         """
@@ -321,7 +321,7 @@ class TestSelectDictionaryElement:
             'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
             })
         )
-        assert df['Output'][0] == {'B1': '2'}
+        assert df['Output'][0] == '2'
 
     def test_dictionary_element_regex_single_element(self):
         """
@@ -339,7 +339,7 @@ class TestSelectDictionaryElement:
             'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
             })
         )
-        assert df['Output'][0] == {'B1': '2'}
+        assert df['Output'][0] == '2'
 
 class TestSelectListElement:
     """
