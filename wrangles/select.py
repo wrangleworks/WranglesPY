@@ -116,7 +116,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
     if not isinstance(input, list):
         input = [input]
         single_input = True
-    
+
     if isinstance(key, list):
         key = dict(
             _itertools.chain.from_iterable(
@@ -172,16 +172,24 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     return default
             except:
                 return default
-            
-        if 'regex' in key or '*' in key:
-            results = [
-                {
-                    element: 
-                    row[element] for row in input
-                    for element in _wildcard_expansion(row.keys(), key)
-                    if element in row
-                }
-            ]
+        
+        # Expand wildcard keys
+        try:
+            key = list(set(item for sublist in [_wildcard_expansion(row.keys(), key) for row in input] for item in sublist))
+
+            # Convert lists of one or zero to strings
+            if len(key) == 1:
+                key = key[0]
+
+            if len(key) == 0: 
+                key = ''
+        except:
+            pass
+
+        # If key is now a list after wildcard expansion, send back through dict_element
+        if isinstance(key, list):
+            results = dict_element(input, key, default)
+        
         else:
             results = [
                 _get_value(row)
