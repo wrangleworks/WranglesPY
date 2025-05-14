@@ -11,7 +11,7 @@ import os as _os
 import re as _re
 import io as _io
 from ..utils import wildcard_expansion as _wildcard_expansion
-from .format_func import convert_worksheets_to_tables as _convert_worksheets_to_tables
+from .format_func import file_formatting as _file_formatting
 
 
 _schema = {}
@@ -177,7 +177,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
                 df.to_excel(writer, index=False)
             buffer.seek(0)
             other_params = {k: v for k, v in formatting.items() if k not in ['columns']}
-            _convert_worksheets_to_tables(file_name=file_object, column_settings=formatting['columns'], buffer=buffer, kwargs=other_params)
+            _file_formatting(file_name=file_object, column_settings=formatting['columns'], buffer=buffer, kwargs=other_params)
             
         else:
             df.to_excel(file_object, **kwargs)
