@@ -8,56 +8,7 @@ import math
 import re as _re
 
 
-
-
-
-########## Notes ##########
-
-# Need to think about how to be able to just pass values through that then do available formatting in Excel. Borders or something niche for example.
-
-# Speaking of borders, drop names like separator_column for what it is in Excel (borders)
-
-
-# Separating out header formatting from body formatting like so:
-"""
-file:
-name: tests/temp/write_data.xlsx
-format:
-    Find:
-        width: 10
-        header:
-            fill_color: blue
-            font_size: 14
-        fill_color: yellow
-        font_size: 18
-    Replace:
-        width: 20
-        header_fill_color: red # old, ignore the name compared to the above
-        font_size: 11
-    """
-
-# What about conditional formatting?
-# Going to plan on using wrangles to create a column, then using that column as the condition
-
-# What about the ability to freeze panes?
-
-# What about banding or whatever Chris called it?
-# See above about using wrangles to create a column, then using that column as the condition
-
-# Add font, but cell based, row based, column based, sheet based, or all of it?
-
-
-###### Going to need to think about the hierarchy of formatting. You don't want to format specific
-###### cells first, only to have that overwritten by banding or something less specific. ######
-
-
-
-
-
-
-
-
-def convert_worksheets_to_tables(
+def file_formatting(
     file_name,
     column_settings,
     buffer,
@@ -102,28 +53,16 @@ def convert_worksheets_to_tables(
 
 
 
-    ########## Come back to these ##########
-
-    fill1 = PatternFill("solid", fgColor="6efdfd")
-    # fill1 = PatternFill("solid", fgColor="D9D9D9")
-    fill2 = PatternFill("solid", fgColor="f231f2")
-    # fill2 = PatternFill("solid", fgColor="BFBFBF")
-
-    default_table_style = TableStyleInfo(
-        name="TableStyleMedium9",
-        showFirstColumn=False,
-        showLastColumn=False,
-        showRowStripes=False,
-        showColumnStripes=False
-    )
 
 
+    
+    # column_settings = settings.get('columns', {})
+    universal_settings_list = ['banding', 'table_style']
+    default_settings = {k: v for k, v in kwargs.items() if k not in universal_settings_list}
+    # default_settings = {k: v for k, v in settings.items() if k not in ['columns']}
 
-
-
-
-
-
+    # Check default settings
+    print()
 
     wb = load_workbook(buffer)
 
@@ -133,25 +72,23 @@ def convert_worksheets_to_tables(
 
 
     # Split inputs on comma, but not on escaped commas
-    # new_data = {}
-    # for key, value in column_settings.items():
-    #     # If the key contains an unescaped comma, we want to split it
-    #     if ',' in key:
-    #         # Split on unescaped commas
-    #         parts = _re.split(r'(?<!\\),', key)
-    #         # Clean up escaped commas
-    #         parts = [p.replace('\\,', ',').strip() for p in parts]
-    #         if len(parts) > 1:
-    #             for part in parts:
-    #                 new_data[part] = value
-    #         else:
-    #             new_data[key] = value
-    #     else:
-    #         new_data[key] = value
+    split_settings = {}
+    for key, value in column_settings.items():
+        # If the key contains an unescaped comma, we want to split it
+        if ',' in key:
+            # Split on unescaped commas
+            parts = _re.split(r'(?<!\\),', key)
+            # Clean up escaped commas
+            parts = [p.replace('\\,', ',').strip() for p in parts]
+            if len(parts) > 1:
+                for part in parts:
+                    split_settings[part] = value
+            else:
+                split_settings[key] = value
+        else:
+            split_settings[key] = value
 
-    # new_cols = []
-    # for col in columns:
-    #     new_cols.append(_re.split(r'(?<!\\),', col))
+    column_settings = split_settings
 
     wild_card_columns = [col for col in column_settings.keys() if col.endswith('*')]
 
@@ -163,17 +100,13 @@ def convert_worksheets_to_tables(
                         )
             for other_col in columns_to_expand:
                 column_settings[other_col]= column_settings[col]
-        
-
-    print()
-
-
 
     # Handle columns that are missing from column_settings
     unspecified_columns = [cell.value for cell in ws[1] if cell.value not in column_settings.keys()]
 
     # Build default column settings to be applied to every column not specified
-    column_settings['default'] = {key: value for key, value in zip(list(column_settings.keys()), list(column_settings.values())) if key not in columns}
+    column_settings['default'] = default_settings
+    # column_settings['default'] = {key: value for key, value in zip(list(column_settings.keys()), list(column_settings.values())) if key not in columns}
 
     for col in unspecified_columns:
         if 'default' in column_settings.keys():
@@ -199,7 +132,17 @@ def convert_worksheets_to_tables(
     table_ref = f"{first_cell}:{last_cell}"
 
     tab = Table(displayName=table_name, ref=table_ref) # Named tab to avoid confusion with the table object
-    tab.tableStyleInfo = default_table_style
+
+    # Should allow users to set any of these in the future
+    table_style = kwargs.get('table_style', 'TableStyleMedium9') # Default to TableStyleMedium9
+    tab.tableStyleInfo = TableStyleInfo(
+            name= table_style,
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False
+        )
+    # tab.tableStyleInfo = default_table_style
     ws.add_table(tab)
 
     # Unpack font data
@@ -347,8 +290,8 @@ def convert_worksheets_to_tables(
             len(str(ws.cell(row=row_idx, column=col).value or ''))
             for col in range(min_col, max_col + 1)
         )
-        calculated_height = math.ceil(max_cell_length / 10) * 15 ####### 10 and 15 seem arbitrary, but what is the actual math doing and why? ########
-        # ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
+        calculated_height = math.ceil(max_cell_length / 10) * 15 # 10 and 15 seem arbitrary
+        ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height) # Dynamically attempts to set row_height, not sure if it actually works
         row_height = column_settings.get("row_height", 15)
         ws.row_dimensions[row_idx].height = min(row_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
 
@@ -408,6 +351,13 @@ def convert_worksheets_to_tables(
 
     # 9) Row banding if group_on=True
     if kwargs.get('banding', False):
+        # fill1 = PatternFill("solid", fgColor="6efdfd")
+        # fill1 = PatternFill("solid", fgColor="D9D9D9")
+        fill1 = PatternFill("solid", fgColor="F2F2F2")
+        # fill2 = PatternFill("solid", fgColor="f231f2")
+        # fill2 = PatternFill("solid", fgColor="BFBFBF")
+        fill2 = PatternFill("solid", fgColor="d9deea")
+
         grouping_columns = [
             (c_name, column_map[c_name][0])
             for c_name, cfg in column_settings.items()
