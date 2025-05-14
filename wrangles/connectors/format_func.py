@@ -28,9 +28,6 @@ def file_formatting(
         "purple": "FF9966CC",
         "gray":   "FFBFBFBF",
     }
-    ######### I don't think we are going to allow this. Just pass default values through as their own key #########
-    # if 'Default' in column_settings.keys():
-    #     column_settings['default'] = column_settings.pop('Default')
 
     def parse_fill_color(color_str):
         """Convert a semantic color name or a hex string into an ARGB color code."""
@@ -47,29 +44,14 @@ def file_formatting(
             raise ValueError(f"Invalid color code: '{color_str}'")
         return color_str.upper()
 
-
-
-
-
-
-
-
-
-    
-    # column_settings = settings.get('columns', {})
-    universal_settings_list = ['banding', 'table_style']
+    universal_settings_list = ['banding', 'table_style'] # Settings that are associated with the entire table, not just columns, rows, or cells
     default_settings = {k: v for k, v in kwargs.items() if k not in universal_settings_list}
-    # default_settings = {k: v for k, v in settings.items() if k not in ['columns']}
 
-    # Check default settings
-    print()
-
+    # Load the workbook from the buffer
     wb = load_workbook(buffer)
-
-    ws = wb.worksheets[0]
+    ws = wb.worksheets[0] # Currently only allowing files with one worksheet
 
     columns = [cell.value for cell in ws[ws.min_row]]
-
 
     # Split inputs on comma, but not on escaped commas
     split_settings = {}
@@ -142,7 +124,6 @@ def file_formatting(
             showRowStripes=True,
             showColumnStripes=False
         )
-    # tab.tableStyleInfo = default_table_style
     ws.add_table(tab)
 
     # Unpack font data
@@ -174,7 +155,7 @@ def file_formatting(
                 color=font_color,
                 bold=bold,
                 italic=italicize,
-                underline=underline # Accounting underlines the entire cell, not just the text
+                underline=underline
             )
 
     # Identify header row & build a column map
@@ -189,15 +170,13 @@ def file_formatting(
         header_text = header_cell.value if header_cell.value else ""
         column_map[header_text] = (idx, get_column_letter(idx))
 
-    # 4) Column-specific settings ########## Does this mean we can drop all of the above if we are doing column specific stuff? ##########
+    # Column-specific settings
     for col_name, settings in column_settings.items():
         if col_name in column_map:
             col_index, col_letter = column_map[col_name]
 
             # Column width
             ws.column_dimensions[col_letter].width = settings.pop("width", 20)
-
-
 
             for cell_tuple in ws.iter_rows(
                     min_row=min_row + 1,
@@ -215,13 +194,13 @@ def file_formatting(
                         horizontal=column_alignment.get('horizontal', 'left'),
                         vertical=column_alignment.get('vertical', 'top'),
                         wrap_text=column_alignment.get('wrap_text', True),
-                        text_rotation=curr_align.text_rotation, ######## All of these are possible fields to allow users to set ########
+                        text_rotation=curr_align.text_rotation,
                         shrink_to_fit=curr_align.shrink_to_fit,
                         indent=curr_align.indent
                     )
 
                 # Font
-                curr_font = cell_obj.font ####### Same ideas as above, but for font ########
+                curr_font = cell_obj.font
                 cell_obj.font = Font(
                     name=settings.get('font', curr_font.name),
                     size=settings.get('font_size', curr_font.size),
@@ -229,37 +208,36 @@ def file_formatting(
                     bold=settings.get('bold', curr_font.bold),
                     italic=settings.get('italic', curr_font.italic),
                     underline=settings.get('underline', curr_font.underline),
-                    vertAlign=curr_font.vertAlign, ##### Not sure exactly what this is doing, but it could be allowed in the future. Possible values: ‘superscript’, ‘baseline’, ‘subscript’
+                    vertAlign=curr_font.vertAlign, # Possible values: ‘superscript’, ‘baseline’, ‘subscript’
                     strike=curr_font.strike
                 )
 
                 # Number format (if numeric)
-                if "number_format" in settings: ######### cell_obj.number_format allows for General, Text, etc. #########
+                if "number_format" in settings: # cell_obj.number_format allows for General, Text, etc.
                     if isinstance(cell_obj.value, (int, float)):
                         cell_obj.number_format = settings["number_format"]
 
                 # If 'hyperlink' is True, convert the cell's text into a hyperlink (prepended with 'https://' if needed).
                 if settings.get("hyperlink", False):
                     if cell_obj.value:
-                        # 1) Keep the display text the same as the original cell value
+                        # Keep the display text the same as the original cell value
                         display_text = str(cell_obj.value).strip()
 
-                        # 2) Determine the actual hyperlink target
-                        if display_text.lower().startswith("http://") or display_text.lower().startswith("https://"): ####### Surprisingly necessary to avoid a non trusted link pop up ########
+                        # Determine the actual hyperlink target
+                        if display_text.lower().startswith("http://") or display_text.lower().startswith("https://"): # Necessary to avoid a non trusted link pop up
                             hyperlink_target = display_text
                         else:
                             hyperlink_target = "https://" + display_text  # Prepend https:// if missing
 
-                        # 3) Assign the hyperlink (Excel will display `cell_obj.value`, 
-                        #    but will open `hyperlink_target` when clicked)
+                        # Assign the hyperlink (Excel will display `cell_obj.value`, but will open `hyperlink_target` when clicked)
                         cell_obj.hyperlink = hyperlink_target
 
-                        # 4) Optionally apply Excel’s built-in "Hyperlink" style (blue underline).
+                        # Optionally apply Excel’s built-in "Hyperlink" style (blue underline).
                         cell_obj.style = "Hyperlink"
 
-                        # 5) Ensure wrap_text is enabled by preserving existing alignment and setting wrap_text=True
+                        # Ensure wrap_text is enabled by preserving existing alignment and setting wrap_text=True
                         current_alignment = cell_obj.alignment
-                        cell_obj.alignment = Alignment( ####### Why does this seem to be repeating what was done above? ########
+                        cell_obj.alignment = Alignment(
                             horizontal=current_alignment.horizontal,
                             vertical=current_alignment.vertical,
                             wrap_text=True, # otherwise, hyperlink overrides wrap_text
@@ -271,18 +249,17 @@ def file_formatting(
     # Style the header row
     for header_text, (col_idx, col_letter) in column_map.items():
         # Set header height
-
         header_cell = ws.cell(row=min_row, column=col_idx)
-        header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True) ######## Hard coded header alignment ########
+        header_cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True) # Hard coded for now
 
         # Optional header fill
         header_fill_color = column_settings.get(header_text, {}).get("header_fill_color")
         if header_fill_color:
             try:
-                argb = parse_fill_color(header_fill_color) ########## Looks up color values based on name in the dictionary, and formats the color code properly for color codes that are passed through ##########
-                header_cell.fill = PatternFill(fill_type="solid", fgColor=argb) ####### fill_type values according to Google: 'none, 'solid, 'darkDown, 'darkGray, 'darkTrellis, 'darkGrid, 'darkHorizontal, 'darkUp, 'darkVertical, 'lightGrid, 'gray0625, 'gray125, 'lightDown, 'lightGray, 'lightHorizontal, 'lightTrellis, 'lightUp, 'lightVertical, and 'mediumGray' ########
+                argb = parse_fill_color(header_fill_color)
+                header_cell.fill = PatternFill(fill_type="solid", fgColor=argb) # fill_type values according to Google: 'none, 'solid, 'darkDown, 'darkGray, 'darkTrellis, 'darkGrid, 'darkHorizontal, 'darkUp, 'darkVertical, 'lightGrid, 'gray0625, 'gray125, 'lightDown, 'lightGray, 'lightHorizontal, 'lightTrellis, 'lightUp, 'lightVertical, and 'mediumGray'
             except ValueError as ve:
-                print(f"Warning: {ve}. Skipping fill for header '{header_text}'.") ######### Does this mean that there is not a default fill color? #########
+                print(f"Warning: {ve}. Skipping fill for header '{header_text}'.")
 
     # Adjust row heights ######## Should allow a seperation of row heights and column header heights ########
     for row_idx in range(min_row, max_row + 1):
@@ -290,42 +267,37 @@ def file_formatting(
             len(str(ws.cell(row=row_idx, column=col).value or ''))
             for col in range(min_col, max_col + 1)
         )
-        calculated_height = math.ceil(max_cell_length / 10) * 15 # 10 and 15 seem arbitrary
-        ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height) # Dynamically attempts to set row_height, not sure if it actually works
-        row_height = column_settings.get("row_height", 15)
-        ws.row_dimensions[row_idx].height = min(row_height, max_row_height) ######### Dynamically attempts to set row_height, but users can set max #########
+        # Dynamically sets row_height based on max_cell_length. Not sure if we will want this
+        # calculated_height = math.ceil(max_cell_length / 10) * 15 # 10 and 15 seem arbitrary
+        # ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height)
+        row_height = kwargs.get("row_height", 15)
+        ws.row_dimensions[row_idx].height = min(row_height, max_row_height)
 
     # Set header height if specified
     if column_settings.get('header_height', None):
         header_height = column_settings.get('header_height')
         ws.row_dimensions[min_row].height = header_height
 
-    # Borders ########### Move this to column specific section since it uses the same loop ##########
+    # Borders 
+    # Move this to column specific section since it uses the same loop?
     for col_name, settings in column_settings.items():
         if col_name in column_map and settings.get("separator_column", False):
             col_index, col_letter = column_map[col_name]
             header_fill_color = settings.get("header_fill_color")
             if header_fill_color:
                 try:
-                    border_color = parse_fill_color(header_fill_color) ########## Looks up color values based on name in the dictionary, and formats the color code properly for color codes that are passed through ##########
+                    border_color = parse_fill_color(header_fill_color) # Look up color values based on name in the dictionary
                 except ValueError:
                     print(f"Warning: Invalid header_fill_color for '{col_name}'. Using black.")
                     border_color = "FF000000"
             else:
                 border_color = "FF000000"
 
-            # Get border settings, with some sort of default. Should probably copy whatever alignment does
-            # then pass that through below 
-            # Style and color will be passed through as whatever, the each side will be a bool 
-            # that defaults to false
-            # That sounds easy, there must be something that I am missing
-
-
             # Style value must be one of {‘mediumDashed’, ‘mediumDashDotDot’, ‘dashDot’, ‘dashed’, ‘slantDashDot’, ‘dashDotDot’, ‘thick’, ‘thin’, ‘dotted’, ‘double’, ‘medium’, ‘hair’, ‘mediumDashDot’}
             medium_side = Side(style='medium', color=border_color)
             for row_idx in range(min_row + 1, max_row + 1):
                 cell = ws.cell(row=row_idx, column=col_index)
-                cell.border = Border( ######### All of these setting type things seem very redundant #########
+                cell.border = Border(
                     left=medium_side,
                     right=cell.border.right,
                     top=cell.border.top,
@@ -337,8 +309,8 @@ def file_formatting(
                     horizontal=cell.border.horizontal
                 )
 
-    # 8) Freeze panes
-    freeze_cols = [] ######### Going to need to try to use what we have currently. See formatting issue for details on options #########
+    # Freeze panes
+    freeze_cols = [] # See formatting issue for details on options
     for c_name, (c_idx, c_letter) in column_map.items():
         if column_settings.get(c_name, {}).get("freeze_pane", False):
             freeze_cols.append((c_idx, c_letter))
@@ -349,13 +321,9 @@ def file_formatting(
         freeze_pane_cell = f"{get_column_letter(rightmost_idx + 1)}{min_row + 1}"
         ws.freeze_panes = freeze_pane_cell
 
-    # 9) Row banding if group_on=True
+    # Row banding if group_on=True
     if kwargs.get('banding', False):
-        # fill1 = PatternFill("solid", fgColor="6efdfd")
-        # fill1 = PatternFill("solid", fgColor="D9D9D9")
         fill1 = PatternFill("solid", fgColor="F2F2F2")
-        # fill2 = PatternFill("solid", fgColor="f231f2")
-        # fill2 = PatternFill("solid", fgColor="BFBFBF")
         fill2 = PatternFill("solid", fgColor="d9deea")
 
         grouping_columns = [
@@ -383,7 +351,7 @@ def file_formatting(
                     # [i for i, val in enumerate(my_list) if val] 
                     ######## Should be able to use the above to get a list of row indexes, then format/band from there ########
                     
-                    current_fill = fill2 if current_fill == fill1 else fill1 ######## Fill1 and fill2 are used for banding, currently hardcoded but we can make that a parameter ########
+                    current_fill = fill2 if current_fill == fill1 else fill1 # Fill1 and fill2 are used for banding, currently hardcoded but we can make that a parameter
                     current_key = row_key
 
                 for col_i in range(min_col, max_col + 1):
@@ -391,5 +359,3 @@ def file_formatting(
 
     # Finally, save the changes
     wb.save(file_name)
-
-
