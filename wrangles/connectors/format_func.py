@@ -14,9 +14,15 @@ def file_formatting(
     buffer,
     max_row_height=60,
     kwargs=None
-):
+    ):
     """
-    Convert each worksheet in the given workbook into a formatted table, **without** any filtering logic.
+    Format a .xlsx file using openpyxl.
+
+    :param file_name: The name of the file to save the formatted data to.
+    :param column_settings: A dictionary of column settings, where keys are column names and values are dictionaries of formatting options.
+    :param buffer: A BytesIO buffer containing the Excel file to format.
+    :param max_row_height: The maximum height of rows in the Excel file.
+    :param kwargs: Additional formatting options.
     """
     # (A) Semantic color map for optional header fill
     COLOR_MAP = {
