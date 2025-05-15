@@ -254,30 +254,31 @@ class TestWrite:
         write:
           file:
             name: tests/temp/write_data.xlsx
-            format:
+            formatting:
               font: Edwardian Script ITC
               font_size: 15
-              col1:
-                width: 10
-                # header:
-                #   fill_color: blue
-                #   font_size: 14
-                # fill_color: yellow
-                # font_size: 18
-              col2:
-                width: 20
-                header_fill_color: '#6565bf'
-                font_size: 11
-                group_on: True
-              Default:
-                width: 15
-                header_fill_color: '#00FF7F'
-                font_size: 12
+              columns:
+                col1:
+                  width: 10
+                  # header:
+                  #   fill_color: blue
+                  #   font_size: 14
+                  # fill_color: yellow
+                  # font_size: 18
+                col2:
+                  width: 20
+                  header_fill_color: '#6565bf'
+                  font_size: 11
+                  group_on: True
+                Default:
+                  width: 15
+                  header_fill_color: '#00FF7F'
+                  font_size: 12
         """
         def blah(df):
             return df
         df = wrangles.recipe.run(recipe=recipe, functions=[blah])
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ['Unnamed: 0', 'col1', 'col2']
 
     def test_write_csv(self):
         """
@@ -287,10 +288,10 @@ class TestWrite:
             """
               read:
                 - test:
-                  rows: 5
-                  values:
-                    Find: aaa
-                    Replace: bbb
+                    rows: 5
+                    values:
+                      Find: aaa
+                      Replace: bbb
               write:
                 file:
                   name: tests/temp/temp.csv
@@ -313,10 +314,10 @@ class TestWrite:
             """
               read:
                 - test:
-                  rows: 5
-                  values:
-                    Find: aaa
-                    Replace: bbb
+                    rows: 5
+                    values:
+                      Find: aaa
+                      Replace: bbb
               write:
                 file:
                   name: tests/temp/temp.txt
@@ -339,10 +340,10 @@ class TestWrite:
             """
               read:
                 - test:
-                  rows: 5
-                  values:
-                    Find: aaa
-                    Replace: bbb
+                    rows: 5
+                    values:
+                      Find: aaa
+                      Replace: bbb
               write:
                 file:
                   name: tests/temp/temp.json
