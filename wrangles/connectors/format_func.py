@@ -1,8 +1,6 @@
-import math
 import re as _re
 from typing import BinaryIO
 from ..utils import wildcard_expansion as _wildcard_expansion
-from ..utils import wildcard_expansion_dict as _wildcard_expansion_dict
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
@@ -12,7 +10,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 def file_formatting(
     file_name: str,
     buffer: BinaryIO,
-    column_settings: dict = None,
+    column_settings: dict = {},
     max_row_height: int = 60,
     **kwargs
     ):
