@@ -52,7 +52,7 @@ def file_formatting(
         return color_str.upper()
 
     universal_settings_list = ['banding', 'table_style'] # Settings that are associated with the entire table, not just columns, rows, or cells
-    default_settings = {k: v for k, v in kwargs['kwargs'].items() if k not in universal_settings_list}
+    default_settings = {k: v for k, v in kwargs.items() if k not in universal_settings_list}
 
     # Load the workbook from the buffer
     wb = load_workbook(buffer)
@@ -123,7 +123,7 @@ def file_formatting(
     tab = Table(displayName=table_name, ref=table_ref) # Named tab to avoid confusion with the table object
 
     # Should allow users to set any of these in the future
-    table_style = kwargs['kwargs'].get('table_style', 'TableStyleMedium9') # Default to TableStyleMedium9
+    table_style = kwargs.get('table_style', 'TableStyleMedium9') # Default to TableStyleMedium9
     tab.tableStyleInfo = TableStyleInfo(
             name= table_style,
             showFirstColumn=False,
@@ -134,7 +134,7 @@ def file_formatting(
     ws.add_table(tab)
 
     # Unpack font data
-    font_name = column_settings.pop('font', 'Calibri')
+    font_name = kwargs.pop('font', 'Calibri')
     font_size = column_settings.pop('font_size', 11)
     font_color = column_settings.pop('font_color', 'FF000000')
     bold = column_settings.pop('bold', False)
@@ -277,7 +277,7 @@ def file_formatting(
         # Dynamically sets row_height based on max_cell_length. Not sure if we will want this
         # calculated_height = math.ceil(max_cell_length / 10) * 15 # 10 and 15 seem arbitrary
         # ws.row_dimensions[row_idx].height = min(calculated_height, max_row_height)
-        row_height = kwargs['kwargs'].get("row_height", 15)
+        row_height = kwargs.get("row_height", 15)
         ws.row_dimensions[row_idx].height = min(row_height, max_row_height)
 
     # Set header height if specified
@@ -329,7 +329,7 @@ def file_formatting(
         ws.freeze_panes = freeze_pane_cell
 
     # Row banding if group_on=True
-    if kwargs['kwargs'].get('banding', False):
+    if kwargs.get('banding', False):
         fill1 = PatternFill("solid", fgColor="F2F2F2")
         fill2 = PatternFill("solid", fgColor="d9deea")
 
