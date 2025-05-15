@@ -95,13 +95,12 @@ def file_formatting(
 
     # Build default column settings to be applied to every column not specified
     column_settings['default'] = default_settings
-    # column_settings['default'] = {key: value for key, value in zip(list(column_settings.keys()), list(column_settings.values())) if key not in columns}
 
     for col in unspecified_columns:
         if 'default' in column_settings.keys():
             column_settings[col] = column_settings['default']
-        else:
-            column_settings[col] = {'width': 30, 'header_fill_color': 'blue'} ####### Should probably add more parameters here ########
+        # else:
+        #     column_settings[col] = {'width': 30, 'header_fill_color': 'blue'} # Currently seems to not be doing anything, leaving commented out for now
 
     # Delete the default key from column_settings since it has already been applied to the unspecified columns
     if 'default' in column_settings.keys(): del column_settings['default']
@@ -133,13 +132,13 @@ def file_formatting(
         )
     ws.add_table(tab)
 
-    # Unpack font data
+    # Unpack general font data
     font_name = kwargs.pop('font', 'Calibri')
-    font_size = column_settings.pop('font_size', 11)
-    font_color = column_settings.pop('font_color', 'FF000000')
-    bold = column_settings.pop('bold', False)
-    italicize = column_settings.pop('italic', False)
-    underline = column_settings.pop('underline', None)
+    font_size = kwargs.pop('font_size', 11)
+    font_color = kwargs.pop('font_color', 'FF000000')
+    bold = kwargs.pop('bold', False)
+    italicize = kwargs.pop('italic', False)
+    underline = kwargs.pop('underline', None)
 
     # Set cell alignment
     if 'alignment' in column_settings.keys():
@@ -186,7 +185,7 @@ def file_formatting(
             ws.column_dimensions[col_letter].width = settings.pop("width", 20)
 
             for cell_tuple in ws.iter_rows(
-                    min_row=min_row + 1,
+                    min_row=min_row, # Add 1 if not wanting to include header
                     max_row=max_row,
                     min_col=col_index,
                     max_col=col_index
