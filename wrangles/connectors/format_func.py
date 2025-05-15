@@ -71,7 +71,7 @@ def file_formatting(
                 for part in parts:
                     split_settings[part] = value
             else:
-                split_settings[key] = value
+                split_settings[parts[0]] = value
         else:
             split_settings[key] = value
 
