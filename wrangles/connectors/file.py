@@ -9,7 +9,9 @@ from typing import Union as _Union
 from io import BytesIO as _BytesIO
 import os as _os
 import re as _re
+import io as _io
 from ..utils import wildcard_expansion as _wildcard_expansion
+from .format_func import file_formatting as _file_formatting
 
 
 _schema = {}
@@ -123,7 +125,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, **kwargs) -> None:
+def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -168,7 +170,17 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # Write an Excel file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_excel(file_object, **kwargs)
+        if formatting:
+            # Write to memory buffer and pass through to formatting function
+            buffer = _io.BytesIO()
+            with _pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False)
+            buffer.seek(0)
+            other_params = {k: v for k, v in formatting.items() if k not in ['columns']}
+            _file_formatting(file_name=name, column_settings=formatting.get('columns', {}), buffer=buffer, **other_params)
+            
+        else:
+            df.to_excel(file_object, **kwargs)
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file
