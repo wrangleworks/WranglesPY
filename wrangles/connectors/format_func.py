@@ -265,7 +265,7 @@ def file_formatting(
             except ValueError as ve:
                 print(f"Warning: {ve}. Skipping fill for header '{header_text}'.")
 
-    # Adjust row heights ######## Should allow a seperation of row heights and column header heights ########
+    # Adjust row heights ######## Should allow a separation of row heights and column header heights ########
     for row_idx in range(min_row, max_row + 1):
         max_cell_length = max(
             len(str(ws.cell(row=row_idx, column=col).value or ''))
