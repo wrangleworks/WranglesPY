@@ -177,7 +177,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
                 df.to_excel(writer, index=False)
             buffer.seek(0)
             other_params = {k: v for k, v in formatting.items() if k not in ['columns']}
-            _file_formatting(file_name=file_object, column_settings=formatting.get('columns', {}), buffer=buffer, **other_params)
+            _file_formatting(file_name=name, column_settings=formatting.get('columns', {}), buffer=buffer, **other_params)
             
         else:
             df.to_excel(file_object, **kwargs)
