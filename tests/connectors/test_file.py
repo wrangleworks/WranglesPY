@@ -454,7 +454,7 @@ class TestWrite:
 
     def test_write_file_format_default(self):
         """
-        Test the format function with defualt/general parameters
+        Test the format function with default/general parameters
         """
         df = wrangles.recipe.run(
         """
