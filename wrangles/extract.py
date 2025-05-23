@@ -53,12 +53,13 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-4.1-mini",
     threads: int = 20,
     timeout: int = 25,
     retries: int = 0,
     messages: list = [],
     url: str = "https://api.openai.com/v1/chat/completions",
+    strict: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -84,6 +85,8 @@ def ai(
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
     :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
+    :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
+        but may be more limited in the schema it can return.
 
     :return: A scalar or list of extracted information.
     """
@@ -295,8 +298,10 @@ def ai(
                 "parameters": {
                     "type": "object",
                     "properties": output,
-                    "required": list(output.keys())
-                }
+                    "required": list(output.keys()),
+                    "additionalProperties": False,
+                },
+                "strict": strict
             }
         }],
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},

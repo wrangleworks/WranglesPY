@@ -3122,3 +3122,31 @@ class TestExtractAI:
             })
         )
         assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
+
+    def test_strict_mode(self):
+        """
+        Test strict mode with an easy question but a schema that contradicts the correct answer
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                strict: true
+                output:
+                  numbers:
+                    type: integer
+                    description: How many numbers are in the data
+                    minimum: 7
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "1,2,3,4",
+                ],
+            })
+        )
+        assert df['numbers'][0] >= 7
