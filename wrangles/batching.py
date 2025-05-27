@@ -40,15 +40,21 @@ def batch_api_calls(url, params, input_list, batch_size):
             if str(response.status_code)[0] != '2':
                 raise ValueError(f"Status Code: {response.status_code} - {response.reason}. {response.text} \n")
             
-            if isinstance(response.json(), list):
+            response_json = response.json()
+
+            if isinstance(response_json, list):
                 if results is None:
                     results = []
-                results += response.json()
-            elif isinstance(response.json(), dict):
+                results += response_json
+            elif isinstance(response_json, dict):
+                if "data" not in response_json or "columns" not in response_json:
+                    raise ValueError(f"API Response did not return an expected format.")
+
                 if results is None:
                     results = {}
-                results["data"] = results.get("data", []) + response.json()["data"]
-                results["columns"] = response.json()["columns"]
+
+                results["data"] = results.get("data", []) + response_json["data"]
+                results["columns"] = response_json["columns"]
             else:
                 raise ValueError(f"API Response did not return an expected format.")
     finally:
