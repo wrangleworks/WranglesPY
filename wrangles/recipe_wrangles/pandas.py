@@ -85,7 +85,10 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
     additionalProperties: false
     properties:
       header_column:
-        type: string
+        type: 
+          - string
+          - integer
+          - null
         description: >- 
           Name or position of the column that will be used as the column headings
           for the transposed DataFrame. Default 0 (first column).
