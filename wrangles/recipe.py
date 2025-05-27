@@ -9,7 +9,8 @@ import types as _types
 import typing as _typing
 import os as _os
 import inspect as _inspect
-import importlib as _importlib 
+import importlib as _importlib
+from itertools import dropwhile as _dropwhile
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
@@ -635,11 +636,13 @@ def _execute_wrangles(
                                 )
                             ]
 
+                        fn_all_args = set(fn_argspec.args + fn_argspec.kwonlyargs)
+                            
                         # If the user hasn't explicitly requested input or output
                         # then remove them so they will not be included in kwargs
                         params_temp = params.copy()
                         for special_parameter in ['input', 'output']:
-                            if special_parameter in params_temp and special_parameter not in fn_argspec.args:
+                            if special_parameter in params_temp and special_parameter not in fn_all_args:
                                 params_temp.pop(special_parameter)
 
                         # If user specifies multiple outputs, expand any list output
@@ -649,33 +652,37 @@ def _execute_wrangles(
                         else:
                             result_type = 'reduce'
 
-                        # cols_renamed = []
-
                         # If the user's custom function does not have kwargs available
                         # then we need to remove any unmatched function arguments
-                        # from the parameters or the columns
+                        # from the parameters
                         if not fn_argspec.varkw:
-                            params_temp2 = params_temp.copy()
-                            for param in params_temp2.keys():
-                                if param not in fn_argspec.args:
-                                    params_temp.pop(param)
+                            params_temp = {
+                                k: v
+                                for k, v in params_temp.items()
+                                if k in fn_all_args
+                            }
 
-                        cols = df_temp.columns.to_list()
-                        cols_renamed = [col.replace(' ', '_') for col in cols]
+                        cols_renamed = [_re.sub(r'[^0-9a-zA-Z_]', '_', col) for col in df_temp.columns]
 
-                        # Create a dictionary of columns with spaces and their replacement
-                        # with an underscore. Used in df_temp.rename
+                        # Create a dictionary of columns with non-valid python variable characters
+                        # and their replacement with an underscore. Used in df_temp.rename
                         colDict = {
-                            col: col.replace(' ', '_') for col in cols
-                            if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                            col: _re.sub(r'[^0-9a-zA-Z_]', '_', col)
+                            for col in df_temp.columns
+                            if (_re.sub(r'[^0-9a-zA-Z_]', '_', col) in fn_all_args and col != _re.sub(r'[^0-9a-zA-Z_]', '_', col))
                         }
 
                         df_temp = df_temp.rename(columns=colDict)
-                        cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
+                        cols_renamed = [col for col in cols_renamed if col in fn_all_args]
 
                         # If the custom functions has kwargs or a parameter
                         # matching a column name, execute including those
                         if cols_renamed:
+                            # Check for named args before positional args. This is not allowed.
+                            all_named_args = set(cols_renamed + list(params_temp.keys()))
+                            if not all(_dropwhile(lambda x: not x, [arg in all_named_args for arg in fn_argspec.args])):
+                                raise RuntimeError("Named arguments must be last in the function signature")
+
                             # Find args not named
                             available_args = df_temp.columns.tolist() + list(params_temp.keys())
                             required_positional_args = len([
