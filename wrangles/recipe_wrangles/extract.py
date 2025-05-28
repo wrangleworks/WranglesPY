@@ -164,6 +164,12 @@ def ai(
       model_id:
         type: string
         description: Use a saved definition from an extract ai wrangle.
+      strict:
+        type: boolean
+        description: >-
+          Enable strict mode. Default False.
+          If True, the function will be required to match the schema,
+          but may be more limited in the schema it can return.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
