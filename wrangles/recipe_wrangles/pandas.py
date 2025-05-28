@@ -78,13 +78,38 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
     return df.drop(columns=columns)
     
 
-def transpose(df: _pd.DataFrame) -> _pd.DataFrame:
+def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
     """
     type: object
     description: Transpose the DataFrame (swap columns to rows)
-    additionalProperties: true
+    additionalProperties: false
+    properties:
+      header_column:
+        type: 
+          - string
+          - integer
+          - null
+        description: >- 
+          Name or position of the column that will be used as the column headings
+          for the transposed DataFrame. Default 0 (first column).
+          Use header_column = null to not use any column as header.
     """
-    return df.transpose()
+    if header_column is not None:
+        if isinstance(header_column, int):
+            # If header_column is an integer, use it as the column index
+            header_column = df.columns[header_column]
+
+        df = df.set_index(header_column).transpose()
+
+        # convert index to column
+        df.index.name = df.columns.name
+        df.columns.name = None
+
+        df = df.reset_index()
+        return df
+
+    else:
+      return df.transpose()
 
 
 def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:

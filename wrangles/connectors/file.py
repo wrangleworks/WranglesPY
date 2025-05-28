@@ -7,6 +7,7 @@ import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
+import base64 as _base64
 import os as _os
 import re as _re
 import io as _io
@@ -37,6 +38,16 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
+    if (
+        isinstance(name, dict) and
+        all(x in name for x in ['name', 'data', 'mimeType'])
+    ):
+        # User passed a file as a object
+        file_object = _BytesIO(
+            _base64.b64decode(name['data'])
+        )
+        name = name['name']
+
     _logging.info(f": Reading data from file :: {name}")
     
     # If user does not pass a file object then use name

@@ -558,3 +558,43 @@ class TestWrite:
         )
         assert df.columns.tolist() == ['col1, col1, col1', 'col2']
 
+def test_read_object():
+    """
+    Test reading a file passed directly into the recipe as an object
+    """
+    df = wrangles.recipe.run(
+      """
+      read:
+        - file:
+            name: ${file}
+      """,
+      variables={
+        "file": {
+          "name": "example.csv",
+          "mimeType": "text/csv",
+          "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
+        }
+      }
+    )
+    assert len(df) == 3 and df['Col1'][0] == 'a'
+
+def test_read_object_json():
+    """
+    Test reading a file passed directly into the recipe as an object
+    where the variable was JSON
+    """
+    df = wrangles.recipe.run(
+      """
+      read:
+        - file:
+            name: ${file}
+      """,
+      variables={
+        "file": """{
+          "name": "example.csv",
+          "mimeType": "text/csv",
+          "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
+        }"""
+      }
+    )
+    assert len(df) == 3 and df['Col1'][0] == 'a'

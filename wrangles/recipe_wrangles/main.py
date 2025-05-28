@@ -1603,7 +1603,7 @@ def standardize(
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
       case_sensitive:
-        type: bool
+        type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     # If user hasn't specified an output column, overwrite the input
