@@ -278,3 +278,24 @@ def test_all_if_false():
         """
     )
     assert isinstance(df, pd.DataFrame) and df.empty
+
+def test_overwrite_read():
+    """
+    Test using a custom function to overwrite a standard connector for read
+    """
+    class file:
+        def read(name):
+            return {
+              "abc": pd.DataFrame({"header": ["value1", "value2"]})
+            }[name]
+        
+    df = wrangles.recipe.run(
+        """
+        read:
+          - file:
+              name: abc
+        """,
+        functions=file
+    )
+    
+    assert df['header'][0] == "value1"

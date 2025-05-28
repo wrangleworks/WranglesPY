@@ -34,7 +34,7 @@ from ..connectors.matrix import _define_permutations
 def accordion(
     df: _pd.DataFrame,
     wrangles: list,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
@@ -54,6 +54,7 @@ def accordion(
       input:
         type:
           - string
+          - integer
           - array
         description: >-
           The column(s) containing the list(s) that the
@@ -151,7 +152,7 @@ def accordion(
     ).filter(regex='^(?!.*_TOBEDROPPED)')
 
     # Ensure output columns contain empty lists if no data remaining
-    df[output] = df[output].applymap(lambda d: d if isinstance(d, list) else [])
+    df[output] = df[output].map(lambda d: d if isinstance(d, list) else [])
 
     # Ensure output columns are in the same order as the original columns
     all_columns = original_columns + [
@@ -163,6 +164,35 @@ def accordion(
     return df
 
 
+def _batch_thread(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
+    timeout: float = None,
+    on_error: dict = None
+):
+    """
+    Function called by batch
+    """
+    try:
+        return _wrangles.recipe.run(
+            {"wrangles": wrangles},
+            dataframe=df,
+            functions=functions,
+            variables=variables,
+            timeout=timeout
+        )
+    except Exception as err:
+        if on_error:
+            _logging.error(f": Suppressed error in batch: {str(err)}")
+            return df.assign(**{
+                k: [v] * len(df)
+                for k, v in on_error.items()
+            })
+        else:
+            raise err from None
+
 def batch(
     df,
     wrangles: list,
@@ -170,7 +200,9 @@ def batch(
     variables: dict = {},
     batch_size: int = 1000,
     threads: int = 1,
-    on_error: dict = None
+    on_error: dict = None,
+    timeout: float = None,
+    use_multiprocessing: bool = False
 ):
     """
     type: object
@@ -200,7 +232,10 @@ def batch(
         description: The number of threads to use for parallel processing. Default 1.
       on_error:
         type: object
-        description: A dictionary of column_name: value to return if an error occurs while attempting to run a batch
+        description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
+      timeout:
+        type: number
+        description: The number of seconds to wait for a batch to complete before raising an error
     """
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
@@ -220,40 +255,37 @@ def batch(
             raise ValueError('threads must be an integer greater than 0')
     if threads < 1:
         raise ValueError('threads must be an integer greater than 0')
-    
-    def _batch_thread(df, wrangles, functions):
-        try:
-            return _wrangles.recipe.run(
-                {"wrangles": wrangles},
-                dataframe=df,
-                functions=functions,
-                variables=variables
-            )
-        except Exception as err:
-            if on_error:
-                return df.assign(**{
-                    k: [v] * len(df)
-                    for k, v in on_error.items()
-                })
-            else:
-                raise err from None
+  
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
 
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+    with pool_executor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
+        
+        # Set a chunk size for process pool executor
+        # to reduce overhead of process creation
+        chunksize = min(max(len(batches) // threads, 1), 20)
 
-        results = list(executor.map(
+        results = executor.map(
             _batch_thread,
             batches,
             [wrangles] * len(batches),
-            [functions] * len(batches)
-        ))
+            [functions] * len(batches),
+            [variables] * len(batches),
+            [timeout] * len(batches),
+            [on_error] * len(batches),
+            chunksize = chunksize
+        )
 
     return _pd.concat(results)
 
 
 def classify(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     model_id: str,
     **kwargs
@@ -271,6 +303,7 @@ def classify(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -383,7 +416,9 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: Name of the dates column
       operation:
         type: string
@@ -448,7 +483,7 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 def filter(
     df: _pd.DataFrame,
-    input: _Union[str, list] = [],
+    input: _Union[str, int, list] = [],
     equal: _Union[str, list] = None,
     not_equal: _Union[str, list] = None,
     is_in: _Union[str, list] = None,
@@ -487,6 +522,7 @@ def filter(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name of the column to filter on.
@@ -625,7 +661,7 @@ def filter(
 
 def huggingface(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     api_token: str,
     model: str,
     output: _Union[str, list] = None,
@@ -642,6 +678,7 @@ def huggingface(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -792,7 +829,9 @@ def lookup(
       - model_id
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: Name of the column(s) to lookup.
       model_id:
         type: string
@@ -875,7 +914,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: |
           The mathematical expression using column names. e.g. column1 * column2
           + column3.  Note: spaces within column names are replaced by underscores (_).
@@ -891,26 +932,10 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: |
-          The mathematical expression using column names. e.g. column1 * column2
-          + column3. Note: spaces within column names are replaced by underscores (_).
-      output:
-        type: string
-        description: The column to output the results to
+    Deprecated - use math
     """
-    df_temp = df.copy()
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
-    return df
+    _logging.warning('maths is deprecated, use math instead')
+    return math(df, input, output)
 
 
 def matrix(
@@ -942,16 +967,16 @@ def matrix(
         minItems: 1
         items:
           "$ref": "#/$defs/wrangles/items"
-        strategy:
-          type: string
-          enum:
-            - permutations
-            - loop
-          description: >-
-            Determines how to combine variables when there are multiple.
-            loop (default) iterates over each set of variables, repeating shorter lists 
-            until the longest is completed. permutations uses the combination of all 
-            variables against all other variables.
+      strategy:
+        type: string
+        enum:
+          - permutations
+          - loop
+        description: >-
+          Determines how to combine variables when there are multiple.
+          loop (default) iterates over each set of variables, repeating shorter lists 
+          until the longest is completed. permutations uses the combination of all 
+          variables against all other variables.
     """
     for permutation in _define_permutations(
       variables,
@@ -973,7 +998,7 @@ def python(
     df: _pd.DataFrame,
     command: str,
     output: _Union[str, list],
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -994,6 +1019,7 @@ def python(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name or list of input column(s) to filter the data available
@@ -1099,7 +1125,7 @@ def python(
 
 def recipe(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     name: str = None,
     variables = {},
@@ -1156,7 +1182,7 @@ def recipe(
 
 def remove_words(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     to_remove: str,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = False,
@@ -1174,6 +1200,7 @@ def remove_words(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of column to remove words from
       to_remove:
@@ -1216,7 +1243,7 @@ def remove_words(
 
 def rename(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     wrangles: list = None,
     **kwargs
@@ -1228,6 +1255,7 @@ def rename(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -1305,7 +1333,7 @@ def rename(
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -1318,6 +1346,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input column
       output:
@@ -1554,7 +1583,7 @@ def sql(
 
 def standardize(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     model_id: _Union[str, list],
     output: _Union[str, list] = None,
     case_sensitive: bool = False,
@@ -1569,6 +1598,7 @@ def standardize(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -1582,7 +1612,7 @@ def standardize(
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
       case_sensitive:
-        type: bool
+        type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     # If user hasn't specified an output column, overwrite the input
@@ -1628,7 +1658,7 @@ def standardize(
 
 def translate(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list],
     target_language: str,
     source_language: str = 'AUTO',
@@ -1647,6 +1677,7 @@ def translate(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column to translate
       output:

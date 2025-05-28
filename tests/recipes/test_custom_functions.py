@@ -1664,3 +1664,598 @@ def test_common_param_access():
         dataframe=pd.DataFrame({"header": [1,2,3,4,5], "header2": [5,4,3,2,1]})
     )
     assert df['header'][4] == 10 and df["header"][0] == 1
+
+def test_position_args():
+    """
+    Test calling a function with position based args
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+
+        wrangles:
+          - custom.len:
+              input: header
+              output: length
+        """,
+        functions=len
+    )
+    assert df['length'][0] == 5
+
+def test_position_args_default():
+    """
+    Test calling a function that has position based args with defaults
+    """
+    def my_len(val, add=5):
+        return len(val) + add
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+
+        wrangles:
+          - custom.my_len:
+              input: header
+              output: length
+        """,
+        functions=my_len
+    )
+    assert df['length'][0] == 10
+
+def test_variable_position_args():
+    """
+    Test variable length positional args
+    """
+    def my_sum(*args):
+        return sum(args)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+
+        wrangles:
+          - custom.my_sum:
+              input:
+                - col1
+                - col2
+                - col3
+              output: sum
+        """,
+        functions=my_sum
+    )
+    assert df['sum'][0] == 6
+
+def test_variable_position_args_without_input():
+    """
+    Test variable length positional args
+    with no input i.e. all columns
+    """
+    def my_sum(*args):
+        return sum(args)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+
+        wrangles:
+          - custom.my_sum:
+              output: sum
+        """,
+        functions=my_sum
+    )
+    assert df['sum'][0] == 6
+
+def test_arg_with_varargs():
+    """
+    Test using a mix of args and varargs
+    """
+    def my_sum(arg1, *args):
+        return sum(args) - arg1
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+
+        wrangles:
+          - custom.my_sum:
+              output: sum
+        """,
+        functions=my_sum
+    )
+    assert df['sum'][0] == 4
+
+def test_varargs_empty():
+    """
+    Test using a mix of args and varargs
+    """
+    def my_sum(arg1, arg2, *args):
+        return arg1 + arg2
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+
+        wrangles:
+          - custom.my_sum:
+              output: sum
+        """,
+        functions=my_sum
+    )
+    assert df['sum'][0] == 3
+
+def test_position_and_named_args():
+    """
+    Test using a mix of position and named args
+    """
+    def my_sum(arg1, arg2, var1):
+        return arg1 + arg2 + var1
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+
+        wrangles:
+          - custom.my_sum:
+              output: sum
+              var1: 3
+        """,
+        functions=my_sum
+    )
+    assert df['sum'][0] == 6
+
+def test_positional_and_kwargs():
+    """
+    Test using positional args with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, **kwargs):
+        return ([arg1, arg2], kwargs)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_dict
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_dict'][0] == {'col3': 3, 'col4': 4}
+    )
+
+def test_positional_named_and_kwargs():
+    """
+    Test using positional args with a named column and with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, col3, **kwargs):
+        return ([arg1, arg2], kwargs)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_dict
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_dict'][0] == {'col4': 4}
+    )
+
+def test_positional_and_named_column():
+    """
+    Test using positional args with kwargs to catch the rest
+    """
+    def my_func(arg1, arg2, col3):
+        return ([arg1, arg2], col3)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [1, 2] and
+        df['result_scalar'][0] == 3
+    )
+
+def test_positional_and_named_column_extras():
+    """
+    Test using positional args and named args with the named
+    arg being first
+    """
+    def my_func(arg1, arg2, col1):
+        return ([arg1, arg2], col1)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [2, 3] and
+        df['result_scalar'][0] == 1
+    )
+
+def test_varargs_and_params():
+    """
+    Test with varargs and params defined in the recipe
+    """
+    def my_func(*args, var1):
+        return sum(args) + var1
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+                var1: 4
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == 10
+
+def test_varargs_and_params_and_default_kwarg():
+    """
+    Test with varargs, a param defined in the recipe
+    and a kwarg with a default value
+    """
+    def my_func(*args, var1, var2=5):
+        return sum(args) + var1 + var2
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+                var1: 4
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == 15
+
+def test_varargs_and_params_and_default_kwarg_given_value():
+    """
+    Test with varargs, a param defined in the recipe
+    and a kwarg with a default value but the value is given
+    """
+    def my_func(*args, var1, var2=5):
+        return sum(args) + var1 + var2
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+                var1: 4
+                var2: 6
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == 16
+
+def test_varargs_and_named_column_and_default():
+    """
+    Test with varargs and named column and a var with a default
+    """
+    def my_func(*args, col1, var2=5):
+        return (sum(args), col1, var2)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == (5, 1, 5)
+
+def test_varargs_and_named_column_and_param():
+    """
+    Test with varargs and named column and a var with a default
+    """
+    def my_func(*args, col1, var2):
+        return (sum(args), col1, var2)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+                var2: 5
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == (5, 1, 5)
+
+def test_positional_args_varargs_and_params():
+    """
+    Test with positional arg, varargs and
+    a named param defined in the recipe
+    """
+    def my_func(arg1, *args, var1):
+        return sum(args) + var1 - arg1
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+        wrangles:
+            - custom.my_func:
+                output: result
+                var1: 4
+        """,
+        functions=my_func
+    )
+    assert df['result'][0] == 8
+
+def test_named_column_between_positional():
+    """
+    Test using positional args and named args with the named
+    arg being in the middle
+    """
+    def my_func(arg1, col1, arg2):
+        return ([arg1, arg2], col1)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [2, 3] and
+        df['result_scalar'][0] == 1
+    )
+
+def test_named_column_between_positional_with_varargs():
+    """
+    Test using positional args and named args with the named
+    arg being in the middle and also using *args
+    """
+    def my_func(arg1, col1, arg2, *args):
+        return ([arg1, arg2], col1, args)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+                  - result_array2
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [2, 3] and
+        df['result_scalar'][0] == 1 and
+        df['result_array2'][0] == (4, )  # varargs returns a tuple
+    )
+
+def test_named_column_between_positional_with_kwargs():
+    """
+    Test using positional args and named args with the named
+    arg being in the middle and also using **kwargs
+    """
+    def my_func(arg1, col1, arg2, **kwargs):
+        return ([arg1, arg2], col1, kwargs)
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                col1: 1
+                col2: 2
+                col3: 3
+                col4: 4
+        wrangles:
+            - custom.my_func:
+                output:
+                  - result_array
+                  - result_scalar
+                  - result_dict
+        """,
+        functions=my_func
+    )
+    assert (
+        df['result_array'][0] == [2, 3] and
+        df['result_scalar'][0] == 1 and
+        df['result_dict'][0] == {'col4': 4}  # varargs returns a tuple
+    )
+
+def test_named_column_between_positional_invalid_signature():
+    """
+    Test using positional args and named args with the named
+    arg being in the middle, but there are not enough args
+    Should raise an appropriate error
+    """
+    def my_func(arg1, col1, arg2):
+        return ([arg1, arg2], col1)
+
+    with pytest.raises(RuntimeError, match="Unable to map values to function"):
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    col1: 1
+                    col2: 2
+            wrangles:
+                - custom.my_func:
+                    output:
+                    - result_array
+                    - result_scalar
+            """,
+            functions=my_func
+        )
+
+# def test_named_column_and_varargs_and_default():
+#     """
+#     Test with varargs and named column and a var with a default
+#     """
+#     def my_func(col1, *args, var2=5):
+#         return (sum(args), col1, var2)
+
+#     df = wrangles.recipe.run(
+#         """
+#         read:
+#           - test:
+#               rows: 1
+#               values:
+#                 col1: 1
+#                 col2: 2
+#                 col3: 3
+#         wrangles:
+#             - custom.my_func:
+#                 output: result
+#         """,
+#         functions=my_func
+#     )
+#     assert df['result'][0] == (5, 1, 5)

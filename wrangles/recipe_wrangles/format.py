@@ -6,7 +6,7 @@ import pandas as _pd
 from .. import format as _format
 
 
-def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Format a date
@@ -18,6 +18,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Uni
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -49,7 +50,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, list], format: str, output: _Uni
     return df
     
     
-def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
+def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
     """
     type: object
     description: Pad a string to a fixed length
@@ -63,6 +64,7 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -101,7 +103,7 @@ def pad(df: _pd.DataFrame, input: _Union[str, list], pad_length: int, side: str,
     return df
 
 
-def prefix(df: _pd.DataFrame, input: _Union[str, list], value: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Add a prefix to a column
@@ -113,6 +115,7 @@ def prefix(df: _pd.DataFrame, input: _Union[str, list], value: str, output: _Uni
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       value:
@@ -143,7 +146,7 @@ def prefix(df: _pd.DataFrame, input: _Union[str, list], value: str, output: _Uni
     return df
 
 
-def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, ignore_case: bool = False) -> _pd.DataFrame:
+def remove_duplicates(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, ignore_case: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Remove duplicates from a list. Preserves input order.
@@ -154,6 +157,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -183,7 +187,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, list], output: _Unio
     return df
 
 
-def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
+def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Format a value to a specific number of significant figures
@@ -194,6 +198,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -223,7 +228,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, list], significant
     return df
 
 
-def suffix(df: _pd.DataFrame, input: _Union[str, list], value: _Union[str, list], output: str = None) -> _pd.DataFrame:
+def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, list], output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Add a suffix to a column
@@ -235,6 +240,7 @@ def suffix(df: _pd.DataFrame, input: _Union[str, list], value: _Union[str, list]
         input:
           type:
             - string
+            - integer
             - array
           description: Name of the input column
         value:
@@ -264,7 +270,7 @@ def suffix(df: _pd.DataFrame, input: _Union[str, list], value: _Union[str, list]
     return df
 
 
-def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None) -> _pd.DataFrame:
+def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Remove excess whitespace at the start and end of text.
@@ -275,6 +281,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
