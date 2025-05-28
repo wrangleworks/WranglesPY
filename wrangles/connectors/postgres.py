@@ -6,9 +6,13 @@ from typing import Union as _Union
 import logging as _logging
 import csv as _csv
 from io import StringIO as _StringIO
-import psycopg2 as _psycopg2
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load external dependency
+_psycopg2 = _LazyLoader('psycopg2')
 
 _schema = {}
 

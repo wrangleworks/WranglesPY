@@ -90,6 +90,27 @@ def test_recipe_model():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+def test_recipe_by_version_id():
+    """
+    Test running a recipe using a model ID and version ID
+    """
+    df = wrangles.recipe.run("c37af8a6-43d8-4127:fe885889-67f2-4f3a-b33a-1a37ff5c243c")
+    assert (
+        len(df) == 10 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_version_tag():
+    """
+    Test running a recipe using a model ID and version tag
+    """
+    df1 = wrangles.recipe.run("c37af8a6-43d8-4127:1.0")
+    df2 = wrangles.recipe.run("c37af8a6-43d8-4127:2.0")
+    assert (
+        len(df1) == 10 and
+        len(df2) == 20
+    )
+
 def test_recipe_wrong_model():
     """
     Test the error message when a model is incorrect type

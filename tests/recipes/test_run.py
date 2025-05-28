@@ -144,3 +144,25 @@ def test_if_variables_syntax():
     )
 
     assert "run_if_variables_syntax_should_run" in wrangles.connectors.memory.dataframes
+
+def test_overwrite_run():
+    """
+    Test overwriting a stock run with a custom function
+    """
+    check_var = {}
+
+    class notification:
+        def run(key):
+            check_var[key] = True
+
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - notification:
+                key: value
+        """,
+        functions=notification
+    )
+
+    assert check_var.get("value") is True
