@@ -7,7 +7,7 @@ from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 from openpyxl.worksheet.table import Table, TableStyleInfo
 import xlsxwriter
 import pandas as _pd
-from pandas.api.types import _is_scalar
+from pandas.api.types import is_scalar
 import numpy as _np
 import xlsxwriter.utility as _xlu
 
@@ -388,12 +388,12 @@ def _is_na(val):
     Return True only if `val` is a scalar and is NaN/None/NaT.
     Arrays, lists, tuples, Series, etc. are never considered NA here.
     """
-    return _is_scalar(val) and _pd.isna(val)
+    return is_scalar(val) and _pd.isna(val)
 
 
 def file_formatting(
     df,
-    filename,
+    file_name,
     sheet_name='Sheet1',
     style_definitions=None,
     column_styles=None,
@@ -401,7 +401,7 @@ def file_formatting(
     separator_columns=None,
     conditional_formats=None,
     checkbox_columns=None,
-    freeze_panes=True,
+    freeze_panes=None,
     column_widths=None,
     column_formulas=None
    ):
@@ -410,7 +410,7 @@ def file_formatting(
 
     Parameters:
       df (pd.DataFrame): DataFrame to write.
-      filename (str): Output Excel file path.
+      file_name (str): Output Excel file path.
       sheet_name (str): Worksheet name (default 'Sheet1').
       style_definitions (dict): {style_name: format_props_dict} for reusable styles.
       column_styles (dict): Map column → style spec. Each spec can be:
@@ -436,6 +436,11 @@ def file_formatting(
     Returns:
       The original DataFrame (in case chaining is desired).
     """
+    
+    writer = _pd.ExcelWriter(file_name, engine="xlsxwriter")
+
+    # Write the dataframe data to XlsxWriter, turn off the default index
+    df.to_excel(writer, sheet_name, index=False)
 
     # ──────────────────────────────────────────────────────────────────────────
     # 1) BUILD STYLE DEFINITIONS
@@ -503,9 +508,9 @@ def file_formatting(
     # ──────────────────────────────────────────────────────────────────────────
     # 2) CREATE WORKBOOK, WORKSHEET, AND FORMAT OBJECTS
     # ──────────────────────────────────────────────────────────────────────────
-    workbook  = xlsxwriter.Workbook(filename)
+    workbook  = writer.book
     formats   = {name: workbook.add_format(props) for name, props in style_def.items()}
-    worksheet = workbook.add_worksheet(sheet_name)
+    worksheet = writer.sheets[sheet_name]
 
     # Initialize containers that will be used for borders:
     border_after_indices = set()  # columns that require a vertical (medium) border
@@ -782,5 +787,5 @@ def file_formatting(
     # ──────────────────────────────────────────────────────────────────────────
     # 11) SAVE AND RETURN
     # ──────────────────────────────────────────────────────────────────────────
-    workbook.close()
+    writer.close()
     return df
