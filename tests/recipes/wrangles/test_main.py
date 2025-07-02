@@ -4972,6 +4972,25 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
 
+    def test_lookup_empty_dataframe(self):
+        """
+        Test lookup with empty dataframe (issue #727)
+        """
+        import pandas as pd
+        from wrangles.recipe_wrangles.main import lookup
+        
+        # Create an empty dataframe
+        df = pd.DataFrame({'Col1': [], 'Col2': []})
+        
+        # Call lookup function directly - should not fail and should add output column
+        result = lookup(df, input='Col1', output='Value', model_id='fe730444-1bda-4fcd')
+        
+        # Should return an empty dataframe with the output column added
+        assert result.empty
+        assert 'Col1' in result.columns
+        assert 'Col2' in result.columns
+        assert 'Value' in result.columns
+
 
 class TestMatrix:
     """

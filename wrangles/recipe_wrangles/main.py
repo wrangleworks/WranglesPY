@@ -854,6 +854,14 @@ def lookup(
     # Ensure output is a list
     if not isinstance(output, list): output = [output]
 
+    # Return early on empty df
+    if df.empty: 
+        # Add empty output columns to maintain expected structure
+        for out in output:
+            if out not in df.columns:
+                df[out] = []
+        return df
+
     # If user specified a model_id, use it to lookup values
     if model_id:
         metadata = _model(model_id)
