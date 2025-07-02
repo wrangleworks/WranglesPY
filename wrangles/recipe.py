@@ -565,7 +565,8 @@ def _execute_wrangles(
                             **{
                                 "row_count": len(df),
                                 "column_count": len(df.columns),
-                                "columns": df.columns.tolist()
+                                "columns": df.columns.tolist(),
+                                "df": df
                             }
                         }
                     )
@@ -1068,7 +1069,8 @@ def _write_data(
                             **{
                                 "row_count": len(df_temp),
                                 "column_count": len(df_temp.columns),
-                                "columns": df_temp.columns.tolist()
+                                "columns": df_temp.columns.tolist(),
+                                "df": df_temp
                             }
                         }
                     )

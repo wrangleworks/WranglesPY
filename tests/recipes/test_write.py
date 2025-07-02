@@ -465,6 +465,49 @@ def test_write_if_row_count_variable():
     )
     assert len(df) == 100000
 
+def test_write_if_dataframe_access():
+    """
+    Test a write that uses the dataframe variable
+    to access dataframe content for conditional logic
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+          - dataframe:
+              if: df.loc[0, 'header'] == 'hello'
+              columns:
+                - header
+        """,
+        dataframe=pd.DataFrame({
+            'header': ['hello', 'world'],
+            'other': ['a', 'b']
+        })
+    )
+    assert df.columns.tolist() == ['header']
+    assert len(df) == 2
+
+def test_write_if_dataframe_access_false():
+    """
+    Test a write that uses the dataframe variable
+    where the condition is false
+    """
+    df = wrangles.recipe.run(
+        """
+        write:
+          - dataframe:
+              if: df.loc[0, 'header'] == 'goodbye'
+              columns:
+                - header
+        """,
+        dataframe=pd.DataFrame({
+            'header': ['hello', 'world'],
+            'other': ['a', 'b']
+        })
+    )
+    # When write condition is false, it returns the original dataframe
+    assert df.columns.tolist() == ['header', 'other']
+    assert len(df) == 2
+
 def test_overwrite_write():
     """
     Test using a custom function to overwrite a standard connector for write
