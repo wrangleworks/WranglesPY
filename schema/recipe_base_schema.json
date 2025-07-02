@@ -119,7 +119,7 @@
         },
         "if": {
           "type": "string",
-          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         }
       }
     },
@@ -147,7 +147,7 @@
         },
         "if": {
           "type": "string",
-          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         },
         "where": {
           "type": "string",

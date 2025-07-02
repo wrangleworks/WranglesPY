@@ -461,6 +461,74 @@ class TestIf:
             variables={"should_be_parameterized": "1 == 2"}
         )
         assert df["header"][0] == "value"
+    
+    def test_if_dataframe_access(self):
+        """
+        Test that the if statement can access the dataframe
+        for filtering based on data values
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 3
+                values:
+                    header: value
+                    number_col: <int>
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: len(df) == 3
+            """,
+        )
+        assert df["header"][0] == "VALUE"
+        assert df["header"][1] == "VALUE"
+        assert df["header"][2] == "VALUE"
+    
+    def test_if_dataframe_access_false_condition(self):
+        """
+        Test that the if statement can access the dataframe
+        and correctly skip when condition is false
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 3
+                values:
+                    header: value
+                    number_col: <int>
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: len(df) == 5
+            """,
+        )
+        assert df["header"][0] == "value"
+        assert df["header"][1] == "value"
+        assert df["header"][2] == "value"
+    
+    def test_if_dataframe_content_access(self):
+        """
+        Test that the if statement can access dataframe content
+        for filtering based on specific data values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.case:
+                input: header
+                case: upper
+                if: df.loc[0, 'header'] == 'hello'
+            """,
+            dataframe=pd.DataFrame({
+                'header': ['hello', 'world']
+            })
+        )
+        assert df["header"][0] == "HELLO"
+        assert df["header"][1] == "WORLD"
 
 class TestPositionInput:
     """
