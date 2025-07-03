@@ -1013,3 +1013,60 @@ class TestSort:
             dataframe=pd.DataFrame({'column': []})
         )
         assert df.empty
+
+    def test_sort_multi_column_float16(self):
+        """
+        Test multi-column sort with float16 data type
+        This should reproduce the float16 index error and then be fixed
+        """
+        # Create a DataFrame with float16 data that would cause the error
+        import numpy as np
+        df_input = pd.DataFrame({
+            'Overall Similarity': np.array([0.8, 0.9, 0.7], dtype=np.float16),
+            'Match Type': ['exact', 'partial', 'exact']
+        })
+        
+        # This should work without throwing "float16 indexes are not supported" error
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: 
+                  - Overall Similarity
+                  - Match Type
+                ascending: 
+                  - false
+                  - false
+            """,
+            dataframe=df_input
+        )
+        
+        # Verify that the data is sorted correctly
+        # Should be sorted by Overall Similarity descending first, then Match Type descending
+        # Use approximate comparison due to float16->float32 precision conversion
+        assert abs(df.iloc[0]['Overall Similarity'] - 0.9) < 0.01  # highest similarity first
+        assert len(df) == 3
+
+    def test_sort_single_column_float16(self):
+        """
+        Test single column sort with float16 data type
+        """
+        import numpy as np
+        df_input = pd.DataFrame({
+            'Overall Similarity': np.array([0.8, 0.9, 0.7], dtype=np.float16)
+        })
+        
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: Overall Similarity
+                ascending: false
+            """,
+            dataframe=df_input
+        )
+        
+        # Verify that the data is sorted correctly in descending order
+        assert abs(df.iloc[0]['Overall Similarity'] - 0.9) < 0.01  # highest first
+        assert abs(df.iloc[1]['Overall Similarity'] - 0.8) < 0.01  # middle
+        assert abs(df.iloc[2]['Overall Similarity'] - 0.7) < 0.01  # lowest last
