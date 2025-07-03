@@ -17,6 +17,7 @@ import wrangles as _wrangles
 import json as _json
 import numpy as _np
 import math as _math
+import os as _os
 import concurrent.futures as _futures
 from ..openai import _divide_batches
 from ..classify import classify as _classify
@@ -29,6 +30,7 @@ from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
+from ..utils import wildcard_expansion_dict as _wildcard_expansion_dict
 
 
 def accordion(
@@ -1312,14 +1314,11 @@ def rename(
 
     # If short form of paired names is provided, use that
     if input is None:
-        # Check that column name exists
-        rename_cols = list(kwargs.keys())
-        for x in rename_cols:
-            if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
-        # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
+        # Use wildcard expansion for kwargs approach
+        rename_dict = _wildcard_expansion_dict(df.columns.tolist(), kwargs)
         
-        rename_dict = kwargs
+        # Check if the new column names exist if so drop them
+        df = df.drop(columns=[x for x in rename_dict.values() if x in df.columns and x not in rename_dict.keys()])
     else:
         if not output:
             raise ValueError('If an input is provided, an output must also be provided.')
@@ -1328,15 +1327,55 @@ def rename(
         if not isinstance(input, list): input = [input]
         if not isinstance(output, list): output = [output]
 
-        # Ensure input and output are equal lengths
-        if len(input) != len(output):
-            raise ValueError('The lists for input and output must be the same length.')
+        # Check if we have wildcards - if both input and output are single strings with wildcards
+        has_wildcard_input = ('*' in str(input[0]) or str(input[0]).lower().startswith('regex:'))
+        has_wildcard_output = ('*' in str(output[0]) or str(output[0]).lower().startswith('regex:'))
+        
+        if (len(input) == 1 and len(output) == 1 and has_wildcard_input and has_wildcard_output):
+            # Create a dictionary mapping for wildcard expansion
+            rename_dict = _wildcard_expansion_dict(df.columns.tolist(), {input[0]: output[0]})
+        elif (len(output) == 1 and has_wildcard_output and len(input) > 1):
+            # Special case: input has been expanded to multiple columns matching a pattern,
+            # but output is still a wildcard. Try to reverse-engineer the pattern.
+            output_pattern = output[0]
+            if output_pattern == '*':
+                # For simple '*' pattern, try to find common suffix to remove
+                # Check if all input columns share a common suffix
+                common_suffix = ''
+                if all('.' in col for col in input):
+                    # Find the longest common suffix after the last dot
+                    suffixes = [col.split('.')[-1] for col in input]
+                    if len(set(suffixes)) == 1:
+                        # All have the same suffix
+                        common_suffix = '.' + suffixes[0]
+                        # Create a pattern to remove this suffix
+                        pattern = f'*.{suffixes[0]}'
+                        rename_dict = _wildcard_expansion_dict(df.columns.tolist(), {pattern: '*'})
+                    else:
+                        # Fallback: just remove the common suffix if any
+                        common_suffix = _os.path.commonprefix([col[::-1] for col in input])[::-1]
+                        if common_suffix:
+                            pattern = f'*{common_suffix}'
+                            rename_dict = _wildcard_expansion_dict(df.columns.tolist(), {pattern: '*'})
+                        else:
+                            # No common pattern found, fall back to regular renaming
+                            rename_dict = dict(zip(input, output))
+                else:
+                    # No dots, try to find other common pattern
+                    rename_dict = dict(zip(input, output))
+            else:
+                # Other wildcard patterns - more complex, fall back for now
+                rename_dict = dict(zip(input, output))
+        else:
+            # Ensure input and output are equal lengths for non-wildcard case
+            if len(input) != len(output):
+                raise ValueError('The lists for input and output must be the same length.')
+            
+            # Otherwise create a dict from input and output columns
+            rename_dict = dict(zip(input, output))
         
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
-        
-        # Otherwise create a dict from input and output columns
-        rename_dict = dict(zip(input, output))
+        df = df.drop(columns=[x for x in rename_dict.values() if x in df.columns and x not in rename_dict.keys()])
 
     return df.rename(columns=rename_dict)
 

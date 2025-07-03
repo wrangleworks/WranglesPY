@@ -1518,6 +1518,63 @@ class TestRename:
         )
         assert df.empty and df.columns.tolist() == ['Company', 'MPN']
 
+    def test_rename_wildcard_input_output(self):
+        """
+        Test rename using wildcard input and output
+        """
+        data = pd.DataFrame({
+            'col1.list': ['A'],
+            'col2.list': ['B'], 
+            'col3.list': ['C'],
+            'other_col': ['D']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                input: '*.list'
+                output: '*'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        expected_columns = ['col1', 'col2', 'col3', 'other_col']
+        assert df.columns.tolist() == expected_columns
+
+    def test_rename_wildcard_kwargs(self):
+        """
+        Test rename using wildcard in kwargs style
+        """
+        data = pd.DataFrame({
+            'col1.list': ['A'],
+            'col2.list': ['B'], 
+            'col3.list': ['C'],
+            'other_col': ['D']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                '*.list': '*'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        expected_columns = ['col1', 'col2', 'col3', 'other_col']
+        assert df.columns.tolist() == expected_columns
+
+    def test_rename_wildcard_with_prefix(self):
+        """
+        Test rename using wildcard with prefix
+        """
+        data = pd.DataFrame({
+            'prefix_col1': ['A'],
+            'prefix_col2': ['B'], 
+            'other_col': ['C']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                'prefix_*': 'new_*'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        expected_columns = ['new_col1', 'new_col2', 'other_col']
+        assert df.columns.tolist() == expected_columns
+
 
 class TestSimilarity:
     """
