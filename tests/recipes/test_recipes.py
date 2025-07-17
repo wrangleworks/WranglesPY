@@ -741,6 +741,33 @@ class TestColumnWildcards:
             len(df) == 10
         )
 
+    def test_non_matching_wildcard(self):
+        """
+        Test error message - wildcard expansion finds no matches
+        """
+        data = pd.DataFrame({
+            'name': ['hammer', 'wrench', 'cable'],
+            'val1': ['13 kg', '5kg', '1kg'],
+            'val2': ['13cm', '12cm', '30cm'],
+            'val3': ['blue', 'silver', 'orange']
+        })
+        with pytest.raises(ValueError) as info:
+
+            raise wrangles.recipe.run(
+                """
+                wrangles:
+                - format.trim
+                    input: attr*
+                """,
+                dataframe=data
+            )
+        assert (
+            input.typename == 'ValueError' and
+            'Wildcard expansion pattern did not find any matching columns' in info.value.args[0]
+        )
+
+
+
 def test_run_as_string():
     """
     Test a run defined as a string runs correctly assuming there are no parameters.
