@@ -350,6 +350,10 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         else:
             if not optional_column:
                 raise KeyError(f'Column {column} does not exist')
+            
+    # If wildcard expansion is the only input and there are no matches, then raise an error
+    if len(result_columns) == 0 and len(selected_columns) == 1 and str(selected_columns[0]).startswith('regex'):
+        raise KeyError(f'Wildcard expansion pattern did not find any matching columns')
     
     # Return, preserving original order
     return list(result_columns.keys())
