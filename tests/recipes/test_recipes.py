@@ -751,18 +751,43 @@ class TestColumnWildcards:
             'val2': ['13cm', '12cm', '30cm'],
             'val3': ['blue', 'silver', 'orange']
         })
-        with pytest.raises(ValueError) as info:
-
+        with pytest.raises(KeyError) as info:
             raise wrangles.recipe.run(
                 """
                 wrangles:
-                - format.trim
+                - format.trim:
                     input: attr*
                 """,
                 dataframe=data
             )
         assert (
-            input.typename == 'ValueError' and
+            info.typename == 'KeyError' and
+            'Wildcard expansion pattern did not find any matching columns' in info.value.args[0]
+        )
+
+    def test_non_matching_wildcard_as_list(self):
+        """
+        Test error message - wildcard expansion finds no matches as list
+        """
+        data = pd.DataFrame({
+            'name': ['hammer', 'wrench', 'cable'],
+            'val1': ['13 kg', '5kg', '1kg'],
+            'val2': ['13cm', '12cm', '30cm'],
+            'val3': ['blue', 'silver', 'orange']
+        })
+        with pytest.raises(KeyError) as info:
+
+            raise wrangles.recipe.run(
+                """
+                wrangles:
+                - format.trim:
+                    input:
+                      - attr*
+                """,
+                dataframe=data
+            )
+        assert (
+            info.typename == 'KeyError' and
             'Wildcard expansion pattern did not find any matching columns' in info.value.args[0]
         )
 
