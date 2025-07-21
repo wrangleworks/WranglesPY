@@ -777,7 +777,7 @@ class TestColumnWildcards:
         })
         with pytest.raises(KeyError) as info:
 
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - format.trim:
@@ -803,7 +803,7 @@ class TestColumnWildcards:
         })
         with pytest.raises(KeyError) as info:
 
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - format.trim:
