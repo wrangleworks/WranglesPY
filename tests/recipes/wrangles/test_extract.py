@@ -652,6 +652,165 @@ class TestExtractCodes:
         )
         assert df.empty and df.columns.to_list() == ['column', 'numbers', 'code']
 
+    def test_extract_codes_min_length(self):
+        """
+        Test extract codes with a min length
+        Should return only two codes that are greater than 5 in length
+        """
+        data = pd.DataFrame({
+            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  min_length: 5
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['ABC123', '56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM']
+
+    def test_extract_codes_max_length(self):
+        """
+        Test extract codes with a max length
+        Should return only two codes that are less than 7 in length
+        """
+        data = pd.DataFrame({
+            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  max_length: 7
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['ABC123', 'A133']
+
+    def test_extract_codes_strategy_lenient(self):
+        """
+        Test extract codes with a lenient strategy
+        Should return the units also
+        """
+        data = pd.DataFrame({
+            'col1': ['ABC123 Spanner 15mm']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  strategy: lenient
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['ABC123', '15mm']
+
+    def test_extract_codes_strategy_strict(self):
+        """
+        Test extract codes with a strict strategy
+        Should not include units
+        """
+        data = pd.DataFrame({
+            'col1': ['ABC123 Spanner 15mm']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  strategy: strict
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['ABC123']
+
+    def test_extract_codes_sort_order_longest(self):
+        """
+        Test extract codes with a sort order of longest
+        """
+        data = pd.DataFrame({
+            'col1': ['XYZ123 test ABC123 2Z']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  sort_order: longest
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z']
+
+    def test_extract_codes_sort_order_shortest(self):
+        """
+        Test extract codes with a sort order of shortest
+        """
+        data = pd.DataFrame({
+            'col1': ['XYZ123 test ABC123 2Z']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  sort_order: shortest
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z']
+
+    def test_extract_codes_include_multi_part_tokens_false(self):
+        """
+        Test extract codes with that does not include multi-part-tokens
+        """
+        data = pd.DataFrame({
+            'col1': ['XYZ123 test ABC123 2Z']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  include_multi_part_tokens: False
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['XYZ123', 'ABC123', '2Z']
+
+    def test_extract_codes_disallow_patterns(self):
+        """
+        Test extract codes with disallow patterns
+        """
+        data = pd.DataFrame({
+            'col1': ['ABC123 Spanner XYZ123']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - extract.codes:
+                  input: col1
+                  output: codes
+                  disallowed_patterns: ABC
+            """,
+            dataframe=data
+        )
+        assert df['codes'][0] == ['XYZ123']
+
+
+        
+
 
 class TestExtractCustom:
     """
