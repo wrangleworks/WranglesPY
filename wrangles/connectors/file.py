@@ -13,6 +13,7 @@ import re as _re
 import io as _io
 from ..utils import wildcard_expansion as _wildcard_expansion
 from .format_func import file_formatting as _file_formatting
+from .format import file_format as _file_format
 
 
 _schema = {}
@@ -182,13 +183,30 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
         if formatting:
-            # Write to memory buffer and pass through to formatting function
-            buffer = _io.BytesIO()
-            with _pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False)
-            buffer.seek(0)
-            other_params = {k: v for k, v in formatting.items() if k not in ['columns']}
-            _file_formatting(file_name=name, column_settings=formatting.get('columns', {}), buffer=buffer, **other_params)
+            # # Write to memory buffer and pass through to formatting function
+            # # buffer = _io.BytesIO()
+            # # with _pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            # #     df.to_excel(writer, index=False)
+            # # Create a Pandas Excel writer using XlsxWriter as the engine.
+            # # buffer.seek(0)
+            # writer = _pd.ExcelWriter(name, engine="xlsxwriter")
+
+            # # Write the dataframe data to XlsxWriter, turn off the default index
+            # df.to_excel(writer, sheet_name='Sheet1', index=False) ###### Allow sheet name to be set later on
+            
+            # workbook = writer.book
+            # worksheet = writer.sheets["Sheet1"]
+            # # formats = {name: workbook.add_format(props) for name, props in style_def.items()}
+            # # worksheet = writer.sheets[sheet_name]
+            # other_params = {k: v for k, v in formatting.items() if k not in ['columns_styles']}
+            # other_params['max_row'], other_params['max_col'] = df.shape
+            # # column_settings = [{"header": column, 'format': formatting['column_formats'].get(column, {})} for column in df.columns]
+            # column_settings = [{"header": column, 'data': formatting['column_formats'][column].get('data', {})} for column in df.columns]
+            # # other_params['max_col'] = df.shape[1]
+            # _file_formatting(wb=workbook, worksheet=worksheet, file_name=name, column_settings=column_settings, column_styles=formatting.get('column_styles', {}), **other_params)
+            # # _file_formatting(file_name=name, column_settings=formatting.get('columns', {}), buffer=buffer, **other_params)
+            _file_format(df, name=name, **formatting)
+
             
         else:
             df.to_excel(file_object, **kwargs)
