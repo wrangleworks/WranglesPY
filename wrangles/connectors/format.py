@@ -6,15 +6,13 @@ def file_format(df, name=None, **kwargs):
     if 'conditional_formats' in format_keys:
         formats = kwargs['conditional_formats']
         if not isinstance(formats, dict):
-            # Raise an error if the format is not a dict or list
-            print()
+            raise TypeError(f"conditional_formats must be a dictionary, not {type(formats).__name__}")
     else: formats = {}
 
     if 'header_format' in format_keys:
         headers = kwargs['header_format']
         if not isinstance(headers, dict):
-            # Raise an  error
-            print()
+            raise TypeError(f"header_format must be a dictionary, not {type(headers).__name__}")
         headers = kwargs['header_format']
     else: headers = {}
 
@@ -22,18 +20,14 @@ def file_format(df, name=None, **kwargs):
         name = "output.xlsx"
 
     if name.split('.')[-1] != 'xlsx':
-        # Raise an error if the file extension is not .xlsx
-        print()
+        raise ValueError(f"name must end with '.xlsx' when formatting: got {name!r}")
 
     pl_df.write_excel(
-        workbook=name,
-        worksheet='Not Sheet1',
-        table_style='Table Style Medium9',
-        header_format=headers,
-        # column_widths=col_widths,
-        row_heights = 20,
-        conditional_formats=formats
+            workbook=name,
+            worksheet='Not Sheet1',
+            table_style='Table Style Medium9',
+            header_format=headers,
+            # column_widths=col_widths,
+            row_heights = 20,
+            conditional_formats=formats
         )
-
-
-print()
