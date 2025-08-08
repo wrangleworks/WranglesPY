@@ -10,7 +10,6 @@ import typing as _typing
 import os as _os
 import inspect as _inspect
 import importlib as _importlib
-from itertools import dropwhile as _dropwhile
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
