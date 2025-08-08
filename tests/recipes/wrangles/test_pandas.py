@@ -372,6 +372,34 @@ class TestCopy:
         )
         assert df.empty and df.columns.to_list() == ['col', 'col-copy']
 
+    def test_pd_copy_multi_cols_with_duplicate(self):
+        """
+        Test multiple inputs and outputs with duplicate input column
+        This test covers the issue where copy failed with duplicate inputs
+        """
+        data = pd.DataFrame({
+            'col1': ['Mario'],
+            'col2': ['Luigi']
+        })
+        recipe = """
+        wrangles:
+        - copy:
+            input:
+                - col1
+                - col2
+                - col1
+            output:
+                - col1-copy
+                - col2-copy
+                - col1-copy-again
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        expected_columns = ['col1', 'col2', 'col1-copy', 'col2-copy', 'col1-copy-again']
+        assert list(df.columns) == expected_columns
+        assert df['col1-copy'][0] == 'Mario'
+        assert df['col2-copy'][0] == 'Luigi'
+        assert df['col1-copy-again'][0] == 'Mario'
+
 
 class TestDrop:
     """
