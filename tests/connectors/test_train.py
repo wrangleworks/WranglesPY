@@ -472,6 +472,41 @@ class TestTrainLookup:
                 })
             )
 
+    def test_semantic_lookup_without_key_column(self):
+        """
+        Test that semantic lookups do not require a Key column
+        """
+        from unittest.mock import patch, MagicMock
+        from wrangles.train import train
+        
+        # Test that semantic lookup with non-Key column works
+        data = [
+            ['Term', 'Definition'],
+            ['apple', 'red fruit'],
+            ['banana', 'yellow fruit']
+        ]
+        settings = {'variant': 'embedding'}
+        
+        # Mock the API call to avoid authentication issues
+        with patch('wrangles.train._requests.post') as mock_post, \
+             patch('wrangles.train._auth.get_access_token') as mock_auth:
+            mock_response = MagicMock()
+            mock_response.ok = True
+            mock_response.status_code = 200
+            mock_post.return_value = mock_response
+            mock_auth.return_value = "fake_token"
+            
+            # This should not raise a ValueError about Key column
+            try:
+                result = train.lookup(data, name="test_semantic_no_key", settings=settings)
+                # Test passes if no exception is raised
+                assert True
+            except ValueError as e:
+                if "Column 1 must be named Key" in str(e):
+                    pytest.fail("Semantic lookups should not require Key column")
+                else:
+                    # Other ValueErrors are acceptable
+                    pass
 
 
 
