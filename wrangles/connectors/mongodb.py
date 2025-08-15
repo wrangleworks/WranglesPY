@@ -29,7 +29,6 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     :param projection: (Optional) Select which fields to include
     """
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
-
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
@@ -42,7 +41,6 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     # checking if database and collections are in mongoDB
     if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
     if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
-
     result = []
     for x in col.find(query, projection):
         result.append(x)

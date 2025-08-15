@@ -672,7 +672,6 @@ def _execute_wrangles(
                             # if user hasn't specified any
                             if cols_renamed:
                                 df_temp = df_temp[cols_renamed]
-
                         # If user specifies multiple outputs, expand any list output
                         # across the columns else return as a single column
                         if isinstance(params['output'], list) and len(params['output']) > 1:

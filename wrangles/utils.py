@@ -409,3 +409,21 @@ class LazyLoader:
                     f"Please install it with: pip install {self.module_name}"
                 ) from e
         return getattr(self._module, item)
+    
+def safe_str_transform(value, func, warnings={}, **kwargs):
+    """
+    Function to apply a string transformation.
+    If the input value is not a string, the original value is returned and a warning is logged.
+    
+    :param value: The value to transform
+    :param func: The function to apply to the value
+    :param warnings: A dictionary containing the warning status. This will be mutated to only log the warning once.
+    """
+    if isinstance(value, str):
+        return getattr(str, func)(value, **kwargs)
+    else:
+        # Only show this once to not spam the logs
+        if not warnings.get("invalid_data", {}).get('logged', False):
+            _logging.warning(warnings['invalid_data']['message'])
+            warnings["invalid_data"]['logged'] = True
+        return value
