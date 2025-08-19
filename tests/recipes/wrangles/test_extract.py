@@ -2029,23 +2029,6 @@ class TestExtractBrackets:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
 
-    def test_extract_brackets_first_element(self):
-        """
-        Test extract.brackets using first_element.
-        """
-        data = pd.DataFrame({
-            'col': ['[stuff], [things], [more stuff]']
-        })
-        recipe = """
-        wrangles:
-        - extract.brackets:
-            input: col
-            output: output
-            # first_element: True
-        """
-        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "stuff"
-
     def test_brackets_round(self):
         data = pd.DataFrame({
             'input': ['(some)', 'example']

@@ -651,8 +651,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 def brackets(
     input: str,
     find: list = _Union[str, list],
-    include_brackets: bool = False,
-    first_element: bool = False
+    include_brackets: bool = False
     ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
@@ -687,8 +686,6 @@ def brackets(
         if include_brackets is False:
             re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
             results.append(', '.join(re))
-        elif first_element:
-            results.append(re[0])
         else:
             results.append(', '.join(re))
         

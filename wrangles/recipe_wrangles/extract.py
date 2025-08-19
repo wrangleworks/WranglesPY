@@ -393,8 +393,7 @@ def brackets(
     input: _Union[str, int, list],
     output: _Union[str, list],
     find: _Union[str, list] = 'all',
-    include_brackets: bool = False,
-    first_element: bool = False
+    include_brackets: bool = False
 ) -> _pd.DataFrame:
     """
     type: object
@@ -423,9 +422,6 @@ def brackets(
       include_brackets:
         type: boolean
         description: (Optional) Include the brackets in the output
-      first_element:
-        type: boolean
-        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -453,7 +449,7 @@ def brackets(
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets, first_element)
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets)
 
     return df
 
