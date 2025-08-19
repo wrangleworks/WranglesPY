@@ -175,14 +175,14 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
         
         # Expand wildcard keys
         try:
-            key = list(set(item for sublist in [_wildcard_expansion(row.keys(), key) for row in input] for item in sublist))
+            key_expanded = list(set(item for sublist in [_wildcard_expansion(row.keys(), key) for row in input] for item in sublist))
 
             # Convert lists of one or zero to strings
-            if len(key) == 1:
-                key = key[0]
+            if len(key_expanded) == 1 and key_expanded == [key]:
+                key = key_expanded[0]
 
-            if len(key) == 0: 
-                key = ''
+            else:
+                key = key_expanded
         except:
             pass
 
