@@ -421,9 +421,9 @@ class TestWrite:
             and len(df) == 5
         )
 
-    def test_write_file_format_named_columns(self):
+    def test_write_file_format_conditional(self):
         """
-        Test the format function with named columns
+        Test the format function with conditional_formats
         """
         df = wrangles.recipe.run(
         """
@@ -434,27 +434,31 @@ class TestWrite:
                 col1: aaa
                 col2: bbb
         write:
-          file:
-            name: tests/temp/format_data.xlsx
-            formatting:
-              font: Edwardian Script ITC
-              font_size: 15
-              columns:
-                col1:
-                  width: 10
-                  header_fill_color: blue
-                  font_size: 22
-                col2:
-                  width: 20
-                  header_fill_color: '#6565bf'
-                  font_size: 11
+          - file:
+              name: tests/temp/format_data.xlsx
+              formatting:
+                conditional_formats:
+                  col1:
+                    type: text
+                    criteria: not containing
+                    value: '123456'
+                    format:
+                      bg_color: '#04260D'
+                      font_color: '#5AEC80'
+                  col2:
+                    type: text
+                    criteria: containing
+                    value: bbb
+                    format:
+                      bg_color: '#2C0224'
+                      font_color: '#F73BD3'
         """
         )
         assert df.columns.tolist() == ['col1', 'col2']
 
-    def test_write_file_format_default(self):
+    def test_write_file_format_header_format(self):
         """
-        Test the format function with default/general parameters
+        Test the format function with header_format
         """
         df = wrangles.recipe.run(
         """
@@ -465,13 +469,81 @@ class TestWrite:
                 col1: aaa
                 col2: bbb
         write:
-          file:
-            name: tests/temp/format_data.xlsx
-            formatting:
-              font: Edwardian Script ITC
-              font_size: 15
-              header_fill_color: red
-              width: 40
+          - file:
+              name: tests/temp/format_data.xlsx
+              formatting:
+                header_format:
+                  font_name: Rastanty Cortez
+                  font_size: 25
+                  bold: true
+                  underline: true
+        """
+        )
+        assert df.columns.tolist() == ['col1', 'col2']
+
+    def test_write_file_format_column_formats(self):
+        """
+        Test the format function with column_formats
+        """
+        df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                col1: aaa
+                col2: bbb
+        write:
+          - file:
+              name: tests/temp/format_data.xlsx
+              formatting:
+                column_formats:
+                  col1:
+                    font_name: Ravie
+                    font_size: 30
+                    bg_color: '#04260D'
+                    font_color: '#5AEC80'
+                  col2:
+                    font_name: OCRB
+                    font_size: 15
+                    bg_color: '#2C0224'
+                    font_color: '#F73BD3'
+        """
+        )
+        assert df.columns.tolist() == ['col1', 'col2']
+
+    def test_write_file_format_column_and_header_formats(self):
+        """
+        Test the format function with column_formats and header_format
+        """
+        df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 5
+              values:
+                col1: aaa
+                col2: bbb
+        write:
+          - file:
+              name: tests/temp/format_data.xlsx
+              formatting:
+                header_format:
+                  font_name: Rastanty Cortez
+                  font_size: 25
+                  bold: true
+                  underline: true
+                column_formats:
+                  col1:
+                    font_name: Ravie
+                    font_size: 30
+                    bg_color: '#04260D'
+                    font_color: '#5AEC80'
+                  col2:
+                    font_name: OCRB
+                    font_size: 15
+                    bg_color: '#2C0224'
+                    font_color: '#F73BD3'
         """
         )
         assert df.columns.tolist() == ['col1', 'col2']
@@ -489,74 +561,23 @@ class TestWrite:
                 col1: aaa
                 col2: bbb
         write:
-          file:
-            name: tests/temp/format_data.xlsx
-            formatting:
-              columns:
-                Non Existent Column:
-                  width: 10
-                  header_fill_color: blue
-                  font_size: 22
-                This column does not exist:
-                  width: 20
-                  header_fill_color: '#6565bf'
-                  font_size: 11
-              font: Edwardian Script ITC
-              header_fill_color: red
-              table_style: TableStyleDark3
+          - file:
+              name: tests/temp/format_data.xlsx
+              formatting:
+                column_formats:
+                  not_col1:
+                    font_name: Ravie
+                    font_size: 30
+                    bg_color: '#04260D'
+                    font_color: '#5AEC80'
+                  not_col2:
+                    font_name: OCRB
+                    font_size: 15
+                    bg_color: '#2C0224'
+                    font_color: '#F73BD3'
         """
         )
         assert df.columns.tolist() == ['col1', 'col2']
-
-    def test_write_file_format_comma_separated(self):
-        """
-        Test the format function with comma separated columns
-        """
-        df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 5
-              values:
-                col1: aaa
-                col2: bbb
-        write:
-          file:
-            name: tests/temp/format_data.xlsx
-            formatting:
-              columns:
-                col1, col2:
-                  width: 10
-                  header_fill_color: blue
-                  font_size: 22
-        """
-        )
-        assert df.columns.tolist() == ['col1', 'col2']
-
-    def test_write_file_format_comma_column_name(self):
-        """
-        Test the format function with commas in column names
-        """
-        df = wrangles.recipe.run(
-        """
-        read:
-          - test:
-              rows: 5
-              values:
-                col1, col1, col1: aaa
-                col2: bbb
-        write:
-          file:
-            name: tests/temp/format_data.xlsx
-            formatting:
-              columns:
-                col1\, col1\, col1:
-                  width: 10
-                  header_fill_color: blue
-                  font_size: 22
-        """
-        )
-        assert df.columns.tolist() == ['col1, col1, col1', 'col2']
 
 def test_read_object():
     """
