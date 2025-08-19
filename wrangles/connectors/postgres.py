@@ -6,8 +6,13 @@ from typing import Union as _Union
 import logging as _logging
 import csv as _csv
 from io import StringIO as _StringIO
-import psycopg2 as _psycopg2
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load external dependency
+_psycopg2 = _LazyLoader('psycopg2')
 
 _schema = {}
 
@@ -61,12 +66,14 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    _logging.info(f": Importing Data :: {host}")
+    _logging.info(f": Reading data from PostgreSQL :: {host} / {database}")
 
     conn = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
     df = _pd.read_sql(command, conn, params)
 
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     return df
 
@@ -131,13 +138,15 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     """
-    _logging.info(f": Exporting Data :: {host}/{table}")
+    _logging.info(f": Writing data to PostgreSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
     conn = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     if action.upper() == 'FAIL':
         df.to_sql(table, conn, if_exists='fail', index=False, method=_psql_insert_copy)
@@ -213,7 +222,7 @@ def run(
     :param port: The Port to connect to. Defaults to 5432.
     :param params: Variables to pass to a parameterized query.
     """
-    _logging.info(f": Executing Command :: {host}")
+    _logging.info(f": Executing PostgreSQL Command :: {host}")
 
     # If user has provided a single command, convert to a list of one.
     if isinstance(command, str): command = [command]

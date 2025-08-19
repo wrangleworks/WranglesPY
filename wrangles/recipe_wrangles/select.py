@@ -2,13 +2,14 @@
 Functions to select data from within columns
 """
 from typing import Union as _Union
+import types as _types
 import re as _re
 import json as _json
 import pandas as _pd
 from .. import select as _select
+from ..utils import get_nested_function as _get_nested_function
 
-
-def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
+def columns(df: _pd.DataFrame, input: _Union[str, int, list]) -> _pd.DataFrame:
     """
     type: object
     description: Select columns from the dataframe
@@ -19,6 +20,7 @@ def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to select
     """
@@ -31,14 +33,14 @@ def columns(df: _pd.DataFrame, input: _Union[str, list]) -> _pd.DataFrame:
 
 def dictionary_element(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     element: str,
     output: _Union[str, list] = None,
     default: any = ''
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Select a named element of a dictionary.
+    description: Select one or more element of a dictionary.
     additionalProperties: false
     required:
       - input
@@ -47,16 +49,25 @@ def dictionary_element(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column
       output:
         type:
           - string
           - array
-        description: Name of the output column
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be replaced.
       element:
-        type: string
-        description: The key from the dictionary to select.
+        type:
+          - string
+          - array
+        description: |- 
+          The key or keys from the dictionary to select.
+          If a single key is provided, the value will be returned
+          If a lists of keys are selected,
+          the result will be a new dictionary.
       default:
         type: 
           - string
@@ -65,7 +76,9 @@ def dictionary_element(
           - object
           - boolean
           - 'null'
-        description: Set the default value to return if the specified element doesn't exist.
+        description: |-
+          Set the default value to return if the specified element doesn't exist.
+          If selecting multiple elements, a dict of defaults can be set.
     """
     if output is None: output = input
     
@@ -76,7 +89,7 @@ def dictionary_element(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
-    
+
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     
@@ -85,9 +98,9 @@ def dictionary_element(
 
 def element(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
-    default: any = ''
+    default: any = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -101,6 +114,7 @@ def element(
       input:
         type: 
           - string
+          - integer
           - array
         description: >-
           Name of the input column and sub elements
@@ -119,8 +133,8 @@ def element(
           - array
           - object
           - boolean
-          - 'null'
         description: Set the default value to return if the specified element doesn't exist.
+        default: ""
     """
     def _extract_elements(input_string):
         # Find all occurrences of '[...]' using regex
@@ -155,6 +169,15 @@ def element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.element')
     
+    def _int_or_none(val):
+        try:
+            return int(val)
+        except:
+            if val:
+                raise ValueError(f"{val} is not a valid index to slice on")
+            else:
+                return None
+    
     for in_col, out_col in zip(input, output):
         # If user hasn't specified an output column
         # strip the elements from the input column
@@ -167,24 +190,45 @@ def element(
         
         output = []
         for row in df[in_col].tolist():
-            if isinstance(row, str):
-                row = _json.loads(row)
+            if isinstance(row, str) and (row.startswith("{") or row.startswith("[")):
+                try:
+                    row = _json.loads(row)
+                except:
+                    pass
 
             for element in elements:
                 try:
-                    if isinstance(row, list):
-                        row = row[int(element)]
-                    elif isinstance(row, dict):
-                        # Allow getting an element of a dict
-                        # using the index of the key
-                        if element not in row.keys() and element.isdigit():
-                            row = row[list(row.keys())[int(element)]]
+                    if isinstance(row, (list, str)):
+                        if ":" in element:
+                            row = row[slice(*map(_int_or_none, element.split(":")))]
                         else:
-                            row = row.get(element, default)
+                            row = row[int(element)]
+                    elif isinstance(row, dict):
+                        if element in row.keys():
+                            row = row[element]
+                        else:
+                            if element.isdigit() and int(element) < len(row):
+                                # Allow getting an element of a dict
+                                # using the index of the key
+                                row = row[list(row.keys())[int(element)]]
+                            else:
+                                if default is not None:
+                                    row = default
+                                    break
+                                else:
+                                    raise KeyError()
                     else:
-                        row = default
+                        if default is not None:
+                            row = default
+                            break
+                        else:
+                            raise KeyError()
                 except:
-                    row = default
+                    if default is not None:
+                        row = default
+                        break
+                    else:
+                        raise KeyError(f"Element {element} not found in {row}") from None
 
             output.append(row)
 
@@ -193,7 +237,12 @@ def element(
     return df
 
 
-def group_by(df, by = [], **kwargs):
+def group_by(
+    df,
+    by = [],
+    functions: _Union[_types.FunctionType, list] = [],
+    **kwargs
+):
     """
     type: object
     description: Group and aggregate the data
@@ -275,6 +324,12 @@ def group_by(df, by = [], **kwargs):
         description: >-
           Get a percentile. Note, you can use any integer here
           for the corresponding percentile.
+      custom.placeholder:
+        type:
+          - string
+          - array
+        description: >-
+          Placeholder for custom functions. Replace 'placeholder' with the name of the function.
     """
     def percentile(n):
         def percentile_(x):
@@ -297,8 +352,12 @@ def group_by(df, by = [], **kwargs):
         if operation[0].lower() == "p" and operation[1:].isnumeric():
             operation = percentile(int(operation[1:])/100)
 
+        # Pass custom functions
+        elif operation.startswith("custom."):
+            operation = _get_nested_function(operation, None, functions)
+
         # Add option to group as a list
-        if operation == "list":
+        elif operation == "list":
             operation = list
 
         if not isinstance(columns, list): columns = [columns]
@@ -335,17 +394,21 @@ def group_by(df, by = [], **kwargs):
         df = df.drop('absjdkbatgg', axis=1, level=0)
 
     # Flatting multilevel headings back to one
-    df.columns = df.columns.map('.'.join).str.strip('.')
+    df.columns = [
+        '.'.join(col).strip('.')
+        if isinstance(col, tuple)
+        else col
+        for col in df.columns
+    ]
 
     # Rename columns back to original names if altered
-    df.rename(
+    df = df.rename(
         {
             col: col.replace(".grouped_asjkdbak", "")
             for col in df.columns
             if col.endswith(".grouped_asjkdbak")
         },
-        axis=1,
-        inplace=True
+        axis=1
     )
 
     return df
@@ -366,7 +429,8 @@ def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
         raise ValueError("n must be a positive integer")
     return df.head(n)
 
-def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]) -> _pd.DataFrame:
+
+def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list]) -> _pd.DataFrame:
     """
     type: object
     description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
@@ -384,14 +448,28 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str, list]
           - string
         description: If two columns; the result and confidence. If one column; [result, confidence]
     """
+
+    if isinstance(output, list) and len(output) == 1:
+        output = output[0]
+    elif isinstance(output, list) and len(output) > 2:
+        raise ValueError(f"Invalid Output: If output is a list, it can only contain 2 columns. Recieved: {output}")
+
     df[output] = _select.highest_confidence(df[input].values.tolist())
+    
     return df
 
 
-def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def left(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    length: int,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the left of text. Strings shorter than the length defined will be unaffected.
+    description: >-
+      Return characters from the left of text.
+      Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -400,6 +478,7 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -409,11 +488,18 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
         description: Name of the output column(s)
       length:
         type: integer
-        description: Number of characters to include
-        minimum: 1
+        description: >-
+          Number of characters to include from the left.
+          If negative, this will remove the specified
+          number of characters from the left.
+          May not equal 0.
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
@@ -422,15 +508,75 @@ def left(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Unio
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # If length is a string like '1', convert to integer
+    if isinstance(length, str) and length.isdigit():
+        length = int(length)
 
-    # Loop through and get left characters of the length requested for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[:length]
+    # Ensure length is an integer
+    if not isinstance(length, int):
+        raise TypeError('Length must be an integer')
+
+    # Ensure length is not 0
+    if length == 0:
+        raise ValueError('Length may not equal 0')
+
+    if length > 0:
+        # Loop through and get characters from the left
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[:length]
+    else:
+        # Loop through and remove characters from the left
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[-1*length:]
 
     return df
 
 
-def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, element: int = 0, default: any = '') -> _pd.DataFrame:
+def length(
+  df: _pd.DataFrame,
+  input: _Union[str, int, list],
+  output: _Union[str, list] = None,
+):
+  """
+  type: object
+  description: >-
+    Calculate the lengths of data in a column.
+    The length depends on the data type
+    e.g. text will be the length of the text,
+    lists will be the number of elements in the list.
+  required:
+    - input
+  properties:
+    input:
+      type:
+        - string
+        - integer
+        - array
+      description: Name of the input column(s).
+    output:
+      type:
+        - string
+        - array
+      description: Name of the output column(s).
+  """
+  if not output: output = input
+  if not isinstance(output, list): output = [output]
+  if not isinstance(input, list): input = [input]
+
+  for input_col, output_col in zip(input, output):
+    df[output_col] = [len(item) for item in df[input_col].values]
+
+  return df
+
+
+def list_element(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    element: int = 0,
+    default: any = ''
+) -> _pd.DataFrame:
     """
     type: object
     description: Select a numbered element of a list (zero indexed).
@@ -442,6 +588,7 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -451,7 +598,10 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
         description: Name of the output column
       element:
         type: integer
-        description: The numbered element of the list to select. Starts from zero
+        description: |-
+          The numbered element of the list to select.
+          Starts from zero.
+          This may use python slicing syntax to select a subset of the list.
       default:
         type:
           - string
@@ -478,10 +628,17 @@ def list_element(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str
     return df
 
 
-def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Union[str, list] = None) -> _pd.DataFrame:
+def right(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    length: int,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Return characters from the right of text. Strings shorter than the length defined will be unaffected.
+    description: >-
+      Return characters from the right of text.
+      Strings shorter than the length defined will be unaffected.
     additionalProperties: false
     required:
       - input
@@ -490,6 +647,7 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -499,11 +657,18 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
         description: Name of the output column(s)
       length:
         type: integer
-        description: Number of characters to include
-        minimum: 1
+        description: >-
+          Number of characters to include from the right.
+          If negative, this will remove the specified
+          number of characters from the right.
+          May not equal 0.
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]
@@ -512,10 +677,27 @@ def right(df: _pd.DataFrame, input: _Union[str, list], length: int, output: _Uni
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # If length is a string like '1', convert to integer
+    if isinstance(length, str) and length.isdigit():
+        length = int(length)
 
-    # Loop through and get the right characters of the length requested for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str[-length:]
+    # Ensure length is an integer
+    if not isinstance(length, int):
+        raise TypeError('Length must be an integer')
+
+    # Ensure length is not 0
+    if length == 0:
+        raise ValueError('Length may not equal 0')
+    
+    if length > 0:
+        # Loop through and get characters from the right
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[-length:]
+    else:
+        # Loop through and remove characters from the right
+        for input_column, output_column in zip(input, output):
+            df[output_column] = df[input_column].str[:length]
 
     return df
 
@@ -537,12 +719,19 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
           of the rows e.g. 0.1 => 10% of rows will be returned
         exclusiveMinimum: 0
     """
-    if not isinstance(rows, (int, float)) or rows <= 0:
+    if not isinstance(rows, (int, float)):
+        try:
+          rows = float(rows)
+        except:
+          raise ValueError(
+              "rows must be a positive integer or a decimal between 0 and 1"
+          )
+
+    if rows <= 0:
         raise ValueError(
             "rows must be a positive integer or a decimal between 0 and 1"
         )
-
-    if rows >= 1:
+    elif rows >= 1:
         if rows > len(df):
             return df.sample(n=len(df), ignore_index=True, **kwargs)
         else:
@@ -551,7 +740,7 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
         return df.sample(frac=rows, ignore_index=True, **kwargs)
 
 
-def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
+def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Return characters from the middle of text.
@@ -564,6 +753,7 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column(s) to edit
       output:
@@ -587,6 +777,10 @@ def substring(df: _pd.DataFrame, input: _Union[str, list], start: int = None, le
     """
     # If user hasn't provided an output, replace input
     if output is None: output = input
+
+    if df.empty:
+        df[output] = None
+        return df
 
     # If a string provided, convert to list
     if isinstance(input, str): input = [input]

@@ -7,31 +7,56 @@ import pandas as _pd
 from .. import format as _format
 
 
-def coalesce(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+def coalesce(
+    df: _pd.DataFrame,
+    input: list,
+    output: str = None
+) -> _pd.DataFrame:
     """
     type: object
-    description: Take the first non-empty value from a series of columns.
+    description: Take the first non-empty value from a series of columns or lists.
     additionalProperties: false
     required:
       - input
-      - output
     properties:
       input:
-        type: array
-        description: List of input columns
+        type:
+          - array
+          - string
+          - integer
+        description: List of input columns or a single column containing lists
       output:
         type: string
-        description: Name of the output columns
+        description: Name of the output columns. This is required if multiple input columns are provided.
     """
     # NOTE: cleaner implementations that I've found implemented directly in pandas do not work with empty strings
     # If a better solution found, replace but ensure it works with all falsy values in python
-    df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+
+    # Ensure input is a list
+    if not isinstance(input, list): input = [input]
+
+    if len(input) == 1:
+        if output is None:
+            output = input[0]
+        
+        df[output] = _format.coalesce(
+            [
+                x if isinstance(x, list) else [x]
+                for x in df[input[0]].fillna('')
+            ]
+        )
+    else:
+        if output is None:
+            raise ValueError('An output column must be provided if coalescing multiple input columns')
+
+        df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+
     return df
 
 
 def concatenate(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     output: str,
     char: str = ',',
     skip_empty: bool = False
@@ -49,6 +74,7 @@ def concatenate(
         type: 
           - array
           - string
+          - integer
         description: Either a single column name or list of columns
       output:
         type: string
@@ -167,7 +193,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
     return df
 
 
-def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False) -> _pd.DataFrame:
+def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Take lists in multiple columns and merge them to a single list.
@@ -185,6 +211,9 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
       remove_duplicates:
         type: boolean
         description: Whether to remove duplicates from the created list
+      ignore_case:
+        type: boolean
+        description: Ignore case when removing duplicates
     """
     output_list = []
     for row in df[input].values.tolist():
@@ -192,8 +221,15 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         for col in row:
             if not isinstance(col, list): col = [str(col)]
             output_row += col
+        # Remove duplicates, regardless of case
+        if remove_duplicates and ignore_case:
+            seen = set()
+            output_row = [x for x in output_row if x.lower() not in seen and not seen.add(x.lower())]
+
         # Use dict.fromkeys over set to preserve input order
-        if remove_duplicates: output_row = list(dict.fromkeys(output_row))
+        elif remove_duplicates and not ignore_case:
+            output_row = list(dict.fromkeys(output_row))
+
         output_list.append(output_row)
     df[output] = output_list
     return df
@@ -209,7 +245,10 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
       - output
     properties:
       input:
-        type: array
+        type:
+          - array
+          - string
+          - integer
         description: List of input columns
       output:
         type: string
@@ -218,8 +257,6 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type: boolean
         description: Whether to include empty columns in the created dictionary
     """
-    
-    # checking if
     index_check = 0
     cols_changed = [] 
     for cols in input:
@@ -260,7 +297,10 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
       - output
     properties:
       input:
-        type: array
+        type:
+          - array
+          - string
+          - integer
         description: List of input columns
       output:
         type: string

@@ -8,9 +8,13 @@ import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+try:
+    from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
 
 
-def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
+def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
     type: object
     description: Change the case of the input.
@@ -22,6 +26,7 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns
       output:
@@ -51,6 +56,11 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+    
+    # Return early for empty dataframe
+    if df.empty: 
+        df[output] = None
+        return df
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -61,12 +71,32 @@ def case(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] 
         elif desired_case == 'title':
             df[output_column] = df[input_column].str.title()
         elif desired_case == 'sentence':
-            df[output_column] = df[input_column].str.capitalize()
+            def getSentenceCase(source: str):
+                output = ""
+                isFirstWord = True
+
+                if not isinstance(source, str):
+                    return source
+
+                for character in source:
+                    if isFirstWord and not character.isspace():
+                        character = character.upper()
+                        isFirstWord = False
+                    elif not isFirstWord and character in ".!?":
+                        isFirstWord = True
+                    else:
+                        character = character.lower()
+
+                    output = output + character
+
+                return output
+
+            df[output_column] = df[input_column].apply(getSentenceCase)
 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
+def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -78,6 +108,7 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
       input:
         type: 
           - string
+          - integer
           - array
         description: Name or list of input columns
       output:
@@ -119,7 +150,12 @@ def data_type(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     return df
 
 
-def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output = None) -> _pd.DataFrame:
+def fraction_to_decimal(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    decimals: int = 4,
+    output: _Union[str, list] = None
+) -> _pd.DataFrame:
     """
     type: object
     description: Convert fractions to decimals
@@ -130,10 +166,13 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
       input:
         type:
           - string
+          - integer
+          - array
         description: Name of the input column
       output:
         type:
           - string
+          - array
         description: Name of the output colum
       decimals:
         type:
@@ -185,7 +224,7 @@ def fraction_to_decimal(df: _pd.DataFrame, input: str, decimals: int = 4, output
 
 def from_json(
     df: _pd.DataFrame, 
-    input: _Union[str, list], 
+    input: _Union[str, int, list], 
     output: _Union[str, list] = None,
     default = None,
     **kwargs
@@ -199,6 +238,7 @@ def from_json(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -249,12 +289,12 @@ def from_json(
 
 
 def to_json(
-        df: _pd.DataFrame, 
-        input: _Union[str, list], 
-        output: _Union[str, list] = None, 
-        ensure_ascii: bool = False,
-        **kwargs
-        ) -> _pd.DataFrame:
+    df: _pd.DataFrame, 
+    input: _Union[str, int, list], 
+    output: _Union[str, list] = None, 
+    ensure_ascii: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     r"""
     type: object
     description: Convert an object to a JSON representation.
@@ -264,6 +304,7 @@ def to_json(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -303,27 +344,37 @@ def to_json(
     if not isinstance(output, list): output = [output]
     
     # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
-    # Loop through and apply for all columns
-    for input_columns, output_column in zip(input, output):
-        df[output_column] = [
+    if len(input) == len(output):
+        # Loop through and apply for all columns
+        for input_columns, output_column in zip(input, output):
+            df[output_column] = [
+                _json.dumps(
+                    row,
+                    ensure_ascii=ensure_ascii,
+                    default=handle_unusual_datatypes,
+                    **kwargs
+                ) 
+                for row in df[input_columns].values
+            ]
+    elif len(input) > 1 and len(output) == 1:
+        df[output] = [
             _json.dumps(
                 row,
                 ensure_ascii=ensure_ascii,
                 default=handle_unusual_datatypes,
                 **kwargs
             ) 
-            for row in df[input_columns].values
+            for row in df[input].to_dict(orient="records")
         ]
-        
+    else:
+        raise ValueError('The lists for input and output must be the same length.')
+
     return df
 
-
+ 
 def from_yaml(
     df: _pd.DataFrame, 
-    input: _Union[str, list], 
+    input: _Union[str, int, list], 
     output: _Union[str, list] = None,
     default = None,
     **kwargs
@@ -337,6 +388,7 @@ def from_yaml(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -357,7 +409,7 @@ def from_yaml(
         If no default, raise an error.
         """
         try:
-            return _yaml.safe_load(value, **kwargs) or default
+            return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or default
         except:
             if default != None:
                 return default
@@ -390,8 +442,10 @@ def from_yaml(
 
 def to_yaml(
     df: _pd.DataFrame, 
-    input: _Union[str, list], 
-    output: _Union[str, list] = None, 
+    input: _Union[str, int, list], 
+    output: _Union[str, list] = None,
+    sort_keys: bool = False,
+    allow_unicode: bool = True,
     **kwargs
 ) -> _pd.DataFrame:
     r"""
@@ -403,6 +457,7 @@ def to_yaml(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -420,7 +475,7 @@ def to_yaml(
       sort_keys:
         type: boolean
         description: >-
-          If sort_keys is true (default: True),
+          If sort_keys is true (default: False),
           then the output of dictionaries will be sorted by key.
     """
     # Set output column as input if not provided
@@ -431,14 +486,33 @@ def to_yaml(
     if not isinstance(output, list): output = [output]
     
     # Ensure input and output are equal lengths
-    if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-        
-    # Loop through and apply for all columns
-    for input_columns, output_column in zip(input, output):
-        df[output_column] = [
-            _yaml.dump(row, **kwargs) 
-            for row in df[input_columns].values.tolist()
+    if len(input) == len(output):
+        # Loop through and apply for all columns
+        for input_columns, output_column in zip(input, output):
+            df[output_column] = [
+                _yaml.dump(
+                    row,
+                    sort_keys=sort_keys,
+                    allow_unicode=allow_unicode,
+                    Dumper=_YAMLDumper,
+                    **kwargs
+                )
+                for row in df[input_columns].values
+            ]
+    elif len(input) > 1 and len(output) == 1:
+        # User specified multiple inputs but only one output
+        # Merge the inputs into a single dictionary before converting
+        df[output] = [
+            _yaml.dump(
+                row,
+                sort_keys=sort_keys,
+                allow_unicode=allow_unicode,
+                Dumper=_YAMLDumper,
+                **kwargs
+            )
+            for row in df[input].to_dict(orient="records")
         ]
+    else:
+        raise ValueError('The lists for input and output must be the same length.')
         
     return df

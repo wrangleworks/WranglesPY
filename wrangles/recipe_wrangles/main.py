@@ -6,31 +6,295 @@ These will be called directly, without belonging to a parent module
 import types as _types
 import logging as _logging
 from typing import Union as _Union
+import random as _random
+import time as _time
 import sqlite3 as _sqlite3
 import re as _re
 import numexpr as _ne
 import requests as _requests
 import pandas as _pd
 import wrangles as _wrangles
-import yaml as _yaml
+import json as _json
 import numpy as _np
 import math as _math
+import concurrent.futures as _futures
+from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
 from ..translate import translate as _translate
+from ..data import model as _model
+from ..lookup import lookup as _lookup
 from .. import extract as _extract
 from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
+from ..connectors.matrix import _define_permutations
 
 
-def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], model_id: str) -> _pd.DataFrame:
+def accordion(
+    df: _pd.DataFrame,
+    wrangles: list,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    propagate: _Union[str, list] = None,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Apply a series of wrangles to column(s) containing lists.
+      The wrangles will be applied to each element in the list
+      and the results will be returned back as a list.
+    additionalProperties: false
+    required:
+      - input
+      - wrangles
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: >-
+          The column(s) containing the list(s) that the
+          wrangles will be applied to the elements of.
+      propagate:
+        type:
+          - string
+          - array
+        description: >-
+          Limit the column(s) that will be available to the
+          wrangles and replicated for each element.
+          If not specified, all columns will be propogated.
+          This may be useful to limit the memory use
+          for large datasets.
+      output:
+        type:
+          - string
+          - array
+        description: Output of the wrangles to save back to the dataframe.
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
+    if not isinstance(propagate, list): propagate = [propagate]
+    
+    if not df.index.is_unique:
+        raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
+
+    # Deep copy the dataframe to avoid modifying the original
+    df_temp = df[input + propagate].copy()
+
+    # Convert any columns containing JSON arrays to lists
+    for col in input:
+        if not isinstance(df_temp[col][0], list):
+            try:
+                df_temp[col] = df_temp[col].apply(_json.loads)
+            except:
+                pass
+
+    # Save temporary index to be able to merge back later
+    random_str = str(_random.randint(0,999999999))
+    df_temp[f"index_asbjdbasjk_{random_str}"] = df_temp.index
+    
+    try:
+        df_temp = _wrangles.recipe.run(
+            {
+                "wrangles": [
+                    {"explode": {"input": input, "drop_empty": True}},
+                    {"pandas.reset_index": {"parameters": {"drop": True}}},
+                ] + wrangles
+            },
+            dataframe=df_temp,
+            functions=functions,
+            variables=variables
+        )
+    except KeyError as e:
+        e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        raise e
+
+    try:
+        df_temp = _wrangles.recipe.run(
+            {"wrangles": [
+                {"select.group_by": {"by": f"index_asbjdbasjk_{random_str}", "list": output}},
+                {"rename": {x + ".list": x for x in output}}
+            ]},
+            dataframe=df_temp,
+            functions=functions,
+            variables=variables
+        )
+    except KeyError as e:
+        e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
+        raise e
+
+    df_temp = df_temp.set_index(f"index_asbjdbasjk_{random_str}")[output]
+
+    original_columns = df.columns.to_list()
+
+    df = df.merge(
+        df_temp,
+        left_index=True,
+        right_index=True,
+        how="left",
+        suffixes=("_TOBEDROPPED", None)
+    ).filter(regex='^(?!.*_TOBEDROPPED)')
+
+    # Ensure output columns contain empty lists if no data remaining
+    df[output] = df[output].map(lambda d: d if isinstance(d, list) else [])
+
+    # Ensure output columns are in the same order as the original columns
+    all_columns = original_columns + [
+        col
+        for col in df.columns.to_list()
+        if col not in original_columns
+    ]
+    df = df[all_columns]
+    return df
+
+
+def _batch_thread(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
+    timeout: float = None,
+    on_error: dict = None
+):
+    """
+    Function called by batch
+    """
+    try:
+        return _wrangles.recipe.run(
+            {"wrangles": wrangles},
+            dataframe=df,
+            functions=functions,
+            variables=variables,
+            timeout=timeout
+        )
+    except Exception as err:
+        if on_error:
+            _logging.error(f": Suppressed error in batch: {str(err)}")
+            return df.assign(**{
+                k: [v] * len(df)
+                for k, v in on_error.items()
+            })
+        else:
+            raise err from None
+
+def batch(
+    df,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {},
+    batch_size: int = 1000,
+    threads: int = 1,
+    on_error: dict = None,
+    timeout: float = None,
+    use_multiprocessing: bool = False
+):
+    """
+    type: object
+    description: >-
+      Split the data into batches for executing a list of wrangles.
+      Use this in situations such as where the intermediate data
+      is too large to fit in memory.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      batch_size:
+        type: integer
+        description: The number of rows to split each batch into
+        default: 1000
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to execute on the data. Each series of wrangles
+          will be run agaisnst the data in batches of the size
+          defined by batch_size.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      threads:
+        type: integer
+        description: The number of threads to use for parallel processing. Default 1.
+      on_error:
+        type: object
+        description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
+      timeout:
+        type: number
+        description: The number of seconds to wait for a batch to complete before raising an error
+    """
+    if not isinstance(df, _pd.DataFrame):
+        raise ValueError('Input must be a pandas DataFrame')
+
+    if not isinstance(batch_size, int):
+        try:
+            batch_size = int(batch_size)
+        except:
+          raise ValueError('batch_size must be an integer greater than 0')
+    if batch_size < 1:
+        raise ValueError('batch_size must be an integer greater than 0')
+
+    if not isinstance(threads, int):
+        try:
+            threads = int(threads)
+        except:
+            raise ValueError('threads must be an integer greater than 0')
+    if threads < 1:
+        raise ValueError('threads must be an integer greater than 0')
+  
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
+
+    with pool_executor(max_workers=threads) as executor:
+        batches = list(_divide_batches(df, batch_size))
+        
+        # Set a chunk size for process pool executor
+        # to reduce overhead of process creation
+        chunksize = min(max(len(batches) // threads, 1), 20)
+
+        results = executor.map(
+            _batch_thread,
+            batches,
+            [wrangles] * len(batches),
+            [functions] * len(batches),
+            [variables] * len(batches),
+            [timeout] * len(batches),
+            [on_error] * len(batches),
+            chunksize = chunksize
+        )
+
+    return _pd.concat(results)
+
+
+def classify(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    model_id: str,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: |
       Run classify wrangles on the specified columns.
       Requires WrangleWorks Account and Subscription.
-    additionalProperties: false
     required:
       - input
       - output
@@ -39,6 +303,7 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -49,6 +314,9 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
       model_id:
         type: string
         description: ID of the classification model to be used
+      include_confidence:
+        type: boolean
+        description: For models that support it, include the confidence level in the output
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -63,8 +331,79 @@ def classify(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, li
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _classify(df[input_column].astype(str).tolist(), model_id)
+        df[output_column] = _classify(
+            df[input_column].astype(str).tolist(),
+            model_id,
+            **kwargs
+        )
+
+    return df
+
+
+def concurrent(
+    df: _pd.DataFrame,
+    wrangles: list,
+    max_concurrency: int = 10,
+    use_multiprocessing: bool = False,
+    functions: _Union[_types.FunctionType, list] = [],
+    variables: dict = {}
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Run multiple wrangles concurrently rather than sequentially.
+      Wrangles must specify output columns to be used concurrently.
+      When using concurrent, Wrangles may not complete in a predictable order
+      and it is not recommended to update overlapping columns with different wrangles.
+    additionalProperties: false
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: >-
+          The wrangles section of a recipe to execute for each
+          combination of variables
+        minItems: 1
+        items:
+          - $ref: "#/$defs/wrangles/items"
+      max_concurrency:
+        type: integer
+        description: The maximum number of wrangles to execute in parallel
+        minimum: 1
+    """
+    if use_multiprocessing:
+        # Not publicly documented. Use at your own risk.
+        pool_executor = _futures.ProcessPoolExecutor
+    else:
+        pool_executor = _futures.ThreadPoolExecutor
+
+    with pool_executor(max_workers=max_concurrency) as executor:
+        futures = []
+        futures_output_map = {}
+        for wrangle_definition in wrangles:
+            if (
+                not isinstance(wrangle_definition, dict) or
+                "output" not in list(wrangle_definition.values())[0]
+            ):
+                raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
+
+            future = executor.submit(
+                _wrangles.recipe.run,
+                recipe= {'wrangles': [wrangle_definition]},
+                dataframe=df.copy(),
+                variables=variables,
+                functions=functions
+            )
+            futures.append(future)
+
+            # Add output columns to reference on completion
+            futures_output_map[future] = list(wrangle_definition.values())[0]["output"]
         
+        # Wait for all futures to complete
+        for future in _futures.as_completed(futures):
+            df[futures_output_map[future]] = future.result()[futures_output_map[future]]
+
     return df
 
 
@@ -77,7 +416,9 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
       - input
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: Name of the dates column
       operation:
         type: string
@@ -141,24 +482,24 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
 
 
 def filter(
-          df: _pd.DataFrame,
-          input: _Union[str, list] = [],
-          equal: _Union[str, list] = None,
-          not_equal: _Union[str, list] = None,
-          is_in: _Union[str, list] = None,
-          not_in: _Union[str, list] = None,
-          greater_than: _Union[int, float] = None,
-          greater_than_equal_to: _Union[int, float] = None,
-          less_than: _Union[int, float] = None,
-          less_than_equal_to: _Union[int, float] = None,
-          between: list = None,
-          contains: str = None,
-          not_contains: str = None,
-          is_null: bool = None,
-          where: str = None,
-          where_params: _Union[list, dict] = None,
-          **kwargs,
-          ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, int, list] = [],
+    equal: _Union[str, list] = None,
+    not_equal: _Union[str, list] = None,
+    is_in: _Union[str, list] = None,
+    not_in: _Union[str, list] = None,
+    greater_than: _Union[int, float] = None,
+    greater_than_equal_to: _Union[int, float] = None,
+    less_than: _Union[int, float] = None,
+    less_than_equal_to: _Union[int, float] = None,
+    between: list = None,
+    contains: str = None,
+    not_contains: str = None,
+    is_null: bool = None,
+    where: str = None,
+    where_params: _Union[list, dict] = None,
+    **kwargs,
+) -> _pd.DataFrame:
     """
     type: object
     description: |-
@@ -181,6 +522,7 @@ def filter(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name of the column to filter on.
@@ -189,11 +531,15 @@ def filter(
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values equal a given value.
       not_equal:
         type:
           - string
           - array
+          - boolean
+          - number
         description: Select rows where the values do not equal a given value.
       is_in:
         type:
@@ -240,18 +586,28 @@ def filter(
         description: Select rows where the input does not contain the value. Allows regular expressions.
     """
     if where != None:
-        df = sql(
-            df,
-            f"""
-            SELECT *
-            FROM df
-            WHERE {where};
-            """,
-            where_params
-        )
+        # Filter the dataframe based on the where clause
+        # and use the index to filter the dataframe
+        # to prevent any side effects from passing through the DB
+        df = df.loc[
+            sql(
+                df,
+                f"""
+                SELECT *
+                FROM df
+                WHERE {where};
+                """,
+                where_params,
+                preserve_index=True,
+                preserve_data_types=False
+            ).index.to_list()
+        ]
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
+
+    # Return early on empty df
+    if df.empty: return df
 
     for input_column in input: 
         if equal != None:
@@ -305,7 +661,7 @@ def filter(
 
 def huggingface(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     api_token: str,
     model: str,
     output: _Union[str, list] = None,
@@ -322,6 +678,7 @@ def huggingface(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -374,7 +731,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = True
+    log_data: bool = None
 ):
     """
     type: object
@@ -401,7 +758,7 @@ def log(
         description: Log info to the console
       log_data:
         type: boolean
-        description: Whether to log a sample of the contents of the dataframe. Default True.
+        description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
     if columns is not None:
 
@@ -431,10 +788,10 @@ def log(
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
-        df_tolog = df[columns_to_print]
+        df_tolog = df[columns_to_print].head(20)
 
     else:
-        df_tolog = df
+        df_tolog = df.head(20)
 
     if error:
         _logging.error(error)
@@ -442,8 +799,6 @@ def log(
         _logging.warning(warning)
     if info:
         _logging.info(info)
-    if log_data:
-        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
 
     if write:
         _wrangles.recipe.run(
@@ -451,6 +806,109 @@ def log(
             dataframe=df
         )
 
+    if log_data == None and not any([error, warning, info, write]): log_data = True
+        
+    if log_data:
+        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
+
+    return df
+
+
+def lookup(
+    df: _pd.DataFrame,
+    input: str,
+    output: _Union[str, list] = None,
+    model_id: str = None,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Lookup values from a saved lookup wrangle
+    required:
+      - input
+      - model_id
+    properties:
+      input:
+        type:
+          - string
+          - integer
+        description: Name of the column(s) to lookup.
+      model_id:
+        type: string
+        description: The model_id to use lookup against
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s)
+    """
+    # Ensure input is only 1 value
+    if isinstance(input, list):
+        if len(input) == 1:
+            input = input[0]
+        else:
+            raise ValueError('Input only allows one column.')
+    
+    if output is None: output = input
+
+    # Ensure output is a list
+    if not isinstance(output, list): output = [output]
+
+    # Return early on empty df
+    if df.empty: 
+        # Add empty output columns to maintain expected structure
+        for out in output:
+            if out not in df.columns:
+                df[out] = []
+        return df
+
+    # If user specified a model_id, use it to lookup values
+    if model_id:
+        metadata = _model(model_id)
+        if metadata.get('message', None) == 'error':
+            raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+        
+        # Using model_id in wrong function
+        purpose = metadata['purpose']
+        if purpose != 'lookup':
+            raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
+        
+        # Split input/output if user differentiated e.g. "wrangle_column: output_column"
+        wrangle_output = [
+            list(val.keys())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
+        output = [
+            list(val.values())[0] if isinstance(val, dict) else val
+            for val in output    
+        ]
+
+        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+            # User specified all columns from the wrangle
+            # Add respective columns to the dataframe
+            data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                columns=wrangle_output,
+                **kwargs
+            )
+            df[output] = data
+        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+            # User specified no columns from the wrangle
+            # Add dict of all values to those columns
+            data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                **kwargs
+            )
+            for out in output:
+                df[out] = data
+        else:
+            # User specified a mixture of unrecognized columns and columns from the wrangle
+            raise ValueError('Lookup may only contain all named or unnamed columns.')
+    else:
+        raise ValueError('model_id is required for lookup')
+    
     return df
 
 
@@ -464,7 +922,9 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
       - output
     properties:
       input:
-        type: string
+        type:
+          - string
+          - integer
         description: |
           The mathematical expression using column names. e.g. column1 * column2
           + column3.  Note: spaces within column names are replaced by underscores (_).
@@ -480,25 +940,65 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: string
-        description: |
-          The mathematical expression using column names. e.g. column1 * column2
-          + column3. Note: spaces within column names are replaced by underscores (_).
-      output:
-        type: string
-        description: The column to output the results to
+    Deprecated - use math
     """
-    df_temp = df.copy()
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
+    _logging.warning('maths is deprecated, use math instead')
+    return math(df, input, output)
+
+
+def matrix(
+    df: _pd.DataFrame,
+    variables: dict,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list] = [],
+    strategy: str = "loop",
+):
+    """
+    type: object
+    description: |-
+      Apply a matrix of wrangles to the dataframe.
+      This will run the wrangles for each combination of the variables.
+    required:
+      - variables
+      - wrangles
+    properties:
+      variables:
+        type: object
+        description: |-
+          A dictionary of variables to pass to the wrangle.
+          The key is the variable name and the value is a list of values.
+      wrangles:
+        type: array
+        description: |-
+          The wrangles to apply to the dataframe.
+          Each wrangle will be run for each combination of the variables.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      strategy:
+        type: string
+        enum:
+          - permutations
+          - loop
+        description: >-
+          Determines how to combine variables when there are multiple.
+          loop (default) iterates over each set of variables, repeating shorter lists 
+          until the longest is completed. permutations uses the combination of all 
+          variables against all other variables.
+    """
+    for permutation in _define_permutations(
+      variables,
+      strategy,
+      functions,
+      df
+    ):
+        df = _wrangles.recipe.run(
+            recipe={'wrangles': wrangles},
+            dataframe=df,
+            variables=permutation,
+            functions=functions
+        )
+
     return df
 
 
@@ -506,7 +1006,7 @@ def python(
     df: _pd.DataFrame,
     command: str,
     output: _Union[str, list],
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -517,8 +1017,9 @@ def python(
       variables from untrusted sources within the command string.
       The python command will be evaluated once for each row and the result returned.
       Reference column values by using their name.
-      Spaces within column names are replaced by underscores (_)
+      Non-alphanumeric characters within column names are replaced by underscores (_)
       Additionally, all columns are available as a dict named kwargs.
+      Additional parameters set for the wrangle will also be available to the command.
     required:
       - command
       - output
@@ -526,47 +1027,116 @@ def python(
       input:
         type:
           - string
+          - integer
           - array
-        description: |
+        description: |-
           Name or list of input column(s) to filter the data available
           to the command. Useful in conjunction with kwargs to target
           a variable range of columns.
+          If not specified, all columns will be available.
       output:
         type:
           - string
           - array
-        description: |
+        description: |-
           Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.  Note: spaces within
-           column names are replaced by underscores (_).
+          return a list of the corresponding length.
       command:
         type: string
-        description: Python command. This must return a value.
+        description: |-
+          Python command. This must return a value.
+          Note: any non-alphanumeric characters in variable names
+          are replaced by underscores (_).
+      except:
+        type:
+          - string
+          - array
+          - number
+          - integer
+          - boolean
+          - object
+        description: |-
+          Value to return for the row if an exception occurs during the evaluation.
+          If not provided, an exception will be raised as normal.
+          If multiple output columns are specified, this must match the length.
     """
-    def _apply_command(**kwargs):
-        return eval(command, {**kwargs, **{"kwargs": kwargs}}, {})
-    
-    df_temp = df.copy()
+    # Ensure input is a list and if not
+    # specified then set to all columns
+    if not input:
+        input = list(df.columns)
+    if not isinstance(input, list):
+        input = [input]
 
-    if input:
-        df_temp = df_temp[input].copy()
+    # Create rename dict to rename variables
+    # that can't be used as python variables
+    rename_dict = {
+        **{
+            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
+            for k in kwargs.keys()
+        },
+        **{
+            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
+            for k in input
+        }
+    }
 
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-
+    # Set whether to output as a single or multiple columns
     if isinstance(output, list) and len(output) > 1:
         result_type = "expand"
     else:
         result_type = "reduce"
+
+    # Set the exception value if one is provided by the user
+    if "except" in kwargs:
+        exception = kwargs["except"]
+        del kwargs["except"]
+    else:
+        exception = None
+
+    def _apply_command(**kwargs):
+        """
+        Apply the command to the inputs and return the result
+        """
+        return eval(
+            command,
+            {
+                **{
+                    rename_dict.get(k, k): v
+                    for k, v in kwargs.items()
+                },
+                **{"kwargs": kwargs}
+            },
+            {}
+        )
     
-    df[output] = df_temp.apply(lambda x: _apply_command(**x, **kwargs), axis=1, result_type=result_type)
+    def _exception_handler(**kwargs):
+        """
+        If an exception value is provided by the user, catch and return
+        else raise an error in the normal way otherwise
+        """
+        if exception:
+            try:
+                return _apply_command(**kwargs)
+            except Exception as e:
+                return exception
+        else:
+            return _apply_command(**kwargs)
+        
+    df[output] = df[input].apply(
+        lambda x: _exception_handler(**x, **kwargs),
+        axis=1,
+        result_type=result_type
+    )
+
     return df
 
 
 def recipe(
     df: _pd.DataFrame,
+    input: _Union[str, int, list] = None,
+    output: _Union[str, list] = None,
     name: str = None,
     variables = {},
-    output_columns = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
@@ -588,23 +1158,39 @@ def recipe(
     """
     if not name: name = kwargs
 
-    original_df = df.copy() # copy of the original df
+    df_temp = df.copy() # copy of the original df
+
+    # Filter columns if input is specified
+    if input:
+        if not isinstance(input, list): input = [input]
+        df_temp = df_temp[input]
     
-    # Running recipe wrangle
-    df_temp = _recipe.run(name, variables=variables, functions=functions, dataframe=df)
-    
-    # column output logic
-    if output_columns is None:
-        df = df_temp
+    if output is None and input is not None:
+        output = input
+
+    # If output columns are specified, only apply to those
+    if output:
+        if not isinstance(output, list): output = [output]
+        df[output] = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )[output]
     else:
-        df = original_df.merge(df_temp[output_columns], how='left', left_index=True, right_index=True)
-        
+        df = _recipe.run(
+            name,
+            variables=variables,
+            functions=functions,
+            dataframe=df_temp
+        )
+
     return df
 
 
 def remove_words(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     to_remove: str,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = False,
@@ -622,6 +1208,7 @@ def remove_words(
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of column to remove words from
       to_remove:
@@ -649,6 +1236,11 @@ def remove_words(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
+
+    # Early return for empty df
+    if df.empty:
+        df[output] = None
+        return df
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
@@ -659,7 +1251,7 @@ def remove_words(
 
 def rename(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     wrangles: list = None,
     **kwargs
@@ -671,6 +1263,7 @@ def rename(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -698,7 +1291,8 @@ def rename(
                 dataframe=_pd.DataFrame({
                     "columns": input
                 }),
-                functions=kwargs.get("functions", {})
+                functions=kwargs.get("functions", {}),
+                variables=kwargs.get("variables", {})
             )["columns"].tolist()
         except:
             raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
@@ -723,7 +1317,7 @@ def rename(
         for x in rename_cols:
             if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
         # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns])
+        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
         
         rename_dict = kwargs
     else:
@@ -739,7 +1333,7 @@ def rename(
             raise ValueError('The lists for input and output must be the same length.')
         
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns])
+        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
         
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
@@ -747,7 +1341,7 @@ def rename(
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -760,6 +1354,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, list], find: str, replace: str
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input column
       output:
@@ -804,6 +1399,8 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
       input:
         type: array
         description: Two columns of vectors to compare the similarity of.
+        minItems: 2
+        maxItems: 2
       output:
         type: string
         description: Name of the output column.
@@ -829,8 +1426,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             (_np.linalg.norm(x) * _np.linalg.norm(y)) 
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'adjusted cosine': # Normalizes output from 0-1
         similarity_list = [
             round(max(min(
@@ -844,8 +1439,6 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             ), 1), 0), 3)
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     elif method == 'euclidean':
         similarity_list = [
             _math.sqrt(
@@ -856,16 +1449,26 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             )
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-        df[output] = similarity_list
-
     else:
         # Ensure method is of a valid type
         raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
 
+    # Ensure values are python float
+    df[output] = [
+        float(x)
+        for x in similarity_list
+    ]
+
     return df
 
 
-def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def sql(
+    df: _pd.DataFrame,
+    command: str,
+    params: _Union[list, dict] = None,
+    preserve_index: bool = False,
+    preserve_data_types: bool = True
+) -> _pd.DataFrame:
     """
     type: object
     description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
@@ -891,51 +1494,110 @@ def sql(df: _pd.DataFrame, command: str, params: _Union[list, dict] = None) -> _
     # Create an in-memory db with the contents of the current dataframe
     db = _sqlite3.connect(':memory:')
     
-    # List of columns changed
-    cols_changed = []
-    for cols in df.columns:
-        count = 0        
-        for row in df[cols]:
-            # If row contains objects, then convert to json
-            if isinstance(row, dict) or isinstance(row, list):
-                # Check if there is an object in the column and record column name to convert to json
-                cols_changed.append(cols)
-                break
-            # Only check the first 10 rows of a column
-            count += 1
-            if count > 10: break
+    # Adjust the chunk size based on the number of columns
+    # Large numbers of columns can exceed the
+    # sqlite_max_variable_number limit
+    chunk_size = min(10000 // df.columns.size, 1000)    
+
+    def _fast_fix_objects(df: _pd.DataFrame, n=100):
+        """
+        Attempt to convert columns with objects to json
+        For performance only check the first n rows of a column
+
+        :param df: DataFrame
+        :param n: Number of rows to check
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            count = sum([int(isinstance(row, (dict, list))) for row in list(df[column])[:n]])
+            if count == 0:
+                continue
+            elif count == min(n, len(df)):
+                cols_changed.append(column)
+            else:
+                # Mixed column type.
+                raise ValueError(f"Column '{column}' contains mixed data types which is not supported.")
             
-        if cols in cols_changed:
-            # If the column is in cols_changed then convert to json
-            _to_json(df=df, input=cols)
-    
-    df.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=1000)
-    
-    # Execute the user's query against the database and return the results
-    df = _pd.read_sql(command, db, params = params)
-    db.close()
-    
-    # Change the columns back to an object
-    for new_cols in df.columns:
+        # Convert any objects found to JSON
+        if cols_changed:
+            _to_json(df=df, input=cols_changed)
         
-        if new_cols in cols_changed:
-            # If the column is in cols changed, then change back to an object
-            _from_json(df=df, input=new_cols)
+        return cols_changed
+
+    def _fallback_fix_objects(df: _pd.DataFrame):
+        """
+        Convert cells with objects to json
+        Check each cell individually
+        """
+        # List of columns changed
+        cols_changed = []
+        for column in df.columns:
+            for idx, row in zip(df.index, df[column]):
+                # Check each cell for an object
+                if isinstance(row, (dict, list)):
+                    df.loc[idx, column] = _json.dumps(row, ensure_ascii=True, default=str)
+        return cols_changed
+
+    def _sql_preserve_index(df: _pd.DataFrame):
+        # Preserve original index and replace with a distinctive name
+        index_names = list(df.index.names)
+        df.index.names = ["wrwx_sql_temp_index"]
+        # Write the dataframe to the database
+        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=chunk_size)
+        # Execute the user's query against the database and return the results
+        df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
+        # Restore the original index names
+        df.index.names = index_names
+        return df
+        
+    if preserve_index:
+        try:
+            df_temp = df.copy()
+            cols_changed = _fast_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
+        except:
+            df_temp = df.copy()
+            cols_changed = _fallback_fix_objects(df_temp)
+            df_temp = _sql_preserve_index(df_temp)
+    else:
+        df_temp = df.copy()
+        cols_changed = _fast_fix_objects(df_temp)
+        # Write the dataframe to the database
+        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=chunk_size)
+        # Execute the user's query against the database and return the results
+        df_temp = _pd.read_sql(command, db, params = params)
+
+    db.close()
+
+    if preserve_data_types and cols_changed:
+        # Change the columns back to an object
+        _from_json(
+          df=df_temp,
+          input=[new_col for new_col in df.columns if new_col in cols_changed]
+        )
     
-    return df
+    return df_temp
 
 
-def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[str, list], output: _Union[str, list] = None, case_sensitive: bool = False) -> _pd.DataFrame:
+def standardize(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    model_id: _Union[str, list],
+    output: _Union[str, list] = None,
+    case_sensitive: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: false
     required:
       - input
     properties:
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -949,7 +1611,7 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
           - array
         description: The ID of the wrangle to use (do not include 'find' and 'replace')
       case_sensitive:
-        type: bool
+        type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     # If user hasn't specified an output column, overwrite the input
@@ -970,20 +1632,38 @@ def standardize(df: _pd.DataFrame, input: _Union[str, list], model_id: _Union[st
         df_copy = df.loc[:, [input[0]]]
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
-                df_copy[output_column] = _standardize(df_copy[output_column].astype(str).tolist(), model, case_sensitive)
-        
+                df_copy[output_column] = _standardize(
+                    df_copy[output_column].astype(str).tolist(),
+                    model,
+                    case_sensitive,
+                    **kwargs
+                )
+
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
         return df
 
     for model in model_id:
         for input_column, output_column in zip(input, output):
-            df[output_column] = _standardize(df[input_column].astype(str).tolist(), model, case_sensitive)
-            
+            df[output_column] = _standardize(
+                df[input_column].astype(str).tolist(),
+                model,
+                case_sensitive,
+                **kwargs
+            )
+
     return df
 
 
-def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], target_language: str, source_language: str = 'AUTO', case: str = None) -> _pd.DataFrame:
+def translate(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    target_language: str,
+    source_language: str = 'AUTO',
+    case: str = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
@@ -996,6 +1676,7 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the column to translate
       output:
@@ -1063,7 +1744,6 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
           - Spanish
           - Swedish
     """
-    
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -1077,6 +1757,82 @@ def translate(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, l
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _translate(df[input_column].astype(str).tolist(), target_language, source_language, case)
+        df[output_column] = _translate(
+            df[input_column].astype(str).tolist(),
+            target_language,
+            source_language,
+            case,
+            **kwargs
+        )
 
+    return df
+
+
+def Try(
+    df: _pd.DataFrame,
+    wrangles: list,
+    functions: _Union[_types.FunctionType, list, dict] = {},
+    variables: dict = {},
+    retries: int = 0,
+    **kwargs
+):
+    """
+    type: object
+    description: Try a list of wrangles and catch any errors that occur
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      except:
+        type:
+          - object
+        description: |-
+          An action to take if the wrangles encounter an error.
+          This can contain a list of wrangles or a dictionary of column names and values.
+          If except is not provided, the error will be logged and the recipe will continue.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      retries:
+        type: integer
+        description: Number of times to retry the wrangles if an error occurs. Default 0.
+        minimum: 0
+    """
+    for attempt in range(retries + 1):
+        try:
+            df = _wrangles.recipe.run(
+                recipe={'wrangles': wrangles},
+                dataframe=df,
+                variables=variables,
+                functions=functions
+            )
+            break
+        except Exception as e:
+            _logging.error(f"Try caught error: {e}")
+            if attempt < retries:
+                _time.sleep(1.5 ** attempt)  # Exponential backoff
+            else:
+                if "except" in kwargs:
+                    if isinstance(kwargs["except"], dict):
+                        # Except contains a dict of columns and values
+                        df = df.assign(**{
+                            k: [v] * len(df)
+                            for k, v in kwargs["except"].items()
+                        })
+                    elif isinstance(kwargs["except"], list):
+                        # Except contains a list of wrangles to run
+                        df = _wrangles.recipe.run(
+                            recipe={'wrangles': kwargs['except']},
+                            dataframe=df,
+                            variables=variables,
+                            functions=functions
+                        )
+                    else:
+                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
+    
     return df

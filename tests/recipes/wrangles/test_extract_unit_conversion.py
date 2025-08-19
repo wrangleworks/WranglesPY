@@ -153,7 +153,7 @@ def test_area_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['10.9 sq m'], ['2.42 sq m'], ['0.839 sq m'], ['13.0 sq m']]
+    assert df['out'].tolist() == [['10.9 sq m'], ['2.42 sq m'], ['0.839 sq m'], ['13 sq m']]
     
 
 def test_area_conversion_2():
@@ -175,7 +175,7 @@ def test_area_conversion_2():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'sq m', 'unit': 'square metre', 'value': 10.9}]
+    assert df['out'][0] == [{'span': '13 sqr yard', 'standard': '10.9 sq m', 'symbol': 'sq m', 'unit': 'square metre', 'value': 10.9}]
     
 
 #
@@ -201,7 +201,7 @@ def test_current_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
+    assert df['out'][0] == [{'span': '1300 amps', 'standard': '1.3 kA', 'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
     
 
 def test_current_conversion_2_obj():
@@ -223,7 +223,7 @@ def test_current_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
+    assert df['out'][0] == [{'span': '1300 amps', 'standard': '1.3 kA', 'symbol': 'kA', 'unit': 'kiloampere', 'value': 1.3}]
     
     
 #
@@ -270,7 +270,7 @@ def test_multile_forces_2():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'kN', 'unit': 'kilonewton', 'value': 1.3}]
+    assert df['out'][0] == [{'span': '1300 newtons', 'standard': '1.3 kN', 'symbol': 'kN', 'unit': 'kilonewton', 'value': 1.3}]
 
 #
 # power
@@ -294,7 +294,7 @@ def test_power_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['1.0 kW'], ['1.0 kW'], ['10.0 kW'], ['1.0 kW'], ['0.746 kW']]
+    assert df['out'].tolist() == [['1 kW'], ['1 kW'], ['10 kW'], ['1 kW'], ['0.746 kW']]
     
     
 def test_power_conversion_2_obj():
@@ -316,7 +316,7 @@ def test_power_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][3] == [{'symbol': 'kW', 'unit': 'kilowatt', 'value': 1.0}] 
+    assert df['out'][3] == [{'span': '1 kW', 'standard': '1 kW', 'symbol': 'kW', 'unit': 'kilowatt', 'value': 1.0}] 
     
     
 #
@@ -341,7 +341,7 @@ def test_pressure_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['1.0 kPa'], ['1.0 kPa'], ['10.0 kPa'], ['1.0 kPa'], ['100 kPa'], ['6.89 kPa'], ['0.133 kPa']]
+    assert df['out'].tolist() == [['1 kPa'], ['1 kPa'], ['10 kPa'], ['1 kPa'], ['100 kPa'], ['6.89 kPa'], ['0.133 kPa']]
     
 def test_pressure_conversion_2_obj():
     """
@@ -362,7 +362,7 @@ def test_pressure_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][3] == [{'symbol': 'kPa', 'unit': 'kilopascal', 'value': 1.0}]
+    assert df['out'][3] == [{'span': '1 kPa', 'standard': '1 kPa', 'symbol': 'kPa', 'unit': 'kilopascal', 'value': 1.0}]
     
 
 #
@@ -409,7 +409,7 @@ def test_temperature_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][3] == [{'symbol': 'C', 'unit': 'degree Celsius', 'value': 100}]
+    assert df['out'][3] == [{'span': '100 °C', 'standard': '100 C', 'symbol': 'C', 'unit': 'degree Celsius', 'value': 100}]
 
 
 #
@@ -434,7 +434,7 @@ def test_volume_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['379 l'], ['1.0 l'], ['100 l'], ['100 l'], ['379 l'], ['100 l']]
+    assert df['out'].tolist() == [['379 l'], ['1 l'], ['100 l'], ['100 l'], ['379 l'], ['100 l']]
     
 def test_volume_conversion_2_obj():
     """
@@ -455,7 +455,7 @@ def test_volume_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][2] == [{'symbol': 'l', 'unit': 'litre', 'value': 100}]
+    assert df['out'][2] == [{'span': '100 liters', 'standard': '100 l', 'symbol': 'l', 'unit': 'litre', 'value': 100}]
     
 #
 # volumetric flow rate
@@ -479,7 +479,7 @@ def test_volumetric_flow_rate_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['2.64 gpm'], ['10.0 gpm'], ['74.8 gpm'], ['2.64 gpm']]
+    assert df['out'].tolist() == [['2.64 gpm'], ['10 gpm'], ['74.8 gpm'], ['2.64 gpm']]
     
 def test_volumetric_flow_rate_conversion_2_obj():
     """
@@ -500,7 +500,7 @@ def test_volumetric_flow_rate_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][1] == [{'symbol': 'gpm', 'unit': 'gallon per minute', 'value': 10.0}]
+    assert df['out'][1] == [{'span': '10 gallon per minute', 'standard': '10 gpm', 'symbol': 'gpm', 'unit': 'gallon per minute', 'value': 10.0}]
     
     
     
@@ -526,7 +526,7 @@ def test_length_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['0.621 mi'], ['0.621 mi'], ['0.0621 mi'], ['0.0158 mi'], ['0.568 mi'], ['1.0 mi'], ['0.932 mi'], ['0.189 mi']]
+    assert df['out'].tolist() == [['0.621 mi'], ['0.621 mi'], ['0.0621 mi'], ['0.0158 mi'], ['0.568 mi'], ['1 mi'], ['0.932 mi'], ['0.189 mi']]
     
 def test_length_conversion_2_obj():
     """
@@ -547,7 +547,7 @@ def test_length_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'mi', 'unit': 'mile', 'value': 0.621}]
+    assert [{'span': '1000 meters', 'standard': '0.621 mi', 'symbol': 'mi', 'unit': 'mile', 'value': 0.621}]
     
     
 #
@@ -572,7 +572,7 @@ def test_weight_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['220 lb'], ['100 lb'], ['100 lb'], ['100 lb'], ['2.2 lb'], ['22.0 lb'], ['220 lb'], ['0.22 lb']]
+    assert df['out'].tolist() == [['220 lb'], ['100 lb'], ['100 lb'], ['100 lb'], ['2.2 lb'], ['22 lb'], ['220 lb'], ['0.22 lb']]
     
 def test_weight_conversion_2_obj():
     """
@@ -593,7 +593,7 @@ def test_weight_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][4] == [{'symbol': 'lb', 'unit': 'pound-mass', 'value': 2.2}]
+    assert df['out'][4] == [{'span': '1000 g', 'standard': '2.2 lb', 'symbol': 'lb', 'unit': 'pound-mass', 'value': 2.2}]
     
     
 def test_voltage_conversion_1():
@@ -614,7 +614,7 @@ def test_voltage_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['1.0 V'], ['1.0 V'], ['1.0 V'], ['13.0 V']]
+    assert df['out'].tolist() == [['1 V'], ['1 V'], ['1 V'], ['13 V']]
     
 def test_voltage_conversion_2_obj():
     """
@@ -635,7 +635,7 @@ def test_voltage_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][2] == [{'symbol': 'V', 'unit': 'volt', 'value': 1.0}]
+    assert df['out'][2] == [{'span': '1000 mV', 'standard': '1 V', 'symbol': 'V', 'unit': 'volt', 'value': 1.0}]
     
 #
 # degree
@@ -659,7 +659,7 @@ def test_degree_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['57300 °'], ['57300 °']]
+    assert df['out'].tolist() == [['57300°'], ['57300°']]
     
 def test_degree_conversion_2():
     """
@@ -680,7 +680,7 @@ def test_degree_conversion_2():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': '°', 'unit': 'degree angle', 'value': 57300}]
+    assert [{'span': '1000 radian', 'standard': '57300°', 'symbol': '°', 'unit': 'degree angle', 'value': 57300}]
     
         
 
@@ -706,7 +706,7 @@ def test_capacitance_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['0.1 F'], ['0.1 F'], ['10.0 F'], ['10.0 F']]
+    assert df['out'].tolist() == [['0.1 F'], ['0.1 F'], ['10 F'], ['10 F']]
     
 def test_capacitance_conversion_2_obj():
     """
@@ -727,7 +727,7 @@ def test_capacitance_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'F', 'unit': 'farad', 'value': 0.1}]
+    assert df['out'][0] == [{'span': '100000 microFarad', 'standard': '0.1 F', 'symbol': 'F', 'unit': 'farad', 'value': 0.1}]
     
     
 #
@@ -753,7 +753,7 @@ def test_frequency_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['1.0 kHz'], ['1.0 kHz'], ['100 kHz'], ['100 kHz']]
+    assert df['out'].tolist() == [['1 kHz'], ['1 kHz'], ['100 kHz'], ['100 kHz']]
     
 def test_frequency_conversion_2_obj():
     """
@@ -820,7 +820,7 @@ def test_speed_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][2] == [{'symbol': 'mps', 'unit': 'metre per second', 'value': 100.0}]
+    assert df['out'][2] == [{'span': '100 meters per second', 'standard': '100 mps', 'symbol': 'mps', 'unit': 'metre per second', 'value': 100}]
 
 
 #
@@ -845,7 +845,7 @@ def test_charge_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['10.0 C'], ['10.0 C']]
+    assert df['out'].tolist() == [['10 C'], ['10 C']]
     
 def test_charge_conversion_2_obj():
     """
@@ -866,7 +866,7 @@ def test_charge_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'C', 'unit': 'coulomb', 'value': 10.0}]
+    assert df['out'][0] == [{'span': '10 coulomb', 'standard': '10 C', 'symbol': 'C', 'unit': 'coulomb', 'value': 10.0}]
 
 
 #
@@ -892,7 +892,7 @@ def test_data_transfer_rate_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['0.01 Gbps'], ['0.001 Gbps'], ['1.0 Gbps']]
+    assert df['out'].tolist() == [['0.01 Gbps'], ['0.001 Gbps'], ['1 Gbps']]
     
 def test_data_transfer_rate_conversion_2_obj():
     """
@@ -913,7 +913,7 @@ def test_data_transfer_rate_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'Gbps', 'unit': 'gigabit per second', 'value': 0.01}]
+    assert df['out'][0] == [{'span': '10000000 bps', 'standard': '0.01 Gbps', 'symbol': 'Gbps', 'unit': 'gigabit per second', 'value': 0.01}]
     
 
 #
@@ -960,7 +960,7 @@ def test_electrical_conductance_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'S', 'unit': 'siemens', 'value': 100.0}]
+    assert df['out'][0] == [{'span': '100 siemens', 'standard': '100 S', 'symbol': 'S', 'unit': 'siemens', 'value': 100}]
     
     
 #
@@ -1007,7 +1007,7 @@ def test_inductance_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'H', 'unit': 'henry', 'value': 1000.0}]
+    assert df['out'][0] == [{'span': '1000 henry', 'standard': '1000 H', 'symbol': 'H', 'unit': 'henry', 'value': 1000}]
 
 
 #
@@ -1054,7 +1054,7 @@ def test_frequency_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'rpm', 'unit': 'revolutions per minute', 'value': 1000.0}]
+    assert df['out'][0] == [{'span': '1000 rpm', 'standard': '1000 rpm', 'symbol': 'rpm', 'unit': 'revolutions per minute', 'value': 1000}]
     
     
     
@@ -1102,7 +1102,7 @@ def test_lumens_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][0] == [{'symbol': 'lm', 'unit': 'lumen', 'value': 1000.0}]
+    assert df['out'][0] == [{'span': '1000 lumens', 'standard': '1000 lm', 'symbol': 'lm', 'unit': 'lumen', 'value': 1000}]
     
     
 #
@@ -1127,7 +1127,7 @@ def test_ohms_conversion_1():
         """,
         dataframe=data
     )
-    assert df['out'].tolist() == [['10.0 Ω'], ['10.0 Ω'], ['10.0 Ω'], ['10.0 Ω'], ['1000 Ω']]
+    assert df['out'].tolist() == [['10 Ω'], ['10 Ω'], ['10 Ω'], ['10 Ω'], ['1000 Ω']]
     
 def test_ohms_conversion_2_obj():
     """
@@ -1148,7 +1148,7 @@ def test_ohms_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][3] == [{'symbol': 'Ω', 'unit': 'ohm', 'value': 10.0}]
+    assert df['out'][3] == [{'span': '10000 mΩ', 'standard': '10 Ω', 'symbol': 'Ω', 'unit': 'ohm', 'value': 10.0}]
     
 
 #
@@ -1194,6 +1194,28 @@ def test_energy_conversion_2_obj():
         """,
         dataframe=data
     )
-    assert df['out'][3] == [{'symbol': 'J', 'unit': 'joule', 'value': 3600000}]
+    assert df['out'][3] == [{'span': '1 kwh', 'standard': '3600000 J', 'symbol': 'J', 'unit': 'joule', 'value': 3600000}]
     
-    
+#
+# Emtpy Dataframe test
+#
+
+def test_empty_conversion():
+    """
+    Test empty dataframe
+    """
+    data = pd.DataFrame(
+        {'col': []}
+    )
+    df = wrangles.recipe.run(
+        recipe="""
+        wrangles:
+          - extract.attributes:
+              input: col
+              output: out
+              attribute_type: energy
+              desired_unit: joules
+        """,
+        dataframe=data
+    )
+    assert df.empty and df.columns.to_list() == ['col', 'out']

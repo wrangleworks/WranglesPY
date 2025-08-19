@@ -7,6 +7,11 @@ from itertools import chain as _chain
 import requests as _requests
 import numpy as _np
 import time as _time
+try:
+    from yaml import CSafeDumper as _YAMLDumper
+except ImportError:
+    from yaml import SafeDumper as _YAMLDumper
+
 
 def chatGPT(
     data: any,
@@ -25,10 +30,17 @@ def chatGPT(
     :param timeout: Time limit to apply to the request
     :param retries: Number of times to retry if the request fails
     """
-    if len(data) == 1:
-        content = list(data.values())[0]
+    if isinstance(data, (dict, list)):
+        content = _yaml.dump(
+            data,
+            indent=2,
+            sort_keys=False,
+            allow_unicode=True,
+            Dumper=_YAMLDumper,
+            width=1000
+        )
     else:
-        content = _yaml.dump(data, indent=2)
+        content = str(data)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(
@@ -42,7 +54,7 @@ def chatGPT(
         raise ValueError("Retries must be a positive integer")
     
     response = None
-    backoff_time = 5
+    backoff_time = 1
     while (retries + 1):
         try:
             response = _requests.post(
@@ -69,7 +81,7 @@ def chatGPT(
                     return {
                         param: e
                         for param in 
-                        settings_local.get("tolls", [])[0]["function"]["parameters"]["required"]
+                        settings_local.get("tools", [])[0]["function"]["parameters"]["required"]
                     }
                 else:
                     return e
@@ -127,7 +139,8 @@ def _embedding_thread(
     model: str,
     url: str,
     retries: int = 0,
-    request_params: dict = {}
+    request_params: dict = {},
+    precision: str = "float32"
 ):
     """
     Get embeddings 
@@ -138,28 +151,41 @@ def _embedding_thread(
     :param url: Set the URL. Must implement the OpenAI embeddings API.
     :param retries: Number of times to retry. This will exponentially backoff.
     :param request_params: Additional request parameters to pass to the backend.
+    :param precision: The precision of the embeddings. Default is float32.
     """
     response = None
-    backoff_time = 5
+    backoff_time = 1
     while (retries + 1):
-        response = _requests.post(
-            url=url,
-            headers={
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "model": model,
-                "encoding_format": "base64",
-                "input": [
-                    str(val) if val != "" else " " 
-                    for val in input_list
-                ],
-                **request_params
-            }
-        )
+        try:
+            response = _requests.post(
+                url=url,
+                headers={
+                    "Authorization": f"Bearer {api_key}"
+                },
+                json={
+                    "model": model,
+                    "encoding_format": "base64",
+                    "input": [
+                        str(val) if val != "" else " " 
+                        for val in input_list
+                    ],
+                    **request_params
+                }
+            )
+        except:
+            pass
 
         if response and response.ok:
             break
+        else:
+            try:
+                error_message = response.json().get('error').get('message')
+            except:
+                error_message = ""
+            # Raise errors for fatal errors rather than continuing
+            if error_message:
+                if "Incorrect API key" in error_message:
+                    raise ValueError("API Key provided is missing or invalid.")
 
         retries -=1
         _time.sleep(backoff_time)
@@ -170,20 +196,27 @@ def _embedding_thread(
             _np.frombuffer(
                 _base64.b64decode(row['embedding']),
                 dtype=_np.float32
-            )
+            ).astype(getattr(_np, precision), copy=False)
             for row in response.json()['data']
         ]
     else:
-        return ['Error' for _ in input_list]
+        try:
+            error_msg = response.json().get('error').get('message')
+        except:
+            error_msg = 'Unknown error'
+        raise RuntimeError(
+            f"Failed to get embeddings: {error_msg}. Consider raising the number of retries."
+        )
 
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-ada-002",
+    model: str = "text-embedding-3-small",
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
+    precision: str = "float32",
     **kwargs
 ) -> list:
     """
@@ -203,8 +236,20 @@ def embeddings(
     :param retries: The number of times to retry. This will exponentially \
           backoff to assist with rate limiting
     :param url: Set the URL. Must implement the OpenAI embeddings API.
+    :param precision: The precision of the embeddings. Default is float32.
     :return: A list of embeddings corresponding to the input
     """
+    if precision not in ["float32", "float16"]:
+        raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
+
+    # Ensure input is treated as a list
+    # and store the original type to
+    # mirror the output as later
+    user_input_was_list = True
+    if not isinstance(input_list, list):
+        user_input_was_list = False
+        input_list = [input_list]
+
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         batches = list(_divide_batches(input_list, batch_size))
         results = list(executor.map(
@@ -214,9 +259,15 @@ def embeddings(
             [model] * len(batches),
             [url] * len(batches),
             [retries] * len(batches),
-            [kwargs] * len(batches)
+            [kwargs] * len(batches),
+            [precision] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))
 
-    return results
+    # If user provided a list, return as list
+    # else return the embeddings
+    if user_input_was_list:
+        return results
+    else:
+        return results[0]

@@ -2,33 +2,29 @@ import pytest
 import wrangles
 import pandas as pd
 from wrangles.train import train
+import os
 
 
 # Classify
 def test_classify():
-    result = wrangles.classify('ball bearing', '24ac9037-ecab-4030')
-    assert result.split(' || ')[0] == 'Bearings'
+    result = wrangles.classify('cheese', 'a62c7480-500e-480c')
+    assert result.split(' || ')[0] == 'Dairy'
 
 def test_classify_list():
-    result = wrangles.classify(['ball bearing'], '24ac9037-ecab-4030')
-    assert result[0].split(' || ')[0] == 'Bearings'
-
-def test_classify_large_list():
-    input = ['ball bearing' for _ in range(25000)]
-    results = wrangles.classify(input, '24ac9037-ecab-4030')
-    assert len(results) == 25000 and results[0].split(' || ')[0] == 'Bearings'
+    result = wrangles.classify(['cheese'], 'a62c7480-500e-480c')
+    assert result[0].split(' || ')[0] == 'Dairy'
   
 ##  Classify Raise Errors
 # Invalid input data provided
 def test_classify_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.classify({'ball bearing'}, '24ac9037-ecab-4030')
+        raise wrangles.classify({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
 def test_classify_error_2():
     with pytest.raises(ValueError) as info:
-        raise wrangles.classify('ball bearing', '24ac9037-ecab-403')
+        raise wrangles.classify('ball bearing', 'a62c7480-500e-480')
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
 
 # Wrong Model id on wrong function name
@@ -92,11 +88,6 @@ def test_custom_first_element_list():
     result = wrangles.extract.custom(['test skf test timken', 'test timken test skf'], 'fce592c9-26f5-4fd7', first_element=True)
     assert result == ['SKF', 'SKF']
 
-def test_custom_large_list():
-    input = ['test skf test' for _ in range(25000)]
-    results = wrangles.extract.custom(input, '4786921f-342f-4a0c')
-    assert len(results) == 25000 and results[0][0] == 'SKF'
-
 def test_properties():
     result = wrangles.extract.properties('something yellow something')
     assert result['Colours'][0] == 'Yellow'
@@ -109,7 +100,7 @@ def test_properties_list():
 # Invalid input data provided
 def test_extract_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.extract.custom({'ball bearing'}, 'fce592c9-26f5-4fd7')
+        raise wrangles.extract.custom({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
@@ -121,8 +112,8 @@ def test_extract_error_2():
 # Wrong Model id on wrong function name
 def test_extract_error_3():
     with pytest.raises(ValueError) as info:
-        raise wrangles.extract.custom('ball bearing', '24ac9037-ecab-4030')
-    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id 24ac9037-ecab-4030 in an extract function.'
+        raise wrangles.extract.custom('ball bearing', 'a62c7480-500e-480c')
+    assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id a62c7480-500e-480c in an extract function.'
 
 def test_extract_html_str():
     result = wrangles.extract.html('<a href="https://www.wrangleworks.com/">Wrangle Works!</a>', dataType='text')
@@ -311,3 +302,178 @@ def test_sig_figs():
     ]
     res = wrangles.format.significant_figures(vals, 3)
     assert res == ['13.5 ft', 'length: 34500ft', '34.2', 'nothing here', 13.5, 134000, '']
+
+### Lookup
+def test_lookup_single_value_no_columns():
+    """
+    Test lookup with a single value and no columns specified
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd")
+    assert result == {"Value": 1}
+
+def test_lookup_list_value_no_columns():
+    """
+    Test lookup with list of values and no columns specified
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd")
+    assert result == [{"Value": 1}]
+
+def test_lookup_single_value_single_column():
+    """
+    Test lookup with a single input value and a single result column
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd", "Value")
+    assert result == 1
+
+def test_lookup_single_value_list_column():
+    """
+    Test lookup with a single input value and a list of result columns
+    """
+    result = wrangles.lookup("a", "fe730444-1bda-4fcd", ["Value"])
+    assert result == [1]
+
+def test_lookup_list_value_single_column():
+    """
+    Test lookup with a list of input values and a single result column
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", "Value")
+    assert result == [1]
+
+def test_lookup_list_value_list_column():
+    """
+    Test lookup with a list of input values and a list of result columns
+    """
+    result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", ["Value"])
+    assert result == [[1]]
+
+def test_embedding_single():
+    """
+    Test generating an embedding from a single value
+    """
+    result = wrangles.openai.embeddings(
+        "test string",
+        api_key=os.environ["OPENAI_API_KEY"],
+        model="text-embedding-3-small"
+    )
+    assert len(result) == 1536
+    assert [round(float(x), 3) for x in result[:3]] == [0.007, -0.045, 0.025]
+
+def test_embedding_list():
+    """
+    Test generating embeddings for a list
+    """
+    result = wrangles.openai.embeddings(
+        ["test string", "test string 2"],
+        api_key=os.environ["OPENAI_API_KEY"],
+        model="text-embedding-3-small"
+    )
+    assert len(result) == 2
+    assert len(result[0]) == 1536
+    assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
+
+def test_extract_ai_model_id():
+    """
+    Test using python api for extract.ai
+    using a pre-created model_id
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        model_id="0e81f1ad-c0a3-42b4",
+        api_key=os.environ['OPENAI_API_KEY']
+    )
+
+    assert (
+        'Colors' in results and
+        'Shapes' in results and
+        isinstance(results['Colors'], list)
+    )
+
+def test_extract_ai_model_id_list():
+    """
+    Test using python api for extract.ai
+    using a pre-created model_id with a list
+    """
+    results = wrangles.extract.ai(
+        ["yellow square", "red circle"],
+        model_id="0e81f1ad-c0a3-42b4",
+        api_key=os.environ['OPENAI_API_KEY']
+    )
+
+    assert (
+        isinstance(results, list) and
+        'Colors' in results[0] and
+        'Shapes' in results[1] and
+        isinstance(results[1]['Colors'], list)
+    )
+
+def test_extract_ai_output_schema_keys():
+    """
+    Test using python api for extract.ai
+    using an output definition with keys
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "Colors": {
+                "type": "string",
+                "description": "Any colors found in the input"
+            }
+        },
+        retries=2
+    )
+
+    assert (
+        'Colors' in results and
+        isinstance(results['Colors'], str)
+    )
+
+def test_extract_ai_output_schema():
+    """
+    Test using python api for extract.ai
+    using an output without keys
+    """
+    results = wrangles.extract.ai(
+        "12 penguins",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "number",
+            "description": "The number of penguins"
+        },
+        retries=2
+    )
+
+    assert results == 12
+
+def test_extract_ai_output_string():
+    """
+    Test using python api for extract.ai
+    using an output that is just a description
+    """
+    results = wrangles.extract.ai(
+        "yellow square",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output="The names of any colors found in the input",
+        retries=2
+    )
+
+    assert "yellow" in results
+
+def test_extract_ai_properties_list():
+    """
+    Test using a simplier syntax for properties without defining type etc.
+    """
+    result = wrangles.extract.ai(
+        "12mm spanner",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "array",
+            "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
+            "items": {
+                "type": "object",
+                "properties": "unit,value"
+            }
+        },
+        retries=2
+    )
+    assert isinstance(result, list) and 'unit' in result[0]

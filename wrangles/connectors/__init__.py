@@ -4,6 +4,7 @@ Connectors to read/write from external systems
 
 from . import akeneo
 from . import ckan
+from . import concurrent
 from . import excel
 from . import file
 from . import http
@@ -16,6 +17,7 @@ from . import pricefx
 from . import test
 from . import ssh
 from . import sftp
+from . import sqlite
 from . import matrix
 from . import mongodb
 from . import salesforce

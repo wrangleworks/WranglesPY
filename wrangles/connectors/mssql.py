@@ -4,8 +4,13 @@ Connector to read/write from a Microsoft SQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-import pymssql as _pymssql
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load external dependency
+_pymssql = _LazyLoader('pymssql')
 
 _schema = {}
 
@@ -27,12 +32,14 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    _logging.info(f": Importing Data :: {host}")
+    _logging.info(f": Reading data from MSSQL :: {host} / {database}")
 
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
     df = _pd.read_sql(command, conn, params)
 
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     return df
 
@@ -96,14 +103,16 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param action: Only INSERT is supported at this time, defaults to INSERT
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
-    """
-    _logging.info(f": Exporting Data :: {host}/{database}/{table}")
+    """    
+    _logging.info(f": Writing data to MSSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
     conn = f"mssql+pymssql://{user}:{password}@{host}:{port}/{database}?charset=utf8"
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     if action.upper() == 'INSERT':
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
@@ -145,39 +154,33 @@ properties:
 """
 
 
-def run(
-  host: str,
-  user: str,
-  password: str,
-  command: _Union[str, list],
-  params: _Union[list, dict] = None,
-  **kwargs
+def run(host: str, user: str, password: str, command: _Union[str, list], params: _Union[list, dict] = None, **kwargs
 ) -> None:
-  """
-  Run a command on a Microsoft SQL Server
+    """
+    Run a command on a Microsoft SQL Server
 
-  >>> from wrangles.connectors import mssql
-  >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
+    >>> from wrangles.connectors import mssql
+    >>> mssql.run(host='sql.domain', user='user', password='password', command='exec myStoredProcedure')
 
-  :param host: Hostname or IP of the database
-  :param user: User with access to the database
-  :param password: Password of user
-  :param command: SQL command or a list of SQL commands to execute
-  :param params: Variables to pass to a parameterized query.
-  """
-  _logging.info(f": Executing Command :: {host}")
+    :param host: Hostname or IP of the database
+    :param user: User with access to the database
+    :param password: Password of user
+    :param command: SQL command or a list of SQL commands to execute
+    :param params: Variables to pass to a parameterized query.
+    """    
+    _logging.info(f": Executing MSSQL Command :: {host}")
 
-  # If user has provided a single command, convert to a list of one.
-  if isinstance(command, str): command = [command]
+    # If user has provided a single command, convert to a list of one.
+    if isinstance(command, str): command = [command]
 
-  # Establish connection
-  conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
-  cursor = conn.cursor()
+    # Establish connection
+    conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
+    cursor = conn.cursor()
 
-  for sql in command:
-    cursor.execute(sql, params)
+    for sql in command:
+      cursor.execute(sql, params)
 
-  conn.close()
+    conn.close()
 
 _schema['run'] = """
 type: object

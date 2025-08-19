@@ -2,6 +2,8 @@ import logging as _logging
 import pandas as _pd
 from ..train import train as _train
 from .. import data as _data
+from ..utils import wildcard_expansion as _wildcard_expansion
+from ..data import model as _model
 
 class classify():
     _schema = {}
@@ -13,6 +15,8 @@ class classify():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Classify Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -52,7 +56,9 @@ class classify():
         _logging.info(": Training Classify Wrangle")
 
         # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         required_columns = ['Example', 'Category', 'Notes']
         if not required_columns == list(df.columns[:3]):
@@ -76,6 +82,7 @@ class classify():
             description: Columns to submit
         """
 
+
 class extract():
     _schema = {}
 
@@ -86,6 +93,8 @@ class extract():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Extract Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -113,7 +122,13 @@ class extract():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
+    def write(
+        df: _pd.DataFrame,
+        columns: list = None,
+        name: str = None,
+        model_id: str = None,
+        variant: str = None
+    ) -> None:
         """
         Train a new or existing extract wrangle
 
@@ -124,14 +139,54 @@ class extract():
         """
         _logging.info(f": Training Extract Wrangle")
 
-        # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+        if name is None and model_id is None:
+            raise ValueError("Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
 
-        required_columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        if not required_columns == list(df.columns[:3]):
+        if variant not in ['pattern', 'ai', None]:
+            raise ValueError("The variant must be either 'pattern' or 'ai'")
+
+        # Error handling for variant
+        if variant == 'ai':
+            variant = 'extract-ai'
+
+        if model_id and variant:
+            raise ValueError(f"It is not possible to set the variant of an existing model.")
+
+        # Select only specific columns if user requests them
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
+
+        # Lookup the variant if retraining a model
+        if variant == None:
+            variant = _model(model_id)['variant']
+            if variant == None: # Older versions do not have a variant, default to pattern
+                variant = 'pattern'
+
+        if variant == 'pattern':
+            versions = [
+                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
+            ]
+            try:
+                required_columns = [
+                        version for version in versions
+                        if set(version["columns"]).issubset(set(df.columns.to_list()))
+                    ][0]['columns']
+            except:
+                required_columns = ['Find', 'Output (Optional)', 'Notes']
+            col_len = 3
+        elif variant == 'extract-ai':
+            required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
+            col_len = 7
+        if not required_columns == list(df.columns[:col_len]):
             raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
 
-        _train.extract(df[required_columns].values.tolist(), name, model_id)
+        _train.extract(df[required_columns].values.tolist(), name, model_id, variant)
 
     _schema["write"] = """
         type: object
@@ -149,6 +204,93 @@ class extract():
             description: Columns to submit
         """
 
+
+class lookup():
+    _schema = {}
+
+    def read(model_id: str) -> _pd.DataFrame:
+        """
+        Read the training data for a Lookup Wrangle.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's training data
+        """
+        _logging.info(f": Reading Lookup Wrangle data :: {model_id}")
+
+        content = _data.model_content(model_id)
+        return _pd.DataFrame(content['Data'], columns=content['Columns'])
+
+    _schema["read"] = """
+        type: object
+        description: Read the training data for a Lookup Wrangle
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
+
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+        """
+        Train a new or existing lookup wrangle
+
+        :param df: DataFrame to be written to a file
+        :param name: Name to give to a new Wrangle that will be created
+        :param model_id: Model to be updated. Either this or name must be provided
+        :param settings: Specific settings to apply to the wrangle
+        :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
+        """
+        _logging.info(": Training Lookup Wrangle")
+
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+        # Read in variant if there is a model_id
+        if model_id:
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
+      
+        if variant == 'semantic':
+            variant = 'embedding'
+
+        settings['variant'] = variant
+
+        _train.lookup(
+            {
+                k.title(): v
+                for k, v in df.to_dict(orient="tight").items()
+                if k in ["columns", "data"]
+            },
+            name,
+            model_id,
+            settings
+        )
+
+    _schema["write"] = """
+        type: object
+        description: Train a new or existing Lookup Wrangle
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            description: Name to give to a new Wrangle that will be created
+          model_id:
+            type: string
+            description: Model to be updated. Either this or a name must be provided
+          columns:
+            type: array
+            description: Columns to submit
+          variant:
+            type: string
+            description: Variant of the Lookup Wrangle that will be created
+            enum:
+              - key
+              - semantic
+        """
+
 class standardize():
     _schema = {}
 
@@ -159,6 +301,8 @@ class standardize():
         :param model_id: Specific model to read.
         :returns: DataFrame containing the model's training data
         """
+        _logging.info(f": Reading Standardize Wrangle data :: {model_id}")
+
         tmp_data = _data.model_content(model_id)
 
         if 'Columns' in tmp_data:
@@ -198,7 +342,9 @@ class standardize():
         _logging.info(f": Training Standardize Wrangle")
 
         # Select only specific columns if user requests them
-        if columns is not None: df = df[columns]
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         required_columns = ['Find', 'Replace', 'Notes']
         if not required_columns == list(df.columns[:3]):

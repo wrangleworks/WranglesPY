@@ -90,6 +90,34 @@ def test_recipe_model():
         list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
     )
 
+def test_recipe_by_version_id():
+    """
+    Test running a recipe using a model ID and version ID
+    """
+    df = wrangles.recipe.run("c37af8a6-43d8-4127:fe885889-67f2-4f3a-b33a-1a37ff5c243c")
+    assert (
+        len(df) == 10 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_version_tag():
+    """
+    Test running a recipe using a model ID and version tag
+    """
+    df1 = wrangles.recipe.run("c37af8a6-43d8-4127:1.0")
+    df2 = wrangles.recipe.run("c37af8a6-43d8-4127:2.0")
+    assert (
+        len(df1) == 10 and
+        len(df2) == 20
+    )
+
+def test_recipe_wrong_model():
+    """
+    Test the error message when a model is incorrect type
+    """
+    with pytest.raises(ValueError, match="Using classify model_id a62c7480-500e-480c in a recipe wrangle"):
+            wrangles.recipe.run('a62c7480-500e-480c')
+
 def test_timeout():
     """
     Test that the timeout parameter triggers
@@ -410,3 +438,387 @@ def test_column_with_question_mark():
         """
     )
     assert df["result"][0] == "value1,value2,value3"
+
+class TestColumnWildcards:
+    def test_wildcard_expansion(self):
+        """
+        Test basic wildcard expansion
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "col1"
+        )
+        assert columns == ["col1"]
+
+    def test_wildcard_expansion_list(self):
+        """
+        Test wildcard expansion
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            ["col1", "col2"]
+        )
+        assert columns == ["col1", "col2"]
+
+    def test_wildcard_expansion_star(self):
+        """
+        Test wildcard expansion with star
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "col*"
+        )
+        assert columns == ["col1","col2","col3"]
+
+    def test_wildcard_expansion_regex(self):
+        """
+        Test wildcard expansion with regex
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "regex:col[1-2]"
+        )
+        assert columns == ["col1","col2"]
+
+    def test_wildcard_expansion_regex_space(self):
+        """
+        Test wildcard expansion with "regex: "
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "regex: col[1-2]"
+        )
+        assert columns == ["col1","col2"]
+
+    def test_wildcard_expansion_regex_case_insensitive(self):
+        """
+        Test that regex: isn't case sensitive
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            "REGEX:col[1-2]"
+        )
+        assert columns == ["col1","col2"]
+
+    def test_wildcard_expansion_missing_column_error(self):
+        """
+        Test wildcard expansion raises an appropriate error
+        for a missing column
+        """
+        with pytest.raises(KeyError, match="does not exist"):
+            raise wrangles.recipe._wildcard_expansion(
+                ["col1","col2","col3"],
+                "col4"
+            )
+
+    def test_wildcard_expansion_missing_column_error(self):
+        """
+        Test wildcard expansion raises an appropriate error
+        for a missing column
+        """
+        with pytest.raises(KeyError, match="does not exist"):
+            raise wrangles.recipe._wildcard_expansion(
+                ["col1","col2","col3"],
+                "col4"
+            )
+
+    def test_wildcard_expansion_optional_column(self):
+        """
+        Test that wildcard doesn't error on an
+        optional column that doesn't exist
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            ["col1", "col4?"]
+        )
+        assert columns == ["col1"]
+
+    def test_wildcard_expansion_overlap(self):
+        """
+        Test wildcard expansion on overlapping searches
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            ["col1", "col*"]
+        )
+        assert columns == ["col1", "col2", "col3"]
+
+    def test_wildcard_expansion_dict(self):
+        """
+        Test wildcard expansion on a dict
+        """
+        columns = wrangles.utils.wildcard_expansion_dict(
+            ["col1","col2","col3"],
+            {"col1": "col1"}
+        )
+        assert columns == {"col1": "col1"}
+
+    def test_wildcard_expansion_dict_rename(self):
+        """
+        Test wildcard expansion on a dict
+        """
+        columns = wrangles.utils.wildcard_expansion_dict(
+            ["col1","col2","col3"],
+            {"col1": "new_col1"}
+        )
+        assert columns == {"col1": "new_col1"}
+
+    def test_wildcard_expansion_dict_wildcard(self):
+        """
+        Test wildcard expansion on a dict
+        with a wildcard for input and output names
+        """
+        columns = wrangles.utils.wildcard_expansion_dict(
+            ["col_1","col_2","col_3"],
+            {"col_*": "new_*"}
+        )
+        assert columns == {
+            "col_1": "new_1",
+            "col_2": "new_2",
+            "col_3": "new_3"
+        }
+
+    def test_wildcard_expansion_dict_regex(self):
+        """
+        Test wildcard expansion on a dict on input: output columns
+        with regex
+        """
+        columns = wrangles.utils.wildcard_expansion_dict(
+            ["col1","col2","col3"],
+            {"regex:col([1-2])": r"new_\1"}
+        )
+        assert columns == {
+            "col1": "new_1",
+            "col2": "new_2"
+        }
+
+    def test_wildcard_not(self):
+        """
+        Test wildcard that uses a not column
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["col1","col2","col3"],
+            ["*", "-col1"]
+        )
+        assert columns == ['col2', 'col3']
+
+    def test_wildcard_not_exclamation_start_name(self):
+        """
+        Test that a column starting with a - can still be selected
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["-col1","col2","col3"],
+            ["-col1"]
+        )
+        assert columns == ['-col1']
+
+    def test_not_star(self):
+        """
+        Test wildcard that uses a not column with a * as a wildcard
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["a", "col1","col2","col3"],
+            ["col*", "-*3"]
+        )
+        assert columns == ['col1', 'col2']
+
+    def test_not_regex(self):
+        """
+        Test using not regex
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["a", "col1","col2","col3"],
+            ["col*", "-regex:.*3"]
+        )
+        assert columns == ['col1', 'col2']
+
+    def test_not_regex_alt_syntax(self):
+        """
+        Test using not regex alternative syntax
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            ["a", "col1","col2","col3"],
+            ["col*", "regex:-.*3"]
+        )
+        assert columns == ['col1', 'col2']
+
+    def test_star_regex_special_chars(self):
+        """
+        Test that regex special characters are escaped
+        correctly when using a wildcard
+        """
+        columns = wrangles.recipe._wildcard_expansion(
+            [".col1",".col2",":col3"],
+            [".col*"]
+        )
+        assert columns == ['.col1', '.col2']
+
+    def test_not_in_recipe(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns:
+                    - "*"
+                    - -header1
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header2", "header3"] and
+            len(df) == 10
+        )
+
+    def test_not_syntax_error(self):
+        """
+        Test that a likely syntax error by adding a space
+        after the dash gives a clear error message
+        """
+        with pytest.raises(ValueError, match="without a space"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 10
+                    values:
+                      header1: value1
+                      header2: value2
+                      header3: value3
+                    columns:
+                      - "*"
+                      - - header1
+                """
+            )
+
+    def test_only_not_string(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns: -header1
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header2", "header3"] and
+            len(df) == 10
+        )
+
+    def test_only_not_list(self):
+        """
+        Test not syntax in a recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 10
+                values:
+                    header1: value1
+                    header2: value2
+                    header3: value3
+                columns:
+                  - -header1
+                  - -header2
+            """
+        )
+        assert (
+            df.columns.tolist() == ["header3"] and
+            len(df) == 10
+        )
+
+def test_run_as_string():
+    """
+    Test a run defined as a string runs correctly assuming there are no parameters.
+    """
+    ref_values = []
+
+    def set_value():
+        ref_values.append(1)
+
+    wrangles.recipe.run(
+        """
+        run:
+          on_start:
+            - custom.set_value
+        """,
+        functions=set_value
+    )
+    assert ref_values == [1]
+
+def test_read_as_string():
+    """
+    Test a read defined as a string runs correctly assuming there are no parameters.
+    """
+    def get_values():
+        return pd.DataFrame({
+            'header': ['value']
+        })
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - custom.get_values
+        """,
+        functions=get_values
+    )
+    assert df["header"][0] == "value"
+
+def test_wrangle_as_string():
+    """
+    Test a wrangle defined as a string runs correctly assuming there are no parameters.
+    """
+    def set_values(df):
+        df['header'] = "value1"
+        return df
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        wrangles:
+          - custom.set_values
+        """,
+        functions=set_values
+    )
+    assert df["header"][0] == "value1"
+
+def test_write_as_string():
+    """
+    Test a write defined as a string runs correctly assuming there are no parameters.
+    """
+    ref_values = []
+
+    def write_values(df):
+        ref_values.append(df['header'][0])
+
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1
+              values:
+                header: value
+        write:
+          - custom.write_values
+        """,
+        functions=write_values
+    )
+    assert ref_values == ["value"]

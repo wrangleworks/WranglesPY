@@ -3,19 +3,22 @@ Functions to run extraction wrangles
 """
 from typing import Union as _Union
 import re as _re
-import concurrent.futures as _futures
-from collections import OrderedDict as _OrderedDict
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
-from .. import openai as _openai
+from .. import data as _data
 
 
-def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], dataType: str) -> _pd.DataFrame:
+def address(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    dataType: str,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract parts of addresses. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -23,6 +26,7 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -55,27 +59,28 @@ def address(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, lis
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(), dataType)
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            dataType,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.address(
-                df[input_column].astype(str).tolist(), dataType)
+                df[input_column].astype(str).tolist(),
+                dataType,
+                **kwargs
+            )
   
     return df
 
 
 def ai(
     df: _pd.DataFrame,
-    output: list,
     api_key: str,
     input: list = None,
-    model: str = "gpt-3.5-turbo",
-    threads: int = 10,
-    timeout: int = 25,
-    retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
+    output: _Union[dict, str, list] = None,
+    model_id: str = None,
     **kwargs
 ):
     """
@@ -89,17 +94,18 @@ def ai(
       input:
         type:
           - string
+          - integer
           - array
         description: |-
           Name or list of input columns to give to the AI
           to use to determine the output. If not specified, all
           columns will be used.
       output:
-        type: object
+        type: [object, string, array]
         description: List and description of the output you want
         patternProperties:
-          "^[a-zA-Z0-9]+$":
-            type: object
+          "^[a-zA-Z0-9 _-]+$":
+            type: [object, string]
             properties:
               type:
                 type: string
@@ -136,7 +142,7 @@ def ai(
         description: API Key for the model
       model:
         type: string
-        description: The name of the model
+        description: The name of the AI model to use
       threads:
         type: integer
         description: The number of requests to send in parallel
@@ -158,105 +164,127 @@ def ai(
           - string
           - array
         description: Optional. Provide additional overall instructions for the AI.
+      model_id:
+        type: string
+        description: Use a saved definition from an extract ai wrangle.
+      strict:
+        type: boolean
+        description: >-
+          Enable strict mode. Default False.
+          If True, the function will be required to match the schema,
+          but may be more limited in the schema it can return.
     """
+    # If input is provided, extract only those columns
+    # Otherwise, provide the whole dataframe
     if input is not None:
         if not isinstance(input, list):
             input = [input]
         df_temp = df[input]
     else:
         df_temp = df
+    
+    # Target columns will contain a list of column names
+    # to insert to created results into
+    target_columns = None
 
-    # Add a default for type array if not already specified.
-    # ChatGPT appears to need this to function correctly.
-    for k, v in output.items():
-        if v.get("type") == "array" and "items" not in v:
-            output[k]["items"] = {"type": "string"}
+    if model_id is not None and output is not None:
+        # If user provided a model_id and output then
+        # output sets the columns for the results
 
-    # Format any user submitted header messages
-    if not isinstance(messages, list): messages = [messages]
-    messages = [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
-    ]
+        # Ensure output is a list
+        if isinstance(output, list):
+            target_columns = output
+        else:
+            target_columns = [output]
 
-    system_messages = [
-        {
-            "role": "system",
-            "content": " ".join([
-                "You are a data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
-            ])
-        },
-        {
-            "role": "system",
-            "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
-            ])
-        },
-    ] + messages
+        output = None
 
-    settings = {
-        "model": model,
-        "messages": system_messages,
-        "temperature": 0,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "parse_output",
-                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys())
-                }
+        # If more than one column is expected to be output
+        # check that matches the length of the model defined
+        if len(target_columns) > 1:
+            metadata = {
+                str(k).lower(): v
+                for k, v in _data.model_content(model_id).items()
             }
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **kwargs
-    }
+            if len(target_columns) != len(metadata['data']):
+                raise ValueError(
+                  f"The number of columns does not match the number defined in model_id {model_id}. ",
+                  f"Expected {len(metadata['data'])}"
+                )
 
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            df_temp.to_dict(orient='records'), 
-            [api_key] * len(df),
-            [settings] * len(df),
-            [url] * len(df),
-            [timeout] * len(df),
-            [retries] * len(df),
-        ))
+    # Otherwise output defines the schema the AI is expected to produce
+
+    # If a single value is provided, convert to an
+    # empty dictionary for compatibility with JSON schema
+    elif output is not None and not isinstance(output, (dict, list)):
+        output = {str(output): {}}
+
+    # If output was provided as a list
+    # then merge to a single dict
+    elif isinstance(output, list):
+        temp_dict = {}
+        for item in output:
+            if isinstance(item, dict):
+                temp_dict.update(item)
+            else:
+                temp_dict.update({str(item): {}})
+        output = temp_dict
+
+    # If a schema has been provided, define the target columns
+    if not target_columns and output is not None:
+        target_columns = list(output.keys())
+
+    results = _extract.ai(
+        df_temp.to_dict(orient='records'),
+        api_key=api_key,
+        output=output,
+        model_id=model_id,
+        **kwargs
+    )
 
     try:
-      exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+
+        if target_columns and len(target_columns) == 1:
+            if len(exploded_df.columns) == 1:
+                # If the AI model only returns a single column
+                # then use the contents of that columns as the output
+                df[target_columns[0]] = exploded_df[exploded_df.columns[0]]
+            else:
+                # Else insert as a dict to the target column
+                df[target_columns[0]] = results
+        else:
+            if not target_columns:
+                target_columns = exploded_df.columns
+            else:
+                # Ensure all the required keys are included in the output,
+                # even if chatGPT doesn't preserve them
+                for col in target_columns:
+                  if col not in exploded_df.columns:
+                      exploded_df[col] = ""
+
+            # Merge back into the original dataframe
+            df[target_columns] = exploded_df[target_columns]
     except:
       raise RuntimeError("Unable to parse response from AI model")
 
-    # Ensure all the required keys are included in the output,
-    # even if chatGPT doesn't preserve them
-    for col in output.keys():
-        if col not in exploded_df.columns:
-            exploded_df[col] = ""
-    df[list(output.keys())] = exploded_df[list(output.keys())]
     return df
 
 
-def attributes(df: _pd.DataFrame,
-            input: _Union[str, list],
-            output: _Union[str, list],
-            responseContent: str = 'span',
-            attribute_type: str = None,
-            desired_unit: str = None,
-            bound: str = 'mid',
-            first_element: bool = False) -> _pd.DataFrame:
+def attributes(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    responseContent: str = 'span',
+    attribute_type: str = None,
+    desired_unit: str = None,
+    bound: str = 'mid',
+    first_element: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -264,6 +292,7 @@ def attributes(df: _pd.DataFrame,
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column.
       output:
@@ -336,11 +365,13 @@ def attributes(df: _pd.DataFrame,
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
         df[output[0]] = _extract.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
-              responseContent,
-              attribute_type,
-              desired_unit,
-              bound,
-              first_element)
+            responseContent,
+            attribute_type,
+            desired_unit,
+            bound,
+            first_element,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -350,13 +381,21 @@ def attributes(df: _pd.DataFrame,
                 attribute_type,
                 desired_unit,
                 bound,
-                first_element
-        )
+                first_element,
+                **kwargs
+            )
         
     return df
 
 
-def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = False) -> _pd.DataFrame:
+def brackets(
+    df: _pd.DataFrame, 
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    find: _Union[str, list] = 'all',
+    include_brackets: bool = False,
+    first_element: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties in brackets from the input
@@ -368,6 +407,7 @@ def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = F
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -375,6 +415,14 @@ def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = F
           - string
           - array
         description: Name of the output columns
+      find:
+        type: 
+          - string
+          - array
+        description: (Optional) The type of brackets to find (round '()', square '[]', curly '{}', angled '<>'). Default is all brackets.
+      include_brackets:
+        type: boolean
+        description: (Optional) Include the brackets in the output
       first_element:
         type: boolean
         description: Get the first element from results
@@ -390,21 +438,36 @@ def brackets(df: _pd.DataFrame, input: str, output: str, first_element: bool = F
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    # Ensure find is a list
+    if not isinstance(find, list): find = [find]
+
+    # Ensure find only contains the elements: round, square, curly, angled
+    bracket_types = ['round', 'square', 'curly', 'angled', 'all']
+
+    if not all(element in bracket_types for element in find):
+        raise ValueError("find must only contain the elements: round, square, curly, angled")
+
+    # If only only one output and multiple inputs, concatenate the inputs
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist())
+        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, include_brackets)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), first_element)
+            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets, first_element)
 
     return df
 
 
-def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], first_element: bool = False) -> _pd.DataFrame:
+def codes(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    first_element: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -412,6 +475,7 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -435,29 +499,37 @@ def codes(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list]
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.codes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
+        df[output[0]] = _extract.codes(
+            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.codes(df[input_column].astype(str).tolist(), first_element)
+            df[output_column] = _extract.codes(
+                df[input_column].astype(str).tolist(),
+                first_element,
+                **kwargs
+            )
 
     return df
 
 
 def custom(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     model_id: _Union[str, list],
     output: _Union[str, list] = None,
     use_labels: bool = False,
     first_element: bool = False,
     case_sensitive: bool = False,
-    use_spellcheck: bool = False
+    extract_raw: bool = False,
+    use_spellcheck: bool = False,
+    **kwargs
 ) -> _pd.DataFrame:
     """
     type: object
     description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
-    additionalProperties: true
     required:
       - input
       - model_id
@@ -465,6 +537,7 @@ def custom(
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -486,9 +559,12 @@ def custom(
       case_sensitive:
         type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
+      extract_raw:
+        type: boolean
+        description: Extract the raw data from the wrangle
       use_spellcheck:
         type: boolean
-        description: Use spellcheck to correct spelling mistakes in the input
+        description: Use spellcheck to also find minor mispellings compared to the reference data
     """
     if output is None: output = input
     
@@ -507,7 +583,9 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
-                use_spellcheck=use_spellcheck
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck,
+                **kwargs
             )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
@@ -518,7 +596,9 @@ def custom(
             first_element=first_element,
             use_labels=use_labels,
             case_sensitive=case_sensitive,
-            use_spellcheck=use_spellcheck
+            extract_raw=extract_raw,
+            use_spellcheck=use_spellcheck,
+            **kwargs
         )
     
     else:
@@ -530,7 +610,9 @@ def custom(
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
-                use_spellcheck=use_spellcheck
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck,
+                **kwargs
             )
 
     return df
@@ -548,6 +630,7 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -717,11 +800,16 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
     return df
 
 
-def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def html(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    data_type: str,
+    output: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract elements from strings containing html. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -730,6 +818,7 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
       input:
         type:
           - string
+          - integer
           - array
         description: Name or list of input columns.
       output:
@@ -760,22 +849,27 @@ def html(df: _pd.DataFrame, input: _Union[str, list], data_type: str, output: _U
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(df[input_column].astype(str).tolist(), dataType=data_type)
+        df[output_column] = _extract.html(
+            df[input_column].astype(str).tolist(),
+            dataType=data_type,
+            **kwargs
+        )
             
     return df
 
 
 def properties(
-            df: _pd.DataFrame,
-            input: _Union[str, list],
-            output: _Union[str, list],
-            property_type: str = None,
-            return_data_type: str = 'list',
-            first_element: bool = False) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    property_type: str = None,
+    return_data_type: str = 'list',
+    first_element: bool = False,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract text properties from the input. Requires WrangleWorks Account.
-    additionalProperties: false
     required:
       - input
       - output
@@ -783,6 +877,7 @@ def properties(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column
       output:
@@ -820,19 +915,37 @@ def properties(
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), type=property_type, return_data_type=return_data_type, first_element=first_element)
+        df[output[0]] = _extract.properties(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            type=property_type,
+            return_data_type=return_data_type,
+            first_element=first_element,
+            **kwargs
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(df[input_column].astype(str).tolist(), type=property_type, return_data_type=return_data_type, first_element=first_element)
+            df[output_column] = _extract.properties(
+                df[input_column].astype(str).tolist(),
+                type=property_type,
+                return_data_type=return_data_type,
+                first_element=first_element,
+                **kwargs
+            )
     
     return df
 
-
-def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union[str, list], first_element: bool = False) -> _pd.DataFrame:
-    """
+def regex(
+  df: _pd.DataFrame,
+  input: _Union[str, int, list],
+  find: str,
+  output: _Union[str, list],
+  output_pattern: str = None,
+  first_element: bool = False
+  ) -> _pd.DataFrame:
+    r"""
     type: object
-    description: Extract single values using regex
+    description: Extract matches or specific capture groups using regex
     additionalProperties: false
     required:
       - input
@@ -842,6 +955,7 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       input:
         type: 
           - string
+          - integer
           - array
         description: Name of the input column(s).
       output:
@@ -852,23 +966,43 @@ def regex(df: _pd.DataFrame, input: _Union[str, list], find: str, output: _Union
       find:
         type: string
         description: Pattern to find using regex
+      output_pattern:
+        type: string
+        description: |
+          Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+
+          **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None: 
+        output = input
 
-    # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    # If a string is provided, convert to list
+    if not isinstance(input, list): 
+        input = [input]
+    if not isinstance(output, list): 
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
+    find_pattern = _re.compile(find)
+        
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if first_element:
-            df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x)[0])
+        if output_pattern is None and first_element:
+            # Return entire matches
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)][0])
+        elif output_pattern is None and not first_element:
+            # Return entire matches
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
+        elif output_pattern and first_element:
+            # Return specific capture groups in the pattern the were passed
+            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)][0])
         else:
-            df[output_column] = df[input_column].apply(lambda x: _re.findall(find, x))
-    
+            # Return specific capture groups in the pattern the were passed
+            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
+
     return df
+

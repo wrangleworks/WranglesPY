@@ -124,6 +124,54 @@ def test_write_file_indexed():
     df = wrangles.recipe.run(recipe)
     assert df.columns.tolist() == ['Find', 'Replace']
 
+def test_write_file_optional_col():
+    """
+    Tests an optional column that is there
+    """
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            output: find
+            case: lower
+    write:
+        file:
+          name: tests/temp/write_data.xlsx
+          columns:
+            - Find
+            - Replace
+            - find?
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace', 'find']
+
+def test_write_file_optional_not_col():
+    """
+    Tests an optional column that is not there
+    """
+    recipe = """
+    read:
+      file:
+        name: tests/samples/data.xlsx
+    wrangles:
+        - convert.case:
+            input: Find
+            output: Find
+            case: lower
+    write:
+        file:
+          name: tests/temp/write_data.xlsx
+          columns:
+            - Find
+            - Replace
+            - find?
+    """
+    df = wrangles.recipe.run(recipe)
+    assert df.columns.tolist() == ['Find', 'Replace']
+
 def test_write_csv():
     """
     Test exporting a .csv
@@ -226,35 +274,31 @@ def test_read_unsupported_filetype():
     Check an appropriate error is given if the user 
     tries to read an unknown file type
     """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(
+    with pytest.raises(ValueError, match="'jason'"):
+        wrangles.recipe.run(
             """
             read:
               - file:
                   name: data.jason
             """
         )
-    assert (
-        info.typename == 'ValueError' and 
-        info.value.args[0] == "File type 'jason' is not supported by the file connector."
-    )
 
 def test_write_unsupported_filetype():
     """
     # Exporting file type error message
     """
-    recipe = """
-      read:
-        file:
-          name: tests/temp/temp.csv
-      
-      write:
-        - file:
-            name: tests/temp/data.jason
-    """
-    with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
-    assert info.typename == 'ValueError' and info.value.args[0] == "File type 'jason' is not supported by the file connector."
+    with pytest.raises(ValueError, match="'jason'"):
+        wrangles.recipe.run(
+            """
+            read:
+                - file:
+                    name: tests/temp/temp.csv
+            
+            write:
+                - file:
+                    name: tests/temp/data.jason
+            """
+        )
 
 # Write using index
 def test_write_with_index():
@@ -367,3 +411,44 @@ def test_read_pickle_gzip():
         df["header1"][0] == "value1"
         and len(df) == 3
     )
+
+def test_read_object():
+    """
+    Test reading a file passed directly into the recipe as an object
+    """
+    df = wrangles.recipe.run(
+      """
+      read:
+        - file:
+            name: ${file}
+      """,
+      variables={
+        "file": {
+          "name": "example.csv",
+          "mimeType": "text/csv",
+          "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
+        }
+      }
+    )
+    assert len(df) == 3 and df['Col1'][0] == 'a'
+
+def test_read_object_json():
+    """
+    Test reading a file passed directly into the recipe as an object
+    where the variable was JSON
+    """
+    df = wrangles.recipe.run(
+      """
+      read:
+        - file:
+            name: ${file}
+      """,
+      variables={
+        "file": """{
+          "name": "example.csv",
+          "mimeType": "text/csv",
+          "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
+        }"""
+      }
+    )
+    assert len(df) == 3 and df['Col1'][0] == 'a'

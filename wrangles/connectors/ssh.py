@@ -1,10 +1,15 @@
 """
 Connector for SSH
 """
-from fabric import Connection as _Connection
 from typing import Union as _Union
-from paramiko import RSAKey as _RSAKey
 from io import StringIO as _StringIO
+import logging as _logging
+from ..utils import LazyLoader as _LazyLoader
+
+# Lazy load external dependencies
+_fabric = _LazyLoader('fabric')
+_paramiko = _LazyLoader('paramiko')
+
 
 _schema = {}
 
@@ -19,6 +24,8 @@ def run(host: str, user: str, command: _Union[str, list], password: str = None, 
     :param private_key: Provide an RSA Private Key as a string
     :param command: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands.  
     """
+    _logging.info(f": Executing SSH command :: {host}")
+
     # If user has passed a single command, convert to a list of one
     if isinstance(command, str): command = [command]
 
@@ -27,13 +34,14 @@ def run(host: str, user: str, command: _Union[str, list], password: str = None, 
     elif key_filename is not None:
         connect_kwargs = {'key_filename': key_filename}
     elif private_key is not None:
-        pkey = _RSAKey.from_private_key(_StringIO(private_key))
-        connect_kwargs = {'pkey': pkey}
+        connect_kwargs = {
+            'pkey': _paramiko.RSAKey.from_private_key(_StringIO(private_key))
+        }
     else:
         raise ValueError('A password or private key is required for the SSH connection')
 
     # Establish connection and run all the commands
-    with _Connection(host, user=user, connect_kwargs=connect_kwargs) as conn:
+    with _fabric.Connection(host, user=user, connect_kwargs=connect_kwargs) as conn:
         for ssh_command in command:
             conn.run(ssh_command)
 

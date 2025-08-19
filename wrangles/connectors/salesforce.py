@@ -21,13 +21,15 @@ write:
       object: Contact
       id: Id
 """
-from simple_salesforce import (
-    Salesforce as _Salesforce,
-    format_soql as _format_soql
-)
 import pandas as _pd
 import logging as _logging
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load external dependency
+_salesforce = _LazyLoader('simple_salesforce')
 
 _schema = {}
 
@@ -60,9 +62,9 @@ def read(
     :param domain: (Optional) Use test to connect to a sandbox instance
     :return: A Pandas dataframe of the imported data.
     """
-    _logging.info(f": Importing Data :: {instance} /  {object}")
+    _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
 
-    sf = _Salesforce(
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,
@@ -73,7 +75,7 @@ def read(
     sf_object = getattr(sf.bulk, object)
 
     if params:
-        command = _format_soql(command, **params)
+        command = _salesforce.format_soql(command, **params)
     
     responses = sf_object.query(command, lazy_operation=True)
 
@@ -84,7 +86,9 @@ def read(
     df = _pd.DataFrame(results).drop('attributes',axis=1)
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     return df
 
@@ -158,10 +162,14 @@ def write(
     :param columns: (Optional) A subset of the columns to be written
     :param domain: (Optional) Use test to connect to a sandbox instance
     """
-    # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    _logging.info(f": Writing data to Salesforce :: {instance} /  {object}")
 
-    sf = _Salesforce(
+    # Select only specific columns if user requests them
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
+
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,

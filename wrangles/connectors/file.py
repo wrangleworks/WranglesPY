@@ -7,8 +7,10 @@ import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
+import base64 as _base64
 import os as _os
 import re as _re
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 _schema = {}
@@ -34,11 +36,26 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
-    _logging.info(f": Importing Data :: {name}")
+    if (
+        isinstance(name, dict) and
+        all(x in name for x in ['name', 'data', 'mimeType'])
+    ):
+        # User passed a file as a object
+        file_object = _BytesIO(
+            _base64.b64decode(name['data'])
+        )
+        name = name['name']
+
+    _logging.info(f": Reading data from file :: {name}")
     
     # If user does not pass a file object then use name
     if file_object is None:
         file_object = name
+    else:
+        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+            # If the file is passed in memory but indicates it is gzipped,
+            # then set appropriate compression as it can't be inferred
+            kwargs['compression'] = 'gzip'
     
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
@@ -64,7 +81,9 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
 
     # If the user specifies only certain columns, only include those
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     return df
 
@@ -133,19 +152,27 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
-    _logging.info(f": Exporting Data :: {name}")
-
-    # Get the path to make a directory if it does not exists
-    re_pattern = r'^.+(?=\/\w+\.\w+)'
-    path_matched = _re.search(re_pattern, name)
-    if path_matched:
-        _os.makedirs(path_matched[0], exist_ok=True)
+    _logging.info(f": Writing data to file :: {name}")
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
+    # If user does not pass a file object then write to disk
     if file_object is None:
+        # Ensure directory exists
+        path_matched = _re.search(r'^.+(?=\/\w+\.\w+)', name)
+        if path_matched:
+            _os.makedirs(path_matched[0], exist_ok=True)
+
+        # Set file object to name
         file_object = name
+    else:
+        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+            # If the file is passed in memory but indicates it is gzipped,
+            # then set appropriate compression as it can't be inferred
+            kwargs['compression'] = 'gzip'
 
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:

@@ -7,7 +7,11 @@ from . import data as _data
 from . import batching as _batching
 
 
-def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
+def classify(
+    input: _Union[str, list],
+    model_id: str,
+    **kwargs
+) -> _Union[str, list]:
     """
     Predict which category an input belongs to.
     Requires WrangleWorks Account and Subscription.
@@ -30,15 +34,18 @@ def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
     # Checking to see if GUID format is correct
     if [len(x) for x in model_id.split('-')] != [8, 4, 4]:
         raise ValueError('Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX')
+    
+    # Alter variable to match API
+    if 'include_confidence' in kwargs:
+        kwargs['includeConfidence'] = kwargs.pop('include_confidence')
        
     url = f'{_config.api_host}/wrangles/classify'
-    params = {'responseFormat': 'array', 'model_id': model_id}
+    params = {'responseFormat': 'array', 'model_id': model_id, **kwargs}
     model_properties = _data.model(model_id)
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error': raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
     batch_size = model_properties['batch_size'] or 5000
-    
-    
+
     # Using model_id in wrong function
     purpose = model_properties['purpose']
     if purpose != 'classify':
@@ -46,6 +53,7 @@ def classify(input: _Union[str, list], model_id: str) -> _Union[str, list]:
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
-    if isinstance(input, str): results = results[0]
+    if isinstance(input, str):
+        results = results[0]
 
     return results

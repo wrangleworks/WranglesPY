@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        os: [ubuntu-latest, windows-latest, macos-13]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
     permissions:
       contents: read
     steps:
@@ -42,7 +42,41 @@ jobs:
           WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
+          HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  pytest-macos-latest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        run: |
+          brew update
+          brew install freetds
+          python -m pip install --upgrade pip
+          pip install pytest==7.4.4 lorem pytest-mock
+          pip install -r requirements.txt
+        
+      - name: Run Tests
+        run: pytest
+        env:
+          WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+          WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
@@ -50,8 +84,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        os: [ubuntu-latest, windows-latest, macos-13]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
     permissions:
       contents: read
     steps:
@@ -69,9 +103,59 @@ jobs:
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
+  test-pip-install-macos-latest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Test pip install
+        run: |
+          brew update
+          brew install freetds
+          python -m pip install --upgrade pip
+          pip install .
+          wrangles.recipe tests/samples/generate-data.wrgl.yml
+
+  test-generate-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install jsonschema
+
+      - name: Generate and Test Schema
+        run: cd schema && python generate_recipe_schema.py
+
+      - name: Save Schema as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema
+          path: schema/schema.json
+  
   build:
     runs-on: ubuntu-latest
-    needs: [pytest, test-pip-install]
+    needs: [pytest, pytest-macos-latest, test-pip-install, test-pip-install-macos-latest, test-generate-schema]
     permissions:
       contents: read
       packages: write
@@ -83,7 +167,7 @@ jobs:
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -93,14 +177,14 @@ jobs:
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -118,7 +202,6 @@ jobs:
       WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      CKAN_API_KEY: ${{ secrets.CKAN_API_KEY }}
       HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:

@@ -40,7 +40,6 @@
       "type": "array",
       "description": "Read data from a variety of sources",
       "minItems": 1,
-      "maxItems": 1,
       "items": {
         "$ref": "#/$defs/read/items"
       }
@@ -80,6 +79,12 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement."
+        }
       }
     },
     "wrangles": {
@@ -111,6 +116,10 @@
         "where_params": {
           "type": ["array", "object"],
           "description": "Variables to use in conjunctions with where. This allows the query to be parameterized. This uses sqlite syntax (? or :name)"
+        },
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         }
       }
     },
@@ -129,20 +138,28 @@
       },
       "commonProperties": {
         "columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to include.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "not_columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
+        },
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         },
         "where": {
           "type": "string",
-          "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 456"
+          "description": "Filter the data to include using an equivalent to a SQL where criteria, such as column1 = 123 OR column2 = 'a'"
         },
         "where_params": {
           "type": ["array", "object"],
           "description": "Variables to use in conjunctions with where.\nThis allows the query to be parameterized.\nThis uses sqlite syntax (? or :name)"
+        },
+        "order_by": {
+          "type": "string",
+          "description": "Order the data by one or more columns.\nUse a comma to separate multiple columns.\nUse DESC to sort in descending order.\nExample: column1 DESC, column2\nColumns with spaces should be enclosed in double quotes."
         }
       }
     },
@@ -159,6 +176,12 @@
           }
         },
         "properties": {}
+      },
+      "commonProperties": {
+        "if": {
+          "type": "string",
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement."
+        }
       }
     },
     "misc": {

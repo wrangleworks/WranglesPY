@@ -4,6 +4,7 @@ Connector to read/write from a MySQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
+from ..utils import wildcard_expansion as _wildcard_expansion
 
 
 _schema = {}
@@ -26,12 +27,14 @@ def read(host: str, user: str, password: str, command: str, port = 3306, databas
     :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
     :return: Pandas Dataframe of the imported data
     """
-    _logging.info(f": Importing Data :: {host}")
+    _logging.info(f": Reading data from MySQL :: {host} / {database}")
 
     conn = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
     df = _pd.read_sql(command, conn, params)
 
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
     
     return df
 
@@ -96,13 +99,15 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     """
-    _logging.info(f": Exporting Data :: {host}/{table}")
+    _logging.info(f": Writing data to MySQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
     conn = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
 
     # Select only specific columns if user requests them
-    if columns is not None: df = df[columns]
+    if columns is not None:
+        columns = _wildcard_expansion(df.columns, columns)
+        df = df[columns]
 
     if action.upper() == 'INSERT':
         df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)

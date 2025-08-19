@@ -6,16 +6,24 @@ from typing import Union as _Union
 import math as _math
 import pandas as _pd
 import numpy as _np
+import re as _re
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
     BaseLoader as _BaseLoader
 )
-import requests as _requests
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
+import hashlib as _hashlib
 
-def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def bins(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    bins: _Union[int, list],
+    labels: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Create a column that groups data into bins
@@ -91,6 +99,10 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
       value:
         type:
           - string
+          - number
+          - object
+          - array
+          - boolean
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
     """
     # If a string provided, convert to list
@@ -133,9 +145,10 @@ def embeddings(
     batch_size: int = 100,
     threads: int = 10,
     output_type: str = "python list",
-    model: str = "text-embedding-ada-002",
+    model: str = "text-embedding-3-small",
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
+    precision: str = "float32",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -148,6 +161,7 @@ def embeddings(
       input:
         type:
           - string
+          - integer
           - array
         description: The column of text to create the embeddings for.
       output:
@@ -187,6 +201,15 @@ def embeddings(
         description: |-
           Override the default url for the AI endpoint.
           Must use the OpenAI embeddings API.
+      precision:
+        type: string
+        description: >-
+          The precision of the embeddings.
+          Default is float32.
+          This should be used with output_type numpy array.
+        enum:
+          - float16
+          - float32
     """
     if output is None: output = input
 
@@ -208,12 +231,13 @@ def embeddings(
             threads,
             retries,
             url,
+            precision,
             **kwargs
         )
 
         if output_type == 'python list':
             df[output_col] = [
-                list(row)
+                row.tolist()
                 for row in df[output_col].values
             ]
 
@@ -307,7 +331,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
       - template
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - integer
         description: |
           Specify a name of column containing a dictionary of elements to be used in jinja template.
           Otherwise, the column headers will be used as keys.
@@ -341,10 +367,10 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     else:
         input_list = df.to_dict(orient='records')
 
-    # Replace any spaces in keys with underscores
+    # Replace special characters in column names with underscores
     input_list = [
         {
-            key.replace(' ', '_'): val
+            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val
             for key, val in row.items()
         }
         for row in input_list
@@ -397,5 +423,50 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
     # Loop through and create uuid for all requested columns
     for output_column in output:
         df[output_column] = [_uuid.uuid4() for _ in range(len(df.index))]
+
+    return df
+
+def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
+    """
+    type: object
+    description: Create a hash of a column
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of new column
+      method:
+        type: string
+        description: 'The method to use to hash the input (Default: md5)'
+        enum:
+          - md5
+          - sha1
+          - sha256
+          - sha512
+    """
+    if output is None: output = input
+
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    if method not in ['md5', 'sha1', 'sha256', 'sha512']:
+        raise ValueError('Method must be one of: md5, sha1, sha256, sha512')
+
+    for in_col, out_col in zip(input, output):
+        hash_fn = getattr(_hashlib, method)
+        df[out_col] = [hash_fn(str(x).encode('utf-8')).hexdigest() for x in df[in_col]]
 
     return df
