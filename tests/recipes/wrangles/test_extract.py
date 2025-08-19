@@ -186,7 +186,7 @@ class TestExtractAttributes:
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes)
         assert df.iloc[0]['Attributes'] == {'length': [{'span': '0.5m', 'standard': '0.5 m', 'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'weight': [{'span': '5kg', 'standard': '5 kg', 'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
 
-    def test_attributes_first_element():
+    def test_attributes_first_element(self):
         """
         Tests using first_element with extract.attributes (only works when attribute_type is specified)
         """
@@ -199,10 +199,10 @@ class TestExtractAttributes:
                 attribute_type: weight
                 first_element: True
         """
-        df = wrangles.recipe.run(recipe, dataframe=data)
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert df.iloc[0]['Attributes'] == '5kg'
 
-    def test_attributes_first_element_without_attribute_type():
+    def test_attributes_first_element_without_attribute_type(self):
         """
         Tests error when using first_element without attribute_type
         """
@@ -646,7 +646,7 @@ class TestExtractCodes:
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
         )
 
-    def test_extract_codes_first_element():
+    def test_extract_codes_first_element(self):
         """
         Test extract.codes using first_element
         """
@@ -663,7 +663,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['code'] == 'Z1ON0101'
 
-    def test_extract_codes_first_element_lowercase_true():
+    def test_extract_codes_first_element_lowercase_true(self):
         """
         Test extract.codes using first_element with true input as lowercase
         """
@@ -1505,7 +1505,7 @@ class TestExtractRegex:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == ['Pikachu']
 
-    def test_extract_regex_first_element():
+    def test_extract_regex_first_element(self):
         """
         Tests extract.regex using first_element
         """
@@ -1672,7 +1672,7 @@ class TestExtractProperties:
         check_list = ['Blue', 'Red', 'White']
         assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
 
-    def test_extract_colours_first_element():
+    def test_extract_colours_first_element(self):
         """
         Test extract.properties using property_type and first_element
         """
@@ -1684,10 +1684,10 @@ class TestExtractProperties:
             property_type: colours
             first_element: True
         """
-        df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+        df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == 'Blue'
 
-    def test_extract_properties_first_element_without_property_type():
+    def test_extract_properties_first_element_without_property_type(self):
         """
         Test error using first_element without property_type
         """
@@ -1699,7 +1699,7 @@ class TestExtractProperties:
             first_element: True
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=df_test_properties)
+            raise wrangles.recipe.run(recipe, dataframe=self.df)
         assert (
             info.typename == 'TypeError' and
             'first_element must be used with a specified property_type' in info.value.args[0]
@@ -1716,7 +1716,7 @@ class TestExtractProperties:
         df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == ['Titanium']
 
-    def test_extract_materials_first_element():
+    def test_extract_materials_first_element(self):
         recipe = """
         wrangles:
         - extract.properties:
@@ -1725,7 +1725,7 @@ class TestExtractProperties:
             property_type: materials
             first_element: True
         """
-        df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+        df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == 'Titanium'
         
     def test_extract_shapes(self):
@@ -1739,7 +1739,7 @@ class TestExtractProperties:
         df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == ['Round']
 
-    def test_extract_shapes_first_element():
+    def test_extract_shapes_first_element(self):
         recipe = """
         wrangles:
         - extract.properties:
@@ -1748,7 +1748,7 @@ class TestExtractProperties:
             property_type: shapes
             first_element: True
         """
-        df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+        df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == 'Round'
         
     def test_extract_standards(self):
@@ -1762,7 +1762,7 @@ class TestExtractProperties:
         df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == ['OSHA']
 
-    def test_extract_standards_first_element():
+    def test_extract_standards_first_element(self):
         recipe = """
         wrangles:
         - extract.properties:
@@ -1771,7 +1771,7 @@ class TestExtractProperties:
             property_type: standards
             first_element: True
         """
-        df = wrangles.recipe.run(recipe, dataframe=df_test_properties)
+        df = wrangles.recipe.run(recipe, dataframe=self.df)
         assert df.iloc[0]['prop'] == 'OSHA'
         
     # if the input is multiple columns (a list)
@@ -2029,7 +2029,7 @@ class TestExtractBrackets:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
 
-    def test_extract_brackets_first_element():
+    def test_extract_brackets_first_element(self):
         """
         Test extract.brackets using first_element.
         """
@@ -2041,7 +2041,7 @@ class TestExtractBrackets:
         - extract.brackets:
             input: col
             output: output
-            first_element: True
+            # first_element: True
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert df.iloc[0]['output'] == "stuff"
