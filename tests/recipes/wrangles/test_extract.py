@@ -1539,7 +1539,7 @@ class TestExtractRegex:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == []
+        assert df.iloc[0]['col_out'] == ''
 
     def test_extract_regex_first_element(self):
         """
