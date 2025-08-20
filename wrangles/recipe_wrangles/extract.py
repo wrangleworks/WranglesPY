@@ -966,6 +966,9 @@ def regex(
         type: string
         description: |
           Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+      first_element:
+        type: boolean
+        description: Get the first element from results
 
           **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
