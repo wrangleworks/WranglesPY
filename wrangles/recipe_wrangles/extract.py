@@ -1002,7 +1002,13 @@ def regex(
             df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
         elif output_pattern and first_element:
             # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)][0])
+            df[output_column] = df[input_column].apply(
+                lambda x: (
+                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)][0]
+                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)]) >= 1
+                    else ""
+                    )
+                )
         else:
             # Return specific capture groups in the pattern the were passed
             df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])

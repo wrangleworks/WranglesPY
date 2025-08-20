@@ -1541,6 +1541,26 @@ class TestExtractRegex:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == ''
 
+    def test_extract_regex_no_match_first_element_output_pattern(self):
+        """
+        Test extract.regex with a pattern that does not return a match
+        while using first_element and output_pattern
+        """
+        data = pd.DataFrame({
+            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)
+            first_element: True
+            output_pattern: \1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ''
+
     def test_extract_regex_first_element(self):
         """
         Tests extract.regex using first_element
