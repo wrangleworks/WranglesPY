@@ -992,7 +992,11 @@ def regex(
     for input_column, output_column in zip(input, output):
         if output_pattern is None and first_element:
             # Return entire matches
-            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)][0])
+            df[output_column] = df[input_column].apply(
+                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, x)][0]
+                           if len([match.group(0) for match in _re.finditer(find_pattern, x)]) >= 1
+                           else "")
+                          )
         elif output_pattern is None and not first_element:
             # Return entire matches
             df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
