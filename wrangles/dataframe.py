@@ -148,7 +148,7 @@ class _read:
         Import a file as defined by user parameters.
 
         Supports:
-        - Excel (.xlsx, .xlsx, .xlsm)
+        - Excel (.xlsx, .xls, .xlsm)
         - CSV (.csv, .txt)
         - JSON (.json), JSONL (.jsonl)
         - Pickle (.pkl, .pickle) files.
