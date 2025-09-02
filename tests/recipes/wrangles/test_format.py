@@ -264,12 +264,12 @@ class TestFormatTrim:
         assert df.empty and df.columns.to_list() == ['Alone', 'Trim']
 
 
-    def test_trim_mixed_data_types(self):
+    def test_trim_various_data_types(self):
         """
-        Test trim on mixed data types
+        Test trim on various data types
         """
         data = pd.DataFrame({
-            'column': ['This is a string     ', 459, ['This', 'is', 'a', 'list'], {'Dict': 'ionary'}],
+            'column': ['This is a string     ', 459, ['This', 'is', 'a', 'list'], {'Dict': 'ionary'}, 3.14159265359],
         })
         recipe = """
         wrangles:
@@ -278,7 +278,12 @@ class TestFormatTrim:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'This is a string' and df.iloc[1]['output'] == 459
+        assert df.iloc[0]['output'] == 'This is a string' 
+        assert df.iloc[1]['output'] == 459
+        assert df.iloc[2]['output'] == ['This', 'is', 'a', 'list']
+        assert df.iloc[3]['output'] == {'Dict': 'ionary'}
+        assert df.iloc[4]['output'] == 3.14159265359
+
 
 class TestFormatPrefix:
     """
