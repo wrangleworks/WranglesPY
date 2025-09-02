@@ -6,6 +6,7 @@ from typing import Union as _Union
 import re as _re
 import numpy as _np
 import pandas as _pd
+import logging as _logging
 from fractions import Fraction as _Fraction
 import yaml as _yaml
 from ..utils import safe_str_transform as _safe_str_transform
@@ -76,26 +77,30 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
             df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
 
         elif desired_case == 'sentence':
-            def getSentenceCase(source: str):
-                if not isinstance(source, str):
+            def _getSentenceCase(source: str, warnings={}):
+                if isinstance(source, str):
+                    output = []
+                    isFirstWord = True
+
+                    for character in source:
+                        if isFirstWord and not character.isspace():
+                            output.append(character.upper())
+                            isFirstWord = False
+                        elif not isFirstWord and character in ".!?":
+                            isFirstWord = True
+                            output.append(character.upper())
+                        else:
+                            output.append(character.lower())
+
+                    return ''.join(output)
+                else:
+                    # Only show this once to not spam the logs
+                    if not warnings.get("invalid_data", {}).get('logged', False):
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
                     return source
 
-                output = []
-                isFirstWord = True
-
-                for character in source:
-                    if isFirstWord and not character.isspace():
-                        output.append(character.upper())
-                        isFirstWord = False
-                    elif not isFirstWord and character in ".!?":
-                        isFirstWord = True
-                        output.append(character.upper())
-                    else:
-                        output.append(character.lower())
-
-                return ''.join(output)
-
-            df[output_column] = df[input_column].apply(getSentenceCase)
+            df[output_column] = df[input_column].apply(lambda x: _getSentenceCase(x, warnings))
 
     return df
 
