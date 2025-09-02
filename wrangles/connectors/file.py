@@ -10,9 +10,7 @@ from io import BytesIO as _BytesIO
 import base64 as _base64
 import os as _os
 import re as _re
-import io as _io
 from ..utils import wildcard_expansion as _wildcard_expansion
-from .format_func import file_formatting as _file_formatting
 from .format import file_format as _file_format
 
 
