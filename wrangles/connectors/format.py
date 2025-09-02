@@ -8,8 +8,9 @@ def file_format(
         ):
     pl_df = pl.DataFrame(df)
 
-    if workbook.split('.')[-1] != 'xlsx':
-        raise ValueError(f"name must end with '.xlsx' when formatting: got {workbook!r}")
+    # Set default table style
+    if "table_style" not in kwargs:
+        kwargs["table_style"] = "Table Style Medium9"
 
     pl_df.write_excel(
         workbook=workbook,
