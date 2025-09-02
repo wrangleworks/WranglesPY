@@ -3,6 +3,7 @@ import pandas as _pd
 from ..train import train as _train
 from .. import data as _data
 from ..utils import wildcard_expansion as _wildcard_expansion
+from ..data import model as _model
 
 class classify():
     _schema = {}
@@ -160,8 +161,24 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
-        if variant in (None,'pattern'):
-            required_columns = ['Find', 'Output (Optional)', 'Notes']
+        # Lookup the variant if retraining a model
+        if variant == None:
+            variant = _model(model_id)['variant']
+            if variant == None: # Older versions do not have a variant, default to pattern
+                variant = 'pattern'
+
+        if variant == 'pattern':
+            versions = [
+                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
+            ]
+            try:
+                required_columns = [
+                        version for version in versions
+                        if set(version["columns"]).issubset(set(df.columns.to_list()))
+                    ][0]['columns']
+            except:
+                required_columns = ['Find', 'Output (Optional)', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
@@ -231,12 +248,15 @@ class lookup():
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
         
+        # Read in variant if there is a model_id
+        if model_id:
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
       
         if variant == 'semantic':
             variant = 'embedding'
 
-        if 'variant' not in settings.keys():
-            settings['variant'] = variant
+        settings['variant'] = variant
 
         _train.lookup(
             {

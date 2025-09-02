@@ -21,14 +21,15 @@ write:
       object: Contact
       id: Id
 """
-from simple_salesforce import (
-    Salesforce as _Salesforce,
-    format_soql as _format_soql
-)
 import pandas as _pd
 import logging as _logging
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load external dependency
+_salesforce = _LazyLoader('simple_salesforce')
 
 _schema = {}
 
@@ -63,7 +64,7 @@ def read(
     """
     _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
 
-    sf = _Salesforce(
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,
@@ -74,7 +75,7 @@ def read(
     sf_object = getattr(sf.bulk, object)
 
     if params:
-        command = _format_soql(command, **params)
+        command = _salesforce.format_soql(command, **params)
     
     responses = sf_object.query(command, lazy_operation=True)
 
@@ -168,7 +169,7 @@ def write(
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    sf = _Salesforce(
+    sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
         password=password,

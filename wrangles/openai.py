@@ -54,7 +54,7 @@ def chatGPT(
         raise ValueError("Retries must be a positive integer")
     
     response = None
-    backoff_time = 5
+    backoff_time = 1
     while (retries + 1):
         try:
             response = _requests.post(
@@ -154,7 +154,7 @@ def _embedding_thread(
     :param precision: The precision of the embeddings. Default is float32.
     """
     response = None
-    backoff_time = 5
+    backoff_time = 1
     while (retries + 1):
         try:
             response = _requests.post(

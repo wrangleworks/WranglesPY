@@ -397,6 +397,40 @@ class TestFormatPrefix:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col', 'pre-col']
 
+    def test_prefix_numeric_value_integer(self):
+        """
+        Test prefix with integer variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['A', 'B', 'C']
+        })
+        recipe = """
+        wrangles:
+        - format.prefix:
+            input: col
+            output: result
+            value: ${batch_number}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'batch_number': 456})
+        assert df.iloc[0]['result'] == '456A' and df.iloc[1]['result'] == '456B'
+
+    def test_prefix_numeric_value_float(self):
+        """
+        Test prefix with float variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['X', 'Y']
+        })
+        recipe = """
+        wrangles:
+        - format.prefix:
+            input: col
+            output: result
+            value: ${version}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'version': 2.1})
+        assert df.iloc[0]['result'] == '2.1X' and df.iloc[1]['result'] == '2.1Y'
+
 
 class TestFormatSuffix:
     """
@@ -513,6 +547,40 @@ class TestFormatSuffix:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col', 'col-suf']
+
+    def test_suffix_numeric_value_integer(self):
+        """
+        Test suffix with integer variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['A', 'B', 'C']
+        })
+        recipe = """
+        wrangles:
+        - format.suffix:
+            input: col
+            output: result
+            value: ${batch_number}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'batch_number': 123})
+        assert df.iloc[0]['result'] == 'A123' and df.iloc[1]['result'] == 'B123'
+
+    def test_suffix_numeric_value_float(self):
+        """
+        Test suffix with float variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['X', 'Y']
+        })
+        recipe = """
+        wrangles:
+        - format.suffix:
+            input: col
+            output: result
+            value: ${version}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'version': 1.5})
+        assert df.iloc[0]['result'] == 'X1.5' and df.iloc[1]['result'] == 'Y1.5'
     
 
 class TestFormatDates:

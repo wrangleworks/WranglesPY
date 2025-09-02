@@ -4446,6 +4446,28 @@ class TestBatch:
                 """
             )
 
+    def test_batch_error_multiprocess(self):
+        """
+        Test that an error is raised correctly when using multiprocessing
+        """
+        with pytest.raises(KeyError, match="column1 does not exist"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 1000
+                    values:
+                        column: a
+                wrangles:
+                - batch:
+                    use_multiprocessing: true
+                    wrangles:
+                        - convert.case:
+                            input: column1
+                            case: upper
+                """
+            )
+
     def test_batch_error_catch(self):
         """
         Test that an error is caught and
@@ -4950,6 +4972,25 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
 
+    def test_lookup_empty_dataframe(self):
+        """
+        Test lookup with empty dataframe (issue #727)
+        """
+        import pandas as pd
+        from wrangles.recipe_wrangles.main import lookup
+        
+        # Create an empty dataframe
+        df = pd.DataFrame({'Col1': [], 'Col2': []})
+        
+        # Call lookup function directly - should not fail and should add output column
+        result = lookup(df, input='Col1', output='Value', model_id='fe730444-1bda-4fcd')
+        
+        # Should return an empty dataframe with the output column added
+        assert result.empty
+        assert 'Col1' in result.columns
+        assert 'Col2' in result.columns
+        assert 'Value' in result.columns
+
 
 class TestMatrix:
     """
@@ -5143,6 +5184,7 @@ class TestMatrix:
                         input: Description
                         api_key: ${OPENAI_API_KEY}
                         seed: 1
+                        retries: 2
                         output:
                           ${Category}:
                             type: string
@@ -5346,7 +5388,8 @@ class TestTranspose:
         }, index=['Characters'])
         recipe = """
         wrangles:
-          - transpose: {}
+          - transpose:
+              header_column: null
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df.columns) == ['Characters']
@@ -5363,11 +5406,72 @@ class TestTranspose:
         recipe = """
         wrangles:
           - transpose:
+              header_column: null
               where: numbers > 3
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.index.to_list() == ['col', 'col2', 'numbers'] and df.columns.to_list() == [0, 2]
 
+    def test_transpose_set_headings(self):
+        """
+        Choose column that will become the headings of the transposed dataframe
+        """
+        original_df = pd.DataFrame({
+            'col': ['Mario'],
+            'col2': ['Luigi'],
+            'col3': ['Bowser'],
+        })
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - transpose:
+                header_column: col
+            """,
+            dataframe=original_df
+        )
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - transpose:
+                header_column: col
+            """,
+            dataframe=df
+        )
+
+        assert original_df.to_dict(orient="records") == df.to_dict(orient="records")
+
+    def test_transpose_set_headings_index(self):
+        """
+        Choose column that will become the headings of the
+        transposed dataframe as a column index
+        """
+        original_df = pd.DataFrame({
+            'col': ['Mario'],
+            'col2': ['Luigi'],
+            'col3': ['Bowser'],
+        })
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - transpose:
+                header_column: 0
+            """,
+            dataframe=original_df
+        )
+
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - transpose:
+                header_column: 0
+            """,
+            dataframe=df
+        )
+
+        assert original_df.to_dict(orient="records") == df.to_dict(orient="records")
 
 class TestTry:
     """

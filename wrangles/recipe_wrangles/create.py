@@ -16,7 +16,14 @@ from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 import hashlib as _hashlib
 
-def bins(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], bins: _Union[int, list], labels: _Union[str, list] = None, **kwargs) -> _pd.DataFrame:
+def bins(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    bins: _Union[int, list],
+    labels: _Union[str, list] = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Create a column that groups data into bins
@@ -154,6 +161,7 @@ def embeddings(
       input:
         type:
           - string
+          - integer
           - array
         description: The column of text to create the embeddings for.
       output:
@@ -323,7 +331,9 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
       - template
     properties:
       input:
-        type: string
+        type: 
+          - string
+          - integer
         description: |
           Specify a name of column containing a dictionary of elements to be used in jinja template.
           Otherwise, the column headers will be used as keys.
@@ -416,7 +426,7 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
 
     return df
 
-def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
+def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
     """
     type: object
     description: Create a hash of a column
@@ -427,6 +437,7 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
       input:
         type:
           - string
+          - integer
           - array
         description: Name of input column
       output:
@@ -436,7 +447,7 @@ def hash(df: _pd.DataFrame, input: _Union[str, list], output: _Union[str, list],
         description: Name of new column
       method:
         type: string
-        description: The method to use to hash the input (Default: md5)
+        description: 'The method to use to hash the input (Default: md5)'
         enum:
           - md5
           - sha1

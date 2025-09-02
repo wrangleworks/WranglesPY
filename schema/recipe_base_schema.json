@@ -119,7 +119,7 @@
         },
         "if": {
           "type": "string",
-          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         }
       }
     },
@@ -138,16 +138,16 @@
       },
       "commonProperties": {
         "columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to include.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "not_columns": {
-          "type": ["array", "string"],
+          "type": ["array", "integer", "string"],
           "description": "Specify a subset of the columns to ignore.\nAccepts wildcards using * or prefix with 'regex:' to use a regex pattern.\nIndicate a column is optional with column_name?\nIf not provided, all columns will be included"
         },
         "if": {
           "type": "string",
-          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count' and 'column_count' are available."
+          "description": "Specify a condition to determine if this will execute or not. e.g. ${variable} == 1. Recipe variables ${variable} are parameterized and may be used within the statement. Additional variables 'columns', 'row_count', 'column_count' and 'df' (the entire dataframe) are available."
         },
         "where": {
           "type": "string",

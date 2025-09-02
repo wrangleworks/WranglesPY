@@ -419,7 +419,8 @@ def test_extract_ai_output_schema_keys():
                 "type": "string",
                 "description": "Any colors found in the input"
             }
-        }
+        },
+        retries=2
     )
 
     assert (
@@ -438,7 +439,8 @@ def test_extract_ai_output_schema():
         output={
             "type": "number",
             "description": "The number of penguins"
-        }
+        },
+        retries=2
     )
 
     assert results == 12
@@ -451,7 +453,27 @@ def test_extract_ai_output_string():
     results = wrangles.extract.ai(
         "yellow square",
         api_key=os.environ['OPENAI_API_KEY'],
-        output="The names of any colors found in the input"
+        output="The names of any colors found in the input",
+        retries=2
     )
 
     assert "yellow" in results
+
+def test_extract_ai_properties_list():
+    """
+    Test using a simplier syntax for properties without defining type etc.
+    """
+    result = wrangles.extract.ai(
+        "12mm spanner",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "array",
+            "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
+            "items": {
+                "type": "object",
+                "properties": "unit,value"
+            }
+        },
+        retries=2
+    )
+    assert isinstance(result, list) and 'unit' in result[0]

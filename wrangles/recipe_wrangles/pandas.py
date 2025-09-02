@@ -5,7 +5,7 @@ from numpy import nan as _nan
 
 def copy(
     df: _pd.DataFrame,
-    input: _Union[str, list] = None,
+    input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
@@ -20,6 +20,7 @@ def copy(
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input columns or columns
       output:
@@ -77,13 +78,38 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
     return df.drop(columns=columns)
     
 
-def transpose(df: _pd.DataFrame) -> _pd.DataFrame:
+def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
     """
     type: object
     description: Transpose the DataFrame (swap columns to rows)
-    additionalProperties: true
+    additionalProperties: false
+    properties:
+      header_column:
+        type: 
+          - string
+          - integer
+          - null
+        description: >- 
+          Name or position of the column that will be used as the column headings
+          for the transposed DataFrame. Default 0 (first column).
+          Use header_column = null to not use any column as header.
     """
-    return df.transpose()
+    if header_column is not None:
+        if isinstance(header_column, int):
+            # If header_column is an integer, use it as the column index
+            header_column = df.columns[header_column]
+
+        df = df.set_index(header_column).transpose()
+
+        # convert index to column
+        df.index.name = df.columns.name
+        df.columns.name = None
+
+        df = df.reset_index()
+        return df
+
+    else:
+      return df.transpose()
 
 
 def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
@@ -116,7 +142,7 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
     )
 
 
-def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
+def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Round column(s) to the specified decimals
@@ -127,6 +153,7 @@ def round(df: _pd.DataFrame, input: _Union[str, list], decimals: int = 0, output
       input:
         type:
           - string
+          - integer
           - array
         description: Name of the input column(s)
       output:
@@ -196,7 +223,7 @@ def reindex(
 
 def explode(
     df: _pd.DataFrame,
-    input: _Union[str, list],
+    input: _Union[str, int, list],
     reset_index: bool = True,
     drop_empty: bool = False,
     where = None
@@ -211,6 +238,7 @@ def explode(
         input:
           type:
             - string
+            - integer
             - array
           description: >-
             Name of the column(s) to explode. If multiple
