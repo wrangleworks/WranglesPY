@@ -299,10 +299,14 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     for column in selected_columns:
         # If the column is already in all_columns, add it
         if column in all_columns:
+            # Check to see if column + gibbrish exists in result_columns
             if column + 'zsdhgfahkjh' in result_columns:
-                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None
+                # Add counter if it exists
+                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None 
                 counter += 1
+            # Check to see if column exists in result_columns
             elif column in result_columns:
+                # Add gibbrish if it does
                 result_columns[column + 'zsdhgfahkjh'] = None
                 counter += 1
             else:
@@ -354,10 +358,14 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             optional_column = True
 
         if column in all_columns:
+            # Check to see if column + gibbrish exists in result_columns
             if column + 'zsdhgfahkjh' in result_columns:
-                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None
+                # Add counter if it exists
+                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None 
                 counter += 1
+            # Check to see if column exists in result_columns
             elif column in result_columns:
+                # Add gibbrish if it does
                 result_columns[column + 'zsdhgfahkjh'] = None
                 counter += 1
             else:
