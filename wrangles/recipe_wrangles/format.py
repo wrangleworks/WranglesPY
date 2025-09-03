@@ -307,7 +307,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     warnings = {
         "invalid_data": {
             "logged": False,
-            "message": 'Found invalid values when using convert.case. Non-string values will be skipped.'
+            "message": 'Found invalid values when using format.trim. Non-string values will be skipped.'
         }
     }
 
