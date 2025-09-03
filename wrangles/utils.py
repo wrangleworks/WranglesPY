@@ -295,19 +295,20 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         result_columns = {}
 
     counter = 1
+    gibberish = 'zsdhgfahkjh'
     # Identify any matching columns using regex within the list
     for column in selected_columns:
         # If the column is already in all_columns, add it
         if column in all_columns:
             # Check to see if column + gibberish exists in result_columns
-            if column + 'zsdhgfahkjh' in result_columns:
+            if column + gibberish in result_columns:
                 # Add counter if it exists
-                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None 
+                result_columns[column + gibberish + str(counter)] = None 
                 counter += 1
             # Check to see if column exists in result_columns
             elif column in result_columns:
                 # Add gibberish if it does
-                result_columns[column + 'zsdhgfahkjh'] = None
+                result_columns[column + gibberish] = None
                 counter += 1
             else:
                 result_columns[column] = None
@@ -359,14 +360,14 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
         if column in all_columns:
             # Check to see if column + gibberish exists in result_columns
-            if column + 'zsdhgfahkjh' in result_columns:
+            if column + gibberish in result_columns:
                 # Add counter if it exists
-                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None 
+                result_columns[column + gibberish + str(counter)] = None
                 counter += 1
             # Check to see if column exists in result_columns
             elif column in result_columns:
                 # Add gibberish if it does
-                result_columns[column + 'zsdhgfahkjh'] = None
+                result_columns[column + gibberish] = None
                 counter += 1
             else:
                 result_columns[column] = None
@@ -376,7 +377,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                 raise KeyError(f'Column {column} does not exist')
     
     # Return, preserving original order
-    return [key.split('zsdhgfahkjh')[0] for key in result_columns.keys()]
+    return [key.split(gibberish)[0] for key in result_columns.keys()]
     # return list(result_columns.keys())
 
 
