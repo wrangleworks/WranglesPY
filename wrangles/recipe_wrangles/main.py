@@ -1373,7 +1373,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
         raise ValueError('The lists for input and output must be the same length.')
 
     def custom_replacement(x, find, replace):
-        if isinstance(x, (dict, list)):  # Check if the input is an object
+        if isinstance(x, (dict, list, bool)):  # Check if the input is an object
             return x  # Return the object as-is without modification
 
         try:
