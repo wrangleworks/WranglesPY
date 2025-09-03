@@ -294,24 +294,29 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         # Otherwise initialize with no columns
         result_columns = {}
 
-    counter = 1
+    counter = 0
     gibberish = 'zsdhgfahkjh'
+    
+    # Function that checks to see if columns exist in result_columns,
+    # adds a known suffix for preservation if so
+    def column_checker(col, result_cols):
+        # Check to see if column + gibberish exists in result_columns
+        if col + gibberish in result_cols:
+            # Add counter if it exists
+            result_cols[col + gibberish + str(counter)] = None
+        # Check to see if column exists in result_columns
+        elif col in result_columns:
+            # Add gibberish if it does
+            result_cols[col + gibberish] = None
+        else:
+            result_cols[col] = None
+        return result_cols
     # Identify any matching columns using regex within the list
     for column in selected_columns:
         # If the column is already in all_columns, add it
         if column in all_columns:
-            # Check to see if column + gibberish exists in result_columns
-            if column + gibberish in result_columns:
-                # Add counter if it exists
-                result_columns[column + gibberish + str(counter)] = None 
-                counter += 1
-            # Check to see if column exists in result_columns
-            elif column in result_columns:
-                # Add gibberish if it does
-                result_columns[column + gibberish] = None
-                counter += 1
-            else:
-                result_columns[column] = None
+            column_checker(column, result_columns)
+            counter += 1
             continue
 
         # Rearrange -regex: to regex:- to allow either to work
@@ -359,18 +364,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             optional_column = True
 
         if column in all_columns:
-            # Check to see if column + gibberish exists in result_columns
-            if column + gibberish in result_columns:
-                # Add counter if it exists
-                result_columns[column + gibberish + str(counter)] = None
-                counter += 1
-            # Check to see if column exists in result_columns
-            elif column in result_columns:
-                # Add gibberish if it does
-                result_columns[column + gibberish] = None
-                counter += 1
-            else:
-                result_columns[column] = None
+            column_checker(column, result_columns)
+            counter += 1
             continue
         else:
             if not optional_column:
@@ -378,7 +373,6 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     
     # Return, preserving original order
     return [key.split(gibberish)[0] for key in result_columns.keys()]
-    # return list(result_columns.keys())
 
 
 def evaluate_conditional(statement, variables: dict = {}):
