@@ -294,11 +294,19 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         # Otherwise initialize with no columns
         result_columns = {}
 
+    counter = 1
     # Identify any matching columns using regex within the list
     for column in selected_columns:
         # If the column is already in all_columns, add it
         if column in all_columns:
-            result_columns[column] = None
+            if column + 'zsdhgfahkjh' in result_columns:
+                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None
+                counter += 1
+            elif column in result_columns:
+                result_columns[column + 'zsdhgfahkjh'] = None
+                counter += 1
+            else:
+                result_columns[column] = None
             continue
 
         # Rearrange -regex: to regex:- to allow either to work
@@ -346,13 +354,22 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             optional_column = True
 
         if column in all_columns:
-            result_columns[column] = None
+            if column + 'zsdhgfahkjh' in result_columns:
+                result_columns[column + 'zsdhgfahkjh' + str(counter)] = None
+                counter += 1
+            elif column in result_columns:
+                result_columns[column + 'zsdhgfahkjh'] = None
+                counter += 1
+            else:
+                result_columns[column] = None
+            continue
         else:
             if not optional_column:
                 raise KeyError(f'Column {column} does not exist')
     
     # Return, preserving original order
-    return list(result_columns.keys())
+    return [key.split('zsdhgfahkjh')[0] for key in result_columns.keys()]
+    # return list(result_columns.keys())
 
 
 def evaluate_conditional(statement, variables: dict = {}):
