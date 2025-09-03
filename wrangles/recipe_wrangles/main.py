@@ -1372,8 +1372,14 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
-    def custom_replacement(x, find, replace):
+    def custom_replacement(x, find, replace, row):
         if isinstance(x, (dict, list, bool)):  # Check if the input is an object
+            # Raise warning
+            if not getattr(custom_replacement, "_warning_logged", False):
+                _logging.warning(
+                    f"Found invalid values at row {row} when using replace. Dict, list and bool values will be skipped."
+                )
+                custom_replacement._warning_logged = True  # mark as logged
             return x  # Return the object as-is without modification
 
         try:
@@ -1383,7 +1389,7 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].apply(lambda x: custom_replacement(x, find, replace))
+        df[output_column] = df.apply(lambda row: custom_replacement(row[input_column], find, replace, row=row.name), axis=1)
 
     return df
 
