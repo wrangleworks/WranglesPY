@@ -8,6 +8,7 @@ import numpy as _np
 import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+import logging as _logging
 try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
 except ImportError:
@@ -96,7 +97,14 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
+def data_type(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    data_type: str = 'str',
+    default: any = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -143,9 +151,34 @@ def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[s
         df[output] = temp
 
     else:
+        dtype_dict = {
+            'int': int,
+            'float': float,
+            'str': str,
+            'bool': bool
+            }
+        
+        # Raise and error if the datatype is not supported
+        if data_type not in dtype_dict:
+            raise ValueError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
+        else:
+            data_type = dtype_dict.get(data_type)
+
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = df[input_column].astype(data_type)
+
+            def safe_convert(x, dtype, default, row):
+                try:
+                    return dtype(x)
+                except Exception as e:
+                    if not getattr(safe_convert, "_warning_logged", False):
+                        _logging.warning(
+                            f"Found invalid values at row {row} when converting to {data_type} using convert.datatype."
+                            )
+                        safe_convert._warning_logged = True  # mark as logged
+                    return default  # or np.nan, or keep the original x
+
+            df[output_column] = df.apply(lambda row: safe_convert(row[input_column], data_type, default, row.name), axis=1)
 
     return df
 
