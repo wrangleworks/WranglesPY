@@ -386,6 +386,25 @@ class TestConvertDataType:
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
 
+    def test_datatype_exists(self):
+        """
+        Test converting a column of strings and integers to integers
+        """
+        df = pd.DataFrame({
+            'col': ['1', '2', 3, '4', 5, '', 'this is text']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: int
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == 1 and df['output'][6] == ''
+
 
 class TestConvertFractionToDecimal:
     """
