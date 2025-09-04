@@ -4,6 +4,7 @@ Functions to re-format data
 from typing import Union as _Union
 import pandas as _pd
 from .. import format as _format
+from ..utils import safe_str_transform as _safe_str_transform
 
 
 def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
@@ -303,9 +304,16 @@ def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    warnings = {
+        "invalid_data": {
+            "logged": False,
+            "message": 'Found invalid values when using format.trim. Non-string values will be skipped.'
+        }
+    }
+
     # Loop through all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str.strip()
+        df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, "strip", warnings))
 
     return df
     
