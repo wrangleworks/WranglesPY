@@ -133,6 +133,16 @@ def data_type(
           - int
           - bool
           - datetime
+      default:
+        type: 
+          - string
+          - number
+          - array
+          - object
+          - boolean
+        description: |-
+          Set the default value to return if the input data 
+          cannot be converted to the specified data_type.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
