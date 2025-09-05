@@ -176,7 +176,12 @@ def data_type(
                             f"Found invalid values at row {row} when converting to {data_type} using convert.datatype."
                             )
                         safe_convert._warning_logged = True  # mark as logged
-                    return default  # or np.nan, or keep the original x
+
+                    # Return default if provided, otherwise return original value
+                    if default != None:
+                        return default
+                    else:
+                        return x
 
             df[output_column] = df.apply(lambda row: safe_convert(row[input_column], data_type, default, row.name), axis=1)
 
