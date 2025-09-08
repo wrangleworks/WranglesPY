@@ -325,7 +325,7 @@ def test_pass_error_with_params():
 
     def handle_error(error, param):
         if (type(error).__name__ == 'TypeError' and
-            "data type 'andksankdl' not understood" in str(error) and
+            "convert.data_type - data_type andksankdl is not supported" in str(error) and
             param == "value"
         ):
             global test_var_pass_error_params
