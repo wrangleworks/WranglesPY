@@ -216,7 +216,7 @@ def data_type(
         
         # Raise an error if the datatype is not supported
         if data_type not in dtype_dict:
-            raise ValueError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
+            raise TypeError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
         else:
             data_type = dtype_dict.get(data_type)
 
