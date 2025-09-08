@@ -214,7 +214,7 @@ def data_type(
             'bool': bool
             }
         
-        # Raise and error if the datatype is not supported
+        # Raise an error if the datatype is not supported
         if data_type not in dtype_dict:
             raise ValueError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
         else:
@@ -223,15 +223,16 @@ def data_type(
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
 
-            def safe_convert(x, dtype, default, row):
+            # Function that converts data using dtype() and logs a warning only once when the conversion fails
+            def _safe_convert(x, dtype, default, row):
                 try:
                     return dtype(x)
                 except Exception as e:
-                    if not getattr(safe_convert, "_warning_logged", False):
+                    if not getattr(_safe_convert, "_warning_logged", False):
                         _logging.warning(
                             f"Found invalid values at row {row} when converting to {data_type} using convert.datatype."
                             )
-                        safe_convert._warning_logged = True  # mark as logged
+                        _safe_convert._warning_logged = True  # mark as logged
 
                     # Return default if provided, otherwise return original value
                     if default != None:
@@ -239,7 +240,7 @@ def data_type(
                     else:
                         return x
 
-            df[output_column] = df.apply(lambda row: safe_convert(row[input_column], data_type, default, row.name), axis=1)
+            df[output_column] = df.apply(lambda row: _safe_convert(row[input_column], data_type, default, row.name), axis=1)
 
     return df
 
