@@ -181,7 +181,7 @@ def data_type(
                             input: defaultzdbdfzmngz
                             data_type: datetime
                             stop: true
-                            if: ${default} != None
+                            if: ${default} is not None
 
                         - merge.coalesce:
                             input:
@@ -235,7 +235,7 @@ def data_type(
                         _safe_convert._warning_logged = True  # mark as logged
 
                     # Return default if provided, otherwise return original value
-                    if default != None:
+                    if default is not None:
                         return default
                     else:
                         return x
