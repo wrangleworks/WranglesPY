@@ -286,7 +286,7 @@ def test_pass_error():
 
     def handle_error(error):
         if (type(error).__name__ == 'TypeError' and
-            "data type 'andksankdl' not understood" in str(error)
+            "convert.data_type - data_type andksankdl is not supported" in str(error)
         ):
             global test_var_pass_error
             test_var_pass_error = True

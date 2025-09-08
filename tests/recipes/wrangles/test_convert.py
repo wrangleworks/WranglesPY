@@ -524,10 +524,10 @@ class TestConvertDataType:
             data_type: squirrel
             default: rodent
         """
-        with pytest.raises(ValueError) as info:
+        with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=df)
         assert (
-            info.typename == 'ValueError' and
+            info.typename == 'TypeError' and
             'convert.data_type - data_type squirrel is not supported.' in info.value.args[0]
         )
 
