@@ -386,9 +386,10 @@ class TestConvertDataType:
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
 
-    def test_datatype_exists(self):
+    def test_convert_datatype_invalid_int(self):
         """
         Test converting a column of strings and integers to integers
+        where some values cannot be converted
         """
         df = pd.DataFrame({
             'col': ['1', '2', 3, '4', 5, '', 'this is text']
@@ -403,7 +404,110 @@ class TestConvertDataType:
             """,
             dataframe=df
             )
-        assert df['output'][0] == 1 and df['output'][6] == ''
+        assert df['output'][0] == 1 and df['output'][6] == 'this is text'
+
+    def test_convert_datatype_invalid_default_int(self):
+        """
+        Test converting a column of strings and integers to integers
+        where some values cannot be converted and a default is provided
+        """
+        df = pd.DataFrame({
+            'col': ['1', '2', 3, '4', 5, '', 'this is text']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: int
+                default: 0
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == _np.int64(1) and df['output'][6] == _np.int64(0)
+
+    def test_convert_datatype_invalid_float(self):
+        """
+        Test converting a column of strings and floats to floats
+        where some values cannot be converted
+        """
+        df = pd.DataFrame({
+            'col': ['1.24', '2.123', 3.99, '4.1', 5.04, '', 'this is text']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: float
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == 1.24 and df['output'][6] == 'this is text'
+
+    def test_convert_datatype_invalid_default_float(self):
+        """
+        Test converting a column of strings and floats to floats
+        where some values cannot be converted and a default is provided
+        """
+        df = pd.DataFrame({
+            'col': ['1.24', '2.123', 3.99, '4.1', 5.04, '', 'this is text']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: float
+                default: 0.00
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == 1.24 and df['output'][6] == 0.00
+
+    def test_convert_datatype_invalid_date(self):
+        """
+        Test converting a column of strings to dates
+        where some values cannot be converted
+        """
+        df = pd.DataFrame({
+            'col': ['4/9/2222', 'Look, a string!']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: datetime
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == pd.Timestamp('2222-04-09 00:00:00') and df['output'][1] == 'Look, a string!'
+
+    def test_convert_datatype_invalid_date_default(self):
+        """
+        Test converting a column of strings to dates where
+        some values cannot be converted, with a default
+        """
+        df = pd.DataFrame({
+            'col': ['4/9/2222', 'Look, a string!']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.data_type:
+                input: col
+                output: output
+                data_type: datetime
+                default: 1999-08-29
+            """,
+            dataframe=df
+            )
+        assert df['output'][0] == pd.Timestamp('2222-04-09 00:00:00') and df['output'][1] == pd.Timestamp('1999-08-29 00:00:00')
 
 
 class TestConvertFractionToDecimal:
