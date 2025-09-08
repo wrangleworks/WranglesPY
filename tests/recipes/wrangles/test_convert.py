@@ -509,6 +509,28 @@ class TestConvertDataType:
             )
         assert df['output'][0] == pd.Timestamp('2222-04-09 00:00:00') and df['output'][1] == pd.Timestamp('1999-08-29 00:00:00')
 
+    def test_convert_datatype_error_invalid_data_type(self):
+        """
+        Test the error when passing an invalid datatype to the data_type param
+        """
+        df = pd.DataFrame({
+            'col': ['4/9/2222', 'Look, a string!']
+        })
+        recipe = """
+        wrangles:
+        - convert.data_type:
+            input: col
+            output: output
+            data_type: squirrel
+            default: rodent
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=df)
+        assert (
+            info.typename == 'ValueError' and
+            'convert.data_type - data_type squirrel is not supported.' in info.value.args[0]
+        )
+
 
 class TestConvertFractionToDecimal:
     """
