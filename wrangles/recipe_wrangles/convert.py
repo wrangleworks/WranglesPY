@@ -9,6 +9,7 @@ import pandas as _pd
 from fractions import Fraction as _Fraction
 import yaml as _yaml
 import logging as _logging
+import wrangles as _wrangles
 try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
 except ImportError:
@@ -138,8 +139,8 @@ def data_type(
           - string
           - number
           - array
-          - object
           - boolean
+          - datetime
         description: |-
           Set the default value to return if the input data 
           cannot be converted to the specified data_type.
@@ -157,8 +158,53 @@ def data_type(
 
     # If the datatype is datetime
     if data_type == 'datetime':
-        temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
-        df[output] = temp
+        for input_column, output_column in zip(input, output):
+            recursion_stop = kwargs.pop('stop', False)
+            temp = _pd.to_datetime(df[input_column], errors="coerce", **kwargs)
+            # Recipe to handle defaults, does not run when converting the default value
+            if not recursion_stop:
+                df['tempadfsgadg'] = temp
+                df = _wrangles.recipe.run(
+                    recipe = """
+                        wrangles:
+                        - replace:
+                            input: tempadfsgadg
+                            find: NaT
+                            replace: ''
+                            where: tempadfsgadg IS NULL
+
+                        - create.column:
+                            output: defaultzdbdfzmngz
+                            value: ${default}
+
+                        - convert.data_type:
+                            input: defaultzdbdfzmngz
+                            data_type: datetime
+                            stop: true
+                            if: ${default} != None
+
+                        - merge.coalesce:
+                            input:
+                            - tempadfsgadg
+                            - defaultzdbdfzmngz
+                            - ${input_col}
+                            output: ${output_col}
+
+                        - drop:
+                            columns:
+                            - defaultzdbdfzmngz
+                            - tempadfsgadg
+                        """,
+                    dataframe = df,
+                    variables = {
+                        'input_col': input_column,
+                        'output_col': output_column,
+                        'default': default
+                        }
+                    )
+                
+            else:
+                df[input_column] = temp
 
     else:
         dtype_dict = {
