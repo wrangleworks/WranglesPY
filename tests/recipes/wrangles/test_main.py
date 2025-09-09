@@ -3518,6 +3518,24 @@ class TestPython:
         )
         assert df["result"][0] == 'my value b' and df['result'][2] == 'my value p'
 
+    def test_python_int_variable(self):
+        """
+        Test a simple python command with an integer variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}**header1
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [1, 2, 3]
+            }),
+            variables={'my_var': 2}
+        )
+        assert df["result"][0] == 2 and df['result'][2] == 8
+
     def test_python_column_variable(self):
         """
         Test a simple python command with a column variable
