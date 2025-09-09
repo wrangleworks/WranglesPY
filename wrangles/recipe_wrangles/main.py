@@ -1097,6 +1097,7 @@ def python(
         """
         Apply the command to the inputs and return the result
         """
+        variables = kwargs.pop('variables', {})
         return eval(
             command,
             {
@@ -1104,7 +1105,7 @@ def python(
                     rename_dict.get(k, k): v
                     for k, v in kwargs.items()
                 },
-                **{"kwargs": kwargs}
+                **{"kwargs": kwargs, "variables": variables}
             },
             {}
         )
