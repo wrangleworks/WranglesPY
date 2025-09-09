@@ -3498,6 +3498,45 @@ class TestPython:
         )
         assert df["result"][0] == '' and df['result'][2] == 'z p'
 
+    def test_python_string_variable(self):
+        """
+        Test a simple python command with a string variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var} + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            }),
+            variables={'my_var': '"my value"'}
+        )
+        assert df["result"][0] == 'my value b' and df['result'][2] == 'my value p'
+
+    def test_python_column_variable(self):
+        """
+        Test a simple python command with a column variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var} + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+            }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 'a b' and df['result'][2] == 'z p'
+
 
 class TestAccordion:
     """
