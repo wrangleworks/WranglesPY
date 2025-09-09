@@ -3506,7 +3506,7 @@ class TestPython:
             """
             wrangles:
             - python:
-                command: ${my_var} + " " + header2
+                command: f'${my_var}' + " " + header2
                 output: result
             """,
             dataframe=pd.DataFrame({
@@ -3514,7 +3514,7 @@ class TestPython:
                 'header2': ['b', 'd', 'p'],
                 'numbers': [1, 2, 6]
             }),
-            variables={'my_var': '"my value"'}
+            variables={'my_var': 'my value'}
         )
         assert df["result"][0] == 'my value b' and df['result'][2] == 'my value p'
 
