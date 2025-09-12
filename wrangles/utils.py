@@ -405,6 +405,20 @@ def evaluate_conditional(statement, variables: dict = {}):
             return bool(result)
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
+    
+
+def variable_column_replacement(command: str, variables: dict, columns: dict):
+    command_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(command))
+
+    pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+    
+    def replacer(match):
+        token = match.group(0)
+        if token in variables and variables[token] in columns:
+            return variables[token]  # replace with dict1 value
+        return token  # leave unchanged
+    
+    return _re.sub(pattern, replacer, command_modified)
 
 
 class LazyLoader:
