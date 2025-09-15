@@ -3506,7 +3506,7 @@ class TestPython:
             """
             wrangles:
             - python:
-                command: f'${my_var}' + " " + header2
+                command: ${my_var} + " " + header2
                 output: result
             """,
             dataframe=pd.DataFrame({
@@ -3553,7 +3553,7 @@ class TestPython:
             }),
             variables={'my_var': 'header1'}
         )
-        assert df["result"][0] == 'a b' and df['result'][2] == 'z p'
+        assert df["result"][0] == 'header1 b' and df['result'][2] == 'header1 p'
 
     def test_python_variable_code_injection(self):
         """
@@ -3589,7 +3589,7 @@ class TestPython:
                 'header1': ['print("MALICIOUS CODE")', 'print("MALICIOUS CODE")', 'print("MALICIOUS CODE")'],
                 'header2': ['b', 'd', 'p']
                 }),
-            variables={'my_var': 'header1' }
+            variables={'my_var': 'header1'}
         )
         assert df["result"][0] == "print('MALICIOUS CODE')"
 
