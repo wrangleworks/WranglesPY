@@ -1099,6 +1099,7 @@ def python(
         Apply the command to the inputs and return the result
         """
         variables = kwargs.pop('variables', {})
+        df_vars = kwargs.pop('df_vars', {})
 
         # Clean up variables and replace column variables with the column name
         command_modified = _statement_modifier(command)
@@ -1110,7 +1111,7 @@ def python(
                     rename_dict.get(k, k): v
                     for k, v in kwargs.items()
                 },
-                **{**variables, "kwargs": kwargs}
+                **{**variables, **df_vars, "kwargs": kwargs}
             },
             {}
         )
@@ -1127,9 +1128,16 @@ def python(
                 return exception
         else:
             return _apply_command(**kwargs)
+
+    df_vars = {
+        "row_count": len(df),
+        "column_count": len(df.columns),
+        "columns": df.columns.tolist(),
+        "df": df
+        }
         
     df[output] = df[input].apply(
-        lambda x: _exception_handler(**x, **kwargs),
+        lambda x: _exception_handler(**x, **kwargs, **{'df_vars': df_vars}),
         axis=1,
         result_type=result_type
     )
