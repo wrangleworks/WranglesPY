@@ -1135,7 +1135,6 @@ def python(
         "columns": df.columns.tolist(),
         "df": df
         }
-        
     df[output] = df[input].apply(
         lambda x: _exception_handler(**x, **kwargs, **{'df_vars': df_vars}),
         axis=1,
