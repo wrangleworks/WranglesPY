@@ -3648,7 +3648,7 @@ class TestPython:
                 }),
             variables={'my_var': 'header1'}
         )
-        assert df["result"][0] == True
+        assert df["result"][0] is True
 
     def test_python_df_variable(self):
         """
