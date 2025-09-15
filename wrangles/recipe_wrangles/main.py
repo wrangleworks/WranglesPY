@@ -29,7 +29,7 @@ from .. import recipe as _recipe
 from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
-from ..utils import py_variable_handler as _py_variable_handler
+from ..utils import statement_modifier as _statement_modifier
 
 
 def accordion(
@@ -1101,7 +1101,7 @@ def python(
         variables = kwargs.pop('variables', {})
 
         # Clean up variables and replace column variables with the column name
-        command_modified = _py_variable_handler(command, variables, kwargs)
+        command_modified = _statement_modifier(command)
 
         return eval(
             command_modified,
