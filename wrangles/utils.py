@@ -375,6 +375,15 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     return [key.split(gibberish)[0] for key in result_columns.keys()]
 
 
+def statement_modifier(statement):
+    """
+    Strip variables of their wrapper
+    
+    :param statement: Statement string to modify
+    """
+    return _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
+
+
 def evaluate_conditional(statement, variables: dict = {}):
     """
     Evaluate a conditional statement using the variables provided
@@ -385,7 +394,7 @@ def evaluate_conditional(statement, variables: dict = {}):
     :param statement: Python style statement
     :param variables: Dictionary of variables to use in the statement
     """
-    statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
+    statement_modified = statement_modifier(statement)
 
     if _re.match(r'\$\{(.+)\}', statement_modified):
         raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
@@ -406,29 +415,6 @@ def evaluate_conditional(statement, variables: dict = {}):
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
     
-
-def py_variable_handler(command: str, variables: dict, columns: dict):
-    """
-    Strip variables of their wrapper and replace with column names
-    if the variable value matches a column name
-
-    :param command: Command string to replace variables in
-    :param variables: Dictionary of variables to use for replacement
-    :param columns: Dictionary of available columns
-    """
-    command_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(command))
-
-    pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
-    
-    # Replace any variables that match a column name
-    def replacer(match):
-        token = match.group(0)
-        if token in variables and variables[token] in columns:
-            return variables[token]
-        return token
-    
-    return _re.sub(pattern, replacer, command_modified)
-
 
 class LazyLoader:
     """
