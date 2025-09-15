@@ -407,16 +407,25 @@ def evaluate_conditional(statement, variables: dict = {}):
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
     
 
-def variable_column_replacement(command: str, variables: dict, columns: dict):
+def py_variable_handler(command: str, variables: dict, columns: dict):
+    """
+    Strip variables of their wrapper and replace with column names
+    if the variable value matches a column name
+
+    :param command: Command string to replace variables in
+    :param variables: Dictionary of variables to use for replacement
+    :param columns: Dictionary of available columns
+    """
     command_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(command))
 
     pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
     
+    # Replace any variables that match a column name
     def replacer(match):
         token = match.group(0)
         if token in variables and variables[token] in columns:
-            return variables[token]  # replace with dict1 value
-        return token  # leave unchanged
+            return variables[token]
+        return token
     
     return _re.sub(pattern, replacer, command_modified)
 
