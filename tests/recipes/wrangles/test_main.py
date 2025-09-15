@@ -3506,7 +3506,7 @@ class TestPython:
             """
             wrangles:
             - python:
-                command: f'${my_var}' + " " + header2
+                command: ${my_var} + " " + header2
                 output: result
             """,
             dataframe=pd.DataFrame({
@@ -3553,7 +3553,121 @@ class TestPython:
             }),
             variables={'my_var': 'header1'}
         )
-        assert df["result"][0] == 'a b' and df['result'][2] == 'z p'
+        assert df["result"][0] == 'header1 b' and df['result'][2] == 'header1 p'
+
+    def test_python_variable_code_injection(self):
+        """
+        Test code injection via a variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': "print('MALICIOUS CODE')" }
+        )
+        assert df["result"][0] == "print('MALICIOUS CODE')"
+
+    def test_python_row_count_variable(self):
+        """
+        Test the native row count variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: row_count
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 3
+
+    def test_python_wrapped_native_variable(self):
+        """
+        Test a native variable works when wrapped in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${row_count}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 3
+
+    def test_python_column_count_variable(self):
+        """
+        Test the native column count variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: column_count
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 2
+
+    def test_python_columns_variable(self):
+        """
+        Test the native columns variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: True if ${my_var} in columns else False
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == True
+
+    def test_python_df_variable(self):
+        """
+        Test the native df variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: df[${my_var}][0] + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == "a b"
 
 
 class TestAccordion:
