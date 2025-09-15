@@ -3555,6 +3555,44 @@ class TestPython:
         )
         assert df["result"][0] == 'a b' and df['result'][2] == 'z p'
 
+    def test_python_variable_code_injection(self):
+        """
+        Test code injection via a variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': "print('MALICIOUS CODE')" }
+        )
+        assert df["result"][0] == "print('MALICIOUS CODE')"
+
+    def test_python_column_variable_code_injection(self):
+        """
+        Test code injection via a column variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['print("MALICIOUS CODE")', 'print("MALICIOUS CODE")', 'print("MALICIOUS CODE")'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1' }
+        )
+        assert df["result"][0] == "print('MALICIOUS CODE')"
+
 
 class TestAccordion:
     """
