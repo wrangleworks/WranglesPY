@@ -26,18 +26,21 @@ class _wrangles_accessor:
 
                 setattr(self, name, make_method(name).__get__(self))
 
+    # Chris attempted to dynaimically source hints but didn't work.
+    # Need to document the schema for individual wrangles here (or in spearate file) to get hints at wrangle leve
     # def codes(self, *args, **kwargs):
     #     self._df.__init__(_recipe_wrangles.extract.codes(self._df, *args, **kwargs))
     #     return self._df
 
-    def codes_alternative(self, output='Column1', *args, **kwargs):
-        return _recipe_wrangles.extract.codes(
-            self._df,
-            input=self._df.columns.tolist(),
-            output=output,
-            *args,
-            **kwargs
-        )[output]
+  # this is alternative syntax.  Not implementing at htis time (Sept'25)
+    # def codes_alternative(self, output='Column1', *args, **kwargs):
+    #     return _recipe_wrangles.extract.codes(
+    #         self._df,
+    #         input=self._df.columns.tolist(),
+    #         output=output,
+    #         *args,
+    #         **kwargs
+    #     )[output]
 
 class _wrangles:
     """
