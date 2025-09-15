@@ -20,7 +20,7 @@ def _refresh_access_token_from_refresh_token():
     :param refresh_token: Keycloak refresh token
     :returns: JSON keycloak access token
     """
-    if refresh_token == None:
+    if refresh_token is None:
         raise RuntimeError('Refresh token not provided')
 
     try:
