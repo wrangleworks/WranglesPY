@@ -134,3 +134,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+collect_code.py
+mapdirectory.py
+run_live_test.py
+test_generate.py
