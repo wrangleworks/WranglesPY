@@ -2,7 +2,6 @@
 Functions for interacting with Keycloak Server
 """
 from datetime import datetime as _datetime, timedelta as _timedelta
-import requests as _requests
 from . import config as _config
 import urllib.parse as _urlparse
 import jwt as _jwt
