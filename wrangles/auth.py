@@ -6,6 +6,7 @@ import requests as _requests
 from . import config as _config
 import urllib.parse as _urlparse
 import jwt as _jwt
+from . import utils as _utils
 
 
 _access_token = None
@@ -24,14 +25,14 @@ def _refresh_access_token_from_refresh_token():
         raise RuntimeError('Refresh token not provided')
 
     try:
-        response = _requests.post(
-            f"{_config.keycloak.host}/auth/realms/{_config.keycloak.realm}/protocol/openid-connect/token",
-            data={
-                "grant_type": "refresh_token",
-                "client_id": _jwt.decode(refresh_token, options={"verify_signature": False})['azp'],
-                "refresh_token": refresh_token,
-            }
-        )
+        url = f"{_config.keycloak.host}/auth/realms/{_config.keycloak.realm}/protocol/openid-connect/token"
+        data={
+            "grant_type": "refresh_token",
+            "client_id": _jwt.decode(refresh_token, options={"verify_signature": False})['azp'],
+            "refresh_token": refresh_token,
+        }
+
+        response = _utils.backend_retries(request_type='POST', url=url, **{'data': data})
 
         response.raise_for_status()
     except:
@@ -54,7 +55,7 @@ def _refresh_access_token():
     payload = f"grant_type=password&username={username}&password={password}&client_id={_config.keycloak.client_id}"
     headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
 
-    response = _requests.post(url, headers=headers, data=payload)
+    response = _utils.backend_retries(request_type='POST', url=url, **{'data': payload, 'headers': headers})
 
     return response
 
