@@ -413,6 +413,7 @@ def backend_retries(request_type, url, **kwargs):
     """
     Make a request to the backend with retries for transient errors
 
+    :param request_type: Type of request to make (GET, POST, PUT, DELETE, etc)
     :param url: URL to make the request to
     :param kwargs: Arguments to pass to requests.request
     :returns: requests.Response object
