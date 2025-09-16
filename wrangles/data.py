@@ -21,11 +21,11 @@ class user():
         params = {}
         if type: params['type'] = type
         response = _utils.backend_retries(
-                request_type='GET',
-                url=f'{_config.api_host}/user/models',
-                **{
-                    'params': params,
-                    'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
+                    request_type='GET',
+                    url=f'{_config.api_host}/user/models',
+                    **{
+                        'params': params,
+                        'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
                     }
                 )
         results = response.json()
@@ -39,13 +39,13 @@ def model(id: str):
     :returns: Dict of model properties
     """
     response = _utils.backend_retries(
-        request_type='GET',
-        url=f'{_config.api_host}/model/metadata',
-        **{
-            'params': {'id': id},
-            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
-        }
-    )
+                request_type='GET',
+                url=f'{_config.api_host}/model/metadata',
+                **{
+                    'params': {'id': id},
+                    'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
+                }
+            )
     if response.ok:
         return response.json()
     elif response.status_code in [401, 403]:
@@ -63,16 +63,16 @@ def model_content(id: str, version_id: str = None) -> list:
     :return: Model data with Settings, Columns and Data as a 2D array
     """
     response = _utils.backend_retries(
-        request_type='GET',
-        url=f'{_config.api_host}/model/content',
-        **{
-            'params': {
-                **{'model_id': id},
-                **({'version_id': version_id} if version_id else {})
-            },
-            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
-        }
-    )
+                request_type='GET',
+                url=f'{_config.api_host}/model/content',
+                **{
+                    'params': {
+                        **{'model_id': id},
+                        **({'version_id': version_id} if version_id else {})
+                    },
+                    'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
+                }
+            )
     if response.ok:
         return response.json()
     elif response.status_code in [401, 403]:
