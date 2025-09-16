@@ -89,7 +89,7 @@ class train():
         
         if name:
             response = _utils.backend_retries(
-                        request_type = 'POST',
+                        request_type='POST',
                         url=f'{_config.api_host}/model/content',
                         **{
                             'params': {'type':'extract', 'name': name, 'variant': variant},
@@ -99,7 +99,7 @@ class train():
                 )
         elif model_id:
             response = _utils.backend_retries(
-                        request_type = 'PUT',
+                        request_type='PUT',
                         url=f'{_config.api_host}/model/content',
                         **{
                             'params': {'type':'extract', 'model_id': model_id},
