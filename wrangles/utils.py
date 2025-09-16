@@ -432,7 +432,6 @@ def backend_retries(request_type, url, **kwargs):
 
     try:
         response = session.request(request_type, url, **kwargs)
-        # response = session.post(request_type, url, **kwargs)
     finally:
         session.close()
 
