@@ -2,9 +2,9 @@
 Train new models
 """
 from typing import Union as _Union
-import requests as _requests
 from . import config as _config
 from . import auth as _auth
+from . import utils as _utils
 
 
 class train():
@@ -31,9 +31,25 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
-            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'classify', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type='POST',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'classify', 'name': name},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                    )
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'classify', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type='PUT',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'classify', 'model_id': model_id},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                    )
         else:
             raise ValueError('Either a name or a model id must be provided')
 
@@ -72,9 +88,25 @@ class train():
                 training_data = [['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']] + training_data
         
         if name:
-            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'extract', 'name': name, 'variant': variant}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type = 'POST',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'extract', 'name': name, 'variant': variant},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                )
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'extract', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type = 'PUT',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'extract', 'model_id': model_id},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                    )
         else:
             raise ValueError('Either a name or a model id must be provided')
 
@@ -132,19 +164,25 @@ class train():
             )
 
         if name:
-            response = _requests.post(
-                f'{_config.api_host}/model/content',
-                params={'type':'lookup', 'name': name, **settings},
-                headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                json=data
-            )
+            response = _utils.backend_retries(
+                        request_type='POST',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'lookup', 'name': name, **settings},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': data
+                        }
+                    )
         elif model_id:
-            response = _requests.put(
-                f'{_config.api_host}/model/content',
-                params={'type':'lookup', 'model_id': model_id, **settings},
-                headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                json=data
-            )
+            response = _utils.backend_retries(
+                        request_type='PUT',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'lookup', 'model_id': model_id, **settings},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': data
+                        }
+                    )
         else:
             raise ValueError('Either a name or a model id must be provided')
 
@@ -176,9 +214,25 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
-            response = _requests.post(f'{_config.api_host}/model/content', params={'type':'standardize', 'name': name}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type='POST',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'standardize', 'name': name},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                    )
         elif model_id:
-            response = _requests.put(f'{_config.api_host}/model/content', params={'type':'standardize', 'model_id': model_id}, headers={'Authorization': f'Bearer {_auth.get_access_token()}'}, json=training_data)
+            response = _utils.backend_retries(
+                        request_type='PUT',
+                        url=f'{_config.api_host}/model/content',
+                        **{
+                            'params': {'type':'standardize', 'model_id': model_id},
+                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                            'json': training_data
+                        }
+                    )
         else:
             raise ValueError('Either a name or a model id must be provided')
 
