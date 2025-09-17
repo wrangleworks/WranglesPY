@@ -2,7 +2,6 @@ import os
 import ast
 import re
 import yaml
-import difflib
 from collections import defaultdict
 
 # --- Configuration ---
@@ -13,11 +12,10 @@ def build_docstring(doc_data):
     if doc_data.get('python'): return doc_data['python']
     parts = []
     if doc_data.get('description'): parts.append(doc_data['description'])
-    if doc_data.get('recipe'):
-        parts.append(f"Recipe:\n---\n```yaml\n{doc_data['recipe']}\n```")
+    if doc_data.get('recipe'): parts.append(doc_data['recipe'])
     if doc_data.get('params'): parts.append(doc_data['params'])
     if doc_data.get('other'): parts.append(doc_data['other'])
-    return "\n\n".join(part for part in parts if part)
+    return "".join(parts) # Join directly without extra newlines
 
 def get_node_char_positions(node, source_lines):
     start_pos = sum(len(line) for line in source_lines[:node.lineno - 1]) + node.col_offset
@@ -58,6 +56,12 @@ if __name__ == "__main__":
                         target_name = f"{module_name}.{node.name}"
                         if target_name in updates:
                             new_content = updates[target_name]
+                            
+                            # --- SMARTER SAFETY CHECK ---
+                            # If the new content is empty, do nothing.
+                            if not new_content:
+                                continue
+
                             original_content = None
                             has_docstring = (node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant))
                             if has_docstring: original_content = node.body[0].value.value
@@ -80,31 +84,18 @@ if __name__ == "__main__":
                                 replacements.append((start, start, new_literal))
                                 print(f"     -> ✍️  Inserting docstring for '{target_name}'")
                 
-                new_code = source_code
                 if replacements:
+                    new_code = source_code
                     for start, end, text in sorted(replacements, reverse=True):
                         new_code = new_code[:start] + text + new_code[end:]
-                
-                # --- THIS IS THE NEW DEBUGGING SECTION ---
-                if new_code != source_code:
-                    print("     -> 🔥 File content has changed. Printing diff before saving:")
-                    
-                    diff = difflib.unified_diff(
-                        source_code.splitlines(keepends=True),
-                        new_code.splitlines(keepends=True),
-                        fromfile=f'{file_path} (original)',
-                        tofile=f'{file_path} (modified)',
-                    )
-                    for line in diff:
-                        print(f"       {line.rstrip()}")
-
-                    print("     -> Saving file.")
-                    with open(file_path, 'w', encoding='utf-8') as f:
-                        f.write(new_code)
+                    if new_code != source_code:
+                        print("     -> Saving file.")
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            f.write(new_code)
                 else:
                     print("     -> 💤 No changes detected. Skipping save.")
 
             except Exception as e:
                 print(f"     ❌ Error processing file {file_path}: {e}")
-                
+    
     print("\n✅ Docstring update process complete!")

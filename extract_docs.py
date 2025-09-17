@@ -10,52 +10,44 @@ OUTPUT_YAML_FILE = "docstrings.yaml"
 
 def parse_docstring(docstring: str):
     """
-    Parses a docstring with a custom format into a dictionary.
-    Format: Description, then Recipe, then Params.
+    Parses a docstring with a custom format into a dictionary, PRESERVING whitespace.
     """
     if not docstring:
         return {'description': '', 'recipe': '', 'params': '', 'other': ''}
 
     parsed = {'description': docstring, 'recipe': '', 'params': '', 'other': ''}
 
-    # Split by "Recipe:"
-    parts = re.split(r'\n\s*Recipe:\n\s*---\n\s*```yaml', docstring, 1)
-    parsed['description'] = parts[0] # .strip() REMOVED
+    parts = re.split(r'(\n\s*Recipe:\n\s*---\n\s*```yaml)', docstring, 1)
+    parsed['description'] = parts[0]
 
     if len(parts) > 1:
-        recipe_and_params = parts[1]
+        recipe_and_params = parts[2]
+        parsed['description'] += parts[1] # Re-add the delimiter to the end of the description
         
-        # Split the rest by the end of the yaml block to find params
-        recipe_parts = re.split(r'```\n\n', recipe_and_params, 1)
-        parsed['recipe'] = recipe_parts[0] # .strip() REMOVED
+        recipe_parts = re.split(r'(```\n\n)', recipe_and_params, 1)
+        parsed['recipe'] = recipe_parts[0]
         
         if len(recipe_parts) > 1:
-            parsed['params'] = recipe_parts[1] # .strip() REMOVED
+            parsed['recipe'] += recipe_parts[1] # Re-add the delimiter
+            parsed['params'] = recipe_parts[2]
     else:
-        # No recipe found, check for params starting with :
         param_match = re.search(r'\n\s*:param|\n\s*:return', docstring)
         if param_match:
             param_start_index = param_match.start()
             if param_start_index > 0:
-                parsed['params'] = docstring[param_start_index:] # .strip() REMOVED
-                parsed['description'] = docstring[:param_start_index] # .strip() REMOVED
+                parsed['params'] = docstring[param_start_index:]
+                parsed['description'] = docstring[:param_start_index]
 
     return parsed
 
 def extract_docstrings(root_dir):
-    """
-    Scans a directory for Python files and extracts docstrings from top-level functions and classes.
-    """
     all_docstrings = []
-    
     for subdir, _, files in os.walk(root_dir):
         for file in files:
             if file.endswith('.py'):
                 file_path = os.path.join(subdir, file)
                 module_name = os.path.splitext(os.path.basename(file_path))[0]
-                
                 print(f"🔍 Scanning {file_path}...")
-
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         source_code = f.read()
@@ -66,13 +58,10 @@ def extract_docstrings(root_dir):
 
                 for node in tree.body:
                     if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                        if node.name.startswith('_'):
-                            continue
-
+                        if node.name.startswith('_'): continue
                         docstring_content = ast.get_docstring(node) or ""
                         parsed_data = parse_docstring(docstring_content)
                         target_name = f"{module_name}.{node.name}"
-
                         doc_entry = {
                             'id': target_name,
                             'path': file_path.replace('\\', '/'),
@@ -82,21 +71,16 @@ def extract_docstrings(root_dir):
                                 'description': parsed_data['description'],
                                 'recipe': parsed_data['recipe'],
                                 'params': parsed_data['params'],
-                                'python': '',
-                                'other': parsed_data['other']
+                                'python': '', 'other': parsed_data['other']
                             }
                         }
                         all_docstrings.append(doc_entry)
-                        
     return all_docstrings
 
 if __name__ == "__main__":
     print("🚀 Starting docstring extraction...")
-    if os.path.exists(OUTPUT_YAML_FILE):
-        os.remove(OUTPUT_YAML_FILE)
-
+    if os.path.exists(OUTPUT_YAML_FILE): os.remove(OUTPUT_YAML_FILE)
     extracted_data = extract_docstrings(SCAN_DIRECTORY)
-    
     if not extracted_data:
         print("No functions or classes with docstrings found.")
     else:
