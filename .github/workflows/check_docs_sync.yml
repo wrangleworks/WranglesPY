@@ -1,44 +1,39 @@
 name: 🐍 Check Docstring Sync
 
-# Run this action on every push to your development branch
 on:
   push:
     branches:
-      - your-dev-branch-name # <-- IMPORTANT: Change this to your branch name
+      # This check only runs on your protected branch.
+      # ⬇️ IMPORTANT: Change 'develop' if your branch is named differently.
+      - main
+      # This line prevents the check from running on the temporary doc branches.
+      - '!docs/**'
 
 jobs:
   validate-docstrings:
     runs-on: ubuntu-latest
     steps:
-      - name:  Check out repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name:  Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          pythona-version: '3.10'
+          python-version: '3.10'
 
-      - name:  Install dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Add installations for any libraries your scripts need, like pyyaml and astor
-          pip install pyyaml astor
+          pip install pyyaml
 
-      - name:  Run extraction script to generate a temporary YAML
-        # This runs the same extraction you do locally
-        run: python3 extract_docs.py
-
-      - name:  Compare generated YAML with the one in the repo
+      - name: Generate a temporary docs YAML
         run: |
-          # The 'diff' command compares two files. If they are different,
-          # it will exit with a non-zero code, which makes this step fail.
-          echo "Comparing the checked-in docstrings.yaml with a freshly generated one..."
-          diff docstrings.yaml docstrings.yaml
+          cp docstrings.yaml original_docstrings.yaml
+          python3 extract_docs.py
+          mv docstrings.yaml generated_docstrings.yaml
 
-          if [ $? -eq 0 ]; then
-            echo " Docstrings are in sync."
-          else
-            echo " ERROR: Python docstrings are out of sync with docstrings.yaml!"
-            echo "Please run your local './edit_docs.sh' script, commit the changes, and push again."
-            exit 1
-          fi
+      - name: Compare generated YAML with the one in the repo
+        run: |
+          echo "Comparing checked-in docstrings with freshly generated ones..."
+          diff original_docstrings.yaml generated_docstrings.yaml
+          echo "✅ Docstrings are in sync."

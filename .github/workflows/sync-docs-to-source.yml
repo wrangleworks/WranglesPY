@@ -1,0 +1,46 @@
+name: 🔄 Sync Docs to Source
+
+on:
+  push:
+    # Only run on branches that start with 'docs/'
+    branches:
+      - 'docs/**'
+    # Only run if the docstrings.yaml file was changed
+    paths:
+      - 'docstrings.yaml'
+
+jobs:
+  write-back:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install dependencies
+        run: pip install pyyaml
+
+      - name: ✍️ Run write-back script
+        run: python3 write_docs.py
+
+      - name: 💾 Commit and push updated Python files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status -s) ]]; then
+            echo "Changes detected in Python files. Committing..."
+            git add .
+            PR_TITLE=$(gh pr view ${{ github.ref }} --json title -q '.title')
+            git commit -m "$PR_TITLE"
+            git push
+          else
+            echo "No changes to commit. Python files are already in sync."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
