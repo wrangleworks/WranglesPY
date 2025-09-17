@@ -13,14 +13,16 @@ def translate(
     case: str = None,
     **kwargs
 ) -> _Union[str, list]:
-    """Translate text
-Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available)
+    """
+    Translate text
+    Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available)
 
-:param input: A string or list of strings to be translated.
-:param target_language: A two letter code for the target language. For codes see: https://www.deepl.com/docs-api/translating-text/
-:param source_language: (Optional) A two letter code for the source language. Defaults to auto.
-:params case: (Optional) Allow changing the case of the input prior to translation. lower, upper or title
-:return: A translated string or list of strings corresponding to the input"""
+    :param input: A string or list of strings to be translated.
+    :param target_language: A two letter code for the target language. For codes see: https://www.deepl.com/docs-api/translating-text/
+    :param source_language: (Optional) A two letter code for the source language. Defaults to auto.
+    :params case: (Optional) Allow changing the case of the input prior to translation. lower, upper or title
+    :return: A translated string or list of strings corresponding to the input 
+    """
 
     source_dict = {
         'Auto': 'AUTO',

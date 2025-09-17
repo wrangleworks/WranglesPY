@@ -17,23 +17,25 @@ _schema = {}
 
 
 def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwargs) -> _pd.DataFrame:
-    """Import a file as defined by user parameters.
+    """
+    Import a file as defined by user parameters.
 
-Supports:
-  - Excel (.xlsx, .xlsx, .xlsm)
-  - CSV (.csv, .txt)
-  - JSON (.json), JSONL (.jsonl)
-  - Pickle (.pkl, .pickle) files.
+    Supports:
+      - Excel (.xlsx, .xlsx, .xlsm)
+      - CSV (.csv, .txt)
+      - JSON (.json), JSONL (.jsonl)
+      - Pickle (.pkl, .pickle) files.
 
-JSON, JSONL, CSV and Pickle files may also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.
+    JSON, JSONL, CSV and Pickle files may also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.
 
->>> df = wrangles.connectors.file.read('myfile.csv')
+    >>> df = wrangles.connectors.file.read('myfile.csv')
 
-:param name: Name of the file to import
-:param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
-:param file_object: (Optional) File object to read. If provided, this will be read instead of from the file system. A name is still required to infer the file type.
-:param kwargs: (Optional) Named arguments to pass to respective pandas function.
-:return: A Pandas dataframe of the imported data."""
+    :param name: Name of the file to import
+    :param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
+    :param file_object: (Optional) File object to read. If provided, this will be read instead of from the file system. A name is still required to infer the file type.
+    :param kwargs: (Optional) Named arguments to pass to respective pandas function.
+    :return: A Pandas dataframe of the imported data.
+    """
     if (
         isinstance(name, dict) and
         all(x in name for x in ['name', 'data', 'mimeType'])
@@ -133,21 +135,23 @@ properties:
 
 
 def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, **kwargs) -> None:
-    """Output a file to the local file system as defined by the parameters.
+    """
+    Output a file to the local file system as defined by the parameters.
 
-Supports:
-- Excel (.xlsx, .xls)
-- CSV (.csv, .txt)
-- JSON (.json), JSONL (.jsonl)
-- Pickle (.pkl, .pickle)
+    Supports:
+    - Excel (.xlsx, .xls)
+    - CSV (.csv, .txt)
+    - JSON (.json), JSONL (.jsonl)
+    - Pickle (.pkl, .pickle)
+    
+    JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
 
-JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
-
-:param df: Dataframe to be written to a file
-:param name: Name of the output file
-:param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
-:param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
-:param kwargs: (Optional) Named arguments to pass to respective pandas function."""
+    :param df: Dataframe to be written to a file
+    :param name: Name of the output file
+    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
+    :param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
+    :param kwargs: (Optional) Named arguments to pass to respective pandas function.
+    """
     _logging.info(f": Writing data to file :: {name}")
 
     # Select only specific columns if user requests them

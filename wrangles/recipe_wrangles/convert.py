@@ -17,32 +17,34 @@ except ImportError:
 
 
 def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
-    """type: object
-description: Change the case of the input.
-additionalProperties: false
-required:
-  - input
-  - case
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name or list of input columns
-  output:
-    type:
-      - string
-      - array
-    description: Name or list of output columns
-  case:
-    type: string
-    description: The case to convert to. lower, upper, title or sentence
-    enum:
-      - lower
-      - upper
-      - title
-      - sentence"""
+    """
+    type: object
+    description: Change the case of the input.
+    additionalProperties: false
+    required:
+      - input
+      - case
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      case:
+        type: string
+        description: The case to convert to. lower, upper, title or sentence
+        enum:
+          - lower
+          - upper
+          - title
+          - sentence
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -104,43 +106,45 @@ def data_type(
     default: any = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Change the data type of the input.
-additionalProperties: false
-required:
-  - input
-  - data_type
-properties:
-  input:
-    type: 
-      - string
-      - integer
-      - array
-    description: Name or list of input columns
-  output:
-    type:
-      - string
-      - array
-    description: Name or list of output columns
-  data_type:
-    type: string
-    description: The new data type
-    enum:
-      - str
-      - float
-      - int
-      - bool
-      - datetime
-  default:
-    type: 
-      - string
-      - number
-      - array
-      - boolean
-      - datetime
-    description: |-
-      Set the default value to return if the input data 
-      cannot be converted to the specified data_type."""
+    """
+    type: object
+    description: Change the data type of the input.
+    additionalProperties: false
+    required:
+      - input
+      - data_type
+    properties:
+      input:
+        type: 
+          - string
+          - integer
+          - array
+        description: Name or list of input columns
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      data_type:
+        type: string
+        description: The new data type
+        enum:
+          - str
+          - float
+          - int
+          - bool
+          - datetime
+      default:
+        type: 
+          - string
+          - number
+          - array
+          - boolean
+          - datetime
+        description: |-
+          Set the default value to return if the input data 
+          cannot be converted to the specified data_type.
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -247,27 +251,29 @@ def fraction_to_decimal(
     decimals: int = 4,
     output: _Union[str, list] = None
 ) -> _pd.DataFrame:
-    """type: object
-description: Convert fractions to decimals
-additionalProperties: false
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output colum
-  decimals:
-    type:
-      - number
-    description: Number of decimals to round fraction"""
+    """
+    type: object
+    description: Convert fractions to decimals
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output colum
+      decimals:
+        type:
+          - number
+        description: Number of decimals to round fraction
+    """
     # Set the output column as input if not provided
     if output is None: output = input
     
@@ -318,25 +324,27 @@ def from_json(
     default = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Convert a JSON representation into an object
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column. If omitted, the input column will be overwritten
-  default:
-    type: ["string","array","object","number","boolean","null"]
-    description: Value to return if the row is empty or fails to be parsed as JSON"""
+    """
+    type: object
+    description: Convert a JSON representation into an object
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+      default:
+        type: ["string","array","object","number","boolean","null"]
+        description: Value to return if the row is empty or fails to be parsed as JSON
+    """
     def _load_with_fallback(value):
         """
         Attempt to load JSON.
@@ -382,37 +390,39 @@ def to_json(
     ensure_ascii: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
-    r"""type: object
-description: Convert an object to a JSON representation.
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column. If omitted, the input column will be overwritten
-  indent:
-    type:
-      - string
-      - integer
-    description: >-
-      If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
-      with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
-      compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
-      that string is used to indent each level.
-  sort_keys:
-    type: boolean
-    description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
-  ensure_ascii:
-    type: boolean
-    description: If true, non-ASCII characters will be escaped. Default is false"""
+    r"""
+    type: object
+    description: Convert an object to a JSON representation.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column. If omitted, the input column will be overwritten
+      indent:
+        type:
+          - string
+          - integer
+        description: >-
+          If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+          with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
+          compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
+          that string is used to indent each level.
+      sort_keys:
+        type: boolean
+        description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
+      ensure_ascii:
+        type: boolean
+        description: If true, non-ASCII characters will be escaped. Default is false 
+    """
     def handle_unusual_datatypes(o):
         if isinstance(o, _np.ndarray):
             return o.tolist()
@@ -464,27 +474,29 @@ def from_yaml(
     default = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Convert a YAML representation into an object
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: >-
-      Name of the output column.
-      If omitted, the input column will be overwritten
-  default:
-    type: ["string","array","object","number","boolean","null"]
-    description: Value to return if the row is empty or fails to be parsed as JSON"""
+    """
+    type: object
+    description: Convert a YAML representation into an object
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+      default:
+        type: ["string","array","object","number","boolean","null"]
+        description: Value to return if the row is empty or fails to be parsed as JSON
+    """
     def _load_with_fallback(value):
         """
         Attempt to load JSON.
@@ -531,34 +543,36 @@ def to_yaml(
     allow_unicode: bool = True,
     **kwargs
 ) -> _pd.DataFrame:
-    r"""type: object
-description: Convert an object to a YAML representation.
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: >-
-      Name of the output column.
-      If omitted, the input column will be overwritten
-  indent:
-    type: integer
-    description: >-
-      Specify the number of spaces for indentation to 
-      specify nested elements
-  sort_keys:
-    type: boolean
-    description: >-
-      If sort_keys is true (default: False),
-      then the output of dictionaries will be sorted by key."""
+    r"""
+    type: object
+    description: Convert an object to a YAML representation.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: >-
+          Name of the output column.
+          If omitted, the input column will be overwritten
+      indent:
+        type: integer
+        description: >-
+          Specify the number of spaces for indentation to 
+          specify nested elements
+      sort_keys:
+        type: boolean
+        description: >-
+          If sort_keys is true (default: False),
+          then the output of dictionaries will be sorted by key.
+    """
     # Set output column as input if not provided
     if output is None: output = input
     

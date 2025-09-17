@@ -7,28 +7,30 @@ from .. import format as _format
 
 
 def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """type: object
-description: Format a date
-additionalProperties: false
-required:
-  - input
-  - format
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column
-  format:
-    type:
-      - string
-    description: String pattern to format date"""
+    """
+    type: object
+    description: Format a date
+    additionalProperties: false
+    required:
+      - input
+      - format
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      format:
+        type:
+          - string
+        description: String pattern to format date
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -49,38 +51,40 @@ properties:
     
     
 def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
-    """type: object
-description: Pad a string to a fixed length
-additionalProperties: false
-required:
-  - input
-  - pad_length
-  - side
-  - char
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column
-  pad_length:
-    type:
-      - number
-    description: Length for the output
-  side:
-    type:
-      - string
-    description:  Side from which to fill resulting string
-  char:
-    type:
-      - string
-    description: The character to pad the input with"""
+    """
+    type: object
+    description: Pad a string to a fixed length
+    additionalProperties: false
+    required:
+      - input
+      - pad_length
+      - side
+      - char
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      pad_length:
+        type:
+          - number
+        description: Length for the output
+      side:
+        type:
+          - string
+        description:  Side from which to fill resulting string
+      char:
+        type:
+          - string
+        description: The character to pad the input with
+  """
     char = str(char)
     # If the output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -100,29 +104,31 @@ properties:
 
 
 def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """type: object
-description: Add a prefix to a column
-additionalProperties: false
-required:
-  - input
-  - value
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  value:
-    type:
-      - string
-      - number
-    description: Prefix value to add
-  output:
-    type:
-      - string
-      - array
-    description: (Optional) Name of the output column"""
+    """
+    type: object
+    description: Add a prefix to a column
+    additionalProperties: false
+    required:
+      - input
+      - value
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      value:
+        type:
+          - string
+          - number
+        description: Prefix value to add
+      output:
+        type:
+          - string
+          - array
+        description: (Optional) Name of the output column
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -142,26 +148,28 @@ properties:
 
 
 def remove_duplicates(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, ignore_case: bool = False) -> _pd.DataFrame:
-    """type: object
-description: Remove duplicates from a list. Preserves input order.
-additionalProperties: false
-required:
-  - input
-properties:
-  input:
-    type: 
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type: 
-      - string
-      - array
-    description: Name of the output column
-  ignore_case:
-    type: boolean
-    description: Ignore case when removing duplicates"""
+    """
+    type: object
+    description: Remove duplicates from a list. Preserves input order.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type: 
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type: 
+          - string
+          - array
+        description: Name of the output column
+      ignore_case:
+        type: boolean
+        description: Ignore case when removing duplicates
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -181,27 +189,29 @@ properties:
 
 
 def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], significant_figures: int = 3, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """type: object
-description: Format a value to a specific number of significant figures
-additionalProperties: false
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column
-  significant_figures:
-    type:
-      - integer
-    description: Number of significant figures to format to. Default is 3."""
+    """
+    type: object
+    description: Format a value to a specific number of significant figures
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+      significant_figures:
+        type:
+          - integer
+        description: Number of significant figures to format to. Default is 3.
+    """
     if output is None: output = input
     
     # If a string provided, convert to list
@@ -220,29 +230,31 @@ properties:
 
 
 def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float, list], output: str = None) -> _pd.DataFrame:
-    """type: object
-description: Add a suffix to a column
-additionalProperties: false
-required:
-    - input
-    - value
-properties:
-    input:
-      type:
-        - string
-        - integer
-        - array
-      description: Name of the input column
-    value:
-      type:
-        - string
-        - number
-      description: Suffix value to add
-    output:
-      type:
-        - string
-        - array
-      description: (Optional) Name of the output column"""
+    """
+    type: object
+    description: Add a suffix to a column
+    additionalProperties: false
+    required:
+        - input
+        - value
+    properties:
+        input:
+          type:
+            - string
+            - integer
+            - array
+          description: Name of the input column
+        value:
+          type:
+            - string
+            - number
+          description: Suffix value to add
+        output:
+          type:
+            - string
+            - array
+          description: (Optional) Name of the output column
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -262,23 +274,25 @@ properties:
 
 
 def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None) -> _pd.DataFrame:
-    """type: object
-description: Remove excess whitespace at the start and end of text.
-additionalProperties: false
-required:
-  - input
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column"""
+    """
+    type: object
+    description: Remove excess whitespace at the start and end of text.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column
+    """
     if output is None: output = input
 
     # If a single input, convert to list
@@ -298,6 +312,8 @@ properties:
 
 # Undocumented
 def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel: str) -> _pd.DataFrame: # pragma: no cover
-    """Rearrange price breaks"""
+    """
+    Rearrange price breaks
+    """
     df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
     return df

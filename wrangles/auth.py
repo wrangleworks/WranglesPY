@@ -60,9 +60,10 @@ def _refresh_access_token():
 
 
 def get_access_token():
-    """Check access token and refresh if necessary.
-
-:returns: None"""
+    """
+    Check access token and refresh if necessary.
+    :returns: None
+    """
     global _access_token, _access_token_expiry
 
     if _access_token == None or _access_token_expiry < _datetime.now():

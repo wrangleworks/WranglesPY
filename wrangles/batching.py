@@ -9,7 +9,9 @@ from . import auth as _auth
 
 
 def batch_api_calls(url, params, input_list, batch_size):
-    """Batch API calls into multiple of set batch size"""
+    """
+    Batch API calls into multiple of set batch size
+    """
     if input_list == []:
         # If input list is empty, shortcut and 
         # immediately return an empty list

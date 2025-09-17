@@ -8,7 +8,9 @@ from . import auth as _auth
 
 
 class train():
-    """Train new models"""
+    """
+    Train new models
+    """
     def classify(training_data: list, name: str = None, model_id: str = None):
         """
         Train a classification model. This can predict the category of a text input.

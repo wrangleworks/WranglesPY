@@ -103,15 +103,22 @@ def run(
     use_multiprocessing: bool = False,
     max_concurrency: int = 10
 ):
-    """The matrix connector lets you use variables to automatically execute
-multiple actions based on the combinations of those variables.
+    """
+    The matrix connector lets you use variables to automatically execute
+    multiple actions based on the combinations of those variables.
 
-:param df: The input dataframe
-:param variables: A list of variables. The action will be execute once for         each combination of variables.
-:param run: The run section of a recipe to execute for each         combination of variables
-:param functions: Any user defined custom functions
-:param strategy: Determines how to combine variables when there are multiple.         loop (default) iterates over each set of variables, repeating shorter lists until the longest         is completed. permutations uses the combination of all variables against all other variables.     :param use_multiprocessing: Use multiprocessing instead of threading
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued."""    
+    :param df: The input dataframe
+    :param variables: A list of variables. The action will be execute once for \
+        each combination of variables.
+    :param run: The run section of a recipe to execute for each \
+        combination of variables
+    :param functions: Any user defined custom functions
+    :param strategy: Determines how to combine variables when there are multiple. \
+        loop (default) iterates over each set of variables, repeating shorter lists until the longest \
+        is completed. permutations uses the combination of all variables against all other variables. \
+    :param use_multiprocessing: Use multiprocessing instead of threading
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    """    
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -185,15 +192,21 @@ def read(
     use_multiprocessing: bool = False,
     max_concurrency: int = 10
 ):
-    """The matrix connector lets you use variables to automatically execute
-multiple reads that are based on the combinations of the variables.
+    """
+    The matrix connector lets you use variables to automatically execute
+    multiple reads that are based on the combinations of the variables.
 
-:param df: The input dataframe
-:param variables: A list of variables. The read will be execute once for         each combination of variables.
-:param read: The read section of a recipe to execute for each combination of variables
-:param functions: Any user defined custom functions
-:param strategy: Determines how to combine variables when there are multiple.         loop (default) iterates over each set of variables, repeating shorter lists until the longest         is completed. permutations uses the combination of all variables against all other variables.     :param use_multiprocessing: Use multiprocessing instead of threading
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued."""    
+    :param df: The input dataframe
+    :param variables: A list of variables. The read will be execute once for \
+        each combination of variables.
+    :param read: The read section of a recipe to execute for each combination of variables
+    :param functions: Any user defined custom functions
+    :param strategy: Determines how to combine variables when there are multiple. \
+        loop (default) iterates over each set of variables, repeating shorter lists until the longest \
+        is completed. permutations uses the combination of all variables against all other variables. \
+    :param use_multiprocessing: Use multiprocessing instead of threading
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    """    
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -269,15 +282,22 @@ def write(
     use_multiprocessing: bool = False,
     max_concurrency: int = 10
 ):
-    """The matrix connector lets you use variables in a single write definition to
-automatically execute multiple writes that are based on the combinations of the variables.
+    """
+    The matrix connector lets you use variables in a single write definition to
+    automatically execute multiple writes that are based on the combinations of the variables.
 
-:param df: The input dataframe
-:param variables: A list of variables. The write will be execute once for         each combination of variables.
-:param write: The write section of a recipe to execute for each         combination of variables
-:param functions: Any user defined custom functions
-:param strategy: Determines how to combine variables when there are multiple.         loop (default) iterates over each set of variables, repeating shorter lists until the longest         is completed. permutations uses the combination of all variables against all other variables.     :param use_multiprocessing: Use multiprocessing instead of threading
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued."""    
+    :param df: The input dataframe
+    :param variables: A list of variables. The write will be execute once for \
+        each combination of variables.
+    :param write: The write section of a recipe to execute for each \
+        combination of variables
+    :param functions: Any user defined custom functions
+    :param strategy: Determines how to combine variables when there are multiple. \
+        loop (default) iterates over each set of variables, repeating shorter lists until the longest \
+        is completed. permutations uses the combination of all variables against all other variables. \
+    :param use_multiprocessing: Use multiprocessing instead of threading
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    """    
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor

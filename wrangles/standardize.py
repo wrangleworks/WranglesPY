@@ -10,14 +10,16 @@ def standardize(
     case_sensitive: bool = False,
     **kwargs
 ) -> list:
-    """Standardize text - Standardize Wrangles can replace words with alternatives,
-in addition to using regex patterns for more complex replacements.
-Requires WrangleWorks Account and Subscription.
+    """
+    Standardize text - Standardize Wrangles can replace words with alternatives,
+    in addition to using regex patterns for more complex replacements.
+    Requires WrangleWorks Account and Subscription.
 
-:param input: A string or list of strings to be standardized.
-:param model_id: The model to be used.
-:param case_sensitive: Allows setting the model to be case sensitive
-:return: A string or list with the updated text."""
+    :param input: A string or list of strings to be standardized.
+    :param model_id: The model to be used.
+    :param case_sensitive: Allows setting the model to be case sensitive
+    :return: A string or list with the updated text.
+    """
     if isinstance(input, str): 
         json_data = [input]
     elif isinstance(input, list):

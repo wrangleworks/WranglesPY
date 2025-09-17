@@ -18,13 +18,15 @@ def run(
     functions: _Union[_types.FunctionType, list] = [],
     use_multiprocessing: bool = False
 ):
-    """Run multiple actions concurrently.
+    """
+    Run multiple actions concurrently.
 
-:param run: List of actions to run concurrently
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-:param variables: Variables to pass to any downstream recipes
-:param functions: Custom functions to pass to any downstream recipes
-:param use_multiprocessing: Use multiprocessing instead of threading. Default is False."""
+    :param run: List of actions to run concurrently
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    :param variables: Variables to pass to any downstream recipes
+    :param functions: Custom functions to pass to any downstream recipes
+    :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -75,13 +77,15 @@ def read(
     functions: _Union[_types.FunctionType, list, dict] = {},
     variables: dict = {}
 ):
-    """Run multiple reads simulatenously.
+    """
+    Run multiple reads simulatenously.
 
-:param read: List of read connectors to run concurrently
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-:param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
-:param functions: Custom functions to make available downstream.
-:param variables: Variables to make available downstream."""
+    :param read: List of read connectors to run concurrently
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
+    :param functions: Custom functions to make available downstream.
+    :param variables: Variables to make available downstream.
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -131,14 +135,16 @@ def write(
     functions: _Union[_types.FunctionType, list] = [],
     use_multiprocessing: bool = False
 ):
-    """Run multiple write connectors concurrently.
+    """
+    Run multiple write connectors concurrently.
 
-:param df: Dataframe to write
-:param write: List of write connectors to run concurrently
-:param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-:param variables: Variables to pass to any downstream recipes
-:param functions: Custom functions to pass to any downstream recipes
-:param use_multiprocessing: Use multiprocessing instead of threading. Default is False."""
+    :param df: Dataframe to write
+    :param write: List of write connectors to run concurrently
+    :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
+    :param variables: Variables to pass to any downstream recipes
+    :param functions: Custom functions to pass to any downstream recipes
+    :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor

@@ -21,13 +21,15 @@ def chatGPT(
     timeout: int = None,
     retries: int = 0,
 ):
-    """Submit a request to openAI chatGPT.
+    """
+    Submit a request to openAI chatGPT.
 
-:param data: Dict with the data for that row
-:param api_key: OpenAI API Key
-:param settings: Custom model settings
-:param timeout: Time limit to apply to the request
-:param retries: Number of times to retry if the request fails"""
+    :param data: Dict with the data for that row
+    :param api_key: OpenAI API Key
+    :param settings: Custom model settings
+    :param timeout: Time limit to apply to the request
+    :param retries: Number of times to retry if the request fails
+    """
     if isinstance(data, (dict, list)):
         content = _yaml.dump(
             data,
@@ -217,22 +219,26 @@ def embeddings(
     precision: str = "float32",
     **kwargs
 ) -> list:
-    """Generate embeddings for a list of strings.
+    """
+    Generate embeddings for a list of strings.
 
->>> wrangles.openai.embeddings(
->>>  ["sentence 1", "sentence 2"],
->>>  api_key="...",
->>> )
-
-:param input_list: A list of strings to generate embeddings for.
-:param api_key: OpenAI API Key.
-:param model: (Optional) The model to use for generating embeddings.
-:param batch_size: (Optional, default 100) The number of rows to submit per individual request.
-:param threads: (Optional, default 10) The number of requests to submit in parallel.           Each request contains the number of rows set as batch_size.
-:param retries: The number of times to retry. This will exponentially           backoff to assist with rate limiting
-:param url: Set the URL. Must implement the OpenAI embeddings API.
-:param precision: The precision of the embeddings. Default is float32.
-:return: A list of embeddings corresponding to the input"""
+    >>> wrangles.openai.embeddings(
+    >>>  ["sentence 1", "sentence 2"],
+    >>>  api_key="...",
+    >>> )
+    
+    :param input_list: A list of strings to generate embeddings for.
+    :param api_key: OpenAI API Key.
+    :param model: (Optional) The model to use for generating embeddings.
+    :param batch_size: (Optional, default 100) The number of rows to submit per individual request.
+    :param threads: (Optional, default 10) The number of requests to submit in parallel. \
+          Each request contains the number of rows set as batch_size.
+    :param retries: The number of times to retry. This will exponentially \
+          backoff to assist with rate limiting
+    :param url: Set the URL. Must implement the OpenAI embeddings API.
+    :param precision: The precision of the embeddings. Default is float32.
+    :return: A list of embeddings corresponding to the input
+    """
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 

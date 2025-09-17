@@ -21,8 +21,10 @@ variables = {}
 queue = _deque([])
 
 def clear():
-    """Clear and reset any existing data
-stored in the connector"""
+    """
+    Clear and reset any existing data
+    stored in the connector
+    """
     global dataframes, variables, queue
     dataframes = {}
     variables = {}
@@ -30,17 +32,23 @@ stored in the connector"""
 
 
 def read(id: str = None, orient: str = "tight", **kwargs):
-    """Read a dataframe previous saved in memory
+    """
+    Read a dataframe previous saved in memory
 
->>> from wrangles.connectors import memory
->>> memory.read(
->>>    id="find_me_later",
->>>    custom_key="custom_value"
->>> )
+    >>> from wrangles.connectors import memory
+    >>> memory.read(
+    >>>    id="find_me_later",
+    >>>    custom_key="custom_value"
+    >>> )
 
-:param df: Dataframe to be exported
-:param id: A unique ID to identify the data.         If not specified, will read the last dataframe         saved in memory
-:param orient: Set the arrangement of the data.         See pandas.DataFrame.to_dict method for options.         Default is tight."""
+    :param df: Dataframe to be exported
+    :param id: A unique ID to identify the data. \
+        If not specified, will read the last dataframe \
+        saved in memory
+    :param orient: Set the arrangement of the data. \
+        See pandas.DataFrame.to_dict method for options. \
+        Default is tight.
+    """
     _logging.info(f": Reading data from memory :: {id or ''}")
 
     # If there isn't anything saved
@@ -102,18 +110,22 @@ properties:
 """
 
 def write(df, id: str = None, orient: str = "tight", **kwargs):
-    """Write a dataframe to memory for reference later
+    """
+    Write a dataframe to memory for reference later
 
->>> from wrangles.connectors import memory
->>> memory.write(
->>>    df,
->>>    id="find_me_later",
->>>    custom_key="custom_value"
->>> )
+    >>> from wrangles.connectors import memory
+    >>> memory.write(
+    >>>    df,
+    >>>    id="find_me_later",
+    >>>    custom_key="custom_value"
+    >>> )
 
-:param df: Dataframe to be exported
-:param id: A unique ID to identify the data
-:param orient: Set the arrangement of the data.         See pandas.DataFrame.to_dict method for options.         Default is tight."""
+    :param df: Dataframe to be exported
+    :param id: A unique ID to identify the data
+    :param orient: Set the arrangement of the data. \
+        See pandas.DataFrame.to_dict method for options. \
+        Default is tight.
+    """
     _logging.info(f": Writing data to memory :: {id or ''}")
 
     if id is None:

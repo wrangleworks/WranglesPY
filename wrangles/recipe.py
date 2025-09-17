@@ -1041,19 +1041,22 @@ def run(
     functions: _Union[_types.FunctionType, list, dict] = [],
     timeout: float = None
 ) -> _pandas.DataFrame:
-    """Execute a Wrangles Recipe. Recipes are written in YAML and allow 
-a set of steps to be run in an automated sequence.
-Read, wrangle, then write your data.
+    """
+    Execute a Wrangles Recipe. Recipes are written in YAML and allow 
+    a set of steps to be run in an automated sequence.
+    Read, wrangle, then write your data.
 
->>> wrangles.recipe.run('recipe.wrgl.yml')
+    >>> wrangles.recipe.run('recipe.wrgl.yml')
+    
+    :param recipe: YAML recipe or path to a YAML file containing the recipe
+    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+    :param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
+    :param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
+    :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
 
-:param recipe: YAML recipe or path to a YAML file containing the recipe
-:param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
-:param dataframe: (Optional) Pass in a pandas dataframe, instead of defining a read section within the YAML
-:param functions: (Optional) A function or list of functions that can be called as part of the recipe. Functions can be referenced as custom.function_name
-:param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided, the time is unlimited.
-
-:return: The result dataframe. The dataframe can be defined using         write: - dataframe in the recipe."""
+    :return: The result dataframe. The dataframe can be defined using \
+        write: - dataframe in the recipe.
+    """
     # Parse recipe
     recipe, functions = _load_recipe(
         recipe,

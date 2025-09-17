@@ -29,13 +29,15 @@ def _get_packages_in_dataset(host, dataset, api_key):
 
 
 def read(host: str, dataset: str, file: str, api_key: str = None, **kwargs) -> _pd.DataFrame:
-    """Read data from CKAN
-
-:param host: The host name of the CKAN site. e.g. https://data.example.com
-:param dataset: The name of the dataset. This should be the url version e.g. my-dataset
-:param file: The name of the specific file within the dataset.
-:param api_key: API Key for the CKAN site.
-:param kwargs: (Optional) Named arguments to pass to respective pandas read a file function."""
+    """
+    Read data from CKAN
+    
+    :param host: The host name of the CKAN site. e.g. https://data.example.com
+    :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
+    :param file: The name of the specific file within the dataset.
+    :param api_key: API Key for the CKAN site.
+    :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
+    """
     _logging.info(f": Reading data from CKAN :: {host} / {dataset} / {file}")
     
     packages = _get_packages_in_dataset(host, dataset, api_key)
@@ -73,14 +75,16 @@ properties:
 """
 
 def write(df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str, **kwargs):
-    """Write a file to a dataset in CKAN
-
-:param df: Dataframe to be exported
-:param host: The host name of the CKAN site. e.g. https://data.example.com
-:param dataset: The name of the dataset. This should be the url version e.g. my-dataset
-:param file: The name of the specific file within the dataset. e.g. example.csv
-:param api_key: API Key for the CKAN site.
-:param kwargs: (Optional) Named arguments to pass to respective pandas write a file function."""
+    """
+    Write a file to a dataset in CKAN
+    
+    :param df: Dataframe to be exported
+    :param host: The host name of the CKAN site. e.g. https://data.example.com
+    :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
+    :param file: The name of the specific file within the dataset. e.g. example.csv
+    :param api_key: API Key for the CKAN site.
+    :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
+    """
     _logging.info(f": Writing data to CKAN :: {host} / {dataset} / {file}")
 
     memory_file = _BytesIO()
@@ -135,7 +139,9 @@ properties:
 """
 
 class download:
-    """Download files from CKAN to the local file system"""
+    """
+    Download files from CKAN to the local file system
+    """
     _schema = {
         "run": """
           type: object
@@ -206,7 +212,9 @@ class download:
 
 
 class upload:
-    """Upload a file or list of files to a CKAN dataset"""
+    """
+    Upload a file or list of files to a CKAN dataset
+    """
     _schema = {
         "run": """
             type: object

@@ -9,13 +9,15 @@ from typing import Union as _Union
 _schema = {}
 
 def read(database: str, command: str, **kwargs) -> _pd.DataFrame:
-    """Read data from a SQLite database.
+    """
+    Read data from a SQLite database.
 
->>> from wrangles.connectors import sqlite
->>> df = sqlite.read(database = 'database.db', command='SELECT * FROM table')
+    >>> from wrangles.connectors import sqlite
+    >>> df = sqlite.read(database = 'database.db', command='SELECT * FROM table')
 
-:param database: The database to connect to including the file path. e.g. directory/database.db
-:param command: SQL command or table name"""
+    :param database: The database to connect to including the file path. e.g. directory/database.db
+    :param command: SQL command or table name
+    """
     _logging.info(f": Reading data from SQLite :: {database}")
     
     with _sqlite3.connect(database) as conn:
@@ -43,14 +45,16 @@ properties:
 """
 
 def write(df: _pd.DataFrame, database: str, table: str, **kwargs) -> None:
-    """Write data to a SQLite database.
+    """
+    Write data to a SQLite database.
 
->>> from wrangles.connectors import sqlite
->>> sqlite.write(df, database = 'database.db', table = 'table')
+    >>> from wrangles.connectors import sqlite
+    >>> sqlite.write(df, database = 'database.db', table = 'table')
 
-:param df: Pandas Dataframe to be written
-:param database: The database to connect to including the file path. e.g. directory/database.db
-:param table: Table to be exported to"""
+    :param df: Pandas Dataframe to be written
+    :param database: The database to connect to including the file path. e.g. directory/database.db
+    :param table: Table to be exported to
+    """
     _logging.info(f": Writing data to SQLite :: {database} / {table}")
 
     with _sqlite3.connect(database) as conn:
@@ -85,16 +89,18 @@ def run(
     command: _Union[str, list],
     params: _Union[list, dict] = ()
 ) -> None:
-    """Run a command on a SQLite Database
+    """
+    Run a command on a SQLite Database
 
->>> wrangles.connectors.sqlite.run(
->>>    database='db',
->>>    command='<SQL COMMAND>'
->>> )
+    >>> wrangles.connectors.sqlite.run(
+    >>>    database='db',
+    >>>    command='<SQL COMMAND>'
+    >>> )
 
-:param database: The name of the database
-:param command: SQL command or a list of SQL commands to execute
-:param params: Variables to pass to a parameterized query."""
+    :param database: The name of the database
+    :param command: SQL command or a list of SQL commands to execute
+    :param params: Variables to pass to a parameterized query.
+    """
     _logging.info(f": Executing SQLite Command :: {database}")
 
     # If user has provided a single command, convert to a list.
