@@ -1,0 +1,3173 @@
+- id: standardize.standardize
+  path: wrangles/standardize.py
+  type: function
+  target: standardize.standardize
+  docstring:
+    content: 'Standardize text - Standardize Wrangles can replace words with alternatives,
+
+      in addition to using regex patterns for more complex replacements.
+
+      Requires WrangleWorks Account and Subscription.
+
+
+      :param input: A string or list of strings to be standardized.
+
+      :param model_id: The model to be used.
+
+      :param case_sensitive: Allows setting the model to be case sensitive
+
+      :return: A string or list with the updated text.'
+- id: data.user
+  path: wrangles/data.py
+  type: class
+  target: data.user
+  docstring:
+    content: Get user data
+- id: data.model
+  path: wrangles/data.py
+  type: function
+  target: data.model
+  docstring:
+    content: 'Get a model definition
+
+      :param id: model ID
+
+      :returns: Dict of model properties'
+- id: data.model_content
+  path: wrangles/data.py
+  type: function
+  target: data.model_content
+  docstring:
+    content: 'Get the training data for a model
+
+
+      :param id: Model ID
+
+      :param version_id: (Optional) Version ID. If not provided, the latest version
+      will be used.
+
+      :return: Model data with Settings, Columns and Data as a 2D array'
+- id: format.flatten_lists
+  path: wrangles/format.py
+  type: function
+  target: format.flatten_lists
+  docstring:
+    content: ''
+- id: format.concatenate
+  path: wrangles/format.py
+  type: function
+  target: format.concatenate
+  docstring:
+    content: Concatenate a list of columns
+- id: format.split
+  path: wrangles/format.py
+  type: function
+  target: format.split
+  docstring:
+    content: "Split a list of strings into lists\n\n:param input_list: List of strings\
+      \ that will be split\n:param output_length: If set, set the final output length.\
+      \ Requires pad = true. \n:param split_char: The character the strings will be\
+      \ split on.\n:param pad: If true, pad results to be a consistent length.\n:param\
+      \ inclusive: If true, the split lists will include the split char.\n:param element:\
+      \ Slice the output lists to specific elements."
+- id: format.coalesce
+  path: wrangles/format.py
+  type: function
+  target: format.coalesce
+  docstring:
+    content: 'Return the first not empty result for each row
+
+      where each row has a list of possibilities'
+- id: format.price_breaks
+  path: wrangles/format.py
+  type: function
+  target: format.price_breaks
+  docstring:
+    content: Rearrange price breaks
+- id: format.remove_duplicates
+  path: wrangles/format.py
+  type: function
+  target: format.remove_duplicates
+  docstring:
+    content: Remove duplicates from a list. Preserves input order.
+- id: format.significant_figures
+  path: wrangles/format.py
+  type: function
+  target: format.significant_figures
+  docstring:
+    content: 'Format digits in text or standalone to the selected significant figures
+
+      :param input_str: The input list of values to format
+
+      :param sig_figs: The number of significant figures to format to
+
+      :return: The formatted string with the specified number of significant figures'
+- id: format.tokenize
+  path: wrangles/format.py
+  type: function
+  target: format.tokenize
+  docstring:
+    content: 'Tokenizes everything in a list that has spaces
+
+      Ex: [''Cookie Monster'', ''Frankenstein''s monster''] -> [''Cookie'', ''Monster'',
+      ''Frankenstein''s'', ''monster'']
+
+      Ex: ''Cookie Monster -> [''Cookie'', ''Monster'']
+
+
+      :param input: The list of strings to tokenize
+
+      :param method: The method to tokenize. Can be ''space'', ''boundary'' or ''boundary_ignore_space''
+
+      :param func: A function to use to tokenize the input instead of the default
+      methods
+
+      :param pattern: A custom regex pattern or regex string to split the input on
+
+      :return: The tokenized list'
+- id: select.highest_confidence
+  path: wrangles/select.py
+  type: function
+  target: select.highest_confidence
+  docstring:
+    content: Select the option with the highest confidence from multiple columns
+- id: select.confidence_threshold
+  path: wrangles/select.py
+  type: function
+  target: select.confidence_threshold
+  docstring:
+    content: Select the first option if it exceeds a given threshold, else the second
+      option.
+- id: select.list_element
+  path: wrangles/select.py
+  type: function
+  target: select.list_element
+  docstring:
+    content: Select a numbered element of a list (zero indexed).
+- id: select.dict_element
+  path: wrangles/select.py
+  type: function
+  target: select.dict_element
+  docstring:
+    content: Select an element or elements of a dictionary
+- id: classify.classify
+  path: wrangles/classify.py
+  type: function
+  target: classify.classify
+  docstring:
+    content: 'Predict which category an input belongs to.
+
+      Requires WrangleWorks Account and Subscription.
+
+
+      :param input: A string or list of strings to be classified.
+
+      :param model_id: The model to be used to predict the class.
+
+      :return: A string or list of prediction corresponding to the input.'
+- id: batching.batch_api_calls
+  path: wrangles/batching.py
+  type: function
+  target: batching.batch_api_calls
+  docstring:
+    content: Batch API calls into multiple of set batch size
+- id: train.train
+  path: wrangles/train.py
+  type: class
+  target: train.train
+  docstring:
+    content: Train new models
+- id: lookup.lookup
+  path: wrangles/lookup.py
+  type: function
+  target: lookup.lookup
+  docstring:
+    content: 'Find information using a lookup wrangle. Requires WrangleWorks Account.
+
+
+      :param input: A value or list of values to be looked up.
+
+      :param model_id: The model to be used.
+
+      :param columns: (Optional) The columns to be returned. If not provided, all
+      columns will be returned as a dict.'
+- id: recipe.run
+  path: wrangles/recipe.py
+  type: function
+  target: recipe.run
+  docstring:
+    content: "Execute a Wrangles Recipe. Recipes are written in YAML and allow \n\
+      a set of steps to be run in an automated sequence.\nRead, wrangle, then write\
+      \ your data.\n\n>>> wrangles.recipe.run('recipe.wrgl.yml')\n\n:param recipe:\
+      \ YAML recipe or path to a YAML file containing the recipe\n:param variables:\
+      \ (Optional) A dictionary of custom variables to override placeholders in the\
+      \ recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be\
+      \ overwritten by Environment Variables.\n:param dataframe: (Optional) Pass in\
+      \ a pandas dataframe, instead of defining a read section within the YAML\n:param\
+      \ functions: (Optional) A function or list of functions that can be called as\
+      \ part of the recipe. Functions can be referenced as custom.function_name\n\
+      :param timeout: (Optional) Set a timeout for the recipe in seconds. If not provided,\
+      \ the time is unlimited.\n\n:return: The result dataframe. The dataframe can\
+      \ be defined using         write: - dataframe in the recipe."
+- id: dataframe.DataFrame
+  path: wrangles/dataframe.py
+  type: class
+  target: dataframe.DataFrame
+  docstring:
+    content: Extends a pandas DataFrame to add wrangles functionality
+- id: utils.wildcard_expansion_dict
+  path: wrangles/utils.py
+  type: function
+  target: utils.wildcard_expansion_dict
+  docstring:
+    content: 'Finds matching columns for wildcards or regex from all available columns
+
+
+      This expects the input to be in the format:
+
+      {"in_col": "out_col", "unchanged": "unchanged"}
+
+
+      :param all_columns: List of all available columns in the dataframe
+
+      :param selected_columns: List or string with selected columns. May contain wildcards
+      (*) or regex.'
+- id: utils.get_nested_function
+  path: wrangles/utils.py
+  type: function
+  target: utils.get_nested_function
+  docstring:
+    content: 'Get a nested function from obj as defined by a string
+
+      e.g. ''custom.my_function'' or ''my_function'' or ''my_module.my_function''
+
+
+      :param fn_string: String defining the function to get
+
+      :param stock_functions: Module containing stock functions
+
+      :param custom_functions: Dictionary of user defined custom functions
+
+      :param default_stock_functions: Some stock functions use a default final function
+      to call'
+- id: utils.validate_function_args
+  path: wrangles/utils.py
+  type: function
+  target: utils.validate_function_args
+  docstring:
+    content: 'Validate that all required arguments are provided for a custom function
+
+
+      :param func: Function to validate
+
+      :param args: Arguments provided to the function
+
+      :param name: Name of the function'
+- id: utils.add_special_parameters
+  path: wrangles/utils.py
+  type: function
+  target: utils.add_special_parameters
+  docstring:
+    content: 'Add special parameters to the params dictionary if they are required
+      by the function
+
+
+      :param params: Dictionary of parameters to pass to the function
+
+      :param fn: Function to check for special parameters
+
+      :param functions: Dictionary of custom functions
+
+      :param variables: Dictionary of variables
+
+      :param error: Exception object
+
+      :param common_params: These are parameters that are common to all functions.         They
+      will only be passed as a parameter if the function requests them.'
+- id: utils.wildcard_expansion
+  path: wrangles/utils.py
+  type: function
+  target: utils.wildcard_expansion
+  docstring:
+    content: 'Finds matching columns for wildcards or regex from all available columns
+
+
+      :param all_columns: List of all available columns in the dataframe
+
+      :param selected_columns: List or string with selected columns. May contain wildcards
+      (*) or regex.'
+- id: utils.evaluate_conditional
+  path: wrangles/utils.py
+  type: function
+  target: utils.evaluate_conditional
+  docstring:
+    content: 'Evaluate a conditional statement using the variables provided
+
+      to determine if the statement is true or false
+
+
+      Recipe variables of the style ${var} will be parameterized
+
+
+      :param statement: Python style statement
+
+      :param variables: Dictionary of variables to use in the statement'
+- id: utils.LazyLoader
+  path: wrangles/utils.py
+  type: class
+  target: utils.LazyLoader
+  docstring:
+    content: 'Use to lazy load optional dependencies
+
+
+      Will load the dependency when it is first accessed
+
+
+      :param module_name: Name of the module to load'
+- id: config.authenticate
+  path: wrangles/config.py
+  type: function
+  target: config.authenticate
+  docstring:
+    content: Provide login details to authenticate with Wrangles API.
+- id: config.keycloak
+  path: wrangles/config.py
+  type: class
+  target: config.keycloak
+  docstring:
+    content: Settings for keycloak server
+- id: auth.get_access_token
+  path: wrangles/auth.py
+  type: function
+  target: auth.get_access_token
+  docstring:
+    content: 'Check access token and refresh if necessary.
+
+      :returns: None'
+- id: openai.chatGPT
+  path: wrangles/openai.py
+  type: function
+  target: openai.chatGPT
+  docstring:
+    content: 'Submit a request to openAI chatGPT.
+
+
+      :param data: Dict with the data for that row
+
+      :param api_key: OpenAI API Key
+
+      :param settings: Custom model settings
+
+      :param timeout: Time limit to apply to the request
+
+      :param retries: Number of times to retry if the request fails'
+- id: openai.embeddings
+  path: wrangles/openai.py
+  type: function
+  target: openai.embeddings
+  docstring:
+    content: 'Generate embeddings for a list of strings.
+
+
+      >>> wrangles.openai.embeddings(
+
+      >>>  ["sentence 1", "sentence 2"],
+
+      >>>  api_key="...",
+
+      >>> )
+
+
+      :param input_list: A list of strings to generate embeddings for.
+
+      :param api_key: OpenAI API Key.
+
+      :param model: (Optional) The model to use for generating embeddings.
+
+      :param batch_size: (Optional, default 100) The number of rows to submit per
+      individual request.
+
+      :param threads: (Optional, default 10) The number of requests to submit in parallel.           Each
+      request contains the number of rows set as batch_size.
+
+      :param retries: The number of times to retry. This will exponentially           backoff
+      to assist with rate limiting
+
+      :param url: Set the URL. Must implement the OpenAI embeddings API.
+
+      :param precision: The precision of the embeddings. Default is float32.
+
+      :return: A list of embeddings corresponding to the input'
+- id: console.recipe
+  path: wrangles/console.py
+  type: function
+  target: console.recipe
+  docstring:
+    content: 'Enable console execution of a Wrangles recipe
+
+
+      >>> wrangles.recipe recipe.wrgl.yml --functions custom_functions.py --variables
+      custom_variables.py
+
+      >>> wrangles.recipe abcdef12-3456-7890'
+- id: translate.translate
+  path: wrangles/translate.py
+  type: function
+  target: translate.translate
+  docstring:
+    content: 'Translate text
+
+      Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000
+      characters per month is available)
+
+
+      :param input: A string or list of strings to be translated.
+
+      :param target_language: A two letter code for the target language. For codes
+      see: https://www.deepl.com/docs-api/translating-text/
+
+      :param source_language: (Optional) A two letter code for the source language.
+      Defaults to auto.
+
+      :params case: (Optional) Allow changing the case of the input prior to translation.
+      lower, upper or title
+
+      :return: A translated string or list of strings corresponding to the input '
+- id: extract.address
+  path: wrangles/extract.py
+  type: function
+  target: extract.address
+  docstring:
+    content: 'Extract geographical information from unstructured text such as streets,
+      cities or countries.
+
+      Requires WrangleWorks Account.
+
+
+      e.g. ''1100 Congress Ave, Austin, TX 78701, United States'' -> ''1100 Congress
+      Ave''
+
+
+      :param input: A string or list of strings with addresses to search for information.
+
+      :param dataType: The type of information to return. ''streets'', ''cities'',
+      ''regions'' or ''countries''
+
+      :return: A list of any results found.'
+- id: extract.ai
+  path: wrangles/extract.py
+  type: function
+  target: extract.ai
+  docstring:
+    content: '>>> wrangles.extract.ai(
+
+      >>>   "Yellow Submarine",
+
+      >>>   api_key="...",
+
+      >>>   output={
+
+      >>>       "type": "string",
+
+      >>>       "description": "The names of any colors in the input"
+
+      >>>   }
+
+      >>> )
+
+
+      :param input: A single value or list of values to extract information from.
+      If a list is provided,         each element will be analyzed individually and
+      a list of equal length will be returned.
+
+      :param api_key: API Key
+
+      :param output: (Optional) This can be a string prompting the output, a JSON
+      schema definition         of the output requested or a dict of JSON schema definitions.
+
+      :param model_id: (Optional) An extract.ai model ID containing a saved definition.
+      Use this or output.         If both are provided, output that precedence over
+      the definition from the model_id.
+
+      :param model: (Optional) The model to use for the extraction.
+
+      :param threads: (Optional) Number of threads to use for parallel processing.
+
+      :param timeout: (Optional) Timeout in seconds for each API call.
+
+      :param retries: (Optional) Number of retries to attempt on failure.
+
+      :param messages: (Optional) Overall prompts to pass additional instructions.
+
+      :param url: (Optional) Override the endpoint. Must implement the OpenAI chat
+      completions API schema with function calling.
+
+      :param strict: (Optional) Enable strict mode. Default False. If True, the function
+      will be required to match the schema,         but may be more limited in the
+      schema it can return.
+
+
+      :return: A scalar or list of extracted information.'
+- id: extract.attributes
+  path: wrangles/extract.py
+  type: function
+  target: extract.attributes
+  docstring:
+    content: 'Extract numeric attributes from unstructured text such as lengths or
+      voltages.
+
+      Requires WrangleWorks Account.
+
+
+      >>> wrangles.extract.attributes(''tape 25m'')
+
+      {''length'': [''25m'']}
+
+
+      :param input: Input string or list of strings to be searched for attributes
+
+      :param responseContent: (Optional, default Span) ''span'' or ''object''. If
+      span, returns original text, if object returns an object of value and dimension.
+
+      :param type: (Optional) Specify which types of attributes to find. If omitted,
+      a dict of all attributes types is returned
+
+      :param bound: (Optional, default mid). When returning an object, if the input
+      is a range. e.g. 10-20mm, set the value to return. min, mid or max.'
+- id: extract.codes
+  path: wrangles/extract.py
+  type: function
+  target: extract.codes
+  docstring:
+    content: 'Extract alphanumeric codes from unstructured text.
+
+      Requires WrangleWorks Account.
+
+
+      e.g. ''Something ABC123ZZ something'' -> ''ABC123ZZ'''
+- id: extract.custom
+  path: wrangles/extract.py
+  type: function
+  target: extract.custom
+  docstring:
+    content: 'Extract entities using a custom model.
+
+      Requires WrangleWorks Account and Subscription.
+
+
+      :param input: A string or list of strings to searched for information.
+
+      :param model_id: The model to be used to search for information.
+
+      :return: A list of entities found.'
+- id: extract.html
+  path: wrangles/extract.py
+  type: function
+  target: extract.html
+  docstring:
+    content: 'Extract specific html elements from strings containing html.
+
+      Requires WrangleWorks Account.
+
+
+      :param input: A string or list of strings with addresses to search for information.
+
+      :param dataType: The type of information to return. ''text'' or ''links''
+
+      :return: A list of any results found.'
+- id: extract.properties
+  path: wrangles/extract.py
+  type: function
+  target: extract.properties
+  docstring:
+    content: 'Extract categorical properties from unstructured text such as colours
+      or materials.
+
+      Requires WrangleWorks Account.
+
+
+      >>> wrangles.extract.properties(''The Green Mile'')
+
+      {''Colours'': [''Green'']}
+
+
+      :param input: A string or list of strings to be searched for properties
+
+      :param type: (Optional) The specific type of property to search for. If omitted
+      an objected with all results will be returned.
+
+      :param return_data_type: (Optional) The format to return the data, as a list
+      or as a string.
+
+      :return: A single or list with the extracted properties. Each extracted property
+      may be a dict or list depending on settings.'
+- id: extract.remove_words
+  path: wrangles/extract.py
+  type: function
+  target: extract.remove_words
+  docstring:
+    content: 'Remove all the elements that occur in one list from another.
+
+
+      :param input: both input and to_remove can be a string or a list or multiple
+      lists. Lowered for precision
+
+      :param output: a string of remaining words
+
+      :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
+
+      :pram ignore_case: (Optional) ignore the case of input and to_remove'
+- id: extract.brackets
+  path: wrangles/extract.py
+  type: function
+  target: extract.brackets
+  docstring:
+    content: 'Extract values in brackets, [], {}, (), <>
+
+
+      :param input: Input string to search for brackets
+
+      :param find: Types of brackets to find (e.g., ''round'', ''square'', ''curly'',
+      ''angled''). Default is all types.
+
+      :param include_brackets: Whether to include brackets in the results
+
+      :return: List of extracted values'
+- id: format.dates
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.dates
+  docstring:
+    content: "type: object\ndescription: Format a date\nadditionalProperties: false\n\
+      required:\n  - input\n  - format\nproperties:\n  input:\n    type:\n      -\
+      \ string\n      - integer\n      - array\n    description: Name of the input\
+      \ column\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name of the output column\n  format:\n    type:\n      - string\n    description:\
+      \ String pattern to format date"
+- id: format.pad
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.pad
+  docstring:
+    content: "type: object\ndescription: Pad a string to a fixed length\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - pad_length\n  - side\n  - char\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: Name of the output column\n  pad_length:\n    type:\n    \
+      \  - number\n    description: Length for the output\n  side:\n    type:\n  \
+      \    - string\n    description:  Side from which to fill resulting string\n\
+      \  char:\n    type:\n      - string\n    description: The character to pad the\
+      \ input with"
+- id: format.prefix
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.prefix
+  docstring:
+    content: "type: object\ndescription: Add a prefix to a column\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - value\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: Name of the\
+      \ input column\n  value:\n    type:\n      - string\n      - number\n    description:\
+      \ Prefix value to add\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: (Optional) Name of the output column"
+- id: format.remove_duplicates
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.remove_duplicates
+  docstring:
+    content: "type: object\ndescription: Remove duplicates from a list. Preserves\
+      \ input order.\nadditionalProperties: false\nrequired:\n  - input\nproperties:\n\
+      \  input:\n    type: \n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type: \n      - string\n      - array\n\
+      \    description: Name of the output column\n  ignore_case:\n    type: boolean\n\
+      \    description: Ignore case when removing duplicates"
+- id: format.significant_figures
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.significant_figures
+  docstring:
+    content: "type: object\ndescription: Format a value to a specific number of significant\
+      \ figures\nadditionalProperties: false\nrequired:\n  - input\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: Name of the output column\n  significant_figures:\n    type:\n\
+      \      - integer\n    description: Number of significant figures to format to.\
+      \ Default is 3."
+- id: format.suffix
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.suffix
+  docstring:
+    content: "type: object\ndescription: Add a suffix to a column\nadditionalProperties:\
+      \ false\nrequired:\n    - input\n    - value\nproperties:\n    input:\n    \
+      \  type:\n        - string\n        - integer\n        - array\n      description:\
+      \ Name of the input column\n    value:\n      type:\n        - string\n    \
+      \    - number\n      description: Suffix value to add\n    output:\n      type:\n\
+      \        - string\n        - array\n      description: (Optional) Name of the\
+      \ output column"
+- id: format.trim
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.trim
+  docstring:
+    content: "type: object\ndescription: Remove excess whitespace at the start and\
+      \ end of text.\nadditionalProperties: false\nrequired:\n  - input\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: Name of the output column"
+- id: format.price_breaks
+  path: wrangles/recipe_wrangles/format.py
+  type: function
+  target: format.price_breaks
+  docstring:
+    content: Rearrange price breaks
+- id: select.columns
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.columns
+  docstring:
+    content: "type: object\ndescription: Select columns from the dataframe\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n  input:\n    type:\n      - string\n\
+      \      - integer\n      - array\n    description: Name of the column(s) to select"
+- id: select.dictionary_element
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.dictionary_element
+  docstring:
+    content: "type: object\ndescription: Select one or more element of a dictionary.\n\
+      additionalProperties: false\nrequired:\n  - input\n  - element\nproperties:\n\
+      \  input:\n    type: \n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: >-\n      Name of the output column.\n      If omitted, the\
+      \ input column will be replaced.\n  element:\n    type:\n      - string\n  \
+      \    - array\n    description: |- \n      The key or keys from the dictionary\
+      \ to select.\n      If a single key is provided, the value will be returned\n\
+      \      If a lists of keys are selected,\n      the result will be a new dictionary.\n\
+      \  default:\n    type: \n      - string\n      - number\n      - array\n   \
+      \   - object\n      - boolean\n      - 'null'\n    description: |-\n      Set\
+      \ the default value to return if the specified element doesn't exist.\n    \
+      \  If selecting multiple elements, a dict of defaults can be set."
+- id: select.element
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.element
+  docstring:
+    content: "type: object\ndescription: >-\n  Select elements of lists or dicts\n\
+      \  using python syntax like col[0]['key']\nadditionalProperties: false\nrequired:\n\
+      \  - input\nproperties:\n  input:\n    type: \n      - string\n      - integer\n\
+      \      - array\n    description: >-\n      Name of the input column and sub\
+      \ elements\n      This permits by index for lists or dict\n      and by key\
+      \ for dicts\n      e.g. col[0]['key'] // [{\"key\":\"val\"}] -> \"val\"\n  output:\n\
+      \    type:\n      - string\n      - array\n    description: Name of the output\
+      \ column(s)\n  default:\n    type: \n      - string\n      - number\n      -\
+      \ array\n      - object\n      - boolean\n    description: Set the default value\
+      \ to return if the specified element doesn't exist.\n    default: \"\""
+- id: select.group_by
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.group_by
+  docstring:
+    content: "type: object\ndescription: Group and aggregate the data\nproperties:\n\
+      \  by:\n    type:\n      - string\n      - array\n    description: List of the\
+      \ input columns to group on\n  list:\n    type:\n      - string\n      - array\n\
+      \    description: Group and return all values for these column(s) as a list\n\
+      \  first:\n    type:\n      - string\n      - array\n    description: The first\
+      \ value for these column(s)\n  last:\n    type:\n      - string\n      - array\n\
+      \    description: The last value for these column(s)\n  min:\n    type:\n  \
+      \    - string\n      - array\n    description: The minimum value for these column(s)\n\
+      \  max:\n    type:\n      - string\n      - array\n    description: The maximum\
+      \ value for these column(s)\n  mean:\n    type:\n      - string\n      - array\n\
+      \    description: The mean (average) value for these column(s)\n  median:\n\
+      \    type:\n      - string\n      - array\n    description: The median value\
+      \ for these column(s)\n  nunique:\n    type:\n      - string\n      - array\n\
+      \    description: The count of unique values for these column(s)\n  count:\n\
+      \    type:\n      - string\n      - array\n    description: The count of values\
+      \ for these column(s)\n  std:\n    type:\n      - string\n      - array\n  \
+      \  description: The standard deviation of values for these column(s)\n  sum:\n\
+      \    type:\n      - string\n      - array\n    description: The total of values\
+      \ for these column(s)\n  any:\n    type:\n      - string\n      - array\n  \
+      \  description: Return true if any of the values for these column(s) are true\n\
+      \  all:\n    type:\n      - string\n      - array\n    description: Return true\
+      \ if all of the values for these column(s) are true\n  p75:\n    type:\n   \
+      \   - string\n      - array\n    description: >-\n      Get a percentile. Note,\
+      \ you can use any integer here\n      for the corresponding percentile.\n  custom.placeholder:\n\
+      \    type:\n      - string\n      - array\n    description: >-\n      Placeholder\
+      \ for custom functions. Replace 'placeholder' with the name of the function."
+- id: select.head
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.head
+  docstring:
+    content: "type: object\ndescription: Return the first n rows\nrequired:\n  - n\n\
+      properties:\n  n:\n    type: integer\n    description: Number of rows to return"
+- id: select.highest_confidence
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.highest_confidence
+  docstring:
+    content: "type: object\ndescription: Select the option with the highest confidence\
+      \ from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].\n\
+      additionalProperties: false\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type: array\n    description: List of the input columns to select\
+      \ from\n  output:\n    type:\n      - array\n      - string\n    description:\
+      \ If two columns; the result and confidence. If one column; [result, confidence]"
+- id: select.left
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.left
+  docstring:
+    content: "type: object\ndescription: >-\n  Return characters from the left of\
+      \ text.\n  Strings shorter than the length defined will be unaffected.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - length\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: Name of the\
+      \ column(s) to edit\n  output:\n    type:\n      - string\n      - array\n \
+      \   description: Name of the output column(s)\n  length:\n    type: integer\n\
+      \    description: >-\n      Number of characters to include from the left.\n\
+      \      If negative, this will remove the specified\n      number of characters\
+      \ from the left.\n      May not equal 0."
+- id: select.length
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.length
+  docstring:
+    content: "type: object\ndescription: >-\n  Calculate the lengths of data in a\
+      \ column.\n  The length depends on the data type\n  e.g. text will be the length\
+      \ of the text,\n  lists will be the number of elements in the list.\nrequired:\n\
+      \  - input\nproperties:\n  input:\n    type:\n      - string\n      - integer\n\
+      \      - array\n    description: Name of the input column(s).\n  output:\n \
+      \   type:\n      - string\n      - array\n    description: Name of the output\
+      \ column(s)."
+- id: select.list_element
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.list_element
+  docstring:
+    content: "type: object\ndescription: Select a numbered element of a list (zero\
+      \ indexed).\nadditionalProperties: false\nrequired:\n  - input\n  - element\n\
+      properties:\n  input:\n    type: \n      - string\n      - integer\n      -\
+      \ array\n    description: Name of the input column\n  output:\n    type: \n\
+      \      - string\n      - array\n    description: Name of the output column\n\
+      \  element:\n    type: integer\n    description: |-\n      The numbered element\
+      \ of the list to select.\n      Starts from zero.\n      This may use python\
+      \ slicing syntax to select a subset of the list.\n  default:\n    type:\n  \
+      \    - string\n      - number\n      - array\n      - object\n      - boolean\n\
+      \      - 'null'\n    description: Set the default value to return if the specified\
+      \ element doesn't exist."
+- id: select.right
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.right
+  docstring:
+    content: "type: object\ndescription: >-\n  Return characters from the right of\
+      \ text.\n  Strings shorter than the length defined will be unaffected.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - length\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: Name of the\
+      \ column(s) to edit\n  output:\n    type:\n      - string\n      - array\n \
+      \   description: Name of the output column(s)\n  length:\n    type: integer\n\
+      \    description: >-\n      Number of characters to include from the right.\n\
+      \      If negative, this will remove the specified\n      number of characters\
+      \ from the right.\n      May not equal 0."
+- id: select.sample
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.sample
+  docstring:
+    content: "type: object\ndescription: Return a random sample of the rows\nrequired:\n\
+      \  - rows\nproperties:\n  rows:\n    type:\n      - integer\n      - number\n\
+      \    description: |-\n      If a whole number, will select that number of rows.\n\
+      \      If a decimal between 0 and 1 will select that fraction \n      of the\
+      \ rows e.g. 0.1 => 10% of rows will be returned\n    exclusiveMinimum: 0"
+- id: select.substring
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.substring
+  docstring:
+    content: "type: object\ndescription: Return characters from the middle of text.\n\
+      additionalProperties: false\nrequired:\n  - input\n  - start\n  - length\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the column(s) to edit\n  output:\n    type:\n      - string\n    \
+      \  - array\n    description: Name of the output column(s)\n  start:\n    type:\
+      \ integer\n    description: |\n      The position of the first character to\
+      \ select.\n      If ommited will start from the beginning and length must \n\
+      \      be provided.\n    minimum: 1\n  length:\n    type: integer\n    description:\
+      \ |\n      The length of the string to select. If ommited\n      will select\
+      \ to the end of the string and start must be provided.\n    minimum: 1"
+- id: select.tail
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.tail
+  docstring:
+    content: "type: object\ndescription: Return the last n rows\nrequired:\n  - n\n\
+      properties:\n  n:\n    type: integer\n    description: Number of rows to return"
+- id: select.threshold
+  path: wrangles/recipe_wrangles/select.py
+  type: function
+  target: select.threshold
+  docstring:
+    content: "type: object\ndescription: Select the first option if it exceeds a given\
+      \ threshold, else the second option.\nadditionalProperties: false\nrequired:\n\
+      \  - input\n  - output\n  - threshold\nproperties:\n  input:\n    type: array\n\
+      \    description: List of the input columns to select from\n  output:\n    type:\
+      \ string\n    description: Name of the output column\n  threshold:\n    type:\
+      \ number\n    description: Threshold above which to choose the first option,\
+      \ otherwise the second\n    minimum: 0\n    maximum: 1"
+- id: create.bins
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.bins
+  docstring:
+    content: "type: object\ndescription: Create a column that groups data into bins\n\
+      additionalProperties: false\nrequired:\n  - input\n  - output\n  - bins\nproperties:\n\
+      \  input:\n    type:\n      - array\n    description: Name of input column\n\
+      \  output:\n    type:\n      - array\n    description: Name of new column\n\
+      \  bins:\n    type:\n      - integer\n      - array\n    description: Defines\
+      \ the number of equal-width bins in the range\n  labels:\n    type:\n      -\
+      \ string\n      - array\n    description: Labels for the returned bins"
+- id: create.column
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.column
+  docstring:
+    content: "type: object\ndescription: Create column(s) with a user defined value.\
+      \ Defaults to None (empty).\nadditionalProperties: false\nrequired:\n  - output\n\
+      properties:\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ \"Name or list of names of new columns or column_name: value pairs.\"\n  value:\n\
+      \    type:\n      - string\n      - number\n      - object\n      - array\n\
+      \      - boolean\n    description: (Optional) Value(s) to add in the new column(s).\
+      \ If using a dictionary in output, value can only be a string."
+- id: create.embeddings
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.embeddings
+  docstring:
+    content: "type: object\ndescription: Create an embedding based on text input.\n\
+      required:\n  - input\n  - api_key\nproperties:\n  input:\n    type:\n      -\
+      \ string\n      - integer\n      - array\n    description: The column of text\
+      \ to create the embeddings for.\n  output:\n    type:\n      - string\n    \
+      \  - array\n    description: The output column the embeddings will be saved\
+      \ as.\n  api_key:\n    type: string\n    description: The API key.\n  model:\n\
+      \    type: string\n    description: The specific model to use to generate the\
+      \ embeddings.\n  batch_size:\n    type: integer\n    description: The number\
+      \ of rows to submit per individual request.\n  threads:\n    type: integer\n\
+      \    description: >-\n      The number of requests to submit in parallel.\n\
+      \      Each request contains the number of rows set as batch_size.\n  output_type:\n\
+      \    type: string\n    description: >-\n      Output the embeddings as a numpy\
+      \ array or a python list\n      Default - python list.\n    enum:\n      - numpy\
+      \ array\n      - python list\n  retries:\n    type: integer\n    description:\
+      \ >-\n      The number of times to retry if the request fails.\n      This will\
+      \ apply exponential backoff to help with rate limiting.\n  url:\n    type: string\n\
+      \    description: |-\n      Override the default url for the AI endpoint.\n\
+      \      Must use the OpenAI embeddings API.\n  precision:\n    type: string\n\
+      \    description: >-\n      The precision of the embeddings.\n      Default\
+      \ is float32.\n      This should be used with output_type numpy array.\n   \
+      \ enum:\n      - float16\n      - float32"
+- id: create.guid
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.guid
+  docstring:
+    content: "type: object\ndescription: Create column(s) with a GUID.\nadditionalProperties:\
+      \ false\nrequired:\n  - output\nproperties:\n  output:\n    type:\n      - string\n\
+      \      - array\n    description: Name or list of names of new columns"
+- id: create.index
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.index
+  docstring:
+    content: "type: object\ndescription: Create column(s) with an incremental index.\
+      \ e.g. 1,2,3...\nadditionalProperties: false\nrequired:\n  - output\nproperties:\n\
+      \  output:\n    type:\n      - string\n      - array\n    description: Name\
+      \ or list of names of new columns\n  start:\n    type: integer\n    description:\
+      \ (Optional; default 1) Starting number for the index\n  step:\n    type: integer\n\
+      \    description: (Optional; default 1) Step between successive rows\n  by:\n\
+      \    type:\n      - string\n      - array\n    description: Optional. Cluster\
+      \ the created indexes by one or more columns"
+- id: create.jinja
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.jinja
+  docstring:
+    content: "type: object\ndescription: Output text using a jinja template\nadditionalProperties:\
+      \ false\nrequired:\n  - output\n  - template\nproperties:\n  input:\n    type:\
+      \ \n      - string\n      - integer\n    description: |\n      Specify a name\
+      \ of column containing a dictionary of elements to be used in jinja template.\n\
+      \      Otherwise, the column headers will be used as keys.\n  output:\n    type:\
+      \ string\n    description: Name of the column to be output to.\n  template:\n\
+      \    type: object\n    description: |\n      A dictionary which defines the\
+      \ template/location as well as the form which the template is input.\n     \
+      \ If any keys use a space, they must be replaced with an underscore.  Note:\
+      \ spaces within column names\n      are replaced by underscores (_).\n    additionalProperties:\
+      \ false\n    properties:\n      file:\n        type: string\n        description:\
+      \ A .jinja file containing the template\n      column:\n        type: string\n\
+      \        description: A column containing the jinja template - this will apply\
+      \ to the corresponding row.\n      string:\n        type: string\n        description:\
+      \ A string which is used as the jinja template"
+- id: create.uuid
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.uuid
+  docstring:
+    content: "type: object\ndescription: Create column(s) with a UUID.\nadditionalProperties:\
+      \ false\nrequired:\n  - output\nproperties:\n  output:\n    type:\n      - string\n\
+      \      - array\n    description: Name or list of names of new columns"
+- id: create.hash
+  path: wrangles/recipe_wrangles/create.py
+  type: function
+  target: create.hash
+  docstring:
+    content: "type: object\ndescription: Create a hash of a column\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n  input:\n    type:\n      - string\n\
+      \      - integer\n      - array\n    description: Name of input column\n  output:\n\
+      \    type:\n      - string\n      - array\n    description: Name of new column\n\
+      \  method:\n    type: string\n    description: 'The method to use to hash the\
+      \ input (Default: md5)'\n    enum:\n      - md5\n      - sha1\n      - sha256\n\
+      \      - sha512"
+- id: split.dictionary
+  path: wrangles/recipe_wrangles/split.py
+  type: function
+  target: split.dictionary
+  docstring:
+    content: "type: object\ndescription: |-\n  Split one or more dictionaries into\
+      \ columns.\n  The dictionary keys will be returned as the new column headers.\n\
+      \  If the dictionaries contain overlapping values, the last value will be returned.\n\
+      additionalProperties: false\nrequired:\n  - input\nproperties:\n  input:\n \
+      \   type: \n      - string\n      - integer\n      - array\n    description:\
+      \ |-\n      Name or lists of the column(s) containing dictionaries to be split.\n\
+      \      If providing multiple dictionaries and the dictionaries\n      contain\
+      \ overlapping values, the last value will be returned.\n  output:\n    type:\
+      \ \n      - string\n      - array\n    description: |-\n      (Optional) Subset\
+      \ of keys to extract from the dictionary.\n      If not provided, all keys will\
+      \ be returned.\n      Columns can be renamed with the following syntax:\n  \
+      \    output:\n        - key1: new_column_name1\n        - key2: new_column_name2\n\
+      \  default:\n    type: object\n    description: >-\n      Provide a set of default\
+      \ headings and values\n      if they are not found within the input"
+- id: split.list
+  path: wrangles/recipe_wrangles/split.py
+  type: function
+  target: split.list
+  docstring:
+    content: "type: object\ndescription: Split a list in a single column to multiple\
+      \ columns.\nadditionalProperties: false\nrequired:\n  - input\n  - output\n\
+      properties:\n  input:\n    type:\n      - string\n      - int\n    description:\
+      \ Name of the column to be split\n  output:\n    type:\n      - string\n   \
+      \   - array\n    description: >-\n      Name of column(s) for the results.\n\
+      \      If providing a single column, use a wildcard (*)\n      to indicate a\
+      \ incrementing integer"
+- id: split.text
+  path: wrangles/recipe_wrangles/split.py
+  type: function
+  target: split.text
+  docstring:
+    content: "type: object\ndescription: Split a string to multiple columns or a list.\n\
+      additionalProperties: false\nrequired:\n  - input\nproperties:\n  input:\n \
+      \   type: string\n    description: Name of the column to be split\n  output:\n\
+      \    type:\n      - string\n      - array\n    description: |-\n      Name of\
+      \ the output column(s)\n      If a single column is provided,\n      the results\
+      \ will be returned as a list\n      If multiple columns are listed,\n      the\
+      \ results will be separated into the columns.\n      If omitted, will overwrite\
+      \ the input.\n  char:\n    type: string\n    description: |-\n      Set the\
+      \ character(s) to split on.\n      Default comma (,)\n      Can also prefix\
+      \ with \"regex:\" to split on a pattern.\n  pad:\n    type: boolean\n    description:\
+      \ >-\n      Choose whether to pad to ensure a consistent length.\n      Default\
+      \ true if outputting to columns, false for lists.\n  element:\n    type: \n\
+      \      - integer\n      - string\n    description: >-\n      Select a specific\
+      \ element or range after splitting\n      using slicing syntax. e.g. 0, \":5\"\
+      , \"5:\", \"2:8:2\"\n  inclusive:\n    type: boolean\n    description: >-\n\
+      \      If true, include the split character in the output.\n      Default False"
+- id: split.tokenize
+  path: wrangles/recipe_wrangles/split.py
+  type: function
+  target: split.tokenize
+  docstring:
+    content: "type: object\ndescription: >-\n  Split text into tokens. A variety of\
+      \ methods are available.\n  The default method is to split on spaces.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n  input:\n    type:\n      - string\n\
+      \      - integer\n      - array\n    description: Column(s) to be split into\
+      \ tokens\n  output:\n    type: \n      - string\n      - array\n    description:\
+      \ Name of the output column\n  method:\n    anyOf:\n      - type: string\n \
+      \       enum:\n          - space\n          - boundary\n          - boundary_ignore_space\n\
+      \        description: >-\n          Method to split the list.\n          Options:\
+      \ space, boundary, boundary_ignore_space\n          or use a custom function\
+      \ with custom.<function>\n          or use a regex pattern with regex:<pattern>\n\
+      \      - type: string\n        description: >-\n          Method to split the\
+      \ list.\n          Options: space, boundary, boundary_ignore_space\n       \
+      \   or use a custom function with custom.<function>\n          or use a regex\
+      \ pattern with regex:<pattern>"
+- id: convert.case
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.case
+  docstring:
+    content: "type: object\ndescription: Change the case of the input.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - case\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: Name or list\
+      \ of input columns\n  output:\n    type:\n      - string\n      - array\n  \
+      \  description: Name or list of output columns\n  case:\n    type: string\n\
+      \    description: The case to convert to. lower, upper, title or sentence\n\
+      \    enum:\n      - lower\n      - upper\n      - title\n      - sentence"
+- id: convert.data_type
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.data_type
+  docstring:
+    content: "type: object\ndescription: Change the data type of the input.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - data_type\nproperties:\n  input:\n    type:\
+      \ \n      - string\n      - integer\n      - array\n    description: Name or\
+      \ list of input columns\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: Name or list of output columns\n  data_type:\n    type: string\n\
+      \    description: The new data type\n    enum:\n      - str\n      - float\n\
+      \      - int\n      - bool\n      - datetime\n  default:\n    type: \n     \
+      \ - string\n      - number\n      - array\n      - boolean\n      - datetime\n\
+      \    description: |-\n      Set the default value to return if the input data\
+      \ \n      cannot be converted to the specified data_type."
+- id: convert.fraction_to_decimal
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.fraction_to_decimal
+  docstring:
+    content: "type: object\ndescription: Convert fractions to decimals\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n  input:\n    type:\n      - string\n\
+      \      - integer\n      - array\n    description: Name of the input column\n\
+      \  output:\n    type:\n      - string\n      - array\n    description: Name\
+      \ of the output colum\n  decimals:\n    type:\n      - number\n    description:\
+      \ Number of decimals to round fraction"
+- id: convert.from_json
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.from_json
+  docstring:
+    content: "type: object\ndescription: Convert a JSON representation into an object\n\
+      required:\n  - input\nproperties:\n  input:\n    type:\n      - string\n   \
+      \   - integer\n      - array\n    description: Name of the input column.\n \
+      \ output:\n    type:\n      - string\n      - array\n    description: Name of\
+      \ the output column. If omitted, the input column will be overwritten\n  default:\n\
+      \    type: [\"string\",\"array\",\"object\",\"number\",\"boolean\",\"null\"\
+      ]\n    description: Value to return if the row is empty or fails to be parsed\
+      \ as JSON"
+- id: convert.to_json
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.to_json
+  docstring:
+    content: "type: object\ndescription: Convert an object to a JSON representation.\n\
+      required:\n  - input\nproperties:\n  input:\n    type:\n      - string\n   \
+      \   - integer\n      - array\n    description: Name of the input column.\n \
+      \ output:\n    type:\n      - string\n      - array\n    description: Name of\
+      \ the output column. If omitted, the input column will be overwritten\n  indent:\n\
+      \    type:\n      - string\n      - integer\n    description: >-\n      If indent\
+      \ is a non-negative integer or string, then JSON array elements and object members\
+      \ will be pretty-printed \n      with that indent level. An indent level of\
+      \ 0, negative, or \"\" will only insert newlines. None (the default) selects\
+      \ the most \n      compact representation. Using a positive integer indent indents\
+      \ that many spaces per level. If indent is a string (such as '\\t'), \n    \
+      \  that string is used to indent each level.\n  sort_keys:\n    type: boolean\n\
+      \    description: If sort_keys is true (defaults to False), then the output\
+      \ of dictionaries will be sorted by key.\n  ensure_ascii:\n    type: boolean\n\
+      \    description: If true, non-ASCII characters will be escaped. Default is\
+      \ false "
+- id: convert.from_yaml
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.from_yaml
+  docstring:
+    content: "type: object\ndescription: Convert a YAML representation into an object\n\
+      required:\n  - input\nproperties:\n  input:\n    type:\n      - string\n   \
+      \   - integer\n      - array\n    description: Name of the input column.\n \
+      \ output:\n    type:\n      - string\n      - array\n    description: >-\n \
+      \     Name of the output column.\n      If omitted, the input column will be\
+      \ overwritten\n  default:\n    type: [\"string\",\"array\",\"object\",\"number\"\
+      ,\"boolean\",\"null\"]\n    description: Value to return if the row is empty\
+      \ or fails to be parsed as JSON"
+- id: convert.to_yaml
+  path: wrangles/recipe_wrangles/convert.py
+  type: function
+  target: convert.to_yaml
+  docstring:
+    content: "type: object\ndescription: Convert an object to a YAML representation.\n\
+      required:\n  - input\nproperties:\n  input:\n    type:\n      - string\n   \
+      \   - integer\n      - array\n    description: Name of the input column.\n \
+      \ output:\n    type:\n      - string\n      - array\n    description: >-\n \
+      \     Name of the output column.\n      If omitted, the input column will be\
+      \ overwritten\n  indent:\n    type: integer\n    description: >-\n      Specify\
+      \ the number of spaces for indentation to \n      specify nested elements\n\
+      \  sort_keys:\n    type: boolean\n    description: >-\n      If sort_keys is\
+      \ true (default: False),\n      then the output of dictionaries will be sorted\
+      \ by key."
+- id: main.accordion
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.accordion
+  docstring:
+    content: "type: object\ndescription: >-\n  Apply a series of wrangles to column(s)\
+      \ containing lists.\n  The wrangles will be applied to each element in the list\n\
+      \  and the results will be returned back as a list.\nadditionalProperties: false\n\
+      required:\n  - input\n  - wrangles\nproperties:\n  input:\n    type:\n     \
+      \ - string\n      - integer\n      - array\n    description: >-\n      The column(s)\
+      \ containing the list(s) that the\n      wrangles will be applied to the elements\
+      \ of.\n  propagate:\n    type:\n      - string\n      - array\n    description:\
+      \ >-\n      Limit the column(s) that will be available to the\n      wrangles\
+      \ and replicated for each element.\n      If not specified, all columns will\
+      \ be propogated.\n      This may be useful to limit the memory use\n      for\
+      \ large datasets.\n  output:\n    type:\n      - string\n      - array\n   \
+      \ description: Output of the wrangles to save back to the dataframe.\n  wrangles:\n\
+      \    type: array\n    description: List of wrangles to apply\n    minItems:\
+      \ 1\n    items:\n      \"$ref\": \"#/$defs/wrangles/items\""
+- id: main.batch
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.batch
+  docstring:
+    content: "type: object\ndescription: >-\n  Split the data into batches for executing\
+      \ a list of wrangles.\n  Use this in situations such as where the intermediate\
+      \ data\n  is too large to fit in memory.\nadditionalProperties: false\nrequired:\n\
+      \  - wrangles\nproperties:\n  batch_size:\n    type: integer\n    description:\
+      \ The number of rows to split each batch into\n    default: 1000\n  wrangles:\n\
+      \    type: array\n    description: |-\n      The wrangles to execute on the\
+      \ data. Each series of wrangles\n      will be run agaisnst the data in batches\
+      \ of the size\n      defined by batch_size.\n    minItems: 1\n    items:\n \
+      \     \"$ref\": \"#/$defs/wrangles/items\"\n  threads:\n    type: integer\n\
+      \    description: The number of threads to use for parallel processing. Default\
+      \ 1.\n  on_error:\n    type: object\n    description: 'A dictionary of column_name:\
+      \ value to return if an error occurs while attempting to run a batch'\n  timeout:\n\
+      \    type: number\n    description: The number of seconds to wait for a batch\
+      \ to complete before raising an error"
+- id: main.classify
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.classify
+  docstring:
+    content: "type: object\ndescription: |\n  Run classify wrangles on the specified\
+      \ columns.\n  Requires WrangleWorks Account and Subscription.\nrequired:\n \
+      \ - input\n  - output\n  - model_id\nproperties:\n  input:\n    type:\n    \
+      \  - string\n      - integer\n      - array\n    description: Name of the input\
+      \ column.\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name of the output column.\n  model_id:\n    type: string\n    description:\
+      \ ID of the classification model to be used\n  include_confidence:\n    type:\
+      \ boolean\n    description: For models that support it, include the confidence\
+      \ level in the output"
+- id: main.concurrent
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.concurrent
+  docstring:
+    content: "type: object\ndescription: >-\n  Run multiple wrangles concurrently\
+      \ rather than sequentially.\n  Wrangles must specify output columns to be used\
+      \ concurrently.\n  When using concurrent, Wrangles may not complete in a predictable\
+      \ order\n  and it is not recommended to update overlapping columns with different\
+      \ wrangles.\nadditionalProperties: false\nrequired:\n  - wrangles\nproperties:\n\
+      \  wrangles:\n    type: array\n    description: >-\n      The wrangles section\
+      \ of a recipe to execute for each\n      combination of variables\n    minItems:\
+      \ 1\n    items:\n      - $ref: \"#/$defs/wrangles/items\"\n  max_concurrency:\n\
+      \    type: integer\n    description: The maximum number of wrangles to execute\
+      \ in parallel\n    minimum: 1"
+- id: main.date_calculator
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.date_calculator
+  docstring:
+    content: "type: object\ndescription: Add or Subtract time from a date\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n  input:\n    type:\n      - string\n\
+      \      - integer\n    description: Name of the dates column\n  operation:\n\
+      \    type: string\n    description: Date operation\n    enum:\n      - add\n\
+      \      - subtract\n  output:\n    type: string\n    description: Name of the\
+      \ output column of dates\n  time_unit:\n    type: string\n    description: time\
+      \ unit for operation\n    enum:\n      - years\n      - months\n      - weeks\n\
+      \      - days\n      - hours\n      - minutes\n      - seconds\n      - milliseconds\n\
+      \  time_value:\n    type: number\n    description: time unit value for operation"
+- id: main.filter
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.filter
+  docstring:
+    content: "type: object\ndescription: |-\n  Filter the dataframe based on the contents.\n\
+      \  If multiple filters are specified, all must be correct.\n  For complex filters,\
+      \ use the where parameter.\nadditionalProperties: false\nproperties:\n  where:\n\
+      \    type: string\n    description: Use a SQL WHERE clause to filter the data.\n\
+      \  where_params:\n    type: \n      - array\n      - object\n    description:\
+      \ |-\n      Variables to use in conjunctions with where.\n      This allows\
+      \ the query to be parameterized.\n      This uses sqlite syntax (? or :name)\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ |-\n      Name of the column to filter on.\n      If multiple are provided,\
+      \ all must match the criteria.\n  equal:\n    type:\n      - string\n      -\
+      \ array\n      - boolean\n      - number\n    description: Select rows where\
+      \ the values equal a given value.\n  not_equal:\n    type:\n      - string\n\
+      \      - array\n      - boolean\n      - number\n    description: Select rows\
+      \ where the values do not equal a given value.\n  is_in:\n    type:\n      -\
+      \ array\n      - string\n    description: Select rows where the values are in\
+      \ a given list.\n  not_in:\n    type:\n      - array\n      - string\n    description:\
+      \ Select rows where the values are not in a given list.\n  is_null:\n    type:\
+      \ boolean\n    description: If true, select all rows where the value is NULL.\
+      \ If false, where is not NULL.\n  greater_than:\n    type:\n      - integer\n\
+      \      - number\n    description: Select rows where the values are greater than\
+      \ a specified value. Does include the value itself.\n  greater_than_equal_to:\n\
+      \    type:\n      - integer\n      - number\n    description: Select rows where\
+      \ the values are greater than a specified value. Does include the value itself.\n\
+      \  less_than:\n    type:\n      - integer\n      - number\n    description:\
+      \ Select rows where the values are less than a specified value. Does not include\
+      \ the value itself.\n  less_than_equal_to:\n    type:\n      - integer\n   \
+      \   - number\n    description: Select rows where the values are less than a\
+      \ specified value. Does include the value itself.\n  between:\n    type:\n \
+      \     - array\n    description: Value or list of values to filter that are in\
+      \ between two parameter values\n  contains:\n    type: string\n    description:\
+      \ Select rows where the input contains the value. Allows regular expressions.\n\
+      \  not_contains:\n    type: string\n    description: Select rows where the input\
+      \ does not contain the value. Allows regular expressions."
+- id: main.huggingface
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.huggingface
+  docstring:
+    content: "type: object\ndescription: Use a model from huggingface\nrequired:\n\
+      \  - input\n  - api_token\n  - model\nproperties:\n  input:\n    type:\n   \
+      \   - string\n      - integer\n      - array\n    description: Name of the input\
+      \ column.\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ >\n      Name of the output column.\n      If not provided, will overwrite\
+      \ the input column\n  model:\n    type: string\n    description: Name of the\
+      \ model to use. e.g. facebook/bart-large-cnn\n  api_token:\n    type: string\n\
+      \    description: Huggingface API Token\n  parameters:\n    type: object\n \
+      \   description: Optionally, provide additional parameters to define the model\
+      \ behaviour"
+- id: main.log
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.log
+  docstring:
+    content: "type: object\ndescription: Log the current status of the dataframe.\n\
+      additionalProperties: false\nproperties:\n  columns:\n    type: array\n    description:\
+      \ (Optional, default all columns) List of specific columns to log.\n  write:\n\
+      \    type: array\n    description: (Optional) Allows for an intermediate output\
+      \ to a file/dataframe/database etc. \n    minItems: 1\n    items: \n      \"\
+      $ref\": \"#/$defs/write/items\"\n  error:\n    type: string\n    description:\
+      \ Log an error to the console\n  warning:\n    type: string\n    description:\
+      \ Log a warning to the console\n  info:\n    type: string\n    description:\
+      \ Log info to the console\n  log_data:\n    type: boolean\n    description:\
+      \ Whether to log a sample of the contents of the dataframe. Default True if\
+      \ not logging to a write, error, warning or info. Default False otherwise."
+- id: main.lookup
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.lookup
+  docstring:
+    content: "type: object\ndescription: Lookup values from a saved lookup wrangle\n\
+      required:\n  - input\n  - model_id\nproperties:\n  input:\n    type:\n     \
+      \ - string\n      - integer\n    description: Name of the column(s) to lookup.\n\
+      \  model_id:\n    type: string\n    description: The model_id to use lookup\
+      \ against\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name of the output column(s)"
+- id: main.math
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.math
+  docstring:
+    content: "type: object\ndescription: Apply a mathematical calculation.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - output\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n    description: |\n      The mathematical\
+      \ expression using column names. e.g. column1 * column2\n      + column3.  Note:\
+      \ spaces within column names are replaced by underscores (_).\n  output:\n \
+      \   type: string\n    description: The column to output the results to"
+- id: main.maths
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.maths
+  docstring:
+    content: Deprecated - use math
+- id: main.matrix
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.matrix
+  docstring:
+    content: "type: object\ndescription: |-\n  Apply a matrix of wrangles to the dataframe.\n\
+      \  This will run the wrangles for each combination of the variables.\nrequired:\n\
+      \  - variables\n  - wrangles\nproperties:\n  variables:\n    type: object\n\
+      \    description: |-\n      A dictionary of variables to pass to the wrangle.\n\
+      \      The key is the variable name and the value is a list of values.\n  wrangles:\n\
+      \    type: array\n    description: |-\n      The wrangles to apply to the dataframe.\n\
+      \      Each wrangle will be run for each combination of the variables.\n   \
+      \ minItems: 1\n    items:\n      \"$ref\": \"#/$defs/wrangles/items\"\n  strategy:\n\
+      \    type: string\n    enum:\n      - permutations\n      - loop\n    description:\
+      \ >-\n      Determines how to combine variables when there are multiple.\n \
+      \     loop (default) iterates over each set of variables, repeating shorter\
+      \ lists \n      until the longest is completed. permutations uses the combination\
+      \ of all \n      variables against all other variables."
+- id: main.python
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.python
+  docstring:
+    content: "type: object\ndescription: |-\n  Apply a simple single-line python command.\
+      \ For more complex python use a custom function.\n  Note, this evaluates the\
+      \ python command - be especially cautious including\n  variables from untrusted\
+      \ sources within the command string.\n  The python command will be evaluated\
+      \ once for each row and the result returned.\n  Reference column values by using\
+      \ their name.\n  Non-alphanumeric characters within column names are replaced\
+      \ by underscores (_)\n  Additionally, all columns are available as a dict named\
+      \ kwargs.\n  Additional parameters set for the wrangle will also be available\
+      \ to the command.\nrequired:\n  - command\n  - output\nproperties:\n  input:\n\
+      \    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ |-\n      Name or list of input column(s) to filter the data available\n \
+      \     to the command. Useful in conjunction with kwargs to target\n      a variable\
+      \ range of columns.\n      If not specified, all columns will be available.\n\
+      \  output:\n    type:\n      - string\n      - array\n    description: |-\n\
+      \      Name or list of output column(s). To output multiple columns,\n     \
+      \ return a list of the corresponding length.\n  command:\n    type: string\n\
+      \    description: |-\n      Python command. This must return a value.\n    \
+      \  Note: any non-alphanumeric characters in variable names\n      are replaced\
+      \ by underscores (_).\n  except:\n    type:\n      - string\n      - array\n\
+      \      - number\n      - integer\n      - boolean\n      - object\n    description:\
+      \ |-\n      Value to return for the row if an exception occurs during the evaluation.\n\
+      \      If not provided, an exception will be raised as normal.\n      If multiple\
+      \ output columns are specified, this must match the length."
+- id: main.recipe
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.recipe
+  docstring:
+    content: "anyOf:\n  - \"$ref\": \"#\"\n  - type: object\n    description: Run\
+      \ a recipe as a Wrangle. Recipe-ception,\n    additionalProperties: false\n\
+      \    required:\n      - name\n    properties:\n      name:\n        type: string\n\
+      \        description: file name of the recipe\n      variables:\n        type:\
+      \ object\n        description: A dictionary of variables to pass to the recipe"
+- id: main.remove_words
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.remove_words
+  docstring:
+    content: "type: object\ndescription: Remove all the elements that occur in one\
+      \ list from another.\nadditionalProperties: false\nrequired:\n  - input\n  -\
+      \ to_remove\n  - output\nproperties:\n  input:\n    type: \n      - string\n\
+      \      - integer\n      - array\n    description: Name of column to remove words\
+      \ from\n  to_remove:\n    type: array\n    description: Column or list of columns\
+      \ with a list of words to be removed\n  output:\n    type: \n      - string\n\
+      \      - array\n    description: Name of the output columns\n  tokenize_to_remove:\n\
+      \    type: boolean\n    description: Tokenize all to_remove inputs\n  ignore_case:\n\
+      \    type: boolean\n    description: Ignore input and to_remove case"
+- id: main.rename
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.rename
+  docstring:
+    content: "type: object\ndescription: Rename a column or list of columns.\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name or list of input columns.\n  output:\n    type:\n      - string\n   \
+      \   - array\n    description: Name or list of output columns.\n  wrangles:\n\
+      \    type: array\n    description: |-\n      Use wrangles to transform the column\
+      \ names.\n      The input is named 'columns' and the final result\n      must\
+      \ also include the column named 'columns'.\n      This can only be used instead\
+      \ of the standard rename.\n    minItems: 1\n    items:\n      \"$ref\": \"#/$defs/wrangles/items\""
+- id: main.replace
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.replace
+  docstring:
+    content: "type: object\ndescription: Quick find and replace for simple values.\
+      \ Can use regex in the find field.\nadditionalProperties: false\nrequired:\n\
+      \  - input\n  - find\n  - replace\nproperties:\n  input:\n    type:\n      -\
+      \ string\n      - integer\n      - array\n    description: Name or list of input\
+      \ column\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name or list of output column\n  find:\n    type: string\n    description:\
+      \ Pattern to find using regex\n  replace:\n    type: string\n    description:\
+      \ Value to replace the pattern found"
+- id: main.similarity
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.similarity
+  docstring:
+    content: "type: object\ndescription: Calculate the cosine similarity of two vectors\n\
+      additionalProperties: false\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type: array\n    description: Two columns of vectors to compare\
+      \ the similarity of.\n    minItems: 2\n    maxItems: 2\n  output:\n    type:\
+      \ string\n    description: Name of the output column.\n  method:\n    type:\
+      \ string\n    description: >-\n      The type of similarity to calculate (cosine\
+      \ or euclidean).\n      Adjusted cosine adjusts the default cosine calculation\n\
+      \      to cover a range of 0-1 for typical comparisons.\n    enum:\n      -\
+      \ cosine\n      - adjusted cosine\n      - euclidean"
+- id: main.sql
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.sql
+  docstring:
+    content: "type: object\ndescription: Apply a SQL command to the current dataframe.\
+      \ Only SELECT statements are supported - the result will be the output.\nadditionalProperties:\
+      \ false\nrequired:\n  - command\nproperties:\n  command:\n    type: string\n\
+      \    description: SQL Command. The table is called df. For specific SQL syntax,\
+      \ this uses the SQLite dialect.\n  params:\n    type: \n      - array\n    \
+      \  - object\n    description: |-\n      Variables to use in conjunctions with\
+      \ query.\n      This allows the query to be parameterized.\n      This uses\
+      \ sqlite syntax (? or :name)"
+- id: main.standardize
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.standardize
+  docstring:
+    content: "type: object\ndescription: Standardize data using a DIY or bespoke standardization\
+      \ wrangle. Requires WrangleWorks Account and Subscription.\nrequired:\n  - input\n\
+      properties:\n  input:\n    type:\n      - string\n      - integer\n      - array\n\
+      \    description: Name or list of input columns.\n  output:\n    type:\n   \
+      \   - string\n      - array\n    description: Name or list of output columns\n\
+      \  model_id:\n    type:\n      - string\n      - array\n    description: The\
+      \ ID of the wrangle to use (do not include 'find' and 'replace')\n  case_sensitive:\n\
+      \    type: boolean\n    description: Allows the wrangle to be case sensitive\
+      \ if set to True, default is False."
+- id: main.translate
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.translate
+  docstring:
+    content: "type: object\ndescription: Translate the input to a different language.\
+      \ Requires WrangleWorks Account and DeepL API Key (A free account for up to\
+      \ 500,000 characters per month is available).\nadditionalProperties: false\n\
+      required:\n  - input\n  - output\n  - target_language\nproperties:\n  input:\n\
+      \    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the column to translate\n  output:\n    type:\n      - string\n  \
+      \    - array\n    description: Name of the output column\n  target_language:\n\
+      \    type: string\n    description: Code of the language to translate to\n \
+      \   enum:\n      - Bulgarian\n      - Chinese\n      - Czech\n      - Danish\n\
+      \      - Dutch\n      - English (American)\n      - English (British)\n    \
+      \  - Estonian\n      - Finnish\n      - French\n      - German\n      - Greek\n\
+      \      - Hungarian\n      - Italian\n      - Japanese\n      - Latvian\n   \
+      \   - Lithuanian\n      - Polish\n      - Portuguese\n      - Portuguese (Brazilian)\n\
+      \      - Romanian\n      - Russian\n      - Slovak\n      - Slovenian\n    \
+      \  - Spanish\n      - Swedish\n  source_language:\n    type: string\n    description:\
+      \ Code of the language to translate from. If omitted, automatically detects\
+      \ the input language\n    enum:\n      - Auto\n      - Bulgarian\n      - Chinese\n\
+      \      - Czech\n      - Danish\n      - Dutch\n      - English\n      - Estonian\n\
+      \      - Finnish\n      - French\n      - German\n      - Greek\n      - Hungarian\n\
+      \      - Italian\n      - Japanese\n      - Latvian\n      - Lithuanian\n  \
+      \    - Polish\n      - Portuguese\n      - Romanian\n      - Russian\n     \
+      \ - Slovak\n      - Slovenian\n      - Spanish\n      - Swedish"
+- id: main.Try
+  path: wrangles/recipe_wrangles/main.py
+  type: function
+  target: main.Try
+  docstring:
+    content: "type: object\ndescription: Try a list of wrangles and catch any errors\
+      \ that occur\nrequired:\n  - wrangles\nproperties:\n  wrangles:\n    type: array\n\
+      \    description: List of wrangles to apply\n    minItems: 1\n    items:\n \
+      \     \"$ref\": \"#/$defs/wrangles/items\"\n  except:\n    type:\n      - object\n\
+      \    description: |-\n      An action to take if the wrangles encounter an error.\n\
+      \      This can contain a list of wrangles or a dictionary of column names and\
+      \ values.\n      If except is not provided, the error will be logged and the\
+      \ recipe will continue.\n    minItems: 1\n    items:\n      \"$ref\": \"#/$defs/wrangles/items\"\
+      \n  retries:\n    type: integer\n    description: Number of times to retry the\
+      \ wrangles if an error occurs. Default 0.\n    minimum: 0"
+- id: merge.coalesce
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.coalesce
+  docstring:
+    content: "type: object\ndescription: Take the first non-empty value from a series\
+      \ of columns or lists.\nadditionalProperties: false\nrequired:\n  - input\n\
+      properties:\n  input:\n    type:\n      - array\n      - string\n      - integer\n\
+      \    description: List of input columns or a single column containing lists\n\
+      \  output:\n    type: string\n    description: Name of the output columns. This\
+      \ is required if multiple input columns are provided."
+- id: merge.concatenate
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.concatenate
+  docstring:
+    content: "type: object\ndescription: Concatenate a list of columns or a list within\
+      \ a single column.\nadditionalProperties: false\nrequired:\n  - input\n  - output\n\
+      \  - char\nproperties:\n  input:\n    type: \n      - array\n      - string\n\
+      \      - integer\n    description: Either a single column name or list of columns\n\
+      \  output:\n    type: string\n    description: Name of the output column\n \
+      \ char:\n    type: string\n    description: (Optional) Character to add between\
+      \ successive values\n  skip_empty:\n    type: boolean\n    desription: Whether\
+      \ to skip empty values\n    default: false"
+- id: merge.dictionaries
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.dictionaries
+  docstring:
+    content: "type: object\ndescription: Take dictionaries in multiple columns and\
+      \ merge them to a single dictionary.\nadditionalProperties: false\nrequired:\n\
+      \  - input\n  - output\nproperties:\n  input:\n    type: array\n    description:\
+      \ list of input columns\n  output:\n    type: string\n    description: Name\
+      \ of the output column    "
+- id: merge.key_value_pairs
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.key_value_pairs
+  docstring:
+    content: "type: object\ndescription: Create a dictionary from keys and values\
+      \ in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2\
+      \ ...\nadditionalProperties: false\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type: object\n    description: Matched pairs of key and value\
+      \ columns\n  output:\n    type: string\n    description: Name of the output\
+      \ column"
+- id: merge.lists
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.lists
+  docstring:
+    content: "type: object\ndescription: Take lists in multiple columns and merge\
+      \ them to a single list.\nadditionalProperties: false\nrequired:\n  - input\n\
+      \  - output\nproperties:\n  input:\n    type: array\n    description: List of\
+      \ input columns\n  output:\n    type: string\n    description: Name of the output\
+      \ column\n  remove_duplicates:\n    type: boolean\n    description: Whether\
+      \ to remove duplicates from the created list\n  ignore_case:\n    type: boolean\n\
+      \    description: Ignore case when removing duplicates"
+- id: merge.to_dict
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.to_dict
+  docstring:
+    content: "type: object\ndescription: Take multiple columns and merge them to a\
+      \ dictionary (aka object) using the column headers as keys.\nadditionalProperties:\
+      \ false\nrequired:\n  - input\n  - output\nproperties:\n  input:\n    type:\n\
+      \      - array\n      - string\n      - integer\n    description: List of input\
+      \ columns\n  output:\n    type: string\n    description: Name of the output\
+      \ column\n  include_empty:\n    type: boolean\n    description: Whether to include\
+      \ empty columns in the created dictionary"
+- id: merge.to_list
+  path: wrangles/recipe_wrangles/merge.py
+  type: function
+  target: merge.to_list
+  docstring:
+    content: "type: object\ndescription: Take multiple columns and merge them to a\
+      \ list.\nadditionalProperties: false\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type:\n      - array\n      - string\n      - integer\n    description:\
+      \ List of input columns\n  output:\n    type: string\n    description: Name\
+      \ of the output column\n  include_empty:\n    type: boolean\n    description:\
+      \ Whether to include empty columns in the created list"
+- id: compare.text
+  path: wrangles/recipe_wrangles/compare.py
+  type: function
+  target: compare.text
+  docstring:
+    content: "type: object\ndescription: Compare two strings and return the intersection\
+      \ or difference, or use overlap to find the matching characters between the\
+      \ two strings.\nrequired:\n  - input\n  - output\n  - method\nproperties:\n\
+      \  input:\n    type: array\n    description: the columns to compare. First column\
+      \ is the base column\n  output:\n    type: string\n    description: The column\
+      \ to output the results to\n  method:\n    type: string\n    description: The\
+      \ type of comparison to perform (difference, intersection, overlap)\n    enum:\n\
+      \      - difference\n      - intersection\n      - overlap\nallOf:\n  - if:\n\
+      \      properties:\n        method:\n          const: difference\n    then:\n\
+      \      properties:\n        char:\n          type: string\n          description:\
+      \ \"(Optional) The character to split the strings on. Default is a space\"\n\
+      \  - if:\n      properties:\n        method:\n          const: intersection\n\
+      \    then:\n      properties:\n        char:\n          type: string\n     \
+      \     description: \"(Optional) The character to split the strings on. Default\
+      \ is a space\"\n  - if:\n      properties:\n        method:\n          const:\
+      \ overlap\n    then:\n      properties:\n        non_match_char:\n         \
+      \ type: string\n          description: \"(Optional) Character to use for non-matching\
+      \ characters\"\n        include_ratio:\n          type: boolean\n          description:\
+      \ \"(Optional) Include the ratio of matching characters\"\n        decimal_places:\n\
+      \          type: integer\n          description: \"(Optional) Number of decimal\
+      \ places to round the ratio to\"\n        exact_match:\n          type: string\n\
+      \          description: \"(Optional) Value to use for exact matches\"\n    \
+      \    empty_a:\n          type: string\n          description: \"(Optional) Value\
+      \ to use for empty input a\"\n        empty_b:\n          type: string\n   \
+      \       description: \"(Optional) Value to use for empty input b\"\n       \
+      \ all_empty:\n          type: string\n          description: \"(Optional) Value\
+      \ to use for both inputs\""
+- id: extract.address
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.address
+  docstring:
+    content: "type: object\ndescription: Extract parts of addresses. Requires WrangleWorks\
+      \ Account.\nrequired:\n  - input\n  - output\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: Name of the\
+      \ input column.\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name of the output column.\n  dataType:\n    type: string\n    description:\
+      \ Specific part of the address to extract\n    enum:\n      - streets\n    \
+      \  - cities\n      - regions\n      - countries"
+- id: extract.ai
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.ai
+  docstring:
+    content: "type: object\ndescription: Extract data using an AI model.\nadditionalProperties:\
+      \ false\nrequired:\n  - output\n  - api_key\nproperties:\n  input:\n    type:\n\
+      \      - string\n      - integer\n      - array\n    description: |-\n     \
+      \ Name or list of input columns to give to the AI\n      to use to determine\
+      \ the output. If not specified, all\n      columns will be used.\n  output:\n\
+      \    type: [object, string, array]\n    description: List and description of\
+      \ the output you want\n    patternProperties:\n      \"^[a-zA-Z0-9 _-]+$\":\n\
+      \        type: [object, string]\n        properties:\n          type:\n    \
+      \        type: string\n            description: The type of data you'd like\
+      \ the model to return.\n            enum:\n              - string\n        \
+      \      - number\n              - integer\n              - boolean\n        \
+      \      - \"null\"\n              - object\n              - array\n         \
+      \ description:\n            type: string\n            description: Description\
+      \ of the output you'd like the model to return.\n          enum:\n         \
+      \   type: array\n            description: List of possible values for the output.\n\
+      \          default:\n            type:\n              - string\n           \
+      \   - number\n              - integer\n              - boolean\n           \
+      \   - \"null\"\n              - object\n              - array\n            description:\
+      \ A default value to return.\n          examples:\n            type: array\n\
+      \            description: Provide examples of typical values to return.\n  api_key:\n\
+      \    type: string\n    description: API Key for the model\n  model:\n    type:\
+      \ string\n    description: The name of the AI model to use\n  threads:\n   \
+      \ type: integer\n    description: The number of requests to send in parallel\n\
+      \  timeout:\n    type: integer\n    description: The number of seconds to wait\
+      \ for a response before timing out\n  retries:\n    type: integer\n    description:\
+      \ >-\n      The number of times to retry if the request fails.\n      This will\
+      \ apply exponential backoff to help with rate limiting.\n  url:\n    type: string\n\
+      \    description: |-\n      Override the default url for the AI endpoint.\n\
+      \      Must use the OpenAI chat completions API.\n  messages:\n    type:\n \
+      \     - string\n      - array\n    description: Optional. Provide additional\
+      \ overall instructions for the AI.\n  model_id:\n    type: string\n    description:\
+      \ Use a saved definition from an extract ai wrangle.\n  strict:\n    type: boolean\n\
+      \    description: >-\n      Enable strict mode. Default False.\n      If True,\
+      \ the function will be required to match the schema,\n      but may be more\
+      \ limited in the schema it can return."
+- id: extract.attributes
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.attributes
+  docstring:
+    content: "type: object\ndescription: Extract numeric attributes from the input\
+      \ such as weights or lengths. Requires WrangleWorks Account.\nrequired:\n  -\
+      \ input\n  - output\nproperties:\n  input:\n    type:\n      - string\n    \
+      \  - integer\n      - array\n    description: Name of the input column.\n  output:\n\
+      \    type:\n      - string\n      - array\n    description: Name of the output\
+      \ column.\n  attribute_type:\n    type: string\n    description: Request only\
+      \ a specific type of attribute\n    enum:\n      - angle\n      - area\n   \
+      \   - capacitance\n      - charge\n      - current\n      - data transfer rate\n\
+      \      - electrical conductance\n      - electrical resistance\n      - energy\n\
+      \      - force\n      - frequency\n      - inductance\n      - instance frequency\n\
+      \      - length\n      - luminous flux\n      - weight\n      - power\n    \
+      \  - pressure\n      - speed\n      - velocity\n      - temperature\n      -\
+      \ time\n      - voltage\n      - volume\n      - volumetric flow\n  responseContent:\n\
+      \    type: string\n    description: span - returns the text found. object -\
+      \ returns an object with the value and unit\n    enum:\n      - span\n     \
+      \ - object\n  bound:\n    type: string\n    description: When returning an object,\
+      \ if the input is a range (e.g. 10-20mm) set the value to return. min, mid or\
+      \ max. Default mid.\n    enum:\n      - min\n      - mid\n      - max\n  desired_unit:\n\
+      \    type: string\n    description: Convert the extracted unit to the desired\
+      \ unit\n$ref: \"#/$defs/misc/unit_entity_map\""
+- id: extract.brackets
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.brackets
+  docstring:
+    content: "type: object\ndescription: Extract text properties in brackets from\
+      \ the input\nadditionalProperties: false\nrequired:\n  - input\n  - output\n\
+      properties:\n  input:\n    type:\n      - string\n      - integer\n      - array\n\
+      \    description: Name of the input column\n  output:\n    type:\n      - string\n\
+      \      - array\n    description: Name of the output columns\n  find:\n    type:\
+      \ \n      - string\n      - array\n    description: (Optional) The type of brackets\
+      \ to find (round '()', square '[]', curly '{}', angled '<>'). Default is all\
+      \ brackets.\n  include_brackets:\n    type: boolean\n    description: (Optional)\
+      \ Include the brackets in the output"
+- id: extract.codes
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.codes
+  docstring:
+    content: "type: object\ndescription: Extract alphanumeric codes from the input.\
+      \ Requires WrangleWorks Account.\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name or list of input columns.\n  output:\n    type:\n      - string\n   \
+      \   - array\n    description: Name or list of output columns"
+- id: extract.custom
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.custom
+  docstring:
+    content: "type: object\ndescription: Extract data from the input using a DIY or\
+      \ bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.\n\
+      required:\n  - input\n  - model_id\nproperties:\n  input:\n    type:\n     \
+      \ - string\n      - integer\n      - array\n    description: Name or list of\
+      \ input columns.\n  output:\n    type:\n      - string\n      - array\n    description:\
+      \ Name or list of output columns\n  model_id:\n    type:\n      - string\n \
+      \     - array\n    description: The ID of the wrangle to use\n  use_labels:\n\
+      \    type: boolean\n    description: \"Use Labels in the extract output {label:\
+      \ value}\"\n  first_element:\n    type: boolean\n    description: Get the first\
+      \ element from results\n  case_sensitive:\n    type: boolean\n    description:\
+      \ Allows the wrangle to be case sensitive if set to True, default is False.\n\
+      \  extract_raw:\n    type: boolean\n    description: Extract the raw data from\
+      \ the wrangle\n  use_spellcheck:\n    type: boolean\n    description: Use spellcheck\
+      \ to also find minor mispellings compared to the reference data"
+- id: extract.date_properties
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.date_properties
+  docstring:
+    content: "type: object\ndescription: Extract date properties from a date (day,\
+      \ month, year, etc...)\nadditionalProperties: false\nrequired:\n  - input\n\
+      \  - property\nproperties:\n  input:\n    type:\n      - string\n      - integer\n\
+      \      - array\n    description: Name of the input column\n  output:\n    type:\n\
+      \      - string\n      - array\n    description: Name of the output columns\n\
+      \  property:\n    type: string\n    description: Property to extract from date\n\
+      \    enum:\n      - day\n      - day_of_year\n      - month\n      - month_name\n\
+      \      - weekday\n      - week_day_name\n      - week_year\n      - quarter"
+- id: extract.date_range
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.date_range
+  docstring:
+    content: "type: object\ndescription: Extract date range frequency from two dates\n\
+      additionalProperties: false\nrequired:\n  - start_time\n  - end_time\n  - output\n\
+      \  - range\nproperties:\n  start_time:\n    type: string\n    description: Name\
+      \ of the start date column\n  end_time:\n    type: string\n    description:\
+      \ Name of the end date column\n  output:\n    type: string\n    description:\
+      \ Name of the output column\n  range:\n    type: string\n    description: Type\
+      \ of frequency to count\n    enum:\n      - business days\n      - days\n  \
+      \    - weeks\n      - months\n      - semi months\n      - business month ends\n\
+      \      - month starts\n      - semi month starts\n      - business month starts\n\
+      \      - quarters\n      - quarter starts\n      - years\n      - business hours\n\
+      \      - hours\n      - minutes\n      - seconds\n      - milliseconds"
+- id: extract.html
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.html
+  docstring:
+    content: "type: object\ndescription: Extract elements from strings containing\
+      \ html. Requires WrangleWorks Account.\nrequired:\n  - input\n  - output\n \
+      \ - data_type\nproperties:\n  input:\n    type:\n      - string\n      - integer\n\
+      \      - array\n    description: Name or list of input columns.\n  output:\n\
+      \    type:\n      - string\n      - array\n    description: Name or list of\
+      \ output columns\n  data_type:\n    type: string\n    description: The type\
+      \ of data to extract\n    enum:\n      - text\n      - links"
+- id: extract.properties
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.properties
+  docstring:
+    content: "type: object\ndescription: Extract text properties from the input. Requires\
+      \ WrangleWorks Account.\nrequired:\n  - input\n  - output\nproperties:\n  input:\n\
+      \    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column\n  output:\n    type:\n      - string\n      - array\n\
+      \    description: Name of the output columns\n  property_type:\n    type: string\n\
+      \    description: The specific type of properties to extract\n    enum:\n  \
+      \    - Colours\n      - Materials\n      - Shapes\n      - Standards\n  return_data_type:\n\
+      \    type: string\n    description: The format to return the data, as a list\
+      \ or as a string\n    enum:\n      - list\n      - string"
+- id: extract.regex
+  path: wrangles/recipe_wrangles/extract.py
+  type: function
+  target: extract.regex
+  docstring:
+    content: "type: object\ndescription: Extract matches or specific capture groups\
+      \ using regex\nadditionalProperties: false\nrequired:\n  - input\n  - output\n\
+      \  - find\nproperties:\n  input:\n    type: \n      - string\n      - integer\n\
+      \      - array\n    description: Name of the input column(s).\n  output:\n \
+      \   type:\n      - string\n      - array\n    description: Name of the output\
+      \ column(s).\n  find:\n    type: string\n    description: Pattern to find using\
+      \ regex\n  output_pattern:\n    type: string\n    description: |\n      Specifies\
+      \ the format to output matches and specific capture groups using backreferences\
+      \ (e.g., `\\1`, `\\2`). Default is to return entire matches.\n\n      **Example**:\
+      \ For a regex pattern `r'(\\d+)\\s(\\w+)'` and `output_pattern = '\\2 \\1'`,\
+      \ with input `'120 volt'`, the output would be `'volt 120'`."
+- id: pandas.copy
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.copy
+  docstring:
+    content: "type: object\ndescription: Make a copy of a column or a list of columns\n\
+      additionalProperties: false\nrequired:\n  - input\n  - output\nproperties:\n\
+      \  input:\n    type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input columns or columns\n  output:\n    type:\n      - string\n\
+      \      - array\n    description: Name of the output columns or columns"
+- id: pandas.drop
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.drop
+  docstring:
+    content: "type: object\ndescription: Drop (Delete) selected column(s)\nadditionalProperties:\
+      \ true\nrequired:\n  - columns\nproperties:\n  columns:\n    type:\n      -\
+      \ array\n      - string\n    description: Name of the column(s) to drop"
+- id: pandas.transpose
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.transpose
+  docstring:
+    content: "type: object\ndescription: Transpose the DataFrame (swap columns to\
+      \ rows)\nadditionalProperties: false\nproperties:\n  header_column:\n    type:\
+      \ \n      - string\n      - integer\n      - null\n    description: >- \n  \
+      \    Name or position of the column that will be used as the column headings\n\
+      \      for the transposed DataFrame. Default 0 (first column).\n      Use header_column\
+      \ = null to not use any column as header."
+- id: pandas.sort
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.sort
+  docstring:
+    content: "type: object\ndescription: Sort the data\nadditionalProperties: true\n\
+      required:\n  - by\nproperties:\n  by:\n    type:\n      - string\n      - array\n\
+      \    description: Name or list of the column(s) to sort by\n  ascending:\n \
+      \   type:\n      - boolean\n      - array\n    items:\n      type: boolean\n\
+      \    description: >-\n      Sort ascending vs. descending.\n      Specify a\
+      \ list to sort multiple columns in different orders.\n      If this is a list\
+      \ of bools then it must match the length of the by."
+- id: pandas.round
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.round
+  docstring:
+    content: "type: object\ndescription: Round column(s) to the specified decimals\n\
+      additionalProperties: false\nrequired:\n  - input\nproperties:\n  input:\n \
+      \   type:\n      - string\n      - integer\n      - array\n    description:\
+      \ Name of the input column(s)\n  output:\n    type:\n      - string\n      -\
+      \ array\n    description: Name of the output column(s)\n  decimals:\n    type:\
+      \ number\n    description: Number of decimal places to round column"
+- id: pandas.reindex
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.reindex
+  docstring:
+    content: "type: object\ndescription: Changes the row labels and column labels\
+      \ of a DataFrame.\nadditionalProperties: false\nproperties:\n  labels:\n   \
+      \ type: array\n    description: New labels / index to conform the axis specified\
+      \ by ‘axis’ to.\n  index:\n    type: array\n    description: New labels for\
+      \ the index. Preferably an Index object to avoid duplicating data.\n  columns:\n\
+      \    type: array\n    description: New labels for the columns. Preferably an\
+      \ Index object to avoid duplicating data.\n  axis:\n    type:\n      - number\n\
+      \      - string\n    description: Axis to target. Can be either the axis name\
+      \ (‘index’, ‘columns’) or number (0, 1).  "
+- id: pandas.explode
+  path: wrangles/recipe_wrangles/pandas.py
+  type: function
+  target: pandas.explode
+  docstring:
+    content: "type: object\ndescription: Explode a column of lists into rows\nadditionalProperties:\
+      \ false\nrequired:\n  - input\nproperties:\n    input:\n      type:\n      \
+      \  - string\n        - integer\n        - array\n      description: >-\n   \
+      \     Name of the column(s) to explode. If multiple\n        columns are included\
+      \ they must contain lists\n        of the same length\n    reset_index:\n  \
+      \    type: boolean\n      description: Reset the index after exploding. Default\
+      \ True.\n    drop_empty:\n      type: boolean\n      description: |- \n    \
+      \    If true, any rows that contain an empty list will be dropped.\n       \
+      \ If false, rows that contain empty lists will keep 1 row with an empty value.\n\
+      \        Default False."
+- id: test.read
+  path: wrangles/connectors/test.py
+  type: function
+  target: test.read
+  docstring:
+    content: "Create a test dataframe\n\n>>> from wrangles.connectors import test\n\
+      >>> df = test.read(rows=5, values={'header1':'a','header2':'b'})\n\nSpecial\
+      \ inputs to generate random data:\n<code> or <code(10)> : Random alphanumeric\
+      \ codes (10) sets the length. e.g. J1RSB7X9 \n<char> : Random letters\n<word>\
+      \ : Random nonsense words\n<sentence> : Random nonsense sentences\n<boolean>\
+      \ : Randomly True or False\n<number(2.718-3.141)> : Random numbers (2.718-3.141)\
+      \ sets the range and decimal places\n<int(1-10)> : Random integers (1-10) sets\
+      \ the range\n<random([\"true\", \"false\"])> : Randomly select a value from\
+      \ a list\n\n:param rows: Number of rows to include in the created dataframe\n\
+      :param values: Dictionary of header and values\n:return: Pandas Dataframe of\
+      \ the created data"
+- id: salesforce.read
+  path: wrangles/connectors/salesforce.py
+  type: function
+  target: salesforce.read
+  docstring:
+    content: 'Read data from Salesforce
+
+
+      >>> from wrangles.connectors import salesforce
+
+      >>> df = salesforce.read(instance=''sf.domain'', object=''object'', user=''user'',
+      password=''password'', token=''token'', command=''SELECT Id, Name FROM Contact'')
+
+
+      :param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
+
+      :param user: User with read permission
+
+      :param password: Password for the user
+
+      :param token: Security token for the user
+
+      :param object: Object to read data from e.g. Contact
+
+      :param command: SOQL query
+
+      :param columns: (Optional) Subset of the columns to be read. If not provided,
+      all columns will be included
+
+      :param params: (Optional) Parameters to be used in the SOQL query
+
+      :param domain: (Optional) Use test to connect to a sandbox instance
+
+      :return: A Pandas dataframe of the imported data.'
+- id: salesforce.write
+  path: wrangles/connectors/salesforce.py
+  type: function
+  target: salesforce.write
+  docstring:
+    content: 'Write data to Salesforce.
+
+
+      >>> from wrangles.connectors import salesforce
+
+      >>> salesforce.write(df, instance=''sf.domain'', object=''object'', id=''Id'',
+      user=''user'', password=''password'', token=''token'')
+
+
+      :param df: Dataframe to be written to a file
+
+      :param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
+
+      :param object: Object to upload to data to e.g. Contact
+
+      :param id: Id field. If the Id exists and is provided, the record will be updated,
+      otherwise inserted.
+
+      :param user: User with write permission
+
+      :param password: Password for the user
+
+      :param token: Security token for the user
+
+      :param columns: (Optional) A subset of the columns to be written
+
+      :param domain: (Optional) Use test to connect to a sandbox instance'
+- id: sqlite.read
+  path: wrangles/connectors/sqlite.py
+  type: function
+  target: sqlite.read
+  docstring:
+    content: 'Read data from a SQLite database.
+
+
+      >>> from wrangles.connectors import sqlite
+
+      >>> df = sqlite.read(database = ''database.db'', command=''SELECT * FROM table'')
+
+
+      :param database: The database to connect to including the file path. e.g. directory/database.db
+
+      :param command: SQL command or table name'
+- id: sqlite.write
+  path: wrangles/connectors/sqlite.py
+  type: function
+  target: sqlite.write
+  docstring:
+    content: 'Write data to a SQLite database.
+
+
+      >>> from wrangles.connectors import sqlite
+
+      >>> sqlite.write(df, database = ''database.db'', table = ''table'')
+
+
+      :param df: Pandas Dataframe to be written
+
+      :param database: The database to connect to including the file path. e.g. directory/database.db
+
+      :param table: Table to be exported to'
+- id: sqlite.run
+  path: wrangles/connectors/sqlite.py
+  type: function
+  target: sqlite.run
+  docstring:
+    content: 'Run a command on a SQLite Database
+
+
+      >>> wrangles.connectors.sqlite.run(
+
+      >>>    database=''db'',
+
+      >>>    command=''<SQL COMMAND>''
+
+      >>> )
+
+
+      :param database: The name of the database
+
+      :param command: SQL command or a list of SQL commands to execute
+
+      :param params: Variables to pass to a parameterized query.'
+- id: excel.sheet
+  path: wrangles/connectors/excel.py
+  type: class
+  target: excel.sheet
+  docstring:
+    content: ''
+- id: memory.clear
+  path: wrangles/connectors/memory.py
+  type: function
+  target: memory.clear
+  docstring:
+    content: 'Clear and reset any existing data
+
+      stored in the connector'
+- id: memory.read
+  path: wrangles/connectors/memory.py
+  type: function
+  target: memory.read
+  docstring:
+    content: 'Read a dataframe previous saved in memory
+
+
+      >>> from wrangles.connectors import memory
+
+      >>> memory.read(
+
+      >>>    id="find_me_later",
+
+      >>>    custom_key="custom_value"
+
+      >>> )
+
+
+      :param df: Dataframe to be exported
+
+      :param id: A unique ID to identify the data.         If not specified, will
+      read the last dataframe         saved in memory
+
+      :param orient: Set the arrangement of the data.         See pandas.DataFrame.to_dict
+      method for options.         Default is tight.'
+- id: memory.write
+  path: wrangles/connectors/memory.py
+  type: function
+  target: memory.write
+  docstring:
+    content: 'Write a dataframe to memory for reference later
+
+
+      >>> from wrangles.connectors import memory
+
+      >>> memory.write(
+
+      >>>    df,
+
+      >>>    id="find_me_later",
+
+      >>>    custom_key="custom_value"
+
+      >>> )
+
+
+      :param df: Dataframe to be exported
+
+      :param id: A unique ID to identify the data
+
+      :param orient: Set the arrangement of the data.         See pandas.DataFrame.to_dict
+      method for options.         Default is tight.'
+- id: file.read
+  path: wrangles/connectors/file.py
+  type: function
+  target: file.read
+  docstring:
+    content: "Import a file as defined by user parameters.\n\nSupports:\n  - Excel\
+      \ (.xlsx, .xlsx, .xlsm)\n  - CSV (.csv, .txt)\n  - JSON (.json), JSONL (.jsonl)\n\
+      \  - Pickle (.pkl, .pickle) files.\n\nJSON, JSONL, CSV and Pickle files may\
+      \ also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.\n\n>>>\
+      \ df = wrangles.connectors.file.read('myfile.csv')\n\n:param name: Name of the\
+      \ file to import\n:param columns: (Optional) Subset of the columns to be read.\
+      \ If not provided, all columns will be included\n:param file_object: (Optional)\
+      \ File object to read. If provided, this will be read instead of from the file\
+      \ system. A name is still required to infer the file type.\n:param kwargs: (Optional)\
+      \ Named arguments to pass to respective pandas function.\n:return: A Pandas\
+      \ dataframe of the imported data."
+- id: file.write
+  path: wrangles/connectors/file.py
+  type: function
+  target: file.write
+  docstring:
+    content: 'Output a file to the local file system as defined by the parameters.
+
+
+      Supports:
+
+      - Excel (.xlsx, .xls)
+
+      - CSV (.csv, .txt)
+
+      - JSON (.json), JSONL (.jsonl)
+
+      - Pickle (.pkl, .pickle)
+
+
+      JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and
+      will be compressed.
+
+
+      :param df: Dataframe to be written to a file
+
+      :param name: Name of the output file
+
+      :param columns: (Optional) Subset of the columns to be written. If not provided,
+      all columns will be output
+
+      :param file_object: (Optional) A bytes file object to be written in memory.
+      If passed, file will be written in memory instead of to the file system.
+
+      :param kwargs: (Optional) Named arguments to pass to respective pandas function.'
+- id: sftp.read
+  path: wrangles/connectors/sftp.py
+  type: function
+  target: sftp.read
+  docstring:
+    content: 'Read files from an SFTP server
+
+
+      >>> from wrangles.connectors import sftp
+
+      >>> df = sftp.read(host=''sftp.domain'', user=''user'', password=''password'',
+      file=''myfile.csv'')
+
+
+      :param host: The domain or IP of the SFTP server
+
+      :param user: The user to connect as
+
+      :param password: The password for the user
+
+      :param file: The filename including path on the remote server
+
+      :param kwargs: Other arguments from the file connector may also be used
+
+      :return: A dataframe with the imported data'
+- id: sftp.write
+  path: wrangles/connectors/sftp.py
+  type: function
+  target: sftp.write
+  docstring:
+    content: 'Write files to an SFTP server
+
+
+      Supports Excel (.xlsx, .xls), CSV (.csv, .txt) and JSON (.json) files.
+
+      JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be compressed.
+
+
+      >>> from wrangles.connectors import sftp
+
+      >>> df = sftp.write(df, host=''sftp.domain'', user=''user'', password=''password'',
+      file=''myfile.csv'')
+
+
+      :param df: Dataframe to be written to a file
+
+      :param host: The domain or IP of the SFTP server
+
+      :param user: The user to connect as
+
+      :param password: The password for the user
+
+      :param file: The filename including path on the remote server
+
+      :param port: (Optional) Specify the port to connect to
+
+      :param kwargs: Other arguments from the file connector may also be used'
+- id: sftp.download_files
+  path: wrangles/connectors/sftp.py
+  type: class
+  target: sftp.download_files
+  docstring:
+    content: Download files from an SFTP host and save to the local file system.
+- id: sftp.upload_files
+  path: wrangles/connectors/sftp.py
+  type: class
+  target: sftp.upload_files
+  docstring:
+    content: Upload files from the local file system to an SFTP host.
+- id: postgres.read
+  path: wrangles/connectors/postgres.py
+  type: function
+  target: postgres.read
+  docstring:
+    content: 'Import data from a PostgreSQL database.
+
+
+      >>> from wrangles.connectors import postgres
+
+      >>> df = postgres.read(host=''sql.domain'', user=''user'', password=''password'',
+      command=''SELECT * FROM table'')
+
+
+      :param host: Hostname or IP of the database
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param command: SQL command or table name
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param database: (Optional) Database to be queried
+
+      :param columns: (Optional) Subset of columns to be returned. This is less efficient
+      than specifying in the SQL command.
+
+      :param params: (Optional) List of parameters to pass to execute method. The
+      syntax used to pass parameters is database driver dependent.
+
+      :return: Pandas Dataframe of the imported data'
+- id: postgres.write
+  path: wrangles/connectors/postgres.py
+  type: function
+  target: postgres.write
+  docstring:
+    content: 'Export data to a PostgreSQL database.
+
+
+      >>> from wrangles.connectors import postgres
+
+      >>> postgres.write(df, host=''sql.domain'', database=''database'', table=''table'',
+      user=''user'', password=''password'')
+
+
+      :param df: Dataframe to be exported
+
+      :param host: Hostname or IP of the database
+
+      :param database: Database to be exported to
+
+      :param table: Table to be exported to
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param action: Only INSERT is supported at this time, defaults to INSERT
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param columns: (Optional) Subset of the columns to be written. If not provided,
+      all columns will be output'
+- id: postgres.run
+  path: wrangles/connectors/postgres.py
+  type: function
+  target: postgres.run
+  docstring:
+    content: 'Run a command on a PostgreSQL Server
+
+
+      >>> wrangles.connectors.postgres.run(
+
+      >>>    host=''sql.domain'',
+
+      >>>    database=''db'',
+
+      >>>    user=''user'',
+
+      >>>    password=''password'',
+
+      >>>    command=''CALL myStoredProcedure''
+
+      >>> )
+
+
+      :param host: Hostname or IP of the database
+
+      :param database: The name of the database
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param command: SQL command or a list of SQL commands to execute
+
+      :param port: The Port to connect to. Defaults to 5432.
+
+      :param params: Variables to pass to a parameterized query.'
+- id: mongodb.read
+  path: wrangles/connectors/mongodb.py
+  type: function
+  target: mongodb.read
+  docstring:
+    content: 'Import data from a MongoDB database
+
+
+      >>> from wrangles.connectors import mongodb
+
+      >>> df = mongodb.read(user=''user, password=''password'', database=''db'', host=''cluster0.mongodb.net'',
+      query=''{"name": "Fey"}'',projection=''{"_id": 0, "name": 1, "position": 1}'')
+
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param database: Database to be queried
+
+      :param collection: Collection to be queried
+
+      :param host: mongoDB cluster-url
+
+      :param query: mongoDB query
+
+      :param projection: (Optional) Select which fields to include'
+- id: mongodb.write
+  path: wrangles/connectors/mongodb.py
+  type: function
+  target: mongodb.write
+  docstring:
+    content: 'Write data into a mongoDB database
+
+
+      >>> from wrangles.connectors import mongodb
+
+      >>> df = mongodb.write(user=''user, password=''password'', database=''db'',
+      host=''cluster0.mongodb.net'', action: INSERT)
+
+
+      :param df: Dataframe to be exported
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param database: Database to be queried
+
+      :param collection: Collection to be queried
+
+      :param host: mongobd cluster-url
+
+      :param action: actions supported INSERT, UPDATE
+
+      :pram query: mongoDB query to search for value to update, only valid when using
+      UPDATE
+
+      :param update: mongoDB query value to update, only valid when using UPDATE'
+- id: s3.read
+  path: wrangles/connectors/s3.py
+  type: function
+  target: s3.read
+  docstring:
+    content: 'Import data from a file in AWS S3
+
+
+      :param bucket: The name of the bucket to download object from
+
+      :param key: The name of the key to download from
+
+      :param access_key: S3 access key
+
+      :param secret_access_key: S3 secret access key
+
+      :param kwargs: (Optional) Named arguments to pass to respective pandas read
+      a file function.'
+- id: s3.write
+  path: wrangles/connectors/s3.py
+  type: function
+  target: s3.write
+  docstring:
+    content: 'Write a file to AWS S3
+
+
+      :param df: Dataframe to be exported
+
+      :param bucket: The name of the bucket where file will be written
+
+      :param key: The name of the key to download from
+
+      :param access_key: S3 access key
+
+      :param secret_access_key: S3 secret access key
+
+      :param kwargs: (Optional) Named arguments to pass to respective pandas write
+      a file function.'
+- id: s3.download_files
+  path: wrangles/connectors/s3.py
+  type: class
+  target: s3.download_files
+  docstring:
+    content: Download file(s) from S3 and save to the local file system.
+- id: s3.upload_files
+  path: wrangles/connectors/s3.py
+  type: class
+  target: s3.upload_files
+  docstring:
+    content: Upload file(s) to S3 from the local file system.
+- id: akeneo.read
+  path: wrangles/connectors/akeneo.py
+  type: function
+  target: akeneo.read
+  docstring:
+    content: 'Read data from an Akeneo PIM
+
+
+      >>> from wrangles.connectors import akeneo
+
+      >>> df = akeneo.read(
+
+      >>>     host = ''https://akeneo.example.com'',
+
+      >>>     user = ''username'',
+
+      >>>     password = ''password'',
+
+      >>>     client_id = ''generated_id'',
+
+      >>>     client_secret = ''generated_secret'',
+
+      >>>     source = ''products''
+
+      >>> )
+
+
+      :param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
+
+      :param user: User with access to read the data
+
+      :param password: Password for the user
+
+      :param client_id: Client ID. These need to be generated in the PIM.
+
+      :param client_secret: Client Secret
+
+      :param source: Type of data to return
+
+      :param columns: Specify which columns to return
+
+      :param parameters: Set parameters for the query such as filtering the results.
+
+      :return: A Pandas dataframe of the returned results'
+- id: akeneo.write
+  path: wrangles/connectors/akeneo.py
+  type: function
+  target: akeneo.write
+  docstring:
+    content: 'Write data into an Akeneo PIM
+
+
+      >>> from wrangles.connectors import akeneo
+
+      >>> akeneo.write(
+
+      >>>     df,
+
+      >>>     host = ''https://akeneo.example.com'',
+
+      >>>     user = ''username'',
+
+      >>>     password = ''password'',
+
+      >>>     client_id = ''generated_id'',
+
+      >>>     client_secret = ''generated_secret'',
+
+      >>>     source = ''products''
+
+      >>> )
+
+
+      :param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
+
+      :param user: User with access to read the data
+
+      :param password: Password for the user
+
+      :param client_id: Client ID. These need to be generated in the PIM.
+
+      :param client_secret: Client Secret
+
+      :param source: Type of data to return'
+- id: train.classify
+  path: wrangles/connectors/train.py
+  type: class
+  target: train.classify
+  docstring:
+    content: ''
+- id: train.extract
+  path: wrangles/connectors/train.py
+  type: class
+  target: train.extract
+  docstring:
+    content: ''
+- id: train.lookup
+  path: wrangles/connectors/train.py
+  type: class
+  target: train.lookup
+  docstring:
+    content: ''
+- id: train.standardize
+  path: wrangles/connectors/train.py
+  type: class
+  target: train.standardize
+  docstring:
+    content: ''
+- id: http.run
+  path: wrangles/connectors/http.py
+  type: function
+  target: http.run
+  docstring:
+    content: "Issue a HTTP(S) request e.g. issue a request to a webhook on success\
+      \ or failure.\n\n:param url: The URL to make the request to\n:param method:\
+      \ The http method to use. Default GET.\n:param headers: Headers to pass as part\
+      \ of the request\n:param params: Pass URL encoded\n:param json: Pass data as\
+      \ a JSON encoded request body.\n:param oauth: Make a request to get an OAuth\
+      \ token prior\n  to sending the main request"
+- id: http.read
+  path: wrangles/connectors/http.py
+  type: function
+  target: http.read
+  docstring:
+    content: "Read data from a HTTP(S) endpoint.\n\n:param url: The URL to make the\
+      \ request to\n:param method: The http method to use. Default GET.\n:param headers:\
+      \ Headers to pass as part of the request\n:param params: Pass URL encoded\n\
+      :param json: Pass data as a JSON encoded request body.\n:param json_key: Select\
+      \ sub-elements from the response JSON. Multiple levels can be specified with\
+      \ e.g. key1.key2.key3\n:param oauth: Make a request to get an OAuth token prior\n\
+      \    to sending the main request\n:param orient: The format of the JSON to be\
+      \ converted to a dataframe. Default records.\n:return: A pandas DataFrame"
+- id: http.write
+  path: wrangles/connectors/http.py
+  type: function
+  target: http.write
+  docstring:
+    content: "Write data to a HTTP(S) endpoint.\n\n:param df: The DataFrame to be\
+      \ written\n:param url: The URL to make the request to\n:param method: The http\
+      \ method to use. Default POST.\n:param orient: The format of the JSON to send.\
+      \ Default records.\n:param batch: If True, send the entire DataFrame as a single\
+      \ request.\n    If False, send each row as a separate request.\n    If an integer,\
+      \ send the DataFrame in batches of that size."
+- id: jinja.run
+  path: wrangles/connectors/jinja.py
+  type: function
+  target: jinja.run
+  docstring:
+    content: 'Create a jinja template
+
+      :param template: A generic template used to generate a more specific template
+      to be used
+
+      :param context: A dictionary used to define the output template
+
+      :param output_file: File name/path for the file to be output'
+- id: recipe.run
+  path: wrangles/connectors/recipe.py
+  type: function
+  target: recipe.run
+  docstring:
+    content: 'Run a recipe, from a recipe! Recipe-ception. This will trigger another
+      recipe.
+
+
+      >>> from wrangles.connectors import recipe
+
+      >>> recipe.run(''recipe.wrgl.yml'')
+
+
+      :param name: Name of the recipe to run
+
+      :param variables: (Optional) A dictionary of custom variables to override placeholders
+      in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also
+      be overwritten by Environment Variables.
+
+      :param functions: Pass in a custom function or list of custom functions that
+      can be called in the recipe.'
+- id: recipe.read
+  path: wrangles/connectors/recipe.py
+  type: function
+  target: recipe.read
+  docstring:
+    content: 'Run a recipe, from a recipe! Recipe-ception. This will read the output
+      of another recipe.
+
+
+      >>> from wrangles.connectors import recipe
+
+      >>> df = recipe.read(''recipe.wrgl.yml'')
+
+
+      :param name: Name of the recipe to run
+
+      :param variables: (Optional) A dictionary of custom variables to override placeholders
+      in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also
+      be overwritten by Environment Variables.
+
+      :param columns: (Optional) Subset of the columns to include from the output
+      of the recipe. If not provided, all columns will be included.
+
+      :param functions: Pass in a custom function or list of custom functions that
+      can be called in the recipe.'
+- id: recipe.write
+  path: wrangles/connectors/recipe.py
+  type: function
+  target: recipe.write
+  docstring:
+    content: 'Run a recipe, from a recipe! Recipe-ception. This will trigger a new
+      recipe with the contents of the current recipe.
+
+
+      >>> from wrangles.connectors import recipe
+
+      >>> recipe.write(dataframe=df, name=''recipe.wrgl.yml'')
+
+
+      :param df: Dataframe to start the recipe with
+
+      :param name: Name of the recipe to run
+
+      :param variables: (Optional) A dictionary of custom variables to override placeholders
+      in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also
+      be overwritten by Environment Variables.
+
+      :param columns: (Optional) A list of the columns to pass to the recipe. If omitted,
+      all columns will be included.
+
+      :param functions: Pass in a custom function or list of custom functions that
+      can be called in the recipe.'
+- id: mysql.read
+  path: wrangles/connectors/mysql.py
+  type: function
+  target: mysql.read
+  docstring:
+    content: 'Import data from a MySQL database.
+
+
+      >>> from wrangles.connectors import mysql
+
+      >>> df = mysql.read(host=''sql.domain'', user=''user'', password=''password'',
+      command=''SELECT * FROM table'')
+
+
+      :param host: Hostname or IP of the database
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param command: SQL command or table name
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param database: (Optional) Database to be queried
+
+      :param columns: (Optional) Subset of columns to be returned. This is less efficient
+      than specifying in the SQL command.
+
+      :param params: (Optional) List of parameters to pass to execute method. The
+      syntax used to pass parameters is database driver dependent.
+
+      :return: Pandas Dataframe of the imported data'
+- id: mysql.write
+  path: wrangles/connectors/mysql.py
+  type: function
+  target: mysql.write
+  docstring:
+    content: 'Export data to a MySQL database.
+
+
+      >>> from wrangles.connectors import mysql
+
+      >>> mysql.write(df, host=''sql.domain'', database=''database'', table=''table'',
+      user=''user'', password=''password'')
+
+
+      :param df: Dataframe to be exported
+
+      :param host: Hostname or IP of the database
+
+      :param database: Database to be exported to
+
+      :param table: Table to be exported to
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param action: Only INSERT is supported at this time, defaults to INSERT
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param columns: (Optional) Subset of the columns to be written. If not provided,
+      all columns will be output'
+- id: mssql.read
+  path: wrangles/connectors/mssql.py
+  type: function
+  target: mssql.read
+  docstring:
+    content: 'Import data from a Microsoft SQL database.
+
+
+      >>> from wrangles.connectors import mssql
+
+      >>> df = mssql.read(host=''sql.domain'', user=''user'', password=''password'',
+      command=''SELECT * FROM table'')
+
+
+      :param host: Hostname or IP of the database
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param command: SQL command or table name
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param database: (Optional) Database to be queried
+
+      :param columns: (Optional) Subset of columns to be returned. This is less efficient
+      than specifying in the SQL command.
+
+      :param params: (Optional) List of parameters to pass to execute method. The
+      syntax used to pass parameters is database driver dependent.
+
+      :return: Pandas Dataframe of the imported data'
+- id: mssql.write
+  path: wrangles/connectors/mssql.py
+  type: function
+  target: mssql.write
+  docstring:
+    content: 'Export data to a Microsoft SQL database.
+
+
+      >>> from wrangles.connectors import mssql
+
+      >>> mssql.write(df, host=''sql.domain'', database=''database'', table=''table'',
+      user=''user'', password=''password'')
+
+
+      :param df: Dataframe to be exported
+
+      :param host: Hostname or IP of the database
+
+      :param database: Database to be exported to
+
+      :param table: Table to be exported to
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param action: Only INSERT is supported at this time, defaults to INSERT
+
+      :param port: (Optional) If not provided, the default port will be used
+
+      :param columns: (Optional) Subset of the columns to be written. If not provided,
+      all columns will be output'
+- id: mssql.run
+  path: wrangles/connectors/mssql.py
+  type: function
+  target: mssql.run
+  docstring:
+    content: 'Run a command on a Microsoft SQL Server
+
+
+      >>> from wrangles.connectors import mssql
+
+      >>> mssql.run(host=''sql.domain'', user=''user'', password=''password'', command=''exec
+      myStoredProcedure'')
+
+
+      :param host: Hostname or IP of the database
+
+      :param user: User with access to the database
+
+      :param password: Password of user
+
+      :param command: SQL command or a list of SQL commands to execute
+
+      :param params: Variables to pass to a parameterized query.'
+- id: ckan.read
+  path: wrangles/connectors/ckan.py
+  type: function
+  target: ckan.read
+  docstring:
+    content: 'Read data from CKAN
+
+
+      :param host: The host name of the CKAN site. e.g. https://data.example.com
+
+      :param dataset: The name of the dataset. This should be the url version e.g.
+      my-dataset
+
+      :param file: The name of the specific file within the dataset.
+
+      :param api_key: API Key for the CKAN site.
+
+      :param kwargs: (Optional) Named arguments to pass to respective pandas read
+      a file function.'
+- id: ckan.write
+  path: wrangles/connectors/ckan.py
+  type: function
+  target: ckan.write
+  docstring:
+    content: 'Write a file to a dataset in CKAN
+
+
+      :param df: Dataframe to be exported
+
+      :param host: The host name of the CKAN site. e.g. https://data.example.com
+
+      :param dataset: The name of the dataset. This should be the url version e.g.
+      my-dataset
+
+      :param file: The name of the specific file within the dataset. e.g. example.csv
+
+      :param api_key: API Key for the CKAN site.
+
+      :param kwargs: (Optional) Named arguments to pass to respective pandas write
+      a file function.'
+- id: ckan.download
+  path: wrangles/connectors/ckan.py
+  type: class
+  target: ckan.download
+  docstring:
+    content: Download files from CKAN to the local file system
+- id: ckan.upload
+  path: wrangles/connectors/ckan.py
+  type: class
+  target: ckan.upload
+  docstring:
+    content: Upload a file or list of files to a CKAN dataset
+- id: pricefx.read
+  path: wrangles/connectors/pricefx.py
+  type: function
+  target: pricefx.read
+  docstring:
+    content: 'Import data from a PriceFx instance.
+
+
+      >>> from wrangles.connectors import pricefx
+
+      >>> df = pricefx.read(host=''node.pricefx.eu'', partition=''partition'', target=''Products'',
+      user=''user'', password=''password'')
+
+
+      :param host: Hostname of the instance
+
+      :param partition: Partition to write to
+
+      :param target: Type of Data. Products, Customers, Data Source, etc. For Data
+      Sources or Product/Customer Extensions a source must also be provided.
+
+      :param user: User with access to write
+
+      :param password: Password of user
+
+      :param columns: (Optional) Specify which columns to include
+
+      :param source: If the data type is a Data Source or Extension, set the specific
+      table
+
+      :param batch_size: Queries are broken into batches for large data sets. Set
+      the size of the batch. If you''re having trouble with timeouts, try reducing
+      this. Default 10,000.
+
+      :param criteria: (Optional) Filter the returned data set'
+- id: pricefx.write
+  path: wrangles/connectors/pricefx.py
+  type: function
+  target: pricefx.write
+  docstring:
+    content: 'Export data to a PriceFx instance. Column names must match the ID or
+      label of the respective pricefx columns.
+
+
+      >>> from wrangles.connectors import pricefx
+
+      >>> pricefx.write(df, host=''node.pricefx.eu'', partition=''partition'', target=''Products'',
+      user=''user'', password=''password'')
+
+
+      :param df: Dataframe to be exported
+
+      :param host: Hostname of the instance
+
+      :param partition: Partition to write to
+
+      :param target: Target for the data. Products, Customers, Data Source, etc.
+
+      :param user: User with access to write
+
+      :param password: Password of user
+
+      :param columns: (Optional) Subset of the columns to be written. If not provided,
+      all columns will be output.
+
+      :param source: Required for Data Sources. Set the specific table.
+
+      :param autoflush: Only relevant for Data Sources. If true, automatically trigger
+      a flush after writing the data to a Data Source. Default True.'
+- id: notification.run
+  path: wrangles/connectors/notification.py
+  type: function
+  target: notification.run
+  docstring:
+    content: 'Send a generic apprise notification.
+
+
+      :param url: Apprise notification url. See https://github.com/caronc/apprise
+
+      :param title: The title of the notification
+
+      :param body: The body of the notification
+
+      :param attachment: A file path & name to attach to the message. Supports a single
+      file or a list of files. Must be supported by the specific notification type.'
+- id: notification.telegram
+  path: wrangles/connectors/notification.py
+  type: class
+  target: notification.telegram
+  docstring:
+    content: Send telegram messages
+- id: notification.email
+  path: wrangles/connectors/notification.py
+  type: class
+  target: notification.email
+  docstring:
+    content: Send emails
+- id: notification.slack
+  path: wrangles/connectors/notification.py
+  type: class
+  target: notification.slack
+  docstring:
+    content: Send Slack Messages
+- id: ssh.run
+  path: wrangles/connectors/ssh.py
+  type: function
+  target: ssh.run
+  docstring:
+    content: 'Execute a command over ssh
+
+
+      :param host: Domain or IP for the server
+
+      :param user: User to connect as
+
+      :param password: Password for the user
+
+      :param key_filename: File that contains the private key
+
+      :param private_key: Provide an RSA Private Key as a string
+
+      :param command: Command or list of commands to execute. When providing a list,
+      note that all commands are executed in isolation, i.e. cd /dir in a prior command
+      will not affect the directory for later commands.  '
+- id: concurrent.run
+  path: wrangles/connectors/concurrent.py
+  type: function
+  target: concurrent.run
+  docstring:
+    content: 'Run multiple actions concurrently.
+
+
+      :param run: List of actions to run concurrently
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.
+
+      :param variables: Variables to pass to any downstream recipes
+
+      :param functions: Custom functions to pass to any downstream recipes
+
+      :param use_multiprocessing: Use multiprocessing instead of threading. Default
+      is False.'
+- id: concurrent.read
+  path: wrangles/connectors/concurrent.py
+  type: function
+  target: concurrent.read
+  docstring:
+    content: 'Run multiple reads simulatenously.
+
+
+      :param read: List of read connectors to run concurrently
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.
+
+      :param use_multiprocessing: Use multiprocessing instead of threading. Default
+      is False.
+
+      :param functions: Custom functions to make available downstream.
+
+      :param variables: Variables to make available downstream.'
+- id: concurrent.write
+  path: wrangles/connectors/concurrent.py
+  type: function
+  target: concurrent.write
+  docstring:
+    content: 'Run multiple write connectors concurrently.
+
+
+      :param df: Dataframe to write
+
+      :param write: List of write connectors to run concurrently
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.
+
+      :param variables: Variables to pass to any downstream recipes
+
+      :param functions: Custom functions to pass to any downstream recipes
+
+      :param use_multiprocessing: Use multiprocessing instead of threading. Default
+      is False.'
+- id: matrix.run
+  path: wrangles/connectors/matrix.py
+  type: function
+  target: matrix.run
+  docstring:
+    content: 'The matrix connector lets you use variables to automatically execute
+
+      multiple actions based on the combinations of those variables.
+
+
+      :param df: The input dataframe
+
+      :param variables: A list of variables. The action will be execute once for         each
+      combination of variables.
+
+      :param run: The run section of a recipe to execute for each         combination
+      of variables
+
+      :param functions: Any user defined custom functions
+
+      :param strategy: Determines how to combine variables when there are multiple.         loop
+      (default) iterates over each set of variables, repeating shorter lists until
+      the longest         is completed. permutations uses the combination of all variables
+      against all other variables.     :param use_multiprocessing: Use multiprocessing
+      instead of threading
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.'
+- id: matrix.read
+  path: wrangles/connectors/matrix.py
+  type: function
+  target: matrix.read
+  docstring:
+    content: 'The matrix connector lets you use variables to automatically execute
+
+      multiple reads that are based on the combinations of the variables.
+
+
+      :param df: The input dataframe
+
+      :param variables: A list of variables. The read will be execute once for         each
+      combination of variables.
+
+      :param read: The read section of a recipe to execute for each combination of
+      variables
+
+      :param functions: Any user defined custom functions
+
+      :param strategy: Determines how to combine variables when there are multiple.         loop
+      (default) iterates over each set of variables, repeating shorter lists until
+      the longest         is completed. permutations uses the combination of all variables
+      against all other variables.     :param use_multiprocessing: Use multiprocessing
+      instead of threading
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.'
+- id: matrix.write
+  path: wrangles/connectors/matrix.py
+  type: function
+  target: matrix.write
+  docstring:
+    content: 'The matrix connector lets you use variables in a single write definition
+      to
+
+      automatically execute multiple writes that are based on the combinations of
+      the variables.
+
+
+      :param df: The input dataframe
+
+      :param variables: A list of variables. The write will be execute once for         each
+      combination of variables.
+
+      :param write: The write section of a recipe to execute for each         combination
+      of variables
+
+      :param functions: Any user defined custom functions
+
+      :param strategy: Determines how to combine variables when there are multiple.         loop
+      (default) iterates over each set of variables, repeating shorter lists until
+      the longest         is completed. permutations uses the combination of all variables
+      against all other variables.     :param use_multiprocessing: Use multiprocessing
+      instead of threading
+
+      :param max_concurrency: The maximum number to execute in parallel. If there
+      are more than this, the rest will be queued.'
