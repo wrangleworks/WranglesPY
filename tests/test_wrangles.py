@@ -170,7 +170,7 @@ def test_standardize_train_1(mocker):
         'name': 'test_standardize',
         'model_id': '1234567890',
     }
-    m = mocker.patch("wrangles.train._utils.backend_retries")
+    m = mocker.patch("wrangles.utils.backend_retries")
     m.return_value = temp_classify
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
@@ -241,7 +241,7 @@ def test_classify_train_2(mocker):
         'name': 'test_classify',
         'model_id': '1234567890',
     }
-    m = mocker.patch("wrangles.train._utils.backend_retries")
+    m = mocker.patch("wrangles.utils.backend_retries")
     m.return_value = temp_classify
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
@@ -275,7 +275,7 @@ def test_extract_train_2(mocker):
         ['Television', 'TV', ''],
         ['Computer', 'Comp', '']
     ]
-    m = mocker.patch("wrangles.train._utils.backend_retries")
+    m = mocker.patch("wrangles.utils.backend_retries")
     m.return_value = temp_extract
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
