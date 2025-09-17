@@ -102,21 +102,19 @@ def concatenate(
 
 
 def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take dictionaries in multiple columns and merge them to a single dictionary.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: list of input columns
-      output:
-        type: string
-        description: Name of the output column    
-    """
+    """type: object
+description: Take dictionaries in multiple columns and merge them to a single dictionary.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: list of input columns
+  output:
+    type: string
+    description: Name of the output column"""
     output_list = []
     for row in df[input].values.tolist():
         output_row = {**row[0]}

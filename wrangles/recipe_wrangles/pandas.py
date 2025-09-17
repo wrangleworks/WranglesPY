@@ -187,26 +187,24 @@ def reindex(
     axis: _Union[str, int] = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Changes the row labels and column labels of a DataFrame.
-    additionalProperties: false
-    properties:
-      labels:
-        type: array
-        description: New labels / index to conform the axis specified by ‘axis’ to.
-      index:
-        type: array
-        description: New labels for the index. Preferably an Index object to avoid duplicating data.
-      columns:
-        type: array
-        description: New labels for the columns. Preferably an Index object to avoid duplicating data.
-      axis:
-        type:
-          - number
-          - string
-        description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
-    """
+    """type: object
+description: Changes the row labels and column labels of a DataFrame.
+additionalProperties: false
+properties:
+  labels:
+    type: array
+    description: New labels / index to conform the axis specified by ‘axis’ to.
+  index:
+    type: array
+    description: New labels for the index. Preferably an Index object to avoid duplicating data.
+  columns:
+    type: array
+    description: New labels for the columns. Preferably an Index object to avoid duplicating data.
+  axis:
+    type:
+      - number
+      - string
+    description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1)."""
     # The following code is due to issue "Get Pandas to work with versions" #199
     # This ensures this works with older and newer pandas versions
     # Adding parameters to dictionary

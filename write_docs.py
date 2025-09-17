@@ -8,6 +8,29 @@ from collections import defaultdict
 INPUT_YAML_FILE = "docstrings.yaml"
 # --- End Configuration ---
 
+def build_docstring(doc_data):
+    """
+    Intelligently builds a docstring from structured fields,
+    omitting sections that are empty.
+    """
+    parts = []
+    if doc_data.get('description'):
+        parts.append(doc_data['description'])
+    
+    if doc_data.get('recipe'):
+        parts.append(f"Recipe:\n---\n```yaml\n{doc_data['recipe']}\n```")
+
+    if doc_data.get('python'):
+        parts.append(f"python:\n```python\n{doc_data['python']}\n```")
+
+    if doc_data.get('params'):
+        parts.append(doc_data['params'])
+
+    if doc_data.get('other'):
+        parts.append(doc_data['other'])
+        
+    return "\n\n".join(part for part in parts if part and part.strip())
+
 def get_node_char_positions(node, source_lines):
     start_pos = sum(len(line) for line in source_lines[:node.lineno - 1]) + node.col_offset
     end_pos = sum(len(line) for line in source_lines[:node.end_lineno - 1]) + node.end_col_offset
@@ -25,9 +48,7 @@ if __name__ == "__main__":
     updates_by_file = defaultdict(dict)
     if doc_definitions:
         for item in doc_definitions:
-            # Simply get the raw content from the YAML
-            if 'content' in item['docstring']:
-                updates_by_file[item['path']][item['target']] = item['docstring']['content']
+            updates_by_file[item['path']][item['target']] = build_docstring(item['docstring'])
 
     print("\n✍️ Applying updates to Python files...")
     if not updates_by_file:
@@ -50,12 +71,9 @@ if __name__ == "__main__":
                         if target_name in updates:
                             new_content = updates[target_name]
                             original_content = ast.get_docstring(node) or ""
-                            
-                            # The only safety check that matters
-                            if new_content == original_content:
-                                continue
+                            if new_content == original_content: continue
 
-                            has_docstring = bool(ast.get_docstring(node))
+                            has_docstring = bool(original_content)
                             if has_docstring:
                                 doc_node = node.body[0]
                                 start, end = get_node_char_positions(doc_node, source_lines)
@@ -65,7 +83,7 @@ if __name__ == "__main__":
                                 new_literal = f"{prefix}{delimiter}{new_content}{delimiter}"
                                 replacements.append((start, end, new_literal))
                                 print(f"     -> ✍️  Replacing docstring for '{target_name}'")
-                            elif new_content: # Only insert if the new content is not empty
+                            elif new_content:
                                 first_stmt = node.body[0]
                                 start, _ = get_node_char_positions(first_stmt, source_lines)
                                 indent = ' ' * first_stmt.col_offset

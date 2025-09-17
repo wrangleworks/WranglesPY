@@ -1,11 +1,51 @@
 import os
 import ast
 import yaml
+import re
 
 # --- Configuration ---
 SCAN_DIRECTORY = "wrangles" 
 OUTPUT_YAML_FILE = "docstrings.yaml"
 # --- End Configuration ---
+
+def parse_docstring(docstring: str):
+    """
+    Intelligently parses a docstring into structured fields.
+    Anything that doesn't fit a known structure goes into 'other'.
+    """
+    if not docstring:
+        return {'description': '', 'recipe': '', 'params': '', 'python': '', 'other': ''}
+
+    remaining_text = docstring
+    parsed = {'description': '', 'recipe': '', 'params': '', 'python': '', 'other': ''}
+
+    # Carve out the recipe block
+    recipe_match = re.search(r'\n\nRecipe:\n---\n```yaml\n(.*?)\n```', remaining_text, re.DOTALL)
+    if recipe_match:
+        parsed['recipe'] = recipe_match.group(1)
+        remaining_text = remaining_text.replace(recipe_match.group(0), '||RECIPE||')
+
+    # Carve out the python block
+    python_match = re.search(r'\n\npython:\n```python\n(.*?)\n```', remaining_text, re.DOTALL)
+    if python_match:
+        parsed['python'] = python_match.group(1)
+        remaining_text = remaining_text.replace(python_match.group(0), '||PYTHON||')
+
+    # Carve out the params block (must be at the end of a section)
+    params_match = re.search(r'\n\n(:param.*)', remaining_text, re.DOTALL)
+    if params_match:
+        parsed['params'] = params_match.group(1)
+        remaining_text = remaining_text.replace(params_match.group(0), '||PARAMS||')
+
+    # Assign description and other
+    parts = re.split(r'(\|\|RECIPE\|\||\|\|PYTHON\|\||\|\|PARAMS\|\|)', remaining_text)
+    parsed['description'] = parts.pop(0).strip()
+    
+    # Anything else that is not a placeholder is 'other'
+    other_parts = [part.strip() for part in parts if part and not part.startswith('||')]
+    parsed['other'] = '\n\n'.join(other_parts)
+
+    return parsed
 
 def extract_docstrings(root_dir):
     all_docstrings = []
@@ -27,19 +67,16 @@ def extract_docstrings(root_dir):
                     if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                         if node.name.startswith('_'): continue
                         
-                        # Get the raw docstring content, DO NOT PARSE IT
                         docstring_content = ast.get_docstring(node) or ""
-                        
+                        parsed_data = parse_docstring(docstring_content)
                         target_name = f"{module_name}.{node.name}"
+                        
                         doc_entry = {
                             'id': target_name,
                             'path': file_path.replace('\\', '/'),
                             'type': 'function' if isinstance(node, ast.FunctionDef) else 'class',
                             'target': target_name,
-                            'docstring': {
-                                # Store the entire docstring in a single field
-                                'content': docstring_content
-                            }
+                            'docstring': parsed_data
                         }
                         all_docstrings.append(doc_entry)
     return all_docstrings

@@ -390,39 +390,37 @@ def to_json(
     ensure_ascii: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
-    r"""
-    type: object
-    description: Convert an object to a JSON representation.
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column. If omitted, the input column will be overwritten
-      indent:
-        type:
-          - string
-          - integer
-        description: >-
-          If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
-          with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
-          compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
-          that string is used to indent each level.
-      sort_keys:
-        type: boolean
-        description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
-      ensure_ascii:
-        type: boolean
-        description: If true, non-ASCII characters will be escaped. Default is false 
-    """
+    r"""type: object
+description: Convert an object to a JSON representation.
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the input column.
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column. If omitted, the input column will be overwritten
+  indent:
+    type:
+      - string
+      - integer
+    description: >-
+      If indent is a non-negative integer or string, then JSON array elements and object members will be pretty-printed 
+      with that indent level. An indent level of 0, negative, or "" will only insert newlines. None (the default) selects the most 
+      compact representation. Using a positive integer indent indents that many spaces per level. If indent is a string (such as '\t'), 
+      that string is used to indent each level.
+  sort_keys:
+    type: boolean
+    description: If sort_keys is true (defaults to False), then the output of dictionaries will be sorted by key.
+  ensure_ascii:
+    type: boolean
+    description: If true, non-ASCII characters will be escaped. Default is false"""
     def handle_unusual_datatypes(o):
         if isinstance(o, _np.ndarray):
             return o.tolist()
