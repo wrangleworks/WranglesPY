@@ -2,7 +2,7 @@ import wrangles
 import pandas as pd
 
 
-class TestCompareTest:
+class TestCompareText:
     """
     Test compare.text
     """
@@ -515,3 +515,71 @@ class TestCompareTest:
         )
         
         assert df.empty and df.columns.to_list() == ['col1', 'col2', 'col3', 'output']
+
+    def test_compare_text_case_insensitive_difference(self):
+        """
+        Test compare using case insensitive difference
+        """
+        data = pd.DataFrame({
+        'col1': [
+            'THIS IS IN ALL CAPS',
+            'ANOTHER LINE THAT IS ALSO IN CAPS',
+            'YET ANOTHER LINE IN CAPS',
+        ],
+        'col2': [
+            'this is in all lowercase',
+            'another line that is also in lowercase',
+            'yet another line in lowercase',
+        ]
+        })
+
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+            case_sensitive: false
+        """
+
+        df = wrangles.recipe.run(
+            recipe=recipe,
+            dataframe=data,
+        )
+        assert df['output'].values.tolist() == ['lowercase', 'lowercase', 'lowercase']
+
+    def test_compare_text_case_insensitive_intersection(self):
+        """
+        Test compare using case insensitive intersection
+        """
+        data = pd.DataFrame({
+        'col1': [
+            'THIS IS IN ALL CAPS',
+            'ANOTHER LINE THAT IS ALSO IN CAPS',
+            'YET ANOTHER LINE IN CAPS',
+        ],
+        'col2': [
+            'this is in all lowercase',
+            'another line that is also in lowercase',
+            'yet another line in lowercase',
+        ]
+        })
+
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: intersection
+            case_sensitive: false
+        """
+
+        df = wrangles.recipe.run(
+            recipe=recipe,
+            dataframe=data,
+        )
+        assert df['output'].values.tolist() == ['THIS IS IN ALL', 'ANOTHER LINE THAT IS ALSO IN', 'YET ANOTHER LINE IN']
