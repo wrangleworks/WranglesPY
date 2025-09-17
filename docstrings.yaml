@@ -19,8 +19,8 @@
 
       :return: A string or list with the updated text.'
     python: "import wrangles\nimport pandas as pd\n\n# Define a dataframe\ndf = pd.DataFrame({\n\
-      \    'company_a': ['WrangleWorks Inc.', 'Wrangle Works', 'WrangleWorks F.Z.E.'],\n\
-    })\n\n# Standardize the company names using a model\ndf['company_std'] = wrangles.standardize(\n\
+      \    'company': ['WrangleWorks Inc.', 'Wrangle Works', 'WrangleWorks F.Z.E.'],\n\
+      })\n\n# Standardize the company names using a model\ndf['company_std'] = wrangles.standardize(\n\
       \    df['company'].tolist(),\n    model_id='8f4c3a5b-3b2a-4b1c-9c8c-1c1b1a1b1a1b'\
       \ # model_id is an example\n)\n\nprint(df)\n#              company     company_std\n\
       # 0    WrangleWorks Inc.    WrangleWorks\n# 1        Wrangle Works    WrangleWorks\n\
