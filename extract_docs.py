@@ -16,36 +16,29 @@ def parse_docstring(docstring: str):
     if not docstring:
         return {'description': '', 'recipe': '', 'params': '', 'other': ''}
 
-    # Default values
-    parsed = {
-        'description': docstring,
-        'recipe': '',
-        'params': '',
-        'other': ''
-    }
+    parsed = {'description': docstring, 'recipe': '', 'params': '', 'other': ''}
 
     # Split by "Recipe:"
     parts = re.split(r'\n\s*Recipe:\n\s*---\n\s*```yaml', docstring, 1)
-    parsed['description'] = parts[0].strip()
+    parsed['description'] = parts[0] # .strip() REMOVED
 
     if len(parts) > 1:
         recipe_and_params = parts[1]
         
         # Split the rest by the end of the yaml block to find params
         recipe_parts = re.split(r'```\n\n', recipe_and_params, 1)
-        parsed['recipe'] = recipe_parts[0].strip()
+        parsed['recipe'] = recipe_parts[0] # .strip() REMOVED
         
         if len(recipe_parts) > 1:
-            parsed['params'] = recipe_parts[1].strip()
+            parsed['params'] = recipe_parts[1] # .strip() REMOVED
     else:
         # No recipe found, check for params starting with :
         param_match = re.search(r'\n\s*:param|\n\s*:return', docstring)
         if param_match:
             param_start_index = param_match.start()
-            # Ensure we only split if the params are not part of the initial description block
             if param_start_index > 0:
-                parsed['params'] = docstring[param_start_index:].strip()
-                parsed['description'] = docstring[:param_start_index].strip()
+                parsed['params'] = docstring[param_start_index:] # .strip() REMOVED
+                parsed['description'] = docstring[:param_start_index] # .strip() REMOVED
 
     return parsed
 
@@ -63,24 +56,21 @@ def extract_docstrings(root_dir):
                 
                 print(f"🔍 Scanning {file_path}...")
 
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    source_code = f.read()
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        source_code = f.read()
                     tree = ast.parse(source_code)
+                except Exception as e:
+                    print(f"  -> ⚠️  Could not parse {file_path}: {e}")
+                    continue
 
-                # --- THIS IS THE KEY CHANGE ---
-                # We now iterate over tree.body to only get top-level nodes,
-                # instead of using ast.walk() which finds nested functions.
                 for node in tree.body:
                     if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                        # Skip private functions/classes (e.g. _normalize)
                         if node.name.startswith('_'):
                             continue
 
                         docstring_content = ast.get_docstring(node) or ""
-                        
-                        # Use our parser to split the docstring into parts
                         parsed_data = parse_docstring(docstring_content)
-                        
                         target_name = f"{module_name}.{node.name}"
 
                         doc_entry = {
@@ -102,7 +92,6 @@ def extract_docstrings(root_dir):
 
 if __name__ == "__main__":
     print("🚀 Starting docstring extraction...")
-    # Delete the old YAML file to ensure a clean start
     if os.path.exists(OUTPUT_YAML_FILE):
         os.remove(OUTPUT_YAML_FILE)
 

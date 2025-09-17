@@ -2,6 +2,7 @@ import os
 import ast
 import re
 import yaml
+import difflib
 from collections import defaultdict
 
 # --- Configuration ---
@@ -57,7 +58,12 @@ if __name__ == "__main__":
                         target_name = f"{module_name}.{node.name}"
                         if target_name in updates:
                             new_content = updates[target_name]
-                            if node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant):
+                            original_content = None
+                            has_docstring = (node.body and isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant))
+                            if has_docstring: original_content = node.body[0].value.value
+                            if new_content == original_content: continue
+
+                            if has_docstring:
                                 doc_node = node.body[0]
                                 start, end = get_node_char_positions(doc_node, source_lines)
                                 original_literal = source_code[start:end]
@@ -78,11 +84,27 @@ if __name__ == "__main__":
                 if replacements:
                     for start, end, text in sorted(replacements, reverse=True):
                         new_code = new_code[:start] + text + new_code[end:]
+                
+                # --- THIS IS THE NEW DEBUGGING SECTION ---
                 if new_code != source_code:
+                    print("     -> 🔥 File content has changed. Printing diff before saving:")
+                    
+                    diff = difflib.unified_diff(
+                        source_code.splitlines(keepends=True),
+                        new_code.splitlines(keepends=True),
+                        fromfile=f'{file_path} (original)',
+                        tofile=f'{file_path} (modified)',
+                    )
+                    for line in diff:
+                        print(f"       {line.rstrip()}")
+
                     print("     -> Saving file.")
-                    with open(file_path, 'w', encoding='utf-8') as f: f.write(new_code)
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(new_code)
                 else:
                     print("     -> 💤 No changes detected. Skipping save.")
+
             except Exception as e:
                 print(f"     ❌ Error processing file {file_path}: {e}")
+                
     print("\n✅ Docstring update process complete!")
