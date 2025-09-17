@@ -32,7 +32,7 @@ import pandas as pd
 
 # Define a dataframe
 df = pd.DataFrame({
-    'company': ['WrangleWorks Inc.', 'Wrangle Works', 'WrangleWorks F.Z.E.'],
+    'company_a': ['WrangleWorks Inc.', 'Wrangle Works', 'WrangleWorks F.Z.E.'],
 })
 
 # Standardize the company names using a model
