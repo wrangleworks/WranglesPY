@@ -17,7 +17,7 @@ def _ordered_words(string, char):
     return words
 
 
-def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
+def _contrast(input: list, type: str ='difference', char: str = ' ', case_sensitive = True) -> list:
     """
     Compare the intersection or difference between multiple strings.
 
@@ -32,7 +32,10 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
             return ""
 
         # Generate ordered words for each string
-        ordered_words_list = [_ordered_words(x, char) for x in row]
+        if not case_sensitive and type != 'intersection':
+            ordered_words_list = [_ordered_words(x.lower(), char) for x in row]
+        else:
+            ordered_words_list = [_ordered_words(x, char) for x in row]
 
         # Initialize intersection with the words of the first string
         common_words = _OrderedDict(ordered_words_list[0])
@@ -41,7 +44,11 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
 
             # Find the intersection by keeping only common words in the same order
             for words in ordered_words_list[1:]:
-                common_words = _OrderedDict((k, None) for k in common_words if k in words)
+                # Preserve the case of words from common_words if case_sensitive is False
+                if not case_sensitive:
+                    common_words = _OrderedDict((k, None) for k in common_words if k.lower() in words)
+                else:
+                    common_words = _OrderedDict((k, None) for k in common_words if k in words)
 
             intersection = " ".join(common_words.keys())
             results.append(intersection)
