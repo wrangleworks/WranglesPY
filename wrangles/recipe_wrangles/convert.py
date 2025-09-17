@@ -6,6 +6,7 @@ from typing import Union as _Union
 import re as _re
 import numpy as _np
 import pandas as _pd
+import logging as _logging
 from fractions import Fraction as _Fraction
 import yaml as _yaml
 import logging as _logging
@@ -73,27 +74,30 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
         elif desired_case == 'title':
             df[output_column] = df[input_column].str.title()
         elif desired_case == 'sentence':
-            def getSentenceCase(source: str):
-                output = ""
-                isFirstWord = True
+            def _getSentenceCase(source: str, warnings={}):
+                if isinstance(source, str):
+                    output = []
+                    isFirstWord = True
 
-                if not isinstance(source, str):
+                    for character in source:
+                        if isFirstWord and not character.isspace():
+                            output.append(character.upper())
+                            isFirstWord = False
+                        elif not isFirstWord and character in ".!?":
+                            isFirstWord = True
+                            output.append(character.upper())
+                        else:
+                            output.append(character.lower())
+
+                    return ''.join(output)
+                else:
+                    # Only show this once to not spam the logs
+                    if not warnings.get("invalid_data", {}).get('logged', False):
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
                     return source
 
-                for character in source:
-                    if isFirstWord and not character.isspace():
-                        character = character.upper()
-                        isFirstWord = False
-                    elif not isFirstWord and character in ".!?":
-                        isFirstWord = True
-                    else:
-                        character = character.lower()
-
-                    output = output + character
-
-                return output
-
-            df[output_column] = df[input_column].apply(getSentenceCase)
+            df[output_column] = df[input_column].apply(lambda x: _getSentenceCase(x, warnings))
 
     return df
 
