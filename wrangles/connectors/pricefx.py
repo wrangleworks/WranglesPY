@@ -104,22 +104,20 @@ def read(
     criteria: dict = None,
     batch_size: int = 10000
 ) -> _pd.DataFrame:
-    """
-    Import data from a PriceFx instance.
+    """Import data from a PriceFx instance.
 
-    >>> from wrangles.connectors import pricefx
-    >>> df = pricefx.read(host='node.pricefx.eu', partition='partition', target='Products', user='user', password='password')
+>>> from wrangles.connectors import pricefx
+>>> df = pricefx.read(host='node.pricefx.eu', partition='partition', target='Products', user='user', password='password')
 
-    :param host: Hostname of the instance
-    :param partition: Partition to write to
-    :param target: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
-    :param user: User with access to write
-    :param password: Password of user
-    :param columns: (Optional) Specify which columns to include
-    :param source: If the data type is a Data Source or Extension, set the specific table
-    :param batch_size: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
-    :param criteria: (Optional) Filter the returned data set
-    """
+:param host: Hostname of the instance
+:param partition: Partition to write to
+:param target: Type of Data. Products, Customers, Data Source, etc. For Data Sources or Product/Customer Extensions a source must also be provided.
+:param user: User with access to write
+:param password: Password of user
+:param columns: (Optional) Specify which columns to include
+:param source: If the data type is a Data Source or Extension, set the specific table
+:param batch_size: Queries are broken into batches for large data sets. Set the size of the batch. If you're having trouble with timeouts, try reducing this. Default 10,000.
+:param criteria: (Optional) Filter the returned data set"""
     _logging.info(f": Reading data from PriceFx :: {host} / {partition} / {target}")
 
     # Convert target name to code
@@ -290,22 +288,20 @@ def write(
     source: str = None,
     autoflush: bool = True
 ) -> None:
-    """
-    Export data to a PriceFx instance. Column names must match the ID or label of the respective pricefx columns.
+    """Export data to a PriceFx instance. Column names must match the ID or label of the respective pricefx columns.
 
-    >>> from wrangles.connectors import pricefx
-    >>> pricefx.write(df, host='node.pricefx.eu', partition='partition', target='Products', user='user', password='password')
+>>> from wrangles.connectors import pricefx
+>>> pricefx.write(df, host='node.pricefx.eu', partition='partition', target='Products', user='user', password='password')
 
-    :param df: Dataframe to be exported
-    :param host: Hostname of the instance
-    :param partition: Partition to write to
-    :param target: Target for the data. Products, Customers, Data Source, etc.
-    :param user: User with access to write
-    :param password: Password of user
-    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
-    :param source: Required for Data Sources. Set the specific table.
-    :param autoflush: Only relevant for Data Sources. If true, automatically trigger a flush after writing the data to a Data Source. Default True.
-    """
+:param df: Dataframe to be exported
+:param host: Hostname of the instance
+:param partition: Partition to write to
+:param target: Target for the data. Products, Customers, Data Source, etc.
+:param user: User with access to write
+:param password: Password of user
+:param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output.
+:param source: Required for Data Sources. Set the specific table.
+:param autoflush: Only relevant for Data Sources. If true, automatically trigger a flush after writing the data to a Data Source. Default True."""
     _logging.info(f": Writing data to PriceFx :: {host} / {partition} / {target}")
 
     # Convert target name to code

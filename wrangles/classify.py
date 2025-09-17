@@ -12,14 +12,12 @@ def classify(
     model_id: str,
     **kwargs
 ) -> _Union[str, list]:
-    """
-    Predict which category an input belongs to.
-    Requires WrangleWorks Account and Subscription.
+    """Predict which category an input belongs to.
+Requires WrangleWorks Account and Subscription.
 
-    :param input: A string or list of strings to be classified.
-    :param model_id: The model to be used to predict the class.
-    :return: A string or list of prediction corresponding to the input.
-    """
+:param input: A string or list of strings to be classified.
+:param model_id: The model to be used to predict the class.
+:return: A string or list of prediction corresponding to the input."""
     if isinstance(input, str): 
         json_data = [input]
     elif isinstance(input, list):

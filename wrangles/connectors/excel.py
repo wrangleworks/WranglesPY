@@ -6,6 +6,7 @@ from . import memory as _memory
 import logging as _logging
 
 class sheet():
+    """"""
     _schema = {}
 
     def write(df: _pd.DataFrame, **kwargs):

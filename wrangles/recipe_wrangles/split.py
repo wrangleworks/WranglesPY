@@ -18,42 +18,40 @@ def dictionary(
     output: _Union[str, _list] = None,
     default: dict = {}
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: |-
+  Split one or more dictionaries into columns.
+  The dictionary keys will be returned as the new column headers.
+  If the dictionaries contain overlapping values, the last value will be returned.
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type: 
+      - string
+      - integer
+      - array
     description: |-
-      Split one or more dictionaries into columns.
-      The dictionary keys will be returned as the new column headers.
-      If the dictionaries contain overlapping values, the last value will be returned.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: |-
-          Name or lists of the column(s) containing dictionaries to be split.
-          If providing multiple dictionaries and the dictionaries
-          contain overlapping values, the last value will be returned.
+      Name or lists of the column(s) containing dictionaries to be split.
+      If providing multiple dictionaries and the dictionaries
+      contain overlapping values, the last value will be returned.
+  output:
+    type: 
+      - string
+      - array
+    description: |-
+      (Optional) Subset of keys to extract from the dictionary.
+      If not provided, all keys will be returned.
+      Columns can be renamed with the following syntax:
       output:
-        type: 
-          - string
-          - array
-        description: |-
-          (Optional) Subset of keys to extract from the dictionary.
-          If not provided, all keys will be returned.
-          Columns can be renamed with the following syntax:
-          output:
-            - key1: new_column_name1
-            - key2: new_column_name2
-      default:
-        type: object
-        description: >-
-          Provide a set of default headings and values
-          if they are not found within the input
-    """ 
+        - key1: new_column_name1
+        - key2: new_column_name2
+  default:
+    type: object
+    description: >-
+      Provide a set of default headings and values
+      if they are not found within the input""" 
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
@@ -106,28 +104,26 @@ def dictionary(
 
     
 def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]) -> _pd.DataFrame:
-    """
-    type: object
-    description: Split a list in a single column to multiple columns.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - string
-          - int
-        description: Name of the column to be split
-      output:
-        type:
-          - string
-          - array
-        description: >-
-          Name of column(s) for the results.
-          If providing a single column, use a wildcard (*)
-          to indicate a incrementing integer
-    """
+    """type: object
+description: Split a list in a single column to multiple columns.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type:
+      - string
+      - int
+    description: Name of the column to be split
+  output:
+    type:
+      - string
+      - array
+    description: >-
+      Name of column(s) for the results.
+      If providing a single column, use a wildcard (*)
+      to indicate a incrementing integer"""
     # Ensure rows are lists even if they are JSON strings
     results = [
         row if isinstance(row, _list) else _json.loads(row)
@@ -166,51 +162,49 @@ def text(
     element: _Union[int, str] = None,
     inclusive: bool = False
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Split a string to multiple columns or a list.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: string
-        description: Name of the column to be split
-      output:
-        type:
-          - string
-          - array
-        description: |-
-          Name of the output column(s)
-          If a single column is provided,
-          the results will be returned as a list
-          If multiple columns are listed,
-          the results will be separated into the columns.
-          If omitted, will overwrite the input.
-      char:
-        type: string
-        description: |-
-          Set the character(s) to split on.
-          Default comma (,)
-          Can also prefix with "regex:" to split on a pattern.
-      pad:
-        type: boolean
-        description: >-
-          Choose whether to pad to ensure a consistent length.
-          Default true if outputting to columns, false for lists.
-      element:
-        type: 
-          - integer
-          - string
-        description: >-
-          Select a specific element or range after splitting
-          using slicing syntax. e.g. 0, ":5", "5:", "2:8:2"
-      inclusive:
-        type: boolean
-        description: >-
-          If true, include the split character in the output.
-          Default False
-    """
+    """type: object
+description: Split a string to multiple columns or a list.
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type: string
+    description: Name of the column to be split
+  output:
+    type:
+      - string
+      - array
+    description: |-
+      Name of the output column(s)
+      If a single column is provided,
+      the results will be returned as a list
+      If multiple columns are listed,
+      the results will be separated into the columns.
+      If omitted, will overwrite the input.
+  char:
+    type: string
+    description: |-
+      Set the character(s) to split on.
+      Default comma (,)
+      Can also prefix with "regex:" to split on a pattern.
+  pad:
+    type: boolean
+    description: >-
+      Choose whether to pad to ensure a consistent length.
+      Default true if outputting to columns, false for lists.
+  element:
+    type: 
+      - integer
+      - string
+    description: >-
+      Select a specific element or range after splitting
+      using slicing syntax. e.g. 0, ":5", "5:", "2:8:2"
+  inclusive:
+    type: boolean
+    description: >-
+      If true, include the split character in the output.
+      Default False"""
     # Ensure only a single input column is specified
     if isinstance(input, _list):
         if len(input) != 1:
@@ -266,45 +260,43 @@ def tokenize(
     method: str = 'space',
     functions: dict = {}
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: >-
-      Split text into tokens. A variety of methods are available.
-      The default method is to split on spaces.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Column(s) to be split into tokens
-      output:
-        type: 
-          - string
-          - array
-        description: Name of the output column
-      method:
-        anyOf:
-          - type: string
-            enum:
-              - space
-              - boundary
-              - boundary_ignore_space
-            description: >-
-              Method to split the list.
-              Options: space, boundary, boundary_ignore_space
-              or use a custom function with custom.<function>
-              or use a regex pattern with regex:<pattern>
-          - type: string
-            description: >-
-              Method to split the list.
-              Options: space, boundary, boundary_ignore_space
-              or use a custom function with custom.<function>
-              or use a regex pattern with regex:<pattern>
-    """
+    """type: object
+description: >-
+  Split text into tokens. A variety of methods are available.
+  The default method is to split on spaces.
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Column(s) to be split into tokens
+  output:
+    type: 
+      - string
+      - array
+    description: Name of the output column
+  method:
+    anyOf:
+      - type: string
+        enum:
+          - space
+          - boundary
+          - boundary_ignore_space
+        description: >-
+          Method to split the list.
+          Options: space, boundary, boundary_ignore_space
+          or use a custom function with custom.<function>
+          or use a regex pattern with regex:<pattern>
+      - type: string
+        description: >-
+          Method to split the list.
+          Options: space, boundary, boundary_ignore_space
+          or use a custom function with custom.<function>
+          or use a regex pattern with regex:<pattern>"""
     if output is None: output = input
     
     # Ensure input and outputs are lists

@@ -208,9 +208,7 @@ class _write:
 
 
 class DataFrame(_pd.DataFrame):
-    """
-    Extends a pandas DataFrame to add wrangles functionality
-    """
+    """Extends a pandas DataFrame to add wrangles functionality"""
     @property
     def _constructor(self):
         return DataFrame

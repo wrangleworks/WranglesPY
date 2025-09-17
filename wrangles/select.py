@@ -7,9 +7,7 @@ import itertools as _itertools
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
 
 def highest_confidence(data_list):
-    """
-    Select the option with the highest confidence from multiple columns
-    """
+    """Select the option with the highest confidence from multiple columns"""
     results = []
     for row in data_list:
         highest_confidence = 0
@@ -48,9 +46,7 @@ def highest_confidence(data_list):
 
 
 def confidence_threshold(list_1, list_2, threshold):
-    """
-    Select the first option if it exceeds a given threshold, else the second option.
-    """
+    """Select the first option if it exceeds a given threshold, else the second option."""
     results = []
     
     for cell_1, cell_2 in zip(list_1, list_2):
@@ -73,9 +69,7 @@ def confidence_threshold(list_1, list_2, threshold):
 
 
 def list_element(input, n: _Union[str, int], default = ""):
-    """
-    Select a numbered element of a list (zero indexed).
-    """
+    """Select a numbered element of a list (zero indexed)."""
     def _int_or_none(val):
         try:
             return int(val)
@@ -106,9 +100,7 @@ def list_element(input, n: _Union[str, int], default = ""):
 
 
 def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
-    """
-    Select an element or elements of a dictionary
-    """
+    """Select an element or elements of a dictionary"""
     # Ensure input is a list
     single_input = False
     if not isinstance(input, list):

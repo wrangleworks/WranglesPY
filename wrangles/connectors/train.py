@@ -6,6 +6,7 @@ from ..utils import wildcard_expansion as _wildcard_expansion
 from ..data import model as _model
 
 class classify():
+    """"""
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -84,6 +85,7 @@ class classify():
 
 
 class extract():
+    """"""
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -206,6 +208,7 @@ class extract():
 
 
 class lookup():
+    """"""
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -292,6 +295,7 @@ class lookup():
         """
 
 class standardize():
+    """"""
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:

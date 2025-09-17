@@ -14,20 +14,18 @@ _pymongo = _LazyLoader('pymongo')
 _schema = {}
 
 def read(user: str, password: str, database: str, collection: str, host: str, query: dict = {}, projection: dict = {}) -> _pd.DataFrame:
-    """
-    Import data from a MongoDB database
-    
-    >>> from wrangles.connectors import mongodb
-    >>> df = mongodb.read(user='user, password='password', database='db', host='cluster0.mongodb.net', query='{"name": "Fey"}',projection='{"_id": 0, "name": 1, "position": 1}')
-    
-    :param user: User with access to the database
-    :param password: Password of user
-    :param database: Database to be queried
-    :param collection: Collection to be queried
-    :param host: mongoDB cluster-url
-    :param query: mongoDB query
-    :param projection: (Optional) Select which fields to include
-    """
+    """Import data from a MongoDB database
+
+>>> from wrangles.connectors import mongodb
+>>> df = mongodb.read(user='user, password='password', database='db', host='cluster0.mongodb.net', query='{"name": "Fey"}',projection='{"_id": 0, "name": 1, "position": 1}')
+
+:param user: User with access to the database
+:param password: Password of user
+:param database: Database to be queried
+:param collection: Collection to be queried
+:param host: mongoDB cluster-url
+:param query: mongoDB query
+:param projection: (Optional) Select which fields to include"""
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
 
     # Encoding password and username using percent encoding
@@ -89,22 +87,20 @@ properties:
 
 
 def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
-    """
-    Write data into a mongoDB database
-    
-    >>> from wrangles.connectors import mongodb
-    >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
-    
-    :param df: Dataframe to be exported
-    :param user: User with access to the database
-    :param password: Password of user
-    :param database: Database to be queried
-    :param collection: Collection to be queried
-    :param host: mongobd cluster-url
-    :param action: actions supported INSERT, UPDATE
-    :pram query: mongoDB query to search for value to update, only valid when using UPDATE
-    :param update: mongoDB query value to update, only valid when using UPDATE
-    """
+    """Write data into a mongoDB database
+
+>>> from wrangles.connectors import mongodb
+>>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
+
+:param df: Dataframe to be exported
+:param user: User with access to the database
+:param password: Password of user
+:param database: Database to be queried
+:param collection: Collection to be queried
+:param host: mongobd cluster-url
+:param action: actions supported INSERT, UPDATE
+:pram query: mongoDB query to search for value to update, only valid when using UPDATE
+:param update: mongoDB query value to update, only valid when using UPDATE"""
     _logging.info(f": Writing data to MongoDB :: {host} / {database} / {collection}")
 
     # Encoding password and username using percent encoding
