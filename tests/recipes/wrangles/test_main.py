@@ -2305,6 +2305,28 @@ class TestStandardize:
         )
         assert df.empty and df.columns.to_list() == ['Abbrev', 'Abbreviations']
 
+    def test_standardize_non_string(self):
+        """
+        Test standardize on non-string data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - standardize:
+                    input: col
+                    output: output
+                    model_id: 6ca4ab44-8c66-40e8
+            """,
+            dataframe=pd.DataFrame({
+                'col': [123456, ['This is a list'], {'Dict': 'ionary'}, True, 'ETA'],
+            })
+        )
+        assert df['output'][0] == 123456
+        assert df['output'][1] == ['This is a list'] 
+        assert df['output'][2] == {'Dict': 'ionary'}
+        assert df['output'][3] == True
+        assert df['output'][4] == 'Estimated Time of Arrival'
+
 
 class TestReplace:
     """
