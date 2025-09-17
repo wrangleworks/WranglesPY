@@ -1633,12 +1633,16 @@ def standardize(
         df_copy = df.loc[:, [input[0]]]
         for model in model_id:
             for input_column, output_column in zip(input, tmp_output):
-                df_copy[output_column] = _standardize(
-                    df_copy[output_column].astype(str).tolist(),
+                # df_copy[output_column] = _standardize(
+                output_list = _standardize(
+                    # This should be handled in the standardize microservice, but I am going to leave it here for now
+                    [x if isinstance(x, str) else 'agjkhajshasdafadf' for x in df_copy[output_column].tolist()],
+                    # df_copy[output_column].astype(str).tolist(),
                     model,
                     case_sensitive,
                     **kwargs
                 )
+                df_copy[output_column] = [a if a != 'agjkhajshasdafadf' else b for a, b in zip(output_list, df_copy[output_column].tolist())]
 
         # Adding the result of the df_copy to the original dataframe
         df[output[0]] = df_copy[output_column]
