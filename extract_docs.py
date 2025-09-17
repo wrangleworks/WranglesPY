@@ -1,44 +1,11 @@
 import os
 import ast
 import yaml
-import re
 
 # --- Configuration ---
 SCAN_DIRECTORY = "wrangles" 
 OUTPUT_YAML_FILE = "docstrings.yaml"
 # --- End Configuration ---
-
-def parse_docstring(docstring: str):
-    """
-    Parses a docstring with a custom format into a dictionary, PRESERVING whitespace.
-    """
-    if not docstring:
-        return {'description': '', 'recipe': '', 'params': '', 'other': ''}
-
-    parsed = {'description': docstring, 'recipe': '', 'params': '', 'other': ''}
-
-    parts = re.split(r'(\n\s*Recipe:\n\s*---\n\s*```yaml)', docstring, 1)
-    parsed['description'] = parts[0]
-
-    if len(parts) > 1:
-        recipe_and_params = parts[2]
-        parsed['description'] += parts[1] # Re-add the delimiter to the end of the description
-        
-        recipe_parts = re.split(r'(```\n\n)', recipe_and_params, 1)
-        parsed['recipe'] = recipe_parts[0]
-        
-        if len(recipe_parts) > 1:
-            parsed['recipe'] += recipe_parts[1] # Re-add the delimiter
-            parsed['params'] = recipe_parts[2]
-    else:
-        param_match = re.search(r'\n\s*:param|\n\s*:return', docstring)
-        if param_match:
-            param_start_index = param_match.start()
-            if param_start_index > 0:
-                parsed['params'] = docstring[param_start_index:]
-                parsed['description'] = docstring[:param_start_index]
-
-    return parsed
 
 def extract_docstrings(root_dir):
     all_docstrings = []
@@ -59,8 +26,10 @@ def extract_docstrings(root_dir):
                 for node in tree.body:
                     if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                         if node.name.startswith('_'): continue
+                        
+                        # Get the raw docstring content, DO NOT PARSE IT
                         docstring_content = ast.get_docstring(node) or ""
-                        parsed_data = parse_docstring(docstring_content)
+                        
                         target_name = f"{module_name}.{node.name}"
                         doc_entry = {
                             'id': target_name,
@@ -68,10 +37,8 @@ def extract_docstrings(root_dir):
                             'type': 'function' if isinstance(node, ast.FunctionDef) else 'class',
                             'target': target_name,
                             'docstring': {
-                                'description': parsed_data['description'],
-                                'recipe': parsed_data['recipe'],
-                                'params': parsed_data['params'],
-                                'python': '', 'other': parsed_data['other']
+                                # Store the entire docstring in a single field
+                                'content': docstring_content
                             }
                         }
                         all_docstrings.append(doc_entry)
