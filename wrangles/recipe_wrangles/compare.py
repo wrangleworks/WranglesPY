@@ -19,6 +19,7 @@ def text(
     empty_a: str = None,
     empty_b: str = None,
     all_empty: str = None,
+    case_sensitive: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -100,7 +101,8 @@ def text(
         df[output] = _compare._contrast(
             input=df[input].astype(str).values.tolist(),
             type=method,
-            char=char
+            char=char,
+            case_sensitive=case_sensitive
         )
 
     if method == 'overlap':
