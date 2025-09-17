@@ -20,75 +20,72 @@ def text(
     empty_b: str = None,
     all_empty: str = None,
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Compare two strings and return the intersection or difference, or use overlap to find the matching characters between the two strings.
-    required:
-      - input
-      - output
-      - method
-    properties:
-      input:
-        type: array
-        description: the columns to compare. First column is the base column
-      output:
-        type: string
-        description: The column to output the results to
-      method:
-        type: string
-        description: The type of comparison to perform (difference, intersection, overlap)
-        enum:
-          - difference
-          - intersection
-          - overlap
-    allOf:
-      - if:
-          properties:
-            method:
-              const: difference
-        then:
-          properties:
-            char:
-              type: string
-              description: "(Optional) The character to split the strings on. Default is a space"
-      - if:
-          properties:
-            method:
-              const: intersection
-        then:
-          properties:
-            char:
-              type: string
-              description: "(Optional) The character to split the strings on. Default is a space"
-      - if:
-          properties:
-            method:
-              const: overlap
-        then:
-          properties:
-            non_match_char:
-              type: string
-              description: "(Optional) Character to use for non-matching characters"
-            include_ratio:
-              type: boolean
-              description: "(Optional) Include the ratio of matching characters"
-            decimal_places:
-              type: integer
-              description: "(Optional) Number of decimal places to round the ratio to"
-            exact_match:
-              type: string
-              description: "(Optional) Value to use for exact matches"
-            empty_a:
-              type: string
-              description: "(Optional) Value to use for empty input a"
-            empty_b:
-              type: string
-              description: "(Optional) Value to use for empty input b"
-            all_empty:
-              type: string
-              description: "(Optional) Value to use for both inputs"
-
-    """
+    """type: object
+description: Compare two strings and return the intersection or difference, or use overlap to find the matching characters between the two strings.
+required:
+  - input
+  - output
+  - method
+properties:
+  input:
+    type: array
+    description: the columns to compare. First column is the base column
+  output:
+    type: string
+    description: The column to output the results to
+  method:
+    type: string
+    description: The type of comparison to perform (difference, intersection, overlap)
+    enum:
+      - difference
+      - intersection
+      - overlap
+allOf:
+  - if:
+      properties:
+        method:
+          const: difference
+    then:
+      properties:
+        char:
+          type: string
+          description: "(Optional) The character to split the strings on. Default is a space"
+  - if:
+      properties:
+        method:
+          const: intersection
+    then:
+      properties:
+        char:
+          type: string
+          description: "(Optional) The character to split the strings on. Default is a space"
+  - if:
+      properties:
+        method:
+          const: overlap
+    then:
+      properties:
+        non_match_char:
+          type: string
+          description: "(Optional) Character to use for non-matching characters"
+        include_ratio:
+          type: boolean
+          description: "(Optional) Include the ratio of matching characters"
+        decimal_places:
+          type: integer
+          description: "(Optional) Number of decimal places to round the ratio to"
+        exact_match:
+          type: string
+          description: "(Optional) Value to use for exact matches"
+        empty_a:
+          type: string
+          description: "(Optional) Value to use for empty input a"
+        empty_b:
+          type: string
+          description: "(Optional) Value to use for empty input b"
+        all_empty:
+          type: string
+          description: "(Optional) Value to use for both inputs""""
     if method not in ['difference', 'intersection', 'overlap']:
         raise ValueError("Method must be one of 'overlap', 'difference' or 'intersection'")
 

@@ -12,23 +12,21 @@ def coalesce(
     input: list,
     output: str = None
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take the first non-empty value from a series of columns or lists.
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - array
-          - string
-          - integer
-        description: List of input columns or a single column containing lists
-      output:
-        type: string
-        description: Name of the output columns. This is required if multiple input columns are provided.
-    """
+    """type: object
+description: Take the first non-empty value from a series of columns or lists.
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type:
+      - array
+      - string
+      - integer
+    description: List of input columns or a single column containing lists
+  output:
+    type: string
+    description: Name of the output columns. This is required if multiple input columns are provided."""
     # NOTE: cleaner implementations that I've found implemented directly in pandas do not work with empty strings
     # If a better solution found, replace but ensure it works with all falsy values in python
 
@@ -61,32 +59,30 @@ def concatenate(
     char: str = ',',
     skip_empty: bool = False
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Concatenate a list of columns or a list within a single column.
-    additionalProperties: false
-    required:
-      - input
-      - output
-      - char
-    properties:
-      input:
-        type: 
-          - array
-          - string
-          - integer
-        description: Either a single column name or list of columns
-      output:
-        type: string
-        description: Name of the output column
-      char:
-        type: string
-        description: (Optional) Character to add between successive values
-      skip_empty:
-        type: boolean
-        desription: Whether to skip empty values
-        default: false
-    """
+    """type: object
+description: Concatenate a list of columns or a list within a single column.
+additionalProperties: false
+required:
+  - input
+  - output
+  - char
+properties:
+  input:
+    type: 
+      - array
+      - string
+      - integer
+    description: Either a single column name or list of columns
+  output:
+    type: string
+    description: Name of the output column
+  char:
+    type: string
+    description: (Optional) Character to add between successive values
+  skip_empty:
+    type: boolean
+    desription: Whether to skip empty values
+    default: false"""
     if output is None: output = input
     
     # Ensure input and outputs are lists
@@ -102,21 +98,19 @@ def concatenate(
 
 
 def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take dictionaries in multiple columns and merge them to a single dictionary.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: list of input columns
-      output:
-        type: string
-        description: Name of the output column    
-    """
+    """type: object
+description: Take dictionaries in multiple columns and merge them to a single dictionary.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: list of input columns
+  output:
+    type: string
+    description: Name of the output column"""
     output_list = []
     for row in df[input].values.tolist():
         output_row = {**row[0]}
@@ -130,21 +124,19 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
 
 
 def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFrame:
-    """
+    """type: object
+description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
     type: object
-    description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: object
-        description: Matched pairs of key and value columns
-      output:
-        type: string
-        description: Name of the output column
-    """
+    description: Matched pairs of key and value columns
+  output:
+    type: string
+    description: Name of the output column"""
     pairs = {}
 
     # If user has used wildcards, expand out
@@ -194,27 +186,25 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
 
 
 def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take lists in multiple columns and merge them to a single list.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: List of input columns
-      output:
-        type: string
-        description: Name of the output column
-      remove_duplicates:
-        type: boolean
-        description: Whether to remove duplicates from the created list
-      ignore_case:
-        type: boolean
-        description: Ignore case when removing duplicates
-    """
+    """type: object
+description: Take lists in multiple columns and merge them to a single list.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  remove_duplicates:
+    type: boolean
+    description: Whether to remove duplicates from the created list
+  ignore_case:
+    type: boolean
+    description: Ignore case when removing duplicates"""
     output_list = []
     for row in df[input].values.tolist():
         output_row = []
@@ -236,27 +226,25 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
 
 
 def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - array
-          - string
-          - integer
-        description: List of input columns
-      output:
-        type: string
-        description: Name of the output column
-      include_empty:
-        type: boolean
-        description: Whether to include empty columns in the created dictionary
-    """
+    """type: object
+description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type:
+      - array
+      - string
+      - integer
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  include_empty:
+    type: boolean
+    description: Whether to include empty columns in the created dictionary"""
     index_check = 0
     cols_changed = [] 
     for cols in input:
@@ -288,27 +276,25 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
 
 
 def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
-    """
-    type: object
-    description: Take multiple columns and merge them to a list.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - array
-          - string
-          - integer
-        description: List of input columns
-      output:
-        type: string
-        description: Name of the output column
-      include_empty:
-        type: boolean
-        description: Whether to include empty columns in the created list
-    """
+    """type: object
+description: Take multiple columns and merge them to a list.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type:
+      - array
+      - string
+      - integer
+    description: List of input columns
+  output:
+    type: string
+    description: Name of the output column
+  include_empty:
+    type: boolean
+    description: Whether to include empty columns in the created list"""
     output_list = []
     for row in df[input].values.tolist():
         output_row = []

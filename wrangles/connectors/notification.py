@@ -16,14 +16,12 @@ def run(
     body: str,
     attachment: _Union[str, list] = None
 ):
-    r"""
-    Send a generic apprise notification.
+    r"""Send a generic apprise notification.
 
-    :param url: Apprise notification url. See https://github.com/caronc/apprise
-    :param title: The title of the notification
-    :param body: The body of the notification
-    :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
-    """
+:param url: Apprise notification url. See https://github.com/caronc/apprise
+:param title: The title of the notification
+:param body: The body of the notification
+:param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type."""
     app_object = _apprise.Apprise()
     app_object.add(url)
     app_object.notify(
@@ -61,9 +59,7 @@ properties:
 
 
 class telegram():
-  """
-  Send telegram messages
-  """
+  """Send telegram messages"""
   _schema = {
     "run": """
       type: object
@@ -120,9 +116,7 @@ class telegram():
 
 
 class email():
-  """
-  Send emails
-  """
+  """Send emails"""
   _schema = {
     "run": """
       type: object
@@ -240,9 +234,7 @@ class email():
     
     
 class slack():
-  """
-  Send Slack Messages
-  """
+  """Send Slack Messages"""
   _schema = {
   "run": """
     type: object

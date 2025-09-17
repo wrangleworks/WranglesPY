@@ -10,13 +10,11 @@ def lookup(
     columns: _Union[str, list] = None,
     **kwargs
 ) -> _Union[str, list]:
-    """
-    Find information using a lookup wrangle. Requires WrangleWorks Account.
-    
-    :param input: A value or list of values to be looked up.
-    :param model_id: The model to be used.
-    :param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict.
-    """
+    """Find information using a lookup wrangle. Requires WrangleWorks Account.
+
+:param input: A value or list of values to be looked up.
+:param model_id: The model to be used.
+:param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict."""
     # Check if user has entered a single input or multiple inputs
     single_input = False
     if not isinstance(input, list):

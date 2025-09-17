@@ -14,16 +14,14 @@ _paramiko = _LazyLoader('paramiko')
 _schema = {}
 
 def run(host: str, user: str, command: _Union[str, list], password: str = None, key_filename: str = None, private_key: str = None) -> None:
-    """
-    Execute a command over ssh
+    """Execute a command over ssh
 
-    :param host: Domain or IP for the server
-    :param user: User to connect as
-    :param password: Password for the user
-    :param key_filename: File that contains the private key
-    :param private_key: Provide an RSA Private Key as a string
-    :param command: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands.  
-    """
+:param host: Domain or IP for the server
+:param user: User to connect as
+:param password: Password for the user
+:param key_filename: File that contains the private key
+:param private_key: Provide an RSA Private Key as a string
+:param command: Command or list of commands to execute. When providing a list, note that all commands are executed in isolation, i.e. cd /dir in a prior command will not affect the directory for later commands."""
     _logging.info(f": Executing SSH command :: {host}")
 
     # If user has passed a single command, convert to a list of one

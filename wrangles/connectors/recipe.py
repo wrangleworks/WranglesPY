@@ -19,16 +19,14 @@ def run(
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> None:
-    """
-    Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
+    """Run a recipe, from a recipe! Recipe-ception. This will trigger another recipe.
 
-    >>> from wrangles.connectors import recipe
-    >>> recipe.run('recipe.wrgl.yml')
+>>> from wrangles.connectors import recipe
+>>> recipe.run('recipe.wrgl.yml')
 
-    :param name: Name of the recipe to run
-    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
-    :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
-    """
+:param name: Name of the recipe to run
+:param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+:param functions: Pass in a custom function or list of custom functions that can be called in the recipe."""
     if not name: name = kwargs
     _recipe.run(name, variables=variables, functions=functions)
 
@@ -55,17 +53,15 @@ def read(
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
+    """Run a recipe, from a recipe! Recipe-ception. This will read the output of another recipe.
 
-    >>> from wrangles.connectors import recipe
-    >>> df = recipe.read('recipe.wrgl.yml')
+>>> from wrangles.connectors import recipe
+>>> df = recipe.read('recipe.wrgl.yml')
 
-    :param name: Name of the recipe to run
-    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
-    :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
-    :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
-    """
+:param name: Name of the recipe to run
+:param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+:param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
+:param functions: Pass in a custom function or list of custom functions that can be called in the recipe."""
     if not name: name = kwargs
     df = _recipe.run(name, variables=variables, functions=functions)
 
@@ -106,18 +102,16 @@ def write(
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> None:
-    """
-    Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
+    """Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
 
-    >>> from wrangles.connectors import recipe
-    >>> recipe.write(dataframe=df, name='recipe.wrgl.yml')
+>>> from wrangles.connectors import recipe
+>>> recipe.write(dataframe=df, name='recipe.wrgl.yml')
 
-    :param df: Dataframe to start the recipe with
-    :param name: Name of the recipe to run
-    :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
-    :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
-    :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
-    """
+:param df: Dataframe to start the recipe with
+:param name: Name of the recipe to run
+:param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
+:param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
+:param functions: Pass in a custom function or list of custom functions that can be called in the recipe."""
     if not name: name = kwargs
     # Select only specific columns if user requests them
     if columns is not None:

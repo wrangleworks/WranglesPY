@@ -40,47 +40,45 @@ def accordion(
     functions: _Union[_types.FunctionType, list] = [],
     variables: dict = {}
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: >-
+  Apply a series of wrangles to column(s) containing lists.
+  The wrangles will be applied to each element in the list
+  and the results will be returned back as a list.
+additionalProperties: false
+required:
+  - input
+  - wrangles
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
     description: >-
-      Apply a series of wrangles to column(s) containing lists.
-      The wrangles will be applied to each element in the list
-      and the results will be returned back as a list.
-    additionalProperties: false
-    required:
-      - input
-      - wrangles
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: >-
-          The column(s) containing the list(s) that the
-          wrangles will be applied to the elements of.
-      propagate:
-        type:
-          - string
-          - array
-        description: >-
-          Limit the column(s) that will be available to the
-          wrangles and replicated for each element.
-          If not specified, all columns will be propogated.
-          This may be useful to limit the memory use
-          for large datasets.
-      output:
-        type:
-          - string
-          - array
-        description: Output of the wrangles to save back to the dataframe.
-      wrangles:
-        type: array
-        description: List of wrangles to apply
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-    """
+      The column(s) containing the list(s) that the
+      wrangles will be applied to the elements of.
+  propagate:
+    type:
+      - string
+      - array
+    description: >-
+      Limit the column(s) that will be available to the
+      wrangles and replicated for each element.
+      If not specified, all columns will be propogated.
+      This may be useful to limit the memory use
+      for large datasets.
+  output:
+    type:
+      - string
+      - array
+    description: Output of the wrangles to save back to the dataframe.
+  wrangles:
+    type: array
+    description: List of wrangles to apply
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items""""
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -204,39 +202,37 @@ def batch(
     timeout: float = None,
     use_multiprocessing: bool = False
 ):
-    """
+    """type: object
+description: >-
+  Split the data into batches for executing a list of wrangles.
+  Use this in situations such as where the intermediate data
+  is too large to fit in memory.
+additionalProperties: false
+required:
+  - wrangles
+properties:
+  batch_size:
+    type: integer
+    description: The number of rows to split each batch into
+    default: 1000
+  wrangles:
+    type: array
+    description: |-
+      The wrangles to execute on the data. Each series of wrangles
+      will be run agaisnst the data in batches of the size
+      defined by batch_size.
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items"
+  threads:
+    type: integer
+    description: The number of threads to use for parallel processing. Default 1.
+  on_error:
     type: object
-    description: >-
-      Split the data into batches for executing a list of wrangles.
-      Use this in situations such as where the intermediate data
-      is too large to fit in memory.
-    additionalProperties: false
-    required:
-      - wrangles
-    properties:
-      batch_size:
-        type: integer
-        description: The number of rows to split each batch into
-        default: 1000
-      wrangles:
-        type: array
-        description: |-
-          The wrangles to execute on the data. Each series of wrangles
-          will be run agaisnst the data in batches of the size
-          defined by batch_size.
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-      threads:
-        type: integer
-        description: The number of threads to use for parallel processing. Default 1.
-      on_error:
-        type: object
-        description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
-      timeout:
-        type: number
-        description: The number of seconds to wait for a batch to complete before raising an error
-    """
+    description: 'A dictionary of column_name: value to return if an error occurs while attempting to run a batch'
+  timeout:
+    type: number
+    description: The number of seconds to wait for a batch to complete before raising an error"""
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
 
@@ -290,34 +286,32 @@ def classify(
     model_id: str,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: |
-      Run classify wrangles on the specified columns.
-      Requires WrangleWorks Account and Subscription.
-    required:
-      - input
-      - output
-      - model_id
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column.
-      model_id:
-        type: string
-        description: ID of the classification model to be used
-      include_confidence:
-        type: boolean
-        description: For models that support it, include the confidence level in the output
-    """
+    """type: object
+description: |
+  Run classify wrangles on the specified columns.
+  Requires WrangleWorks Account and Subscription.
+required:
+  - input
+  - output
+  - model_id
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the input column.
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column.
+  model_id:
+    type: string
+    description: ID of the classification model to be used
+  include_confidence:
+    type: boolean
+    description: For models that support it, include the confidence level in the output"""
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -348,30 +342,28 @@ def concurrent(
     functions: _Union[_types.FunctionType, list] = [],
     variables: dict = {}
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: >-
+  Run multiple wrangles concurrently rather than sequentially.
+  Wrangles must specify output columns to be used concurrently.
+  When using concurrent, Wrangles may not complete in a predictable order
+  and it is not recommended to update overlapping columns with different wrangles.
+additionalProperties: false
+required:
+  - wrangles
+properties:
+  wrangles:
+    type: array
     description: >-
-      Run multiple wrangles concurrently rather than sequentially.
-      Wrangles must specify output columns to be used concurrently.
-      When using concurrent, Wrangles may not complete in a predictable order
-      and it is not recommended to update overlapping columns with different wrangles.
-    additionalProperties: false
-    required:
-      - wrangles
-    properties:
-      wrangles:
-        type: array
-        description: >-
-          The wrangles section of a recipe to execute for each
-          combination of variables
-        minItems: 1
-        items:
-          - $ref: "#/$defs/wrangles/items"
-      max_concurrency:
-        type: integer
-        description: The maximum number of wrangles to execute in parallel
-        minimum: 1
-    """
+      The wrangles section of a recipe to execute for each
+      combination of variables
+    minItems: 1
+    items:
+      - $ref: "#/$defs/wrangles/items"
+  max_concurrency:
+    type: integer
+    description: The maximum number of wrangles to execute in parallel
+    minimum: 1"""
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -408,43 +400,41 @@ def concurrent(
 
 
 def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Add or Subtract time from a date
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-        description: Name of the dates column
-      operation:
-        type: string
-        description: Date operation
-        enum:
-          - add
-          - subtract
-      output:
-        type: string
-        description: Name of the output column of dates
-      time_unit:
-        type: string
-        description: time unit for operation
-        enum:
-          - years
-          - months
-          - weeks
-          - days
-          - hours
-          - minutes
-          - seconds
-          - milliseconds
-      time_value:
-        type: number
-        description: time unit value for operation
-    """
+    """type: object
+description: Add or Subtract time from a date
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+    description: Name of the dates column
+  operation:
+    type: string
+    description: Date operation
+    enum:
+      - add
+      - subtract
+  output:
+    type: string
+    description: Name of the output column of dates
+  time_unit:
+    type: string
+    description: time unit for operation
+    enum:
+      - years
+      - months
+      - weeks
+      - days
+      - hours
+      - minutes
+      - seconds
+      - milliseconds
+  time_value:
+    type: number
+    description: time unit value for operation"""
     # Get all of the date parameters for operation
     offset = _pd.DateOffset(**{time_unit: time_value})
 
@@ -500,91 +490,89 @@ def filter(
     where_params: _Union[list, dict] = None,
     **kwargs,
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: |-
+  Filter the dataframe based on the contents.
+  If multiple filters are specified, all must be correct.
+  For complex filters, use the where parameter.
+additionalProperties: false
+properties:
+  where:
+    type: string
+    description: Use a SQL WHERE clause to filter the data.
+  where_params:
+    type: 
+      - array
+      - object
     description: |-
-      Filter the dataframe based on the contents.
-      If multiple filters are specified, all must be correct.
-      For complex filters, use the where parameter.
-    additionalProperties: false
-    properties:
-      where:
-        type: string
-        description: Use a SQL WHERE clause to filter the data.
-      where_params:
-        type: 
-          - array
-          - object
-        description: |-
-          Variables to use in conjunctions with where.
-          This allows the query to be parameterized.
-          This uses sqlite syntax (? or :name)
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: |-
-          Name of the column to filter on.
-          If multiple are provided, all must match the criteria.
-      equal:
-        type:
-          - string
-          - array
-          - boolean
-          - number
-        description: Select rows where the values equal a given value.
-      not_equal:
-        type:
-          - string
-          - array
-          - boolean
-          - number
-        description: Select rows where the values do not equal a given value.
-      is_in:
-        type:
-          - array
-          - string
-        description: Select rows where the values are in a given list.
-      not_in:
-        type:
-          - array
-          - string
-        description: Select rows where the values are not in a given list.
-      is_null:
-        type: boolean
-        description: If true, select all rows where the value is NULL. If false, where is not NULL.
-      greater_than:
-        type:
-          - integer
-          - number
-        description: Select rows where the values are greater than a specified value. Does include the value itself.
-      greater_than_equal_to:
-        type:
-          - integer
-          - number
-        description: Select rows where the values are greater than a specified value. Does include the value itself.
-      less_than:
-        type:
-          - integer
-          - number
-        description: Select rows where the values are less than a specified value. Does not include the value itself.
-      less_than_equal_to:
-        type:
-          - integer
-          - number
-        description: Select rows where the values are less than a specified value. Does include the value itself.
-      between:
-        type:
-          - array
-        description: Value or list of values to filter that are in between two parameter values
-      contains:
-        type: string
-        description: Select rows where the input contains the value. Allows regular expressions.
-      not_contains:
-        type: string
-        description: Select rows where the input does not contain the value. Allows regular expressions.
-    """
+      Variables to use in conjunctions with where.
+      This allows the query to be parameterized.
+      This uses sqlite syntax (? or :name)
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: |-
+      Name of the column to filter on.
+      If multiple are provided, all must match the criteria.
+  equal:
+    type:
+      - string
+      - array
+      - boolean
+      - number
+    description: Select rows where the values equal a given value.
+  not_equal:
+    type:
+      - string
+      - array
+      - boolean
+      - number
+    description: Select rows where the values do not equal a given value.
+  is_in:
+    type:
+      - array
+      - string
+    description: Select rows where the values are in a given list.
+  not_in:
+    type:
+      - array
+      - string
+    description: Select rows where the values are not in a given list.
+  is_null:
+    type: boolean
+    description: If true, select all rows where the value is NULL. If false, where is not NULL.
+  greater_than:
+    type:
+      - integer
+      - number
+    description: Select rows where the values are greater than a specified value. Does include the value itself.
+  greater_than_equal_to:
+    type:
+      - integer
+      - number
+    description: Select rows where the values are greater than a specified value. Does include the value itself.
+  less_than:
+    type:
+      - integer
+      - number
+    description: Select rows where the values are less than a specified value. Does not include the value itself.
+  less_than_equal_to:
+    type:
+      - integer
+      - number
+    description: Select rows where the values are less than a specified value. Does include the value itself.
+  between:
+    type:
+      - array
+    description: Value or list of values to filter that are in between two parameter values
+  contains:
+    type: string
+    description: Select rows where the input contains the value. Allows regular expressions.
+  not_contains:
+    type: string
+    description: Select rows where the input does not contain the value. Allows regular expressions."""
     if where != None:
         # Filter the dataframe based on the where clause
         # and use the index to filter the dataframe
@@ -667,37 +655,35 @@ def huggingface(
     output: _Union[str, list] = None,
     parameters = None
 ):
-    """
+    """type: object
+description: Use a model from huggingface
+required:
+  - input
+  - api_token
+  - model
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the input column.
+  output:
+    type:
+      - string
+      - array
+    description: >
+      Name of the output column.
+      If not provided, will overwrite the input column
+  model:
+    type: string
+    description: Name of the model to use. e.g. facebook/bart-large-cnn
+  api_token:
+    type: string
+    description: Huggingface API Token
+  parameters:
     type: object
-    description: Use a model from huggingface
-    required:
-      - input
-      - api_token
-      - model
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the input column.
-      output:
-        type:
-          - string
-          - array
-        description: >
-          Name of the output column.
-          If not provided, will overwrite the input column
-      model:
-        type: string
-        description: Name of the model to use. e.g. facebook/bart-large-cnn
-      api_token:
-        type: string
-        description: Huggingface API Token
-      parameters:
-        type: object
-        description: Optionally, provide additional parameters to define the model behaviour
-    """
+    description: Optionally, provide additional parameters to define the model behaviour"""
     if not output: output = input
     if not isinstance(output, list): output = [output]
     if not isinstance(input, list): input = [input]
@@ -733,33 +719,31 @@ def log(
     info: str = None,
     log_data: bool = None
 ):
-    """
-    type: object
-    description: Log the current status of the dataframe.
-    additionalProperties: false
-    properties:
-      columns:
-        type: array
-        description: (Optional, default all columns) List of specific columns to log.
-      write:
-        type: array
-        description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
-        minItems: 1
-        items: 
-          "$ref": "#/$defs/write/items"
-      error:
-        type: string
-        description: Log an error to the console
-      warning:
-        type: string
-        description: Log a warning to the console
-      info:
-        type: string
-        description: Log info to the console
-      log_data:
-        type: boolean
-        description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
-    """
+    """type: object
+description: Log the current status of the dataframe.
+additionalProperties: false
+properties:
+  columns:
+    type: array
+    description: (Optional, default all columns) List of specific columns to log.
+  write:
+    type: array
+    description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
+    minItems: 1
+    items: 
+      "$ref": "#/$defs/write/items"
+  error:
+    type: string
+    description: Log an error to the console
+  warning:
+    type: string
+    description: Log a warning to the console
+  info:
+    type: string
+    description: Log info to the console
+  log_data:
+    type: boolean
+    description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise."""
     if columns is not None:
 
         # Get the wildcards
@@ -821,27 +805,25 @@ def lookup(
     model_id: str = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Lookup values from a saved lookup wrangle
-    required:
-      - input
-      - model_id
-    properties:
-      input:
-        type:
-          - string
-          - integer
-        description: Name of the column(s) to lookup.
-      model_id:
-        type: string
-        description: The model_id to use lookup against
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-    """
+    """type: object
+description: Lookup values from a saved lookup wrangle
+required:
+  - input
+  - model_id
+properties:
+  input:
+    type:
+      - string
+      - integer
+    description: Name of the column(s) to lookup.
+  model_id:
+    type: string
+    description: The model_id to use lookup against
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)"""
     # Ensure input is only 1 value
     if isinstance(input, list):
         if len(input) == 1:
@@ -913,25 +895,23 @@ def lookup(
 
 
 def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    type: object
-    description: Apply a mathematical calculation.
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type:
-          - string
-          - integer
-        description: |
-          The mathematical expression using column names. e.g. column1 * column2
-          + column3.  Note: spaces within column names are replaced by underscores (_).
-      output:
-        type: string
-        description: The column to output the results to
-    """
+    """type: object
+description: Apply a mathematical calculation.
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type:
+      - string
+      - integer
+    description: |
+      The mathematical expression using column names. e.g. column1 * column2
+      + column3.  Note: spaces within column names are replaced by underscores (_).
+  output:
+    type: string
+    description: The column to output the results to"""
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(' ', '_')
     df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
@@ -939,9 +919,7 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
 
 
 def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
-    """
-    Deprecated - use math
-    """
+    """Deprecated - use math"""
     _logging.warning('maths is deprecated, use math instead')
     return math(df, input, output)
 
@@ -953,39 +931,37 @@ def matrix(
     functions: _Union[_types.FunctionType, list] = [],
     strategy: str = "loop",
 ):
-    """
+    """type: object
+description: |-
+  Apply a matrix of wrangles to the dataframe.
+  This will run the wrangles for each combination of the variables.
+required:
+  - variables
+  - wrangles
+properties:
+  variables:
     type: object
     description: |-
-      Apply a matrix of wrangles to the dataframe.
-      This will run the wrangles for each combination of the variables.
-    required:
-      - variables
-      - wrangles
-    properties:
-      variables:
-        type: object
-        description: |-
-          A dictionary of variables to pass to the wrangle.
-          The key is the variable name and the value is a list of values.
-      wrangles:
-        type: array
-        description: |-
-          The wrangles to apply to the dataframe.
-          Each wrangle will be run for each combination of the variables.
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-      strategy:
-        type: string
-        enum:
-          - permutations
-          - loop
-        description: >-
-          Determines how to combine variables when there are multiple.
-          loop (default) iterates over each set of variables, repeating shorter lists 
-          until the longest is completed. permutations uses the combination of all 
-          variables against all other variables.
-    """
+      A dictionary of variables to pass to the wrangle.
+      The key is the variable name and the value is a list of values.
+  wrangles:
+    type: array
+    description: |-
+      The wrangles to apply to the dataframe.
+      Each wrangle will be run for each combination of the variables.
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items"
+  strategy:
+    type: string
+    enum:
+      - permutations
+      - loop
+    description: >-
+      Determines how to combine variables when there are multiple.
+      loop (default) iterates over each set of variables, repeating shorter lists 
+      until the longest is completed. permutations uses the combination of all 
+      variables against all other variables."""
     for permutation in _define_permutations(
       variables,
       strategy,
@@ -1009,57 +985,55 @@ def python(
     input: _Union[str, int, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: |-
+  Apply a simple single-line python command. For more complex python use a custom function.
+  Note, this evaluates the python command - be especially cautious including
+  variables from untrusted sources within the command string.
+  The python command will be evaluated once for each row and the result returned.
+  Reference column values by using their name.
+  Non-alphanumeric characters within column names are replaced by underscores (_)
+  Additionally, all columns are available as a dict named kwargs.
+  Additional parameters set for the wrangle will also be available to the command.
+required:
+  - command
+  - output
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
     description: |-
-      Apply a simple single-line python command. For more complex python use a custom function.
-      Note, this evaluates the python command - be especially cautious including
-      variables from untrusted sources within the command string.
-      The python command will be evaluated once for each row and the result returned.
-      Reference column values by using their name.
-      Non-alphanumeric characters within column names are replaced by underscores (_)
-      Additionally, all columns are available as a dict named kwargs.
-      Additional parameters set for the wrangle will also be available to the command.
-    required:
-      - command
-      - output
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: |-
-          Name or list of input column(s) to filter the data available
-          to the command. Useful in conjunction with kwargs to target
-          a variable range of columns.
-          If not specified, all columns will be available.
-      output:
-        type:
-          - string
-          - array
-        description: |-
-          Name or list of output column(s). To output multiple columns,
-          return a list of the corresponding length.
-      command:
-        type: string
-        description: |-
-          Python command. This must return a value.
-          Note: any non-alphanumeric characters in variable names
-          are replaced by underscores (_).
-      except:
-        type:
-          - string
-          - array
-          - number
-          - integer
-          - boolean
-          - object
-        description: |-
-          Value to return for the row if an exception occurs during the evaluation.
-          If not provided, an exception will be raised as normal.
-          If multiple output columns are specified, this must match the length.
-    """
+      Name or list of input column(s) to filter the data available
+      to the command. Useful in conjunction with kwargs to target
+      a variable range of columns.
+      If not specified, all columns will be available.
+  output:
+    type:
+      - string
+      - array
+    description: |-
+      Name or list of output column(s). To output multiple columns,
+      return a list of the corresponding length.
+  command:
+    type: string
+    description: |-
+      Python command. This must return a value.
+      Note: any non-alphanumeric characters in variable names
+      are replaced by underscores (_).
+  except:
+    type:
+      - string
+      - array
+      - number
+      - integer
+      - boolean
+      - object
+    description: |-
+      Value to return for the row if an exception occurs during the evaluation.
+      If not provided, an exception will be raised as normal.
+      If multiple output columns are specified, this must match the length."""
     # Ensure input is a list and if not
     # specified then set to all columns
     if not input:
@@ -1141,22 +1115,20 @@ def recipe(
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    anyOf:
-      - "$ref": "#"
-      - type: object
-        description: Run a recipe as a Wrangle. Recipe-ception,
-        additionalProperties: false
-        required:
-          - name
-        properties:
-          name:
-            type: string
-            description: file name of the recipe
-          variables:
-            type: object
-            description: A dictionary of variables to pass to the recipe
-    """
+    """anyOf:
+  - "$ref": "#"
+  - type: object
+    description: Run a recipe as a Wrangle. Recipe-ception,
+    additionalProperties: false
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        description: file name of the recipe
+      variables:
+        type: object
+        description: A dictionary of variables to pass to the recipe"""
     if not name: name = kwargs
 
     df_temp = df.copy() # copy of the original df
@@ -1197,36 +1169,34 @@ def remove_words(
     tokenize_to_remove: bool = False,
     ignore_case: bool = True
     ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Remove all the elements that occur in one list from another.
-    additionalProperties: false
-    required:
-      - input
-      - to_remove
-      - output
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: Name of column to remove words from
-      to_remove:
-        type: array
-        description: Column or list of columns with a list of words to be removed
-      output:
-        type: 
-          - string
-          - array
-        description: Name of the output columns
-      tokenize_to_remove:
-        type: boolean
-        description: Tokenize all to_remove inputs
-      ignore_case:
-        type: boolean
-        description: Ignore input and to_remove case
-    """
+    """type: object
+description: Remove all the elements that occur in one list from another.
+additionalProperties: false
+required:
+  - input
+  - to_remove
+  - output
+properties:
+  input:
+    type: 
+      - string
+      - integer
+      - array
+    description: Name of column to remove words from
+  to_remove:
+    type: array
+    description: Column or list of columns with a list of words to be removed
+  output:
+    type: 
+      - string
+      - array
+    description: Name of the output columns
+  tokenize_to_remove:
+    type: boolean
+    description: Tokenize all to_remove inputs
+  ignore_case:
+    type: boolean
+    description: Ignore input and to_remove case"""
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -1257,32 +1227,30 @@ def rename(
     wrangles: list = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Rename a column or list of columns.
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name or list of input columns.
-      output:
-        type:
-          - string
-          - array
-        description: Name or list of output columns.
-      wrangles:
-        type: array
-        description: |-
-          Use wrangles to transform the column names.
-          The input is named 'columns' and the final result
-          must also include the column named 'columns'.
-          This can only be used instead of the standard rename.
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-    """
+    """type: object
+description: Rename a column or list of columns.
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name or list of input columns.
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output columns.
+  wrangles:
+    type: array
+    description: |-
+      Use wrangles to transform the column names.
+      The input is named 'columns' and the final result
+      must also include the column named 'columns'.
+      This can only be used instead of the standard rename.
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items""""
     # Allow using wrangles to manipulate the column names
     if wrangles:
         input = df.columns.tolist()
@@ -1343,33 +1311,31 @@ def rename(
 
 
 def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Quick find and replace for simple values. Can use regex in the find field.
-    additionalProperties: false
-    required:
-      - input
-      - find
-      - replace
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name or list of input column
-      output:
-        type:
-          - string
-          - array
-        description: Name or list of output column
-      find:
-        type: string
-        description: Pattern to find using regex
-      replace:
-        type: string
-        description: Value to replace the pattern found
-    """
+    """type: object
+description: Quick find and replace for simple values. Can use regex in the find field.
+additionalProperties: false
+required:
+  - input
+  - find
+  - replace
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name or list of input column
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output column
+  find:
+    type: string
+    description: Pattern to find using regex
+  replace:
+    type: string
+    description: Value to replace the pattern found"""
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -1389,33 +1355,31 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
 
 
 def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosine') -> _pd.DataFrame:
-    """
-    type: object
-    description: Calculate the cosine similarity of two vectors
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: Two columns of vectors to compare the similarity of.
-        minItems: 2
-        maxItems: 2
-      output:
-        type: string
-        description: Name of the output column.
-      method:
-        type: string
-        description: >-
-          The type of similarity to calculate (cosine or euclidean).
-          Adjusted cosine adjusts the default cosine calculation
-          to cover a range of 0-1 for typical comparisons.
-        enum:
-          - cosine
-          - adjusted cosine
-          - euclidean
-    """
+    """type: object
+description: Calculate the cosine similarity of two vectors
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: Two columns of vectors to compare the similarity of.
+    minItems: 2
+    maxItems: 2
+  output:
+    type: string
+    description: Name of the output column.
+  method:
+    type: string
+    description: >-
+      The type of similarity to calculate (cosine or euclidean).
+      Adjusted cosine adjusts the default cosine calculation
+      to cover a range of 0-1 for typical comparisons.
+    enum:
+      - cosine
+      - adjusted cosine
+      - euclidean"""
     # Check to see that two columns were passed through input
     if not isinstance(input, list) or len(input) != 2:
         raise ValueError('Input must consist of a list of two columns')
@@ -1470,25 +1434,23 @@ def sql(
     preserve_index: bool = False,
     preserve_data_types: bool = True
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
-    additionalProperties: false
-    required:
-      - command
-    properties:
-      command:
-        type: string
-        description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
-      params:
-        type: 
-          - array
-          - object
-        description: |-
-          Variables to use in conjunctions with query.
-          This allows the query to be parameterized.
-          This uses sqlite syntax (? or :name)
-    """
+    """type: object
+description: Apply a SQL command to the current dataframe. Only SELECT statements are supported - the result will be the output.
+additionalProperties: false
+required:
+  - command
+properties:
+  command:
+    type: string
+    description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
+  params:
+    type: 
+      - array
+      - object
+    description: |-
+      Variables to use in conjunctions with query.
+      This allows the query to be parameterized.
+      This uses sqlite syntax (? or :name)"""
     if command.strip().split()[0].upper() != 'SELECT':
       raise ValueError('Only SELECT statements are supported for sql wrangles')
 
@@ -1589,32 +1551,30 @@ def standardize(
     case_sensitive: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name or list of input columns.
-      output:
-        type:
-          - string
-          - array
-        description: Name or list of output columns
-      model_id:
-        type:
-          - string
-          - array
-        description: The ID of the wrangle to use (do not include 'find' and 'replace')
-      case_sensitive:
-        type: boolean
-        description: Allows the wrangle to be case sensitive if set to True, default is False.
-    """
+    """type: object
+description: Standardize data using a DIY or bespoke standardization wrangle. Requires WrangleWorks Account and Subscription.
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name or list of input columns.
+  output:
+    type:
+      - string
+      - array
+    description: Name or list of output columns
+  model_id:
+    type:
+      - string
+      - array
+    description: The ID of the wrangle to use (do not include 'find' and 'replace')
+  case_sensitive:
+    type: boolean
+    description: Allows the wrangle to be case sensitive if set to True, default is False."""
     # If user hasn't specified an output column, overwrite the input
     if output is None: output = input
 
@@ -1665,86 +1625,84 @@ def translate(
     case: str = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
-    additionalProperties: false
-    required:
-      - input
-      - output
-      - target_language
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the column to translate
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column
-      target_language:
-        type: string
-        description: Code of the language to translate to
-        enum:
-          - Bulgarian
-          - Chinese
-          - Czech
-          - Danish
-          - Dutch
-          - English (American)
-          - English (British)
-          - Estonian
-          - Finnish
-          - French
-          - German
-          - Greek
-          - Hungarian
-          - Italian
-          - Japanese
-          - Latvian
-          - Lithuanian
-          - Polish
-          - Portuguese
-          - Portuguese (Brazilian)
-          - Romanian
-          - Russian
-          - Slovak
-          - Slovenian
-          - Spanish
-          - Swedish
-      source_language:
-        type: string
-        description: Code of the language to translate from. If omitted, automatically detects the input language
-        enum:
-          - Auto
-          - Bulgarian
-          - Chinese
-          - Czech
-          - Danish
-          - Dutch
-          - English
-          - Estonian
-          - Finnish
-          - French
-          - German
-          - Greek
-          - Hungarian
-          - Italian
-          - Japanese
-          - Latvian
-          - Lithuanian
-          - Polish
-          - Portuguese
-          - Romanian
-          - Russian
-          - Slovak
-          - Slovenian
-          - Spanish
-          - Swedish
-    """
+    """type: object
+description: Translate the input to a different language. Requires WrangleWorks Account and DeepL API Key (A free account for up to 500,000 characters per month is available).
+additionalProperties: false
+required:
+  - input
+  - output
+  - target_language
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the column to translate
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column
+  target_language:
+    type: string
+    description: Code of the language to translate to
+    enum:
+      - Bulgarian
+      - Chinese
+      - Czech
+      - Danish
+      - Dutch
+      - English (American)
+      - English (British)
+      - Estonian
+      - Finnish
+      - French
+      - German
+      - Greek
+      - Hungarian
+      - Italian
+      - Japanese
+      - Latvian
+      - Lithuanian
+      - Polish
+      - Portuguese
+      - Portuguese (Brazilian)
+      - Romanian
+      - Russian
+      - Slovak
+      - Slovenian
+      - Spanish
+      - Swedish
+  source_language:
+    type: string
+    description: Code of the language to translate from. If omitted, automatically detects the input language
+    enum:
+      - Auto
+      - Bulgarian
+      - Chinese
+      - Czech
+      - Danish
+      - Dutch
+      - English
+      - Estonian
+      - Finnish
+      - French
+      - German
+      - Greek
+      - Hungarian
+      - Italian
+      - Japanese
+      - Latvian
+      - Lithuanian
+      - Polish
+      - Portuguese
+      - Romanian
+      - Russian
+      - Slovak
+      - Slovenian
+      - Spanish
+      - Swedish"""
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -1777,33 +1735,31 @@ def Try(
     retries: int = 0,
     **kwargs
 ):
-    """
-    type: object
-    description: Try a list of wrangles and catch any errors that occur
-    required:
-      - wrangles
-    properties:
-      wrangles:
-        type: array
-        description: List of wrangles to apply
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-      except:
-        type:
-          - object
-        description: |-
-          An action to take if the wrangles encounter an error.
-          This can contain a list of wrangles or a dictionary of column names and values.
-          If except is not provided, the error will be logged and the recipe will continue.
-        minItems: 1
-        items:
-          "$ref": "#/$defs/wrangles/items"
-      retries:
-        type: integer
-        description: Number of times to retry the wrangles if an error occurs. Default 0.
-        minimum: 0
-    """
+    """type: object
+description: Try a list of wrangles and catch any errors that occur
+required:
+  - wrangles
+properties:
+  wrangles:
+    type: array
+    description: List of wrangles to apply
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items"
+  except:
+    type:
+      - object
+    description: |-
+      An action to take if the wrangles encounter an error.
+      This can contain a list of wrangles or a dictionary of column names and values.
+      If except is not provided, the error will be logged and the recipe will continue.
+    minItems: 1
+    items:
+      "$ref": "#/$defs/wrangles/items"
+  retries:
+    type: integer
+    description: Number of times to retry the wrangles if an error occurs. Default 0.
+    minimum: 0"""
     for attempt in range(retries + 1):
         try:
             df = _wrangles.recipe.run(

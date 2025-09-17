@@ -7,12 +7,10 @@ from . import recipe as _recipe
 
 
 def recipe():
-    """
-    Enable console execution of a Wrangles recipe
+    """Enable console execution of a Wrangles recipe
 
-    >>> wrangles.recipe recipe.wrgl.yml --functions custom_functions.py --variables custom_variables.py
-    >>> wrangles.recipe abcdef12-3456-7890
-    """
+>>> wrangles.recipe recipe.wrgl.yml --functions custom_functions.py --variables custom_variables.py
+>>> wrangles.recipe abcdef12-3456-7890"""
     # Define console function
     parser = _argparse.ArgumentParser(prog="wrangles.recipe", description="Run a Wrangles Recipe")
   

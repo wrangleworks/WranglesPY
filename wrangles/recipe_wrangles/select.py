@@ -10,20 +10,18 @@ from .. import select as _select
 from ..utils import get_nested_function as _get_nested_function
 
 def columns(df: _pd.DataFrame, input: _Union[str, int, list]) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select columns from the dataframe
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the column(s) to select
-    """
+    """type: object
+description: Select columns from the dataframe
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the column(s) to select"""
     if not isinstance(input, list): input = [input]
     
     # Missing column should be caught by _wildcard_expansion
@@ -38,48 +36,46 @@ def dictionary_element(
     output: _Union[str, list] = None,
     default: any = ''
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select one or more element of a dictionary.
-    additionalProperties: false
-    required:
-      - input
-      - element
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: Name of the input column
-      output:
-        type:
-          - string
-          - array
-        description: >-
-          Name of the output column.
-          If omitted, the input column will be replaced.
-      element:
-        type:
-          - string
-          - array
-        description: |- 
-          The key or keys from the dictionary to select.
-          If a single key is provided, the value will be returned
-          If a lists of keys are selected,
-          the result will be a new dictionary.
-      default:
-        type: 
-          - string
-          - number
-          - array
-          - object
-          - boolean
-          - 'null'
-        description: |-
-          Set the default value to return if the specified element doesn't exist.
-          If selecting multiple elements, a dict of defaults can be set.
-    """
+    """type: object
+description: Select one or more element of a dictionary.
+additionalProperties: false
+required:
+  - input
+  - element
+properties:
+  input:
+    type: 
+      - string
+      - integer
+      - array
+    description: Name of the input column
+  output:
+    type:
+      - string
+      - array
+    description: >-
+      Name of the output column.
+      If omitted, the input column will be replaced.
+  element:
+    type:
+      - string
+      - array
+    description: |- 
+      The key or keys from the dictionary to select.
+      If a single key is provided, the value will be returned
+      If a lists of keys are selected,
+      the result will be a new dictionary.
+  default:
+    type: 
+      - string
+      - number
+      - array
+      - object
+      - boolean
+      - 'null'
+    description: |-
+      Set the default value to return if the specified element doesn't exist.
+      If selecting multiple elements, a dict of defaults can be set."""
     if output is None: output = input
     
     # Ensure input and outputs are lists
@@ -102,40 +98,38 @@ def element(
     output: _Union[str, list] = None,
     default: any = None
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: >-
+  Select elements of lists or dicts
+  using python syntax like col[0]['key']
+additionalProperties: false
+required:
+  - input
+properties:
+  input:
+    type: 
+      - string
+      - integer
+      - array
     description: >-
-      Select elements of lists or dicts
-      using python syntax like col[0]['key']
-    additionalProperties: false
-    required:
-      - input
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: >-
-          Name of the input column and sub elements
-          This permits by index for lists or dict
-          and by key for dicts
-          e.g. col[0]['key'] // [{"key":"val"}] -> "val"
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      default:
-        type: 
-          - string
-          - number
-          - array
-          - object
-          - boolean
-        description: Set the default value to return if the specified element doesn't exist.
-        default: ""
-    """
+      Name of the input column and sub elements
+      This permits by index for lists or dict
+      and by key for dicts
+      e.g. col[0]['key'] // [{"key":"val"}] -> "val"
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)
+  default:
+    type: 
+      - string
+      - number
+      - array
+      - object
+      - boolean
+    description: Set the default value to return if the specified element doesn't exist.
+    default: """""
     def _extract_elements(input_string):
         # Find all occurrences of '[...]' using regex
         pattern = r'\[[^\]]*\]'
@@ -243,94 +237,92 @@ def group_by(
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ):
-    """
-    type: object
-    description: Group and aggregate the data
-    properties:
-      by:
-        type:
-          - string
-          - array
-        description: List of the input columns to group on
-      list:
-        type:
-          - string
-          - array
-        description: Group and return all values for these column(s) as a list
-      first:
-        type:
-          - string
-          - array
-        description: The first value for these column(s)
-      last:
-        type:
-          - string
-          - array
-        description: The last value for these column(s)
-      min:
-        type:
-          - string
-          - array
-        description: The minimum value for these column(s)
-      max:
-        type:
-          - string
-          - array
-        description: The maximum value for these column(s)
-      mean:
-        type:
-          - string
-          - array
-        description: The mean (average) value for these column(s)
-      median:
-        type:
-          - string
-          - array
-        description: The median value for these column(s)
-      nunique:
-        type:
-          - string
-          - array
-        description: The count of unique values for these column(s)
-      count:
-        type:
-          - string
-          - array
-        description: The count of values for these column(s)
-      std:
-        type:
-          - string
-          - array
-        description: The standard deviation of values for these column(s)
-      sum:
-        type:
-          - string
-          - array
-        description: The total of values for these column(s)
-      any:
-        type:
-          - string
-          - array
-        description: Return true if any of the values for these column(s) are true
-      all:
-        type:
-          - string
-          - array
-        description: Return true if all of the values for these column(s) are true
-      p75:
-        type:
-          - string
-          - array
-        description: >-
-          Get a percentile. Note, you can use any integer here
-          for the corresponding percentile.
-      custom.placeholder:
-        type:
-          - string
-          - array
-        description: >-
-          Placeholder for custom functions. Replace 'placeholder' with the name of the function.
-    """
+    """type: object
+description: Group and aggregate the data
+properties:
+  by:
+    type:
+      - string
+      - array
+    description: List of the input columns to group on
+  list:
+    type:
+      - string
+      - array
+    description: Group and return all values for these column(s) as a list
+  first:
+    type:
+      - string
+      - array
+    description: The first value for these column(s)
+  last:
+    type:
+      - string
+      - array
+    description: The last value for these column(s)
+  min:
+    type:
+      - string
+      - array
+    description: The minimum value for these column(s)
+  max:
+    type:
+      - string
+      - array
+    description: The maximum value for these column(s)
+  mean:
+    type:
+      - string
+      - array
+    description: The mean (average) value for these column(s)
+  median:
+    type:
+      - string
+      - array
+    description: The median value for these column(s)
+  nunique:
+    type:
+      - string
+      - array
+    description: The count of unique values for these column(s)
+  count:
+    type:
+      - string
+      - array
+    description: The count of values for these column(s)
+  std:
+    type:
+      - string
+      - array
+    description: The standard deviation of values for these column(s)
+  sum:
+    type:
+      - string
+      - array
+    description: The total of values for these column(s)
+  any:
+    type:
+      - string
+      - array
+    description: Return true if any of the values for these column(s) are true
+  all:
+    type:
+      - string
+      - array
+    description: Return true if all of the values for these column(s) are true
+  p75:
+    type:
+      - string
+      - array
+    description: >-
+      Get a percentile. Note, you can use any integer here
+      for the corresponding percentile.
+  custom.placeholder:
+    type:
+      - string
+      - array
+    description: >-
+      Placeholder for custom functions. Replace 'placeholder' with the name of the function."""
     def percentile(n):
         def percentile_(x):
             return x.quantile(n)
@@ -415,39 +407,35 @@ def group_by(
 
 
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
-    """
-    type: object
-    description: Return the first n rows
-    required:
-      - n
-    properties:
-      n:
-        type: integer
-        description: Number of rows to return
-    """
+    """type: object
+description: Return the first n rows
+required:
+  - n
+properties:
+  n:
+    type: integer
+    description: Number of rows to return"""
     if not isinstance(n, int) or n <= 0:
         raise ValueError("n must be a positive integer")
     return df.head(n)
 
 
 def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list]) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
-    additionalProperties: false
-    required:
-      - input
-      - output
-    properties:
-      input:
-        type: array
-        description: List of the input columns to select from
-      output:
-        type:
-          - array
-          - string
-        description: If two columns; the result and confidence. If one column; [result, confidence]
-    """
+    """type: object
+description: Select the option with the highest confidence from multiple columns. Inputs are expected to be of the form [<<value>>, <<confidence_score>>].
+additionalProperties: false
+required:
+  - input
+  - output
+properties:
+  input:
+    type: array
+    description: List of the input columns to select from
+  output:
+    type:
+      - array
+      - string
+    description: If two columns; the result and confidence. If one column; [result, confidence]"""
 
     if isinstance(output, list) and len(output) == 1:
         output = output[0]
@@ -465,35 +453,33 @@ def left(
     length: int,
     output: _Union[str, list] = None
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: >-
+  Return characters from the left of text.
+  Strings shorter than the length defined will be unaffected.
+additionalProperties: false
+required:
+  - input
+  - length
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the column(s) to edit
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)
+  length:
+    type: integer
     description: >-
-      Return characters from the left of text.
-      Strings shorter than the length defined will be unaffected.
-    additionalProperties: false
-    required:
-      - input
-      - length
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the column(s) to edit
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      length:
-        type: integer
-        description: >-
-          Number of characters to include from the left.
-          If negative, this will remove the specified
-          number of characters from the left.
-          May not equal 0.
-    """
+      Number of characters to include from the left.
+      If negative, this will remove the specified
+      number of characters from the left.
+      May not equal 0."""
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
@@ -538,28 +524,26 @@ def length(
   input: _Union[str, int, list],
   output: _Union[str, list] = None,
 ):
-  """
-  type: object
-  description: >-
-    Calculate the lengths of data in a column.
-    The length depends on the data type
-    e.g. text will be the length of the text,
-    lists will be the number of elements in the list.
-  required:
-    - input
-  properties:
-    input:
-      type:
-        - string
-        - integer
-        - array
-      description: Name of the input column(s).
-    output:
-      type:
-        - string
-        - array
-      description: Name of the output column(s).
-  """
+  """type: object
+description: >-
+  Calculate the lengths of data in a column.
+  The length depends on the data type
+  e.g. text will be the length of the text,
+  lists will be the number of elements in the list.
+required:
+  - input
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the input column(s).
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)."""
   if not output: output = input
   if not isinstance(output, list): output = [output]
   if not isinstance(input, list): input = [input]
@@ -577,41 +561,39 @@ def list_element(
     element: int = 0,
     default: any = ''
 ) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select a numbered element of a list (zero indexed).
-    additionalProperties: false
-    required:
-      - input
-      - element
-    properties:
-      input:
-        type: 
-          - string
-          - integer
-          - array
-        description: Name of the input column
-      output:
-        type: 
-          - string
-          - array
-        description: Name of the output column
-      element:
-        type: integer
-        description: |-
-          The numbered element of the list to select.
-          Starts from zero.
-          This may use python slicing syntax to select a subset of the list.
-      default:
-        type:
-          - string
-          - number
-          - array
-          - object
-          - boolean
-          - 'null'
-        description: Set the default value to return if the specified element doesn't exist.
-    """
+    """type: object
+description: Select a numbered element of a list (zero indexed).
+additionalProperties: false
+required:
+  - input
+  - element
+properties:
+  input:
+    type: 
+      - string
+      - integer
+      - array
+    description: Name of the input column
+  output:
+    type: 
+      - string
+      - array
+    description: Name of the output column
+  element:
+    type: integer
+    description: |-
+      The numbered element of the list to select.
+      Starts from zero.
+      This may use python slicing syntax to select a subset of the list.
+  default:
+    type:
+      - string
+      - number
+      - array
+      - object
+      - boolean
+      - 'null'
+    description: Set the default value to return if the specified element doesn't exist."""
     if output is None: output = input
     
     # Ensure input and outputs are lists
@@ -634,35 +616,33 @@ def right(
     length: int,
     output: _Union[str, list] = None
 ) -> _pd.DataFrame:
-    """
-    type: object
+    """type: object
+description: >-
+  Return characters from the right of text.
+  Strings shorter than the length defined will be unaffected.
+additionalProperties: false
+required:
+  - input
+  - length
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the column(s) to edit
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)
+  length:
+    type: integer
     description: >-
-      Return characters from the right of text.
-      Strings shorter than the length defined will be unaffected.
-    additionalProperties: false
-    required:
-      - input
-      - length
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the column(s) to edit
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      length:
-        type: integer
-        description: >-
-          Number of characters to include from the right.
-          If negative, this will remove the specified
-          number of characters from the right.
-          May not equal 0.
-    """
+      Number of characters to include from the right.
+      If negative, this will remove the specified
+      number of characters from the right.
+      May not equal 0."""
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
@@ -703,22 +683,20 @@ def right(
 
 
 def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFrame:
-    """
-    type: object
-    description: Return a random sample of the rows
-    required:
-      - rows
-    properties:
-      rows:
-        type:
-          - integer
-          - number
-        description: |-
-          If a whole number, will select that number of rows.
-          If a decimal between 0 and 1 will select that fraction 
-          of the rows e.g. 0.1 => 10% of rows will be returned
-        exclusiveMinimum: 0
-    """
+    """type: object
+description: Return a random sample of the rows
+required:
+  - rows
+properties:
+  rows:
+    type:
+      - integer
+      - number
+    description: |-
+      If a whole number, will select that number of rows.
+      If a decimal between 0 and 1 will select that fraction 
+      of the rows e.g. 0.1 => 10% of rows will be returned
+    exclusiveMinimum: 0"""
     if not isinstance(rows, (int, float)):
         try:
           rows = float(rows)
@@ -741,40 +719,38 @@ def sample(df: _pd.DataFrame, rows: _Union[int, float], **kwargs) -> _pd.DataFra
 
 
 def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = None, length: int = None, output: _Union[str, list] = None) -> _pd.DataFrame:
-    """
-    type: object
-    description: Return characters from the middle of text.
-    additionalProperties: false
-    required:
-      - input
-      - start
-      - length
-    properties:
-      input:
-        type:
-          - string
-          - integer
-          - array
-        description: Name of the column(s) to edit
-      output:
-        type:
-          - string
-          - array
-        description: Name of the output column(s)
-      start:
-        type: integer
-        description: |
-          The position of the first character to select.
-          If ommited will start from the beginning and length must 
-          be provided.
-        minimum: 1
-      length:
-        type: integer
-        description: |
-          The length of the string to select. If ommited
-          will select to the end of the string and start must be provided.
-        minimum: 1
-    """
+    """type: object
+description: Return characters from the middle of text.
+additionalProperties: false
+required:
+  - input
+  - start
+  - length
+properties:
+  input:
+    type:
+      - string
+      - integer
+      - array
+    description: Name of the column(s) to edit
+  output:
+    type:
+      - string
+      - array
+    description: Name of the output column(s)
+  start:
+    type: integer
+    description: |
+      The position of the first character to select.
+      If ommited will start from the beginning and length must 
+      be provided.
+    minimum: 1
+  length:
+    type: integer
+    description: |
+      The length of the string to select. If ommited
+      will select to the end of the string and start must be provided.
+    minimum: 1"""
     # If user hasn't provided an output, replace input
     if output is None: output = input
 
@@ -814,42 +790,38 @@ def substring(df: _pd.DataFrame, input: _Union[str, int, list], start: int = Non
 
 
 def tail(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
-    """
-    type: object
-    description: Return the last n rows
-    required:
-      - n
-    properties:
-      n:
-        type: integer
-        description: Number of rows to return
-    """
+    """type: object
+description: Return the last n rows
+required:
+  - n
+properties:
+  n:
+    type: integer
+    description: Number of rows to return"""
     if not isinstance(n, int) or n <= 0:
         raise ValueError("n must be a positive integer")
     return df.tail(n)
 
 
 def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> _pd.DataFrame:
-    """
-    type: object
-    description: Select the first option if it exceeds a given threshold, else the second option.
-    additionalProperties: false
-    required:
-      - input
-      - output
-      - threshold
-    properties:
-      input:
-        type: array
-        description: List of the input columns to select from
-      output:
-        type: string
-        description: Name of the output column
-      threshold:
-        type: number
-        description: Threshold above which to choose the first option, otherwise the second
-        minimum: 0
-        maximum: 1
-    """
+    """type: object
+description: Select the first option if it exceeds a given threshold, else the second option.
+additionalProperties: false
+required:
+  - input
+  - output
+  - threshold
+properties:
+  input:
+    type: array
+    description: List of the input columns to select from
+  output:
+    type: string
+    description: Name of the output column
+  threshold:
+    type: number
+    description: Threshold above which to choose the first option, otherwise the second
+    minimum: 0
+    maximum: 1"""
     df[output] = _select.confidence_threshold(df[input[0]].tolist(), df[input[1]].tolist(), threshold)
     return df

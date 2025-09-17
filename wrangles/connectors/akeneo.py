@@ -25,29 +25,27 @@ def read(
     columns: list = None,
     parameters: dict = {}
 ):
-    """
-    Read data from an Akeneo PIM
+    """Read data from an Akeneo PIM
 
-    >>> from wrangles.connectors import akeneo
-    >>> df = akeneo.read(
-    >>>     host = 'https://akeneo.example.com',
-    >>>     user = 'username',
-    >>>     password = 'password',
-    >>>     client_id = 'generated_id',
-    >>>     client_secret = 'generated_secret',
-    >>>     source = 'products'
-    >>> )
+>>> from wrangles.connectors import akeneo
+>>> df = akeneo.read(
+>>>     host = 'https://akeneo.example.com',
+>>>     user = 'username',
+>>>     password = 'password',
+>>>     client_id = 'generated_id',
+>>>     client_secret = 'generated_secret',
+>>>     source = 'products'
+>>> )
 
-    :param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
-    :param user: User with access to read the data
-    :param password: Password for the user
-    :param client_id: Client ID. These need to be generated in the PIM.
-    :param client_secret: Client Secret
-    :param source: Type of data to return
-    :param columns: Specify which columns to return
-    :param parameters: Set parameters for the query such as filtering the results.
-    :return: A Pandas dataframe of the returned results
-    """
+:param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
+:param user: User with access to read the data
+:param password: Password for the user
+:param client_id: Client ID. These need to be generated in the PIM.
+:param client_secret: Client Secret
+:param source: Type of data to return
+:param columns: Specify which columns to return
+:param parameters: Set parameters for the query such as filtering the results.
+:return: A Pandas dataframe of the returned results"""
     _logging.info(f": Reading data from Akeneo :: {host} / {source}")
 
     # Set to max temporarily
@@ -156,27 +154,25 @@ def write(
     client_secret: str,
     source: str,
 ) -> None:
-    """
-    Write data into an Akeneo PIM
+    """Write data into an Akeneo PIM
 
-    >>> from wrangles.connectors import akeneo
-    >>> akeneo.write(
-    >>>     df,
-    >>>     host = 'https://akeneo.example.com',
-    >>>     user = 'username',
-    >>>     password = 'password',
-    >>>     client_id = 'generated_id',
-    >>>     client_secret = 'generated_secret',
-    >>>     source = 'products'
-    >>> )
+>>> from wrangles.connectors import akeneo
+>>> akeneo.write(
+>>>     df,
+>>>     host = 'https://akeneo.example.com',
+>>>     user = 'username',
+>>>     password = 'password',
+>>>     client_id = 'generated_id',
+>>>     client_secret = 'generated_secret',
+>>>     source = 'products'
+>>> )
 
-    :param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
-    :param user: User with access to read the data
-    :param password: Password for the user
-    :param client_id: Client ID. These need to be generated in the PIM.
-    :param client_secret: Client Secret
-    :param source: Type of data to return
-    """
+:param host: Hostname of the Akeneo PIM instance e.g. https://akeneo.example.com
+:param user: User with access to read the data
+:param password: Password for the user
+:param client_id: Client ID. These need to be generated in the PIM.
+:param client_secret: Client Secret
+:param source: Type of data to return"""
     _logging.info(f": Writing data to Akeneo :: {host} / {source}")
 
     # TODO: handle errors appropriately

@@ -45,23 +45,21 @@ def read(
     params: dict = {},
     domain: str = None
 ) -> _pd.DataFrame:
-    """
-    Read data from Salesforce
+    """Read data from Salesforce
 
-    >>> from wrangles.connectors import salesforce
-    >>> df = salesforce.read(instance='sf.domain', object='object', user='user', password='password', token='token', command='SELECT Id, Name FROM Contact')
+>>> from wrangles.connectors import salesforce
+>>> df = salesforce.read(instance='sf.domain', object='object', user='user', password='password', token='token', command='SELECT Id, Name FROM Contact')
 
-    :param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
-    :param user: User with read permission
-    :param password: Password for the user
-    :param token: Security token for the user
-    :param object: Object to read data from e.g. Contact
-    :param command: SOQL query
-    :param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
-    :param params: (Optional) Parameters to be used in the SOQL query
-    :param domain: (Optional) Use test to connect to a sandbox instance
-    :return: A Pandas dataframe of the imported data.
-    """
+:param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
+:param user: User with read permission
+:param password: Password for the user
+:param token: Security token for the user
+:param object: Object to read data from e.g. Contact
+:param command: SOQL query
+:param columns: (Optional) Subset of the columns to be read. If not provided, all columns will be included
+:param params: (Optional) Parameters to be used in the SOQL query
+:param domain: (Optional) Use test to connect to a sandbox instance
+:return: A Pandas dataframe of the imported data."""
     _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
 
     sf = _salesforce.Salesforce(
@@ -146,22 +144,20 @@ def write(
     columns: list = None,
     domain: str = None
 ) -> None:
-    """
-    Write data to Salesforce.
+    """Write data to Salesforce.
 
-    >>> from wrangles.connectors import salesforce
-    >>> salesforce.write(df, instance='sf.domain', object='object', id='Id', user='user', password='password', token='token')
+>>> from wrangles.connectors import salesforce
+>>> salesforce.write(df, instance='sf.domain', object='object', id='Id', user='user', password='password', token='token')
 
-    :param df: Dataframe to be written to a file
-    :param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
-    :param object: Object to upload to data to e.g. Contact
-    :param id: Id field. If the Id exists and is provided, the record will be updated, otherwise inserted.
-    :param user: User with write permission
-    :param password: Password for the user
-    :param token: Security token for the user
-    :param columns: (Optional) A subset of the columns to be written
-    :param domain: (Optional) Use test to connect to a sandbox instance
-    """
+:param df: Dataframe to be written to a file
+:param instance: The salesforce instance to read from. e.g. <custom>.my.salesforce.com
+:param object: Object to upload to data to e.g. Contact
+:param id: Id field. If the Id exists and is provided, the record will be updated, otherwise inserted.
+:param user: User with write permission
+:param password: Password for the user
+:param token: Security token for the user
+:param columns: (Optional) A subset of the columns to be written
+:param domain: (Optional) Use test to connect to a sandbox instance"""
     _logging.info(f": Writing data to Salesforce :: {instance} /  {object}")
 
     # Select only specific columns if user requests them
