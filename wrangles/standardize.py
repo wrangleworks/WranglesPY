@@ -10,16 +10,48 @@ def standardize(
     case_sensitive: bool = False,
     **kwargs
 ) -> list:
-    """
-    Standardize text - Standardize Wrangles can replace words with alternatives,
-    in addition to using regex patterns for more complex replacements.
-    Requires WrangleWorks Account and Subscription.
+    """Standardize text - Standardize Wrangles can replace words with alternatives,
+in addition to using regex patterns for more complex replacements.
+Requires WrangleWorks Account and Subscription.
 
-    :param input: A string or list of strings to be standardized.
-    :param model_id: The model to be used.
-    :param case_sensitive: Allows setting the model to be case sensitive
-    :return: A string or list with the updated text.
-    """
+Recipe:
+---
+```yaml
+wrangles:
+  - standardize:
+      input: ${input_column}
+      output: ${output_column}
+      model_id: ${your_model_id}
+      case_sensitive: false # Optional
+```
+
+python:
+```python
+import wrangles
+import pandas as pd
+
+# Define a dataframe
+df = pd.DataFrame({
+    'company_a': ['WrangleWorks Inc.', 'Wrangle Works', 'WrangleWorks F.Z.E.'],
+})
+
+# Standardize the company names using a model
+df['company_std'] = wrangles.standardize(
+    df['company'].tolist(),
+    model_id='8f4c3a5b-3b2a-4b1c-9c8c-1c1b1a1b1a1b' # model_id is an example
+)
+
+print(df)
+#              company     company_std
+# 0    WrangleWorks Inc.    WrangleWorks
+# 1        Wrangle Works    WrangleWorks
+# 2  WrangleWorks F.Z.E.    WrangleWorks
+```
+
+:param input: A string or list of strings to be standardized.
+:param model_id: The model to be used.
+:param case_sensitive: Allows setting the model to be case sensitive
+:return: A string or list with the updated text."""
     if isinstance(input, str): 
         json_data = [input]
     elif isinstance(input, list):
