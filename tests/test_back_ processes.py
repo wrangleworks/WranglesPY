@@ -2,6 +2,7 @@ import pytest
 import wrangles
 import pandas as pd
 import os
+import requests
 
 
 # Testing Auth
@@ -48,3 +49,32 @@ def test_user_config_credentials():
     user = os.getenv('WRANGLES_USER','...')
     password = os.getenv('WRANGLES_PASSWORD', '...')
     assert authenticate(user, password) == None
+
+
+def test_refresh_token_error():
+    """
+    Check error is raised when invalid refresh token is used.
+    """
+    wrangles.auth.refresh_token = "should fail"
+
+    with pytest.raises(RuntimeError, match="Error refreshing"):
+        wrangles.extract.codes('test ABC123ZZ')
+
+    wrangles.auth.refresh_token = None
+
+def test_refresh_token():
+    """
+    Check refresh token works correctly.
+    """
+    wrangles.auth.refresh_token = requests.post(
+        f"{wrangles.config.keycloak.host}/auth/realms/{wrangles.config.keycloak.realm}/protocol/openid-connect/token",
+        headers=headers,
+        data={
+            "grant_type": "password",
+            "username": wrangles.config.api_user,
+            "password": wrangles.config.api_password,
+            "client_id": wrangles.config.keycloak.client_id
+        }
+    ).json()['refresh_token']
+    assert wrangles.extract.codes('test ABC123ZZ') == ["ABC123ZZ"]
+    wrangles.auth.refresh_token = None
