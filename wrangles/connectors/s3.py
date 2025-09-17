@@ -17,13 +17,15 @@ def read(
     secret_access_key: str = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """Import data from a file in AWS S3
-
-:param bucket: The name of the bucket to download object from
-:param key: The name of the key to download from
-:param access_key: S3 access key
-:param secret_access_key: S3 secret access key
-:param kwargs: (Optional) Named arguments to pass to respective pandas read a file function."""
+    """
+    Import data from a file in AWS S3
+    
+    :param bucket: The name of the bucket to download object from
+    :param key: The name of the key to download from
+    :param access_key: S3 access key
+    :param secret_access_key: S3 secret access key
+    :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
+    """
     _logging.info(f": Reading data from S3 :: {bucket} / {key}")
 
     # Check if access keys are not none then auth
@@ -72,14 +74,16 @@ properties:
 """
 
 def write(df: _pd.DataFrame, bucket: str, key: str, access_key: str = None, secret_access_key: str = None, **kwargs):
-    """Write a file to AWS S3
-
-:param df: Dataframe to be exported
-:param bucket: The name of the bucket where file will be written
-:param key: The name of the key to download from
-:param access_key: S3 access key
-:param secret_access_key: S3 secret access key
-:param kwargs: (Optional) Named arguments to pass to respective pandas write a file function."""
+    """
+    Write a file to AWS S3
+    
+    :param df: Dataframe to be exported
+    :param bucket: The name of the bucket where file will be written
+    :param key: The name of the key to download from
+    :param access_key: S3 access key
+    :param secret_access_key: S3 secret access key
+    :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
+    """
     _logging.info(f": Writing data to S3 :: {bucket} / {key}")
 
     # Check if access keys are not none then auth
@@ -126,7 +130,9 @@ properties:
 """
 
 class download_files:
-    """Download file(s) from S3 and save to the local file system."""
+    """
+    Download file(s) from S3 and save to the local file system.
+    """
     _schema = {
         "run": """
             type: object
@@ -202,7 +208,9 @@ class download_files:
                 raise RuntimeError(f"Failed to download file from S3 :: {bucket} / {k}")
 
 class upload_files:
-    """Upload file(s) to S3 from the local file system."""
+    """
+    Upload file(s) to S3 from the local file system.
+    """
     _schema = {
         "run": """
             type: object

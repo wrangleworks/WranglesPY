@@ -7,7 +7,9 @@ from . import auth as _auth
 
 
 class user():
-    """Get user data"""
+    """
+    Get user data
+    """
 
     def models(type: str = None) -> list:
         """
@@ -24,10 +26,11 @@ class user():
 
 
 def model(id: str):
-    """Get a model definition
-
-:param id: model ID
-:returns: Dict of model properties"""
+    """
+    Get a model definition
+    :param id: model ID
+    :returns: Dict of model properties
+    """
     response = _requests.get(
         f'{_config.api_host}/model/metadata',
         params = {'id': id},
@@ -42,11 +45,13 @@ def model(id: str):
 
 
 def model_content(id: str, version_id: str = None) -> list:
-    """Get the training data for a model
+    """
+    Get the training data for a model
 
-:param id: Model ID
-:param version_id: (Optional) Version ID. If not provided, the latest version will be used.
-:return: Model data with Settings, Columns and Data as a 2D array"""
+    :param id: Model ID
+    :param version_id: (Optional) Version ID. If not provided, the latest version will be used.
+    :return: Model data with Settings, Columns and Data as a 2D array
+    """
     response = _requests.get(
         f'{_config.api_host}/model/content',
         params = {

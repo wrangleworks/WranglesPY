@@ -18,14 +18,16 @@ def address(
     dataType: str,
     **kwargs
 ) -> list:
-    """Extract geographical information from unstructured text such as streets, cities or countries.
-Requires WrangleWorks Account.
+    """
+    Extract geographical information from unstructured text such as streets, cities or countries.
+    Requires WrangleWorks Account.
 
-e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
+    e.g. '1100 Congress Ave, Austin, TX 78701, United States' -> '1100 Congress Ave'
 
-:param input: A string or list of strings with addresses to search for information.
-:param dataType: The type of information to return. 'streets', 'cities', 'regions' or 'countries'
-:return: A list of any results found."""
+    :param input: A string or list of strings with addresses to search for information.
+    :param dataType: The type of information to return. 'streets', 'cities', 'regions' or 'countries'
+    :return: A list of any results found.
+    """
     if isinstance(input, str): 
         json_data = [input]
     else:
@@ -60,28 +62,34 @@ def ai(
     strict: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
-    """>>> wrangles.extract.ai(
->>>   "Yellow Submarine",
->>>   api_key="...",
->>>   output={
->>>       "type": "string",
->>>       "description": "The names of any colors in the input"
->>>   }
->>> )
+    """
+    >>> wrangles.extract.ai(
+    >>>   "Yellow Submarine",
+    >>>   api_key="...",
+    >>>   output={
+    >>>       "type": "string",
+    >>>       "description": "The names of any colors in the input"
+    >>>   }
+    >>> )
 
-:param input: A single value or list of values to extract information from. If a list is provided,         each element will be analyzed individually and a list of equal length will be returned.
-:param api_key: API Key
-:param output: (Optional) This can be a string prompting the output, a JSON schema definition         of the output requested or a dict of JSON schema definitions.
-:param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output.         If both are provided, output that precedence over the definition from the model_id.
-:param model: (Optional) The model to use for the extraction.
-:param threads: (Optional) Number of threads to use for parallel processing.
-:param timeout: (Optional) Timeout in seconds for each API call.
-:param retries: (Optional) Number of retries to attempt on failure.
-:param messages: (Optional) Overall prompts to pass additional instructions.
-:param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
-:param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema,         but may be more limited in the schema it can return.
+    :param input: A single value or list of values to extract information from. If a list is provided, \
+        each element will be analyzed individually and a list of equal length will be returned.
+    :param api_key: API Key
+    :param output: (Optional) This can be a string prompting the output, a JSON schema definition \
+        of the output requested or a dict of JSON schema definitions.
+    :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
+        If both are provided, output that precedence over the definition from the model_id.
+    :param model: (Optional) The model to use for the extraction.
+    :param threads: (Optional) Number of threads to use for parallel processing.
+    :param timeout: (Optional) Timeout in seconds for each API call.
+    :param retries: (Optional) Number of retries to attempt on failure.
+    :param messages: (Optional) Overall prompts to pass additional instructions.
+    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
+    :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
+        but may be more limited in the schema it can return.
 
-:return: A scalar or list of extracted information."""
+    :return: A scalar or list of extracted information.
+    """
     # Ensure input is a list
     input_was_scalar = False
     if not isinstance(input, list):
@@ -330,16 +338,18 @@ def attributes(
     bound: str = 'mid',
     **kwargs
 ) -> _Union[dict, list]:
-    """Extract numeric attributes from unstructured text such as lengths or voltages.
-Requires WrangleWorks Account.
+    """
+    Extract numeric attributes from unstructured text such as lengths or voltages.
+    Requires WrangleWorks Account.
 
->>> wrangles.extract.attributes('tape 25m')
-{'length': ['25m']}
+    >>> wrangles.extract.attributes('tape 25m')
+    {'length': ['25m']}
 
-:param input: Input string or list of strings to be searched for attributes
-:param responseContent: (Optional, default Span) 'span' or 'object'. If span, returns original text, if object returns an object of value and dimension.
-:param type: (Optional) Specify which types of attributes to find. If omitted, a dict of all attributes types is returned
-:param bound: (Optional, default mid). When returning an object, if the input is a range. e.g. 10-20mm, set the value to return. min, mid or max."""
+    :param input: Input string or list of strings to be searched for attributes
+    :param responseContent: (Optional, default Span) 'span' or 'object'. If span, returns original text, if object returns an object of value and dimension.
+    :param type: (Optional) Specify which types of attributes to find. If omitted, a dict of all attributes types is returned
+    :param bound: (Optional, default mid). When returning an object, if the input is a range. e.g. 10-20mm, set the value to return. min, mid or max.
+    """
     
     if isinstance(input, str): 
         json_data = [input]
@@ -373,10 +383,13 @@ def codes(
     input: _Union[str, list],
     **kwargs
 ) -> list:
-    """Extract alphanumeric codes from unstructured text.
-Requires WrangleWorks Account.
+    """
+    Extract alphanumeric codes from unstructured text.
+    Requires WrangleWorks Account.
 
-e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'"""
+    e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'
+
+    """
     if isinstance(input, str): 
         json_data = [input]
     else:
@@ -403,12 +416,14 @@ def custom(
     use_spellcheck: bool = False,
     **kwargs
 ) -> list:
-    """Extract entities using a custom model.
-Requires WrangleWorks Account and Subscription.
+    """
+    Extract entities using a custom model.
+    Requires WrangleWorks Account and Subscription.
 
-:param input: A string or list of strings to searched for information.
-:param model_id: The model to be used to search for information.
-:return: A list of entities found."""
+    :param input: A string or list of strings to searched for information.
+    :param model_id: The model to be used to search for information.
+    :return: A list of entities found.
+    """
     if isinstance(input, str): 
         json_data = [input]
     elif isinstance(input, list):
@@ -486,12 +501,14 @@ def html(
     dataType: str,
     **kwargs
 ) -> list:
-    """Extract specific html elements from strings containing html.
-Requires WrangleWorks Account.
+    """
+    Extract specific html elements from strings containing html.
+    Requires WrangleWorks Account.
 
-:param input: A string or list of strings with addresses to search for information.
-:param dataType: The type of information to return. 'text' or 'links'
-:return: A list of any results found."""
+    :param input: A string or list of strings with addresses to search for information.
+    :param dataType: The type of information to return. 'text' or 'links'
+    :return: A list of any results found.
+    """
     if isinstance(input, str): 
         json_data = [input]
     else:
@@ -518,16 +535,18 @@ def properties(
     return_data_type: str = 'list',
     **kwargs
 ) -> _Union[dict, list]:
-    """Extract categorical properties from unstructured text such as colours or materials.
-Requires WrangleWorks Account.
+    """
+    Extract categorical properties from unstructured text such as colours or materials.
+    Requires WrangleWorks Account.
 
->>> wrangles.extract.properties('The Green Mile')
-{'Colours': ['Green']}
+    >>> wrangles.extract.properties('The Green Mile')
+    {'Colours': ['Green']}
 
-:param input: A string or list of strings to be searched for properties
-:param type: (Optional) The specific type of property to search for. If omitted an objected with all results will be returned.
-:param return_data_type: (Optional) The format to return the data, as a list or as a string.
-:return: A single or list with the extracted properties. Each extracted property may be a dict or list depending on settings."""
+    :param input: A string or list of strings to be searched for properties
+    :param type: (Optional) The specific type of property to search for. If omitted an objected with all results will be returned.
+    :param return_data_type: (Optional) The format to return the data, as a list or as a string.
+    :return: A single or list with the extracted properties. Each extracted property may be a dict or list depending on settings.
+    """
     if isinstance(input, str): 
         json_data = [input]
     else:
@@ -549,12 +568,14 @@ Requires WrangleWorks Account.
 
 # SUPER MARIO
 def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
-    """Remove all the elements that occur in one list from another.
-
-:param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
-:param output: a string of remaining words
-:param tokenize_to_remove: (Optional) tokenize all of to_remove columns
-:pram ignore_case: (Optional) ignore the case of input and to_remove"""
+    """
+    Remove all the elements that occur in one list from another.
+    
+    :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
+    :param output: a string of remaining words
+    :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
+    :pram ignore_case: (Optional) ignore the case of input and to_remove
+    """
         
     # Deal with ignore_case
     if ignore_case == True:
@@ -610,12 +631,14 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 
 
 def brackets(input: str, find: list = _Union[str, list], include_brackets: bool = False) -> list:
-    """Extract values in brackets, [], {}, (), <>
-
-:param input: Input string to search for brackets
-:param find: Types of brackets to find (e.g., 'round', 'square', 'curly', 'angled'). Default is all types.
-:param include_brackets: Whether to include brackets in the results
-:return: List of extracted values"""
+    """
+    Extract values in brackets, [], {}, (), <>
+    
+    :param input: Input string to search for brackets
+    :param find: Types of brackets to find (e.g., 'round', 'square', 'curly', 'angled'). Default is all types.
+    :param include_brackets: Whether to include brackets in the results
+    :return: List of extracted values
+    """
     results = []
     bracket_patterns = {
     'round': r'\(.*?\)',

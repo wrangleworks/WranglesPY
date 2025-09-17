@@ -108,24 +108,26 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
 
 
 def read(rows: int, values: dict = {}) -> _pd.DataFrame:
-    """Create a test dataframe
+    """
+    Create a test dataframe
 
->>> from wrangles.connectors import test
->>> df = test.read(rows=5, values={'header1':'a','header2':'b'})
+    >>> from wrangles.connectors import test
+    >>> df = test.read(rows=5, values={'header1':'a','header2':'b'})
 
-Special inputs to generate random data:
-<code> or <code(10)> : Random alphanumeric codes (10) sets the length. e.g. J1RSB7X9 
-<char> : Random letters
-<word> : Random nonsense words
-<sentence> : Random nonsense sentences
-<boolean> : Randomly True or False
-<number(2.718-3.141)> : Random numbers (2.718-3.141) sets the range and decimal places
-<int(1-10)> : Random integers (1-10) sets the range
-<random(["true", "false"])> : Randomly select a value from a list
+    Special inputs to generate random data:
+    <code> or <code(10)> : Random alphanumeric codes (10) sets the length. e.g. J1RSB7X9 
+    <char> : Random letters
+    <word> : Random nonsense words
+    <sentence> : Random nonsense sentences
+    <boolean> : Randomly True or False
+    <number(2.718-3.141)> : Random numbers (2.718-3.141) sets the range and decimal places
+    <int(1-10)> : Random integers (1-10) sets the range
+    <random(["true", "false"])> : Randomly select a value from a list
 
-:param rows: Number of rows to include in the created dataframe
-:param values: Dictionary of header and values
-:return: Pandas Dataframe of the created data"""
+    :param rows: Number of rows to include in the created dataframe
+    :param values: Dictionary of header and values
+    :return: Pandas Dataframe of the created data
+    """
     _logging.info(f": Generating test data :: {rows} row{'s' if rows > 1 else ''}")
 
     data = {}

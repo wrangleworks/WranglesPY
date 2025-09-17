@@ -8,13 +8,15 @@ import importlib as _importlib
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
-    """Finds matching columns for wildcards or regex from all available columns
+    """
+    Finds matching columns for wildcards or regex from all available columns
 
-This expects the input to be in the format:
-{"in_col": "out_col", "unchanged": "unchanged"}
-
-:param all_columns: List of all available columns in the dataframe
-:param selected_columns: List or string with selected columns. May contain wildcards (*) or regex."""
+    This expects the input to be in the format:
+    {"in_col": "out_col", "unchanged": "unchanged"}
+    
+    :param all_columns: List of all available columns in the dataframe
+    :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
+    """
     # Convert wildcards (*) to regex patterns
     tmp_columns = {}
     for k, v in selected_columns.items():
@@ -95,13 +97,15 @@ def get_nested_function(
     custom_functions: dict = None,
     default_stock_functions: str = None
 ):
-    """Get a nested function from obj as defined by a string
-e.g. 'custom.my_function' or 'my_function' or 'my_module.my_function'
+    """
+    Get a nested function from obj as defined by a string
+    e.g. 'custom.my_function' or 'my_function' or 'my_module.my_function'
 
-:param fn_string: String defining the function to get
-:param stock_functions: Module containing stock functions
-:param custom_functions: Dictionary of user defined custom functions
-:param default_stock_functions: Some stock functions use a default final function to call"""
+    :param fn_string: String defining the function to get
+    :param stock_functions: Module containing stock functions
+    :param custom_functions: Dictionary of user defined custom functions
+    :param default_stock_functions: Some stock functions use a default final function to call
+    """
     if custom_functions is None and stock_functions is None:
         raise ValueError('No functions provided')
 
@@ -148,11 +152,13 @@ def validate_function_args(
     args: dict,
     name: str
 ):
-    """Validate that all required arguments are provided for a custom function
+    """
+    Validate that all required arguments are provided for a custom function
 
-:param func: Function to validate
-:param args: Arguments provided to the function
-:param name: Name of the function"""
+    :param func: Function to validate
+    :param args: Arguments provided to the function
+    :param name: Name of the function
+    """
     argspec = _inspect.getfullargspec(func)
 
     missing_args = [
@@ -174,14 +180,17 @@ def add_special_parameters(
     error: Exception = None,
     common_params: dict = {}
 ):
-    """Add special parameters to the params dictionary if they are required by the function
+    """
+    Add special parameters to the params dictionary if they are required by the function
 
-:param params: Dictionary of parameters to pass to the function
-:param fn: Function to check for special parameters
-:param functions: Dictionary of custom functions
-:param variables: Dictionary of variables
-:param error: Exception object
-:param common_params: These are parameters that are common to all functions.         They will only be passed as a parameter if the function requests them."""
+    :param params: Dictionary of parameters to pass to the function
+    :param fn: Function to check for special parameters
+    :param functions: Dictionary of custom functions
+    :param variables: Dictionary of variables
+    :param error: Exception object
+    :param common_params: These are parameters that are common to all functions. \
+        They will only be passed as a parameter if the function requests them.
+    """
     # Check args and pass on special parameters if requested
     argspec = _inspect.getfullargspec(fn).args
     if ("functions" not in params and "functions" in argspec):
@@ -208,10 +217,12 @@ def add_special_parameters(
 
 
 def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
-    """Finds matching columns for wildcards or regex from all available columns
-
-:param all_columns: List of all available columns in the dataframe
-:param selected_columns: List or string with selected columns. May contain wildcards (*) or regex."""
+    """
+    Finds matching columns for wildcards or regex from all available columns
+    
+    :param all_columns: List of all available columns in the dataframe
+    :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
+    """
     def escape_except(text, chars_not_to_escape):
         """
         Escape regex characters except for those specified
@@ -365,13 +376,15 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
 
 def evaluate_conditional(statement, variables: dict = {}):
-    """Evaluate a conditional statement using the variables provided
-to determine if the statement is true or false
+    """
+    Evaluate a conditional statement using the variables provided
+    to determine if the statement is true or false
 
-Recipe variables of the style ${var} will be parameterized
+    Recipe variables of the style ${var} will be parameterized
 
-:param statement: Python style statement
-:param variables: Dictionary of variables to use in the statement"""
+    :param statement: Python style statement
+    :param variables: Dictionary of variables to use in the statement
+    """
     statement_modified = _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
 
     if _re.match(r'\$\{(.+)\}', statement_modified):
@@ -395,11 +408,13 @@ Recipe variables of the style ${var} will be parameterized
 
 
 class LazyLoader:
-    """Use to lazy load optional dependencies
+    """
+    Use to lazy load optional dependencies
 
-Will load the dependency when it is first accessed
+    Will load the dependency when it is first accessed
 
-:param module_name: Name of the module to load"""
+    :param module_name: Name of the module to load
+    """
     def __init__(self, module_name):
         self.module_name = module_name
         self._module = None

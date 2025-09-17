@@ -17,17 +17,19 @@ _schema = {}
 
 
 def read(host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> _pd.DataFrame:
-    """Read files from an SFTP server
+    """
+    Read files from an SFTP server
 
->>> from wrangles.connectors import sftp
->>> df = sftp.read(host='sftp.domain', user='user', password='password', file='myfile.csv')
+    >>> from wrangles.connectors import sftp
+    >>> df = sftp.read(host='sftp.domain', user='user', password='password', file='myfile.csv')
 
-:param host: The domain or IP of the SFTP server
-:param user: The user to connect as
-:param password: The password for the user
-:param file: The filename including path on the remote server
-:param kwargs: Other arguments from the file connector may also be used
-:return: A dataframe with the imported data"""
+    :param host: The domain or IP of the SFTP server
+    :param user: The user to connect as
+    :param password: The password for the user
+    :param file: The filename including path on the remote server
+    :param kwargs: Other arguments from the file connector may also be used
+    :return: A dataframe with the imported data
+    """
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
     # Get the file from the SFTP server
@@ -98,21 +100,23 @@ properties:
 
 
 def write(df, host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> None:
-    """Write files to an SFTP server
+    """
+    Write files to an SFTP server
 
-Supports Excel (.xlsx, .xls), CSV (.csv, .txt) and JSON (.json) files.
-JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be compressed.
+    Supports Excel (.xlsx, .xls), CSV (.csv, .txt) and JSON (.json) files.
+    JSON and CSV may also be gzipped (.csv.gz, .txt.gz, .json.gz) and will be compressed.
 
->>> from wrangles.connectors import sftp
->>> df = sftp.write(df, host='sftp.domain', user='user', password='password', file='myfile.csv')
+    >>> from wrangles.connectors import sftp
+    >>> df = sftp.write(df, host='sftp.domain', user='user', password='password', file='myfile.csv')
 
-:param df: Dataframe to be written to a file
-:param host: The domain or IP of the SFTP server
-:param user: The user to connect as
-:param password: The password for the user
-:param file: The filename including path on the remote server
-:param port: (Optional) Specify the port to connect to
-:param kwargs: Other arguments from the file connector may also be used"""
+    :param df: Dataframe to be written to a file
+    :param host: The domain or IP of the SFTP server
+    :param user: The user to connect as
+    :param password: The password for the user
+    :param file: The filename including path on the remote server
+    :param port: (Optional) Specify the port to connect to
+    :param kwargs: Other arguments from the file connector may also be used
+    """
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
     # Create file in memory using the file connector
@@ -170,7 +174,9 @@ properties:
 """
 
 class download_files:
-    """Download files from an SFTP host and save to the local file system."""
+    """
+    Download files from an SFTP host and save to the local file system.
+    """
     _schema = {
         "run": """
             type: object
@@ -260,7 +266,9 @@ class download_files:
                     raise FileNotFoundError(f"File not found on SFTP server :: {f}") from None
 
 class upload_files:
-    """Upload files from the local file system to an SFTP host."""
+    """
+    Upload files from the local file system to an SFTP host.
+    """
     _schema = {
         "run": """
             type: object

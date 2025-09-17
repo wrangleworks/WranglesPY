@@ -50,20 +50,22 @@ def _psql_insert_copy(table, conn, keys, data_iter):
 
 # Public methods
 def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
-    """Import data from a PostgreSQL database.
+    """
+    Import data from a PostgreSQL database.
 
->>> from wrangles.connectors import postgres
->>> df = postgres.read(host='sql.domain', user='user', password='password', command='SELECT * FROM table')
+    >>> from wrangles.connectors import postgres
+    >>> df = postgres.read(host='sql.domain', user='user', password='password', command='SELECT * FROM table')
 
-:param host: Hostname or IP of the database
-:param user: User with access to the database
-:param password: Password of user
-:param command: SQL command or table name
-:param port: (Optional) If not provided, the default port will be used
-:param database: (Optional) Database to be queried
-:param columns: (Optional) Subset of columns to be returned. This is less efficient than specifying in the SQL command.
-:param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
-:return: Pandas Dataframe of the imported data"""
+    :param host: Hostname or IP of the database
+    :param user: User with access to the database
+    :param password: Password of user
+    :param command: SQL command or table name
+    :param port: (Optional) If not provided, the default port will be used
+    :param database: (Optional) Database to be queried
+    :param columns: (Optional) Subset of columns to be returned. This is less efficient than specifying in the SQL command.
+    :param params: (Optional) List of parameters to pass to execute method. The syntax used to pass parameters is database driver dependent.
+    :return: Pandas Dataframe of the imported data
+    """
     _logging.info(f": Reading data from PostgreSQL :: {host} / {database}")
 
     conn = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
@@ -120,20 +122,22 @@ properties:
 
 
 def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, columns: _Union[str, list] = None) -> None:
-    """Export data to a PostgreSQL database.
+    """
+    Export data to a PostgreSQL database.
 
->>> from wrangles.connectors import postgres
->>> postgres.write(df, host='sql.domain', database='database', table='table', user='user', password='password')
+    >>> from wrangles.connectors import postgres
+    >>> postgres.write(df, host='sql.domain', database='database', table='table', user='user', password='password')
 
-:param df: Dataframe to be exported
-:param host: Hostname or IP of the database
-:param database: Database to be exported to
-:param table: Table to be exported to
-:param user: User with access to the database
-:param password: Password of user
-:param action: Only INSERT is supported at this time, defaults to INSERT
-:param port: (Optional) If not provided, the default port will be used
-:param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output"""
+    :param df: Dataframe to be exported
+    :param host: Hostname or IP of the database
+    :param database: Database to be exported to
+    :param table: Table to be exported to
+    :param user: User with access to the database
+    :param password: Password of user
+    :param action: Only INSERT is supported at this time, defaults to INSERT
+    :param port: (Optional) If not provided, the default port will be used
+    :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
+    """
     _logging.info(f": Writing data to PostgreSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
@@ -199,23 +203,25 @@ def run(
     port = 5432,
     params: _Union[list, dict] = None
 ) -> None:
-    """Run a command on a PostgreSQL Server
+    """
+    Run a command on a PostgreSQL Server
 
->>> wrangles.connectors.postgres.run(
->>>    host='sql.domain',
->>>    database='db',
->>>    user='user',
->>>    password='password',
->>>    command='CALL myStoredProcedure'
->>> )
+    >>> wrangles.connectors.postgres.run(
+    >>>    host='sql.domain',
+    >>>    database='db',
+    >>>    user='user',
+    >>>    password='password',
+    >>>    command='CALL myStoredProcedure'
+    >>> )
 
-:param host: Hostname or IP of the database
-:param database: The name of the database
-:param user: User with access to the database
-:param password: Password of user
-:param command: SQL command or a list of SQL commands to execute
-:param port: The Port to connect to. Defaults to 5432.
-:param params: Variables to pass to a parameterized query."""
+    :param host: Hostname or IP of the database
+    :param database: The name of the database
+    :param user: User with access to the database
+    :param password: Password of user
+    :param command: SQL command or a list of SQL commands to execute
+    :param port: The Port to connect to. Defaults to 5432.
+    :param params: Variables to pass to a parameterized query.
+    """
     _logging.info(f": Executing PostgreSQL Command :: {host}")
 
     # If user has provided a single command, convert to a list of one.

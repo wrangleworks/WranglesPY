@@ -16,31 +16,33 @@ def address(
     dataType: str,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract parts of addresses. Requires WrangleWorks Account.
-required:
-  - input
-  - output
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column.
-  dataType:
-    type: string
-    description: Specific part of the address to extract
-    enum:
-      - streets
-      - cities
-      - regions
-      - countries"""
+    """
+    type: object
+    description: Extract parts of addresses. Requires WrangleWorks Account.
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column.
+      dataType:
+        type: string
+        description: Specific part of the address to extract
+        enum:
+          - streets
+          - cities
+          - regions
+          - countries
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -78,95 +80,97 @@ def ai(
     model_id: str = None,
     **kwargs
 ):
-    """type: object
-description: Extract data using an AI model.
-additionalProperties: false
-required:
-  - output
-  - api_key
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: |-
-      Name or list of input columns to give to the AI
-      to use to determine the output. If not specified, all
-      columns will be used.
-  output:
-    type: [object, string, array]
-    description: List and description of the output you want
-    patternProperties:
-      "^[a-zA-Z0-9 _-]+$":
-        type: [object, string]
-        properties:
-          type:
-            type: string
-            description: The type of data you'd like the model to return.
-            enum:
-              - string
-              - number
-              - integer
-              - boolean
-              - "null"
-              - object
-              - array
-          description:
-            type: string
-            description: Description of the output you'd like the model to return.
-          enum:
-            type: array
-            description: List of possible values for the output.
-          default:
-            type:
-              - string
-              - number
-              - integer
-              - boolean
-              - "null"
-              - object
-              - array
-            description: A default value to return.
-          examples:
-            type: array
-            description: Provide examples of typical values to return.
-  api_key:
-    type: string
-    description: API Key for the model
-  model:
-    type: string
-    description: The name of the AI model to use
-  threads:
-    type: integer
-    description: The number of requests to send in parallel
-  timeout:
-    type: integer
-    description: The number of seconds to wait for a response before timing out
-  retries:
-    type: integer
-    description: >-
-      The number of times to retry if the request fails.
-      This will apply exponential backoff to help with rate limiting.
-  url:
-    type: string
-    description: |-
-      Override the default url for the AI endpoint.
-      Must use the OpenAI chat completions API.
-  messages:
-    type:
-      - string
-      - array
-    description: Optional. Provide additional overall instructions for the AI.
-  model_id:
-    type: string
-    description: Use a saved definition from an extract ai wrangle.
-  strict:
-    type: boolean
-    description: >-
-      Enable strict mode. Default False.
-      If True, the function will be required to match the schema,
-      but may be more limited in the schema it can return."""
+    """
+    type: object
+    description: Extract data using an AI model.
+    additionalProperties: false
+    required:
+      - output
+      - api_key
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: |-
+          Name or list of input columns to give to the AI
+          to use to determine the output. If not specified, all
+          columns will be used.
+      output:
+        type: [object, string, array]
+        description: List and description of the output you want
+        patternProperties:
+          "^[a-zA-Z0-9 _-]+$":
+            type: [object, string]
+            properties:
+              type:
+                type: string
+                description: The type of data you'd like the model to return.
+                enum:
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                  - object
+                  - array
+              description:
+                type: string
+                description: Description of the output you'd like the model to return.
+              enum:
+                type: array
+                description: List of possible values for the output.
+              default:
+                type:
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                  - object
+                  - array
+                description: A default value to return.
+              examples:
+                type: array
+                description: Provide examples of typical values to return.
+      api_key:
+        type: string
+        description: API Key for the model
+      model:
+        type: string
+        description: The name of the AI model to use
+      threads:
+        type: integer
+        description: The number of requests to send in parallel
+      timeout:
+        type: integer
+        description: The number of seconds to wait for a response before timing out
+      retries:
+        type: integer
+        description: >-
+          The number of times to retry if the request fails.
+          This will apply exponential backoff to help with rate limiting.
+      url:
+        type: string
+        description: |-
+          Override the default url for the AI endpoint.
+          Must use the OpenAI chat completions API.
+      messages:
+        type:
+          - string
+          - array
+        description: Optional. Provide additional overall instructions for the AI.
+      model_id:
+        type: string
+        description: Use a saved definition from an extract ai wrangle.
+      strict:
+        type: boolean
+        description: >-
+          Enable strict mode. Default False.
+          If True, the function will be required to match the schema,
+          but may be more limited in the schema it can return.
+    """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
     if input is not None:
@@ -274,69 +278,71 @@ def attributes(
     bound: str = 'mid',
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
-required:
-  - input
-  - output
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column.
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column.
-  attribute_type:
-    type: string
-    description: Request only a specific type of attribute
-    enum:
-      - angle
-      - area
-      - capacitance
-      - charge
-      - current
-      - data transfer rate
-      - electrical conductance
-      - electrical resistance
-      - energy
-      - force
-      - frequency
-      - inductance
-      - instance frequency
-      - length
-      - luminous flux
-      - weight
-      - power
-      - pressure
-      - speed
-      - velocity
-      - temperature
-      - time
-      - voltage
-      - volume
-      - volumetric flow
-  responseContent:
-    type: string
-    description: span - returns the text found. object - returns an object with the value and unit
-    enum:
-      - span
-      - object
-  bound:
-    type: string
-    description: When returning an object, if the input is a range (e.g. 10-20mm) set the value to return. min, mid or max. Default mid.
-    enum:
-      - min
-      - mid
-      - max
-  desired_unit:
-    type: string
-    description: Convert the extracted unit to the desired unit
-$ref: "#/$defs/misc/unit_entity_map""""
+    """
+    type: object
+    description: Extract numeric attributes from the input such as weights or lengths. Requires WrangleWorks Account.
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column.
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column.
+      attribute_type:
+        type: string
+        description: Request only a specific type of attribute
+        enum:
+          - angle
+          - area
+          - capacitance
+          - charge
+          - current
+          - data transfer rate
+          - electrical conductance
+          - electrical resistance
+          - energy
+          - force
+          - frequency
+          - inductance
+          - instance frequency
+          - length
+          - luminous flux
+          - weight
+          - power
+          - pressure
+          - speed
+          - velocity
+          - temperature
+          - time
+          - voltage
+          - volume
+          - volumetric flow
+      responseContent:
+        type: string
+        description: span - returns the text found. object - returns an object with the value and unit
+        enum:
+          - span
+          - object
+      bound:
+        type: string
+        description: When returning an object, if the input is a range (e.g. 10-20mm) set the value to return. min, mid or max. Default mid.
+        enum:
+          - min
+          - mid
+          - max
+      desired_unit:
+        type: string
+        description: Convert the extracted unit to the desired unit
+    $ref: "#/$defs/misc/unit_entity_map"
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -380,32 +386,34 @@ def brackets(
     find: _Union[str, list] = 'all',
     include_brackets: bool = False
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract text properties in brackets from the input
-additionalProperties: false
-required:
-  - input
-  - output
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output columns
-  find:
-    type: 
-      - string
-      - array
-    description: (Optional) The type of brackets to find (round '()', square '[]', curly '{}', angled '<>'). Default is all brackets.
-  include_brackets:
-    type: boolean
-    description: (Optional) Include the brackets in the output"""
+    """
+    type: object
+    description: Extract text properties in brackets from the input
+    additionalProperties: false
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+      find:
+        type: 
+          - string
+          - array
+        description: (Optional) The type of brackets to find (round '()', square '[]', curly '{}', angled '<>'). Default is all brackets.
+      include_brackets:
+        type: boolean
+        description: (Optional) Include the brackets in the output
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -443,23 +451,25 @@ def codes(
     output: _Union[str, list],
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
-required:
-  - input
-  - output
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name or list of input columns.
-  output:
-    type:
-      - string
-      - array
-    description: Name or list of output columns"""
+    """
+    type: object
+    description: Extract alphanumeric codes from the input. Requires WrangleWorks Account.
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -499,43 +509,45 @@ def custom(
     use_spellcheck: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
-required:
-  - input
-  - model_id
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name or list of input columns.
-  output:
-    type:
-      - string
-      - array
-    description: Name or list of output columns
-  model_id:
-    type:
-      - string
-      - array
-    description: The ID of the wrangle to use
-  use_labels:
-    type: boolean
-    description: "Use Labels in the extract output {label: value}"
-  first_element:
-    type: boolean
-    description: Get the first element from results
-  case_sensitive:
-    type: boolean
-    description: Allows the wrangle to be case sensitive if set to True, default is False.
-  extract_raw:
-    type: boolean
-    description: Extract the raw data from the wrangle
-  use_spellcheck:
-    type: boolean
-    description: Use spellcheck to also find minor mispellings compared to the reference data"""
+    """
+    type: object
+    description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
+    required:
+      - input
+      - model_id
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      model_id:
+        type:
+          - string
+          - array
+        description: The ID of the wrangle to use
+      use_labels:
+        type: boolean
+        description: "Use Labels in the extract output {label: value}"
+      first_element:
+        type: boolean
+        description: Get the first element from results
+      case_sensitive:
+        type: boolean
+        description: Allows the wrangle to be case sensitive if set to True, default is False.
+      extract_raw:
+        type: boolean
+        description: Extract the raw data from the wrangle
+      use_spellcheck:
+        type: boolean
+        description: Use spellcheck to also find minor mispellings compared to the reference data
+    """
     if output is None: output = input
     
     # If a string provided, convert to list
@@ -589,36 +601,38 @@ properties:
 
 
 def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
-    """type: object
-description: Extract date properties from a date (day, month, year, etc...)
-additionalProperties: false
-required:
-  - input
-  - property
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output columns
-  property:
-    type: string
-    description: Property to extract from date
-    enum:
-      - day
-      - day_of_year
-      - month
-      - month_name
-      - weekday
-      - week_day_name
-      - week_year
-      - quarter"""
+    """
+    type: object
+    description: Extract date properties from a date (day, month, year, etc...)
+    additionalProperties: false
+    required:
+      - input
+      - property
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+      property:
+        type: string
+        description: Property to extract from date
+        enum:
+          - day
+          - day_of_year
+          - month
+          - month_name
+          - weekday
+          - week_day_name
+          - week_year
+          - quarter
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -686,45 +700,47 @@ properties:
 
 
 def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, range: str = 'day') -> _pd.DataFrame:
-    """type: object
-description: Extract date range frequency from two dates
-additionalProperties: false
-required:
-  - start_time
-  - end_time
-  - output
-  - range
-properties:
-  start_time:
-    type: string
-    description: Name of the start date column
-  end_time:
-    type: string
-    description: Name of the end date column
-  output:
-    type: string
-    description: Name of the output column
-  range:
-    type: string
-    description: Type of frequency to count
-    enum:
-      - business days
-      - days
-      - weeks
-      - months
-      - semi months
-      - business month ends
-      - month starts
-      - semi month starts
-      - business month starts
-      - quarters
-      - quarter starts
-      - years
-      - business hours
-      - hours
-      - minutes
-      - seconds
-      - milliseconds"""
+    """
+    type: object
+    description: Extract date range frequency from two dates
+    additionalProperties: false
+    required:
+      - start_time
+      - end_time
+      - output
+      - range
+    properties:
+      start_time:
+        type: string
+        description: Name of the start date column
+      end_time:
+        type: string
+        description: Name of the end date column
+      output:
+        type: string
+        description: Name of the output column
+      range:
+        type: string
+        description: Type of frequency to count
+        enum:
+          - business days
+          - days
+          - weeks
+          - months
+          - semi months
+          - business month ends
+          - month starts
+          - semi month starts
+          - business month starts
+          - quarters
+          - quarter starts
+          - years
+          - business hours
+          - hours
+          - minutes
+          - seconds
+          - milliseconds
+    """
     range_object = {
         'business days': 'B',
         'days': 'D',
@@ -773,30 +789,32 @@ def html(
     output: _Union[str, list] = None,
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract elements from strings containing html. Requires WrangleWorks Account.
-required:
-  - input
-  - output
-  - data_type
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name or list of input columns.
-  output:
-    type:
-      - string
-      - array
-    description: Name or list of output columns
-  data_type:
-    type: string
-    description: The type of data to extract
-    enum:
-      - text
-      - links"""
+    """
+    type: object
+    description: Extract elements from strings containing html. Requires WrangleWorks Account.
+    required:
+      - input
+      - output
+      - data_type
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns
+      data_type:
+        type: string
+        description: The type of data to extract
+        enum:
+          - text
+          - links
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -827,37 +845,39 @@ def properties(
     return_data_type: str = 'list',
     **kwargs
 ) -> _pd.DataFrame:
-    """type: object
-description: Extract text properties from the input. Requires WrangleWorks Account.
-required:
-  - input
-  - output
-properties:
-  input:
-    type:
-      - string
-      - integer
-      - array
-    description: Name of the input column
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output columns
-  property_type:
-    type: string
-    description: The specific type of properties to extract
-    enum:
-      - Colours
-      - Materials
-      - Shapes
-      - Standards
-  return_data_type:
-    type: string
-    description: The format to return the data, as a list or as a string
-    enum:
-      - list
-      - string"""
+    """
+    type: object
+    description: Extract text properties from the input. Requires WrangleWorks Account.
+    required:
+      - input
+      - output
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output columns
+      property_type:
+        type: string
+        description: The specific type of properties to extract
+        enum:
+          - Colours
+          - Materials
+          - Shapes
+          - Standards
+      return_data_type:
+        type: string
+        description: The format to return the data, as a list or as a string
+        enum:
+          - list
+          - string
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
@@ -890,34 +910,36 @@ properties:
 
 
 def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
-    r"""type: object
-description: Extract matches or specific capture groups using regex
-additionalProperties: false
-required:
-  - input
-  - output
-  - find
-properties:
-  input:
-    type: 
-      - string
-      - integer
-      - array
-    description: Name of the input column(s).
-  output:
-    type:
-      - string
-      - array
-    description: Name of the output column(s).
-  find:
-    type: string
-    description: Pattern to find using regex
-  output_pattern:
-    type: string
-    description: |
-      Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+    r"""
+    type: object
+    description: Extract matches or specific capture groups using regex
+    additionalProperties: false
+    required:
+      - input
+      - output
+      - find
+    properties:
+      input:
+        type: 
+          - string
+          - integer
+          - array
+        description: Name of the input column(s).
+      output:
+        type:
+          - string
+          - array
+        description: Name of the output column(s).
+      find:
+        type: string
+        description: Pattern to find using regex
+      output_pattern:
+        type: string
+        description: |
+          Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
 
-      **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`."""
+          **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
+    """
     # If output is not specified, overwrite input columns in place
     if output is None: 
         output = input

@@ -34,15 +34,17 @@ def run(
     oauth: dict = {},
     **kwargs
 ) -> None:
-    """Issue a HTTP(S) request e.g. issue a request to a webhook on success or failure.
+    """
+    Issue a HTTP(S) request e.g. issue a request to a webhook on success or failure.
 
-:param url: The URL to make the request to
-:param method: The http method to use. Default GET.
-:param headers: Headers to pass as part of the request
-:param params: Pass URL encoded
-:param json: Pass data as a JSON encoded request body.
-:param oauth: Make a request to get an OAuth token prior
-  to sending the main request"""
+    :param url: The URL to make the request to
+    :param method: The http method to use. Default GET.
+    :param headers: Headers to pass as part of the request
+    :param params: Pass URL encoded
+    :param json: Pass data as a JSON encoded request body.
+    :param oauth: Make a request to get an OAuth token prior
+      to sending the main request
+    """
     _logging.info(f": Making http request :: {url}")
 
     if oauth:
@@ -135,18 +137,20 @@ def read(
     orient: str = "records",
     **kwargs
 ) -> _pd.DataFrame:
-    """Read data from a HTTP(S) endpoint.
+    """
+    Read data from a HTTP(S) endpoint.
 
-:param url: The URL to make the request to
-:param method: The http method to use. Default GET.
-:param headers: Headers to pass as part of the request
-:param params: Pass URL encoded
-:param json: Pass data as a JSON encoded request body.
-:param json_key: Select sub-elements from the response JSON. Multiple levels can be specified with e.g. key1.key2.key3
-:param oauth: Make a request to get an OAuth token prior
-    to sending the main request
-:param orient: The format of the JSON to be converted to a dataframe. Default records.
-:return: A pandas DataFrame"""
+    :param url: The URL to make the request to
+    :param method: The http method to use. Default GET.
+    :param headers: Headers to pass as part of the request
+    :param params: Pass URL encoded
+    :param json: Pass data as a JSON encoded request body.
+    :param json_key: Select sub-elements from the response JSON. Multiple levels can be specified with e.g. key1.key2.key3
+    :param oauth: Make a request to get an OAuth token prior
+        to sending the main request
+    :param orient: The format of the JSON to be converted to a dataframe. Default records.
+    :return: A pandas DataFrame
+    """
     _logging.info(f": Reading data from http :: {url}")
 
     if oauth:
@@ -272,15 +276,17 @@ def write(
     oauth: dict = {},
     **kwargs
 ) -> None:
-    """Write data to a HTTP(S) endpoint.
+    """
+    Write data to a HTTP(S) endpoint.
 
-:param df: The DataFrame to be written
-:param url: The URL to make the request to
-:param method: The http method to use. Default POST.
-:param orient: The format of the JSON to send. Default records.
-:param batch: If True, send the entire DataFrame as a single request.
-    If False, send each row as a separate request.
-    If an integer, send the DataFrame in batches of that size."""
+    :param df: The DataFrame to be written
+    :param url: The URL to make the request to
+    :param method: The http method to use. Default POST.
+    :param orient: The format of the JSON to send. Default records.
+    :param batch: If True, send the entire DataFrame as a single request.
+        If False, send each row as a separate request.
+        If an integer, send the DataFrame in batches of that size.
+    """
     _logging.info(f": Writing data to http :: {url}")
 
     if oauth:

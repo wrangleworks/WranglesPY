@@ -10,7 +10,9 @@ def flatten_lists(lst):
 
 
 def concatenate(data_list, concat_char, skip_empty: bool=False):
-    """Concatenate a list of columns"""
+    """
+    Concatenate a list of columns
+    """
     if skip_empty:
         return [
             concat_char.join([str(x) for x in row if x])
@@ -31,14 +33,16 @@ def split(
     inclusive=False,
     element: _Union[int, str] = None
 ):
-    """Split a list of strings into lists
+    """
+    Split a list of strings into lists
 
-:param input_list: List of strings that will be split
-:param output_length: If set, set the final output length. Requires pad = true. 
-:param split_char: The character the strings will be split on.
-:param pad: If true, pad results to be a consistent length.
-:param inclusive: If true, the split lists will include the split char.
-:param element: Slice the output lists to specific elements."""
+    :param input_list: List of strings that will be split
+    :param output_length: If set, set the final output length. Requires pad = true. 
+    :param split_char: The character the strings will be split on.
+    :param pad: If true, pad results to be a consistent length.
+    :param inclusive: If true, the split lists will include the split char.
+    :param element: Slice the output lists to specific elements.
+    """
     # Split as either regex or simple string
     if split_char[:6] == 'regex:':
         split_char = split_char[6:].strip()
@@ -108,8 +112,10 @@ def split(
     
 
 def coalesce(input_list: list) -> list:
-    """Return the first not empty result for each row
-where each row has a list of possibilities"""
+    """
+    Return the first not empty result for each row
+    where each row has a list of possibilities
+    """
     output_list = []
     for row in input_list:
         output_row = ''
@@ -124,7 +130,9 @@ where each row has a list of possibilities"""
 
 
 def price_breaks(df_input, header_cat, header_val): # pragma: no cover
-    """Rearrange price breaks"""
+    """
+    Rearrange price breaks
+    """
     output = []
     headers = []
     i = 1
@@ -154,7 +162,9 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
 
 
 def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
-    """Remove duplicates from a list. Preserves input order."""
+    """
+    Remove duplicates from a list. Preserves input order.
+    """
     results = []
     for row in input_list:
         # If row is a list, remove duplicates while ignoring case
@@ -190,11 +200,12 @@ def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
     return results
 
 def significant_figures(input_list: list, sig_figs: int = 3) -> list:
-    """Format digits in text or standalone to the selected significant figures
-
-:param input_str: The input list of values to format
-:param sig_figs: The number of significant figures to format to
-:return: The formatted string with the specified number of significant figures"""
+    """
+    Format digits in text or standalone to the selected significant figures
+    :param input_str: The input list of values to format
+    :param sig_figs: The number of significant figures to format to
+    :return: The formatted string with the specified number of significant figures
+    """
     
     # Convert numbers to the appropriate significant figures
     def _replace_match(match):
@@ -226,15 +237,17 @@ def tokenize(
     func=None,
     pattern=None
 ):
-    """Tokenizes everything in a list that has spaces
-Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
-Ex: 'Cookie Monster -> ['Cookie', 'Monster']
+    """
+    Tokenizes everything in a list that has spaces
+    Ex: ['Cookie Monster', 'Frankenstein's monster'] -> ['Cookie', 'Monster', 'Frankenstein's', 'monster']
+    Ex: 'Cookie Monster -> ['Cookie', 'Monster']
 
-:param input: The list of strings to tokenize
-:param method: The method to tokenize. Can be 'space', 'boundary' or 'boundary_ignore_space'
-:param func: A function to use to tokenize the input instead of the default methods
-:param pattern: A custom regex pattern or regex string to split the input on
-:return: The tokenized list"""
+    :param input: The list of strings to tokenize
+    :param method: The method to tokenize. Can be 'space', 'boundary' or 'boundary_ignore_space'
+    :param func: A function to use to tokenize the input instead of the default methods
+    :param pattern: A custom regex pattern or regex string to split the input on
+    :return: The tokenized list
+    """
     word_boundary_pattern = _re.compile(r"([\b\W\b])")
 
     def split_boundary_ignore_space(value):

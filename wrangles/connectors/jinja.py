@@ -11,11 +11,12 @@ _schema = {}
 
 
 def run(template: dict, context: dict, output_file: str):
-    """Create a jinja template
-
-:param template: A generic template used to generate a more specific template to be used
-:param context: A dictionary used to define the output template
-:param output_file: File name/path for the file to be output"""
+    """
+    Create a jinja template
+    :param template: A generic template used to generate a more specific template to be used
+    :param context: A dictionary used to define the output template
+    :param output_file: File name/path for the file to be output
+    """
     if 'file' in template:
         template = _jinja.Environment(
             loader=_jinja.FileSystemLoader(''),
