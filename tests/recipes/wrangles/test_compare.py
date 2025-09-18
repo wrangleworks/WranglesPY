@@ -583,3 +583,37 @@ class TestCompareText:
             dataframe=data,
         )
         assert df['output'].values.tolist() == ['THIS IS IN ALL', 'ANOTHER LINE THAT IS ALSO IN', 'YET ANOTHER LINE IN']
+
+    def test_compare_text_case_insensitive_overlap(self):
+        """
+        Test compare using case insensitive overlap
+        """
+        data = pd.DataFrame({
+        'col1': [
+            'THIS IS IN ALL CAPS',
+            'ANOTHER LINE THAT IS ALSO IN CAPS',
+            'YET ANOTHER LINE IN CAPS',
+        ],
+        'col2': [
+            'this is in all lowercase',
+            'another line that is also in lowercase',
+            'yet another line in lowercase',
+        ]
+        })
+
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: overlap
+            case_sensitive: false
+        """
+
+        df = wrangles.recipe.run(
+            recipe=recipe,
+            dataframe=data,
+        )
+        assert df['output'][1] == 'ANOTHER LINE THAT IS ALSO IN *****CA*S*'
