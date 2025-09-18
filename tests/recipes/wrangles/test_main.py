@@ -1960,7 +1960,7 @@ class TestSpaces:
                 output: NoSpaces
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
 
     def test_spaces_no_output(self):
         """
@@ -1975,7 +1975,7 @@ class TestSpaces:
                 input: col
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col'] == ' Hello World '
+        assert df.iloc[0]['col'] == 'Hello World'
 
     def test_spaces_where(self):
         """
@@ -1993,7 +1993,7 @@ class TestSpaces:
                 'Price': [4.99, 9.99, 14.99]
             })
         )
-        assert df['Product'].to_list() == ["  Hello   World  ", "  Hello   Universe  ", " Hello Galaxy "]
+        assert df['Product'].to_list() == ["  Hello   World  ", "  Hello   Universe  ", "Hello Galaxy"]
 
     def test_spaces_empty(self):
         """
@@ -2026,7 +2026,7 @@ class TestSpaces:
                 output: NoSpaces
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
 
     def test_spaces_list_input_no_output(self):
         """
@@ -2044,8 +2044,8 @@ class TestSpaces:
                   - col2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col1'] == ' Hello World '
-        assert df.iloc[0]['col2'] == ' Hello Galaxy '
+        assert df.iloc[0]['col1'] == 'Hello World'
+        assert df.iloc[0]['col2'] == 'Hello Galaxy'
 
     def test_spaces_io_list(self):
         """
@@ -2066,8 +2066,8 @@ class TestSpaces:
                   - out2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out1'] == ' Hello World '
-        assert df.iloc[0]['out2'] == ' Hello Galaxy '
+        assert df.iloc[0]['out1'] == 'Hello World'
+        assert df.iloc[0]['out2'] == 'Hello Galaxy'
 
     def test_spaces_uneven_io_list(self):
         """
