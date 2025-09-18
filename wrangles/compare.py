@@ -24,6 +24,7 @@ def _contrast(input: list, type: str ='difference', char: str = ' ', case_sensit
     :param input: 2D list of strings to compare. [[str, str1], [str2, str3], ...]
     :param type: The type of comparison to perform. 'difference' or 'intersection'
     :param char: The character to split the strings on. Default is a space
+    :param case_sensitive: Whether the comparison is case sensitive. Default is True
     """
     results = []
     for row in input:
