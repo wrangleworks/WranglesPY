@@ -52,6 +52,9 @@ def text(
             char:
               type: string
               description: "(Optional) The character to split the strings on. Default is a space"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
       - if:
           properties:
             method:
@@ -61,6 +64,9 @@ def text(
             char:
               type: string
               description: "(Optional) The character to split the strings on. Default is a space"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
       - if:
           properties:
             method:
@@ -88,6 +94,9 @@ def text(
             all_empty:
               type: string
               description: "(Optional) Value to use for both inputs"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
 
     """
     if method not in ['difference', 'intersection', 'overlap']:
