@@ -47,7 +47,8 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
             for words in ordered_words_list[1:]:
                 # Preserve the case of words from common_words if case_sensitive is False
                 if not case_sensitive:
-                    common_words = _OrderedDict((k, None) for k in common_words if k.lower() in words)
+                    words_lower = set(w.lower() for w in words)
+                    common_words = _OrderedDict((k, None) for k in common_words if k.lower() in words_lower)
                 else:
                     common_words = _OrderedDict((k, None) for k in common_words if k in words)
 
