@@ -75,6 +75,7 @@ def _overlap(
         empty_a: str = None,
         empty_b: str = None,
         all_empty: str = None,
+        case_sensitive: bool = True
     ) -> list:
     """
     Find the matching characters between two strings.
@@ -83,8 +84,15 @@ def _overlap(
     results = []
     for row in input:
 
-        a_str = str(row[0])
-        b_str = str(row[1])
+        if not case_sensitive:
+            a_str = str(row[0]).lower()
+            b_str = str(row[1]).lower()
+        else:
+            a_str = str(row[0])
+            b_str = str(row[1])
+        
+        # To be used in output in order to preserve original casing
+        a_original = str(row[0])
 
         if not len(a_str) or not len(b_str):
             if not len(a_str) and not len(b_str):
@@ -133,7 +141,7 @@ def _overlap(
 
             # Add the matched part
             match_end_a = block.a + block.size
-            result.append(a_str[block.a:match_end_a])
+            result.append(a_original[block.a:match_end_a])
 
             # Update the last match end indices
             last_match_end_a = match_end_a
