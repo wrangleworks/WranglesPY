@@ -17,7 +17,7 @@ def _ordered_words(string, char):
     return words
 
 
-def _contrast(input: list, type: str ='difference', char: str = ' ', case_sensitive = True) -> list:
+def contrast(input: list, type: str ='difference', char: str = ' ', case_sensitive = True) -> list:
     """
     Compare the intersection or difference between multiple strings.
 
@@ -67,7 +67,7 @@ def _contrast(input: list, type: str ='difference', char: str = ' ', case_sensit
 
     return results
 
-def _overlap(
+def overlap(
         input: list,
         non_match_char: str = '*',
         include_ratio: bool = False,

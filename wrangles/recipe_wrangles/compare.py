@@ -98,7 +98,7 @@ def text(
         if not isinstance(input, list) or len(input) < 2:
             raise ValueError("Input must be a list of at least two columns")
 
-        df[output] = _compare._contrast(
+        df[output] = _compare.contrast(
             input=df[input].astype(str).values.tolist(),
             type=method,
             char=char,
@@ -113,7 +113,7 @@ def text(
         if not isinstance(input, list) or len(input) != 2:
             raise ValueError("Input must be a list of two columns")
 
-        df[output] = _compare._overlap(
+        df[output] = _compare.overlap(
             input=df[input].astype(str).values.tolist(),
             non_match_char=non_match_char,
             include_ratio=include_ratio,
