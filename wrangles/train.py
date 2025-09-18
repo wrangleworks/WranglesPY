@@ -91,10 +91,13 @@ class train():
 
         Requires WrangleWorks Account and Subscription.
         
-        :param training_data: 2D array of training data. Must contain the column Key as the first column.
+        :param data: Training data. Can be:
+            - 2D array: Must contain the column Key as the first column (single key only)
+            - dict: {'Data': [[]], 'Columns': [], 'Settings': {}} (supports single or multiple keys)
         :param name: If provided, will create a new model with this name.
         :param model_id: If provided, will update this model.
-        :param settings: Specific settings to apply to the lookup wrangle.
+        :param settings: Specific settings to apply to the lookup wrangle. 
+            For multiple keys, include 'key_columns': ['col1', 'col2', ...] 
         """
         # Validate input
         if isinstance(data, list):
@@ -113,14 +116,32 @@ class train():
                     "Lookup: The data must be a dictionary of the format {'Data': [[]], 'Columns': [], 'Settings': {}}"
                 )
             if settings['variant'] =='key':
-                # Check that one of the columns is named Key
-                if "Key" not in data["Columns"]:
-                    raise ValueError("Lookup: Data must contain one column named Key")
+                # Support both single and multiple key columns
+                key_columns = settings.get('key_columns', ['Key'])
+                
+                # Ensure key_columns is a list
+                if not isinstance(key_columns, list):
+                    key_columns = [key_columns]
+                
+                # Check that all specified key columns exist
+                missing_keys = [col for col in key_columns if col not in data["Columns"]]
+                if missing_keys:
+                    if key_columns == ['Key']:
+                        # Backward compatibility error message
+                        raise ValueError("Lookup: Data must contain one column named Key")
+                    else:
+                        raise ValueError(f"Lookup: Data must contain all key columns: {missing_keys} not found")
 
-                # Check that all keys are unique
-                key_index = data['Columns'].index('Key')
-
-                keys = [row[key_index] for row in data['Data']]
+                # Check that all keys (single or composite) are unique
+                key_indices = [data['Columns'].index(col) for col in key_columns]
+                
+                if len(key_columns) == 1:
+                    # Single key - maintain existing behavior
+                    keys = [row[key_indices[0]] for row in data['Data']]
+                else:
+                    # Multiple keys - create composite keys
+                    keys = [tuple(row[i] for i in key_indices) for row in data['Data']]
+                
                 number_keys = len(keys)
                 without_duplicates = len(set(keys))
                 if number_keys != without_duplicates:

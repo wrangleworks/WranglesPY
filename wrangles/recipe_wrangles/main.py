@@ -816,7 +816,7 @@ def log(
 
 def lookup(
     df: _pd.DataFrame,
-    input: str,
+    input: _Union[str, list],
     output: _Union[str, list] = None,
     model_id: str = None,
     **kwargs
@@ -831,8 +831,8 @@ def lookup(
       input:
         type:
           - string
-          - integer
-        description: Name of the column(s) to lookup.
+          - array
+        description: Name of the column(s) to lookup. For multi-key lookups, provide a list of column names.
       model_id:
         type: string
         description: The model_id to use lookup against
@@ -842,15 +842,19 @@ def lookup(
           - array
         description: Name of the output column(s)
     """
-    # Ensure input is only 1 value
-    if isinstance(input, list):
-        if len(input) == 1:
-            input = input[0]
-        else:
-            raise ValueError('Input only allows one column.')
+    # Handle both single and multiple input columns
+    single_input_column = False
+    if isinstance(input, str):
+        input = [input]
+        single_input_column = True
+    elif isinstance(input, list):
+        # Multiple input columns are now supported for multi-key lookups
+        pass
+    else:
+        raise ValueError('Input must be a string or list of column names.')
     
     if output is None: output = input
-
+    
     # Ensure output is a list
     if not isinstance(output, list): output = [output]
 
@@ -873,6 +877,28 @@ def lookup(
         if purpose != 'lookup':
             raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
         
+        # Check if this is a multi-key lookup
+        key_columns = metadata["settings"].get("key_columns", ["Key"])
+        is_multikey = len(key_columns) > 1
+        
+        if is_multikey and single_input_column:
+            raise ValueError(f'Multi-key lookup requires {len(key_columns)} input columns: {key_columns}')
+        elif is_multikey and len(input) != len(key_columns):
+            raise ValueError(f'Multi-key lookup requires {len(key_columns)} input columns: {key_columns}, got {len(input)}')
+        elif not is_multikey and len(input) > 1:
+            raise ValueError('Single-key lookup only allows one input column.')
+        
+        # Prepare lookup input data
+        if is_multikey:
+            # For multi-key lookup, combine input columns into composite keys
+            lookup_input = []
+            for _, row in df.iterrows():
+                composite_key = [row[col] for col in input]
+                lookup_input.append(composite_key)
+        else:
+            # Single key lookup (existing behavior)
+            lookup_input = df[input[0]].values.tolist()
+        
         # Split input/output if user differentiated e.g. "wrangle_column: output_column"
         wrangle_output = [
             list(val.keys())[0] if isinstance(val, dict) else val
@@ -887,7 +913,7 @@ def lookup(
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
             data = _lookup(
-                df[input].values.tolist(),
+                lookup_input,
                 model_id,
                 columns=wrangle_output,
                 **kwargs
@@ -897,7 +923,7 @@ def lookup(
             # User specified no columns from the wrangle
             # Add dict of all values to those columns
             data = _lookup(
-                df[input].values.tolist(),
+                lookup_input,
                 model_id,
                 **kwargs
             )

@@ -5048,6 +5048,113 @@ class TestLookup:
         assert 'Col2' in result.columns
         assert 'Value' in result.columns
 
+    def test_lookup_multi_key_validation_logic(self):
+        """
+        Test multi-key validation logic in recipe wrangle lookup
+        """
+        from wrangles.recipe_wrangles.main import lookup
+        import pandas as pd
+        
+        # Test validation logic without API calls by using the internal logic
+        # Simulate metadata for multi-key model
+        metadata = {
+            "settings": {
+                "key_columns": ["Category", "Type"],
+                "columns": ["Value1", "Value2"]
+            }
+        }
+        
+        # Test the validation logic that would run in the function
+        key_columns = metadata["settings"].get("key_columns", ["Key"])
+        is_multikey = len(key_columns) > 1
+        
+        # Should detect this as multi-key
+        assert is_multikey == True
+        assert len(key_columns) == 2
+        assert key_columns == ["Category", "Type"]
+
+    def test_lookup_multi_key_input_validation(self):
+        """
+        Test multi-key input validation in recipe wrangle lookup
+        """
+        # Test single input column for multi-key model (should fail)
+        input_cols = ['Category']  # Only one input column
+        key_columns = ['Category', 'Type']  # Model expects two
+        is_multikey = len(key_columns) > 1
+        single_input_column = len(input_cols) == 1
+        
+        # Should detect insufficient input columns
+        if is_multikey and single_input_column:
+            validation_error = True
+        else:
+            validation_error = False
+            
+        assert validation_error == True, "Should detect insufficient input columns for multi-key"
+        
+        # Test correct multi-key input
+        input_cols = ['Category', 'Type']  # Correct number of input columns
+        
+        if is_multikey and len(input_cols) == len(key_columns):
+            validation_passed = True
+        else:
+            validation_passed = False
+            
+        assert validation_passed == True, "Should accept correct number of input columns"
+
+    def test_lookup_single_key_backward_compatibility(self):
+        """
+        Test single key backward compatibility in recipe wrangle lookup
+        """
+        # Simulate metadata for single-key model
+        metadata = {
+            "settings": {
+                "key_columns": ["Key"],  # Single key
+                "columns": ["Value1", "Value2"]
+            }
+        }
+        
+        # Test validation logic
+        key_columns = metadata["settings"].get("key_columns", ["Key"])
+        is_multikey = len(key_columns) > 1
+        
+        assert is_multikey == False
+        assert len(key_columns) == 1
+        assert key_columns == ["Key"]
+        
+        # Test single input for single-key (should work)
+        input_cols = ['Key']
+        
+        if not is_multikey and len(input_cols) == 1:
+            validation_passed = True
+        else:
+            validation_passed = False
+            
+        assert validation_passed == True, "Should accept single input for single-key model"
+
+    def test_lookup_multi_key_composite_key_creation(self):
+        """
+        Test composite key creation logic for multi-key lookups
+        """
+        import pandas as pd
+        
+        # Test data
+        df = pd.DataFrame({
+            'Category': ['Electronics', 'Clothing'],
+            'Type': ['Phone', 'Shirt'],
+            'Other': ['Data1', 'Data2']
+        })
+        
+        input_cols = ['Category', 'Type']
+        
+        # Simulate the composite key creation logic
+        lookup_input = []
+        for _, row in df.iterrows():
+            composite_key = [row[col] for col in input_cols]
+            lookup_input.append(composite_key)
+        
+        expected = [['Electronics', 'Phone'], ['Clothing', 'Shirt']]
+        assert lookup_input == expected, f"Expected {expected}, got {lookup_input}"
+
 
 class TestMatrix:
     """

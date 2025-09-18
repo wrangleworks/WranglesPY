@@ -232,7 +232,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', key_columns: list = None) -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -241,6 +241,7 @@ class lookup():
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
         :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
+        :param key_columns: List of column names to use as keys for lookup (defaults to ['Key'])
         """
         _logging.info(": Training Lookup Wrangle")
 
@@ -257,6 +258,10 @@ class lookup():
             variant = 'embedding'
 
         settings['variant'] = variant
+        
+        # Add key_columns to settings if specified
+        if key_columns is not None:
+            settings['key_columns'] = key_columns
 
         _train.lookup(
             {
@@ -289,6 +294,11 @@ class lookup():
             enum:
               - key
               - semantic
+          key_columns:
+            type: array
+            description: List of column names to use as keys for lookup (defaults to ['Key'])
+            items:
+              type: string
         """
 
 class standardize():

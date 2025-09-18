@@ -13,7 +13,8 @@ def lookup(
     """
     Find information using a lookup wrangle. Requires WrangleWorks Account.
     
-    :param input: A value or list of values to be looked up.
+    :param input: A value, list of values, or list of composite keys to be looked up.
+                  For multi-key models, provide a list of tuples/lists representing composite keys.
     :param model_id: The model to be used.
     :param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict.
     """
