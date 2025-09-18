@@ -1962,6 +1962,21 @@ class TestSpaces:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['NoSpaces'] == ' Hello World '
 
+    def test_spaces_no_output(self):
+        """
+        Test the base functionality of spaces
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input: col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col'] == ' Hello World '
+
     def test_spaces_where(self):
         """
         Test spaces function using a where clause
@@ -1996,6 +2011,88 @@ class TestSpaces:
             })
         )
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
+
+    def test_spaces_nbsp(self):
+        """
+        Test spaces replaces non-breaking space characters
+        """
+        data = pd.DataFrame({
+        'col': ['  Hello   World  ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+
+    def test_spaces_list_input_no_output(self):
+        """
+        Test spaces input list and no output
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input:
+                  - col1
+                  - col2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == ' Hello World '
+        assert df.iloc[0]['col2'] == ' Hello Galaxy '
+
+    def test_spaces_io_list(self):
+        """
+        Test spaces with a list of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+                  - out2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == ' Hello World '
+        assert df.iloc[0]['out2'] == ' Hello Galaxy '
+
+    def test_spaces_uneven_io_list(self):
+        """
+        Test spaces with an uneven list
+        of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
 
 
 class TestStandardize:
