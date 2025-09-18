@@ -344,7 +344,8 @@ def clean_whitespaces(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list] = None,
-    trim: bool = True
+    trim: bool = True,
+    remove_literals: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -367,6 +368,9 @@ def clean_whitespaces(
       trim:
         type: boolean
         description: Whether to trim leading and trailing spaces. Default True.
+      remove_literals:
+        type: boolean
+        description: Whether to remove special space characters such as new lines etc. Default True.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -381,8 +385,11 @@ def clean_whitespaces(
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
+        if remove_literals: pattern = r'\s{2,}| | |'
+        else: pattern = '( | | |)+'
+
         df[output_column] = df[input_column].apply(
-                      lambda x: _re.sub(r'\s{2,}| | |', ' ', x) if isinstance(x, str) else x
+                      lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
                   )
         if trim:
             df[output_column] = df[output_column].apply(
