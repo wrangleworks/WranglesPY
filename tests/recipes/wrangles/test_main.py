@@ -1942,6 +1942,62 @@ class TestSimilarity:
         assert df.empty and df.columns.to_list() == ['col1', 'col2', 'Cos Sim']
 
 
+class TestSpaces:
+    """
+    Test spaces
+    """
+    def test_spaces(self):
+        """
+        Test the base functionality of spaces
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+
+    def test_spaces_where(self):
+        """
+        Test spaces function using a where clause
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - spaces:
+                    input: Product
+                    where: Price > 10
+            """,
+            dataframe=pd.DataFrame({
+                'Product': ['  Hello   World  ', '  Hello   Universe  ', '  Hello   Galaxy  '],
+                'Price': [4.99, 9.99, 14.99]
+            })
+        )
+        assert df['Product'].to_list() == ["  Hello   World  ", "  Hello   Universe  ", " Hello Galaxy "]
+
+    def test_spaces_empty(self):
+        """
+        Test spaces with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - spaces:
+                    input: Random
+                    output: output column
+            """,
+            dataframe=pd.DataFrame({
+                'Random': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Random', 'output column']
+
+
 class TestStandardize:
     """
     Test standardize
