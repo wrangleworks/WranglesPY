@@ -1467,6 +1467,7 @@ def spaces(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list] = None,
+    trim: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1486,6 +1487,9 @@ def spaces(
           - string
           - array
         description: Name or list of output columns.
+      trim:
+        type: boolean
+        description: Whether to trim leading and trailing spaces. Default True.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -1503,6 +1507,10 @@ def spaces(
         df[output_column] = df[input_column].apply(
                       lambda x: _re.sub(r'\s{2,}| | |', ' ', x) if isinstance(x, str) else x
                   )
+        if trim:
+            df[output_column] = df[output_column].apply(
+                          lambda x: x.strip() if isinstance(x, str) else x
+                      )
 
     return df
 
