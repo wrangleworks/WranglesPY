@@ -2094,6 +2094,40 @@ class TestSpaces:
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
+    def test_spaces_trim_false(self):
+        """
+        Test spaces with trim set to false
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input: col
+                output: NoSpaces
+                trim: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+
+    def test_spaces_non_string(self):
+        """
+        Test spaces with non-string values
+        """
+        data = pd.DataFrame({
+        'col': ['A    string', 123, None, 45.67, True, ['list']]
+        })
+        recipe = """
+        wrangles:
+            - spaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'A string'
+        assert df.iloc[5]['NoSpaces'] == ['list']
+
 
 class TestStandardize:
     """
