@@ -121,7 +121,8 @@ def text(
             exact_match=exact_match,
             empty_a=empty_a,
             empty_b=empty_b,
-            all_empty=all_empty
+            all_empty=all_empty,
+            case_sensitive=case_sensitive
         )
 
     return df
