@@ -425,7 +425,7 @@ def backend_retries(request_type, url, **kwargs):
             max_retries=_Retry(
                 total=3,
                 backoff_factor=0.5,
-                status_forcelist=[500, 501, 502, 503, 504],
+                status_forcelist=[500, 502, 503, 504],
                 allowed_methods={'GET', 'PUT', 'POST', 'PATCH', 'OPTIONS'},
             )
         )
