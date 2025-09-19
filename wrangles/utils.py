@@ -409,7 +409,7 @@ def evaluate_conditional(statement, variables: dict = {}):
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
 
 
-def backend_retries(request_type, url, **kwargs):
+def request_retries(request_type, url, **kwargs):
     """
     Make a request to the backend with retries for transient errors
 

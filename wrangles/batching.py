@@ -19,7 +19,7 @@ def batch_api_calls(url, params, input_list, batch_size):
     results = None
     for i in range(0, len(input_list), batch_size):
         headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
-        response = _utils.backend_retries(
+        response = _utils.request_retries(
                     request_type='POST',
                     url=url,
                     **{

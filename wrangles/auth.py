@@ -31,7 +31,7 @@ def _refresh_access_token_from_refresh_token():
             "refresh_token": refresh_token,
         }
 
-        response = _utils.backend_retries(request_type='POST', url=url, **{'data': data})
+        response = _utils.request_retries(request_type='POST', url=url, **{'data': data})
 
         response.raise_for_status()
     except:
@@ -54,7 +54,7 @@ def _refresh_access_token():
     payload = f"grant_type=password&username={username}&password={password}&client_id={_config.keycloak.client_id}"
     headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
 
-    response = _utils.backend_retries(request_type='POST', url=url, **{'data': payload, 'headers': headers})
+    response = _utils.request_retries(request_type='POST', url=url, **{'data': payload, 'headers': headers})
 
     return response
 

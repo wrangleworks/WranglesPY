@@ -20,7 +20,7 @@ class user():
         """
         params = {}
         if type: params['type'] = type
-        response = _utils.backend_retries(
+        response = _utils.request_retries(
                     request_type='GET',
                     url=f'{_config.api_host}/user/models',
                     **{
@@ -38,7 +38,7 @@ def model(id: str):
     :param id: model ID
     :returns: Dict of model properties
     """
-    response = _utils.backend_retries(
+    response = _utils.request_retries(
                 request_type='GET',
                 url=f'{_config.api_host}/model/metadata',
                 **{
@@ -62,7 +62,7 @@ def model_content(id: str, version_id: str = None) -> list:
     :param version_id: (Optional) Version ID. If not provided, the latest version will be used.
     :return: Model data with Settings, Columns and Data as a 2D array
     """
-    response = _utils.backend_retries(
+    response = _utils.request_retries(
                 request_type='GET',
                 url=f'{_config.api_host}/model/content',
                 **{

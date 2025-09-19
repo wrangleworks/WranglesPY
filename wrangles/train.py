@@ -40,7 +40,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            response = _utils.backend_retries(
+            response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
                         **{
@@ -95,7 +95,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            response = _utils.backend_retries(
+            response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
                         **{
@@ -169,7 +169,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            response = _utils.backend_retries(
+            response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
                         **{
@@ -217,7 +217,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            response = _utils.backend_retries(
+            response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
                         **{
