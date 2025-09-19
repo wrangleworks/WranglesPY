@@ -5,6 +5,7 @@ from typing import Union as _Union
 from . import config as _config
 from . import auth as _auth
 from . import utils as _utils
+import requests as _requests
 
 
 class train():
@@ -31,16 +32,14 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
-            response = _utils.backend_retries(
-                        request_type='POST',
-                        url=f'{_config.api_host}/model/content',
-                        **{
-                            'params': {'type':'classify', 'name': name},
-                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
-                            'json': training_data
-                        }
+            response = _requests.post(
+                        f'{_config.api_host}/model/content',
+                        params={'type':'classify', 'name': name},
+                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        json=training_data
                     )
         elif model_id:
+            # Only use retries when retraining an existing model
             response = _utils.backend_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
@@ -88,16 +87,14 @@ class train():
                 training_data = [['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']] + training_data
         
         if name:
-            response = _utils.backend_retries(
-                        request_type='POST',
-                        url=f'{_config.api_host}/model/content',
-                        **{
-                            'params': {'type':'extract', 'name': name, 'variant': variant},
-                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
-                            'json': training_data
-                        }
-                )
+            response = _requests.post(
+                        f'{_config.api_host}/model/content',
+                        params={'type':'extract', 'name': name, 'variant': variant},
+                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        json=training_data
+                    )
         elif model_id:
+            # Only use retries when retraining an existing model
             response = _utils.backend_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
@@ -164,16 +161,14 @@ class train():
             )
 
         if name:
-            response = _utils.backend_retries(
-                        request_type='POST',
-                        url=f'{_config.api_host}/model/content',
-                        **{
-                            'params': {'type':'lookup', 'name': name, **settings},
-                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
-                            'json': data
-                        }
+            response = _requests.post(
+                        f'{_config.api_host}/model/content',
+                        params={'type':'lookup', 'name': name, **settings},
+                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        json=data
                     )
         elif model_id:
+            # Only use retries when retraining an existing model
             response = _utils.backend_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
@@ -214,16 +209,14 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
-            response = _utils.backend_retries(
-                        request_type='POST',
-                        url=f'{_config.api_host}/model/content',
-                        **{
-                            'params': {'type':'standardize', 'name': name},
-                            'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
-                            'json': training_data
-                        }
+            response = _requests.post(
+                        f'{_config.api_host}/model/content',
+                        params={'type':'standardize', 'name': name},
+                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        json=training_data
                     )
         elif model_id:
+            # Only use retries when retraining an existing model
             response = _utils.backend_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
