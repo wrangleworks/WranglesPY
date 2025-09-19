@@ -151,6 +151,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param name: Name of the output file
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     :param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
+    :param formatting: (Optional) A dictionary of formatting options to apply to Excel files.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
     _logging.info(f": Writing data to file :: {name}")
