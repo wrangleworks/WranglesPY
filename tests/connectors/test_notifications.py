@@ -23,6 +23,16 @@ def test_telegram(mocker):
         'body': 'Hello Wrangles',
     }
     assert telegram.run(**config) == None
+
+def test_telegram_format(mocker):
+    config = {
+        'bot_token': '1234',
+        'chat_id': '1234',
+        'title': 'Msg Title',
+        'body': '# Hello Wrangles',
+        'format': 'markdown'
+    }
+    assert telegram.run(**config) == None
  
 from wrangles.connectors.notification import email
 def test_email(mocker):
@@ -48,6 +58,20 @@ def test_email_2(mocker):
         'cc': 'fey@email.com',
     }
     assert email.run(**config) == None
+
+def test_email_format(mocker):
+    config = {
+        'user': 'mario@email.com',
+        'password': '1234',
+        'subject': 'Test Email',
+        'body': '#Wrangles are cool!',
+        'to': 'wrangles@email.com',
+        'cc': 'fey@email.com',
+        'domain': 'email',
+        'format': 'markdown'
+    }
+    assert email.run(**config) == None
+    
     
 # Common Domain
 def test_email_2(mocker):
