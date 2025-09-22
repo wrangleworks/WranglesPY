@@ -20,15 +20,27 @@ class SourceMatch:
     text: str
     score: float
     variation: str | None = None
+    context_start: int | None = None
+    context_end: int | None = None
+    context: str | None = None
 
     def to_dict(self) -> dict[str, _Any]:
-        return {
+        data = {
             "start": self.start,
             "end": self.end,
             "text": self.text,
             "score": self.score,
             "variation": self.variation,
         }
+
+        if self.context is not None:
+            data["context"] = {
+                "start": self.context_start,
+                "end": self.context_end,
+                "text": self.context,
+            }
+
+        return data
 
 
 def generate_value_variants(value: float | int | str) -> list[str]:
@@ -134,6 +146,41 @@ def _case_insensitive_positions(text: str, target: str) -> list[tuple[int, int]]
     return positions
 
 
+def _extract_context_span(
+    source_text: str,
+    start: int,
+    end: int,
+) -> tuple[int, int, str]:
+    """Return sentence-like context around the matched span."""
+    if not source_text:
+        return start, end, ""
+
+    length = len(source_text)
+
+    context_start = start
+    while context_start > 0 and source_text[context_start - 1] not in '.!?\n':
+        context_start -= 1
+
+    while context_start < start and source_text[context_start].isspace():
+        context_start += 1
+
+    context_end = end
+    while context_end < length and source_text[context_end] not in '.!?\n':
+        context_end += 1
+
+    if context_end < length:
+        context_end += 1
+
+    context_text = source_text[context_start:context_end].strip()
+
+    if not context_text:
+        context_start = max(start - 40, 0)
+        context_end = min(end + 40, length)
+        context_text = source_text[context_start:context_end].strip()
+
+    return context_start, context_end, context_text
+
+
 def find_best_variant_match(source_text: str, variants: _Iterable[str]) -> SourceMatch | None:
     best: SourceMatch | None = None
     source_text = source_text or ""
@@ -147,12 +194,18 @@ def find_best_variant_match(source_text: str, variants: _Iterable[str]) -> Sourc
                 normalize_for_matching(matched_text),
                 normalize_for_matching(candidate)
             )
+            context_start, context_end, context_text = _extract_context_span(
+                source_text, start, end
+            )
             candidate_match = SourceMatch(
                 start=start,
                 end=end,
                 text=matched_text,
                 score=score,
                 variation=candidate,
+                context_start=context_start,
+                context_end=context_end,
+                context=context_text,
             )
             if (
                 best is None or
@@ -180,12 +233,18 @@ def find_best_variant_match(source_text: str, variants: _Iterable[str]) -> Sourc
                 normalize_for_matching(matched_text),
                 normalize_for_matching(candidate)
             )
+            context_start, context_end, context_text = _extract_context_span(
+                source_text, start, end
+            )
             candidate_match = SourceMatch(
                 start=start,
                 end=end,
                 text=matched_text,
                 score=score,
                 variation=candidate,
+                context_start=context_start,
+                context_end=context_end,
+                context=context_text,
             )
             if best is None or candidate_match.score > best.score:
                 best = candidate_match

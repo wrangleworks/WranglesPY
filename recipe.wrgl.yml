@@ -20,10 +20,9 @@ wrangles:
         voltage:
           type: number
           description: Operating voltage
-      model: gpt-4o
+      model: gpt-5-nano
       retries: 2
       source: true
-      langextract: false
 
 write:
   - file:
