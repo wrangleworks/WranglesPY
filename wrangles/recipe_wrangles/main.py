@@ -389,12 +389,12 @@ def clean_whitespaces(
         else: pattern = '( | | |)+'
 
         df[output_column] = df[input_column].apply(
-                      lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
-                  )
+            lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
+        )
         if trim:
             df[output_column] = df[output_column].apply(
-                          lambda x: x.strip() if isinstance(x, str) else x
-                      )
+                lambda x: x.strip() if isinstance(x, str) else x
+            )
 
     return df
 
