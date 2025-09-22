@@ -11,7 +11,7 @@ import base64 as _base64
 import os as _os
 import re as _re
 from ..utils import wildcard_expansion as _wildcard_expansion
-from .format import file_format as _file_format
+from .formatting import file_format as _file_format
 
 
 _schema = {}
