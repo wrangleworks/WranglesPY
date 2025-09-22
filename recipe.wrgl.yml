@@ -23,7 +23,7 @@ wrangles:
       model: gpt-4o
       retries: 2
       source: true
-      langextract: true
+      langextract: false
 
 write:
   - file:

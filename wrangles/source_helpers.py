@@ -10,9 +10,6 @@ from typing import Iterable as _Iterable
 
 import yaml as _yaml
 
-from langextract import data as _lx_data
-from langextract import resolver as _lx_resolver
-
 
 @_dataclass
 class SourceMatch:
@@ -23,7 +20,6 @@ class SourceMatch:
     text: str
     score: float
     variation: str | None = None
-    status: str | None = None
 
     def to_dict(self) -> dict[str, _Any]:
         return {
@@ -32,7 +28,6 @@ class SourceMatch:
             "text": self.text,
             "score": self.score,
             "variation": self.variation,
-            "status": self.status,
         }
 
 
@@ -198,60 +193,6 @@ def find_best_variant_match(source_text: str, variants: _Iterable[str]) -> Sourc
     return best
 
 
-def find_langextract_match(source_text: str, variants: _Iterable[str]) -> SourceMatch | None:
-    source_text = source_text or ""
-    for variant in variants:
-        candidate = variant.strip()
-        if not candidate:
-            continue
-
-        extraction = _lx_data.Extraction(
-            extraction_class="wrangles", extraction_text=candidate
-        )
-        try:
-            aligned_groups = _lx_resolver.WordAligner().align_extractions(
-                [[extraction]],
-                source_text,
-            )
-        except ValueError:
-            continue
-
-        if not aligned_groups or not aligned_groups[0]:
-            continue
-
-        aligned = aligned_groups[0][0]
-        interval = aligned.char_interval
-
-        if (
-            interval is None
-            or interval.start_pos is None
-            or interval.end_pos is None
-        ):
-            continue
-
-        matched_text = source_text[interval.start_pos:interval.end_pos]
-        score = calculate_similarity(
-            normalize_for_matching(matched_text),
-            normalize_for_matching(candidate),
-        )
-        status = (
-            aligned.alignment_status.name
-            if aligned.alignment_status is not None
-            else None
-        )
-
-        return SourceMatch(
-            start=interval.start_pos,
-            end=interval.end_pos,
-            text=matched_text,
-            score=score,
-            variation=candidate,
-            status=status,
-        )
-
-    return None
-
-
 def _path_to_string(path: list[_Any]) -> str:
     components: list[str] = []
     for part in path:
@@ -350,12 +291,6 @@ def _scalar_variations(value: _Any) -> list[str]:
     return sorted({v.strip() for v in variants if v.strip()})
 
 
-def _get_variations(kind: str, value: _Any) -> list[str]:
-    if kind == 'measurement':
-        return _measurement_variations(value)
-    return _scalar_variations(value)
-
-
 def build_source_metadata(source: _Any, result: _Any) -> dict[str, dict[str, _Any]]:
     """Return alignment metadata for result values found in source."""
     source_text = _convert_source_to_text(source)
@@ -366,40 +301,15 @@ def build_source_metadata(source: _Any, result: _Any) -> dict[str, dict[str, _An
         kind = target['kind']
         value = target['value']
 
-        variations = _get_variations(kind, value)
+        if kind == 'measurement':
+            variations = _measurement_variations(value)
+        else:
+            variations = _scalar_variations(value)
 
         if not variations:
             continue
 
         match = find_best_variant_match(source_text, variations)
-        if match is None:
-            continue
-
-        metadata[path] = {
-            'kind': kind,
-            'value': value,
-            'match': match.to_dict(),
-        }
-
-    return metadata
-
-
-def build_langextract_metadata(source: _Any, result: _Any) -> dict[str, dict[str, _Any]]:
-    """Return alignment metadata using LangExtract's WordAligner."""
-    source_text = _convert_source_to_text(source)
-    metadata: dict[str, dict[str, _Any]] = {}
-
-    for target in _iter_match_targets(result):
-        path = target['path']
-        kind = target['kind']
-        value = target['value']
-
-        variations = _get_variations(kind, value)
-
-        if not variations:
-            continue
-
-        match = find_langextract_match(source_text, variations)
         if match is None:
             continue
 

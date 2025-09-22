@@ -464,12 +464,7 @@ def test_extract_ai_output_string():
 @patch('wrangles.extract._openai.chatGPT')
 def test_extract_ai_source_metadata(mock_chat):
     """Ensure enabling source returns metadata alongside results."""
-    def fake_chat(input_data, api_key, settings, url, timeout, retries):
-        assert 'langextract' not in settings
-        assert 'source' not in settings
-        return {'output': '120 RPM'}
-
-    mock_chat.side_effect = fake_chat
+    mock_chat.return_value = {'output': '120 RPM'}
 
     result = wrangles.extract.ai(
         "The drill spins at 120 RPM.",
@@ -484,41 +479,6 @@ def test_extract_ai_source_metadata(mock_chat):
     match_info = result['source']['$']['match']
     assert match_info['text']
     assert match_info['start'] >= 0
-
-
-@patch('wrangles.extract._openai.chatGPT')
-def test_extract_ai_langextract_metadata(mock_chat):
-    """Ensure enabling langextract returns alignment metadata."""
-    mock_chat.return_value = {'output': '120 RPM'}
-
-    from langextract import data as lx_data
-    from langextract import resolver as lx_resolver
-
-    original_align = lx_resolver.WordAligner.align_extractions
-
-    def _fake_align(self, extraction_groups, source_text, *args, **kwargs):
-        extraction = extraction_groups[0][0]
-        extraction.char_interval = lx_data.CharInterval(start_pos=4, end_pos=11)
-        extraction.alignment_status = lx_data.AlignmentStatus.MATCH_EXACT
-        return extraction_groups
-
-    try:
-        lx_resolver.WordAligner.align_extractions = _fake_align
-        result = wrangles.extract.ai(
-            "The drill spins at 120 RPM.",
-            api_key="dummy",
-            output="Return the spindle speed",
-            langextract=True,
-            threads=1
-        )
-    finally:
-        lx_resolver.WordAligner.align_extractions = original_align
-
-    assert result['data'] == '120 RPM'
-    assert '$' in result['langextract']
-    match_info = result['langextract']['$']['match']
-    assert match_info['status'] == 'MATCH_EXACT'
-    assert match_info['start'] == 4
 
 
 def test_extract_ai_properties_list():

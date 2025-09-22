@@ -11,10 +11,7 @@ from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
-from .source_helpers import (
-    build_langextract_metadata as _build_langextract_metadata,
-    build_source_metadata as _build_source_metadata,
-)
+from .source_helpers import build_source_metadata as _build_source_metadata
 
 
 def address(
@@ -65,7 +62,6 @@ def ai(
     url: str = "https://api.openai.com/v1/chat/completions",
     strict: bool = False,
     source: bool = False,
-    langextract: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -93,8 +89,6 @@ def ai(
     :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
     :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
         but may be more limited in the schema it can return.
-    :param source: (Optional) Include Wrangles source alignment metadata.
-    :param langextract: (Optional) Include LangExtract reverse lookup metadata.
 
     :return: A scalar or list of extracted information.
     """
@@ -289,17 +283,10 @@ def ai(
         "gpt-4o": {"temperature": 0.2}
     }
 
-    # Remove internal flags from kwargs before sending to provider
-    request_kwargs = {
-        key: value
-        for key, value in kwargs.items()
-        if key not in {"source", "langextract"}
-    }
-
-    # Blend default settings into request kwargs
-    request_kwargs = {
+    # Blend default settings into kwargs
+    kwargs = {
         **default_settings.get(model, {}),
-        **request_kwargs
+        **kwargs
     }
 
     settings = {
@@ -320,7 +307,7 @@ def ai(
             }
         }],
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **request_kwargs
+        **kwargs
     }
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -334,31 +321,23 @@ def ai(
             [retries] * len(input),
         ))
 
-    if source or langextract:
-        results_with_metadata = []
+    if source:
+        results_with_source = []
         for original_input, raw_result in zip(input, results):
             if output_generic_key:
                 data_payload = raw_result.get('output', 'Failed')
             else:
                 data_payload = raw_result
 
-            entry = {'data': data_payload}
-
-            if source:
-                entry['source'] = _build_source_metadata(
-                    original_input, data_payload
-                ) or {}
-
-            if langextract:
-                entry['langextract'] = _build_langextract_metadata(
-                    original_input, data_payload
-                ) or {}
-
-            results_with_metadata.append(entry)
+            metadata = _build_source_metadata(original_input, data_payload)
+            results_with_source.append({
+                'data': data_payload,
+                'source': metadata or {}
+            })
 
         if input_was_scalar:
-            return results_with_metadata[0]
-        return results_with_metadata
+            return results_with_source[0]
+        return results_with_source
 
     if input_was_scalar:
         if output_generic_key:

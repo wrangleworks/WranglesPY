@@ -79,7 +79,6 @@ def ai(
     output: _Union[dict, str, list] = None,
     model_id: str = None,
     source: bool = False,
-    langextract: bool = False,
     **kwargs
 ):
     """
@@ -175,9 +174,6 @@ def ai(
       source:
         type: boolean
         description: Include source alignment metadata in the results.
-      langextract:
-        type: boolean
-        description: Include LangExtract alignment metadata in the results.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
@@ -245,31 +241,22 @@ def ai(
         output=output,
         model_id=model_id,
         source=source,
-        langextract=langextract,
         **kwargs
     )
 
-    if source or langextract:
-        source_metadata = [] if source else None
-        lang_metadata = [] if langextract else None
+    if source:
+        source_metadata = []
         processed_results = []
         for row in results:
-            if isinstance(row, dict) and 'data' in row:
+            if isinstance(row, dict) and 'data' in row and 'source' in row:
                 processed_results.append(row['data'])
-                if source:
-                    source_metadata.append(row.get('source', {}))
-                if langextract:
-                    lang_metadata.append(row.get('langextract', {}))
+                source_metadata.append(row['source'])
             else:
                 processed_results.append(row)
-                if source:
-                    source_metadata.append({})
-                if langextract:
-                    lang_metadata.append({})
+                source_metadata.append({})
         results = processed_results
     else:
         source_metadata = None
-        lang_metadata = None
 
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
@@ -299,9 +286,6 @@ def ai(
 
     if source and source_metadata is not None:
         df['extract_ai_source'] = source_metadata
-
-    if langextract and lang_metadata is not None:
-        df['extract_ai_langextract'] = lang_metadata
 
     return df
 
