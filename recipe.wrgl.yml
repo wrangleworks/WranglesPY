@@ -13,16 +13,17 @@ wrangles:
       output:
         rpm:
           type: number
-          description: "Spindle speed"
+          description: Spindle speed
         amperage:
           type: number
-          description: "Electrical current draw"
+          description: Electrical current draw
         voltage:
           type: number
-          description: "Operating voltage"
+          description: Operating voltage
       model: gpt-4o
       retries: 2
       source: true
+      langextract: true
 
 write:
   - file:

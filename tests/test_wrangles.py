@@ -464,7 +464,12 @@ def test_extract_ai_output_string():
 @patch('wrangles.extract._openai.chatGPT')
 def test_extract_ai_source_metadata(mock_chat):
     """Ensure enabling source returns metadata alongside results."""
-    mock_chat.return_value = {'output': '120 RPM'}
+    def fake_chat(input_data, api_key, settings, url, timeout, retries):
+        assert 'langextract' not in settings
+        assert 'source' not in settings
+        return {'output': '120 RPM'}
+
+    mock_chat.side_effect = fake_chat
 
     result = wrangles.extract.ai(
         "The drill spins at 120 RPM.",

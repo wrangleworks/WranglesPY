@@ -289,10 +289,17 @@ def ai(
         "gpt-4o": {"temperature": 0.2}
     }
 
-    # Blend default settings into kwargs
-    kwargs = {
+    # Remove internal flags from kwargs before sending to provider
+    request_kwargs = {
+        key: value
+        for key, value in kwargs.items()
+        if key not in {"source", "langextract"}
+    }
+
+    # Blend default settings into request kwargs
+    request_kwargs = {
         **default_settings.get(model, {}),
-        **kwargs
+        **request_kwargs
     }
 
     settings = {
@@ -313,7 +320,7 @@ def ai(
             }
         }],
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **kwargs
+        **request_kwargs
     }
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
