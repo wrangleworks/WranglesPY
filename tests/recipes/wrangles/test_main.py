@@ -827,7 +827,7 @@ class TestLog:
         wrangles:
             - log:
                 columns:
-                  - ${my_var}
+                  - Col1
         """
         wrangles.recipe.run(recipe, dataframe=data)
         assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
@@ -842,7 +842,7 @@ class TestLog:
         })
         recipe = """
         wrangles:
-            - log: variables
+            - log: {}
         """
         wrangles.recipe.run(recipe, dataframe=data)
         assert caplog.messages[-1] == ': Dataframe ::\n\n           Col1     Col2\n0  Ball Bearing  Bearing\n'
