@@ -9,11 +9,10 @@ def file_format(
     """
     Apply formatting to an Excel file using Polars and XlsxWriter.
     
-    Parameters:
-    df (pd.DataFrame): The pandas DataFrame to be written to Excel.
-    workbook (str): The name of the Excel file to create.
-    worksheet (str): The name of the worksheet within the Excel file.
-    **kwargs: Additional keyword arguments for formatting options.
+    :param df: The pandas DataFrame to be written to Excel.
+    :param workbook: The name of the Excel file to create.
+    :param worksheet: The name of the worksheet within the Excel file.
+    :param kwargs: Additional keyword arguments for formatting options.
     """
     pl_df = pl.DataFrame(df)
 
