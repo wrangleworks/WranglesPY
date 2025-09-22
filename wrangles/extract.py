@@ -11,6 +11,7 @@ from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
+from .source_helpers import build_source_metadata as _build_source_metadata
 
 
 def address(
@@ -60,6 +61,7 @@ def ai(
     messages: list = [],
     url: str = "https://api.openai.com/v1/chat/completions",
     strict: bool = False,
+    source: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -318,6 +320,24 @@ def ai(
             [timeout] * len(input),
             [retries] * len(input),
         ))
+
+    if source:
+        results_with_source = []
+        for original_input, raw_result in zip(input, results):
+            if output_generic_key:
+                data_payload = raw_result.get('output', 'Failed')
+            else:
+                data_payload = raw_result
+
+            metadata = _build_source_metadata(original_input, data_payload)
+            results_with_source.append({
+                'data': data_payload,
+                'source': metadata or {}
+            })
+
+        if input_was_scalar:
+            return results_with_source[0]
+        return results_with_source
 
     if input_was_scalar:
         if output_generic_key:

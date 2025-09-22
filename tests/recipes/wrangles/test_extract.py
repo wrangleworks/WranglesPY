@@ -3123,6 +3123,43 @@ class TestExtractAI:
         )
         assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
 
+    def test_source_metadata_column(self, monkeypatch):
+        """Ensure recipe extract.ai surfaces source metadata column."""
+
+        def fake_ai(input_records, api_key, output=None, model_id=None, source=False, **kwargs):
+            assert source is True
+            return [{
+                'data': {'Speed': '120 RPM'},
+                'source': {
+                    'Speed': {
+                        'kind': 'scalar',
+                        'value': '120 RPM',
+                        'match': {
+                            'start': 9,
+                            'end': 16,
+                            'text': '120 RPM',
+                            'score': 1.0,
+                            'variation': '120 RPM'
+                        }
+                    }
+                }
+            }]
+
+        monkeypatch.setattr(wrangles.extract, 'ai', fake_ai)
+
+        df = pd.DataFrame({'text': ['Runs at 120 RPM']})
+        result = wrangles.recipe_wrangles.extract.ai(
+            df.copy(),
+            api_key='dummy',
+            input=['text'],
+            output={'Speed': {}},
+            source=True
+        )
+
+        assert result.at[0, 'Speed'] == '120 RPM'
+        assert 'extract_ai_source' in result.columns
+        assert result.at[0, 'extract_ai_source']['Speed']['match']['text'] == '120 RPM'
+
     def test_strict_mode(self):
         """
         Test strict mode with an easy question but a schema that contradicts the correct answer

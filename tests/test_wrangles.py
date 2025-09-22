@@ -3,6 +3,7 @@ import wrangles
 import pandas as pd
 from wrangles.train import train
 import os
+from unittest.mock import patch
 
 
 # Classify
@@ -458,6 +459,27 @@ def test_extract_ai_output_string():
     )
 
     assert "yellow" in results
+
+
+@patch('wrangles.extract._openai.chatGPT')
+def test_extract_ai_source_metadata(mock_chat):
+    """Ensure enabling source returns metadata alongside results."""
+    mock_chat.return_value = {'output': '120 RPM'}
+
+    result = wrangles.extract.ai(
+        "The drill spins at 120 RPM.",
+        api_key="dummy",
+        output="Return the spindle speed",
+        source=True,
+        threads=1
+    )
+
+    assert result['data'] == '120 RPM'
+    assert '$' in result['source']
+    match_info = result['source']['$']['match']
+    assert match_info['text']
+    assert match_info['start'] >= 0
+
 
 def test_extract_ai_properties_list():
     """

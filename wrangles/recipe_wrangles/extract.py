@@ -78,6 +78,7 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
+    source: bool = False,
     **kwargs
 ):
     """
@@ -170,6 +171,9 @@ def ai(
           Enable strict mode. Default False.
           If True, the function will be required to match the schema,
           but may be more limited in the schema it can return.
+      source:
+        type: boolean
+        description: Include source alignment metadata in the results.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
@@ -236,8 +240,23 @@ def ai(
         api_key=api_key,
         output=output,
         model_id=model_id,
+        source=source,
         **kwargs
     )
+
+    if source:
+        source_metadata = []
+        processed_results = []
+        for row in results:
+            if isinstance(row, dict) and 'data' in row and 'source' in row:
+                processed_results.append(row['data'])
+                source_metadata.append(row['source'])
+            else:
+                processed_results.append(row)
+                source_metadata.append({})
+        results = processed_results
+    else:
+        source_metadata = None
 
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
@@ -264,6 +283,9 @@ def ai(
             df[target_columns] = exploded_df[target_columns]
     except:
       raise RuntimeError("Unable to parse response from AI model")
+
+    if source and source_metadata is not None:
+        df['extract_ai_source'] = source_metadata
 
     return df
 
@@ -966,4 +988,3 @@ def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _
             df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
 
     return df
-
