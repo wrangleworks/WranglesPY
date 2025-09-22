@@ -1,0 +1,29 @@
+read:
+  - test:
+      rows: 2
+      values:
+        description:
+          - "The Atlas grinder runs at 3,200 RPM and draws 8 amps at 120 volts."
+          - "Our Titan saw operates at 2,450 RPM with a 6.5 amp motor on 110 volts."
+
+wrangles:
+  - extract.ai:
+      api_key: ${OPENAI_API_KEY}
+      input: description
+      output:
+        rpm:
+          type: number
+          description: "Spindle speed"
+        amperage:
+          type: number
+          description: "Electrical current draw"
+        voltage:
+          type: number
+          description: "Operating voltage"
+      model: gpt-4o
+      retries: 2
+      source: true
+
+write:
+  - file:
+      name: output/machine_specs.csv
