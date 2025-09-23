@@ -3139,7 +3139,10 @@ class TestExtractAI:
                             'end': 16,
                             'text': '120 RPM',
                             'score': 1.0,
-                            'variation': '120 RPM'
+                            'variation': '120 RPM',
+                            'context': {
+                                'text': 'at 120 RPM'
+                            }
                         }
                     }
                 }
@@ -3159,6 +3162,7 @@ class TestExtractAI:
         assert result.at[0, 'Speed'] == '120 RPM'
         assert 'extract_ai_source' in result.columns
         assert result.at[0, 'extract_ai_source']['Speed']['match']['text'] == '120 RPM'
+        assert result.at[0, 'Speed_source_context'] == 'at 120 RPM'
 
     def test_strict_mode(self):
         """

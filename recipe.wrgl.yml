@@ -1,29 +1,110 @@
 read:
   - test:
-      rows: 2
+      rows: 1
       values:
-        description:
-          - "The Atlas grinder runs at 3,200 RPM and draws 8 amps at 120 volts."
-          - "Our Titan saw operates at 2,450 RPM with a 6.5 amp motor on 110 volts."
+        description: |
+          Amperage 6; Bevel Angle Range 45°; Category Jig Saws; Cutting Capacity- Soft Wood 2-11/16";
+          Cutting Capacity-Aluminum 0.375; Cutting Capacity-Mild Steel 0.1875; Dust Blower Yes;
+          Dust Collection No; Height 7.0"; Hertz 60; Jig Saw Blade Type Jig Saw T-Shank; Length 9.25";
+          Max. Bevel Capacity (°) 45; Max. Bevel Cut 45°; No Load SPM 500-3,100; Rating 120V;
+          Reverse No; Stroke Length (in) 0.75; Tool Level 7 - Cordless – variable speed basic +;
+          Variable Speed Yes; Voltage 120V; Weight 5.3lb; Width 3.5"; Works With Anit-Splinter Insert JA1002;
+          Includes (1) JS260 6.0 Amp Top-Handle Jig Saw, (1) Anti-Splinter Insert (201016065),
+          (1) T-Shank Jig Saw Blade, (1) Bevel Wrench, (1) Carrying Bag
 
 wrangles:
   - extract.ai:
       api_key: ${OPENAI_API_KEY}
       input: description
       output:
-        rpm:
-          type: number
-          description: Spindle speed
         amperage:
           type: number
-          description: Electrical current draw
-        voltage:
+          description: "Amp draw"
+        bevel_angle_range:
+          type: string
+          description: "Bevel angle range"
+        category:
+          type: string
+          description: "Product category"
+        cutting_capacity_soft_wood:
+          type: string
+          description: "Soft wood cutting capacity"
+        cutting_capacity_aluminum:
           type: number
-          description: Operating voltage
-      model: gpt-5-nano
+          description: "Aluminum cutting capacity in inches"
+        cutting_capacity_mild_steel:
+          type: number
+          description: "Mild steel cutting capacity in inches"
+        dust_blower:
+          type: string
+          description: "Dust blower present?"
+        dust_collection:
+          type: string
+          description: "Dust collection present?"
+        height:
+          type: string
+          description: "Height measurement"
+        hertz:
+          type: integer
+          description: "AC frequency"
+        blade_type:
+          type: string
+          description: "Blade type"
+        length:
+          type: string
+          description: "Tool length"
+        max_bevel_capacity:
+          type: string
+          description: "Maximum bevel capacity"
+        no_load_spm:
+          type: string
+          description: "No-load strokes per minute"
+        rating:
+          type: string
+          description: "Voltage rating"
+        stroke_length:
+          type: string
+          description: "Stroke length"
+        tool_level:
+          type: string
+          description: "Tool level description"
+        variable_speed:
+          type: string
+          description: "Variable speed?"
+        voltage:
+          type: string
+          description: "Operating voltage"
+        weight:
+          type: string
+          description: "Tool weight"
+        width:
+          type: string
+          description: "Tool width"
+        works_with:
+          type: string
+          description: "Compatible accessories"
+        includes:
+          type: string
+          description: "Included items"
+      model: gpt-4o
       retries: 2
       source: true
+  - pandas.transpose:
+      header_column: null
+
+  # Pull the index (old column names) back into the dataframe
+  - pandas.reset_index:
+      parameters:
+        drop: false
+
+
+  # Give the two columns friendly names
+  - rename:
+      input: [index, "0"]
+      output: [field, value]
+
 
 write:
   - file:
-      name: output/machine_specs.csv
+      name: output/jigsaw_specs.xlsx
+      index: false

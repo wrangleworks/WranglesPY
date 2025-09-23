@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib as _difflib
+import re as _re
 from dataclasses import dataclass as _dataclass
 from fractions import Fraction as _Fraction
 from typing import Any as _Any
@@ -146,37 +147,39 @@ def _case_insensitive_positions(text: str, target: str) -> list[tuple[int, int]]
     return positions
 
 
+_WORD_PATTERN = _re.compile(r"\b\w[\w\-\/]*\b")
+
+
 def _extract_context_span(
     source_text: str,
     start: int,
     end: int,
 ) -> tuple[int, int, str]:
-    """Return sentence-like context around the matched span."""
+    """Return context consisting of the adjacent word before and after the match."""
     if not source_text:
         return start, end, ""
 
-    length = len(source_text)
-
     context_start = start
-    while context_start > 0 and source_text[context_start - 1] not in '.!?\n':
-        context_start -= 1
-
-    while context_start < start and source_text[context_start].isspace():
-        context_start += 1
-
     context_end = end
-    while context_end < length and source_text[context_end] not in '.!?\n':
-        context_end += 1
 
-    if context_end < length:
-        context_end += 1
+    # Previous word
+    prev_match = None
+    for match in _WORD_PATTERN.finditer(source_text, 0, start):
+        prev_match = match
+    if prev_match is not None:
+        context_start = prev_match.start()
+
+    # Next word
+    next_match = _WORD_PATTERN.search(source_text, end)
+    if next_match is not None:
+        context_end = next_match.end()
+
+    context_start = max(0, context_start)
+    context_end = min(len(source_text), max(context_end, end))
 
     context_text = source_text[context_start:context_end].strip()
-
     if not context_text:
-        context_start = max(start - 40, 0)
-        context_end = min(end + 40, length)
-        context_text = source_text[context_start:context_end].strip()
+        context_text = source_text[start:end]
 
     return context_start, context_end, context_text
 

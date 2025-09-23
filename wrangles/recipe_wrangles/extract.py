@@ -258,6 +258,8 @@ def ai(
     else:
         source_metadata = None
 
+    final_columns: list[str] = []
+
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
 
@@ -266,9 +268,11 @@ def ai(
                 # If the AI model only returns a single column
                 # then use the contents of that columns as the output
                 df[target_columns[0]] = exploded_df[exploded_df.columns[0]]
+                final_columns = list(target_columns)
             else:
                 # Else insert as a dict to the target column
                 df[target_columns[0]] = results
+                final_columns = list(target_columns)
         else:
             if not target_columns:
                 target_columns = exploded_df.columns
@@ -281,11 +285,32 @@ def ai(
 
             # Merge back into the original dataframe
             df[target_columns] = exploded_df[target_columns]
+            final_columns = list(target_columns)
     except:
       raise RuntimeError("Unable to parse response from AI model")
 
     if source and source_metadata is not None:
         df['extract_ai_source'] = source_metadata
+
+        if final_columns:
+            context_rows = []
+            for meta in source_metadata:
+                row_context = {}
+                for column in final_columns:
+                    context_text = ""
+                    meta_entry = meta.get(column)
+                    if isinstance(meta_entry, dict):
+                        match_info = meta_entry.get('match', {})
+                        if isinstance(match_info, dict):
+                            context = match_info.get('context')
+                            if isinstance(context, dict):
+                                context_text = context.get('text', '') or ""
+                    row_context[f"{column}_source_context"] = context_text
+                context_rows.append(row_context)
+
+            if context_rows:
+                context_df = _pd.DataFrame(context_rows).fillna('').set_index(df.index)
+                df[context_df.columns] = context_df
 
     return df
 

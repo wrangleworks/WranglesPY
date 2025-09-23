@@ -134,3 +134,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+format_workbook.py
