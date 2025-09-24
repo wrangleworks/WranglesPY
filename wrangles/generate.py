@@ -17,7 +17,7 @@ JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "obje
 
 class PropertyDefinition(BaseModel):
     type: JsonSchemaType = "string"
-    desccriptions: str
+    descriptions: str
     enum: Optional[List[Any]] = None 
     default: Optional[Any] = None 
     examples: Optional[List[Any]] = None 
