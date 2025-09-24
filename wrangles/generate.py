@@ -84,7 +84,7 @@ def _call_openai(
             return {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json} 
         except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError) as e: 
             if attempt >= retries: 
-                error_details = f"Error: {str(e)}"; 
+                error_details = f"Error: {str(e)}"
                 try: error_details += f" | Response Body: {response.text}" 
                 except NameError: pass 
                 return {"error": f"API call failed after {retries + 1} attempts. {error_details}"} 
