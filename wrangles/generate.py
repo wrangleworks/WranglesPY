@@ -91,3 +91,92 @@ def _call_openai(
                 except NameError: pass 
                 return {"error": f"API call failed after {retries + 1} attempts. {error_details}"} 
     return {"error": "An unexpected error occurred."} 
+
+
+def ai( 
+    input: Union[Any, List[Any]], 
+    api_key: str, 
+    output: Dict[str, Any], 
+    model: str = "gpt-5", 
+    threads: int = 20, 
+    timeout: int = 90, 
+    retries: int = 0, 
+    messages: Optional[List[dict]] = None, 
+    url: str = "https://api.openai.com/v1/responses", 
+    strict: bool = False, 
+    web_search: bool = False, # <<< NEW PARAMETER 
+    reasoning: Dict[str, str] = {"effort": "low"}, 
+    **kwargs 
+) -> Union[dict, list]: 
+    print("process has started")
+    print(f"web_search is set to: {web_search}, strict is set to: {strict}")
+    input_was_scalar = not isinstance(input, list) 
+    input_list = [input] if input_was_scalar else input 
+
+    default_instruction = (
+        "You are an assistant that MUST rely solely on the values contained in the current record. "
+        "Do not use outside knowledge, do not invent details, and respond with 'N/A' when information is missing. "
+        "Return JSON that matches the requested schema exactly."
+    )
+    if messages and isinstance(messages, list) and len(messages) > 0:
+        default_instruction = messages[0].get('content', default_instruction)
+
+    compliance_notice = (
+        "\n\nRESTRICTIONS:\n"
+        "- Only use data from the supplied RECORD DATA.\n"
+        "- Never fabricate or infer information that is not present.\n"
+        "- Use 'N/A' when the record lacks the requested value."
+    )
+
+    if web_search:
+        source_info = "internet"
+        instructions_by_item = []
+        for item in input_list:
+            context = _perform_web_search(_stringify_query(item))
+            instructions_by_item.append(
+                "You are a helpful assistant. Use ONLY the information from the 'CONTEXT' block below to generate a response that matches the requested JSON schema.\n\n"
+                "CONTEXT:\n---\n"
+                f"{context}\n---"
+            )
+    else:
+        source_info = "internally generated"
+        instructions_by_item = []
+        for item in input_list:
+            record_context = json.dumps(item, ensure_ascii=False)
+            instructions_by_item.append(
+                f"{default_instruction}{compliance_notice}\n\nRECORD DATA:\n---\n{record_context}\n---"
+            )
+
+    print("arrived to the payload section")
+    payload_template = {
+        "model": model,
+        "reasoning": reasoning,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "structured_response",
+                "schema": output,
+                "strict": strict
+            }
+        },
+        **kwargs
+    }
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = []
+        for item, instructions in zip(input_list, instructions_by_item):
+            payload = copy.deepcopy(payload_template)
+            payload["instructions"] = instructions
+            futures.append(executor.submit(_call_openai, item, api_key, payload, url, timeout, retries))
+
+        results = [future.result() for future in futures] 
+        print(f"arrived to the results section{results}")
+    # <<< NEW: Add source information to results --- >>> 
+    for res in results: 
+        if isinstance(res, dict) and 'error' not in res: 
+            res['source'] = source_info 
+
+    if input_was_scalar: 
+        return results[0] 
+    else: 
+        return results
