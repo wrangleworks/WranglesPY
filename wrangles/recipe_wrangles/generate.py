@@ -64,3 +64,21 @@ def ai(
     reasoning=reasoning,
     **kwargs
 )
+    
+    try:
+       
+        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+
+        for col in target_columns:
+            if col not in exploded_df.columns:
+                exploded_df[col] = ""
+
+        if 'source' in exploded_df.columns and 'source' not in df.columns:
+            df['source'] = exploded_df['source']
+            
+        df[target_columns] = exploded_df[target_columns]
+
+    except Exception as e:
+        raise RuntimeError(f"Unable to parse the response from the AI model. Error: {e}")
+
+    return df    
