@@ -46,3 +46,21 @@ def ai(
         "required": target_columns,
         "additionalProperties": False 
     }    
+
+
+
+    results = _generate.ai(
+    input=df_temp.to_dict(orient='records'),
+    api_key=api_key,
+    output=final_schema,
+    model=model,
+    threads=threads,
+    timeout=timeout,
+    retries=retries,
+    messages=messages,
+    url=url,
+    strict=strict,
+    web_search=web_search,
+    reasoning=reasoning,
+    **kwargs
+)
