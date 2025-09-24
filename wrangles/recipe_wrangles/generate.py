@@ -39,3 +39,10 @@ def ai(
         output_schema = temp_dict
 
     target_columns = list(output_schema.keys())
+
+    final_schema = {
+        "type": "object",
+        "properties": output_schema,
+        "required": target_columns,
+        "additionalProperties": False 
+    }    
