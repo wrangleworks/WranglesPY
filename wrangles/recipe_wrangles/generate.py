@@ -21,7 +21,7 @@ def ai(
     reasoning: _Dict[str, str] = {"effort": "low"},
     **kwargs
 ) -> _pd.DataFrame:
-    """
+        """
     Generate one or more structured outputs from every row using the inner `wrangles.generate.ai` helper.
 
     Recipe:

@@ -60,7 +60,7 @@ def _stringify_query(record: Any) -> str:
 def _call_openai( 
     input_data: Any, api_key: str, payload: dict, url: str, timeout: int, retries: int 
 ) -> dict: 
-    print("arrived to the openai section")
+   
     # This function remains the same as your version 
     payload_copy = payload.copy()
     payload_copy['input'] = str(input_data) # Modify the copy, not the original
@@ -72,8 +72,7 @@ def _call_openai(
             response.raise_for_status() 
             response_json = response.json() 
             # ---
-            print(f">>> API Status Code: {response.status_code}")
-            print(f">>> API Response Text: {response.text}")
+
             # ---
 
             for item in response_json.get('output', []): 
@@ -107,8 +106,7 @@ def ai(
     reasoning: Dict[str, str] = {"effort": "low"}, 
     **kwargs 
 ) -> Union[dict, list]: 
-    print("process has started")
-    print(f"web_search is set to: {web_search}, strict is set to: {strict}")
+
     input_was_scalar = not isinstance(input, list) 
     input_list = [input] if input_was_scalar else input 
 
@@ -146,7 +144,6 @@ def ai(
                 f"{default_instruction}{compliance_notice}\n\nRECORD DATA:\n---\n{record_context}\n---"
             )
 
-    print("arrived to the payload section")
     payload_template = {
         "model": model,
         "reasoning": reasoning,
@@ -169,7 +166,7 @@ def ai(
             futures.append(executor.submit(_call_openai, item, api_key, payload, url, timeout, retries))
 
         results = [future.result() for future in futures] 
-        print(f"arrived to the results section{results}")
+
     # <<< NEW: Add source information to results --- >>> 
     for res in results: 
         if isinstance(res, dict) and 'error' not in res: 
