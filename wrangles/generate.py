@@ -14,3 +14,11 @@ except ImportError:
 from pydantic import BaseModel
 
 JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"] 
+
+class PropertyDefinition(BaseModel):
+    type: JsonSchemaType = "string"
+    desccriptions: str
+    enum: Optional[List[Any]] = None 
+    default: Optional[Any] = None 
+    examples: Optional[List[Any]] = None 
+    items: Optional[PropertyDefinition] = None 
