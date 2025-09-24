@@ -22,3 +22,6 @@ class PropertyDefinition(BaseModel):
     default: Optional[Any] = None 
     examples: Optional[List[Any]] = None 
     items: Optional[PropertyDefinition] = None 
+
+PropertyDefinition.model_rebuild()
+
