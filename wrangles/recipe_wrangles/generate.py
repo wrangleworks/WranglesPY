@@ -28,3 +28,14 @@ def ai(
         df_temp = df[input]
     else:
         df_temp = df
+
+    output_schema = output
+    if isinstance(output_schema, str):
+        output_schema = {output_schema: {"description": f"Generated content for {output_schema}"}}
+    elif isinstance(output_schema, list):
+        temp_dict = {}
+        for item in output_schema:
+            temp_dict[str(item)] = {"description": f"Generated content for {str(item)}"}
+        output_schema = temp_dict
+
+    target_columns = list(output_schema.keys())
