@@ -22,3 +22,9 @@ def ai(
     **kwargs
 ) -> _pd.DataFrame:
 
+    if input is not None:
+        if not isinstance(input, list):
+            input = [input]
+        df_temp = df[input]
+    else:
+        df_temp = df
