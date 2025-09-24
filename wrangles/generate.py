@@ -13,3 +13,4 @@ except ImportError:
 
 from pydantic import BaseModel
 
+JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"] 
