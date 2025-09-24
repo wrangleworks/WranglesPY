@@ -31,3 +31,8 @@ def test_generate_ai_recipe_without_web_search_real_call():
         """,
         dataframe=data
     )
+
+
+    assert df.at[0, "short_description"]  # non-empty
+    assert df.at[0, "category"]
+    assert df.at[0, "source"] == "internally generated"
