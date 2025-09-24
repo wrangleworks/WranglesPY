@@ -21,6 +21,62 @@ def ai(
     reasoning: _Dict[str, str] = {"effort": "low"},
     **kwargs
 ) -> _pd.DataFrame:
+    """
+    Generate one or more structured outputs from every row using the inner `wrangles.generate.ai` helper.
+
+    Recipe:
+    ---
+    ```yaml
+    wrangles:
+      - generate.ai:
+          input:
+            - product_name
+            - features
+          output:
+            short_description:
+              type: string
+              description: Short marketing copy.
+            category:
+              type: string
+              description: Product category.
+          api_key: ${OPENAI_API_KEY}
+          model: gpt-5-nano
+          web_search: false
+          strict: true
+    ```
+
+    python:
+    ```python
+    import wrangles
+    import pandas as pd
+
+    data = pd.DataFrame({
+        "product_name": ["Widget One"],
+        "features": ["Lightweight; durable"]
+    })
+
+    df = wrangles.recipe.run(
+        recipe_path="recipe.wrgl.yml",
+        dataframe=data
+    )
+    ```
+
+    :param df: Source DataFrame passed from the recipe runner.
+    :param api_key: OpenAI-compatible API key used by the inner generate function.
+    :param output: Schema describing the keys to create (string/list/dict mirroring recipe syntax).
+    :param input: Optional list of column names to combine into the prompt payload (defaults to all columns).
+    :param model: Name of the OpenAI Responses model to call.
+    :param threads: Maximum concurrent requests to issue (fan-out via ThreadPoolExecutor).
+    :param timeout: Seconds to wait on each request before timing out.
+    :param retries: Number of retries on non-success responses.
+    :param messages: Optional system/user message list forwarded to the inner AI call.
+    :param url: Override of the OpenAI-compatible endpoint.
+    :param strict: Forwarded to the JSON schema formatter to enforce strict validation.
+    :param web_search: When true, fetches supplemental DuckDuckGo context per row before calling the model.
+    :param reasoning: Optional reasoning configuration forwarded to the OpenAI Responses API.
+    :param kwargs: Any additional keyword arguments supported by `wrangles.generate.ai`.
+    :return: The original DataFrame with new columns injected (and `source` when present).
+    """
 
     if input is not None:
         if not isinstance(input, list):
