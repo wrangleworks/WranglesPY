@@ -54,3 +54,40 @@ def _stringify_query(record: Any) -> str:
     if record in (None, ""):
         return ""
     return str(record)
+
+
+
+def _call_openai( 
+    input_data: Any, api_key: str, payload: dict, url: str, timeout: int, retries: int 
+) -> dict: 
+    print("arrived to the openai section")
+    # This function remains the same as your version 
+    payload_copy = payload.copy()
+    payload_copy['input'] = str(input_data) # Modify the copy, not the original
+    
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"} 
+    for attempt in range(retries + 1): 
+        try: 
+            response = requests.post(url, headers=headers, json=payload_copy, timeout=timeout) 
+            print(f">>> API Request Payload: {json.dumps(payload_copy, indent=2)}")
+            response.raise_for_status() 
+            response_json = response.json() 
+            # ---
+            print(f">>> API Status Code: {response.status_code}")
+            print(f">>> API Response Text: {response.text}")
+            # ---
+
+            for item in response_json.get('output', []): 
+                if item.get('type') == 'message': 
+                    content = item.get('content', []) 
+                    if content and content[0].get('type') == 'output_text': 
+                        json_string = content[0].get('text') 
+                        return json.loads(json_string) 
+            return {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json} 
+        except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError) as e: 
+            if attempt >= retries: 
+                error_details = f"Error: {str(e)}"; 
+                try: error_details += f" | Response Body: {response.text}" 
+                except NameError: pass 
+                return {"error": f"API call failed after {retries + 1} attempts. {error_details}"} 
+    return {"error": "An unexpected error occurred."} 
