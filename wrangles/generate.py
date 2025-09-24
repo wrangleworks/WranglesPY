@@ -69,7 +69,6 @@ def _call_openai(
     for attempt in range(retries + 1): 
         try: 
             response = requests.post(url, headers=headers, json=payload_copy, timeout=timeout) 
-            print(f">>> API Request Payload: {json.dumps(payload_copy, indent=2)}")
             response.raise_for_status() 
             response_json = response.json() 
             # ---
