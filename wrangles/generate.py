@@ -43,3 +43,14 @@ def _perform_web_search(query: str) -> str:
         return " ".join(snippets[:5]) 
     except requests.RequestException: 
         return "Web search failed." 
+
+
+def _stringify_query(record: Any) -> str:
+    """Create a search query string from an arbitrary record."""
+    if isinstance(record, dict):
+        return " ".join(str(v) for v in record.values() if v not in (None, ""))
+    if isinstance(record, list):
+        return " ".join(str(v) for v in record if v not in (None, ""))
+    if record in (None, ""):
+        return ""
+    return str(record)
