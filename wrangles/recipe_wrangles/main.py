@@ -1094,15 +1094,15 @@ def python(
     else:
         exception = None
 
+    # Clean up variables and replace column variables with the column name
+    command_modified = _statement_modifier(command)
+
     def _apply_command(**kwargs):
         """
         Apply the command to the inputs and return the result
         """
         variables = kwargs.pop('variables', {})
         df_vars = kwargs.pop('df_vars', {})
-
-        # Clean up variables and replace column variables with the column name
-        command_modified = _statement_modifier(command)
 
         return eval(
             command_modified,
