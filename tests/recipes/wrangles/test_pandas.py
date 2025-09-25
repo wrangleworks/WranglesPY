@@ -272,6 +272,54 @@ class TestCopy:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df.columns) == ['col', 'col2', 'col1-copy', 'col2-copy']
+        
+    def test_pd_copy_repeated_column(self):
+        """
+        Test copying one column multiple times
+        """
+        data = pd.DataFrame({
+            'col': ['Mario'],
+            'col2': ['Luigi']
+        })
+        recipe = """
+        wrangles:
+        - copy:
+            input:
+                - col
+                - col
+                - col
+                - col
+            output:
+                - col1-copy1
+                - col1-copy2
+                - col1-copy3
+                - col1-copy4
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['col', 'col2', 'col1-copy1', 'col1-copy2', 'col1-copy3', 'col1-copy4']
+        
+    def test_pd_copy_multi_cols_with_repetition(self):
+        """
+        Test multiple inputs and outputs where one column is repeated
+        """
+        data = pd.DataFrame({
+            'col': ['Mario'],
+            'col2': ['Luigi']
+        })
+        recipe = """
+        wrangles:
+        - copy:
+            input:
+                - col
+                - col2
+                - col
+            output:
+                - col1-copy
+                - col2-copy
+                - not-col1-copy
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['col', 'col2', 'col1-copy', 'col2-copy', 'not-col1-copy']
 
     def test_pd_copy_where(self):
         """
