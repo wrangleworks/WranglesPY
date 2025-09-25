@@ -339,6 +339,65 @@ def classify(
 
     return df
 
+  
+def clean_whitespaces(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    trim: bool = True,
+    remove_literals: bool = True
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Condense multiple spaces to a single space and convert special space characters to a standard space.
+    additionalProperties: false
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns.
+      trim:
+        type: boolean
+        description: Whether to trim leading and trailing spaces. Default True.
+      remove_literals:
+        type: boolean
+        description: Whether to remove special space characters such as new lines etc. Default True.
+    """
+    # If output is not specified, overwrite input columns in place
+    if output is None: output = input
+
+    # If a string provided, convert to list
+    if not isinstance(input, list): input = [input]
+    if not isinstance(output, list): output = [output]
+
+    # Ensure input and output are equal lengths
+    if len(input) != len(output):
+        raise ValueError('The lists for input and output must be the same length.')
+    
+    # Loop through and apply for all columns
+    for input_column, output_column in zip(input, output):
+        if remove_literals: pattern = r'\s{2,}| | |'
+        else: pattern = '( | | |)+'
+
+        df[output_column] = df[input_column].apply(
+            lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
+        )
+        if trim:
+            df[output_column] = df[output_column].apply(
+                lambda x: x.strip() if isinstance(x, str) else x
+            )
+
+    return df
+
 
 def concurrent(
     df: _pd.DataFrame,
