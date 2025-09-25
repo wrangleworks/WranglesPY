@@ -810,7 +810,7 @@ class TestExtractCodes:
 
     def test_extract_codes_sort_and_max_length(self):
         """
-        Test extract codes with a sort order of shortest
+        Test extract codes with a sort order and min_length
         """
         data = pd.DataFrame({
             'col1': ['XYZ123 test ABC123 2Z and also 4m']
@@ -830,7 +830,7 @@ class TestExtractCodes:
 
     def test_extract_codes_sort_and_strategy(self):
         """
-        Test extract codes with a sort order of shortest
+        Test extract codes with a sort order of shortest and strategy
         """
         data = pd.DataFrame({
             'col1': ['XYZ123XYZ123 test ABC123 2Z and also 4m is the length']
@@ -850,8 +850,7 @@ class TestExtractCodes:
 
     def test_extract_codes_wrong_params_min_length(self):
         """
-        Test extract codes with a min length
-        Should return only two codes that are greater than 5 in length
+        Test extract codes with a min length with wrong params
         """
         data = pd.DataFrame({
             'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
