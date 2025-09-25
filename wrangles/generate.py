@@ -136,7 +136,7 @@ def ai(
                 f"{context}\n---"
             )
     else:
-        source_info = "internally generated"
+        source_info = "input" # might have more options in the future
         instructions_by_item = []
         for item in input_list:
             record_context = json.dumps(item, ensure_ascii=False)
