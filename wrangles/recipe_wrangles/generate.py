@@ -21,7 +21,7 @@ def ai(
     reasoning: _Dict[str, str] = {"effort": "low"},
     **kwargs
 ) -> _pd.DataFrame:
-        """
+    """
     Generate one or more structured outputs from every row using the inner `wrangles.generate.ai` helper.
 
     Recipe:
@@ -100,29 +100,29 @@ def ai(
         "type": "object",
         "properties": output_schema,
         "required": target_columns,
-        "additionalProperties": False 
-    }    
+        "additionalProperties": False
+    }
 
 
 
     results = _generate.ai(
-    input=df_temp.to_dict(orient='records'),
-    api_key=api_key,
-    output=final_schema,
-    model=model,
-    threads=threads,
-    timeout=timeout,
-    retries=retries,
-    messages=messages,
-    url=url,
-    strict=strict,
-    web_search=web_search,
-    reasoning=reasoning,
-    **kwargs
-)
-    
+        input=df_temp.to_dict(orient='records'),
+        api_key=api_key,
+        output=final_schema,
+        model=model,
+        threads=threads,
+        timeout=timeout,
+        retries=retries,
+        messages=messages,
+        url=url,
+        strict=strict,
+        web_search=web_search,
+        reasoning=reasoning,
+        **kwargs
+    )
+
     try:
-       
+
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
 
         for col in target_columns:
@@ -131,10 +131,10 @@ def ai(
 
         if 'source' in exploded_df.columns and 'source' not in df.columns:
             df['source'] = exploded_df['source']
-            
+
         df[target_columns] = exploded_df[target_columns]
 
     except Exception as e:
         raise RuntimeError(f"Unable to parse the response from the AI model. Error: {e}")
 
-    return df    
+    return df
