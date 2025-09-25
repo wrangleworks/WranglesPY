@@ -27,6 +27,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
               api_key: ${OPENAI_API_KEY}
               model: gpt-5-nano
               web_search: false
+              strict: true
         """,
         dataframe=data
     )
