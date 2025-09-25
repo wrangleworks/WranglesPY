@@ -5,6 +5,8 @@ import inspect as _inspect
 from typing import Union as _Union
 import yaml as _yaml
 import importlib as _importlib
+import requests as _requests
+from urllib3.util import Retry as _Retry
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
@@ -405,6 +407,36 @@ def evaluate_conditional(statement, variables: dict = {}):
             return bool(result)
     except:
         raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
+
+
+def request_retries(request_type, url, **kwargs):
+    """
+    Make a request to the backend with retries for transient errors
+
+    :param request_type: Type of request to make (GET, POST, PUT, DELETE, etc)
+    :param url: URL to make the request to
+    :param kwargs: Arguments to pass to requests.request
+    :returns: requests.Response object
+    """
+    session = _requests.Session()
+    session.mount(
+        'https://',
+        _requests.adapters.HTTPAdapter(
+            max_retries=_Retry(
+                total=3,
+                backoff_factor=0.5,
+                status_forcelist=[500, 502, 503, 504],
+                allowed_methods={'GET', 'PUT', 'POST', 'PATCH', 'OPTIONS'},
+            )
+        )
+    )
+
+    try:
+        response = session.request(request_type, url, **kwargs)
+    finally:
+        session.close()
+
+    return response
 
 
 class LazyLoader:

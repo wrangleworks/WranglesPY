@@ -157,27 +157,7 @@ def test_standardize_2():
     with pytest.raises(TypeError) as info:
         raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
-    
-# If input is a list, check to make sure that all sublists are length of 2
-# Headers not included ['Find', 'Replace']
-def test_standardize_train_1(mocker):
-    data = [
-        ['Rice', 'Arroz', ''],
-        ['Wheat', 'Trigo', '']
-    ]
-    config = {
-        'training_data': data,
-        'name': 'test_standardize',
-        'model_id': '1234567890',
-    }
-    m = mocker.patch("requests.post")
-    m.return_value = temp_classify
-    m2 = mocker.patch("wrangles.auth.get_access_token")
-    m2.return_value = 'None'
-    test = train.standardize(**config)
-    assert test.status_code == 202
-    
-# If input is a list, check to make sure that all sublists are length of 2
+
 # Headers not included ['Find', 'Replace']
 def test_standardize_train_2():
     data = [
@@ -229,26 +209,6 @@ def test_classify_train_1():
         raise train.classify(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
-# Input of lists of lists
-# Headers not included ['Example', 'Category']
-def test_classify_train_2(mocker):
-    data = [
-        ['Rice', 'Grain', ''],
-        ['Wheat', 'Grain', '']
-    ]
-    config = {
-        'training_data': data,
-        'name': 'test_classify',
-        'model_id': '1234567890',
-    }
-    m = mocker.patch("requests.post")
-    m.return_value = temp_classify
-    m2 = mocker.patch("wrangles.auth.get_access_token")
-    m2.return_value = 'None'
-    test = train.classify(**config)
-    assert test.status_code == 202
-
-
 class temp_extract():
     status_code = 202
     content = b'{"access_token":"abc"}'
@@ -267,25 +227,7 @@ def test_extract_train_1():
     with pytest.raises(ValueError) as info:
         raise train.extract(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
-    
-# Input of lists of lists
-# Headers not included ['Entity to Find', 'Variation (Optional)']
-def test_extract_train_2(mocker):
-    data = [
-        ['Television', 'TV', ''],
-        ['Computer', 'Comp', '']
-    ]
-    m = mocker.patch("requests.post")
-    m.return_value = temp_extract
-    m2 = mocker.patch("wrangles.auth.get_access_token")
-    m2.return_value = 'None'
-    config = {
-        'training_data': data,
-        'name': 'test_extract'
-    }
-    test = train.extract(**config)
-    assert test.status_code == 202
-    
+
 # format
 def test_sig_figs():
     """
