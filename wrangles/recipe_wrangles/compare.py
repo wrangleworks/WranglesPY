@@ -19,6 +19,7 @@ def text(
     empty_a: str = None,
     empty_b: str = None,
     all_empty: str = None,
+    case_sensitive: bool = True
 ) -> _pd.DataFrame:
     """
     type: object
@@ -51,6 +52,9 @@ def text(
             char:
               type: string
               description: "(Optional) The character to split the strings on. Default is a space"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
       - if:
           properties:
             method:
@@ -60,6 +64,9 @@ def text(
             char:
               type: string
               description: "(Optional) The character to split the strings on. Default is a space"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
       - if:
           properties:
             method:
@@ -87,6 +94,9 @@ def text(
             all_empty:
               type: string
               description: "(Optional) Value to use for both inputs"
+            case_sensitive:
+              type: boolean
+              description: "(Optional) Whether the comparison is case sensitive. Default is True"
 
     """
     if method not in ['difference', 'intersection', 'overlap']:
@@ -97,10 +107,11 @@ def text(
         if not isinstance(input, list) or len(input) < 2:
             raise ValueError("Input must be a list of at least two columns")
 
-        df[output] = _compare._contrast(
+        df[output] = _compare.contrast(
             input=df[input].astype(str).values.tolist(),
             type=method,
-            char=char
+            char=char,
+            case_sensitive=case_sensitive
         )
 
     if method == 'overlap':
@@ -111,7 +122,7 @@ def text(
         if not isinstance(input, list) or len(input) != 2:
             raise ValueError("Input must be a list of two columns")
 
-        df[output] = _compare._overlap(
+        df[output] = _compare.overlap(
             input=df[input].astype(str).values.tolist(),
             non_match_char=non_match_char,
             include_ratio=include_ratio,
@@ -119,7 +130,8 @@ def text(
             exact_match=exact_match,
             empty_a=empty_a,
             empty_b=empty_b,
-            all_empty=all_empty
+            all_empty=all_empty,
+            case_sensitive=case_sensitive
         )
 
     return df

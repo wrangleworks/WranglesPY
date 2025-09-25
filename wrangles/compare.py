@@ -17,13 +17,14 @@ def _ordered_words(string, char):
     return words
 
 
-def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
+def contrast(input: list, type: str ='difference', char: str = ' ', case_sensitive = True) -> list:
     """
     Compare the intersection or difference between multiple strings.
 
     :param input: 2D list of strings to compare. [[str, str1], [str2, str3], ...]
     :param type: The type of comparison to perform. 'difference' or 'intersection'
     :param char: The character to split the strings on. Default is a space
+    :param case_sensitive: Whether the comparison is case sensitive. Default is True
     """
     results = []
     for row in input:
@@ -32,7 +33,10 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
             return ""
 
         # Generate ordered words for each string
-        ordered_words_list = [_ordered_words(x, char) for x in row]
+        if not case_sensitive and type != 'intersection':
+            ordered_words_list = [_ordered_words(x.lower(), char) for x in row]
+        else:
+            ordered_words_list = [_ordered_words(x, char) for x in row]
 
         # Initialize intersection with the words of the first string
         common_words = _OrderedDict(ordered_words_list[0])
@@ -41,7 +45,12 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
 
             # Find the intersection by keeping only common words in the same order
             for words in ordered_words_list[1:]:
-                common_words = _OrderedDict((k, None) for k in common_words if k in words)
+                # Preserve the case of words from common_words if case_sensitive is False
+                if not case_sensitive:
+                    words_lower = set(w.lower() for w in words)
+                    common_words = _OrderedDict((k, None) for k in common_words if k.lower() in words_lower)
+                else:
+                    common_words = _OrderedDict((k, None) for k in common_words if k in words)
 
             intersection = " ".join(common_words.keys())
             results.append(intersection)
@@ -59,7 +68,7 @@ def _contrast(input: list, type: str ='difference', char: str = ' ') -> list:
 
     return results
 
-def _overlap(
+def overlap(
         input: list,
         non_match_char: str = '*',
         include_ratio: bool = False,
@@ -68,6 +77,7 @@ def _overlap(
         empty_a: str = None,
         empty_b: str = None,
         all_empty: str = None,
+        case_sensitive: bool = True
     ) -> list:
     """
     Find the matching characters between two strings.
@@ -76,8 +86,15 @@ def _overlap(
     results = []
     for row in input:
 
-        a_str = str(row[0])
-        b_str = str(row[1])
+        if not case_sensitive:
+            a_str = str(row[0]).lower()
+            b_str = str(row[1]).lower()
+        else:
+            a_str = str(row[0])
+            b_str = str(row[1])
+        
+        # To be used in output in order to preserve original casing
+        a_original = str(row[0])
 
         if not len(a_str) or not len(b_str):
             if not len(a_str) and not len(b_str):
@@ -126,7 +143,7 @@ def _overlap(
 
             # Add the matched part
             match_end_a = block.a + block.size
-            result.append(a_str[block.a:match_end_a])
+            result.append(a_original[block.a:match_end_a])
 
             # Update the last match end indices
             last_match_end_a = match_end_a
