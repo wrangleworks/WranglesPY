@@ -1,6 +1,8 @@
 import pandas as _pd
+from wrangles import extract as _extract
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
+import logging as _logging
 
 
 class _wrangles_accessor:
@@ -64,6 +66,40 @@ class _wrangles:
                     return method
 
                 setattr(self, name, make_method(name).__get__(self))
+
+    def query(self, prompt, api_key, *args, **kwargs):
+        """
+        Use generative AI to query the contents of the dataframe using sql
+
+        :param prompt: The prompt to use to wrangle the data.
+        :return: A Pandas dataframe with the wrangled data.
+        """
+        # profile df
+        columns = self._df.columns.tolist()
+
+        sample = self._df.head(5).to_dict(orient='records')
+
+        # build system prompt
+        system_prompt = f"""
+        You are a data wrangling AI that generates SQL commands to query a database
+        The table is named df.
+        The table has the following columns: {columns}.
+        The table contains {len(self._df)} rows.
+        Here are some sample rows from the table:
+        {sample}.
+        Only generate SQL commands that are compatible with sqlite.
+        """
+
+        # ask GPT
+        command = _extract.ai(system_prompt, api_key=api_key, output=prompt)
+        
+        # validate command
+        _logging.info(command)
+
+        # execute command
+        df = _recipe_wrangles.sql(self._df, command, preserve_index = True)
+        
+        return df
 
     @property
     def compare(self):
