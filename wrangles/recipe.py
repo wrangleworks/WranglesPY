@@ -68,6 +68,10 @@ def _replace_templated_values(
         ]
             
     elif isinstance(recipe_object, dict):
+        # skip for matrix to preserve variables
+        if len(recipe_object) == 1 and 'matrix' in recipe_object:
+            return recipe_object
+        
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
             _replace_templated_values(
