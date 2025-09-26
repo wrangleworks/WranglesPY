@@ -717,6 +717,9 @@ def _execute_wrangles(
                     if wrangle == "python":
                         params['variables'] = variables
 
+                    if wrangle == "matrix":
+                        params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
+
                     # Execute the function
                     df = func(df=df, **params)
 
