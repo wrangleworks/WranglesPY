@@ -1094,6 +1094,10 @@ def python(
     else:
         exception = None
 
+    # Raise a warniing for illegal python variables
+    if _re.search('\${.*\s.*}', command):
+        _logging.warning(f'Spaces should be dropped in python wrangle variables in order to be valid python syntax.')
+
     # Clean up variables and replace column variables with the column name
     command_modified = _statement_modifier(command)
     variables = kwargs.pop('variables', {})
