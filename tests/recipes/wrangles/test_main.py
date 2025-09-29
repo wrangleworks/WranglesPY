@@ -5587,6 +5587,31 @@ class TestMatrix:
         )
         assert df['What is for lunch?'][0] == "we are having hamburgers"
 
+    def test_matrix_variable_recursive(self):
+        """
+        Test a matrix wrangle that uses a recursive variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    lunch: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: |
+                          "we are having " + ${lunch}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "we are having hamburgers"
+
 
 def wait_then_update(df, duration, input, output, value):
     """
