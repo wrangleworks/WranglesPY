@@ -19,6 +19,7 @@ def ai(
     strict: bool = False,
     web_search: bool = False,
     reasoning: _Dict[str, str] = {"effort": "low"},
+    previous_response: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -105,6 +106,11 @@ def ai(
 
 
 
+    recipe_examples = None
+    for key in ("Example", "Examples", "example", "examples"):
+        if recipe_examples is None and key in kwargs:
+            recipe_examples = kwargs.pop(key)
+
     results = _generate.ai(
         input=df_temp.to_dict(orient='records'),
         api_key=api_key,
@@ -118,6 +124,9 @@ def ai(
         strict=strict,
         web_search=web_search,
         reasoning=reasoning,
+        previous_response=previous_response,
+        examples=recipe_examples,
+        
         **kwargs
     )
 

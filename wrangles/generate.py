@@ -2,47 +2,54 @@ from __future__ import annotations
 import concurrent.futures
 import copy
 import json
-from typing import Any,Dict,List,Literal,Union,Optional
+import re
+from typing import Any, Dict, List, Literal, Union, Optional, Tuple
 
 import requests
 try:
     from bs4 import BeautifulSoup
-
 except ImportError:
-    BeautifulSoup = None 
+    BeautifulSoup = None
 
 from pydantic import BaseModel
 
-JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"] 
+JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
 
 class PropertyDefinition(BaseModel):
+   
     type: JsonSchemaType = "string"
     descriptions: str
-    enum: Optional[List[Any]] = None 
-    default: Optional[Any] = None 
-    examples: Optional[List[Any]] = None 
-    items: Optional[PropertyDefinition] = None 
+    enum: Optional[List[Any]] = None
+    default: Optional[Any] = None
+    examples: Optional[List[Any]] = None
+    items: Optional["PropertyDefinition"] = None
 
 PropertyDefinition.model_rebuild()
 
-def _perform_web_search(query: str) -> str: 
+
+def _perform_web_search(query: str) -> str:
     """Perform a simple web search to get context via DuckDuckGo."""
     if BeautifulSoup is None:
         return "Web search unavailable because beautifulsoup4 is not installed."
 
-    search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}" 
-    headers = { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' 
-    } 
-    try: 
-        response = requests.get(search_url, headers=headers, timeout=10) 
-        response.raise_for_status() 
-        soup = BeautifulSoup(response.text, 'html.parser') 
-        snippets = [p.get_text(strip=True) for p in soup.find_all('a', class_='result__a')] 
-        if not snippets: return "No web search results found." 
-        return " ".join(snippets[:5]) 
-    except requests.RequestException: 
-        return "Web search failed." 
+    search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/91.0.4472.124 Safari/537.36'
+        )
+    }
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        snippets = [a.get_text(strip=True) for a in soup.find_all('a', class_='result__a')]
+        if not snippets:
+            return "No web search results found."
+        return " ".join(snippets[:5])
+    except requests.RequestException:
+        return "Web search failed."
 
 
 def _stringify_query(record: Any) -> str:
@@ -56,93 +63,154 @@ def _stringify_query(record: Any) -> str:
     return str(record)
 
 
+def _parse_referred_example_index(text: str) -> Tuple[Optional[int], str]:
+    """Strip `referred_example_index` marker and return its value (if present)."""
+    index: Optional[int] = None
+    filtered_lines: List[str] = []
 
-def _call_openai( 
-    input_data: Any, api_key: str, payload: dict, url: str, timeout: int, retries: int 
-) -> dict: 
-   
-    # This function remains the same as your version 
+    for line in text.splitlines():
+        match = re.match(r"\s*referred_example_index\s*:\s*(\d+)\s*$", line)
+        if match and index is None:
+            index = int(match.group(1))
+            continue
+        filtered_lines.append(line)
+
+    cleaned = "\n".join(filtered_lines).strip()
+    return index, cleaned
+
+
+def _call_openai(
+    input_data: Any,
+    api_key: str,
+    payload: dict,
+    url: str,
+    timeout: int,
+    retries: int,
+    previous_response_id: Optional[str] = None
+) -> Tuple[dict, Optional[str]]:
+    """
+    Makes a call to the OpenAI Responses API.
+    """
     payload_copy = payload.copy()
-    payload_copy['input'] = str(input_data) # Modify the copy, not the original
+
     
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"} 
-    for attempt in range(retries + 1): 
-        try: 
-            response = requests.post(url, headers=headers, json=payload_copy, timeout=timeout) 
-            response.raise_for_status() 
-            response_json = response.json() 
-            # ---
+    if "input" not in payload_copy:
+        payload_copy["input"] = str(input_data)
 
-            # ---
+    if previous_response_id:
+        payload_copy["previous_response_id"] = previous_response_id
+    elif "previous_response_id" in payload_copy:
+        payload_copy.pop("previous_response_id")
 
-            for item in response_json.get('output', []): 
-                if item.get('type') == 'message': 
-                    content = item.get('content', []) 
-                    if content and content[0].get('type') == 'output_text': 
-                        json_string = content[0].get('text') 
-                        return json.loads(json_string) 
-            return {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json} 
-        except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError) as e: 
-            if attempt >= retries: 
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    for attempt in range(retries + 1):
+        try:
+            response = requests.post(url, headers=headers, json=payload_copy, timeout=timeout)
+            response.raise_for_status()
+            response_json = response.json()
+            response_id = response_json.get("id")
+
+            for item in response_json.get("output", []):
+                if item.get("type") == "message":
+                    content = item.get("content", [])
+                    if content and content[0].get("type") == "output_text":
+                        json_string = content[0].get("text")
+                        return json.loads(json_string), response_id
+
+            return (
+                {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json},
+                None,
+            )
+        except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError) as e:
+            if attempt >= retries:
                 error_details = f"Error: {str(e)}"
-                try: error_details += f" | Response Body: {response.text}" 
-                except NameError: pass 
-                return {"error": f"API call failed after {retries + 1} attempts. {error_details}"} 
-    return {"error": "An unexpected error occurred."} 
+                try:
+                    error_details += f" | Response Body: {response.text}"
+                except NameError:
+                    pass
+                return ({"error": f"API call failed after {retries + 1} attempts. {error_details}"}, None)
+
+    return ({"error": "An unexpected error occurred."}, None)
 
 
-def ai( 
-    input: Union[Any, List[Any]], 
-    api_key: str, 
-    output: Dict[str, Any], 
-    model: str = "gpt-5", 
-    threads: int = 20, 
-    timeout: int = 90, 
-    retries: int = 0, 
-    messages: Optional[List[dict]] = None, 
-    url: str = "https://api.openai.com/v1/responses", 
-    strict: bool = False, 
-    web_search: bool = False, # <<< NEW PARAMETER 
-    reasoning: Dict[str, str] = {"effort": "low"}, 
-    **kwargs 
-) -> Union[dict, list]: 
+def ai(
+    input: Union[Any, List[Any]],
+    api_key: str,
+    output: Dict[str, Any],
+    model: str = "gpt-5",
+    threads: int = 20,
+    timeout: int = 90,
+    retries: int = 0,
+    messages: Optional[List[dict]] = None,
+    url: str = "https://api.openai.com/v1/responses",
+    strict: bool = False,
+    web_search: bool = False,
+    reasoning: Dict[str, str] = {"effort": "low"},
+    previous_response: bool = False,  
+    examples: Optional[Dict[str, List[str]]] = None,
+    **kwargs
+) -> Union[dict, list]:
+    """
+    Generate structured outputs using the /v1/responses endpoint with:
+    - Clean system instructions in `instructions`
+    - Few-shot examples and record data in a structured `input` message array
+    - Single-call generation enforced by json_schema (no field-by-field chaining)
+    """
+    input_was_scalar = not isinstance(input, list)
+    input_list = [input] if input_was_scalar else input
 
-    input_was_scalar = not isinstance(input, list) 
-    input_list = [input] if input_was_scalar else input 
+    properties = output.get("properties", {}) if isinstance(output, dict) else {}
+    property_order = list(properties.keys())
 
-    default_instruction = (
-        "You are an assistant that MUST rely solely on the values contained in the current record. "
-        "Do not use outside knowledge, do not invent details, and respond with 'N/A' when information is missing. "
-        "Return JSON that matches the requested schema exactly."
-    )
+    field_summaries: List[str] = []
+    for name, details in properties.items():
+        if isinstance(details, dict):
+            field_type = details.get("type", "string")
+            description = details.get("description", "No description supplied.")
+        else:
+            field_type = "string"
+            description = str(details)
+        field_summaries.append(f"- `{name}`: type `{field_type}` — {description}")
+
+    schema_requirements = "\n".join(field_summaries) if field_summaries else "- No structured fields provided."
+
+    if previous_response:
+        base_instruction = (
+            "SYSTEM ROLE: You are a structured-output assistant continuing a chained generation.\n"
+            "PRIMARY OBJECTIVE: Generate the next JSON fields so they satisfy the requested schema while staying "
+            "consistent with prior responses maintained by the API.\n"
+            "SCHEMA REQUIREMENTS:\n"
+            f"{schema_requirements}\n"
+            "STRICT RULES:\n"
+            "- Use only the RECORD DATA together with any earlier model responses supplied by the API.\n"
+            "- Never contradict existing outputs; when information is missing, respond with \"N/A\".\n"
+            "- Return valid JSON matching the schema exactly—no explanations or extra keys."
+        )
+    else:
+        base_instruction = (
+            "SYSTEM ROLE: You are a structured-output assistant.\n"
+            "PRIMARY OBJECTIVE: Generate a complete JSON object that satisfies the requested schema using only the provided data.\n"
+            "SCHEMA REQUIREMENTS:\n"
+            f"{schema_requirements}\n"
+            "STRICT RULES:\n"
+            "- Use only the RECORD DATA. Do not invent or infer missing values.\n"
+            "- When information is unavailable, respond with \"N/A\".\n"
+            "- Return valid JSON matching the schema exactly—no explanations or extra keys."
+        )
+
     if messages and isinstance(messages, list) and len(messages) > 0:
-        default_instruction = messages[0].get('content', default_instruction)
+        base_instruction = messages[0].get('content', base_instruction)
 
-    compliance_notice = (
-        "\n\nRESTRICTIONS:\n"
-        "- Only use data from the supplied RECORD DATA.\n"
-        "- Never fabricate or infer information that is not present.\n"
-        "- Use 'N/A' when the record lacks the requested value."
-    )
-
+    contexts: List[Optional[str]] = []
     if web_search:
         source_info = "internet"
-        instructions_by_item = []
         for item in input_list:
             context = _perform_web_search(_stringify_query(item))
-            instructions_by_item.append(
-                "You are a helpful assistant. Use ONLY the information from the 'CONTEXT' block below to generate a response that matches the requested JSON schema.\n\n"
-                "CONTEXT:\n---\n"
-                f"{context}\n---"
-            )
+            contexts.append(context)
     else:
-        source_info = "internally generated"
-        instructions_by_item = []
-        for item in input_list:
-            record_context = json.dumps(item, ensure_ascii=False)
-            instructions_by_item.append(
-                f"{default_instruction}{compliance_notice}\n\nRECORD DATA:\n---\n{record_context}\n---"
-            )
+        source_info = "input"
+        contexts = [None for _ in input_list]
 
     payload_template = {
         "model": model,
@@ -158,21 +226,133 @@ def ai(
         **kwargs
     }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        futures = []
-        for item, instructions in zip(input_list, instructions_by_item):
+    example_pairs: List[Tuple[str, str]] = []
+    example_pairs_by_index: Dict[int, List[Tuple[str, str]]] = {}
+    referred_example_present = False
+
+    if examples and isinstance(examples, dict):
+        example_inputs = list(examples.get("input") or [])
+        example_outputs = list(examples.get("output") or [])
+        if len(example_inputs) != len(example_outputs):
+            raise ValueError("`examples.input` and `examples.output` must have the same length.")
+
+        for ex_inp, ex_out in zip(example_inputs, example_outputs):
+            in_str = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
+            out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
+
+            idx, cleaned_input = _parse_referred_example_index(in_str)
+            pair = (cleaned_input, out_str)
+            example_pairs.append(pair)
+
+            if idx is not None:
+                referred_example_present = True
+                example_pairs_by_index.setdefault(idx, []).append(pair)
+
+
+    def _build_messages(
+        example_pairs_local: List[Tuple[str, str]],
+        item_local: Any,
+        context_local: Optional[str]
+    ) -> List[dict]:
+        msgs: List[dict] = []
+        if context_local:
+            msgs.append({"role": "user", "content": f"ADDITIONAL CONTEXT:\n---\n{context_local}\n---"})
+        for ex_inp, ex_out in example_pairs_local:
+            in_str  = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
+            out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
+            msgs.append({"role": "user", "content": in_str})
+            msgs.append({"role": "assistant", "content": out_str})
+        msgs.append({"role": "user", "content": json.dumps(item_local, ensure_ascii=False)})
+        return msgs
+
+
+    def _generate_record(item: Any, context: Optional[str]) -> Dict[str, Any]:
+        payload = copy.deepcopy(payload_template)
+        payload["instructions"] = base_instruction
+        payload["input"] = _build_messages(example_pairs, item, context)
+
+        record, _ = _call_openai(
+            None,
+            api_key,
+            payload,
+            url,
+            timeout,
+            retries,
+        )
+        return record
+    
+
+    def _generate_record_by_field(item: Any, context: Optional[str]) -> Dict[str, Any]:
+        response_id: Optional[str] = None
+        combined: Dict[str, Any] = {}
+
+        for idx, field_name in enumerate(properties.keys()):
+            field_schema = {
+                "type": "object",
+                "properties": {field_name: properties[field_name]},
+                "required": [field_name],
+                "additionalProperties": False
+            }
+
+
+            msgs: List[dict] = []
+            if context:
+                msgs.append({"role": "user", "content": f"ADDITIONAL CONTEXT:\n---\n{context}\n---"})
+
+            selected_pairs: List[Tuple[str, str]] = []
+            if referred_example_present:
+                selected_pairs = example_pairs_by_index.get(idx + 1, [])
+            else:
+                if idx < len(example_pairs):
+                    selected_pairs = [example_pairs[idx]]
+
+            for ex_inp, ex_out in selected_pairs:
+                in_str  = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
+                out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
+                msgs.append({"role": "user", "content": in_str})
+                msgs.append({"role": "assistant", "content": out_str})
+
+            msgs.append({"role": "user", "content": json.dumps(item, ensure_ascii=False)})
+
             payload = copy.deepcopy(payload_template)
-            payload["instructions"] = instructions
-            futures.append(executor.submit(_call_openai, item, api_key, payload, url, timeout, retries))
+            payload["instructions"] = base_instruction  
+            payload["input"] = msgs
+            payload["text"]["format"]["schema"] = field_schema
 
-        results = [future.result() for future in futures] 
+            rec, response_id = _call_openai(
+                None,
+                api_key,
+                payload,
+                url,
+                timeout,
+                retries,
+                previous_response_id=response_id, 
+            )
 
-    # <<< NEW: Add source information to results --- >>> 
-    for res in results: 
-        if isinstance(res, dict) and 'error' not in res: 
-            res['source'] = source_info 
+            if isinstance(rec, dict) and "error" in rec:
+                return rec
 
-    if input_was_scalar: 
-        return results[0] 
-    else: 
-        return results
+            if isinstance(rec, dict):
+                combined.update(rec)
+            else:
+                combined[field_name] = rec
+
+            if response_id is None:
+                break
+
+        return combined
+    
+    generate_fn = _generate_record_by_field if previous_response else _generate_record
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
+        futures = [
+            executor.submit(generate_fn, item, context)
+            for item, context in zip(input_list, contexts)
+        ]
+        results = [future.result() for future in futures]
+
+    for res in results:
+        if isinstance(res, dict) and 'error' not in res:
+            res['source'] = source_info
+
+    return results[0] if input_was_scalar else results
