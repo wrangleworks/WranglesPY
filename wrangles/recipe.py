@@ -68,22 +68,25 @@ def _replace_templated_values(
         ]
             
     elif isinstance(recipe_object, dict):
-        # skip for matrix to preserve variables
-        if len(recipe_object) == 1 and 'matrix' in recipe_object:
-            return recipe_object
+        # Use a temporary copy of variables to allow for nested variable definitions
+        temp_vars = variables.copy()
+        if 'variables' in recipe_object and isinstance(recipe_object['variables'], dict):
+            for key in recipe_object['variables'].keys():
+                if key in temp_vars:
+                    temp_vars[key] = recipe_object['variables'][key]
         
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
             _replace_templated_values(
                 key,
-                variables,
+                temp_vars,
                 any([ignore_unknown_variables, key in ["matrix"]])
             )
             :
             (
                 _replace_templated_values(
                     val,
-                    variables,
+                    temp_vars,
                     any([ignore_unknown_variables, key in ["matrix"]])
                 )
                 if key not in ["if", "python"]
@@ -359,6 +362,9 @@ def _run_actions(
                         common_params[key] = params.pop(key)
 
                 func = _get_nested_function(action_type, _connectors, functions, 'run')
+                if action_type == "matrix":
+                    params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
+
                 args = _add_special_parameters(params, func, functions, variables, error, common_params)
 
                 _validate_function_args(func, args, action_type)
@@ -948,6 +954,8 @@ def _write_data(
                 else:
                     # Get the appropriate function to use
                     func = _get_nested_function(export_type, _connectors, functions, 'write')
+                    if export_type == "matrix":
+                        params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
 
                     args = _add_special_parameters(
                         params,
