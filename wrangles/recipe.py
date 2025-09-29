@@ -72,7 +72,7 @@ def _replace_templated_values(
         temp_vars = variables.copy()
         if 'variables' in recipe_object and isinstance(recipe_object['variables'], dict):
             for key in recipe_object['variables'].keys():
-                if key in temp_vars:
+                if key in temp_vars and key != recipe_object['variables'][key][2:-1]:
                     temp_vars[key] = recipe_object['variables'][key]
         
         # Iterate over all of the keys and value in a dictionary recursively
@@ -492,7 +492,7 @@ def _execute_wrangles(
     df: _pandas.DataFrame,
     wrangles_list: list,
     functions: dict = {},
-    variables: dict = {}
+    variables: dict = None
 ) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
@@ -503,6 +503,9 @@ def _execute_wrangles(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
+    if variables is None:
+        variables = {}
+
     # Ensure wrangles are defined as a list
     if not isinstance(wrangles_list, list):
         wrangles_list = [wrangles_list]
@@ -979,7 +982,7 @@ def _write_data(
 
 def _run_thread(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict, str] = None
 ) -> _pandas.DataFrame:
@@ -1003,6 +1006,9 @@ def _run_thread(
     :return: The result dataframe. The dataframe can be defined using \
         write: - dataframe in the recipe.
     """
+    if variables is None:
+        variables = {}
+    
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id
     # Run any actions required before the main recipe runs
@@ -1051,7 +1057,7 @@ def _run_thread(
 
 def run(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict] = [],
     timeout: float = None
@@ -1072,6 +1078,9 @@ def run(
     :return: The result dataframe. The dataframe can be defined using \
         write: - dataframe in the recipe.
     """
+    if variables is None:
+        variables = {}
+
     # Parse recipe
     recipe, functions = _load_recipe(
         recipe,
