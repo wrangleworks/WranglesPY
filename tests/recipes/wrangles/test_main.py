@@ -5538,6 +5538,55 @@ class TestMatrix:
         )
         assert df['What is for lunch?'][0] == "hamburgers"
 
+    def test_matrix_variable_variable(self):
+        """
+        Test a matrix wrangle that uses a variable variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    food: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: ${food}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "hamburgers"
+
+    def test_matrix_variable_variable_incomplete(self):
+        """
+        Test a matrix wrangle that uses a variable variable that is an imcomplete match
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    food: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: |
+                          "we are having " + ${food}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "we are having hamburgers"
+
 
 def wait_then_update(df, duration, input, output, value):
     """
