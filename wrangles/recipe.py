@@ -714,6 +714,9 @@ def _execute_wrangles(
                     if wrangle == "rename" and "functions" not in params:
                         params["functions"] = functions
 
+                    if wrangle == "python":
+                        params['variables'] = variables
+
                     # Execute the function
                     df = func(df=df, **params)
 

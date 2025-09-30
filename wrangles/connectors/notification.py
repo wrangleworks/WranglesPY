@@ -94,6 +94,10 @@ class telegram():
             A file path & name to attach to the message.
             Supports a single file or a list of files.
             Must be supported by the specific notification type.
+        format:
+          type: string
+          description: The format of the message. One of 'text', 'markdown' or 'html'. Default is 'text'
+          default: text
     """
   }
 
@@ -102,7 +106,8 @@ class telegram():
     chat_id: str,
     title: str,
     body: str,
-    attachment: _Union[str, list] = None
+    attachment: _Union[str, list] = None,
+    format: str = 'text'
   ):
     """
     Send a telegram notification
@@ -114,8 +119,9 @@ class telegram():
     :param title: The title of the message
     :param body: The body of the message
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
+    :param format: The format of the message. One of 'text', 'markdown' or 'html'. Default is 'text'
     """
-    url = f"tgram://{bot_token}/{chat_id}/"
+    url = f"tgram://{bot_token}/{chat_id}/?format={format}"
     run(url, title, body, attachment)
 
 
@@ -177,6 +183,10 @@ class email():
             A file path & name to attach to the message.
             Supports a single file or a list of files.
             Must be supported by the specific notification type.
+        format:
+          type: string
+          description: The format of the message. One of 'text', 'markdown' or 'html'. Default is 'text'
+          default: text
     """
   }
 
@@ -191,7 +201,8 @@ class email():
     domain: str = None,
     host: str = None,
     name: str = None,
-    attachment: _Union[str, list] = None
+    attachment: _Union[str, list] = None,
+    format: str = 'text'
   ):
     """
     Send an email
@@ -207,16 +218,17 @@ class email():
     :param host: The SMTP server for your service. This may be omitted for common services such as yahoo, gmail or hotmail but will be needed otherwise.
     :param name: The name to show the email as being from. If omitted, defaults to the user.
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
+    :param format: The format of the message. One of 'text', 'markdown' or 'html'. Default is 'text'
     """
     # Construct the Apprise URL.
     if user.split('@')[-1] in ['yahoo.com', 'hotmail.com', 'live.com', 'gmail.com', 'fastmail.com']:
         # Handle apprise built in structured domains
-        url = f"mailto://{user.split('@')[0]}:{password}@{user.split('@')[1]}?format=text"
+        url = f"mailto://{user.split('@')[0]}:{password}@{user.split('@')[1]}?format={format}"
     else:
         if domain:
-            url = f"mailtos://{domain}?format=text&user={user.replace('@', '%40')}&pass={password}"
+            url = f"mailtos://{domain}?format={format}&user={user.replace('@', '%40')}&pass={password}"
         else:
-            url = f"mailtos://{user.split('@')[-1]}?format=text&user={user.replace('@', '%40')}&pass={password}"
+            url = f"mailtos://{user.split('@')[-1]}?format={format}&user={user.replace('@', '%40')}&pass={password}"
 
     # Add optional components to the url
     url = url + f"&name={name or user.replace('@', '%40')}"

@@ -220,6 +220,228 @@ class TestClassify:
         assert df.empty and df.columns.tolist() == ['Col1', 'Class1']
 
 
+class TestCleanWhitespace:
+    """
+    Test spaces
+    """
+    def test_clean_whitespaces(self):
+        """
+        Test the base functionality of clean_whitespaces
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
+
+    def test_clean_whitespaces_no_output(self):
+        """
+        Test clean_whitespaces with no output specified
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col'] == 'Hello World'
+
+    def test_clean_whitespaces_where(self):
+        """
+        Test clean_whitespaces function using a where clause
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - clean_whitespaces:
+                    input: Product
+                    where: Price > 10
+            """,
+            dataframe=pd.DataFrame({
+                'Product': ['  Hello   World  ', '  Hello   Universe  ', '  Hello   Galaxy  '],
+                'Price': [4.99, 9.99, 14.99]
+            })
+        )
+        assert df['Product'].to_list() == ["  Hello   World  ", "  Hello   Universe  ", "Hello Galaxy"]
+
+    def test_clean_whitespaces_empty(self):
+        """
+        Test clean_whitespaces with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - clean_whitespaces:
+                    input: Random
+                    output: output column
+            """,
+            dataframe=pd.DataFrame({
+                'Random': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Random', 'output column']
+
+    def test_clean_whitespaces_nbsp(self):
+        """
+        Test clean_whitespaces replaces non-breaking space characters
+        """
+        data = pd.DataFrame({
+        'col': ['  Hello   World  ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
+
+    def test_clean_whitespaces_list_input_no_output(self):
+        """
+        Test clean_whitespaces input list and no output
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == 'Hello World'
+        assert df.iloc[0]['col2'] == 'Hello Galaxy'
+
+    def test_clean_whitespaces_io_list(self):
+        """
+        Test clean_whitespaces with a list of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+                  - out2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == 'Hello World'
+        assert df.iloc[0]['out2'] == 'Hello Galaxy'
+
+    def test_clean_whitespaces_uneven_io_list(self):
+        """
+        Test clean_whitespaces with an uneven list
+        of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_clean_whitespaces_trim_false(self):
+        """
+        Test clean_whitespaces with trim set to false
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+                trim: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+
+    def test_clean_whitespaces_non_string(self):
+        """
+        Test clean_whitespaces with non-string values
+        """
+        data = pd.DataFrame({
+        'col': ['A    string', 123, None, 45.67, True, ['list']]
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'A string'
+        assert df.iloc[5]['NoSpaces'] == ['list']
+
+    def test_clean_whitespaces_remove_literals_false(self):
+        """
+        Test clean_whitespaces with remove_literals set to false
+        """
+        data = pd.DataFrame({
+        'col': ['''  Hello
+                  World  ''']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+                remove_literals: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello\n World'
+
+    def test_clean_whitespaces_new_line(self):
+        """
+        Test clean_whitespaces with a new line character
+        """
+        data = pd.DataFrame({
+        'col': ['''  Hello
+                  World  ''']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == r'Hello World'
+
+
 class TestFilter:
     """
     Test filter
@@ -3497,6 +3719,63 @@ class TestPython:
             })
         )
         assert df["result"][0] == '' and df['result'][2] == 'z p'
+
+    def test_python_string_variable(self):
+        """
+        Test a simple python command with a string variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: f'${my_var}' + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            }),
+            variables={'my_var': 'my value'}
+        )
+        assert df["result"][0] == 'my value b' and df['result'][2] == 'my value p'
+
+    def test_python_int_variable(self):
+        """
+        Test a simple python command with an integer variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}**header1
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [1, 2, 3]
+            }),
+            variables={'my_var': 2}
+        )
+        assert df["result"][0] == 2 and df['result'][2] == 8
+
+    def test_python_column_variable(self):
+        """
+        Test a simple python command with a column variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var} + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+            }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 'a b' and df['result'][2] == 'z p'
 
 
 class TestAccordion:

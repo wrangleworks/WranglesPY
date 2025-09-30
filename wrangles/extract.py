@@ -209,7 +209,7 @@ def ai(
         if (
             'examples' in node and
             not isinstance(node['examples'], list) and
-            node['example'] not in ("", None)
+            node['examples'] not in ("", None)
         ):
             node['examples'] = [node.get('examples')]
         # 

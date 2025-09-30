@@ -482,6 +482,35 @@ def codes(
       first_element:
         type: boolean
         description: Get the first element from results
+      min_length:
+        type:
+          - integer
+          - string
+        description: Minimum length of allowed results
+      max_length:
+        type:
+          - integer
+          - string
+        description: Maximum length of allowed results
+      strategy:
+        type: string
+        description: How aggressive to be at removing false positives such as measurements.
+        enum:
+          - lenient
+          - balanced
+          - strict
+      sort_order:
+        type: string
+        description: Default is as found in the input. Also allows longest or shortest.
+        enum:
+          - longest
+          - shortest
+      disallowed_patterns:
+        type: string
+        description: A pattern or JSON array of regex patterns to not include in the found codes
+      include_multi_part_tokens:
+        type: boolean
+        description: Whether to include multi-part tokens that have a space. Default True.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
