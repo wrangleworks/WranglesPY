@@ -600,18 +600,27 @@ def custom(
             )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
-        # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(
-            _format.concatenate(df[input].astype(str).values.tolist(), ' '),
-            model_id=model_id[0],
-            first_element=first_element,
-            use_labels=use_labels,
-            case_sensitive=case_sensitive,
-            extract_raw=extract_raw,
-            use_spellcheck=use_spellcheck,
-            **kwargs
-        )
-    
+        model_id = [model_id[0] for _ in range(len(input))]
+        i = 0
+        output = output[0]
+        model_id = model_id[0]
+        df_temp = _pd.DataFrame(index=range(len(df)))
+        for in_col in input:
+            df_temp[output + str(i)] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=model_id,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck,
+                **kwargs
+            )
+            i += 1
+
+        # Concatenate the results into a single column
+        df[output] = [_format.concatenate(row, ' ') for row in df_temp.values.tolist()]
+
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
