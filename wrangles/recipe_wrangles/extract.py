@@ -603,12 +603,12 @@ def custom(
         model_id = [model_id[0] for _ in range(len(input))]
         i = 0
         output = output[0]
-        model_id = model_id[0]
+        single_model_id = model_id[0]
         df_temp = _pd.DataFrame(index=range(len(df)))
         for in_col in input:
             df_temp[output + str(i)] = _extract.custom(
                 df[in_col].astype(str).tolist(),
-                model_id=model_id,
+                model_id=single_model_id,
                 first_element=first_element,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
