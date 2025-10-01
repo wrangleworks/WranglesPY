@@ -601,11 +601,10 @@ def custom(
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         model_id = [model_id[0] for _ in range(len(input))]
-        i = 0
         output = output[0]
         single_model_id = model_id[0]
         df_temp = _pd.DataFrame(index=range(len(df)))
-        for in_col in input:
+        for i, in_col in enumerate(input):
             df_temp[output + str(i)] = _extract.custom(
                 df[in_col].astype(str).tolist(),
                 model_id=single_model_id,
@@ -616,7 +615,6 @@ def custom(
                 use_spellcheck=use_spellcheck,
                 **kwargs
             )
-            i += 1
 
         # Concatenate the results into a single column
         df[output] = [_format.concatenate([x for x in row if x], ' ') for row in df_temp.values.tolist()]
