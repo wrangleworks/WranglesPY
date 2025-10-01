@@ -1666,6 +1666,29 @@ class TestExtractCustom:
         )
         assert df.empty and df.columns.to_list() == ['col', 'out']
 
+    def test_extract_regex_first(self):
+        """
+        Test that a regex pattern looking for the first of a string
+        works when the match is input second in the input list
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input:
+                    - Regular Match
+                    - Regex Match
+                output: Output
+                model_id: 829c1a73-1bfd-4ac0
+            """,
+            dataframe=pd.DataFrame({
+                'Regex Match': ['abcdefghijk', 'abcdefg you know the rest'],
+                'Regular Match': ['cotton something', 'red rover']
+            })
+        )
+        assert df['Output'][0] == ['cotton', 'This is a match']
+        assert df['Output'][1] == ['red', 'This is a match']
+
 
 class TestExtractRegex:
     """
