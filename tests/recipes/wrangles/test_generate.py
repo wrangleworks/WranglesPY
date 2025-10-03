@@ -34,28 +34,22 @@ def test_generate_ai_recipe_without_web_search_real_call():
                 web_search: false
                 previous_response: false
                 strict: true
-                Example:
-                    input:
-                    - |
-                        referred_example_index:1
-                        PRODUCT DATA:
-                        Name: Trailblazer Lantern
-                        Features: Rechargeable; weather-proof; 3 brightness modes; Target category: Outdoor Lighting
-                    - |
-                        referred_example_index:1
-                        PRODUCT DATA:
-                        Name: Trailblazer Lantern
-                        Features: Rechargeable; weather-proof; 3 brightness modes; Target category: Outdoor Lighting
-                    output:
-                    - |
-                        {{
-                        "short_description": "Trailblazer Lantern is a weather-proof rechargeable lantern with three brightness modes for campsite versatility."
-                        }}
-                    - |
-                        {{
-                        "category": "Outdoor Lighting"
-                        }}
-        """,
+                examples:
+                    - input: "Thermostat with 24 V control"
+                      output:  
+                          category: hvac
+                          primary_value: 24.0
+                          unit: V  
+                      notes: "primary values should be floats if possible"
+
+                    - input: "4K 55 inch smart TV"
+                      output:  
+                          category: television
+                          primary_value: 55
+                          unit: inch   
+                      notes: "primary values should be integers if possible and the unit is inch"
+                    
+                 """   ,
         dataframe=data
     )
 
@@ -93,27 +87,20 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                 web_search: false
                 previous_response: True
                 strict: true
-                Example:
-                    input:
-                    - |
-                        referred_example_index:1
-                        PRODUCT DATA:
-                        Name: Trailblazer Lantern
-                        Features: Rechargeable; weather-proof; 3 brightness modes; Target category: Outdoor Lighting
-                    - |
-                        referred_example_index:1
-                        PRODUCT DATA:
-                        Name: Trailblazer Lantern
-                        Features: Rechargeable; weather-proof; 3 brightness modes; Target category: Outdoor Lighting
-                    output:
-                    - |
-                        {{
-                        "short_description": "Trailblazer Lantern is a weather-proof rechargeable lantern with three brightness modes for campsite versatility."
-                        }}
-                    - |
-                        {{
-                        "category": "Outdoor Lighting"
-                        }}
+                examples:
+                    - input: "Thermostat with 24 V control"
+                      output:  
+                          category: hvac
+                          primary_value: 24.0
+                          unit: V  
+                      notes: "primary values should be floats if possible"
+
+                    - input: "4K 55 inch smart TV"
+                      output:  
+                          category: television
+                          primary_value: 55
+                          unit: inch   
+                      notes: "primary values should be integers if possible and the unit is inch"
         """,
         dataframe=data
     )
