@@ -34,6 +34,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
                 web_search: false
                 previous_response: false
                 strict: true
+                summary: true
                 examples:
                     - input: "Thermostat with 24 V control"
                       output:  

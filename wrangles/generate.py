@@ -2,7 +2,6 @@ from __future__ import annotations
 import concurrent.futures
 import copy
 import json
-import re
 from typing import Any, Dict, List, Literal, Union, Optional, Tuple
 
 import requests
@@ -28,7 +27,6 @@ PropertyDefinition.model_rebuild()
 
 
 def _perform_web_search(query: str) -> str:
-    """Perform a simple web search to get context via DuckDuckGo."""
     if BeautifulSoup is None:
         return "Web search unavailable because beautifulsoup4 is not installed."
 
@@ -53,7 +51,7 @@ def _perform_web_search(query: str) -> str:
 
 
 def _stringify_query(record: Any) -> str:
-    """Create a search query string from an arbitrary record."""
+    
     if isinstance(record, dict):
         return " ".join(str(v) for v in record.values() if v not in (None, ""))
     if isinstance(record, list):
@@ -61,22 +59,6 @@ def _stringify_query(record: Any) -> str:
     if record in (None, ""):
         return ""
     return str(record)
-
-
-def _parse_referred_example_index(text: str) -> Tuple[Optional[int], str]:
-    """Strip `referred_example_index` marker and return its value (if present)."""
-    index: Optional[int] = None
-    filtered_lines: List[str] = []
-
-    for line in text.splitlines():
-        match = re.match(r"\s*referred_example_index\s*:\s*(\d+)\s*$", line)
-        if match and index is None:
-            index = int(match.group(1))
-            continue
-        filtered_lines.append(line)
-
-    cleaned = "\n".join(filtered_lines).strip()
-    return index, cleaned
 
 
 def _call_openai(
@@ -88,20 +70,13 @@ def _call_openai(
     retries: int,
     previous_response_id: Optional[str] = None
 ) -> Tuple[dict, Optional[str]]:
-    """
-    Makes a call to the OpenAI Responses API.
-    """
     payload_copy = payload.copy()
-
-    
     if "input" not in payload_copy:
         payload_copy["input"] = str(input_data)
-
     if previous_response_id:
         payload_copy["previous_response_id"] = previous_response_id
     elif "previous_response_id" in payload_copy:
         payload_copy.pop("previous_response_id")
-
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     for attempt in range(retries + 1):
@@ -110,13 +85,36 @@ def _call_openai(
             response.raise_for_status()
             response_json = response.json()
             response_id = response_json.get("id")
-
+            
             for item in response_json.get("output", []):
                 if item.get("type") == "message":
                     content = item.get("content", [])
                     if content and content[0].get("type") == "output_text":
                         json_string = content[0].get("text")
-                        return json.loads(json_string), response_id
+                        parsed = json.loads(json_string)
+
+                        summary_blocks = response_json.get("summary")
+                        if not summary_blocks:
+                            for block in response_json.get("output", []):
+                                summary_blocks = block.get("summary")
+                                if summary_blocks:
+                                    break
+
+                        if summary_blocks:
+                            summary_text = "".join(
+                                part.get("text", "")
+                                for part in summary_blocks
+                                if isinstance(part, dict) and part.get("type") == "summary_text"
+                            )
+                            if summary_text:
+                                if isinstance(parsed, dict):
+                                    parsed["summary"] = summary_text
+                                elif isinstance(parsed, list):
+                                    for entry in parsed:
+                                        if isinstance(entry, dict):
+                                            entry["summary"] = summary_text
+
+                        return parsed, response_id
 
             return (
                 {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json},
@@ -138,25 +136,21 @@ def ai(
     input: Union[Any, List[Any]],
     api_key: str,
     output: Dict[str, Any],
-    model: str = "gpt-5",
+    model: str = "gpt-5-mini",
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,
     messages: Optional[List[dict]] = None,
     url: str = "https://api.openai.com/v1/responses",
-    strict: bool = False,
+    strict: bool = True,
     web_search: bool = False,
     reasoning: Dict[str, str] = {"effort": "low"},
     previous_response: bool = False,  
-    examples: Optional[Dict[str, List[str]]] = None,
+    examples: Optional[List[Dict[str, Any]]] = None,
+    summary: bool = False,
     **kwargs
 ) -> Union[dict, list]:
-    """
-    Generate structured outputs using the /v1/responses endpoint with:
-    - Clean system instructions in `instructions`
-    - Few-shot examples and record data in a structured `input` message array
-    - Single-call generation enforced by json_schema (no field-by-field chaining)
-    """
+
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input
 
@@ -186,6 +180,7 @@ def ai(
             "- Use only the RECORD DATA together with any earlier model responses supplied by the API.\n"
             "- Never contradict existing outputs; when information is missing, respond with \"N/A\".\n"
             "- Return valid JSON matching the schema exactly—no explanations or extra keys."
+            "- Always select the most relevant example from the provided few-shot examples, and strictly follow the guidance in the associated notes if they are present."
         )
     else:
         base_instruction = (
@@ -197,6 +192,7 @@ def ai(
             "- Use only the RECORD DATA. Do not invent or infer missing values.\n"
             "- When information is unavailable, respond with \"N/A\".\n"
             "- Return valid JSON matching the schema exactly—no explanations or extra keys."
+            "- Always select the most relevant example from the provided few-shot examples, and strictly follow the guidance in the associated notes if they are present."
         )
 
     if messages and isinstance(messages, list) and len(messages) > 0:
@@ -211,6 +207,10 @@ def ai(
     else:
         source_info = "input"
         contexts = [None for _ in input_list]
+    if summary:
+        reasoning['summary'] = 'auto'
+    else:
+        reasoning = reasoning
 
     payload_template = {
         "model": model,
@@ -226,45 +226,41 @@ def ai(
         **kwargs
     }
 
-    example_pairs: List[Tuple[str, str]] = []
-    example_pairs_by_index: Dict[int, List[Tuple[str, str]]] = {}
-    referred_example_present = False
+    example_pairs: List[Tuple[Any, Any]] = []
 
-    if examples and isinstance(examples, dict):
-        example_inputs = list(examples.get("input") or [])
-        example_outputs = list(examples.get("output") or [])
-        if len(example_inputs) != len(example_outputs):
-            raise ValueError("`examples.input` and `examples.output` must have the same length.")
+    if examples and isinstance(examples, list):
+        for example in examples:
+            example_input = example.get("input")
+            example_output = example.get("output")
+            if example_input is None or example_output is None:
+                continue
 
-        for ex_inp, ex_out in zip(example_inputs, example_outputs):
-            in_str = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
-            out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
+            cleaned_input = example_input
+            if example.get('notes'):
+                cleaned_input = {"input": cleaned_input, "notes": example["notes"]}
 
-            idx, cleaned_input = _parse_referred_example_index(in_str)
-            pair = (cleaned_input, out_str)
+            pair = (cleaned_input, example_output)   
             example_pairs.append(pair)
-
-            if idx is not None:
-                referred_example_present = True
-                example_pairs_by_index.setdefault(idx, []).append(pair)
 
 
     def _build_messages(
-        example_pairs_local: List[Tuple[str, str]],
+        example_pairs_local: List[Tuple[Any, Any]],
         item_local: Any,
         context_local: Optional[str]
-    ) -> List[dict]:
-        msgs: List[dict] = []
+    ) -> List[Dict[str, str]]:
+        msgs: List[Dict[str, str]] = []
         if context_local:
             msgs.append({"role": "user", "content": f"ADDITIONAL CONTEXT:\n---\n{context_local}\n---"})
+
         for ex_inp, ex_out in example_pairs_local:
-            in_str  = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
+            in_str = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
             out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
             msgs.append({"role": "user", "content": in_str})
             msgs.append({"role": "assistant", "content": out_str})
-        msgs.append({"role": "user", "content": json.dumps(item_local, ensure_ascii=False)})
-        return msgs
 
+        msgs.append({"role": "user", "content": json.dumps(item_local, ensure_ascii=False)})
+
+        return msgs
 
     def _generate_record(item: Any, context: Optional[str]) -> Dict[str, Any]:
         payload = copy.deepcopy(payload_template)
@@ -286,7 +282,7 @@ def ai(
         response_id: Optional[str] = None
         combined: Dict[str, Any] = {}
 
-        for idx, field_name in enumerate(properties.keys()):
+        for field_name in properties.keys():
             field_schema = {
                 "type": "object",
                 "properties": {field_name: properties[field_name]},
@@ -294,28 +290,10 @@ def ai(
                 "additionalProperties": False
             }
 
-
-            msgs: List[dict] = []
-            if context:
-                msgs.append({"role": "user", "content": f"ADDITIONAL CONTEXT:\n---\n{context}\n---"})
-
-            selected_pairs: List[Tuple[str, str]] = []
-            if referred_example_present:
-                selected_pairs = example_pairs_by_index.get(idx + 1, [])
-            else:
-                if idx < len(example_pairs):
-                    selected_pairs = [example_pairs[idx]]
-
-            for ex_inp, ex_out in selected_pairs:
-                in_str  = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
-                out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
-                msgs.append({"role": "user", "content": in_str})
-                msgs.append({"role": "assistant", "content": out_str})
-
-            msgs.append({"role": "user", "content": json.dumps(item, ensure_ascii=False)})
+            msgs = _build_messages(example_pairs, item, context)
 
             payload = copy.deepcopy(payload_template)
-            payload["instructions"] = base_instruction  
+            payload["instructions"] = base_instruction
             payload["input"] = msgs
             payload["text"]["format"]["schema"] = field_schema
 
@@ -326,7 +304,8 @@ def ai(
                 url,
                 timeout,
                 retries,
-                previous_response_id=response_id, 
+                
+                previous_response_id=response_id,
             )
 
             if isinstance(rec, dict) and "error" in rec:
@@ -341,6 +320,7 @@ def ai(
                 break
 
         return combined
+
     
     generate_fn = _generate_record_by_field if previous_response else _generate_record
 

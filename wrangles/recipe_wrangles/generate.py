@@ -20,6 +20,7 @@ def ai(
     web_search: bool = False,
     reasoning: _Dict[str, str] = {"effort": "low"},
     previous_response: bool = False,
+    summary: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -126,6 +127,7 @@ def ai(
         reasoning=reasoning,
         previous_response=previous_response,
         examples=recipe_examples,
+        summary=summary,
         
         **kwargs
     )
@@ -140,6 +142,9 @@ def ai(
 
         if 'source' in exploded_df.columns and 'source' not in df.columns:
             df['source'] = exploded_df['source']
+
+        if summary and 'summary' in exploded_df.columns:
+            df["summary"] = exploded_df['summary']
 
         df[target_columns] = exploded_df[target_columns]
 
