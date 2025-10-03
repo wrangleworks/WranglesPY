@@ -25,3 +25,4 @@ from . import merge
 from . import select
 from . import split
 from . import compare
+from . import generate
