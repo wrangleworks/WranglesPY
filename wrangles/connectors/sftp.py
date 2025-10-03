@@ -33,7 +33,7 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
     """
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
-    connenct_kwargs={}
+    connect_kwargs={}
 
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
@@ -127,7 +127,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     """
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
-    connenct_kwargs={}
+    connect_kwargs={}
 
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
@@ -268,7 +268,7 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
-    connenct_kwargs={}
+    connect_kwargs={}
     
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
@@ -367,7 +367,7 @@ class upload_files:
                 "If provided, the lists of files and remote files must be the same length"
             )
         
-    connenct_kwargs={}
+    connect_kwargs={}
     
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
