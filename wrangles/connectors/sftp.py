@@ -7,6 +7,7 @@ from typing import Union as _Union
 import pandas as _pd
 import io as _io
 import logging as _logging
+from paramiko import RSAKey as _RSAKey
 from . import file as _file
 from ..utils import LazyLoader as _LazyLoader
 
@@ -32,13 +33,20 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
     """
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
+    connenct_kwargs={}
+
+    try:
+        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+    except:
+        connect_kwargs['password']=password}
+
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
     with _fabric.Connection(
         host,
         user=user,
         port=port,
-        connect_kwargs={'password': password}
+        connect_kwargs=connect_kwargs
     ) as conn:
         try:
             conn.get(file, local=tempFile)
@@ -119,6 +127,13 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     """
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
+    connenct_kwargs={}
+
+    try:
+        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+    except:
+        connect_kwargs['password']=password}
+
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
     _file.write(df, name=file.split("/")[-1], file_object=tempFile, **kwargs)
@@ -130,7 +145,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
         host,
         user=user,
         port=port,
-        connect_kwargs={'password': password}
+        connect_kwargs=connect_kwargs
     ) as conn:
         conn.put(tempFile, remote=file)
 
@@ -253,11 +268,18 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
+    connenct_kwargs={}
+    
+    try:
+        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+    except:
+        connect_kwargs['password']=password}
+
         with _fabric.Connection(
             host,
             user=user,
             port=port,
-            connect_kwargs={'password': password}
+            connect_kwargs=connect_kwargs
         ) as conn:
             for f, l in zip(files, local):
                 try:
@@ -344,12 +366,19 @@ class upload_files:
             raise ValueError(
                 "If provided, the lists of files and remote files must be the same length"
             )
+        
+    connenct_kwargs={}
+    
+    try:
+        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+    except:
+        connect_kwargs['password']=password}
 
         with _fabric.Connection(
             host,
             user=user,
             port=port,
-            connect_kwargs={'password': password}
+            connect_kwargs=connect_kwargs
         ) as conn:
             for f, r in zip(files, remote):
                 conn.put(local=f, remote=r)
