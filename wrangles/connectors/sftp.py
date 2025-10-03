@@ -38,7 +38,7 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
     except:
-        connect_kwargs['password']=password}
+        connect_kwargs['password']=password
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
@@ -132,7 +132,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
     except:
-        connect_kwargs['password']=password}
+        connect_kwargs['password']=password
 
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
@@ -273,7 +273,7 @@ class download_files:
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
     except:
-        connect_kwargs['password']=password}
+        connect_kwargs['password']=password
 
         with _fabric.Connection(
             host,
@@ -372,7 +372,7 @@ class upload_files:
     try:
         connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
     except:
-        connect_kwargs['password']=password}
+        connect_kwargs['password']=password
 
         with _fabric.Connection(
             host,
