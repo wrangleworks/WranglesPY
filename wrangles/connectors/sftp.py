@@ -268,12 +268,12 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
-    connect_kwargs={}
-    
-    try:
-        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-    except:
-        connect_kwargs['password']=password
+        connect_kwargs={}
+        
+        try:
+            connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+        except:
+            connect_kwargs['password']=password
 
         with _fabric.Connection(
             host,
@@ -367,12 +367,12 @@ class upload_files:
                 "If provided, the lists of files and remote files must be the same length"
             )
         
-    connect_kwargs={}
-    
-    try:
-        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-    except:
-        connect_kwargs['password']=password
+        connect_kwargs={}
+        
+        try:
+            connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
+        except:
+            connect_kwargs['password']=password
 
         with _fabric.Connection(
             host,
