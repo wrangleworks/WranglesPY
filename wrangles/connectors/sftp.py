@@ -25,7 +25,7 @@ def read(
     password: str = '',
     pkey: str = '',
     port: int = 22,
-    connect_kwargs: dict = {},
+    connect_kwargs: dict = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -43,6 +43,9 @@ def read(
     :param connect_kwargs: Other arguments to be used in the connection
     :return: A dataframe with the imported data
     """
+    if connect_kwargs is None:
+        connect_kwargs = {}
+
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
     # Check that either password or pkey is provided and pass to connect_kwargs
@@ -128,7 +131,7 @@ def write(
     password: str = '',
     pkey: str = '',
     port: int = 22,
-    connect_kwargs: dict = {},
+    connect_kwargs: dict = None
     **kwargs
 ) -> None:
     """
@@ -150,6 +153,9 @@ def write(
     :param connect_kwargs: Other arguments to be used in the connection
     :param kwargs: Other arguments from the file connector may also be used
     """
+    if connect_kwargs is None:
+        connect_kwargs = {}
+
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
     # Check that either password or pkey is provided and pass to connect_kwargs
@@ -268,7 +274,7 @@ class download_files:
         pkey: str = '',
         local: _Union[str, list] = None,
         port: int = 22,
-        connect_kwargs: dict = {}
+        connect_kwargs: dict = None
     ):
         """
         Download files from an SFTP host and save to the local file system.
@@ -282,6 +288,9 @@ class download_files:
         :param port: The port to connect to. Default 22.
         :param connect_kwargs: Other arguments to be used in the connection
         """
+        if connect_kwargs is None:
+            connect_kwargs = {}
+
         _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
         # Ensure files and local are both lists and 
@@ -372,7 +381,7 @@ class upload_files:
         pkey: str = '',
         remote: _Union[str, list] = None,
         port: int = 22,
-        connect_kwargs: dict = {}
+        connect_kwargs: dict = None
     ):
         """
         Upload files from the local file system to an SFTP host.
@@ -386,6 +395,9 @@ class upload_files:
         :param port: The port to connect to. Default 22.
         :param connect_kwargs: Other arguments to be used in the connection
         """
+        if connect_kwargs is None:
+            connect_kwargs = {}
+            
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
         # Ensure files and remote are both lists
