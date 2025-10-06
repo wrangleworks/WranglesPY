@@ -131,7 +131,7 @@ def write(
     password: str = '',
     pkey: str = '',
     port: int = 22,
-    connect_kwargs: dict = None
+    connect_kwargs: dict = None,
     **kwargs
 ) -> None:
     """
