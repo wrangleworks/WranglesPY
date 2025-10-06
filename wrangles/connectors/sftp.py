@@ -18,7 +18,16 @@ _RSAKey = _LazyLoader('paramiko').RSAKey
 _schema = {}
 
 
-def read(host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> _pd.DataFrame:
+def read(
+    host: str,
+    user: str,
+    file: str,
+    password: str = '',
+    pkey: str = '',
+    port: int = 22,
+    connect_kwargs: dict = {},
+    **kwargs
+) -> _pd.DataFrame:
     """
     Read files from an SFTP server
 
@@ -27,19 +36,22 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
 
     :param host: The domain or IP of the SFTP server
     :param user: The user to connect as
-    :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param password: The password for the user
+    :param pkey: The private key for the user (if not using password)
     :param kwargs: Other arguments from the file connector may also be used
+    :param connect_kwargs: Other arguments to be used in the connection
     :return: A dataframe with the imported data
     """
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
 
-    connect_kwargs={}
-
-    try:
-        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-    except:
-        connect_kwargs['password']=password
+    # Check that either password or pkey is provided and pass to connect_kwargs
+    if password:
+        connect_kwargs = {'pkey': password, **connect_kwargs}
+    elif pkey:
+        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+    else:
+        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
@@ -108,7 +120,17 @@ properties:
 """
 
 
-def write(df, host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> None:
+def write(
+    df,
+    host: str,
+    user: str,
+    file: str,
+    password: str = '',
+    pkey: str = '',
+    port: int = 22,
+    connect_kwargs: dict = {},
+    **kwargs
+) -> None:
     """
     Write files to an SFTP server
 
@@ -121,19 +143,22 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     :param df: Dataframe to be written to a file
     :param host: The domain or IP of the SFTP server
     :param user: The user to connect as
-    :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param password: The password for the user
+    :param pkey: The private key for the user (if not using password)
     :param port: (Optional) Specify the port to connect to
+    :param connect_kwargs: Other arguments to be used in the connection
     :param kwargs: Other arguments from the file connector may also be used
     """
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
 
-    connect_kwargs={}
-
-    try:
-        connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-    except:
-        connect_kwargs['password']=password
+    # Check that either password or pkey is provided and pass to connect_kwargs
+    if password:
+        connect_kwargs = {'pkey': password, **connect_kwargs}
+    elif pkey:
+        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+    else:
+        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
@@ -238,20 +263,24 @@ class download_files:
     def run(
         host: str,
         user: str,
-        password: str,
         files: _Union[str, list],
+        password: str = '',
+        pkey: str = '',
         local: _Union[str, list] = None,
-        port: int = 22
+        port: int = 22,
+        connect_kwargs: dict = {}
     ):
         """
         Download files from an SFTP host and save to the local file system.
 
         :param host: The hostname of the SFTP server.
         :param user: The user to authenticate as.
-        :param password: The password for the user.
         :param files: A file, or list of files to download.
+        :param password: The password for the user.
+        :param pkey: The private key for the user (if not using password)
         :param local: (Optional) The local filename(s) and/or directories to save as.
         :param port: The port to connect to. Default 22.
+        :param connect_kwargs: Other arguments to be used in the connection
         """
         _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
@@ -269,12 +298,13 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
-        connect_kwargs={}
-        
-        try:
-            connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-        except:
-            connect_kwargs['password']=password
+        # Check that either password or pkey is provided and pass to connect_kwargs
+        if password:
+            connect_kwargs = {'pkey': password, **connect_kwargs}
+        elif pkey:
+            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        else:
+            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
         with _fabric.Connection(
             host,
@@ -337,20 +367,24 @@ class upload_files:
     def run(
         host: str,
         user: str,
-        password: str,
         files: _Union[str, list],
+        password: str = '',
+        pkey: str = '',
         remote: _Union[str, list] = None,
-        port: int = 22
+        port: int = 22,
+        connect_kwargs: dict = {}
     ):
         """
         Upload files from the local file system to an SFTP host.
 
         :param host: The hostname of the SFTP server.
         :param user: The user to authenticate as.
-        :param password: The password for the user.
         :param files: A file, or list of files, to upload.
+        :param password: The password for the user.
+        :param pkey: The private key for the user (if not using password)
         :param remote: (Optional) The remote filename(s) and/or directories to save to.
         :param port: The port to connect to. Default 22.
+        :param connect_kwargs: Other arguments to be used in the connection
         """
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
@@ -367,13 +401,14 @@ class upload_files:
             raise ValueError(
                 "If provided, the lists of files and remote files must be the same length"
             )
-        
-        connect_kwargs={}
-        
-        try:
-            connect_kwargs['pkey']=_RSAKey(file_obj=_io.StringIO(password))
-        except:
-            connect_kwargs['password']=password
+
+        # Check that either password or pkey is provided and pass to connect_kwargs
+        if password:
+            connect_kwargs = {'pkey': password, **connect_kwargs}
+        elif pkey:
+            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        else:
+            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
         with _fabric.Connection(
             host,
