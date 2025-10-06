@@ -42,6 +42,9 @@ def address(
           - cities
           - regions
           - countries
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -276,6 +279,7 @@ def attributes(
     attribute_type: str = None,
     desired_unit: str = None,
     bound: str = 'mid',
+    first_element: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -341,6 +345,9 @@ def attributes(
       desired_unit:
         type: string
         description: Convert the extracted unit to the desired unit
+      first_element:
+        type: boolean
+        description: Get the first element from results
     $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
@@ -362,6 +369,7 @@ def attributes(
             attribute_type,
             desired_unit,
             bound,
+            first_element,
             **kwargs
         )
     else:
@@ -373,6 +381,7 @@ def attributes(
                 attribute_type,
                 desired_unit,
                 bound,
+                first_element,
                 **kwargs
             )
         
@@ -449,6 +458,7 @@ def codes(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list],
+    first_element: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -469,6 +479,9 @@ def codes(
           - string
           - array
         description: Name or list of output columns
+      first_element:
+        type: boolean
+        description: Get the first element from results
       min_length:
         type:
           - integer
@@ -520,6 +533,7 @@ def codes(
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.codes(
                 df[input_column].astype(str).tolist(),
+                first_element,
                 **kwargs
             )
 
@@ -850,6 +864,9 @@ def html(
         enum:
           - text
           - links
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -879,6 +896,7 @@ def properties(
     output: _Union[str, list],
     property_type: str = None,
     return_data_type: str = 'list',
+    first_element: bool = False,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -913,6 +931,9 @@ def properties(
         enum:
           - list
           - string
+      first_element:
+        type: boolean
+        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -930,6 +951,7 @@ def properties(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             type=property_type,
             return_data_type=return_data_type,
+            first_element=first_element,
             **kwargs
         )
     else:
@@ -939,13 +961,20 @@ def properties(
                 df[input_column].astype(str).tolist(),
                 type=property_type,
                 return_data_type=return_data_type,
+                first_element=first_element,
                 **kwargs
             )
     
     return df
 
-
-def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _Union[str, list], output_pattern: str = None) -> _pd.DataFrame:
+def regex(
+  df: _pd.DataFrame,
+  input: _Union[str, int, list],
+  find: str,
+  output: _Union[str, list],
+  output_pattern: str = None,
+  first_element: bool = False
+  ) -> _pd.DataFrame:
     r"""
     type: object
     description: Extract matches or specific capture groups using regex
@@ -973,6 +1002,9 @@ def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _
         type: string
         description: |
           Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+      first_element:
+        type: boolean
+        description: Get the first element from results
 
           **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
@@ -994,9 +1026,25 @@ def regex(df: _pd.DataFrame, input: _Union[str, int, list], find: str, output: _
         
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if output_pattern is None:
+        if output_pattern is None and first_element:
+            # Return entire matches
+            df[output_column] = df[input_column].apply(
+                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, x)][0]
+                           if len([match.group(0) for match in _re.finditer(find_pattern, x)]) >= 1
+                           else "")
+                          )
+        elif output_pattern is None and not first_element:
             # Return entire matches
             df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
+        elif output_pattern and first_element:
+            # Return specific capture groups in the pattern the were passed
+            df[output_column] = df[input_column].apply(
+                lambda x: (
+                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)][0]
+                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)]) >= 1
+                    else ""
+                    )
+                )
         else:
             # Return specific capture groups in the pattern the were passed
             df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
