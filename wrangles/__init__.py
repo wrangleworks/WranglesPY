@@ -14,6 +14,7 @@ from .config import authenticate
 
 from . import connectors
 from . import recipe
+from .dataframe import DataFrame
 
 from .classify import classify
 from . import extract

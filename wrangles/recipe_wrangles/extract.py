@@ -469,6 +469,35 @@ def codes(
           - string
           - array
         description: Name or list of output columns
+      min_length:
+        type:
+          - integer
+          - string
+        description: Minimum length of allowed results
+      max_length:
+        type:
+          - integer
+          - string
+        description: Maximum length of allowed results
+      strategy:
+        type: string
+        description: How aggressive to be at removing false positives such as measurements.
+        enum:
+          - lenient
+          - balanced
+          - strict
+      sort_order:
+        type: string
+        description: Default is as found in the input. Also allows longest or shortest.
+        enum:
+          - longest
+          - shortest
+      disallowed_patterns:
+        type: string
+        description: A pattern or JSON array of regex patterns to not include in the found codes
+      include_multi_part_tokens:
+        type: boolean
+        description: Whether to include multi-part tokens that have a space. Default True.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -571,18 +600,25 @@ def custom(
             )
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
-        # if there are multiple inputs and one output and one model_id. concatenate the inputs
-        df[output[0]] = _extract.custom(
-            _format.concatenate(df[input].astype(str).values.tolist(), ' '),
-            model_id=model_id[0],
-            first_element=first_element,
-            use_labels=use_labels,
-            case_sensitive=case_sensitive,
-            extract_raw=extract_raw,
-            use_spellcheck=use_spellcheck,
-            **kwargs
-        )
-    
+        model_id = [model_id[0] for _ in range(len(input))]
+        output = output[0]
+        single_model_id = model_id[0]
+        df_temp = _pd.DataFrame(index=range(len(df)))
+        for i, in_col in enumerate(input):
+            df_temp[output + str(i)] = _extract.custom(
+                df[in_col].astype(str).tolist(),
+                model_id=single_model_id,
+                first_element=first_element,
+                use_labels=use_labels,
+                case_sensitive=case_sensitive,
+                extract_raw=extract_raw,
+                use_spellcheck=use_spellcheck,
+                **kwargs
+            )
+
+        # Concatenate the results into a single column
+        df[output] = [_format.concatenate([x for x in row if x], ' ') for row in df_temp.values.tolist()]
+
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
