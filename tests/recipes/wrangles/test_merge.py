@@ -536,6 +536,93 @@ class TestMergeLists:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Combined Col']
 
+    def test_lists_include_empty_true(self):
+        """
+        Test merge.lists with include_empty=True (should include empty strings)
+        """
+        data = pd.DataFrame({
+            'Col1': ['', 'A', 'B'],  # String column with empty value
+            'Col2': [['C', 'D'], ['E'], ['F', 'G']]  # List column
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                include_empty: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['', 'C', 'D']
+        assert df.iloc[1]['Combined Col'] == ['A', 'E']
+        assert df.iloc[2]['Combined Col'] == ['B', 'F', 'G']
+
+    def test_lists_include_empty_false(self):
+        """
+        Test merge.lists with include_empty=False (should filter out empty strings)
+        """
+        data = pd.DataFrame({
+            'Col1': ['', 'A', 'B'],  # String column with empty value
+            'Col2': [['C', 'D'], ['E'], ['F', 'G']]  # List column
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                include_empty: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Combined Col'] == ['C', 'D']  # Empty string filtered out
+        assert df.iloc[1]['Combined Col'] == ['A', 'E']
+        assert df.iloc[2]['Combined Col'] == ['B', 'F', 'G']
+
+    def test_lists_include_empty_default(self):
+        """
+        Test merge.lists with default include_empty (should be True for backward compatibility)
+        """
+        data = pd.DataFrame({
+            'Col1': ['', 'A'],  # String column with empty value
+            'Col2': [['C', 'D'], ['E']]  # List column
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Default should include empty strings for backward compatibility
+        assert df.iloc[0]['Combined Col'] == ['', 'C', 'D']
+        assert df.iloc[1]['Combined Col'] == ['A', 'E']
+
+    def test_lists_include_empty_mixed_input(self):
+        """
+        Test merge.lists with include_empty=False and mixed list/string inputs including empty values in lists
+        """
+        data = pd.DataFrame({
+            'Col1': ['', 'A'],  # String column with empty value
+            'Col2': [['', 'B', ''], ['C', '']]  # List column with empty values
+        })
+        recipe = """
+        wrangles:
+            - merge.lists:
+                input: 
+                    - Col1
+                    - Col2
+                output: Combined Col
+                include_empty: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should filter out all empty strings
+        assert df.iloc[0]['Combined Col'] == ['B']
+        assert df.iloc[1]['Combined Col'] == ['A', 'C']
+
 
 class TestMergeToList:
     """
