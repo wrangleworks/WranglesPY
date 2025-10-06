@@ -229,6 +229,25 @@ class TestFormatTrim:
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
+    
+    def test_trim_invalid_data(self):
+        """
+        Test that trim fails gracefully with invalid data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - format.trim:
+                input: List
+            """,
+            dataframe=pd.DataFrame({
+                'List': [["item1 ", " item2"], "  item3  "]
+            })
+        )
+        assert (
+            df['List'][0] == ["item1 ", " item2"] and
+            df['List'][1] == "item3"
+        )
 
     def test_trim_empty_dataframe(self):
         """
@@ -243,6 +262,28 @@ class TestFormatTrim:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['Alone', 'Trim']
+
+
+    def test_trim_various_data_types(self):
+        """
+        Test trim on various data types
+        """
+        data = pd.DataFrame({
+            'column': ['This is a string     ', 459, ['This', 'is', 'a', 'list'], {'Dict': 'ionary'}, 3.14159265359],
+        })
+        recipe = """
+        wrangles:
+        - format.trim:
+            input: column
+            output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'This is a string' 
+        assert df.iloc[1]['output'] == 459
+        assert df.iloc[2]['output'] == ['This', 'is', 'a', 'list']
+        assert df.iloc[3]['output'] == {'Dict': 'ionary'}
+        assert df.iloc[4]['output'] == 3.14159265359
+
 
 class TestFormatPrefix:
     """
