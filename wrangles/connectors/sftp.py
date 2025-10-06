@@ -7,12 +7,13 @@ from typing import Union as _Union
 import pandas as _pd
 import io as _io
 import logging as _logging
-from paramiko import RSAKey as _RSAKey
 from . import file as _file
 from ..utils import LazyLoader as _LazyLoader
 
 # Lazy load external dependencies
 _fabric = _LazyLoader('fabric')
+
+_RSAKey = _LazyLoader('paramiko').RSAKey
 
 _schema = {}
 
