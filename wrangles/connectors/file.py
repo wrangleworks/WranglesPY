@@ -11,6 +11,7 @@ import base64 as _base64
 import os as _os
 import re as _re
 from ..utils import wildcard_expansion as _wildcard_expansion
+from ._formatting import file_format as _file_format
 
 
 _schema = {}
@@ -134,7 +135,7 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, **kwargs) -> None:
+def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -150,6 +151,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param name: Name of the output file
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
     :param file_object: (Optional) A bytes file object to be written in memory. If passed, file will be written in memory instead of to the file system.
+    :param formatting: (Optional) A dictionary of formatting options to apply to Excel files.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
     _logging.info(f": Writing data to file :: {name}")
@@ -179,7 +181,15 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         # Write an Excel file
         # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_excel(file_object, **kwargs)
+        if formatting:
+            if 'sheet_name' in kwargs.keys():
+                sheet_name = kwargs['sheet_name']
+            else:
+                sheet_name = 'Sheet1'
+            _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
+            
+        else:
+            df.to_excel(file_object, **kwargs)
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file

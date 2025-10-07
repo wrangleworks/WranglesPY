@@ -15,4 +15,6 @@ simple-salesforce
 numexpr
 boto3
 jinja2
+polars==1.33.0
+xlsxwriter
 pydantic
