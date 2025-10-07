@@ -6,8 +6,11 @@ from typing import Union as _Union
 import re as _re
 import numpy as _np
 import pandas as _pd
+import logging as _logging
 from fractions import Fraction as _Fraction
 import yaml as _yaml
+from ..utils import safe_str_transform as _safe_str_transform
+import wrangles as _wrangles
 try:
     from yaml import CSafeLoader as _YAMLLoader, CSafeDumper as _YAMLDumper
 except ImportError:
@@ -61,42 +64,56 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     if df.empty: 
         df[output] = None
         return df
+    
+    warnings = {
+        "invalid_data": {
+            "logged": False,
+            "message": 'Found invalid values when using convert.case. Non-string values will be skipped.'
+        }
+    }
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if desired_case == 'lower':
-            df[output_column] = df[input_column].str.lower()
-        elif desired_case == 'upper':
-            df[output_column] = df[input_column].str.upper()
-        elif desired_case == 'title':
-            df[output_column] = df[input_column].str.title()
-        elif desired_case == 'sentence':
-            def getSentenceCase(source: str):
-                output = ""
-                isFirstWord = True
+        if desired_case != 'sentence':
+            df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
 
-                if not isinstance(source, str):
+        elif desired_case == 'sentence':
+            def _getSentenceCase(source: str, warnings={}):
+                if isinstance(source, str):
+                    output = []
+                    isFirstWord = True
+
+                    for character in source:
+                        if isFirstWord and not character.isspace():
+                            output.append(character.upper())
+                            isFirstWord = False
+                        elif not isFirstWord and character in ".!?":
+                            isFirstWord = True
+                            output.append(character.upper())
+                        else:
+                            output.append(character.lower())
+
+                    return ''.join(output)
+                else:
+                    # Only show this once to not spam the logs
+                    if not warnings.get("invalid_data", {}).get('logged', False):
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
                     return source
 
-                for character in source:
-                    if isFirstWord and not character.isspace():
-                        character = character.upper()
-                        isFirstWord = False
-                    elif not isFirstWord and character in ".!?":
-                        isFirstWord = True
-                    else:
-                        character = character.lower()
-
-                    output = output + character
-
-                return output
-
-            df[output_column] = df[input_column].apply(getSentenceCase)
+            df[output_column] = df[input_column].apply(lambda x: _getSentenceCase(x, warnings))
 
     return df
 
 
-def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, data_type: str = 'str', **kwargs) -> _pd.DataFrame:
+def data_type(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list] = None,
+    data_type: str = 'str',
+    default: any = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     type: object
     description: Change the data type of the input.
@@ -125,6 +142,16 @@ def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[s
           - int
           - bool
           - datetime
+      default:
+        type: 
+          - string
+          - number
+          - array
+          - boolean
+          - datetime
+        description: |-
+          Set the default value to return if the input data 
+          cannot be converted to the specified data_type.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -139,13 +166,89 @@ def data_type(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[s
 
     # If the datatype is datetime
     if data_type == 'datetime':
-        temp = _pd.to_datetime(df[input].stack(), **kwargs).unstack()
-        df[output] = temp
+        for input_column, output_column in zip(input, output):
+            recursion_stop = kwargs.pop('stop', False)
+            temp = _pd.to_datetime(df[input_column], errors="coerce", **kwargs)
+            # Recipe to handle defaults, does not run when converting the default value
+            if not recursion_stop:
+                df['tempadfsgadg'] = temp
+                df = _wrangles.recipe.run(
+                    recipe = """
+                        wrangles:
+                        - replace:
+                            input: tempadfsgadg
+                            find: NaT
+                            replace: ''
+                            where: tempadfsgadg IS NULL
+
+                        - create.column:
+                            output: defaultzdbdfzmngz
+                            value: ${default}
+
+                        - convert.data_type:
+                            input: defaultzdbdfzmngz
+                            data_type: datetime
+                            stop: true
+                            if: ${default} is not None
+
+                        - merge.coalesce:
+                            input:
+                            - tempadfsgadg
+                            - defaultzdbdfzmngz
+                            - ${input_col}
+                            output: ${output_col}
+
+                        - drop:
+                            columns:
+                            - defaultzdbdfzmngz
+                            - tempadfsgadg
+                        """,
+                    dataframe = df,
+                    variables = {
+                        'input_col': input_column,
+                        'output_col': output_column,
+                        'default': default
+                        }
+                    )
+                
+            else:
+                df[input_column] = temp
 
     else:
+        dtype_dict = {
+            'int': int,
+            'float': float,
+            'str': str,
+            'bool': bool
+            }
+        
+        # Raise an error if the datatype is not supported
+        if data_type not in dtype_dict:
+            raise TypeError(f"data_type {data_type} is not supported. Supported types are: {list(dtype_dict.keys()) + ['datetime']}")
+        else:
+            data_type = dtype_dict.get(data_type)
+
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = df[input_column].astype(data_type)
+
+            # Function that converts data using dtype() and logs a warning only once when the conversion fails
+            def _safe_convert(x, dtype, default, row):
+                try:
+                    return dtype(x)
+                except Exception as e:
+                    if not getattr(_safe_convert, "_warning_logged", False):
+                        _logging.warning(
+                            f"Found invalid values at row {row} when converting to {data_type} using convert.datatype."
+                            )
+                        _safe_convert._warning_logged = True  # mark as logged
+
+                    # Return default if provided, otherwise return original value
+                    if default is not None:
+                        return default
+                    else:
+                        return x
+
+            df[output_column] = df.apply(lambda row: _safe_convert(row[input_column], data_type, default, row.name), axis=1)
 
     return df
 

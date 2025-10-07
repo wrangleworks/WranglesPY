@@ -13,10 +13,21 @@ from ..utils import LazyLoader as _LazyLoader
 # Lazy load external dependencies
 _fabric = _LazyLoader('fabric')
 
+_RSAKey = _LazyLoader('paramiko').RSAKey
+
 _schema = {}
 
 
-def read(host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> _pd.DataFrame:
+def read(
+    host: str,
+    user: str,
+    file: str,
+    password: str = '',
+    pkey: str = '',
+    port: int = 22,
+    connect_kwargs: dict = None,
+    **kwargs
+) -> _pd.DataFrame:
     """
     Read files from an SFTP server
 
@@ -25,12 +36,25 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
 
     :param host: The domain or IP of the SFTP server
     :param user: The user to connect as
-    :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param password: The password for the user
+    :param pkey: The private key for the user (if not using password)
     :param kwargs: Other arguments from the file connector may also be used
+    :param connect_kwargs: Other arguments to be used in the connection
     :return: A dataframe with the imported data
     """
+    if connect_kwargs is None:
+        connect_kwargs = {}
+
     _logging.info(f": Reading data from SFTP :: {host} / {file}")
+
+    # Check that either password or pkey is provided and pass to connect_kwargs
+    if password:
+        connect_kwargs = {'pkey': password, **connect_kwargs}
+    elif pkey:
+        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+    else:
+        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
@@ -38,7 +62,7 @@ def read(host: str, user: str, password: str, file: str, port: int = 22, **kwarg
         host,
         user=user,
         port=port,
-        connect_kwargs={'password': password}
+        connect_kwargs=connect_kwargs
     ) as conn:
         try:
             conn.get(file, local=tempFile)
@@ -99,7 +123,17 @@ properties:
 """
 
 
-def write(df, host: str, user: str, password: str, file: str, port: int = 22, **kwargs) -> None:
+def write(
+    df,
+    host: str,
+    user: str,
+    file: str,
+    password: str = '',
+    pkey: str = '',
+    port: int = 22,
+    connect_kwargs: dict = None,
+    **kwargs
+) -> None:
     """
     Write files to an SFTP server
 
@@ -112,12 +146,25 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
     :param df: Dataframe to be written to a file
     :param host: The domain or IP of the SFTP server
     :param user: The user to connect as
-    :param password: The password for the user
     :param file: The filename including path on the remote server
+    :param password: The password for the user
+    :param pkey: The private key for the user (if not using password)
     :param port: (Optional) Specify the port to connect to
+    :param connect_kwargs: Other arguments to be used in the connection
     :param kwargs: Other arguments from the file connector may also be used
     """
+    if connect_kwargs is None:
+        connect_kwargs = {}
+
     _logging.info(f": Writing data to SFTP :: {host} / {file}")
+
+    # Check that either password or pkey is provided and pass to connect_kwargs
+    if password:
+        connect_kwargs = {'pkey': password, **connect_kwargs}
+    elif pkey:
+        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+    else:
+        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
@@ -130,7 +177,7 @@ def write(df, host: str, user: str, password: str, file: str, port: int = 22, **
         host,
         user=user,
         port=port,
-        connect_kwargs={'password': password}
+        connect_kwargs=connect_kwargs
     ) as conn:
         conn.put(tempFile, remote=file)
 
@@ -222,21 +269,28 @@ class download_files:
     def run(
         host: str,
         user: str,
-        password: str,
         files: _Union[str, list],
+        password: str = '',
+        pkey: str = '',
         local: _Union[str, list] = None,
-        port: int = 22
+        port: int = 22,
+        connect_kwargs: dict = None
     ):
         """
         Download files from an SFTP host and save to the local file system.
 
         :param host: The hostname of the SFTP server.
         :param user: The user to authenticate as.
-        :param password: The password for the user.
         :param files: A file, or list of files to download.
+        :param password: The password for the user.
+        :param pkey: The private key for the user (if not using password)
         :param local: (Optional) The local filename(s) and/or directories to save as.
         :param port: The port to connect to. Default 22.
+        :param connect_kwargs: Other arguments to be used in the connection
         """
+        if connect_kwargs is None:
+            connect_kwargs = {}
+
         _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
         # Ensure files and local are both lists and 
@@ -253,11 +307,19 @@ class download_files:
                 "If provided, the lists of files and local files must be the same length"
             )
 
+        # Check that either password or pkey is provided and pass to connect_kwargs
+        if password:
+            connect_kwargs = {'pkey': password, **connect_kwargs}
+        elif pkey:
+            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        else:
+            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+
         with _fabric.Connection(
             host,
             user=user,
             port=port,
-            connect_kwargs={'password': password}
+            connect_kwargs=connect_kwargs
         ) as conn:
             for f, l in zip(files, local):
                 try:
@@ -314,21 +376,28 @@ class upload_files:
     def run(
         host: str,
         user: str,
-        password: str,
         files: _Union[str, list],
+        password: str = '',
+        pkey: str = '',
         remote: _Union[str, list] = None,
-        port: int = 22
+        port: int = 22,
+        connect_kwargs: dict = None
     ):
         """
         Upload files from the local file system to an SFTP host.
 
         :param host: The hostname of the SFTP server.
         :param user: The user to authenticate as.
-        :param password: The password for the user.
         :param files: A file, or list of files, to upload.
+        :param password: The password for the user.
+        :param pkey: The private key for the user (if not using password)
         :param remote: (Optional) The remote filename(s) and/or directories to save to.
         :param port: The port to connect to. Default 22.
+        :param connect_kwargs: Other arguments to be used in the connection
         """
+        if connect_kwargs is None:
+            connect_kwargs = {}
+            
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
         # Ensure files and remote are both lists
@@ -345,11 +414,19 @@ class upload_files:
                 "If provided, the lists of files and remote files must be the same length"
             )
 
+        # Check that either password or pkey is provided and pass to connect_kwargs
+        if password:
+            connect_kwargs = {'pkey': password, **connect_kwargs}
+        elif pkey:
+            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        else:
+            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+
         with _fabric.Connection(
             host,
             user=user,
             port=port,
-            connect_kwargs={'password': password}
+            connect_kwargs=connect_kwargs
         ) as conn:
             for f, r in zip(files, remote):
                 conn.put(local=f, remote=r)

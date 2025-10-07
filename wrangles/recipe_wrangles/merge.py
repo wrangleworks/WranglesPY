@@ -193,7 +193,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
     return df
 
 
-def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False) -> _pd.DataFrame:
+def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False, include_empty: bool = True) -> _pd.DataFrame:
     """
     type: object
     description: Take lists in multiple columns and merge them to a single list.
@@ -214,13 +214,21 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
       ignore_case:
         type: boolean
         description: Ignore case when removing duplicates
+      include_empty:
+        type: boolean
+        description: Whether to include empty values in the created list
     """
     output_list = []
     for row in df[input].values.tolist():
         output_row = []
         for col in row:
-            if not isinstance(col, list): col = [str(col)]
-            output_row += col
+            if not isinstance(col, list): 
+                col = [str(col)]
+            # Filter empty values if include_empty is False
+            if include_empty:
+                output_row += col
+            else:
+                output_row += [item for item in col if item]
         # Remove duplicates, regardless of case
         if remove_duplicates and ignore_case:
             seen = set()

@@ -248,12 +248,15 @@ class lookup():
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
         
+        # Read in variant if there is a model_id
+        if model_id:
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
       
         if variant == 'semantic':
             variant = 'embedding'
 
-        if 'variant' not in settings.keys():
-            settings['variant'] = variant
+        settings['variant'] = variant
 
         _train.lookup(
             {

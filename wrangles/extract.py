@@ -209,7 +209,7 @@ def ai(
         if (
             'examples' in node and
             not isinstance(node['examples'], list) and
-            node['example'] not in ("", None)
+            node['examples'] not in ("", None)
         ):
             node['examples'] = [node.get('examples')]
         # 
@@ -336,6 +336,7 @@ def attributes(
     type: str = None,
     desiredUnit: str = None,
     bound: str = 'mid',
+    first_element: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -373,6 +374,12 @@ def attributes(
     batch_size = 1000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if first_element and type:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
+
+    if first_element and not type:
+        raise TypeError('first_element must be used with a specified attribute_type')
     
     if isinstance(input, str): results = results[0]
 
@@ -381,6 +388,7 @@ def attributes(
 
 def codes(
     input: _Union[str, list],
+    first_element: bool = False,
     **kwargs
 ) -> list:
     """
@@ -400,6 +408,9 @@ def codes(
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+
+    if first_element:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
 
     if isinstance(input, str): results = results[0]
     
@@ -533,6 +544,7 @@ def properties(
     input: _Union[str, list],
     type: str = None,
     return_data_type: str = 'list',
+    first_element: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -558,6 +570,12 @@ def properties(
     batch_size = 10000
 
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
+    
+    if first_element and type:
+        results = [x[0] if len(x) >= 1 else "" for x in results]
+
+    if first_element and not type:
+        raise TypeError('first_element must be used with a specified property_type')
 
     if isinstance(input, str): results = results[0]
     
@@ -630,7 +648,11 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     return results
 
 
-def brackets(input: str, find: list = _Union[str, list], include_brackets: bool = False) -> list:
+def brackets(
+    input: str,
+    find: list = _Union[str, list],
+    include_brackets: bool = False
+    ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
     

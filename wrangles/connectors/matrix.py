@@ -45,7 +45,13 @@ def _define_permutations(
             if column_name not in df.columns:
                 raise ValueError(f"{column_name} not recognized as a valid column")
 
-            vals = list(dict.fromkeys(df[column_name]))
+            try:
+                # Fast path for hashable types
+                vals = list(dict.fromkeys(df[column_name]))
+            except TypeError:
+                # Fallback for non-hashable types (lists, dicts, etc.)
+                # Use pandas drop_duplicates which handles most non-hashable types
+                vals = df[column_name].drop_duplicates().tolist()
 
         # dir(path) - List a directory 
         elif _re.fullmatch(r'dir\((.*)\)', val.strip()):

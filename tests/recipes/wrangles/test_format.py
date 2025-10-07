@@ -229,6 +229,25 @@ class TestFormatTrim:
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
+    
+    def test_trim_invalid_data(self):
+        """
+        Test that trim fails gracefully with invalid data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - format.trim:
+                input: List
+            """,
+            dataframe=pd.DataFrame({
+                'List': [["item1 ", " item2"], "  item3  "]
+            })
+        )
+        assert (
+            df['List'][0] == ["item1 ", " item2"] and
+            df['List'][1] == "item3"
+        )
 
     def test_trim_empty_dataframe(self):
         """
@@ -243,6 +262,28 @@ class TestFormatTrim:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['Alone', 'Trim']
+
+
+    def test_trim_various_data_types(self):
+        """
+        Test trim on various data types
+        """
+        data = pd.DataFrame({
+            'column': ['This is a string     ', 459, ['This', 'is', 'a', 'list'], {'Dict': 'ionary'}, 3.14159265359],
+        })
+        recipe = """
+        wrangles:
+        - format.trim:
+            input: column
+            output: output
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['output'] == 'This is a string' 
+        assert df.iloc[1]['output'] == 459
+        assert df.iloc[2]['output'] == ['This', 'is', 'a', 'list']
+        assert df.iloc[3]['output'] == {'Dict': 'ionary'}
+        assert df.iloc[4]['output'] == 3.14159265359
+
 
 class TestFormatPrefix:
     """
@@ -361,6 +402,40 @@ class TestFormatPrefix:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col', 'pre-col']
 
+    def test_prefix_numeric_value_integer(self):
+        """
+        Test prefix with integer variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['A', 'B', 'C']
+        })
+        recipe = """
+        wrangles:
+        - format.prefix:
+            input: col
+            output: result
+            value: ${batch_number}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'batch_number': 456})
+        assert df.iloc[0]['result'] == '456A' and df.iloc[1]['result'] == '456B'
+
+    def test_prefix_numeric_value_float(self):
+        """
+        Test prefix with float variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['X', 'Y']
+        })
+        recipe = """
+        wrangles:
+        - format.prefix:
+            input: col
+            output: result
+            value: ${version}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'version': 2.1})
+        assert df.iloc[0]['result'] == '2.1X' and df.iloc[1]['result'] == '2.1Y'
+
 
 class TestFormatSuffix:
     """
@@ -477,6 +552,40 @@ class TestFormatSuffix:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col', 'col-suf']
+
+    def test_suffix_numeric_value_integer(self):
+        """
+        Test suffix with integer variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['A', 'B', 'C']
+        })
+        recipe = """
+        wrangles:
+        - format.suffix:
+            input: col
+            output: result
+            value: ${batch_number}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'batch_number': 123})
+        assert df.iloc[0]['result'] == 'A123' and df.iloc[1]['result'] == 'B123'
+
+    def test_suffix_numeric_value_float(self):
+        """
+        Test suffix with float variable (fixes issue #683)
+        """
+        data = pd.DataFrame({
+            'col': ['X', 'Y']
+        })
+        recipe = """
+        wrangles:
+        - format.suffix:
+            input: col
+            output: result
+            value: ${version}
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data, variables={'version': 1.5})
+        assert df.iloc[0]['result'] == 'X1.5' and df.iloc[1]['result'] == 'Y1.5'
     
 
 class TestFormatDates:

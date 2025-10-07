@@ -220,6 +220,228 @@ class TestClassify:
         assert df.empty and df.columns.tolist() == ['Col1', 'Class1']
 
 
+class TestCleanWhitespace:
+    """
+    Test spaces
+    """
+    def test_clean_whitespaces(self):
+        """
+        Test the base functionality of clean_whitespaces
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
+
+    def test_clean_whitespaces_no_output(self):
+        """
+        Test clean_whitespaces with no output specified
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col'] == 'Hello World'
+
+    def test_clean_whitespaces_where(self):
+        """
+        Test clean_whitespaces function using a where clause
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - clean_whitespaces:
+                    input: Product
+                    where: Price > 10
+            """,
+            dataframe=pd.DataFrame({
+                'Product': ['  Hello   World  ', '  Hello   Universe  ', '  Hello   Galaxy  '],
+                'Price': [4.99, 9.99, 14.99]
+            })
+        )
+        assert df['Product'].to_list() == ["  Hello   World  ", "  Hello   Universe  ", "Hello Galaxy"]
+
+    def test_clean_whitespaces_empty(self):
+        """
+        Test clean_whitespaces with empty data
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - clean_whitespaces:
+                    input: Random
+                    output: output column
+            """,
+            dataframe=pd.DataFrame({
+                'Random': [],
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['Random', 'output column']
+
+    def test_clean_whitespaces_nbsp(self):
+        """
+        Test clean_whitespaces replaces non-breaking space characters
+        """
+        data = pd.DataFrame({
+        'col': ['  Hello   World  ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello World'
+
+    def test_clean_whitespaces_list_input_no_output(self):
+        """
+        Test clean_whitespaces input list and no output
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == 'Hello World'
+        assert df.iloc[0]['col2'] == 'Hello Galaxy'
+
+    def test_clean_whitespaces_io_list(self):
+        """
+        Test clean_whitespaces with a list of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+                  - out2
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == 'Hello World'
+        assert df.iloc[0]['out2'] == 'Hello Galaxy'
+
+    def test_clean_whitespaces_uneven_io_list(self):
+        """
+        Test clean_whitespaces with an uneven list
+        of inputs and outputs
+        """
+        data = pd.DataFrame({
+        'col1': ['   Hello   World   '],
+        'col2': ['   Hello   Galaxy   ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input:
+                  - col1
+                  - col2
+                output:
+                  - out1
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'The lists for input and output must be the same length.' in info.value.args[0]
+        )
+
+    def test_clean_whitespaces_trim_false(self):
+        """
+        Test clean_whitespaces with trim set to false
+        """
+        data = pd.DataFrame({
+        'col': ['     Hello    World     ']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+                trim: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == ' Hello World '
+
+    def test_clean_whitespaces_non_string(self):
+        """
+        Test clean_whitespaces with non-string values
+        """
+        data = pd.DataFrame({
+        'col': ['A    string', 123, None, 45.67, True, ['list']]
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'A string'
+        assert df.iloc[5]['NoSpaces'] == ['list']
+
+    def test_clean_whitespaces_remove_literals_false(self):
+        """
+        Test clean_whitespaces with remove_literals set to false
+        """
+        data = pd.DataFrame({
+        'col': ['''  Hello
+                  World  ''']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+                remove_literals: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == 'Hello\n World'
+
+    def test_clean_whitespaces_new_line(self):
+        """
+        Test clean_whitespaces with a new line character
+        """
+        data = pd.DataFrame({
+        'col': ['''  Hello
+                  World  ''']
+        })
+        recipe = """
+        wrangles:
+            - clean_whitespaces:
+                input: col
+                output: NoSpaces
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['NoSpaces'] == r'Hello World'
+
+
 class TestFilter:
     """
     Test filter
@@ -3498,6 +3720,177 @@ class TestPython:
         )
         assert df["result"][0] == '' and df['result'][2] == 'z p'
 
+    def test_python_string_variable(self):
+        """
+        Test a simple python command with a string variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var} + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            }),
+            variables={'my_var': 'my value'}
+        )
+        assert df["result"][0] == 'my value b' and df['result'][2] == 'my value p'
+
+    def test_python_int_variable(self):
+        """
+        Test a simple python command with an integer variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}**header1
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [1, 2, 3]
+            }),
+            variables={'my_var': 2}
+        )
+        assert df["result"][0] == 2 and df['result'][2] == 8
+
+    def test_python_column_variable(self):
+        """
+        Test a simple python command with a column variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var} + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+            }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 'header1 b' and df['result'][2] == 'header1 p'
+
+    def test_python_variable_code_injection(self):
+        """
+        Test code injection via a variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${my_var}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': "print('MALICIOUS CODE')" }
+        )
+        assert df["result"][0] == "print('MALICIOUS CODE')"
+
+    def test_python_row_count_variable(self):
+        """
+        Test the native row count variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: row_count
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 3
+
+    def test_python_wrapped_native_variable(self):
+        """
+        Test a native variable works when wrapped in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: ${row_count}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 3
+
+    def test_python_column_count_variable(self):
+        """
+        Test the native column count variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: column_count
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == 2
+
+    def test_python_columns_variable(self):
+        """
+        Test the native columns variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: True if ${my_var} in columns else False
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == True
+
+    def test_python_df_variable(self):
+        """
+        Test the native df variable in a python wrangle
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: df[${my_var}][0] + " " + header2
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z'],
+                'header2': ['b', 'd', 'p']
+                }),
+            variables={'my_var': 'header1'}
+        )
+        assert df["result"][0] == "a b"
+
 
 class TestAccordion:
     """
@@ -4972,6 +5365,25 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Stuff': ['This is stuff', 'This is also stuff', 'This is more stuff']})
             )
 
+    def test_lookup_empty_dataframe(self):
+        """
+        Test lookup with empty dataframe (issue #727)
+        """
+        import pandas as pd
+        from wrangles.recipe_wrangles.main import lookup
+        
+        # Create an empty dataframe
+        df = pd.DataFrame({'Col1': [], 'Col2': []})
+        
+        # Call lookup function directly - should not fail and should add output column
+        result = lookup(df, input='Col1', output='Value', model_id='fe730444-1bda-4fcd')
+        
+        # Should return an empty dataframe with the output column added
+        assert result.empty
+        assert 'Col1' in result.columns
+        assert 'Col2' in result.columns
+        assert 'Value' in result.columns
+
 
 class TestMatrix:
     """
@@ -5184,6 +5596,243 @@ class TestMatrix:
             df['Mineral'].values.tolist() == ['', 'Gold', ''] and
             df['Vegetable'].values.tolist() == ['', '', 'Carrot']
         )
+
+    def test_matrix_and_recipe_variables(self):
+        """
+        Test matrix allows the use of both recipe and matrix variables
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    option1: 'hot dogs'
+                  wrangles:
+                    - create.column:
+                        output: What is for lunch?
+                        value: ${option1} or ${option2}
+            """,
+            variables = {'option2': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "hot dogs or hamburgers"
+
+    def test_matrix_override_recipe_variables(self):
+        """
+        Test matrix variables override recipe variables
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    lunch: 'hot dogs'
+                  wrangles:
+                    - create.column:
+                        output: What is for lunch?
+                        value: ${lunch}
+            """,
+            variables = {'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "hot dogs"
+
+    def test_matrix_if_matrix_variable(self):
+        """
+        Test matrix using an if condition in a wrangle with a matrix variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    lunch: 'hot dogs'
+                  wrangles:
+                    - create.column:
+                        if: ${lunch} == 'hot dogs'
+                        output: What is for lunch?
+                        value: ${lunch}
+            """
+        )
+        assert df['What is for lunch?'][0] == "hot dogs"
+
+    def test_matrix_if_recipe_variable(self):
+        """
+        Test matrix using an if condition in a wrangle with a recipe variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  wrangles:
+                    - create.column:
+                        if: ${lunch} == 'hot dogs'
+                        output: What is for lunch?
+                        value: ${lunch}
+            """,
+            variables={
+                'lunch': 'hot dogs'
+            }
+        )
+        assert df['What is for lunch?'][0] == "hot dogs"
+
+    def test_matrix_python_columns(self):
+        """
+        Test matrix a python wrangle that references a column
+        """
+        df = pd.DataFrame({
+            "Holiday": ['4th of July', 'Labor Day']
+        })
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - matrix:
+                  wrangles:
+                    - python:
+                        output: What are we eating?
+                        command: >-
+                          "hot dogs" if Holiday == "4th of July" else "hamburgers"
+            """,
+            dataframe=df
+        )
+        assert df['What are we eating?'][0] == "hot dogs"
+
+    def test_matrix_python(self):
+        """
+        Test a python wrangle within a matrix using a matrix variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    lunch: 'hamburgers'
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: ${lunch}
+            """,
+        )
+        assert df['What is for lunch?'][0] == "hamburgers"
+
+    def test_matrix_python_recipe_variable(self):
+        """
+        Test a python wrangle within a matrix using a recipe variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: ${lunch}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "hamburgers"
+
+    def test_matrix_variable_variable(self):
+        """
+        Test a matrix wrangle that uses a variable variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    food: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: ${food}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "hamburgers"
+
+    def test_matrix_variable_variable_incomplete(self):
+        """
+        Test a matrix wrangle that uses a variable variable that is an imcomplete match
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    food: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: |
+                          "we are having " + ${food}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "we are having hamburgers"
+
+    def test_matrix_variable_recursive(self):
+        """
+        Test a matrix wrangle that uses a recursive variable
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: a
+            wrangles:
+              - matrix:
+                  variables:
+                    lunch: ${lunch}
+                  wrangles:
+                    - python:
+                        output: What is for lunch?
+                        command: |
+                          "we are having " + ${lunch}
+            """,
+            variables={'lunch': 'hamburgers'}
+        )
+        assert df['What is for lunch?'][0] == "we are having hamburgers"
 
 
 def wait_then_update(df, duration, input, output, value):

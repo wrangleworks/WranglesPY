@@ -14,6 +14,7 @@ from .config import authenticate
 
 from . import connectors
 from . import recipe
+from .dataframe import DataFrame
 
 from .classify import classify
 from . import extract
@@ -27,7 +28,7 @@ from . import data
 from .train import train
 from . import select
 from . import compare
-
+from . import generate
 
 
 

@@ -10,7 +10,6 @@ import typing as _typing
 import os as _os
 import inspect as _inspect
 import importlib as _importlib
-from itertools import dropwhile as _dropwhile
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
@@ -69,21 +68,28 @@ def _replace_templated_values(
         ]
             
     elif isinstance(recipe_object, dict):
+        # Use a temporary copy of variables to allow for nested variable definitions
+        temp_vars = variables.copy()
+        if 'variables' in recipe_object and isinstance(recipe_object['variables'], dict):
+            for key in recipe_object['variables'].keys():
+                if key in temp_vars and key != recipe_object['variables'][key][2:-1]:
+                    temp_vars[key] = recipe_object['variables'][key]
+        
         # Iterate over all of the keys and value in a dictionary recursively
         new_recipe_object = {
             _replace_templated_values(
                 key,
-                variables,
+                temp_vars,
                 any([ignore_unknown_variables, key in ["matrix"]])
             )
             :
             (
                 _replace_templated_values(
                     val,
-                    variables,
+                    temp_vars,
                     any([ignore_unknown_variables, key in ["matrix"]])
                 )
-                if key not in ["if"]
+                if key not in ["if", "python"]
                 else val
             )
             for key, val in recipe_object.items()
@@ -356,6 +362,9 @@ def _run_actions(
                         common_params[key] = params.pop(key)
 
                 func = _get_nested_function(action_type, _connectors, functions, 'run')
+                if action_type == "matrix":
+                    params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
+
                 args = _add_special_parameters(params, func, functions, variables, error, common_params)
 
                 _validate_function_args(func, args, action_type)
@@ -483,7 +492,7 @@ def _execute_wrangles(
     df: _pandas.DataFrame,
     wrangles_list: list,
     functions: dict = {},
-    variables: dict = {}
+    variables: dict = None
 ) -> _pandas.DataFrame:
     """
     Execute a list of Wrangles on a dataframe
@@ -494,6 +503,9 @@ def _execute_wrangles(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
+    if variables is None:
+        variables = {}
+
     # Ensure wrangles are defined as a list
     if not isinstance(wrangles_list, list):
         wrangles_list = [wrangles_list]
@@ -565,7 +577,8 @@ def _execute_wrangles(
                             **{
                                 "row_count": len(df),
                                 "column_count": len(df.columns),
-                                "columns": df.columns.tolist()
+                                "columns": df.columns.tolist(),
+                                "df": df
                             }
                         }
                     )
@@ -639,14 +652,39 @@ def _execute_wrangles(
                                 )
                             ]
 
-                        fn_all_args = set(fn_argspec.args + fn_argspec.kwonlyargs)
-                            
                         # If the user hasn't explicitly requested input or output
                         # then remove them so they will not be included in kwargs
                         params_temp = params.copy()
                         for special_parameter in ['input', 'output']:
-                            if special_parameter in params_temp and special_parameter not in fn_all_args:
+                            if special_parameter in params_temp and special_parameter not in fn_argspec.args:
                                 params_temp.pop(special_parameter)
+
+                        # If the user's custom function does not have kwargs available
+                        # then we need to remove any unmatched function arguments
+                        # from the parameters or the columns
+                        if not fn_argspec.varkw:
+                            params_temp2 = params_temp.copy()
+                            for param in params_temp2.keys():
+                                if param not in fn_argspec.args:
+                                    params_temp.pop(param)
+
+                            cols = df_temp.columns.to_list()
+                            cols_renamed = [col.replace(' ', '_') for col in cols]
+
+                            # Create a dictionary of columns with spaces and their replacement
+                            # with an underscore. Used in df_temp.rename
+                            colDict = {
+                                col: col.replace(' ', '_') for col in cols
+                                if (' ' in col and col.replace(' ', '_') in fn_argspec.args)
+                            }
+
+                            df_temp = df_temp.rename(columns=colDict)
+                            cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
+
+                            # Ensure we don't remove all columns
+                            # if user hasn't specified any
+                            if cols_renamed:
+                                df_temp = df_temp[cols_renamed]
 
                         # If user specifies multiple outputs, expand any list output
                         # across the columns else return as a single column
@@ -655,195 +693,20 @@ def _execute_wrangles(
                         else:
                             result_type = 'reduce'
 
-                        # If the user's custom function does not have kwargs available
-                        # then we need to remove any unmatched function arguments
-                        # from the parameters
-                        if not fn_argspec.varkw:
-                            params_temp = {
-                                k: v
-                                for k, v in params_temp.items()
-                                if k in fn_all_args
-                            }
-
-                        # Rename any columns that are needed by the function args that don't use
-                        # compliant python variable names. i.e. must be alphanumeric or underscore
-                        df_temp = df_temp.rename(
-                            columns={
-                                col: _re.sub(r'[^0-9a-zA-Z_]', '_', col)
-                                for col in df_temp.columns
-                                if (_re.sub(r'[^0-9a-zA-Z_]', '_', col) in fn_all_args and col != _re.sub(r'[^0-9a-zA-Z_]', '_', col))
-                            }
-                        )
-
-                        cols_renamed = [col for col in df_temp.columns if col in fn_all_args]
-
-                        if cols_renamed:
-                            # At least 1 key matches a function argument
-
-                            all_named_args = set(cols_renamed + list(params_temp.keys()))
-                            if not all(_dropwhile(lambda x: not x, [arg in all_named_args for arg in fn_argspec.args])):
-                                # Named and positional args are mixed together
-                                # need to reorder them to comply with the function signature
-                                
-                                def mapping_func(**kwargs):
-                                    """
-                                    A function to map named arguments to the correct position
-                                    to be able to execute as positional args
-                                    """
-                                    if (len(fn_argspec.args) - len(fn_argspec.defaults or [])) > len(kwargs):
-                                        # Not enough args to map to function
-                                        raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
-
-                                    reordered_args = [None] * len(fn_argspec.args)
-                                    for idx, x in enumerate(fn_argspec.args):
-                                        if x in kwargs:
-                                            reordered_args[idx] = kwargs[x]
-                                            del kwargs[x]
-                                    
-                                    for idx, x in enumerate(reordered_args):
-                                        if x is None:
-                                            # pop first element from kwargs dict
-                                            if kwargs:
-                                                reordered_args[idx] = next(iter(kwargs.values()))
-                                                del kwargs[next(iter(kwargs.keys()))]
-                                            else:
-                                                raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
-                                            
-                                    if fn_argspec.varkw:
-                                        return func(*reordered_args, **kwargs)
-                                    elif fn_argspec.varargs:
-                                        return func(*reordered_args, *kwargs.values())
-                                    else:
-                                        return func(*reordered_args)
-
-                                df[params['output']] = df_temp.apply(
-                                    lambda x: mapping_func(**x, **params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
-
-                            else:
-                                # Find args not named
-                                available_args = df_temp.columns.tolist() + list(params_temp.keys())
-                                required_positional_args = len([
-                                    arg
-                                    for arg in fn_argspec.args
-                                    if arg not in available_args
-                                ])
-
-                                other_columns = [col for col in df_temp.columns if col not in cols_renamed]
-
-                                if len(other_columns) < required_positional_args:
-                                    # Not enough args
-                                    raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
-                                
-                                if required_positional_args > 0:
-                                    if fn_argspec.varkw:
-                                        # Put named columns at the end
-                                        df_temp = df_temp[other_columns + cols_renamed]
-                                        # Need to slice off some positional args
-                                        df[params['output']] = df_temp.apply(
-                                            lambda x: func(*x[:required_positional_args], **{**x[required_positional_args:], **params_temp}),
-                                            axis=1,
-                                            result_type=result_type
-                                        )
-                                    elif fn_argspec.varargs:
-                                        # Put named columns at the end
-                                        raise RuntimeError("Can't mix *args and named arguments.")
-                                    else:
-                                        df_temp = df_temp[other_columns[:required_positional_args] + cols_renamed]
-
-                                        # Need to slice off some positional args
-                                        df[params['output']] = df_temp.apply(
-                                            lambda x: func(*x[:required_positional_args], **{**x[required_positional_args:], **params_temp}),
-                                            axis=1,
-                                            result_type=result_type
-                                        )
-                                else:
-                                    if not fn_argspec.varkw and not fn_argspec.varargs:
-                                        df_temp = df_temp[cols_renamed]
-
-                                    if fn_argspec.varkw or set(df_temp.columns.tolist() + list(params_temp.keys())) == set(fn_argspec.args):
-                                        df[params['output']] = df_temp.apply(
-                                            lambda x: func(**x, **params_temp),
-                                            axis=1,
-                                            result_type=result_type
-                                        )
-                                    elif fn_argspec.varargs:
-                                        if fn_argspec.args:
-                                            raise RuntimeError("Can't mix *args and named arguments.")
-
-                                        # Move named columns to end
-                                        df_temp = df_temp[other_columns + cols_renamed]
-                                        named_column_count = len(cols_renamed)
-
-                                        df[params['output']] = df_temp.apply(
-                                            lambda x: func(*x[:-named_column_count], **x[-named_column_count:], **params_temp),
-                                            axis=1,
-                                            result_type=result_type
-                                        )
-                                    else:
-                                        raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
-                        elif fn_argspec.varkw:
-                            # Have **kwargs available for excess values
-
-                            # Find args not named
-                            available_args = df_temp.columns.tolist() + list(params_temp.keys())
-                            required_positional_args = len([
-                                arg
-                                for arg in fn_all_args
-                                if arg not in available_args
-                            ])
-                            
-                            if required_positional_args > len(df.columns):
-                                # Not enough args
-                                raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
-
-                            if required_positional_args == len(df.columns):
-                                # Have the correct number of positional args
-                                df[params['output']] = df_temp.apply(
-                                    lambda x: func(*x, **params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
-                            elif required_positional_args > 0:
-                                # Need to slice off some positional args
-                                df[params['output']] = df_temp.apply(
-                                    lambda x: func(*x[:required_positional_args], **x[required_positional_args:], **params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
-                            else:
-                                # No positional args needed
-                                df[params['output']] = df_temp.apply(
-                                    lambda x: func(**x, **params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
+                        # If the custom functions has kwargs or a parameter
+                        # matching a column name, execute including those
+                        if fn_argspec.varkw or cols_renamed:
+                            df[params['output']] = df_temp.apply(
+                                lambda x: func(**{**x, **params_temp}),
+                                axis=1,
+                                result_type=result_type
+                            )
                         else:
-                            vars_count = len(params_temp) + len(df_temp.columns)
-                            if (
-                                fn_argspec.varargs or
-                                (
-                                    vars_count <= len(fn_all_args) and 
-                                    vars_count >= len(fn_all_args) - len(fn_argspec.defaults or [])
-                                )
-                            ):
-                                # Have the correct number of positional args or varargs to accept the excess
-                                df[params['output']] = df_temp.apply(
-                                    lambda x: func(*x, **params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
-                            elif set(params_temp.keys()) == fn_all_args:
-                                # All functions args match to wrangle params
-                                df[params['output']] = df_temp.apply(
-                                    lambda _: func(**params_temp),
-                                    axis=1,
-                                    result_type=result_type
-                                )
-                            else:
-                                raise RuntimeError(f'Unable to map values to function. Expected {str(fn_argspec.args)}')
+                            df[params['output']] = df_temp.apply(
+                                lambda _: func(**params_temp),
+                                axis=1,
+                                result_type=result_type
+                            )
 
                 else:
                     # Get the requested function from the recipe_wrangles module
@@ -863,6 +726,12 @@ def _execute_wrangles(
                     # Add functions for rename due to special syntax
                     if wrangle == "rename" and "functions" not in params:
                         params["functions"] = functions
+
+                    if wrangle == "python":
+                        params['variables'] = variables
+
+                    if wrangle == "matrix":
+                        params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
 
                     # Execute the function
                     df = func(df=df, **params)
@@ -1068,7 +937,8 @@ def _write_data(
                             **{
                                 "row_count": len(df_temp),
                                 "column_count": len(df_temp.columns),
-                                "columns": df_temp.columns.tolist()
+                                "columns": df_temp.columns.tolist(),
+                                "df": df_temp
                             }
                         }
                     )
@@ -1087,6 +957,8 @@ def _write_data(
                 else:
                     # Get the appropriate function to use
                     func = _get_nested_function(export_type, _connectors, functions, 'write')
+                    if export_type == "matrix":
+                        params['variables'] = {**variables, **params['variables']} if 'variables' in params else variables
 
                     args = _add_special_parameters(
                         params,
@@ -1110,7 +982,7 @@ def _write_data(
 
 def _run_thread(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict, str] = None
 ) -> _pandas.DataFrame:
@@ -1134,6 +1006,9 @@ def _run_thread(
     :return: The result dataframe. The dataframe can be defined using \
         write: - dataframe in the recipe.
     """
+    if variables is None:
+        variables = {}
+    
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id
     # Run any actions required before the main recipe runs
@@ -1182,7 +1057,7 @@ def _run_thread(
 
 def run(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     dataframe: _pandas.DataFrame = None,
     functions: _Union[_types.FunctionType, list, dict] = [],
     timeout: float = None
@@ -1203,6 +1078,9 @@ def run(
     :return: The result dataframe. The dataframe can be defined using \
         write: - dataframe in the recipe.
     """
+    if variables is None:
+        variables = {}
+
     # Parse recipe
     recipe, functions = _load_recipe(
         recipe,

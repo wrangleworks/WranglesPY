@@ -4,6 +4,7 @@ Functions to re-format data
 from typing import Union as _Union
 import pandas as _pd
 from .. import format as _format
+from ..utils import safe_str_transform as _safe_str_transform
 
 
 def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output: _Union[str, list] = None) -> _pd.DataFrame:
@@ -103,7 +104,7 @@ def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side:
     return df
 
 
-def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float], output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
     description: Add a prefix to a column
@@ -121,6 +122,7 @@ def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: str, output:
       value:
         type:
           - string
+          - number
         description: Prefix value to add
       output:
         type:
@@ -141,7 +143,7 @@ def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: str, output:
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = value + df[input_column].astype(str)
+        df[output_column] = str(value) + df[input_column].astype(str)
 
     return df
 
@@ -228,7 +230,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], signif
     return df
 
 
-def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, list], output: str = None) -> _pd.DataFrame:
+def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float, list], output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Add a suffix to a column
@@ -244,7 +246,9 @@ def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
             - array
           description: Name of the input column
         value:
-          type: string
+          type:
+            - string
+            - number
           description: Suffix value to add
         output:
           type:
@@ -265,7 +269,7 @@ def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(str) + value
+        df[output_column] = df[input_column].astype(str) + str(value)
   
     return df
 
@@ -300,9 +304,16 @@ def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    warnings = {
+        "invalid_data": {
+            "logged": False,
+            "message": 'Found invalid values when using format.trim. Non-string values will be skipped.'
+        }
+    }
+
     # Loop through all requested columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].str.strip()
+        df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, "strip", warnings))
 
     return df
     
