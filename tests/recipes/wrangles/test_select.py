@@ -271,6 +271,76 @@ class TestSelectDictionaryElement:
         )
         assert df['column'][0] == 1
 
+    def test_dictionary_element_string_wildcard(self):
+        """
+        Test selecting elements with a wildcard passed as a string
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: A*
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == {'A1': '1', 'A2': '3'}
+
+    def test_dictionary_element_string_wildcard_nonexistent(self):
+        """
+        Test selecting nonexistent elements with a wildcard passed as a string
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: C*
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == {}
+
+    def test_dictionary_element_wildcard_single_element(self):
+        """
+        Test that wildcard output is a dictionary
+        with only one matched element
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: B*
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == {'B1': '2'}
+
+    def test_dictionary_element_regex_single_element(self):
+        """
+        Test that regex output is a dictionary
+        with only one matched element
+        """
+        df = wrangles.recipe.run("""
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                output: Output
+                element: 'regex: B.*'
+            """,
+            dataframe=pd.DataFrame({
+            'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['Output'][0] == {'B1': '2'}
+
     def test_dictionary_element_empty_dict(self):
         """
         Test the select.dictionary_element works even

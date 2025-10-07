@@ -4,7 +4,9 @@ Select subsets of input data
 from typing import Union as _Union
 import json as _json
 import itertools as _itertools
+import fnmatch as _fnmatch
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
+from .utils import wildcard_expansion as _wildcard_expansion
 
 def highest_confidence(data_list):
     """
@@ -114,7 +116,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
     if not isinstance(input, list):
         input = [input]
         single_input = True
-    
+
     if isinstance(key, list):
         key = dict(
             _itertools.chain.from_iterable(
@@ -170,11 +172,29 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     return default
             except:
                 return default
-            
-        results = [
-            _get_value(row)
-            for row in input
-        ]
+        
+        # Expand wildcard keys
+        try:
+            key_expanded = list(set(item for sublist in [_wildcard_expansion(row.keys(), key) for row in input] for item in sublist))
+
+            # Convert lists of one or zero to strings
+            if len(key_expanded) == 1 and key_expanded == [key]:
+                key = key_expanded[0]
+
+            else:
+                key = key_expanded
+        except:
+            pass
+
+        # If key is now a list after wildcard expansion, send back through dict_element
+        if isinstance(key, list):
+            results = dict_element(input, key, default)
+        
+        else:
+            results = [
+                _get_value(row)
+                for row in input
+            ]
 
     if single_input:
         return results[0]
