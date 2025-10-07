@@ -1029,25 +1029,25 @@ def regex(
         if output_pattern is None and first_element:
             # Return entire matches
             df[output_column] = df[input_column].apply(
-                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, x)][0]
-                           if len([match.group(0) for match in _re.finditer(find_pattern, x)]) >= 1
+                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")][0]
+                           if len([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")]) >= 1
                            else "")
                           )
         elif output_pattern is None and not first_element:
             # Return entire matches
-            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, x)])
+            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")])
         elif output_pattern and first_element:
             # Return specific capture groups in the pattern the were passed
             df[output_column] = df[input_column].apply(
                 lambda x: (
-                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)][0]
-                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)]) >= 1
+                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")][0]
+                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")]) >= 1
                     else ""
                     )
                 )
         else:
             # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(x)])
+            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")])
 
     return df
 

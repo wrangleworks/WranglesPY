@@ -2020,6 +2020,90 @@ class TestExtractRegex:
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert df.iloc[0]['col_out'] == ['g stuff 55'] and df.iloc[2]['col_out'] == ['kg stuff 1000']
 
+    def test_extract_regex_mixed_types(self):
+        """
+        Test extract.regex with mixed data types (int, float, string, None)
+        """
+        data = pd.DataFrame({
+            'col': [123, 'abc456', 78.9, None, 'no digits']
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: digits
+            find: \\d+
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['digits'] == ['123']  # int -> string conversion
+        assert df.iloc[1]['digits'] == ['456']  # string with digits
+        assert df.iloc[2]['digits'] == ['78', '9']  # float -> string conversion
+        assert df.iloc[3]['digits'] == []  # None -> empty string
+        assert df.iloc[4]['digits'] == []  # no matches
+
+    def test_extract_regex_mixed_types_first_element(self):
+        """
+        Test extract.regex with mixed data types using first_element
+        """
+        data = pd.DataFrame({
+            'col': [123, 'abc456', 78.9, None]
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: first_digit
+            find: \\d+
+            first_element: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['first_digit'] == '123'
+        assert df.iloc[1]['first_digit'] == '456'
+        assert df.iloc[2]['first_digit'] == '78'
+        assert df.iloc[3]['first_digit'] == ''
+
+    def test_extract_regex_mixed_types_output_pattern(self):
+        """
+        Test extract.regex with mixed data types using output_pattern
+        """
+        data = pd.DataFrame({
+            'col': [123, 'value456', 78.9]
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: formatted
+            find: (\\d+)
+            output_pattern: 'Found: \\1'
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['formatted'] == ['Found: 123']
+        assert df.iloc[1]['formatted'] == ['Found: 456']
+        assert df.iloc[2]['formatted'] == ['Found: 78', 'Found: 9']
+
+    def test_extract_regex_mixed_types_output_pattern_first_element(self):
+        """
+        Test extract.regex with mixed data types using output_pattern and first_element
+        """
+        data = pd.DataFrame({
+            'col': [123, 'value456', 78.9, None]
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: first_formatted
+            find: (\\d+)
+            output_pattern: 'Number: \\1'
+            first_element: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['first_formatted'] == 'Number: 123'
+        assert df.iloc[1]['first_formatted'] == 'Number: 456'
+        assert df.iloc[2]['first_formatted'] == 'Number: 78'
+        assert df.iloc[3]['first_formatted'] == ''
+
 
 class TestExtractProperties:
     """
