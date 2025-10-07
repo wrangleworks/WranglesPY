@@ -5834,6 +5834,32 @@ class TestMatrix:
         )
         assert df['What is for lunch?'][0] == "we are having hamburgers"
 
+    def test_matrix_group_by(self):
+        """
+        Test a matrix wrangle with more than one permutation using group_by
+        """
+        df = pd.DataFrame({
+            "Holiday": ['4th of July', 'Labor Day', 'Memorial Day', '4th of July'],
+            "Meal": ['hot dogs', 'hamburgers', 'hot dogs', 'hamburgers']
+        })
+        recipe = """
+            wrangles:
+              - matrix:
+                  variables:
+                    meal: set(Meal)
+                  wrangles:
+                    - select.group_by:
+                        by: 
+                          - Holiday
+                        first: Meal
+            """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=df)
+        assert (
+            info.typename == 'ValueError' and
+            "cannot be used within a matrix of variables" in info.value.args[0]
+        )
+
 
 def wait_then_update(df, duration, input, output, value):
     """
