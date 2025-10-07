@@ -1046,12 +1046,24 @@ def matrix(
           until the longest is completed. permutations uses the combination of all 
           variables against all other variables.
     """
-    for permutation in _define_permutations(
-      variables,
-      strategy,
-      functions,
-      df
-    ):
+    # Need to think about a better place to put this, possible in define_permutations
+    # That would take having to pass the wrangles through, which shouldn't be a problem
+    # Also need to see about what would work for other use cases of matrix
+    # Ie we could get it working when writing (see example in issue #739)
+    # That would mean that we would need to preserve the df and write out some sort
+    # of temporary df to the file or wherever.
+    # Going to sit on this to think about.
+    # Also need to build out a list of the bluepill wrangles that can't be used
+    permutations = _define_permutations(variables, strategy, functions, df)
+
+    blue_pill_wrangles = ['select.group_by', 'create.column']
+
+    matches = [s for s in blue_pill_wrangles if any(s in d for d in wrangles)]
+
+    if len(permutations) > 1 and len(matches) > 0:
+        raise ValueError(f'Wrangle(s) {", ".join(matches)} cannot be used within a matrix of variables unless using a 1x1 matrix.')
+
+    for permutation in permutations:
         df = _wrangles.recipe.run(
             recipe={'wrangles': wrangles},
             dataframe=df,
