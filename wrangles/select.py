@@ -189,6 +189,9 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
         # If key is now a list after wildcard expansion, send back through dict_element
         if isinstance(key, list):
             results = dict_element(input, key, default)
+
+        elif isinstance(key, str) and key.endswith('*'):
+            results = dict_element(input, [key], default)
         
         else:
             results = [
