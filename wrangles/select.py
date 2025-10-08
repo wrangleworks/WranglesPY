@@ -190,6 +190,8 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
         if isinstance(key, list):
             results = dict_element(input, key, default)
 
+        # Wildcard keys are wrapped in a single-element list to ensure
+        # consistent return types (always a list) from dict_element.
         elif isinstance(key, str) and key.endswith('*'):
             results = dict_element(input, [key], default)
         
