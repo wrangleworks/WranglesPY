@@ -169,6 +169,7 @@ class extract():
 
         if variant == 'pattern':
             versions = [
+                {'columns': ['Find', 'Output', 'Notes'], 'version': 'pattern 3.0'},
                 {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
                 {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
             ]
