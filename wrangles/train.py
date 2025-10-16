@@ -133,7 +133,7 @@ class train():
             if not isinstance(data[0], list):
                 raise ValueError("Lookup: The data must be a 2D array.")
 
-            if not data[0][0] == "Key":
+            if settings['variant'] == 'key' and data[0][0] != "Key":
                 raise ValueError("Lookup: Column 1 must be named Key")
             
         elif isinstance(data, dict):
