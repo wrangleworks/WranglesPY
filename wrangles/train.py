@@ -71,8 +71,8 @@ class train():
                 raise ValueError(f"Training_data list must contain a list of two elements, plus optional Notes. Check element(s) {check_index} in training_list.\nFormat:\nFirst element is 'Entity to Find'\nSecond Element is 'Variation', If no variation, use \'\'\n"
                 "Example:[['Television', 'TV', '']]")
             # checking the first element in training list
-            if training_data[0] != ['Find', 'Output (Optional)', 'Notes']:
-                training_data = [['Find', 'Output (Optional)', 'Notes']] + training_data
+            if training_data[0] != ['Find', 'Output', 'Notes']:
+                training_data = [['Find', 'Output', 'Notes']] + training_data
         
         # If input is a list, check to make sure that all sublists are length of 7
         # Must have all values filled ('' counts as filled, None does not count)
