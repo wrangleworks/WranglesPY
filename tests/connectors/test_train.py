@@ -449,6 +449,22 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
 
+    def test_semantic_lookup_write_no_key(self):
+        """
+        Test training a semantic lookup without a Key column
+        """
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: e8658a6f-c694-45d0
+        """
+        data = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Not Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+
     def test_lookup_write_columns(self):
         """
         Writing data to a Lookup Wrangle (re-training)
@@ -470,7 +486,7 @@ class TestTrainLookup:
 
     def test_lookup_write_no_key(self):
         """
-        Writing data to a Lookup Wrangle (re-training) without Key
+        Writing data to a key based Lookup Wrangle (re-training) without Key
         """
         with pytest.raises(ValueError, match="Data must contain one column named Key"):
             wrangles.recipe.run(
