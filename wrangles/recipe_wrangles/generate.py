@@ -42,7 +42,7 @@ def ai(
               type: string
               description: Product category.
           api_key: ${OPENAI_API_KEY}
-          model: gpt-5-nano
+          model: gpt-5-mini
           web_search: false
           strict: true
     ```
