@@ -150,6 +150,62 @@ def ai(
     summary: bool = False,
     **kwargs
 ) -> Union[dict, list]:
+    """
+    type: object
+    description: Generate structured AI output for each recipe row.
+    additionalProperties: false
+    required:
+      - api_key
+      - output
+    properties:
+      api_key:
+        type: string
+        description: OpenAI-compatible API key.
+      input:
+        type:
+          - string
+          - array
+        description: Column(s) to concatenate into the prompt (defaults to all columns).
+      output:
+        type:
+          - string
+          - object
+          - array
+        description: Target schema; string/array shorthands are expanded automatically.
+      model:
+        type: string
+        description: Responses model name (e.g. gpt-5-mini).
+      threads:
+        type: integer
+        description: Maximum concurrent requests (default 20).
+      timeout:
+        type: integer
+        description: Per-request timeout in seconds.
+      retries:
+        type: integer
+        description: Number of retry attempts on failure.
+      messages:
+        type: array
+        description: Optional extra messages forwarded to the inner generate helper.
+      url:
+        type: string
+        description: Override for the OpenAI-compatible endpoint.
+      strict:
+        type: boolean
+        description: Enforce JSON-schema validation on the response.
+      web_search:
+        type: boolean
+        description: Enable DuckDuckGo context lookup per row.
+      reasoning:
+        type: object
+        description: Responses API reasoning options (forwarded verbatim).
+      previous_response:
+        type: boolean
+        description: Chain responses by reusing previous_response_id for field-by-field calls.
+      summary:
+        type: boolean
+        description: Request summary text to be merged into the output.
+    """
 
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input
