@@ -75,7 +75,7 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
           - string
         description: Name of the column(s) to drop
     """
-    return df.drop(columns=columns)
+    return df.drop(columns=columns, errors='ignore')
     
 
 def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
