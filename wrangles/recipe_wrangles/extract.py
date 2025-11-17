@@ -631,7 +631,7 @@ def custom(
             )
 
         # Concatenate the results into a single column
-        df[output] = [_format.concatenate([x for x in row if x], ' ') for row in df_temp.values.tolist()]
+        df[output] = [list(dict.fromkeys(_format.concatenate([x for x in row if x], ' '))) for row in df_temp.values.tolist()]
 
     else:
         # Iterate through the inputs, outputs and model_ids

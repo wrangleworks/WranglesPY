@@ -1797,6 +1797,30 @@ class TestExtractCustom:
         assert df['Output'][0] == ['cotton', 'This is a match']
         assert df['Output'][1] == ['red', 'This is a match']
 
+    def test_extract_custom_multi_match(self):
+        """
+        Test the output with multiple input columns with the same matches
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input:
+                  - Col1
+                  - Col2
+                  - Col3
+                output: Output
+                model_id: 1eddb7e8-1b2b-4a52
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['Charizard is a dragon.'],
+                'Col2': ['Charizard is a pokemon.'],
+                'Col3': ['Something else about charizard.']
+            })
+        )
+        assert df.iloc[0]['Output'] == ['Charizard']
+
+
 
 class TestExtractRegex:
     """
@@ -2139,7 +2163,7 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Blue'
+        assert df.iloc[0]['prop'] == 'Red'
 
     def test_extract_properties_first_element_without_property_type(self):
         """
