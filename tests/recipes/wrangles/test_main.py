@@ -6426,37 +6426,37 @@ class TestTry:
         assert retry_count_zero == 1
 
 
-# class TestCaseWhen:  
-#     """  
-#     Test case_when wrangle  
-#     """  
-    # def test_case_when_basic(self):  
-    #     """  
-    #     Test basic case_when functionality with simple conditions  
-    #     """  
-    #     df = wrangles.recipe.run(  
-    #         """  
-    #         wrangles:  
-    #           - case_when:  
-    #               output: Match  
-    #               default: Weak  
-    #               cases:  
-    #                 - condition: (Score > 0.84) & (Type == 'Code')  
-    #                   value: Strong  
-    #                 - condition: (Score > 0.60) & (Type == 'Code')  
-    #                   value: Moderate  
-    #         """,  
-    #         dataframe=pd.DataFrame({  
-    #             'Score': [0.9, 0.7, 0.5, 0.85],  
-    #             'Type': ['Code', 'Code', 'Code', 'Text']  
-    #         })  
-    #     )  
-    #     assert (  
-    #         df['Match'][0] == 'Strong' and  
-    #         df['Match'][1] == 'Moderate' and  
-    #         df['Match'][2] == 'Weak' and  
-    #         df['Match'][3] == 'Weak'  
-    #     )  
+class TestCaseWhen:  
+    """  
+    Test case_when wrangle  
+    """  
+    def test_case_when_basic(self):  
+        """  
+        Test basic case_when functionality with simple conditions  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+              - case_when:  
+                  output: Match  
+                  default: Weak  
+                  cases:  
+                    - condition: (Score > 0.84) & (Type == 'Code')  
+                      value: Strong  
+                    - condition: (Score > 0.60) & (Type == 'Code')  
+                      value: Moderate  
+            """,  
+            dataframe=pd.DataFrame({  
+                'Score': [0.9, 0.7, 0.5, 0.85],  
+                'Type': ['Code', 'Code', 'Code', 'Text']  
+            })  
+        )  
+        assert (  
+            df['Match'][0] == 'Strong' and  
+            df['Match'][1] == 'Moderate' and  
+            df['Match'][2] == 'Weak' and  
+            df['Match'][3] == 'Weak'  
+        )  
   
     # def test_case_when_where(self):  
     #     """  
