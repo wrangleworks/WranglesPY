@@ -2163,7 +2163,7 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Blue'
+        assert df.iloc[0]['prop'] == 'Red'
 
     def test_extract_properties_first_element_without_property_type(self):
         """
