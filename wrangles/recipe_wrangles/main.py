@@ -1932,3 +1932,72 @@ def Try(
                         raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
     
     return df
+
+
+def case_when(
+    df: _pd.DataFrame,  
+    output: str,  
+    cases: list,  
+    default: str = None,  
+    **kwargs
+):
+    """
+    type: object
+    description: Try a list of wrangles and catch any errors that occur
+    required:
+      - wrangles
+    properties:
+      wrangles:
+        type: array
+        description: List of wrangles to apply
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      except:
+        type:
+          - object
+        description: |-
+          An action to take if the wrangles encounter an error.
+          This can contain a list of wrangles or a dictionary of column names and values.
+          If except is not provided, the error will be logged and the recipe will continue.
+        minItems: 1
+        items:
+          "$ref": "#/$defs/wrangles/items"
+      retries:
+        type: integer
+        description: Number of times to retry the wrangles if an error occurs. Default 0.
+        minimum: 0
+    """
+    for attempt in range(retries + 1):
+        try:
+            df = _wrangles.recipe.run(
+                recipe={'wrangles': wrangles},
+                dataframe=df,
+                variables=variables,
+                functions=functions
+            )
+            break
+        except Exception as e:
+            _logging.error(f"Try caught error: {e}")
+            if attempt < retries:
+                _time.sleep(1.5 ** attempt)  # Exponential backoff
+            else:
+                if "except" in kwargs:
+                    if isinstance(kwargs["except"], dict):
+                        # Except contains a dict of columns and values
+                        df = df.assign(**{
+                            k: [v] * len(df)
+                            for k, v in kwargs["except"].items()
+                        })
+                    elif isinstance(kwargs["except"], list):
+                        # Except contains a list of wrangles to run
+                        df = _wrangles.recipe.run(
+                            recipe={'wrangles': kwargs['except']},
+                            dataframe=df,
+                            variables=variables,
+                            functions=functions
+                        )
+                    else:
+                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
+    
+    return df
