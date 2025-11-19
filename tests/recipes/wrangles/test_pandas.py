@@ -493,6 +493,25 @@ class TestDrop:
         )
         assert df.empty and df.columns.to_list() == []
 
+    
+    def test_drop_unexisting_columns(self):
+        """
+            Test drop using unexisting column (string)
+        """
+        data = pd.DataFrame({
+                    'col': ['Mario'],
+                    'col2': ['Luigi'],
+                    'col3': ['Bowser'],
+                })
+        recipe = """
+            wrangles:
+            - drop:
+                columns:
+                    - col3
+                    - col4
+            """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df.columns) == ['col', 'col2']
 
 class TestRound:
     """
