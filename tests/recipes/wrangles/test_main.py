@@ -6565,8 +6565,7 @@ class TestCaseWhen:
                 'value': [3, 7, 2]  
             }),  
             variables={'run_wrangle': True}  
-        )  
-        print(df['Result'])
+        )
         assert df['Result'][0] == 'No' and df['Result'][1] == 'Yes'  
   
     def test_case_when_if_false(self):  
