@@ -42,9 +42,6 @@ def address(
           - cities
           - regions
           - countries
-      first_element:
-        type: boolean
-        description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
