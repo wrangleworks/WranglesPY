@@ -288,14 +288,13 @@ def suffix(
     # If the input and output are not the same type
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-
+    
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
           df[output_column] = df[input_column].apply(lambda x: x + value if x else x)
         else:  
           df[output_column] = df[input_column].astype(str) + str(value)
-          # df[output_column] = df[input_column].apply(lambda x: str(x) + str(value))
   
     return df
 
