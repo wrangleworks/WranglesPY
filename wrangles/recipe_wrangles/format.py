@@ -104,7 +104,12 @@ def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side:
     return df
 
 
-def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float], output: _Union[str, list] = None) -> _pd.DataFrame:
+def prefix(
+        df: _pd.DataFrame,
+        input: _Union[str, int, list],
+        value: _Union[str, int, float],
+        output: _Union[str, list] = None,
+        skip_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Add a prefix to a column
@@ -129,6 +134,10 @@ def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
           - string
           - array
         description: (Optional) Name of the output column
+      skip_empty:
+        type: boolean
+        desription: Whether to skip empty values
+        default: (Optional) false
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -143,7 +152,10 @@ def prefix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = str(value) + df[input_column].astype(str)
+        if skip_empty:
+          df[output_column] = df[input_column].apply(lambda x: value + x if x else x)
+        else:  
+          df[output_column] = str(value) + df[input_column].astype(str)
 
     return df
 
@@ -230,7 +242,13 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], signif
     return df
 
 
-def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, int, float, list], output: str = None) -> _pd.DataFrame:
+def suffix(
+        df: _pd.DataFrame,
+        input: _Union[str, int, list],
+        value: _Union[str, int, float, list],
+        output: str = None,
+        skip_empty: bool = False
+  ) -> _pd.DataFrame:
     """
     type: object
     description: Add a suffix to a column
@@ -255,6 +273,10 @@ def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
             - string
             - array
           description: (Optional) Name of the output column
+        skip_empty:
+          type: boolean
+          description: Whether to skip empty values
+          default: (Optional) false
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -266,10 +288,14 @@ def suffix(df: _pd.DataFrame, input: _Union[str, int, list], value: _Union[str, 
     # If the input and output are not the same type
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-    
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df[input_column].astype(str) + str(value)
+        if skip_empty:
+          df[output_column] = df[input_column].apply(lambda x: x + value if x else x)
+        else:  
+          df[output_column] = df[input_column].astype(str) + str(value)
+          # df[output_column] = df[input_column].apply(lambda x: str(x) + str(value))
   
     return df
 
