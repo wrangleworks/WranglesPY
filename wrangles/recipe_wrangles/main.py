@@ -325,7 +325,6 @@ def case_when(
 
     conditions = [df.eval(case['condition']) for case in cases]  
     choices = [case['value'] for case in cases]
-        
     # Use numpy.select to evaluate conditions and assign values  
     df[output] = _np.select(conditions, choices, default=default)  
     
