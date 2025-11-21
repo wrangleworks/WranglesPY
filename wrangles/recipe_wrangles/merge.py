@@ -101,7 +101,7 @@ def concatenate(
     return df
 
 
-def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
+def dictionaries(df: _pd.DataFrame, input: list, output: str, skip_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Take dictionaries in multiple columns and merge them to a single dictionary.
@@ -115,19 +115,35 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
         description: list of input columns
       output:
         type: string
-        description: Name of the output column    
+        description: Name of the output column
+      skip_empty:
+        type: boolean
+        description: Whether to skip empty dictionaries when merging 
+        default: false
     """
-    output_list = []
-    for row in df[input].values.tolist():
-        output_row = {**row[0]}
-        for col in row[1:]:
-            output_row = {**output_row, **col}
-        output_list.append(output_row)
-    
-    df[output] = output_list
-    
-    return df
 
+    rows = df[input].values.tolist()  
+      
+    if skip_empty:  
+        # Filter empty values during merge  
+        output_list = [  
+            {  
+                key: value   
+                for pair in row   
+                for key, value in pair.items()   
+                if value is not None and (not isinstance(value, str) or value.strip())  
+            }  
+            for row in rows  
+        ]  
+    else:  
+        output_list = [  
+            {key: value for pair in row for key, value in pair.items()}  
+            for row in rows  
+        ]  
+      
+    df[output] = output_list  
+
+    return df
 
 def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFrame:
     """

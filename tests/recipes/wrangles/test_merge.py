@@ -974,3 +974,171 @@ class TestMergeDictionaries:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['d1', 'd2', 'd3', 'out']
+        
+    def test_merge_dicts_skip_empty_true(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True - should skip empty dictionary values  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'Empty': ''}],  
+            'd2': [{'Hello2': 'Lucy', 'Blank': ''}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should only include non-empty values  
+        assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Hello2': 'Lucy'}  
+    
+    def test_merge_dicts_skip_empty_false(self):  
+        """  
+        Test merge.dictionaries with skip_empty=False - should include empty values  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'Empty': ''}],  
+            'd2': [{'Hello2': 'Lucy', 'Blank': ''}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: false  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should include empty values  
+        assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Empty': '', 'Hello2': 'Lucy', 'Blank': ''}  
+    
+    def test_merge_dicts_skip_empty_default(self):  
+        """  
+        Test merge.dictionaries with default skip_empty (should be False for backward compatibility)  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'Empty': ''}],  
+            'd2': [{'Hello2': 'Lucy'}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Default should include empty values for backward compatibility  
+        assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Empty': '', 'Hello2': 'Lucy'}  
+    
+    def test_merge_dicts_skip_empty_whitespace(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True - should skip whitespace-only values  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'Spaces': '   '}],  
+            'd2': [{'Hello2': 'Lucy', 'Tab': '\t'}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should skip whitespace-only values  
+        assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Hello2': 'Lucy'}  
+    
+    def test_merge_dicts_skip_empty_none_values(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True - should skip None values  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'NoneVal': None}],  
+            'd2': [{'Hello2': 'Lucy', 'AlsoNone': None}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should skip None values  
+        assert df.iloc[0]['out'] == {'Hello': 'Fey', 'Hello2': 'Lucy'}  
+    
+    def test_merge_dicts_skip_empty_mixed_types(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True - should handle mixed types correctly  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'String': 'Value', 'Number': 0, 'Empty': ''}],  
+            'd2': [{'Bool': False, 'None': None, 'Valid': 'Data'}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should skip empty string and None, but keep 0 and False (they're valid values)  
+        assert df.iloc[0]['out'] == {'String': 'Value', 'Number': 0, 'Bool': False, 'Valid': 'Data'}  
+    
+    def test_merge_dicts_skip_empty_all_empty(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True when all values are empty  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Empty1': '', 'Empty2': ''}],  
+            'd2': [{'Empty3': None, 'Empty4': '   '}],  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        # Should result in empty dictionary  
+        assert df.iloc[0]['out'] == {}  
+    
+    def test_merge_dicts_skip_empty_where(self):  
+        """  
+        Test merge.dictionaries with skip_empty=True and where clause  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey', 'Empty': ''}, {'Hello': 'Moto', 'Empty': ''}],  
+            'd2': [{'Hola': 'Lucy', 'Blank': ''}, {'Hola': 'Hello', 'Blank': ''}],  
+            'numbers': [2, 55]  
+        })  
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            output: out  
+            skip_empty: true  
+            where: numbers > 2  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert df.iloc[1]['out'] == {'Hello': 'Moto', 'Hola': 'Hello'} and df.iloc[0]['out'] == ''
