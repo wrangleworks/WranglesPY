@@ -145,7 +145,7 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str, skip_empty: bool =
 
     return df
 
-def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFrame:
+def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: bool = False) -> _pd.DataFrame:
     """
     type: object
     description: Create a dictionary from keys and values in paired columns e.g. COLUMN_NAME_1, COLUMN_VALUE_1, COLUMN_NAME_2, COLUMN_VALUE_2 ...
@@ -160,6 +160,10 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
       output:
         type: string
         description: Name of the output column
+      skip_empty:
+        type: boolean
+        description: Whether to skip empty keys or values when creating the dictionary
+        default: false
     """
     pairs = {}
 
@@ -191,18 +195,24 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
         # If the column is in the columns changed then convert to string
         if cols in cols_changed:
             df[cols] = df[cols].astype(str)
-    
-    idx = 0
-    for row in df.to_dict('records'):
-        for key, val in pairs.items():
-            if row[key] and row[val]:
-                results[idx][row[key]] = row[val]
-                if val in cols_changed:
-                    # If the row is in columns changed then return to boolean
-                    if row[val] == 'True': results[idx][row[key]] = True
-                    if row[val] == 'False': results[idx][row[key]] = False
-        # Adding to the index
-        idx+=1
+
+    results = [  
+        {  
+            row[key]: (  
+                True if val in cols_changed and row[val] == 'True' else  
+                False if val in cols_changed and row[val] == 'False' else  
+                row[val]  
+            )  
+            for key, val in pairs.items()  
+            if not skip_empty or (  
+                not _pd.isna(row[key]) and   
+                not _pd.isna(row[val]) and  
+                (not isinstance(row[key], str) or row[key].strip()) and  
+                (not isinstance(row[val], str) or row[val].strip())  
+            )  
+        }  
+        for row in df.to_dict('records')  
+    ]
 
     df[output] = results
 
