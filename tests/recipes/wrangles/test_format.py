@@ -909,6 +909,247 @@ class TestFormatPad:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['col1', 'out1']
 
+    def test_pad_skip_empty_true(self):  
+        """  
+        Test pad with skip_empty=True - should skip padding empty strings  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '007' and  
+            df.iloc[1]['out1'] == '' and  
+            df.iloc[2]['out1'] == '009'  
+        )  
+    
+    def test_pad_skip_empty_whitespace(self):  
+        """  
+        Test pad with skip_empty=True - should skip padding whitespace-only strings  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '  ', '\t', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '007' and  
+            df.iloc[1]['out1'] == '  ' and  
+            df.iloc[2]['out1'] == '\t' and  
+            df.iloc[3]['out1'] == '009'  
+        )  
+    
+    def test_pad_skip_empty_false(self):  
+        """  
+        Test pad with skip_empty=False - should pad all values including empty  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: false  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '007' and  
+            df.iloc[1]['out1'] == '000' and  
+            df.iloc[2]['out1'] == '009'  
+        )  
+    
+    def test_pad_skip_empty_default(self):  
+        """  
+        Test pad without skip_empty parameter - should default to False (pad everything)  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '007' and  
+            df.iloc[1]['out1'] == '000' and  
+            df.iloc[2]['out1'] == '009'  
+        )  
+    
+    def test_pad_skip_empty_right_side(self):  
+        """  
+        Test pad with skip_empty=True and side=right  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: right  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '700' and  
+            df.iloc[1]['out1'] == '' and  
+            df.iloc[2]['out1'] == '900'  
+        )  
+    
+    def test_pad_skip_empty_list_columns(self):  
+        """  
+        Test pad with skip_empty=True on multiple columns  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', ''],  
+            'col2': ['', '8']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input:   
+                    - col1  
+                    - col2  
+                output:  
+                    - out1  
+                    - out2  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '007' and  
+            df.iloc[0]['out2'] == '' and  
+            df.iloc[1]['out1'] == '' and  
+            df.iloc[1]['out2'] == '008'  
+        )  
+    
+    def test_pad_skip_empty_where_clause(self):  
+        """  
+        Test pad with skip_empty=True combined with where clause  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9'],  
+            'numbers': [3, 4, 5]  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+                where: numbers = 3  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['col1'] == '007' and  
+            df.iloc[1]['col1'] == '' and  
+            df.iloc[2]['col1'] == '9'  
+        )  
+    
+    def test_pad_skip_empty_overwrite_input(self):  
+        """  
+        Test pad with skip_empty=True when output is not specified (overwrite input)  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['7', '', '9']  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['col1'] == '007' and  
+            df.iloc[1]['col1'] == '' and  
+            df.iloc[2]['col1'] == '009'  
+        )  
+    
+    def test_pad_skip_empty_mixed_content(self):  
+        """  
+        Test pad with skip_empty=True on mixed content (numbers, strings, empty)  
+        """  
+        data = pd.DataFrame({  
+            'col1': [7, '', 'abc', '  ', 9]  
+        })  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 5  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert (  
+            df.iloc[0]['out1'] == '00007' and  
+            df.iloc[1]['out1'] == '' and  
+            df.iloc[2]['out1'] == '00abc' and  
+            df.iloc[3]['out1'] == '  ' and  
+            df.iloc[4]['out1'] == '00009'  
+        )  
+    
+    def test_pad_skip_empty_empty_dataframe(self):  
+        """  
+        Test pad with skip_empty=True on empty dataframe  
+        """  
+        data = pd.DataFrame(columns=['col1'])  
+        recipe = """  
+        wrangles:  
+            - format.pad:  
+                input: col1  
+                output: out1  
+                pad_length: 3  
+                side: left  
+                char: 0  
+                skip_empty: true  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        assert df.empty and df.columns.to_list() == ['col1', 'out1']
 
 class TestFormatSignificantFigures:
     """

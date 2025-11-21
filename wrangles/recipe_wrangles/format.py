@@ -51,7 +51,15 @@ def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output:
     return df
     
     
-def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side: str, char: str, output: _Union[str, list] =  None) -> _pd.DataFrame:
+def pad(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    pad_length: int,
+    side: str,
+    char: str,
+    output: _Union[str, list] =  None,
+    skip_empty: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Pad a string to a fixed length
@@ -85,6 +93,10 @@ def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side:
         type:
           - string
         description: The character to pad the input with
+      skip_empty:
+        type: boolean
+        description: If true, skip padding for empty or whitespace-only values
+        default: (Optional) false
   """
     char = str(char)
     # If the output is not specified, overwrite input columns in place
@@ -99,6 +111,16 @@ def pad(df: _pd.DataFrame, input: _Union[str, int, list], pad_length: int, side:
         raise ValueError('The lists for input and output must be the same length.')
   
     for input_column, output_column in zip(input, output):
+      if skip_empty:  
+        # Create a mask for non-empty values  
+        mask = df[input_column].astype(str).str.strip() != ''  
+
+        # Initialize output column with input values  
+        df[output_column] = df[input_column].astype(str)  
+        
+        # Only pad non-empty values  
+        df.loc[mask, output_column] = df.loc[mask, input_column].astype(str).str.pad(pad_length, side, char)  
+      else:  
         df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
     
     return df
