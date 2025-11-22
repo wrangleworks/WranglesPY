@@ -403,12 +403,8 @@ def group_by(
 
     # Rename columns back to original names if altered
     df = df.rename(
-        {
-            col: col.replace(".grouped_asjkdbak", "")
-            for col in df.columns
-            if col.endswith(".grouped_asjkdbak")
-        },
-        axis=1
+        columns=lambda c: _re.sub(
+            r'(\.(first|last)|grouped_asjkdbak)$', '', c)
     )
 
     return df
