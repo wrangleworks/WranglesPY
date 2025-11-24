@@ -1172,4 +1172,3 @@ class TestSort:
             })  
         )  
         assert df['column'].tolist() == pytest.approx([2.1, 4.3, 5.8], rel=1e-3)
-        assert df['column'].tolist() == pytest.approx([2.1, 4.3, 5.8], rel=1e-3)
