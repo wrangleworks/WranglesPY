@@ -404,7 +404,7 @@ def group_by(
     # Rename columns back to original names if altered
     df = df.rename(
         columns=lambda c: _re.sub(
-            r'(\.(first|last)|grouped_asjkdbak)$', '', c)
+            r'(\.(first|last|grouped_asjkdbak))$', '', c)
     )
 
     return df
