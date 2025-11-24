@@ -43,7 +43,7 @@ def split(
     :param pad: If true, pad results to be a consistent length.
     :param inclusive: If true, the split lists will include the split char.
     :param element: Slice the output lists to specific elements.
-    :param skip_empty: If true, skip emty cells.
+    :param skip_empty: If true, skip empty cells.
     """
     # Split as either regex or simple string
     if split_char[:6] == 'regex:':
