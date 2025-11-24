@@ -461,7 +461,7 @@ class TestFormatPrefix:
 
     def test_prefix_skip_mult_empty_true(self):
         """
-        Testing format.prefix with skip_empty false
+        Testing format.prefix with skip_empty true
         """
         data = pd.DataFrame({
             'col1': ['terrestrial','','ordinary'],
