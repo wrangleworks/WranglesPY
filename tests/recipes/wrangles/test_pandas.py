@@ -1080,3 +1080,96 @@ class TestSort:
             dataframe=pd.DataFrame({'column': []})
         )
         assert df.empty
+
+    def test_sort_float16_conversion(self):  
+        """  
+        Test sort with float16 columns that need conversion  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by: column
+                ascending: true
+            """,  
+            dataframe=pd.DataFrame({  
+                'column': pd.array([3.5, 1.2, 2.8, 4.1], dtype='float16')  
+            })  
+        )  
+        assert df['column'].tolist() == pytest.approx([1.2, 2.8, 3.5, 4.1], rel=1e-3)
+
+    def test_sort_float16_descending(self):  
+        """  
+        Test sort with float16 columns in descending order  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by: column  
+                ascending: false  
+            """,  
+            dataframe=pd.DataFrame({  
+                'column': pd.array([3.5, 1.2, 2.8, 4.1], dtype='float16')  
+            })  
+        )  
+        assert df['column'].tolist() == pytest.approx([4.1, 3.5, 2.8, 1.2], rel=1e-3)
+
+    def test_sort_float16_multiple_columns(self):  
+        """  
+        Test sort with multiple float16 columns  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by: [col1, col2]  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': pd.array([2.0, 1.0, 2.0, 1.0], dtype='float16'),  
+                'col2': pd.array([4.0, 3.0, 2.0, 1.0], dtype='float16')  
+            })  
+        )  
+        assert (  
+            df['col1'].tolist() == [1.0, 1.0, 2.0, 2.0] and  
+            df['col2'].tolist() == [1.0, 3.0, 2.0, 4.0]  
+    )  
+    
+    def test_sort_mixed_dtypes(self):  
+        """  
+        Test sort with mixed float16 and other dtypes  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by: [float_col, int_col]  
+            """,  
+            dataframe=pd.DataFrame({  
+                'float_col': pd.array([2.5, 1.5, 2.5], dtype='float16'),  
+                'int_col': [3, 2, 1]  
+            })  
+        )  
+        assert (  
+            df['float_col'].tolist() == [1.5, 2.5, 2.5] and  
+            df['int_col'].tolist() == [2, 1, 3]  
+        )  
+
+    def test_sort_float16_with_where(self):  
+        """  
+        Test sort with float16 columns using where clause  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by: column  
+                where: numbers > 2  
+            """,  
+            dataframe=pd.DataFrame({  
+                'column': pd.array([3.5, 1.2, 5.8, 2.1, 4.3], dtype='float16'),  
+                'numbers': [1, 2, 3, 4, 5]  
+            })  
+        )  
+        assert df['column'].tolist() == pytest.approx([2.1, 4.3, 5.8], rel=1e-3)
+        assert df['column'].tolist() == pytest.approx([2.1, 4.3, 5.8], rel=1e-3)
