@@ -710,7 +710,7 @@ class TestFormatSuffix:
 
     def test_suffix_skip_mult_empty_true(self):
         """
-        Testing format.suffix with skip_empty false
+        Testing format.suffix with skip_empty true
         """
         data = pd.DataFrame({
             'col1': ['hard','','soft'],
