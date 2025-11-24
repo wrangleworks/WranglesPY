@@ -213,7 +213,7 @@ def text(
           Default False
       skip_empty:
         type: boolean
-        desription: Whether to skip empty values
+        description: Whether to skip empty values
         default: (Optional) false
     """
     # Ensure only a single input column is specified
