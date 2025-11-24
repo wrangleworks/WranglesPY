@@ -158,7 +158,7 @@ def prefix(
         description: (Optional) Name of the output column
       skip_empty:
         type: boolean
-        desription: Whether to skip empty values
+        description: Whether to skip empty values
         default: (Optional) false
     """
     # If output is not specified, overwrite input columns in place
