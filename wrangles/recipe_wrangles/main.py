@@ -285,52 +285,6 @@ def batch(
     return _pd.concat(results)
 
 
-def case_when(  
-    df: _pd.DataFrame,    
-    output: str,    
-    cases: list,    
-    default = None  
-):  
-    """  
-    type: object  
-    description: Assign values to a column based on conditional logic  
-    additionalProperties: false  
-    required:  
-      - output  
-      - cases  
-    properties:  
-      output:  
-        type: string  
-        description: Name of the output column  
-      cases:  
-        type: array  
-        description: List of conditions and corresponding values  
-        minItems: 1  
-        items:  
-          type: object  
-          required:  
-            - condition  
-            - value  
-          properties:  
-            condition:  
-              type: string  
-              description: Condition to evaluate (e.g., "Score > 0.84")  
-            value:  
-              type: [string, number, integer, boolean]  
-              description: Value to assign if condition is true  
-      default:  
-        type: [string, number, integer, boolean, "null"]  
-        description: Value to assign if no conditions are met. Default None.  
-    """
-
-    conditions = [df.eval(case['condition']) for case in cases]  
-    choices = [case['value'] for case in cases]
-    # Use numpy.select to evaluate conditions and assign values  
-    df[output] = _np.select(conditions, choices, default=default)  
-    
-    return df
-
-
 def classify(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
