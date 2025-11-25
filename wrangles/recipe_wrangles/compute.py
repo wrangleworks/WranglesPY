@@ -40,15 +40,16 @@ def case_when(
         type: [string, number, integer, boolean, "null"]  
         description: Value to assign if no conditions are met. Default None.  
     """
-    
-    df_temp = df.copy()  
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')  
-      
-    # Evaluate conditions using the renamed columns  
-    conditions = [df_temp.eval(case['condition']) for case in cases]    
-    choices = [case['value'] for case in cases]  
-      
-    # Use numpy.select to evaluate conditions and assign values    
-    df[output] = _np.select(conditions, choices, default=default) 
-      
+
+    df_temp = df.copy()
+    df_temp.columns = df_temp.columns.str.replace(
+        r'[^a-zA-Z0-9_]', '_', regex=True)
+
+    # Evaluate conditions using the renamed columns
+    conditions = [df_temp.eval(case['condition']) for case in cases]
+    choices = [case['value'] for case in cases]
+
+    # Use numpy.select to evaluate conditions and assign values
+    df[output] = _np.select(conditions, choices, default=default)
+
     return df
