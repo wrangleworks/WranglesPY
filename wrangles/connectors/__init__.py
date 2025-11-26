@@ -7,6 +7,8 @@ from . import ckan
 from . import concurrent
 from . import excel
 from . import file
+from . import json
+
 from . import http
 from . import memory
 from . import mssql
