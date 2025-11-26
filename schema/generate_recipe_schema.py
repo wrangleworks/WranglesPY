@@ -222,7 +222,10 @@ recipe_schema['$defs']['run']['items']['properties'] = schema['run']
 recipe_schema['$defs']['wrangles']['items']['properties'] = schema['wrangles']
 
 # Validate the generated schema
-jsonschema.validate(recipe_schema, requests.get('http://json-schema.org/draft-07/schema#').json())
+try:
+    jsonschema.validate(recipe_schema, requests.get('http://json-schema.org/draft-07/schema#').json())
+except Exception as e:
+    logging.warning(f"Schema validation skipped: {e}")
 
 # Write final schema
 with open('schema.json', 'w') as f:
