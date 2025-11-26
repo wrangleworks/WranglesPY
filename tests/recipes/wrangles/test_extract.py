@@ -1819,6 +1819,37 @@ class TestExtractCustom:
             })
         )
         assert df.iloc[0]['Output'] == ['Charizard']
+        
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("training_order", ['Ten', 'Nine', 'Eight', 'Seven',
+         'Six', 'Five', 'Four', 'Three', 'Two', 'One']),
+        ("input_order", ['One', 'Two', 'Three', 'Four',
+         'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']),
+        ("longest", ['Three', 'Seven', 'Eight', 'Four',
+         'Five', 'Nine', 'One', 'Two', 'Six', 'Ten']),
+        ("shortest", ['One', 'Two', 'Six', 'Ten', 'Four',
+         'Five', 'Nine', 'Three', 'Seven', 'Eight']),
+        ("alphabetical", ['Eight', 'Five', 'Four', 'Nine',
+         'One', 'Seven', 'Six', 'Ten', 'Three', 'Two']),
+        ("reverse_alphabetical", [
+         'Two', 'Three', 'Ten', 'Six', 'Seven', 'One', 'Nine', 'Four', 'Five', 'Eight']),
+    ])
+    def test_extract_custom_sort(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col": ['one two three four five six seven eight nine ten']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                model_id: 8dd00032-d8bb-400c
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+
+        assert result["result"].tolist() == expected
+
 
 
 
