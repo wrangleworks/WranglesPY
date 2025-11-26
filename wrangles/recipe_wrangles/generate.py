@@ -1,8 +1,6 @@
-
 from typing import Union as _Union, Dict as _Dict, List as _List, Optional as _Optional
 import pandas as _pd
 import wrangles.generate as _generate
-
 
 
 def ai(
@@ -21,7 +19,7 @@ def ai(
     reasoning: _Dict[str, str] = {"effort": "low"},
     previous_response: bool = False,
     summary: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     Generate one or more structured outputs from every row using the inner `wrangles.generate.ai` helper.
@@ -89,7 +87,9 @@ def ai(
 
     output_schema = output
     if isinstance(output_schema, str):
-        output_schema = {output_schema: {"description": f"Generated content for {output_schema}"}}
+        output_schema = {
+            output_schema: {"description": f"Generated content for {output_schema}"}
+        }
     elif isinstance(output_schema, list):
         temp_dict = {}
         for item in output_schema:
@@ -102,10 +102,8 @@ def ai(
         "type": "object",
         "properties": output_schema,
         "required": target_columns,
-        "additionalProperties": False
+        "additionalProperties": False,
     }
-
-
 
     recipe_examples = None
     for key in ("Example", "Examples", "example", "examples"):
@@ -113,7 +111,7 @@ def ai(
             recipe_examples = kwargs.pop(key)
 
     results = _generate.ai(
-        input=df_temp.to_dict(orient='records'),
+        input=df_temp.to_dict(orient="records"),
         api_key=api_key,
         output=final_schema,
         model=model,
@@ -128,27 +126,30 @@ def ai(
         previous_response=previous_response,
         examples=recipe_examples,
         summary=summary,
-        
-        **kwargs
+        **kwargs,
     )
 
     try:
 
-        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+        exploded_df = (
+            _pd.json_normalize(results, max_level=0).fillna("").set_index(df.index)
+        )
 
         for col in target_columns:
             if col not in exploded_df.columns:
                 exploded_df[col] = ""
 
-        if 'source' in exploded_df.columns and 'source' not in df.columns:
-            df['source'] = exploded_df['source']
+        if "source" in exploded_df.columns and "source" not in df.columns:
+            df["source"] = exploded_df["source"]
 
-        if summary and 'summary' in exploded_df.columns:
-            df["summary"] = exploded_df['summary']
+        if summary and "summary" in exploded_df.columns:
+            df["summary"] = exploded_df["summary"]
 
         df[target_columns] = exploded_df[target_columns]
 
     except Exception as e:
-        raise RuntimeError(f"Unable to parse the response from the AI model. Error: {e}")
+        raise RuntimeError(
+            f"Unable to parse the response from the AI model. Error: {e}"
+        )
 
     return df

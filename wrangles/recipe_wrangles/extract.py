@@ -1,6 +1,7 @@
 """
 Functions to run extraction wrangles
 """
+
 from typing import Union as _Union
 import re as _re
 import pandas as _pd
@@ -14,7 +15,7 @@ def address(
     input: _Union[str, int, list],
     output: _Union[str, list],
     dataType: str,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -47,31 +48,34 @@ def address(
         description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            df[input].astype(str).aggregate(" ".join, axis=1).tolist(),
             dataType,
-            **kwargs
+            **kwargs,
         )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.address(
-                df[input_column].astype(str).tolist(),
-                dataType,
-                **kwargs
+                df[input_column].astype(str).tolist(), dataType, **kwargs
             )
-  
+
     return df
 
 
@@ -81,7 +85,7 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
-    **kwargs
+    **kwargs,
 ):
     """
     type: object
@@ -182,7 +186,7 @@ def ai(
         df_temp = df[input]
     else:
         df_temp = df
-    
+
     # Target columns will contain a list of column names
     # to insert to created results into
     target_columns = None
@@ -203,13 +207,12 @@ def ai(
         # check that matches the length of the model defined
         if len(target_columns) > 1:
             metadata = {
-                str(k).lower(): v
-                for k, v in _data.model_content(model_id).items()
+                str(k).lower(): v for k, v in _data.model_content(model_id).items()
             }
-            if len(target_columns) != len(metadata['data']):
+            if len(target_columns) != len(metadata["data"]):
                 raise ValueError(
-                  f"The number of columns does not match the number defined in model_id {model_id}. ",
-                  f"Expected {len(metadata['data'])}"
+                    f"The number of columns does not match the number defined in model_id {model_id}. ",
+                    f"Expected {len(metadata['data'])}",
                 )
 
     # Otherwise output defines the schema the AI is expected to produce
@@ -235,15 +238,17 @@ def ai(
         target_columns = list(output.keys())
 
     results = _extract.ai(
-        df_temp.to_dict(orient='records'),
+        df_temp.to_dict(orient="records"),
         api_key=api_key,
         output=output,
         model_id=model_id,
-        **kwargs
+        **kwargs,
     )
 
     try:
-        exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
+        exploded_df = (
+            _pd.json_normalize(results, max_level=0).fillna("").set_index(df.index)
+        )
 
         if target_columns and len(target_columns) == 1:
             if len(exploded_df.columns) == 1:
@@ -260,13 +265,13 @@ def ai(
                 # Ensure all the required keys are included in the output,
                 # even if chatGPT doesn't preserve them
                 for col in target_columns:
-                  if col not in exploded_df.columns:
-                      exploded_df[col] = ""
+                    if col not in exploded_df.columns:
+                        exploded_df[col] = ""
 
             # Merge back into the original dataframe
             df[target_columns] = exploded_df[target_columns]
     except:
-      raise RuntimeError("Unable to parse response from AI model")
+        raise RuntimeError("Unable to parse response from AI model")
 
     return df
 
@@ -275,12 +280,12 @@ def attributes(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list],
-    responseContent: str = 'span',
+    responseContent: str = "span",
     attribute_type: str = None,
     desired_unit: str = None,
-    bound: str = 'mid',
+    bound: str = "mid",
     first_element: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -351,26 +356,31 @@ def attributes(
     $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
+
     if len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
         df[output[0]] = _extract.attributes(
-            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            df[input].astype(str).aggregate(" AAA ".join, axis=1).tolist(),
             responseContent,
             attribute_type,
             desired_unit,
             bound,
             first_element,
-            **kwargs
+            **kwargs,
         )
     else:
         # Loop through and apply for all columns
@@ -382,18 +392,18 @@ def attributes(
                 desired_unit,
                 bound,
                 first_element,
-                **kwargs
+                **kwargs,
             )
-        
+
     return df
 
 
 def brackets(
-    df: _pd.DataFrame, 
+    df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list],
-    find: _Union[str, list] = 'all',
-    include_brackets: bool = False
+    find: _Union[str, list] = "all",
+    include_brackets: bool = False,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -415,7 +425,7 @@ def brackets(
           - array
         description: Name of the output columns
       find:
-        type: 
+        type:
           - string
           - array
         description: (Optional) The type of brackets to find (round '()', square '[]', curly '{}', angled '<>'). Default is all brackets.
@@ -424,32 +434,46 @@ def brackets(
         description: (Optional) Include the brackets in the output
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
 
     # Ensure find is a list
-    if not isinstance(find, list): find = [find]
+    if not isinstance(find, list):
+        find = [find]
 
     # Ensure find only contains the elements: round, square, curly, angled
-    bracket_types = ['round', 'square', 'curly', 'angled', 'all']
+    bracket_types = ["round", "square", "curly", "angled", "all"]
 
     if not all(element in bracket_types for element in find):
-        raise ValueError("find must only contain the elements: round, square, curly, angled")
+        raise ValueError(
+            "find must only contain the elements: round, square, curly, angled"
+        )
 
     # If only only one output and multiple inputs, concatenate the inputs
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, include_brackets)
+        df[output[0]] = _extract.brackets(
+            df[input].astype(str).aggregate(" ".join, axis=1).tolist(),
+            find,
+            include_brackets,
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets)
+            df[output_column] = _extract.brackets(
+                df[input_column].astype(str).tolist(), find, include_brackets
+            )
 
     return df
 
@@ -459,7 +483,7 @@ def codes(
     input: _Union[str, int, list],
     output: _Union[str, list],
     first_element: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -513,28 +537,30 @@ def codes(
         description: Whether to include multi-part tokens that have a space. Default True.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.codes(
-            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
-            **kwargs
+            df[input].astype(str).aggregate(" AAA ".join, axis=1).tolist(), **kwargs
         )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             df[output_column] = _extract.codes(
-                df[input_column].astype(str).tolist(),
-                first_element,
-                **kwargs
+                df[input_column].astype(str).tolist(), first_element, **kwargs
             )
 
     return df
@@ -550,7 +576,7 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -591,13 +617,17 @@ def custom(
         type: boolean
         description: Use spellcheck to also find minor mispellings compared to the reference data
     """
-    if output is None: output = input
-    
+    if output is None:
+        output = input
+
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    if not isinstance(model_id, list): model_id = [model_id]
-    
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
+    if not isinstance(model_id, list):
+        model_id = [model_id]
+
     if len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
@@ -610,9 +640,9 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
-                **kwargs
+                **kwargs,
             )
-    
+
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         model_id = [model_id[0] for _ in range(len(input))]
         output = output[0]
@@ -627,11 +657,14 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
-                **kwargs
+                **kwargs,
             )
 
         # Concatenate the results into a single column
-        df[output] = [list(dict.fromkeys(_format.concatenate([x for x in row if x], ' '))) for row in df_temp.values.tolist()]
+        df[output] = [
+            list(dict.fromkeys(_format.concatenate([x for x in row if x], " ")))
+            for row in df_temp.values.tolist()
+        ]
 
     else:
         # Iterate through the inputs, outputs and model_ids
@@ -644,13 +677,15 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
-                **kwargs
+                **kwargs,
             )
 
     return df
 
 
-def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None) -> _pd.DataFrame:
+def date_properties(
+    df: _pd.DataFrame, input: _pd.Timestamp, property: str, output: str = None
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract date properties from a date (day, month, year, etc...)
@@ -684,37 +719,42 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
           - quarter
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
+
     if len(output) == 1 and len(input) > 1:
         output = [output[0] for i in range(len(input))]
         # df_temp = df[input].apply(_pd.to_datetime)
         temp = []
         # for i in range(len(input)):
-            # Loop through and apply for all columns
+        # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             # Converting data to datetime
             df_temp = _pd.to_datetime(df[input_column])
-            
+
             properties_object = {
-                'day': df_temp.dt.day,
-                'day_of_year': df_temp.dt.day_of_year,
-                'month': df_temp.dt.month,
-                'month_name': df_temp.dt.month_name(),
-                'weekday': df_temp.dt.weekday,
-                'week_day_name': df_temp.dt.day_name(),
-                'week_year': df_temp.dt.isocalendar()['week'],
-                'quarter': df_temp.dt.quarter,
+                "day": df_temp.dt.day,
+                "day_of_year": df_temp.dt.day_of_year,
+                "month": df_temp.dt.month,
+                "month_name": df_temp.dt.month_name(),
+                "weekday": df_temp.dt.weekday,
+                "week_day_name": df_temp.dt.day_name(),
+                "week_year": df_temp.dt.isocalendar()["week"],
+                "quarter": df_temp.dt.quarter,
             }
-            
+
             if property in properties_object.keys() and temp == []:
                 temp.append([properties_object[property][0]])
 
@@ -723,33 +763,39 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
                     temp[j].append(properties_object[property][0])
 
             else:
-                raise ValueError(f"\"{property}\" not a valid date property.")
+                raise ValueError(f'"{property}" not a valid date property.')
         df[output[0]] = temp
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
             # Converting data to datetime
             df_temp = _pd.to_datetime(df[input_column])
-            
+
             properties_object = {
-                'day': df_temp.dt.day,
-                'day_of_year': df_temp.dt.day_of_year,
-                'month': df_temp.dt.month,
-                'month_name': df_temp.dt.month_name(),
-                'weekday': df_temp.dt.weekday,
-                'week_day_name': df_temp.dt.day_name(),
-                'week_year': df_temp.dt.isocalendar()['week'],
-                'quarter': df_temp.dt.quarter,
+                "day": df_temp.dt.day,
+                "day_of_year": df_temp.dt.day_of_year,
+                "month": df_temp.dt.month,
+                "month_name": df_temp.dt.month_name(),
+                "weekday": df_temp.dt.weekday,
+                "week_day_name": df_temp.dt.day_name(),
+                "week_year": df_temp.dt.isocalendar()["week"],
+                "quarter": df_temp.dt.quarter,
             }
-            
+
             if property in properties_object.keys():
                 df[output_column] = properties_object[property]
             else:
-                raise ValueError(f"\"{property}\" not a valid date property.")
+                raise ValueError(f'"{property}" not a valid date property.')
     return df
 
 
-def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Timestamp, output: str, range: str = 'day') -> _pd.DataFrame:
+def date_range(
+    df: _pd.DataFrame,
+    start_time: _pd.Timestamp,
+    end_time: _pd.Timestamp,
+    output: str,
+    range: str = "day",
+) -> _pd.DataFrame:
     """
     type: object
     description: Extract date range frequency from two dates
@@ -792,43 +838,43 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
           - milliseconds
     """
     range_object = {
-        'business days': 'B',
-        'days': 'D',
-        'weeks': 'W',
-        'months':'M',
-        'semi months': 'SM',
-        'business month ends': 'BM',
-        'month starts': 'MS',
-        'semi month starts': 'SMS',
-        'business month starts': 'BMS',
-        'quarters': 'Q',
-        'quarter starts': 'QS',
-        'years': 'Y',
-        'business hours': 'BH',
-        'hours': 'H',
-        'minutes': 'T',
-        'seconds': 'S',
-        'milliseconds': 'L',
+        "business days": "B",
+        "days": "D",
+        "weeks": "W",
+        "months": "M",
+        "semi months": "SM",
+        "business month ends": "BM",
+        "month starts": "MS",
+        "semi month starts": "SMS",
+        "business month starts": "BMS",
+        "quarters": "Q",
+        "quarter starts": "QS",
+        "years": "Y",
+        "business hours": "BH",
+        "hours": "H",
+        "minutes": "T",
+        "seconds": "S",
+        "milliseconds": "L",
     }
-    
+
     # Checking if frequency is invalid
     if range not in range_object.keys():
-        raise ValueError(f"\"{range}\" not a valid frequency")
-        
+        raise ValueError(f'"{range}" not a valid frequency')
+
     # Converting data to datetime
     df[start_time] = _pd.to_datetime(df[start_time])
     df[end_time] = _pd.to_datetime(df[end_time])
-        
+
     # Removing timezone information from columns before operation
     start_data = df[start_time].dt.tz_localize(None).copy()
     end_date = df[end_time].dt.tz_localize(None).copy()
-    
+
     results = []
     for start, end in zip(start_data, end_date):
         results.append(len(_pd.date_range(start, end, freq=range_object[range])[1:]))
-    
+
     df[output] = results
-    
+
     return df
 
 
@@ -837,7 +883,7 @@ def html(
     input: _Union[str, int, list],
     data_type: str,
     output: _Union[str, list] = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -869,24 +915,27 @@ def html(
         description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _extract.html(
-            df[input_column].astype(str).tolist(),
-            dataType=data_type,
-            **kwargs
+            df[input_column].astype(str).tolist(), dataType=data_type, **kwargs
         )
-            
+
     return df
 
 
@@ -895,9 +944,9 @@ def properties(
     input: _Union[str, int, list],
     output: _Union[str, list],
     property_type: str = None,
-    return_data_type: str = 'list',
+    return_data_type: str = "list",
     first_element: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -936,23 +985,28 @@ def properties(
         description: Get the first element from results
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
 
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.properties(
-            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            df[input].astype(str).aggregate(" ".join, axis=1).tolist(),
             type=property_type,
             return_data_type=return_data_type,
             first_element=first_element,
-            **kwargs
+            **kwargs,
         )
     else:
         # Loop through and apply for all columns
@@ -962,19 +1016,20 @@ def properties(
                 type=property_type,
                 return_data_type=return_data_type,
                 first_element=first_element,
-                **kwargs
+                **kwargs,
             )
-    
+
     return df
 
+
 def regex(
-  df: _pd.DataFrame,
-  input: _Union[str, int, list],
-  find: str,
-  output: _Union[str, list],
-  output_pattern: str = None,
-  first_element: bool = False
-  ) -> _pd.DataFrame:
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    find: str,
+    output: _Union[str, list],
+    output_pattern: str = None,
+    first_element: bool = False,
+) -> _pd.DataFrame:
     r"""
     type: object
     description: Extract matches or specific capture groups using regex
@@ -985,7 +1040,7 @@ def regex(
       - find
     properties:
       input:
-        type: 
+        type:
           - string
           - integer
           - array
@@ -1009,45 +1064,86 @@ def regex(
           **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: 
+    if output is None:
         output = input
 
     # If a string is provided, convert to list
-    if not isinstance(input, list): 
+    if not isinstance(input, list):
         input = [input]
-    if not isinstance(output, list): 
+    if not isinstance(output, list):
         output = [output]
 
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
-        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+        raise ValueError(
+            "Extract must output to a single column or equal amount of columns as input."
+        )
+
     find_pattern = _re.compile(find)
-        
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if output_pattern is None and first_element:
             # Return entire matches
             df[output_column] = df[input_column].apply(
-                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")][0]
-                           if len([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")]) >= 1
-                           else "")
-                          )
+                lambda x: (
+                    [
+                        match.group(0)
+                        for match in _re.finditer(
+                            find_pattern, str(x) if x is not None else ""
+                        )
+                    ][0]
+                    if len(
+                        [
+                            match.group(0)
+                            for match in _re.finditer(
+                                find_pattern, str(x) if x is not None else ""
+                            )
+                        ]
+                    )
+                    >= 1
+                    else ""
+                )
+            )
         elif output_pattern is None and not first_element:
             # Return entire matches
-            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")])
+            df[output_column] = df[input_column].apply(
+                lambda x: [
+                    match.group(0)
+                    for match in _re.finditer(
+                        find_pattern, str(x) if x is not None else ""
+                    )
+                ]
+            )
         elif output_pattern and first_element:
             # Return specific capture groups in the pattern the were passed
             df[output_column] = df[input_column].apply(
                 lambda x: (
-                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")][0]
-                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")]) >= 1
-                    else ""
+                    [
+                        find_pattern.sub(output_pattern, match.group(0))
+                        for match in find_pattern.finditer(
+                            str(x) if x is not None else ""
+                        )
+                    ][0]
+                    if len(
+                        [
+                            find_pattern.sub(output_pattern, match.group(0))
+                            for match in find_pattern.finditer(
+                                str(x) if x is not None else ""
+                            )
+                        ]
                     )
+                    >= 1
+                    else ""
                 )
+            )
         else:
             # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")])
+            df[output_column] = df[input_column].apply(
+                lambda x: [
+                    find_pattern.sub(output_pattern, match.group(0))
+                    for match in find_pattern.finditer(str(x) if x is not None else "")
+                ]
+            )
 
     return df
-

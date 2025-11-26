@@ -1,12 +1,14 @@
 """
 Connector to read/write from SQLite database
 """
+
 import pandas as _pd
 import logging as _logging
 import sqlite3 as _sqlite3
 from typing import Union as _Union
 
 _schema = {}
+
 
 def read(database: str, command: str, **kwargs) -> _pd.DataFrame:
     """
@@ -19,13 +21,16 @@ def read(database: str, command: str, **kwargs) -> _pd.DataFrame:
     :param command: SQL command or table name
     """
     _logging.info(f": Reading data from SQLite :: {database}")
-    
+
     with _sqlite3.connect(database) as conn:
         df = _pd.read_sql(command, conn, **kwargs)
 
     return df
 
-_schema['read'] = r"""
+
+_schema[
+    "read"
+] = r"""
 type: object
 description: Import data from a SQLite Database
 required:
@@ -44,6 +49,7 @@ properties:
       untrusted sources.
 """
 
+
 def write(df: _pd.DataFrame, database: str, table: str, **kwargs) -> None:
     """
     Write data to a SQLite database.
@@ -60,15 +66,18 @@ def write(df: _pd.DataFrame, database: str, table: str, **kwargs) -> None:
     with _sqlite3.connect(database) as conn:
         df.to_sql(
             table,
-            con = conn,
-            if_exists = 'append',
-            index = False,
-            method='multi',
+            con=conn,
+            if_exists="append",
+            index=False,
+            method="multi",
             chunksize=1000,
-            **kwargs
+            **kwargs,
         )
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Export data to a SQLite Database
 required:
@@ -85,9 +94,7 @@ properties:
 
 
 def run(
-    database: str,
-    command: _Union[str, list],
-    params: _Union[list, dict] = ()
+    database: str, command: _Union[str, list], params: _Union[list, dict] = ()
 ) -> None:
     """
     Run a command on a SQLite Database
@@ -104,7 +111,8 @@ def run(
     _logging.info(f": Executing SQLite Command :: {database}")
 
     # If user has provided a single command, convert to a list.
-    if isinstance(command, str): command = [command]
+    if isinstance(command, str):
+        command = [command]
 
     with _sqlite3.connect(database) as conn:
         cursor = conn.cursor()
@@ -112,7 +120,10 @@ def run(
             cursor.execute(sql, params)
             conn.commit()
 
-_schema['run'] = r"""
+
+_schema[
+    "run"
+] = r"""
 type: object
 description: Run a command against a SQLite Database
 required:

@@ -3,6 +3,7 @@ Standalone functions
 
 These will be called directly, without belonging to a parent module
 """
+
 import types as _types
 import logging as _logging
 from typing import Union as _Union
@@ -39,7 +40,7 @@ def accordion(
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = {},
 ) -> _pd.DataFrame:
     """
     type: object
@@ -83,17 +84,24 @@ def accordion(
           "$ref": "#/$defs/wrangles/items"
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
-    if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
-    if not isinstance(propagate, list): propagate = [propagate]
-    
+    if propagate is None:
+        propagate = [item for item in df.columns.tolist() if item not in input]
+    if not isinstance(propagate, list):
+        propagate = [propagate]
+
     if not df.index.is_unique:
-        raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
+        raise ValueError(
+            "The dataframe index must be unique for the accordion wrangle to work."
+        )
 
     # Deep copy the dataframe to avoid modifying the original
     df_temp = df[input + propagate].copy()
@@ -107,34 +115,44 @@ def accordion(
                 pass
 
     # Save temporary index to be able to merge back later
-    random_str = str(_random.randint(0,999999999))
+    random_str = str(_random.randint(0, 999999999))
     df_temp[f"index_asbjdbasjk_{random_str}"] = df_temp.index
-    
+
     try:
         df_temp = _wrangles.recipe.run(
             {
                 "wrangles": [
                     {"explode": {"input": input, "drop_empty": True}},
                     {"pandas.reset_index": {"parameters": {"drop": True}}},
-                ] + wrangles
+                ]
+                + wrangles
             },
             dataframe=df_temp,
             functions=functions,
-            variables=variables
+            variables=variables,
         )
     except KeyError as e:
-        e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        e.args = (
+            f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",
+        )
         raise e
 
     try:
         df_temp = _wrangles.recipe.run(
-            {"wrangles": [
-                {"select.group_by": {"by": f"index_asbjdbasjk_{random_str}", "list": output}},
-                {"rename": {x + ".list": x for x in output}}
-            ]},
+            {
+                "wrangles": [
+                    {
+                        "select.group_by": {
+                            "by": f"index_asbjdbasjk_{random_str}",
+                            "list": output,
+                        }
+                    },
+                    {"rename": {x + ".list": x for x in output}},
+                ]
+            },
             dataframe=df_temp,
             functions=functions,
-            variables=variables
+            variables=variables,
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
@@ -149,17 +167,15 @@ def accordion(
         left_index=True,
         right_index=True,
         how="left",
-        suffixes=("_TOBEDROPPED", None)
-    ).filter(regex='^(?!.*_TOBEDROPPED)')
+        suffixes=("_TOBEDROPPED", None),
+    ).filter(regex="^(?!.*_TOBEDROPPED)")
 
     # Ensure output columns contain empty lists if no data remaining
     df[output] = df[output].map(lambda d: d if isinstance(d, list) else [])
 
     # Ensure output columns are in the same order as the original columns
     all_columns = original_columns + [
-        col
-        for col in df.columns.to_list()
-        if col not in original_columns
+        col for col in df.columns.to_list() if col not in original_columns
     ]
     df = df[all_columns]
     return df
@@ -171,7 +187,7 @@ def _batch_thread(
     functions: _Union[_types.FunctionType, list] = [],
     variables: dict = {},
     timeout: float = None,
-    on_error: dict = None
+    on_error: dict = None,
 ):
     """
     Function called by batch
@@ -182,17 +198,15 @@ def _batch_thread(
             dataframe=df,
             functions=functions,
             variables=variables,
-            timeout=timeout
+            timeout=timeout,
         )
     except Exception as err:
         if on_error:
             _logging.error(f": Suppressed error in batch: {str(err)}")
-            return df.assign(**{
-                k: [v] * len(df)
-                for k, v in on_error.items()
-            })
+            return df.assign(**{k: [v] * len(df) for k, v in on_error.items()})
         else:
             raise err from None
+
 
 def batch(
     df,
@@ -203,7 +217,7 @@ def batch(
     threads: int = 1,
     on_error: dict = None,
     timeout: float = None,
-    use_multiprocessing: bool = False
+    use_multiprocessing: bool = False,
 ):
     """
     type: object
@@ -239,24 +253,24 @@ def batch(
         description: The number of seconds to wait for a batch to complete before raising an error
     """
     if not isinstance(df, _pd.DataFrame):
-        raise ValueError('Input must be a pandas DataFrame')
+        raise ValueError("Input must be a pandas DataFrame")
 
     if not isinstance(batch_size, int):
         try:
             batch_size = int(batch_size)
         except:
-          raise ValueError('batch_size must be an integer greater than 0')
+            raise ValueError("batch_size must be an integer greater than 0")
     if batch_size < 1:
-        raise ValueError('batch_size must be an integer greater than 0')
+        raise ValueError("batch_size must be an integer greater than 0")
 
     if not isinstance(threads, int):
         try:
             threads = int(threads)
         except:
-            raise ValueError('threads must be an integer greater than 0')
+            raise ValueError("threads must be an integer greater than 0")
     if threads < 1:
-        raise ValueError('threads must be an integer greater than 0')
-  
+        raise ValueError("threads must be an integer greater than 0")
+
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -265,7 +279,7 @@ def batch(
 
     with pool_executor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
-        
+
         # Set a chunk size for process pool executor
         # to reduce overhead of process creation
         chunksize = min(max(len(batches) // threads, 1), 20)
@@ -278,7 +292,7 @@ def batch(
             [variables] * len(batches),
             [timeout] * len(batches),
             [on_error] * len(batches),
-            chunksize = chunksize
+            chunksize=chunksize,
         )
 
     return _pd.concat(results)
@@ -289,7 +303,7 @@ def classify(
     input: _Union[str, int, list],
     output: _Union[str, list],
     model_id: str,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -320,33 +334,34 @@ def classify(
         description: For models that support it, include the confidence level in the output
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
+        raise ValueError("The lists for input and output must be the same length.")
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _classify(
-            df[input_column].astype(str).tolist(),
-            model_id,
-            **kwargs
+            df[input_column].astype(str).tolist(), model_id, **kwargs
         )
 
     return df
 
-  
+
 def clean_whitespaces(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list] = None,
     trim: bool = True,
-    remove_literals: bool = True
+    remove_literals: bool = True,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -374,23 +389,28 @@ def clean_whitespaces(
         description: Whether to remove special space characters such as new lines etc. Default True.
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
+        raise ValueError("The lists for input and output must be the same length.")
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        if remove_literals: pattern = r'\s{2,}| | |'
-        else: pattern = '( | | |)+'
+        if remove_literals:
+            pattern = r"\s{2,}| | |"
+        else:
+            pattern = "( | | |)+"
 
         df[output_column] = df[input_column].apply(
-            lambda x: _re.sub(pattern, ' ', x) if isinstance(x, str) else x
+            lambda x: _re.sub(pattern, " ", x) if isinstance(x, str) else x
         )
         if trim:
             df[output_column] = df[output_column].apply(
@@ -406,7 +426,7 @@ def concurrent(
     max_concurrency: int = 10,
     use_multiprocessing: bool = False,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = {},
 ) -> _pd.DataFrame:
     """
     type: object
@@ -443,23 +463,25 @@ def concurrent(
         futures_output_map = {}
         for wrangle_definition in wrangles:
             if (
-                not isinstance(wrangle_definition, dict) or
-                "output" not in list(wrangle_definition.values())[0]
+                not isinstance(wrangle_definition, dict)
+                or "output" not in list(wrangle_definition.values())[0]
             ):
-                raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
+                raise ValueError(
+                    "Using concurrent requires that each wrangle specify output column(s)."
+                )
 
             future = executor.submit(
                 _wrangles.recipe.run,
-                recipe= {'wrangles': [wrangle_definition]},
+                recipe={"wrangles": [wrangle_definition]},
                 dataframe=df.copy(),
                 variables=variables,
-                functions=functions
+                functions=functions,
             )
             futures.append(future)
 
             # Add output columns to reference on completion
             futures_output_map[future] = list(wrangle_definition.values())[0]["output"]
-        
+
         # Wait for all futures to complete
         for future in _futures.as_completed(futures):
             df[futures_output_map[future]] = future.result()[futures_output_map[future]]
@@ -467,7 +489,14 @@ def concurrent(
     return df
 
 
-def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operation: str = 'add', output: _Union[str, _pd.Timestamp] = None, time_unit: str = None, time_value: float = None) -> _pd.DataFrame:
+def date_calculator(
+    df: _pd.DataFrame,
+    input: _Union[str, _pd.Timestamp],
+    operation: str = "add",
+    output: _Union[str, _pd.Timestamp] = None,
+    time_unit: str = None,
+    time_value: float = None,
+) -> _pd.DataFrame:
     """
     type: object
     description: Add or Subtract time from a date
@@ -509,33 +538,38 @@ def date_calculator(df: _pd.DataFrame, input: _Union[str, _pd.Timestamp], operat
     offset = _pd.DateOffset(**{time_unit: time_value})
 
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
+        raise ValueError("The lists for input and output must be the same length.")
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         # Converting data to datetime
         df_temp = _pd.to_datetime(df[input_column])
-        
+
         results = []
-        if operation == 'add':
+        if operation == "add":
             for date in df_temp:
                 results.append(date + offset)
-                
-        elif operation == 'subtract':
+
+        elif operation == "subtract":
             for date in df_temp:
                 results.append(date - offset)
-                
+
         else:
-            raise ValueError(f'\"{operation}\" is not a valid operation. Available operations: \"add\", \"subtract\"')
-        
+            raise ValueError(
+                f'"{operation}" is not a valid operation. Available operations: "add", "subtract"'
+            )
+
         df[output_column] = results
 
     return df
@@ -572,7 +606,7 @@ def filter(
         type: string
         description: Use a SQL WHERE clause to filter the data.
       where_params:
-        type: 
+        type:
           - array
           - object
         description: |-
@@ -659,58 +693,65 @@ def filter(
                 """,
                 where_params,
                 preserve_index=True,
-                preserve_data_types=False
+                preserve_data_types=False,
             ).index.to_list()
         ]
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
+    if not isinstance(input, list):
+        input = [input]
 
     # Return early on empty df
-    if df.empty: return df
+    if df.empty:
+        return df
 
-    for input_column in input: 
+    for input_column in input:
         if equal != None:
-            if not isinstance(equal, list): equal = [equal]
+            if not isinstance(equal, list):
+                equal = [equal]
             df = df.loc[df[input_column].isin(equal)]
 
         if not_equal != None:
-            if not isinstance(not_equal, list): not_equal = [not_equal]
+            if not isinstance(not_equal, list):
+                not_equal = [not_equal]
             df = df.loc[~df[input_column].isin(not_equal)]
-        
+
         if is_in != None:
-            if not isinstance(is_in, list): is_in = [is_in]
+            if not isinstance(is_in, list):
+                is_in = [is_in]
             df = df[df[input_column].isin(is_in)]
-        
+
         if not_in != None:
-            if not isinstance(not_in, list): not_in = [not_in]
+            if not isinstance(not_in, list):
+                not_in = [not_in]
             df = df[~df[input_column].isin(not_in)]
-        
+
         if greater_than != None:
             df = df[df[input_column] > greater_than]
-        
+
         if greater_than_equal_to != None:
             df = df[df[input_column] >= greater_than_equal_to]
-        
+
         if less_than != None:
             df = df[df[input_column] < less_than]
-        
+
         if less_than_equal_to != None:
             df = df[df[input_column] <= less_than_equal_to]
-        
+
         if between != None:
-            if len(between) != 2: raise ValueError('Can only use "between" with two values')
+            if len(between) != 2:
+                raise ValueError('Can only use "between" with two values')
             df = df[df[input_column].between(between[0], between[1], **kwargs)]
-        
+
         if contains != None:
             df = df[df[input_column].str.contains(contains, na=False, **kwargs)]
-        
+
         if not_contains != None:
             df = df[~df[input_column].str.contains(not_contains, na=False, **kwargs)]
-        
+
         if is_null == True:
             df = df[df[input_column].isnull()]
-        
+
         if is_null == False:
             df = df[df[input_column].notnull()]
 
@@ -725,7 +766,7 @@ def huggingface(
     api_token: str,
     model: str,
     output: _Union[str, list] = None,
-    parameters = None
+    parameters=None,
 ):
     """
     type: object
@@ -758,25 +799,23 @@ def huggingface(
         type: object
         description: Optionally, provide additional parameters to define the model behaviour
     """
-    if not output: output = input
-    if not isinstance(output, list): output = [output]
-    if not isinstance(input, list): input = [input]
+    if not output:
+        output = input
+    if not isinstance(output, list):
+        output = [output]
+    if not isinstance(input, list):
+        input = [input]
 
     json_base = {}
     if parameters:
-        json_base['parameters'] = parameters
+        json_base["parameters"] = parameters
 
     for input_col, output_col in zip(input, output):
         df[output_col] = [
             _requests.post(
                 f"https://api-inference.huggingface.co/models/{model}",
-                headers={
-                    "Authorization": f"Bearer {api_token}"
-                },
-                json={
-                    **json_base,
-                    **{"inputs": row}
-                }
+                headers={"Authorization": f"Bearer {api_token}"},
+                json={**json_base, **{"inputs": row}},
             ).json()
             for row in df[input_col].values
         ]
@@ -791,7 +830,7 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = None
+    log_data: bool = None,
 ):
     """
     type: object
@@ -803,9 +842,9 @@ def log(
         description: (Optional, default all columns) List of specific columns to log.
       write:
         type: array
-        description: (Optional) Allows for an intermediate output to a file/dataframe/database etc. 
+        description: (Optional) Allows for an intermediate output to a file/dataframe/database etc.
         minItems: 1
-        items: 
+        items:
           "$ref": "#/$defs/write/items"
       error:
         type: string
@@ -823,28 +862,27 @@ def log(
     if columns is not None:
 
         # Get the wildcards
-        wildcard_check = [x for x in columns if '*' in x]
+        wildcard_check = [x for x in columns if "*" in x]
 
         columns_to_print = []
         temp_cols = []
         # Check if there are any asterisks in columns to print
         if len(wildcard_check):
             for iter in wildcard_check:
-                
+
                 # Do nothing if the user enters an escape character
-                if '\\' in iter:
-                    column = iter.replace('\\', '')
+                if "\\" in iter:
+                    column = iter.replace("\\", "")
                     columns_to_print.append(column)
                 # Add all columns names with similar name
                 else:
-                    column = iter.replace('*', '')
+                    column = iter.replace("*", "")
                     re_pattern = r"^\b{}(\s)?(\d+)?\b$".format(column)
                     list_re = [_re.search(re_pattern, x) for x in df.columns]
                     temp_cols.extend([x.string for x in list_re if x != None])
 
-
         # Remove columns that have "*" as they are handled above
-        no_wildcard = [x for x in columns if '*' not in x]
+        no_wildcard = [x for x in columns if "*" not in x]
         columns_to_print.extend(no_wildcard)
         columns_to_print.extend(temp_cols)
 
@@ -861,15 +899,13 @@ def log(
         _logging.info(info)
 
     if write:
-        _wrangles.recipe.run(
-            {'write': write},
-            dataframe=df
-        )
+        _wrangles.recipe.run({"write": write}, dataframe=df)
 
-    if log_data == None and not any([error, warning, info, write]): log_data = True
-        
+    if log_data == None and not any([error, warning, info, write]):
+        log_data = True
+
     if log_data:
-        _logging.info(msg=': Dataframe ::\n\n' + df_tolog.to_string() + '\n')
+        _logging.info(msg=": Dataframe ::\n\n" + df_tolog.to_string() + "\n")
 
     return df
 
@@ -879,7 +915,7 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -907,15 +943,17 @@ def lookup(
         if len(input) == 1:
             input = input[0]
         else:
-            raise ValueError('Input only allows one column.')
-    
-    if output is None: output = input
+            raise ValueError("Input only allows one column.")
+
+    if output is None:
+        output = input
 
     # Ensure output is a list
-    if not isinstance(output, list): output = [output]
+    if not isinstance(output, list):
+        output = [output]
 
     # Return early on empty df
-    if df.empty: 
+    if df.empty:
         # Add empty output columns to maintain expected structure
         for out in output:
             if out not in df.columns:
@@ -925,50 +963,47 @@ def lookup(
     # If user specified a model_id, use it to lookup values
     if model_id:
         metadata = _model(model_id)
-        if metadata.get('message', None) == 'error':
-            raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
-        
+        if metadata.get("message", None) == "error":
+            raise ValueError(
+                "Incorrect model_id.\nmodel_id may be wrong or does not exists"
+            )
+
         # Using model_id in wrong function
-        purpose = metadata['purpose']
-        if purpose != 'lookup':
-            raise ValueError(f'Using {purpose} model_id {model_id} in a lookup function.')
-        
+        purpose = metadata["purpose"]
+        if purpose != "lookup":
+            raise ValueError(
+                f"Using {purpose} model_id {model_id} in a lookup function."
+            )
+
         # Split input/output if user differentiated e.g. "wrangle_column: output_column"
         wrangle_output = [
-            list(val.keys())[0] if isinstance(val, dict) else val
-            for val in output    
+            list(val.keys())[0] if isinstance(val, dict) else val for val in output
         ]
         output = [
-            list(val.values())[0] if isinstance(val, dict) else val
-            for val in output    
+            list(val.values())[0] if isinstance(val, dict) else val for val in output
         ]
 
         if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified all columns from the wrangle
             # Add respective columns to the dataframe
             data = _lookup(
-                df[input].values.tolist(),
-                model_id,
-                columns=wrangle_output,
-                **kwargs
+                df[input].values.tolist(), model_id, columns=wrangle_output, **kwargs
             )
             df[output] = data
-        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+        elif not any(
+            [col in metadata["settings"]["columns"] for col in wrangle_output]
+        ):
             # User specified no columns from the wrangle
             # Add dict of all values to those columns
-            data = _lookup(
-                df[input].values.tolist(),
-                model_id,
-                **kwargs
-            )
+            data = _lookup(df[input].values.tolist(), model_id, **kwargs)
             for out in output:
                 df[out] = data
         else:
             # User specified a mixture of unrecognized columns and columns from the wrangle
-            raise ValueError('Lookup may only contain all named or unnamed columns.')
+            raise ValueError("Lookup may only contain all named or unnamed columns.")
     else:
-        raise ValueError('model_id is required for lookup')
-    
+        raise ValueError("model_id is required for lookup")
+
     return df
 
 
@@ -993,8 +1028,8 @@ def math(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
         description: The column to output the results to
     """
     df_temp = df.copy()
-    df_temp.columns = df_temp.columns.str.replace(' ', '_')
-    df[output] = _ne.evaluate(input, df_temp.to_dict(orient='list'))
+    df_temp.columns = df_temp.columns.str.replace(" ", "_")
+    df[output] = _ne.evaluate(input, df_temp.to_dict(orient="list"))
     return df
 
 
@@ -1002,7 +1037,7 @@ def maths(df: _pd.DataFrame, input: str, output: str) -> _pd.DataFrame:
     """
     Deprecated - use math
     """
-    _logging.warning('maths is deprecated, use math instead')
+    _logging.warning("maths is deprecated, use math instead")
     return math(df, input, output)
 
 
@@ -1042,21 +1077,16 @@ def matrix(
           - loop
         description: >-
           Determines how to combine variables when there are multiple.
-          loop (default) iterates over each set of variables, repeating shorter lists 
-          until the longest is completed. permutations uses the combination of all 
+          loop (default) iterates over each set of variables, repeating shorter lists
+          until the longest is completed. permutations uses the combination of all
           variables against all other variables.
     """
-    for permutation in _define_permutations(
-      variables,
-      strategy,
-      functions,
-      df
-    ):
+    for permutation in _define_permutations(variables, strategy, functions, df):
         df = _wrangles.recipe.run(
-            recipe={'wrangles': wrangles},
+            recipe={"wrangles": wrangles},
             dataframe=df,
             variables=permutation,
-            functions=functions
+            functions=functions,
         )
 
     return df
@@ -1067,7 +1097,7 @@ def python(
     command: str,
     output: _Union[str, list],
     input: _Union[str, int, list] = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1130,14 +1160,8 @@ def python(
     # Create rename dict to rename variables
     # that can't be used as python variables
     rename_dict = {
-        **{
-            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
-            for k in kwargs.keys()
-        },
-        **{
-            k: _re.sub(r'[^a-zA-Z0-9_]', '_', k)
-            for k in input
-        }
+        **{k: _re.sub(r"[^a-zA-Z0-9_]", "_", k) for k in kwargs.keys()},
+        **{k: _re.sub(r"[^a-zA-Z0-9_]", "_", k) for k in input},
     }
 
     # Set whether to output as a single or multiple columns
@@ -1154,12 +1178,14 @@ def python(
         exception = None
 
     # Raise a warniing for illegal python variables
-    if _re.search('\${.*\s.*}', command):
-        _logging.warning(f'Spaces should be dropped in python wrangle variables in order to be valid python syntax.')
+    if _re.search("\${.*\s.*}", command):
+        _logging.warning(
+            f"Spaces should be dropped in python wrangle variables in order to be valid python syntax."
+        )
 
     # Clean up variables and replace column variables with the column name
     command_modified = _statement_modifier(command)
-    variables = kwargs.pop('variables', {})
+    variables = kwargs.pop("variables", {})
 
     def _apply_command(variables, **kwargs):
         """
@@ -1171,15 +1197,12 @@ def python(
         return eval(
             command_modified,
             {
-                **{
-                    rename_dict.get(k, k): v
-                    for k, v in kwargs.items()
-                },
-                **{**variables, "kwargs": kwargs}
+                **{rename_dict.get(k, k): v for k, v in kwargs.items()},
+                **{**variables, "kwargs": kwargs},
             },
-            {}
+            {},
         )
-    
+
     def _exception_handler(variables, **kwargs):
         """
         If an exception value is provided by the user, catch and return
@@ -1199,14 +1222,14 @@ def python(
             "row_count": len(df),
             "column_count": len(df.columns),
             "columns": df.columns.tolist(),
-            "df": df
-        }
+            "df": df,
+        },
     }
 
     df[output] = df[input].apply(
         lambda x: _exception_handler(variables, **x, **kwargs),
         axis=1,
-        result_type=result_type
+        result_type=result_type,
     )
 
     return df
@@ -1217,9 +1240,9 @@ def recipe(
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     name: str = None,
-    variables = {},
+    variables={},
     functions: _Union[_types.FunctionType, list] = [],
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     anyOf:
@@ -1237,33 +1260,30 @@ def recipe(
             type: object
             description: A dictionary of variables to pass to the recipe
     """
-    if not name: name = kwargs
+    if not name:
+        name = kwargs
 
-    df_temp = df.copy() # copy of the original df
+    df_temp = df.copy()  # copy of the original df
 
     # Filter columns if input is specified
     if input:
-        if not isinstance(input, list): input = [input]
+        if not isinstance(input, list):
+            input = [input]
         df_temp = df_temp[input]
-    
+
     if output is None and input is not None:
         output = input
 
     # If output columns are specified, only apply to those
     if output:
-        if not isinstance(output, list): output = [output]
+        if not isinstance(output, list):
+            output = [output]
         df[output] = _recipe.run(
-            name,
-            variables=variables,
-            functions=functions,
-            dataframe=df_temp
+            name, variables=variables, functions=functions, dataframe=df_temp
         )[output]
     else:
         df = _recipe.run(
-            name,
-            variables=variables,
-            functions=functions,
-            dataframe=df_temp
+            name, variables=variables, functions=functions, dataframe=df_temp
         )
 
     return df
@@ -1275,8 +1295,8 @@ def remove_words(
     to_remove: str,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = False,
-    ignore_case: bool = True
-    ) -> _pd.DataFrame:
+    ignore_case: bool = True,
+) -> _pd.DataFrame:
     """
     type: object
     description: Remove all the elements that occur in one list from another.
@@ -1287,7 +1307,7 @@ def remove_words(
       - output
     properties:
       input:
-        type: 
+        type:
           - string
           - integer
           - array
@@ -1296,7 +1316,7 @@ def remove_words(
         type: array
         description: Column or list of columns with a list of words to be removed
       output:
-        type: 
+        type:
           - string
           - array
         description: Name of the output columns
@@ -1308,25 +1328,33 @@ def remove_words(
         description: Ignore input and to_remove case
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError("The lists for input and output must be the same length.")
 
     # Early return for empty df
     if df.empty:
         df[output] = None
         return df
-    
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
-    
+        df[output_column] = _extract.remove_words(
+            df[input_column].values.tolist(),
+            df[to_remove].values.tolist(),
+            tokenize_to_remove,
+            ignore_case,
+        )
+
     return df
 
 
@@ -1335,7 +1363,7 @@ def rename(
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     wrangles: list = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1369,26 +1397,23 @@ def rename(
         try:
             output = _wrangles.recipe.run(
                 {"wrangles": wrangles},
-                dataframe=_pd.DataFrame({
-                    "columns": input
-                }),
+                dataframe=_pd.DataFrame({"columns": input}),
                 functions=kwargs.get("functions", {}),
-                variables=kwargs.get("variables", {})
+                variables=kwargs.get("variables", {}),
             )["columns"].tolist()
         except:
-            raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
-    
+            raise RuntimeError(
+                "If using wrangles to rename, a column named 'columns' must be returned."
+            )
+
         if len(input) != len(output):
             raise RuntimeError(
-                "If using wrangles to rename columns, " +
-                "the results must be the same length as the input columns."
+                "If using wrangles to rename columns, "
+                + "the results must be the same length as the input columns."
             )
     else:
         # Drop functions if not needed
-        if (
-            "functions" in kwargs and
-            isinstance(kwargs["functions"], dict)
-        ):
+        if "functions" in kwargs and isinstance(kwargs["functions"], dict):
             del kwargs["functions"]
 
     # If short form of paired names is provided, use that
@@ -1396,33 +1421,50 @@ def rename(
         # Check that column name exists
         rename_cols = list(kwargs.keys())
         for x in rename_cols:
-            if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
+            if x not in list(df.columns):
+                raise ValueError(f'Rename column "{x}" not found.')
         # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
-        
+        df = df.drop(
+            columns=[
+                x
+                for x in list(kwargs.values())
+                if x in df.columns and x not in list(kwargs.keys())
+            ]
+        )
+
         rename_dict = kwargs
     else:
         if not output:
-            raise ValueError('If an input is provided, an output must also be provided.')
+            raise ValueError(
+                "If an input is provided, an output must also be provided."
+            )
 
         # If a string provided, convert to list
-        if not isinstance(input, list): input = [input]
-        if not isinstance(output, list): output = [output]
+        if not isinstance(input, list):
+            input = [input]
+        if not isinstance(output, list):
+            output = [output]
 
         # Ensure input and output are equal lengths
         if len(input) != len(output):
-            raise ValueError('The lists for input and output must be the same length.')
-        
+            raise ValueError("The lists for input and output must be the same length.")
+
         # Check that the output columns don't already exist if so drop them
         df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
-        
+
         # Otherwise create a dict from input and output columns
         rename_dict = dict(zip(input, output))
 
     return df.rename(columns=rename_dict)
 
 
-def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
+def replace(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    find: str,
+    replace: str,
+    output: _Union[str, list] = None,
+) -> _pd.DataFrame:
     """
     type: object
     description: Quick find and replace for simple values. Can use regex in the find field.
@@ -1451,15 +1493,18 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
         description: Value to replace the pattern found
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError("The lists for input and output must be the same length.")
 
     def custom_replacement(x, find, replace, row):
         if isinstance(x, (dict, list, bool)):  # Check if the input is an object
@@ -1472,18 +1517,27 @@ def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace
             return x  # Return the object as-is without modification
 
         try:
-            return _re.sub(str(find), str(replace), str(x))  # Apply the regex substitution
+            return _re.sub(
+                str(find), str(replace), str(x)
+            )  # Apply the regex substitution
         except:
             return x
-    
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = df.apply(lambda row: custom_replacement(row[input_column], find, replace, row=row.name), axis=1)
+        df[output_column] = df.apply(
+            lambda row: custom_replacement(
+                row[input_column], find, replace, row=row.name
+            ),
+            axis=1,
+        )
 
     return df
 
 
-def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosine') -> _pd.DataFrame:
+def similarity(
+    df: _pd.DataFrame, input: list, output: str, method: str = "cosine"
+) -> _pd.DataFrame:
     """
     type: object
     description: Calculate the cosine similarity of two vectors
@@ -1513,47 +1567,47 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     """
     # Check to see that two columns were passed through input
     if not isinstance(input, list) or len(input) != 2:
-        raise ValueError('Input must consist of a list of two columns')
+        raise ValueError("Input must consist of a list of two columns")
 
-    if method == 'cosine':
+    if method == "cosine":
         similarity_list = [
-            _np.dot(x, y)
-            /
-            (_np.linalg.norm(x) * _np.linalg.norm(y)) 
+            _np.dot(x, y) / (_np.linalg.norm(x) * _np.linalg.norm(y))
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
-    elif method == 'adjusted cosine': # Normalizes output from 0-1
+    elif method == "adjusted cosine":  # Normalizes output from 0-1
         similarity_list = [
-            round(max(min(
-              1 - _math.acos(
-                  round(
-                    _np.dot(x, y)
-                    /
-                    (_np.linalg.norm(x) * _np.linalg.norm(y)),
-                    3
-                  )
-            ), 1), 0), 3)
-            for x, y in zip(df[input[0]].values, df[input[1]].values)
-        ]
-    elif method == 'euclidean':
-        similarity_list = [
-            _math.sqrt(
-                sum(
-                    pow(a -b, 2)
-                    for a, b in zip(x, y)
-                )
+            round(
+                max(
+                    min(
+                        1
+                        - _math.acos(
+                            round(
+                                _np.dot(x, y)
+                                / (_np.linalg.norm(x) * _np.linalg.norm(y)),
+                                3,
+                            )
+                        ),
+                        1,
+                    ),
+                    0,
+                ),
+                3,
             )
+            for x, y in zip(df[input[0]].values, df[input[1]].values)
+        ]
+    elif method == "euclidean":
+        similarity_list = [
+            _math.sqrt(sum(pow(a - b, 2) for a, b in zip(x, y)))
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
     else:
         # Ensure method is of a valid type
-        raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
+        raise TypeError(
+            'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"'
+        )
 
     # Ensure values are python float
-    df[output] = [
-        float(x)
-        for x in similarity_list
-    ]
+    df[output] = [float(x) for x in similarity_list]
 
     return df
 
@@ -1563,7 +1617,7 @@ def sql(
     command: str,
     params: _Union[list, dict] = None,
     preserve_index: bool = False,
-    preserve_data_types: bool = True
+    preserve_data_types: bool = True,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1576,7 +1630,7 @@ def sql(
         type: string
         description: SQL Command. The table is called df. For specific SQL syntax, this uses the SQLite dialect.
       params:
-        type: 
+        type:
           - array
           - object
         description: |-
@@ -1584,16 +1638,16 @@ def sql(
           This allows the query to be parameterized.
           This uses sqlite syntax (? or :name)
     """
-    if command.strip().split()[0].upper() != 'SELECT':
-      raise ValueError('Only SELECT statements are supported for sql wrangles')
+    if command.strip().split()[0].upper() != "SELECT":
+        raise ValueError("Only SELECT statements are supported for sql wrangles")
 
     # Create an in-memory db with the contents of the current dataframe
-    db = _sqlite3.connect(':memory:')
-    
+    db = _sqlite3.connect(":memory:")
+
     # Adjust the chunk size based on the number of columns
     # Large numbers of columns can exceed the
     # sqlite_max_variable_number limit
-    chunk_size = min(10000 // df.columns.size, 1000)    
+    chunk_size = min(10000 // df.columns.size, 1000)
 
     def _fast_fix_objects(df: _pd.DataFrame, n=100):
         """
@@ -1606,19 +1660,23 @@ def sql(
         # List of columns changed
         cols_changed = []
         for column in df.columns:
-            count = sum([int(isinstance(row, (dict, list))) for row in list(df[column])[:n]])
+            count = sum(
+                [int(isinstance(row, (dict, list))) for row in list(df[column])[:n]]
+            )
             if count == 0:
                 continue
             elif count == min(n, len(df)):
                 cols_changed.append(column)
             else:
                 # Mixed column type.
-                raise ValueError(f"Column '{column}' contains mixed data types which is not supported.")
-            
+                raise ValueError(
+                    f"Column '{column}' contains mixed data types which is not supported."
+                )
+
         # Convert any objects found to JSON
         if cols_changed:
             _to_json(df=df, input=cols_changed)
-        
+
         return cols_changed
 
     def _fallback_fix_objects(df: _pd.DataFrame):
@@ -1632,7 +1690,9 @@ def sql(
             for idx, row in zip(df.index, df[column]):
                 # Check each cell for an object
                 if isinstance(row, (dict, list)):
-                    df.loc[idx, column] = _json.dumps(row, ensure_ascii=True, default=str)
+                    df.loc[idx, column] = _json.dumps(
+                        row, ensure_ascii=True, default=str
+                    )
         return cols_changed
 
     def _sql_preserve_index(df: _pd.DataFrame):
@@ -1640,13 +1700,20 @@ def sql(
         index_names = list(df.index.names)
         df.index.names = ["wrwx_sql_temp_index"]
         # Write the dataframe to the database
-        df.to_sql('df', db, if_exists='replace', index = True, method='multi', chunksize=chunk_size)
+        df.to_sql(
+            "df",
+            db,
+            if_exists="replace",
+            index=True,
+            method="multi",
+            chunksize=chunk_size,
+        )
         # Execute the user's query against the database and return the results
-        df = _pd.read_sql(command, db, params = params, index_col="wrwx_sql_temp_index")
+        df = _pd.read_sql(command, db, params=params, index_col="wrwx_sql_temp_index")
         # Restore the original index names
         df.index.names = index_names
         return df
-        
+
     if preserve_index:
         try:
             df_temp = df.copy()
@@ -1660,19 +1727,26 @@ def sql(
         df_temp = df.copy()
         cols_changed = _fast_fix_objects(df_temp)
         # Write the dataframe to the database
-        df_temp.to_sql('df', db, if_exists='replace', index = False, method='multi', chunksize=chunk_size)
+        df_temp.to_sql(
+            "df",
+            db,
+            if_exists="replace",
+            index=False,
+            method="multi",
+            chunksize=chunk_size,
+        )
         # Execute the user's query against the database and return the results
-        df_temp = _pd.read_sql(command, db, params = params)
+        df_temp = _pd.read_sql(command, db, params=params)
 
     db.close()
 
     if preserve_data_types and cols_changed:
         # Change the columns back to an object
         _from_json(
-          df=df_temp,
-          input=[new_col for new_col in df.columns if new_col in cols_changed]
+            df=df_temp,
+            input=[new_col for new_col in df.columns if new_col in cols_changed],
         )
-    
+
     return df_temp
 
 
@@ -1682,7 +1756,7 @@ def standardize(
     model_id: _Union[str, list],
     output: _Union[str, list] = None,
     case_sensitive: bool = False,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1711,17 +1785,21 @@ def standardize(
         description: Allows the wrangle to be case sensitive if set to True, default is False.
     """
     # If user hasn't specified an output column, overwrite the input
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If user provides a single string, convert all the arguments to lists for consistency
-    if isinstance(input, str): input = [input]
-    if isinstance(output, str): output = [output]
-    if isinstance(model_id, str): model_id = [model_id]
+    if isinstance(input, str):
+        input = [input]
+    if isinstance(output, str):
+        output = [output]
+    if isinstance(model_id, str):
+        model_id = [model_id]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
+        raise ValueError("The lists for input and output must be the same length.")
+
     # If Several model ids applied to a column in place
     if all(len(x) == 1 for x in [input, output]) and isinstance(model_id, list):
         tmp_output = input
@@ -1732,7 +1810,7 @@ def standardize(
                     df_copy[output_column].astype(str).tolist(),
                     model,
                     case_sensitive,
-                    **kwargs
+                    **kwargs,
                 )
 
         # Adding the result of the df_copy to the original dataframe
@@ -1742,10 +1820,7 @@ def standardize(
     for model in model_id:
         for input_column, output_column in zip(input, output):
             df[output_column] = _standardize(
-                df[input_column].astype(str).tolist(),
-                model,
-                case_sensitive,
-                **kwargs
+                df[input_column].astype(str).tolist(), model, case_sensitive, **kwargs
             )
 
     return df
@@ -1756,9 +1831,9 @@ def translate(
     input: _Union[str, int, list],
     output: _Union[str, list],
     target_language: str,
-    source_language: str = 'AUTO',
+    source_language: str = "AUTO",
     case: str = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -1841,16 +1916,19 @@ def translate(
           - Swedish
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: output = input
+    if output is None:
+        output = input
 
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
+        raise ValueError("The lists for input and output must be the same length.")
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _translate(
@@ -1858,7 +1936,7 @@ def translate(
             target_language,
             source_language,
             case,
-            **kwargs
+            **kwargs,
         )
 
     return df
@@ -1870,7 +1948,7 @@ def Try(
     functions: _Union[_types.FunctionType, list, dict] = {},
     variables: dict = {},
     retries: int = 0,
-    **kwargs
+    **kwargs,
 ):
     """
     type: object
@@ -1902,33 +1980,34 @@ def Try(
     for attempt in range(retries + 1):
         try:
             df = _wrangles.recipe.run(
-                recipe={'wrangles': wrangles},
+                recipe={"wrangles": wrangles},
                 dataframe=df,
                 variables=variables,
-                functions=functions
+                functions=functions,
             )
             break
         except Exception as e:
             _logging.error(f"Try caught error: {e}")
             if attempt < retries:
-                _time.sleep(1.5 ** attempt)  # Exponential backoff
+                _time.sleep(1.5**attempt)  # Exponential backoff
             else:
                 if "except" in kwargs:
                     if isinstance(kwargs["except"], dict):
                         # Except contains a dict of columns and values
-                        df = df.assign(**{
-                            k: [v] * len(df)
-                            for k, v in kwargs["except"].items()
-                        })
+                        df = df.assign(
+                            **{k: [v] * len(df) for k, v in kwargs["except"].items()}
+                        )
                     elif isinstance(kwargs["except"], list):
                         # Except contains a list of wrangles to run
                         df = _wrangles.recipe.run(
-                            recipe={'wrangles': kwargs['except']},
+                            recipe={"wrangles": kwargs["except"]},
                             dataframe=df,
                             variables=variables,
-                            functions=functions
+                            functions=functions,
                         )
                     else:
-                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
-    
+                        raise ValueError(
+                            "except must be a dictionary of column names and values or a list of wrangles"
+                        )
+
     return df

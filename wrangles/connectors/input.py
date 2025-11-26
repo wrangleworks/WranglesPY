@@ -1,8 +1,8 @@
-
-
 _schema = {}
 
-_schema['read'] = """
+_schema[
+    "read"
+] = """
 type: object
 description: >-
   This connector can be used to reference the

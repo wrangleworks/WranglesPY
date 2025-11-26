@@ -5,6 +5,7 @@ import json
 from typing import Any, Dict, List, Literal, Union, Optional, Tuple
 
 import requests
+
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -12,16 +13,20 @@ except ImportError:
 
 from pydantic import BaseModel
 
-JsonSchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
+JsonSchemaType = Literal[
+    "string", "number", "integer", "boolean", "null", "object", "array"
+]
+
 
 class PropertyDefinition(BaseModel):
-   
+
     type: JsonSchemaType = "string"
     description: str
     enum: Optional[List[Any]] = None
     default: Optional[Any] = None
     examples: Optional[List[Any]] = None
     items: Optional["PropertyDefinition"] = None
+
 
 PropertyDefinition.model_rebuild()
 
@@ -32,17 +37,19 @@ def _perform_web_search(query: str) -> str:
 
     search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
     headers = {
-        'User-Agent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/91.0.4472.124 Safari/537.36'
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/91.0.4472.124 Safari/537.36"
         )
     }
     try:
         response = requests.get(search_url, headers=headers, timeout=10)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        snippets = [a.get_text(strip=True) for a in soup.find_all('a', class_='result__a')]
+        soup = BeautifulSoup(response.text, "html.parser")
+        snippets = [
+            a.get_text(strip=True) for a in soup.find_all("a", class_="result__a")
+        ]
         if not snippets:
             return "No web search results found."
         return " ".join(snippets[:5])
@@ -51,7 +58,7 @@ def _perform_web_search(query: str) -> str:
 
 
 def _stringify_query(record: Any) -> str:
-    
+
     if isinstance(record, dict):
         return " ".join(str(v) for v in record.values() if v not in (None, ""))
     if isinstance(record, list):
@@ -68,7 +75,7 @@ def _call_openai(
     url: str,
     timeout: int,
     retries: int,
-    previous_response_id: Optional[str] = None
+    previous_response_id: Optional[str] = None,
 ) -> Tuple[dict, Optional[str]]:
     payload_copy = payload.copy()
     if "input" not in payload_copy:
@@ -81,11 +88,13 @@ def _call_openai(
 
     for attempt in range(retries + 1):
         try:
-            response = requests.post(url, headers=headers, json=payload_copy, timeout=timeout)
+            response = requests.post(
+                url, headers=headers, json=payload_copy, timeout=timeout
+            )
             response.raise_for_status()
             response_json = response.json()
             response_id = response_json.get("id")
-            
+
             for item in response_json.get("output", []):
                 if item.get("type") == "message":
                     content = item.get("content", [])
@@ -104,7 +113,8 @@ def _call_openai(
                             summary_text = "".join(
                                 part.get("text", "")
                                 for part in summary_blocks
-                                if isinstance(part, dict) and part.get("type") == "summary_text"
+                                if isinstance(part, dict)
+                                and part.get("type") == "summary_text"
                             )
                             if summary_text:
                                 if isinstance(parsed, dict):
@@ -117,17 +127,30 @@ def _call_openai(
                         return parsed, response_id
 
             return (
-                {"error": "Could not find 'output_text' in the API response.", "raw_response": response_json},
+                {
+                    "error": "Could not find 'output_text' in the API response.",
+                    "raw_response": response_json,
+                },
                 None,
             )
-        except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError, IndexError) as e:
+        except (
+            requests.exceptions.RequestException,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+        ) as e:
             if attempt >= retries:
                 error_details = f"Error: {str(e)}"
                 try:
                     error_details += f" | Response Body: {response.text}"
                 except NameError:
                     pass
-                return ({"error": f"API call failed after {retries + 1} attempts. {error_details}"}, None)
+                return (
+                    {
+                        "error": f"API call failed after {retries + 1} attempts. {error_details}"
+                    },
+                    None,
+                )
 
     return ({"error": "An unexpected error occurred."}, None)
 
@@ -145,10 +168,10 @@ def ai(
     strict: bool = True,
     web_search: bool = False,
     reasoning: Dict[str, str] = {"effort": "low"},
-    previous_response: bool = False,  
+    previous_response: bool = False,
     examples: Optional[List[Dict[str, Any]]] = None,
     summary: bool = False,
-    **kwargs
+    **kwargs,
 ) -> Union[dict, list]:
 
     input_was_scalar = not isinstance(input, list)
@@ -167,7 +190,11 @@ def ai(
             description = str(details)
         field_summaries.append(f"- `{name}`: type `{field_type}` — {description}")
 
-    schema_requirements = "\n".join(field_summaries) if field_summaries else "- No structured fields provided."
+    schema_requirements = (
+        "\n".join(field_summaries)
+        if field_summaries
+        else "- No structured fields provided."
+    )
 
     if previous_response:
         base_instruction = (
@@ -178,7 +205,7 @@ def ai(
             f"{schema_requirements}\n"
             "STRICT RULES:\n"
             "- Use only the RECORD DATA together with any earlier model responses supplied by the API.\n"
-            "- Never contradict existing outputs; when information is missing, respond with \"N/A\".\n"
+            '- Never contradict existing outputs; when information is missing, respond with "N/A".\n'
             "- Return valid JSON matching the schema exactly—no explanations or extra keys."
             "- Always select the most relevant example from the provided few-shot examples, and strictly follow the guidance in the associated notes if they are present."
         )
@@ -190,13 +217,13 @@ def ai(
             f"{schema_requirements}\n"
             "STRICT RULES:\n"
             "- Use only the RECORD DATA. Do not invent or infer missing values.\n"
-            "- When information is unavailable, respond with \"N/A\".\n"
+            '- When information is unavailable, respond with "N/A".\n'
             "- Return valid JSON matching the schema exactly—no explanations or extra keys."
             "- Always select the most relevant example from the provided few-shot examples, and strictly follow the guidance in the associated notes if they are present."
         )
 
     if messages and isinstance(messages, list) and len(messages) > 0:
-        base_instruction = messages[0].get('content', base_instruction)
+        base_instruction = messages[0].get("content", base_instruction)
 
     contexts: List[Optional[str]] = []
     if web_search:
@@ -208,7 +235,7 @@ def ai(
         source_info = "input"
         contexts = [None for _ in input_list]
     if summary:
-        reasoning['summary'] = 'auto'
+        reasoning["summary"] = "auto"
     else:
         reasoning = reasoning
 
@@ -220,10 +247,10 @@ def ai(
                 "type": "json_schema",
                 "name": "structured_response",
                 "schema": output,
-                "strict": strict
+                "strict": strict,
             }
         },
-        **kwargs
+        **kwargs,
     }
 
     example_pairs: List[Tuple[Any, Any]] = []
@@ -236,29 +263,43 @@ def ai(
                 continue
 
             cleaned_input = example_input
-            if example.get('notes'):
+            if example.get("notes"):
                 cleaned_input = {"input": cleaned_input, "notes": example["notes"]}
 
-            pair = (cleaned_input, example_output)   
+            pair = (cleaned_input, example_output)
             example_pairs.append(pair)
-
 
     def _build_messages(
         example_pairs_local: List[Tuple[Any, Any]],
         item_local: Any,
-        context_local: Optional[str]
+        context_local: Optional[str],
     ) -> List[Dict[str, str]]:
         msgs: List[Dict[str, str]] = []
         if context_local:
-            msgs.append({"role": "user", "content": f"ADDITIONAL CONTEXT:\n---\n{context_local}\n---"})
+            msgs.append(
+                {
+                    "role": "user",
+                    "content": f"ADDITIONAL CONTEXT:\n---\n{context_local}\n---",
+                }
+            )
 
         for ex_inp, ex_out in example_pairs_local:
-            in_str = ex_inp if isinstance(ex_inp, str) else json.dumps(ex_inp, ensure_ascii=False)
-            out_str = ex_out if isinstance(ex_out, str) else json.dumps(ex_out, ensure_ascii=False)
+            in_str = (
+                ex_inp
+                if isinstance(ex_inp, str)
+                else json.dumps(ex_inp, ensure_ascii=False)
+            )
+            out_str = (
+                ex_out
+                if isinstance(ex_out, str)
+                else json.dumps(ex_out, ensure_ascii=False)
+            )
             msgs.append({"role": "user", "content": in_str})
             msgs.append({"role": "assistant", "content": out_str})
 
-        msgs.append({"role": "user", "content": json.dumps(item_local, ensure_ascii=False)})
+        msgs.append(
+            {"role": "user", "content": json.dumps(item_local, ensure_ascii=False)}
+        )
 
         return msgs
 
@@ -276,7 +317,6 @@ def ai(
             retries,
         )
         return record
-    
 
     def _generate_record_by_field(item: Any, context: Optional[str]) -> Dict[str, Any]:
         response_id: Optional[str] = None
@@ -287,7 +327,7 @@ def ai(
                 "type": "object",
                 "properties": {field_name: properties[field_name]},
                 "required": [field_name],
-                "additionalProperties": False
+                "additionalProperties": False,
             }
 
             msgs = _build_messages(example_pairs, item, context)
@@ -304,7 +344,6 @@ def ai(
                 url,
                 timeout,
                 retries,
-                
                 previous_response_id=response_id,
             )
 
@@ -321,7 +360,6 @@ def ai(
 
         return combined
 
-    
     generate_fn = _generate_record_by_field if previous_response else _generate_record
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
@@ -332,7 +370,7 @@ def ai(
         results = [future.result() for future in futures]
 
     for res in results:
-        if isinstance(res, dict) and 'error' not in res:
-            res['source'] = source_info
+        if isinstance(res, dict) and "error" not in res:
+            res["source"] = source_info
 
     return results[0] if input_was_scalar else results

@@ -27,7 +27,4 @@ def test_default_write():
         if v.get("connector") == "excel.sheet.write"
     ][0]
     memory.clear()
-    assert (
-        data["columns"] == ["header1", "header2"] and
-        len(data["data"]) == 5
-    )
+    assert data["columns"] == ["header1", "header2"] and len(data["data"]) == 5

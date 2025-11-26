@@ -1,17 +1,14 @@
 """
 Functions to merge data from one or more columns into a single column
 """
+
 from typing import Union as _Union
 import fnmatch as _fnmatch
 import pandas as _pd
 from .. import format as _format
 
 
-def coalesce(
-    df: _pd.DataFrame,
-    input: list,
-    output: str = None
-) -> _pd.DataFrame:
+def coalesce(df: _pd.DataFrame, input: list, output: str = None) -> _pd.DataFrame:
     """
     type: object
     description: Take the first non-empty value from a series of columns or lists.
@@ -33,23 +30,23 @@ def coalesce(
     # If a better solution found, replace but ensure it works with all falsy values in python
 
     # Ensure input is a list
-    if not isinstance(input, list): input = [input]
+    if not isinstance(input, list):
+        input = [input]
 
     if len(input) == 1:
         if output is None:
             output = input[0]
-        
+
         df[output] = _format.coalesce(
-            [
-                x if isinstance(x, list) else [x]
-                for x in df[input[0]].fillna('')
-            ]
+            [x if isinstance(x, list) else [x] for x in df[input[0]].fillna("")]
         )
     else:
         if output is None:
-            raise ValueError('An output column must be provided if coalescing multiple input columns')
+            raise ValueError(
+                "An output column must be provided if coalescing multiple input columns"
+            )
 
-        df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+        df[output] = _format.coalesce(df[input].fillna("").values.tolist())
 
     return df
 
@@ -58,8 +55,8 @@ def concatenate(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: str,
-    char: str = ',',
-    skip_empty: bool = False
+    char: str = ",",
+    skip_empty: bool = False,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -71,7 +68,7 @@ def concatenate(
       - char
     properties:
       input:
-        type: 
+        type:
           - array
           - string
           - integer
@@ -87,16 +84,21 @@ def concatenate(
         desription: Whether to skip empty values
         default: false
     """
-    if output is None: output = input
-    
+    if output is None:
+        output = input
+
     # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     if len(input) == 1:
         df[output[0]] = _format.concatenate(df[input[0]].values, char, skip_empty)
     else:
-        df[output[0]] = _format.concatenate(df[input].astype(str).values, char, skip_empty)
+        df[output[0]] = _format.concatenate(
+            df[input].astype(str).values, char, skip_empty
+        )
 
     return df
 
@@ -115,7 +117,7 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
         description: list of input columns
       output:
         type: string
-        description: Name of the output column    
+        description: Name of the output column
     """
     output_list = []
     for row in df[input].values.tolist():
@@ -123,9 +125,9 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str) -> _pd.DataFrame:
         for col in row[1:]:
             output_row = {**output_row, **col}
         output_list.append(output_row)
-    
+
     df[output] = output_list
-    
+
     return df
 
 
@@ -149,7 +151,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
 
     # If user has used wildcards, expand out
     for key, val in input.items():
-        if '*' in key and '*' in val:
+        if "*" in key and "*" in val:
             key_columns = _fnmatch.filter(df.columns, key)
             val_columns = _fnmatch.filter(df.columns, val)
             for key_col, val_col in zip(key_columns, val_columns):
@@ -158,7 +160,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
             pairs[key] = val
 
     results = [{} for _ in range(len(df))]
-    
+
     # Checking if the inputs are boolean type
     index_check = 0
     cols_changed = []
@@ -170,30 +172,40 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str) -> _pd.DataFram
                 break
         # only check the first 10 rows
         index_check += 1
-        if index_check > 10: break
-        
+        if index_check > 10:
+            break
+
         # If the column is in the columns changed then convert to string
         if cols in cols_changed:
             df[cols] = df[cols].astype(str)
-    
+
     idx = 0
-    for row in df.to_dict('records'):
+    for row in df.to_dict("records"):
         for key, val in pairs.items():
             if row[key] and row[val]:
                 results[idx][row[key]] = row[val]
                 if val in cols_changed:
                     # If the row is in columns changed then return to boolean
-                    if row[val] == 'True': results[idx][row[key]] = True
-                    if row[val] == 'False': results[idx][row[key]] = False
+                    if row[val] == "True":
+                        results[idx][row[key]] = True
+                    if row[val] == "False":
+                        results[idx][row[key]] = False
         # Adding to the index
-        idx+=1
+        idx += 1
 
     df[output] = results
 
     return df
 
 
-def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool = False, ignore_case: bool = False, include_empty: bool = True) -> _pd.DataFrame:
+def lists(
+    df: _pd.DataFrame,
+    input: list,
+    output: str,
+    remove_duplicates: bool = False,
+    ignore_case: bool = False,
+    include_empty: bool = True,
+) -> _pd.DataFrame:
     """
     type: object
     description: Take lists in multiple columns and merge them to a single list.
@@ -222,7 +234,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
     for row in df[input].values.tolist():
         output_row = []
         for col in row:
-            if not isinstance(col, list): 
+            if not isinstance(col, list):
                 col = [str(col)]
             # Filter empty values if include_empty is False
             if include_empty:
@@ -232,7 +244,11 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         # Remove duplicates, regardless of case
         if remove_duplicates and ignore_case:
             seen = set()
-            output_row = [x for x in output_row if x.lower() not in seen and not seen.add(x.lower())]
+            output_row = [
+                x
+                for x in output_row
+                if x.lower() not in seen and not seen.add(x.lower())
+            ]
 
         # Use dict.fromkeys over set to preserve input order
         elif remove_duplicates and not ignore_case:
@@ -243,7 +259,9 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
     return df
 
 
-def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
+def to_dict(
+    df: _pd.DataFrame, input: list, output: str, include_empty: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Take multiple columns and merge them to a dictionary (aka object) using the column headers as keys.
@@ -266,7 +284,7 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         description: Whether to include empty columns in the created dictionary
     """
     index_check = 0
-    cols_changed = [] 
+    cols_changed = []
     for cols in input:
         for row in df[cols]:
             if isinstance(row, bool) or row == None:
@@ -274,28 +292,35 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
                 break
         # only check the first 10 rows
         index_check += 1
-        if index_check > 10: break
-        
+        if index_check > 10:
+            break
+
         # If the column is in the cols changed then convert values to strings
         if cols in cols_changed:
             df[cols] = df[cols].astype(str)
-    
+
     output_list = []
     column_headers = df[input].columns
     for row in df[input].values.tolist():
         output_dict = {}
         for col, header in zip(row, column_headers):
-            if col or include_empty: output_dict[header] = col
+            if col or include_empty:
+                output_dict[header] = col
             if header in cols_changed:
-                if col == 'None': output_dict[header] = None
-                elif col == 'False': output_dict[header] = False
-                elif col == 'True': output_dict[header] = True
+                if col == "None":
+                    output_dict[header] = None
+                elif col == "False":
+                    output_dict[header] = False
+                elif col == "True":
+                    output_dict[header] = True
         output_list.append(output_dict)
     df[output] = output_list
     return df
 
 
-def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = False) -> _pd.DataFrame:
+def to_list(
+    df: _pd.DataFrame, input: list, output: str, include_empty: bool = False
+) -> _pd.DataFrame:
     """
     type: object
     description: Take multiple columns and merge them to a list.
@@ -321,7 +346,8 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
     for row in df[input].values.tolist():
         output_row = []
         for col in row:
-            if col or include_empty: output_row.append(col)
+            if col or include_empty:
+                output_row.append(col)
         output_list.append(output_row)
     df[output] = output_list
     return df

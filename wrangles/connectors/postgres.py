@@ -1,23 +1,21 @@
 """
 Connector to read/write from a PostgreSQL Database.
 """
+
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
 import csv as _csv
 from io import StringIO as _StringIO
-from ..utils import (
-  wildcard_expansion as _wildcard_expansion,
-  LazyLoader as _LazyLoader
-)
+from ..utils import wildcard_expansion as _wildcard_expansion, LazyLoader as _LazyLoader
 
 # Lazy load external dependency
-_psycopg2 = _LazyLoader('psycopg2')
+_psycopg2 = _LazyLoader("psycopg2")
 
 _schema = {}
 
 
-# Internal methods - custom sql callbacks 
+# Internal methods - custom sql callbacks
 def _psql_insert_copy(table, conn, keys, data_iter):
     """
     Execute SQL statement inserting data
@@ -38,18 +36,27 @@ def _psql_insert_copy(table, conn, keys, data_iter):
         writer.writerows(data_iter)
         s_buf.seek(0)
 
-        columns = ', '.join(['"{}"'.format(k) for k in keys])
+        columns = ", ".join(['"{}"'.format(k) for k in keys])
         if table.schema:
-            table_name = '{}.{}'.format(table.schema, table.name)
+            table_name = "{}.{}".format(table.schema, table.name)
         else:
             table_name = table.name
 
-        sql = 'COPY {} ({}) FROM STDIN WITH CSV'.format(table_name, columns)
+        sql = "COPY {} ({}) FROM STDIN WITH CSV".format(table_name, columns)
         cur.copy_expert(sql=sql, file=s_buf)
 
 
 # Public methods
-def read(host: str, user: str, password: str, command: str, port = 5432, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def read(
+    host: str,
+    user: str,
+    password: str,
+    command: str,
+    port=5432,
+    database: str = "",
+    columns: _Union[str, list] = None,
+    params: _Union[list, dict] = None,
+) -> _pd.DataFrame:
     """
     Import data from a PostgreSQL database.
 
@@ -74,10 +81,13 @@ def read(host: str, user: str, password: str, command: str, port = 5432, databas
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
-    
+
     return df
 
-_schema['read'] = r"""
+
+_schema[
+    "read"
+] = r"""
 type: object
 description: Import data from a PostgreSQL Server
 required:
@@ -121,7 +131,17 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 5432, columns: _Union[str, list] = None) -> None:
+def write(
+    df: _pd.DataFrame,
+    host: str,
+    database: str,
+    table: str,
+    user: str,
+    password: str,
+    action="INSERT",
+    port=5432,
+    columns: _Union[str, list] = None,
+) -> None:
     """
     Export data to a PostgreSQL database.
 
@@ -148,19 +168,30 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    if action.upper() == 'FAIL':
-        df.to_sql(table, conn, if_exists='fail', index=False, method=_psql_insert_copy)
-    elif action.upper() == 'REPLACE':
-        df.to_sql(table, conn, if_exists='replace', index=False, method=_psql_insert_copy)
-    elif action.upper() == 'EXPERIMENTAL':
-        df.to_sql(table, conn, if_exists='append', index=False, method=_psql_insert_copy)
-    elif action.upper() == 'INSERT':
-        df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
+    if action.upper() == "FAIL":
+        df.to_sql(table, conn, if_exists="fail", index=False, method=_psql_insert_copy)
+    elif action.upper() == "REPLACE":
+        df.to_sql(
+            table, conn, if_exists="replace", index=False, method=_psql_insert_copy
+        )
+    elif action.upper() == "EXPERIMENTAL":
+        df.to_sql(
+            table, conn, if_exists="append", index=False, method=_psql_insert_copy
+        )
+    elif action.upper() == "INSERT":
+        df.to_sql(
+            table, conn, if_exists="append", index=False, method="multi", chunksize=1000
+        )
     else:
         # TODO: Add UPDATE AND UPSERT
-        raise ValueError('UPDATE and UPSERT are not implemented yet.') # pragma: no cover
+        raise ValueError(
+            "UPDATE and UPSERT are not implemented yet."
+        )  # pragma: no cover
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data to a PostgreSQL Server
 required:
@@ -200,8 +231,8 @@ def run(
     user: str,
     password: str,
     command: _Union[str, list],
-    port = 5432,
-    params: _Union[list, dict] = None
+    port=5432,
+    params: _Union[list, dict] = None,
 ) -> None:
     """
     Run a command on a PostgreSQL Server
@@ -225,15 +256,12 @@ def run(
     _logging.info(f": Executing PostgreSQL Command :: {host}")
 
     # If user has provided a single command, convert to a list of one.
-    if isinstance(command, str): command = [command]
+    if isinstance(command, str):
+        command = [command]
 
     # Establish connection
     conn = _psycopg2.connect(
-        host = host,
-        port = port,
-        dbname = database,
-        user = user,
-        password = password
+        host=host, port=port, dbname=database, user=user, password=password
     )
     conn.autocommit = True
     cursor = conn.cursor()
@@ -243,7 +271,10 @@ def run(
 
     conn.close()
 
-_schema['run'] = r"""
+
+_schema[
+    "run"
+] = r"""
 type: object
 description: Run a command against a PostgreSQL Server such as triggering a query or stored procedure
 required:

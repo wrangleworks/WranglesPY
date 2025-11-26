@@ -2,15 +2,18 @@
 Test generic wrangles functionality that
 is not specific to a particular wrangle
 """
+
 import wrangles
 import pandas as pd
 import numpy as np
 import pytest
 
+
 class TestWhere:
     """
     Test general where behaviour
     """
+
     def test_double_where_input(self):
         """
         Test using multiple where on different rows
@@ -29,12 +32,14 @@ class TestWhere:
                 case: lower
                 where: col1 = 2 
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                }
+            ),
         )
-        assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'world'
+        assert df["col2"][0] == "HELLO" and df["col2"][1] == "world"
 
     def test_double_where_output(self):
         """
@@ -56,12 +61,14 @@ class TestWhere:
                 case: lower
                 where: col1 = 2 
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                }
+            ),
         )
-        assert df['results'][0] == 'HELLO' and df['results'][1] == 'world'
+        assert df["results"][0] == "HELLO" and df["results"][1] == "world"
 
     def test_where_params(self):
         """
@@ -77,12 +84,14 @@ class TestWhere:
                 where_params:
                     - 1
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                }
+            ),
         )
-        assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'WoRlD'
+        assert df["col2"][0] == "HELLO" and df["col2"][1] == "WoRlD"
 
     def test_where_params_dict(self):
         """
@@ -98,12 +107,14 @@ class TestWhere:
                 where_params:
                     key: 1
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                }
+            ),
         )
-        assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'WoRlD'
+        assert df["col2"][0] == "HELLO" and df["col2"][1] == "WoRlD"
 
     def test_where_params_variable(self):
         """
@@ -119,13 +130,15 @@ class TestWhere:
                 where_params:
                     - ${var}
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-            }),
-            variables={'var': 1}
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                }
+            ),
+            variables={"var": 1},
         )
-        assert df['col2'][0] == 'HELLO' and df['col2'][1] == 'WoRlD'
+        assert df["col2"][0] == "HELLO" and df["col2"][1] == "WoRlD"
 
     def test_where_unsupported_sql_type(self):
         """
@@ -139,17 +152,20 @@ class TestWhere:
                 case: upper
                 where: col1 = 1
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-                "col3": [np.array([1,2,3]), np.array([4,5,6])]
-            }),
-            variables={'var': 1}
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                    "col3": [np.array([1, 2, 3]), np.array([4, 5, 6])],
+                }
+            ),
+            variables={"var": 1},
         )
-        assert (
-            type(df["col3"][0]).__name__ == "ndarray" and
-            list(df["col3"][0]) == [1,2,3]
-        )
+        assert type(df["col3"][0]).__name__ == "ndarray" and list(df["col3"][0]) == [
+            1,
+            2,
+            3,
+        ]
 
     def test_where_lists(self):
         """
@@ -163,16 +179,15 @@ class TestWhere:
                 case: upper
                 where: col1 = 1
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-                "col3": [[1,2,3], [4,5,6]]
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                    "col3": [[1, 2, 3], [4, 5, 6]],
+                }
+            ),
         )
-        assert (
-            df["col2"][0] == "HELLO" and
-            df["col3"][0] == [1,2,3]
-        )
+        assert df["col2"][0] == "HELLO" and df["col3"][0] == [1, 2, 3]
 
     def test_where_sqlite_incompatible_fallback(self):
         """
@@ -186,9 +201,11 @@ class TestWhere:
                 case: upper
                 where: column = 'a'
             """,
-            dataframe= pd.DataFrame({
-                'column': ["a"] * 20 + [["bad", "list"]],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "column": ["a"] * 20 + [["bad", "list"]],
+                }
+            ),
         )
         assert df["column"][0] == "A" and df["column"][20] == ["bad", "list"]
 
@@ -204,14 +221,13 @@ class TestWhere:
                 output: Column3
                 where: NULLIF(Column1, '') IS NOT NULL
             """,
-            dataframe= pd.DataFrame({
-                'Column1': [65, 72, '', 92, 87, 79],
-                'Column2': [2, 5, 4, 2, 1, 6]
-            })
+            dataframe=pd.DataFrame(
+                {"Column1": [65, 72, "", 92, 87, 79], "Column2": [2, 5, 4, 2, 1, 6]}
+            ),
         )
         assert (
-            df["Column1"].values.tolist() == [65, 72, '', 92, 87, 79] and
-            df["Column3"][2] == ""
+            df["Column1"].values.tolist() == [65, 72, "", 92, 87, 79]
+            and df["Column3"][2] == ""
         )
 
     def test_where_falsy_value(self):
@@ -227,9 +243,11 @@ class TestWhere:
                 output: Column1
                 where: Column1 != 0
             """,
-            dataframe= pd.DataFrame({
-                'Column1': [0, 1, 2, 3],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "Column1": [0, 1, 2, 3],
+                }
+            ),
         )
         assert df["Column1"].values.tolist() == [0, 2, 3, 4]
 
@@ -247,10 +265,9 @@ class TestWhere:
                 case: upper
                 where: clause = 'a'
             """,
-            dataframe= pd.DataFrame({
-                'Column1': ["a,b,c", "x,y,z"],
-                "clause": ["a", "b"]
-            })
+            dataframe=pd.DataFrame(
+                {"Column1": ["a,b,c", "x,y,z"], "clause": ["a", "b"]}
+            ),
         )
         assert df["Column1"][0] == "A,B,C" and df["Column1"][1] == "x,y,z"
 
@@ -266,18 +283,20 @@ class TestWhere:
                 case: upper
                 where: col1 = 1
             """,
-            dataframe= pd.DataFrame({
-                'col1': [1, 2],
-                'col2': ['HeLlO', 'WoRlD'],
-                "col3": [[1,2,3], [4,5,6]]
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "col1": [1, 2],
+                    "col2": ["HeLlO", "WoRlD"],
+                    "col3": [[1, 2, 3], [4, 5, 6]],
+                }
+            ),
         )
         assert df.columns.tolist() == ["col1", "col2", "col3"]
 
     def test_where_large_column_count(self):
         """
         Test a where with a large number of columns
-        This previously caused issues due to 
+        This previously caused issues due to
         the sqlite_max_variable_number limit
         """
         df = wrangles.recipe.run(
@@ -288,16 +307,13 @@ class TestWhere:
                   output: col1
                   where: col2 < 5
             """,
-            dataframe= pd.DataFrame({
-                f"col{i}": range(1000)
-                for i in range(500)
-            })
+            dataframe=pd.DataFrame({f"col{i}": range(1000) for i in range(500)}),
         )
         assert (
-            int(df.columns.size) == 500 and
-            int(df["col0"][1]) == 1 and 
-            int(df["col1"][1]) == 2 and
-            int(df["col1"][5]) == 5
+            int(df.columns.size) == 500
+            and int(df["col0"][1]) == 1
+            and int(df["col1"][1]) == 2
+            and int(df["col1"][5]) == 5
         )
 
 
@@ -305,6 +321,7 @@ class TestIf:
     """
     Test using if with wrangles
     """
+
     def test_if_true(self):
         """
         Test that a wrangle is triggered
@@ -366,7 +383,7 @@ class TestIf:
                 case: upper
                 if: ${var} == 1
             """,
-            variables={"var": 1}
+            variables={"var": 1},
         )
         assert df["header"][0] == "VALUE"
 
@@ -389,7 +406,7 @@ class TestIf:
                 case: upper
                 if: ${var}
             """,
-            variables={"var": ""}
+            variables={"var": ""},
         )
         assert df["header"][0] == "value"
 
@@ -412,7 +429,7 @@ class TestIf:
                 case: upper
                 if: ${var}
             """,
-            variables={"var": None}
+            variables={"var": None},
         )
         assert df["header"][0] == "value"
 
@@ -436,7 +453,7 @@ class TestIf:
                     case: upper
                     if: ${var with space} == 1
                 """,
-                variables={"var with space": 1}
+                variables={"var with space": 1},
             )
 
     def test_if_variable_no_execution(self):
@@ -458,10 +475,10 @@ class TestIf:
                 case: upper
                 if: not(1 == 1 and should_be_parameterized)
             """,
-            variables={"should_be_parameterized": "1 == 2"}
+            variables={"should_be_parameterized": "1 == 2"},
         )
         assert df["header"][0] == "value"
-    
+
     def test_if_dataframe_access(self):
         """
         Test that the if statement can access the dataframe
@@ -485,7 +502,7 @@ class TestIf:
         assert df["header"][0] == "VALUE"
         assert df["header"][1] == "VALUE"
         assert df["header"][2] == "VALUE"
-    
+
     def test_if_dataframe_access_false_condition(self):
         """
         Test that the if statement can access the dataframe
@@ -509,7 +526,7 @@ class TestIf:
         assert df["header"][0] == "value"
         assert df["header"][1] == "value"
         assert df["header"][2] == "value"
-    
+
     def test_if_dataframe_content_access(self):
         """
         Test that the if statement can access dataframe content
@@ -523,17 +540,17 @@ class TestIf:
                 case: upper
                 if: df.loc[0, 'header'] == 'hello'
             """,
-            dataframe=pd.DataFrame({
-                'header': ['hello', 'world']
-            })
+            dataframe=pd.DataFrame({"header": ["hello", "world"]}),
         )
         assert df["header"][0] == "HELLO"
         assert df["header"][1] == "WORLD"
+
 
 class TestPositionInput:
     """
     Test using column indexes rather than names for input
     """
+
     def test_position_index(self):
         """
         Test using a position index for input
@@ -614,7 +631,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+        assert df.iloc[0].tolist() == ["VALUE1", "VALUE2", "value3"]
 
     def test_position_index_slice_empty_start(self):
         """
@@ -635,7 +652,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+        assert df.iloc[0].tolist() == ["VALUE1", "VALUE2", "value3"]
 
     def test_position_index_slice_empty_end(self):
         """
@@ -656,7 +673,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['value1', 'value2', 'VALUE3']
+        assert df.iloc[0].tolist() == ["value1", "value2", "VALUE3"]
 
     def test_position_index_slice_step(self):
         """
@@ -677,7 +694,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'value2', 'VALUE3']
+        assert df.iloc[0].tolist() == ["VALUE1", "value2", "VALUE3"]
 
     def test_position_index_list_slice(self):
         """
@@ -701,7 +718,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3', 'VALUE4']
+        assert df.iloc[0].tolist() == ["VALUE1", "VALUE2", "value3", "VALUE4"]
 
     def test_position_index_slice_negative_step(self):
         """
@@ -721,7 +738,7 @@ class TestPositionInput:
                 input: "::-1"
             """
         )
-        assert df.columns.tolist() == ['header3', 'header2', 'header1']
+        assert df.columns.tolist() == ["header3", "header2", "header1"]
 
     def test_position_index_slice_last_n(self):
         """
@@ -741,7 +758,7 @@ class TestPositionInput:
                 input: "-2:"
             """
         )
-        assert df.columns.tolist() == ['header2', 'header3']
+        assert df.columns.tolist() == ["header2", "header3"]
 
     def test_position_index_slice_bad_syntax(self):
         """
@@ -763,7 +780,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+        assert df.iloc[0].tolist() == ["VALUE1", "VALUE2", "value3"]
 
     def test_position_index_slice_bad_syntax_list(self):
         """
@@ -786,7 +803,7 @@ class TestPositionInput:
                 case: upper
             """
         )
-        assert df.iloc[0].tolist() == ['VALUE1', 'VALUE2', 'value3']
+        assert df.iloc[0].tolist() == ["VALUE1", "VALUE2", "value3"]
 
     def test_position_index_as_string(self):
         """
@@ -830,7 +847,7 @@ class TestPositionInput:
                   - "2"
             """
         )
-        assert df.iloc[0].tolist() == ['value0', 'value1', 'value2']
+        assert df.iloc[0].tolist() == ["value0", "value1", "value2"]
 
     def test_numbered_columns_position(self):
         """
@@ -855,4 +872,4 @@ class TestPositionInput:
                   - 2
             """
         )
-        assert df.iloc[0].tolist() == ['value2', 'value1', 'value0']
+        assert df.iloc[0].tolist() == ["value2", "value1", "value0"]

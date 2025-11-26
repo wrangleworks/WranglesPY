@@ -5,6 +5,7 @@ Tests specific to an individual connector should go in a test
 file for the respective connectors
 e.g. tests/connectors/test_file.py
 """
+
 import wrangles
 import pandas as pd
 
@@ -19,6 +20,7 @@ def test_input_is_list():
     """
     df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 2
+
 
 def test_union_files():
     """
@@ -41,10 +43,8 @@ def test_union_files():
                         column2: value2
         """
     )
-    assert (
-        len(df) == 6 and 
-        df.columns.to_list() == ['column1', 'column2']
-    )
+    assert len(df) == 6 and df.columns.to_list() == ["column1", "column2"]
+
 
 def test_union_one_file():
     """
@@ -62,10 +62,8 @@ def test_union_one_file():
                         column2: value2
         """
     )
-    assert (
-        len(df) == 3 and 
-        df.columns.to_list() == ['column1', 'column2']
-    )
+    assert len(df) == 3 and df.columns.to_list() == ["column1", "column2"]
+
 
 def test_concatenate_files():
     """
@@ -89,11 +87,12 @@ def test_concatenate_files():
         """
     )
     assert (
-        len(df) == 3 and
-        df.columns.to_list() == ['column1', 'column2', 'column3', 'column4'] and
-        df['column1'][0] == "value1" and
-        df['column4'][0] == "value4"
+        len(df) == 3
+        and df.columns.to_list() == ["column1", "column2", "column3", "column4"]
+        and df["column1"][0] == "value1"
+        and df["column4"][0] == "value4"
     )
+
 
 def test_concatenate_one_file():
     """
@@ -112,10 +111,11 @@ def test_concatenate_one_file():
         """
     )
     assert (
-        len(df) == 3 and
-        df.columns.to_list() == ['column1', 'column2'] and
-        df['column1'][0] == "value1"
+        len(df) == 3
+        and df.columns.to_list() == ["column1", "column2"]
+        and df["column1"][0] == "value1"
     )
+
 
 # Testing join of multiple sources
 def test_join_files():
@@ -134,6 +134,7 @@ def test_join_files():
     df = wrangles.recipe.run(recipe)
     assert len(df.columns.to_list()) == 4
 
+
 def test_read_with_where():
     """
     Test a read that includes a where condition
@@ -150,10 +151,8 @@ def test_read_with_where():
                 - 50
         """
     )
-    assert (
-        len(df) < 1000
-        and df["header1"].min() > 50
-    )
+    assert len(df) < 1000 and df["header1"].min() > 50
+
 
 def test_read_with_columns():
     """
@@ -173,7 +172,8 @@ def test_read_with_columns():
                 - header2
         """
     )
-    assert list(df.columns) == ["header1","header2"]
+    assert list(df.columns) == ["header1", "header2"]
+
 
 def test_read_with_not_columns():
     """
@@ -191,7 +191,8 @@ def test_read_with_not_columns():
               not_columns: header3
         """
     )
-    assert list(df.columns) == ["header1","header2"]
+    assert list(df.columns) == ["header1", "header2"]
+
 
 def test_read_order_by():
     """
@@ -207,10 +208,10 @@ def test_read_order_by():
               order_by: header
         """
     )
-    assert (
-        df.tail(1)["header"].iloc[0] == max(df["header"].values)
-        and df.head(1)["header"].iloc[0] == min(df["header"].values)
-    )
+    assert df.tail(1)["header"].iloc[0] == max(df["header"].values) and df.head(1)[
+        "header"
+    ].iloc[0] == min(df["header"].values)
+
 
 def test_multiple_reads():
     """
@@ -229,7 +230,8 @@ def test_multiple_reads():
                 header: value2
         """
     )
-    assert list(df['header'].values) == ['value1', 'value2']
+    assert list(df["header"].values) == ["value1", "value2"]
+
 
 def test_read_single_plus_aggregate():
     """
@@ -256,7 +258,8 @@ def test_read_single_plus_aggregate():
                 header: value3
         """
     )
-    assert list(df['header'].values) == ['value1', 'value2', 'value3']
+    assert list(df["header"].values) == ["value1", "value2", "value3"]
+
 
 def test_all_if_false():
     """
@@ -279,23 +282,23 @@ def test_all_if_false():
     )
     assert isinstance(df, pd.DataFrame) and df.empty
 
+
 def test_overwrite_read():
     """
     Test using a custom function to overwrite a standard connector for read
     """
+
     class file:
         def read(name):
-            return {
-              "abc": pd.DataFrame({"header": ["value1", "value2"]})
-            }[name]
-        
+            return {"abc": pd.DataFrame({"header": ["value1", "value2"]})}[name]
+
     df = wrangles.recipe.run(
         """
         read:
           - file:
               name: abc
         """,
-        functions=file
+        functions=file,
     )
-    
-    assert df['header'][0] == "value1"
+
+    assert df["header"][0] == "value1"
