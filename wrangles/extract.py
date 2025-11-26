@@ -425,6 +425,7 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    sort: str = 'training_order',
     **kwargs
 ) -> list:
     """
@@ -458,6 +459,7 @@ def custom(
         'caseSensitive': case_sensitive,
         'extract_raw': extract_raw,
         'use_spellcheck': use_spellcheck,
+        'sort': sort,
         **kwargs
     }
 
