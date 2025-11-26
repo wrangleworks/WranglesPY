@@ -17,7 +17,9 @@ def _ordered_words(string, char):
     return words
 
 
-def contrast(input: list, type: str ='difference', char: str = ' ', case_sensitive = True) -> list:
+def contrast(
+    input: list, type: str = "difference", char: str = " ", case_sensitive=True
+) -> list:
     """
     Compare the intersection or difference between multiple strings.
 
@@ -28,12 +30,12 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
     """
     results = []
     for row in input:
-            
+
         if not row:
             return ""
 
         # Generate ordered words for each string
-        if not case_sensitive and type != 'intersection':
+        if not case_sensitive and type != "intersection":
             ordered_words_list = [_ordered_words(x.lower(), char) for x in row]
         else:
             ordered_words_list = [_ordered_words(x, char) for x in row]
@@ -41,16 +43,20 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
         # Initialize intersection with the words of the first string
         common_words = _OrderedDict(ordered_words_list[0])
 
-        if type == 'intersection':
+        if type == "intersection":
 
             # Find the intersection by keeping only common words in the same order
             for words in ordered_words_list[1:]:
                 # Preserve the case of words from common_words if case_sensitive is False
                 if not case_sensitive:
                     words_lower = set(w.lower() for w in words)
-                    common_words = _OrderedDict((k, None) for k in common_words if k.lower() in words_lower)
+                    common_words = _OrderedDict(
+                        (k, None) for k in common_words if k.lower() in words_lower
+                    )
                 else:
-                    common_words = _OrderedDict((k, None) for k in common_words if k in words)
+                    common_words = _OrderedDict(
+                        (k, None) for k in common_words if k in words
+                    )
 
             intersection = " ".join(common_words.keys())
             results.append(intersection)
@@ -68,17 +74,18 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
 
     return results
 
+
 def overlap(
-        input: list,
-        non_match_char: str = '*',
-        include_ratio: bool = False,
-        decimal_places: int = 3,
-        exact_match: str = None,
-        empty_a: str = None,
-        empty_b: str = None,
-        all_empty: str = None,
-        case_sensitive: bool = True
-    ) -> list:
+    input: list,
+    non_match_char: str = "*",
+    include_ratio: bool = False,
+    decimal_places: int = 3,
+    exact_match: str = None,
+    empty_a: str = None,
+    empty_b: str = None,
+    all_empty: str = None,
+    case_sensitive: bool = True,
+) -> list:
     """
     Find the matching characters between two strings.
     return: 2D list with the matched elements or the matched elements and the ratio of similarity in a list
@@ -92,7 +99,7 @@ def overlap(
         else:
             a_str = str(row[0])
             b_str = str(row[1])
-        
+
         # To be used in output in order to preserve original casing
         a_original = str(row[0])
 
@@ -111,12 +118,10 @@ def overlap(
             continue
 
         # Create a SequenceMatcher with '-' as 'junk'
-        matcher = _SequenceMatcher(lambda x: x == '-', a_str, b_str)
+        matcher = _SequenceMatcher(lambda x: x == "-", a_str, b_str)
         if matcher.ratio() == 1.0:
             if include_ratio:
-                results.append(
-                    [exact_match if exact_match else a_str, 1]
-                )
+                results.append([exact_match if exact_match else a_str, 1])
             else:
                 results.append(exact_match if exact_match else a_str)
             continue
@@ -130,28 +135,34 @@ def overlap(
         for block in matcher.get_matching_blocks():
             # Handle the non-matching part
             while last_match_end_a < block.a or last_match_end_b < block.b:
-                char_a = a_str[last_match_end_a] if last_match_end_a < len(a_str) else None
-                char_b = b_str[last_match_end_b] if last_match_end_b < len(b_str) else None
+                char_a = (
+                    a_str[last_match_end_a] if last_match_end_a < len(a_str) else None
+                )
+                char_b = (
+                    b_str[last_match_end_b] if last_match_end_b < len(b_str) else None
+                )
                 # These are the junk chars
-                if char_a == '-' or char_b == '-':
-                    result.append('') # junk replacement
+                if char_a == "-" or char_b == "-":
+                    result.append("")  # junk replacement
                 else:
-                    result.append(non_match_char) # non-matching replacement
+                    result.append(non_match_char)  # non-matching replacement
 
-                if last_match_end_a < len(a_str): last_match_end_a += 1
-                if last_match_end_b < len(b_str): last_match_end_b += 1
+                if last_match_end_a < len(a_str):
+                    last_match_end_a += 1
+                if last_match_end_b < len(b_str):
+                    last_match_end_b += 1
 
             # Add the matched part
             match_end_a = block.a + block.size
-            result.append(a_original[block.a:match_end_a])
+            result.append(a_original[block.a : match_end_a])
 
             # Update the last match end indices
             last_match_end_a = match_end_a
             last_match_end_b = block.b + block.size
 
         if include_ratio:
-            results.append([''.join(result), round(matcher.ratio(), decimal_places)])
+            results.append(["".join(result), round(matcher.ratio(), decimal_places)])
         else:
-            results.append(''.join(result))
+            results.append("".join(result))
 
     return results

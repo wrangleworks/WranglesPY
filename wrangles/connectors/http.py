@@ -1,6 +1,7 @@
 """
 Connector to make http(s) requests
 """
+
 import requests as _requests
 import pandas as _pd
 from typing import Union as _Union
@@ -20,7 +21,8 @@ def _get_oauth_token(url, method="POST", **kwargs):
         raise RuntimeError(
             f"OAuth request failed with status code {response.status_code}. Response: {response.text}"
         )
-    return response.json()['access_token']
+    return response.json()["access_token"]
+
 
 _schema = {}
 
@@ -32,7 +34,7 @@ def run(
     params: dict = None,
     json: _Union[dict, list] = None,
     oauth: dict = {},
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Issue a HTTP(S) request e.g. issue a request to a webhook on success or failure.
@@ -49,21 +51,19 @@ def run(
 
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
-    
+
     response = _requests.request(
-       method=method,
-       url=url,
-       headers=headers,
-       params=params,
-       json=json,
-       **kwargs
+        method=method, url=url, headers=headers, params=params, json=json, **kwargs
     )
     if not response.ok:
         raise RuntimeError(
             f"Request failed with status code {response.status_code}. Response: {response.text}"
         )
 
-_schema['run'] = """
+
+_schema[
+    "run"
+] = """
 type: object
 description: Issue a HTTP(S) request e.g. issue a request to a webhook on success or failure.
 required:
@@ -135,7 +135,7 @@ def read(
     json_key: str = None,
     oauth: dict = {},
     orient: str = "records",
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     Read data from a HTTP(S) endpoint.
@@ -157,31 +157,25 @@ def read(
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
 
     response = _requests.request(
-       method=method,
-       url=url,
-       headers=headers,
-       params=params,
-       json=json,
-       **kwargs
+        method=method, url=url, headers=headers, params=params, json=json, **kwargs
     )
     if not response.ok:
-       raise RuntimeError(f"Request failed with status code {response.status_code}. Response: {response.text}")
-    
+        raise RuntimeError(
+            f"Request failed with status code {response.status_code}. Response: {response.text}"
+        )
+
     response_json = response.json()
 
     if json_key:
-      for element in json_key.split('.'):
-        response_json = response_json[element]
+        for element in json_key.split("."):
+            response_json = response_json[element]
 
     if orient == "tight":
-        response_json = {
-            k.lower(): v
-            for k, v in response_json.items()
-        }
+        response_json = {k.lower(): v for k, v in response_json.items()}
         df = _pd.DataFrame(
             data=response_json.get("data", None),
             index=response_json.get("index", None),
-            columns=response_json.get("columns", None)
+            columns=response_json.get("columns", None),
         )
     elif orient == "columns":
         df = _pd.DataFrame(response_json)
@@ -192,7 +186,10 @@ def read(
 
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Get data from a HTTP(S) endpoint.
 required:
@@ -274,7 +271,7 @@ def write(
     orient: str = "records",
     batch: bool = True,
     oauth: dict = {},
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Write data to a HTTP(S) endpoint.
@@ -294,10 +291,7 @@ def write(
 
     if batch is True:
         response = _requests.request(
-            method=method,
-            url=url,
-            json=df.to_dict(orient=orient),
-            **kwargs
+            method=method, url=url, json=df.to_dict(orient=orient), **kwargs
         )
         if not response.ok:
             raise RuntimeError(
@@ -317,13 +311,16 @@ def write(
             response = _requests.request(
                 method=method,
                 url=url,
-                json=df.iloc[i:i+batch].to_dict(orient=orient),
-                **kwargs
+                json=df.iloc[i : i + batch].to_dict(orient=orient),
+                **kwargs,
             )
     else:
         raise ValueError("Batch must be a boolean or an integer")
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data to a HTTP endpoint.
 required:

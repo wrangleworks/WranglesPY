@@ -2,24 +2,30 @@ import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
 from urllib.parse import quote_plus as _quote_plus
-from ..utils import (
-  wildcard_expansion as _wildcard_expansion,
-  LazyLoader as _LazyLoader
-)
+from ..utils import wildcard_expansion as _wildcard_expansion, LazyLoader as _LazyLoader
 
 # Lazy load external dependency
-_pymongo = _LazyLoader('pymongo')
+_pymongo = _LazyLoader("pymongo")
 
 
 _schema = {}
 
-def read(user: str, password: str, database: str, collection: str, host: str, query: dict = {}, projection: dict = {}) -> _pd.DataFrame:
+
+def read(
+    user: str,
+    password: str,
+    database: str,
+    collection: str,
+    host: str,
+    query: dict = {},
+    projection: dict = {},
+) -> _pd.DataFrame:
     """
     Import data from a MongoDB database
-    
+
     >>> from wrangles.connectors import mongodb
     >>> df = mongodb.read(user='user, password='password', database='db', host='cluster0.mongodb.net', query='{"name": "Fey"}',projection='{"_id": 0, "name": 1, "position": 1}')
-    
+
     :param user: User with access to the database
     :param password: Password of user
     :param database: Database to be queried
@@ -33,22 +39,24 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
-    
+
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
-    
+
     # checking if database and collections are in mongoDB
-    if database not in client.list_database_names(): raise ValueError('MongoDB database not found.')
-    if collection not in db.list_collection_names(): raise ValueError('MongoDB collection not fond.')
+    if database not in client.list_database_names():
+        raise ValueError("MongoDB database not found.")
+    if collection not in db.list_collection_names():
+        raise ValueError("MongoDB collection not fond.")
 
     result = []
     for x in col.find(query, projection):
         result.append(x)
-    
+
     df = _pd.DataFrame(result)
-    
+
     try:
         client.close()
     except:
@@ -56,7 +64,10 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
 
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Import data from a mongoDB Server
 required:
@@ -88,13 +99,24 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, user: str, password: str, database: str, collection: str, host: str, action: str, query: dict = None, update: dict=None, columns: _Union[str, list] = None) -> None:
+def write(
+    df: _pd.DataFrame,
+    user: str,
+    password: str,
+    database: str,
+    collection: str,
+    host: str,
+    action: str,
+    query: dict = None,
+    update: dict = None,
+    columns: _Union[str, list] = None,
+) -> None:
     """
     Write data into a mongoDB database
-    
+
     >>> from wrangles.connectors import mongodb
     >>> df = mongodb.write(user='user, password='password', database='db', host='cluster0.mongodb.net', action: INSERT)
-    
+
     :param df: Dataframe to be exported
     :param user: User with access to the database
     :param password: Password of user
@@ -110,27 +132,30 @@ def write(df: _pd.DataFrame, user: str, password: str, database: str, collection
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)
-    
+
     conn = f"mongodb+srv://{user}:{password}@{host}/?retryWrites=true&w=majority"
     client = _pymongo.MongoClient(conn)
     db = client[database]
     col = db[collection]
-    
+
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
-    
-    if action.upper() == 'INSERT':
-        col.insert_many(df.to_dict(orient='records'))
-    elif action.upper() == 'UPDATE':
-        col.update_many(query, update)
-    
-    try:
-      client.close()
-    except:
-      pass
 
-_schema['write'] = """
+    if action.upper() == "INSERT":
+        col.insert_many(df.to_dict(orient="records"))
+    elif action.upper() == "UPDATE":
+        col.update_many(query, update)
+
+    try:
+        client.close()
+    except:
+        pass
+
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data into a mongoDB database
 required:
@@ -163,4 +188,3 @@ properties:
     type: object
     description: mongoDB query value to update, only valid when using UPDATE
 """
-

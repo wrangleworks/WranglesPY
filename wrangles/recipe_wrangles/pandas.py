@@ -7,7 +7,7 @@ def copy(
     df: _pd.DataFrame,
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -34,18 +34,27 @@ def copy(
         # Check that column name exists
         copy_cols = list(kwargs.keys())
         for x in copy_cols:
-            if x not in list(df.columns): raise ValueError(f'Column to copy "{x}" not found.')
+            if x not in list(df.columns):
+                raise ValueError(f'Column to copy "{x}" not found.')
         # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
-        
+        df = df.drop(
+            columns=[
+                x
+                for x in list(kwargs.values())
+                if x in df.columns and x not in list(kwargs.keys())
+            ]
+        )
+
         copy_dict = kwargs
 
         return copy(df, input=list(copy_dict.keys()), output=list(copy_dict.values()))
-    
+
     else:
         # If a string provided, convert to list
-        if not isinstance(input, list): input = [input]
-        if not isinstance(output, list): output = [output]
+        if not isinstance(input, list):
+            input = [input]
+        if not isinstance(output, list):
+            output = [output]
 
         # If input is a single column and output is multiple columns, repeat input
         if len(input) == 1 and len(output) > 1:
@@ -54,10 +63,10 @@ def copy(
         # If input is not the same length as output, raise error
         if len(input) != len(output):
             raise ValueError("Input and output must be the same length")
-        
+
         for input_column, output_column in zip(input, output):
             df[output_column] = df[input_column].copy()
-        
+
         return df
 
 
@@ -75,21 +84,21 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
           - string
         description: Name of the column(s) to drop
     """
-    return df.drop(columns=columns, errors='ignore')
-    
+    return df.drop(columns=columns, errors="ignore")
 
-def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
+
+def transpose(df: _pd.DataFrame, header_column=0) -> _pd.DataFrame:
     """
     type: object
     description: Transpose the DataFrame (swap columns to rows)
     additionalProperties: false
     properties:
       header_column:
-        type: 
+        type:
           - string
           - integer
           - null
-        description: >- 
+        description: >-
           Name or position of the column that will be used as the column headings
           for the transposed DataFrame. Default 0 (first column).
           Use header_column = null to not use any column as header.
@@ -109,7 +118,7 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
         return df
 
     else:
-      return df.transpose()
+        return df.transpose()
 
 
 def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
@@ -136,13 +145,15 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
           Specify a list to sort multiple columns in different orders.
           If this is a list of bools then it must match the length of the by.
     """
-    return df.sort_values(
-        ignore_index=ignore_index,
-        **kwargs
-    )
+    return df.sort_values(ignore_index=ignore_index, **kwargs)
 
 
-def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
+def round(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    decimals: int = 0,
+    output: _Union[str, list] = None,
+) -> _pd.DataFrame:
     """
     type: object
     description: Round column(s) to the specified decimals
@@ -165,27 +176,35 @@ def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, o
         type: number
         description: Number of decimal places to round column
     """
-    if output is None: output = input
-    
+    if output is None:
+        output = input
+
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
+
     for input_column, output_column in zip(input, output):
         # coerce input column to floats (nan on error)
         # replace nan with empty string
-        df[output_column] = _pd.to_numeric(df[input_column], errors='coerce').round(decimals=decimals).map(float).replace(_nan, '')
-        
+        df[output_column] = (
+            _pd.to_numeric(df[input_column], errors="coerce")
+            .round(decimals=decimals)
+            .map(float)
+            .replace(_nan, "")
+        )
+
     return df
-    
-    
+
+
 def reindex(
     df: _pd.DataFrame,
-    labels: list= None,
+    labels: list = None,
     index: list = None,
     columns: list = None,
     axis: _Union[str, int] = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -205,19 +224,19 @@ def reindex(
         type:
           - number
           - string
-        description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).  
+        description: Axis to target. Can be either the axis name (‘index’, ‘columns’) or number (0, 1).
     """
     # The following code is due to issue "Get Pandas to work with versions" #199
     # This ensures this works with older and newer pandas versions
     # Adding parameters to dictionary
     params = {"labels": labels, "index": index, "columns": columns, "axis": axis}
     # filter any None values
-    params = {k:v for (k, v) in zip(params.keys(), params.values()) if v != None}
+    params = {k: v for (k, v) in zip(params.keys(), params.values()) if v != None}
     # merge with kwargs
     parameters = {**params, **kwargs}
-    
+
     df = df.reindex(**parameters)
-    
+
     return df
 
 
@@ -226,7 +245,7 @@ def explode(
     input: _Union[str, int, list],
     reset_index: bool = True,
     drop_empty: bool = False,
-    where = None
+    where=None,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -249,18 +268,19 @@ def explode(
           description: Reset the index after exploding. Default True.
         drop_empty:
           type: boolean
-          description: |- 
+          description: |-
             If true, any rows that contain an empty list will be dropped.
             If false, rows that contain empty lists will keep 1 row with an empty value.
             Default False.
     """
     # If a string provided, convert to list
-    if not isinstance(input, list): input = [input]
-    
+    if not isinstance(input, list):
+        input = [input]
+
     # Check if there are any columns not in df
     if not set(input).issubset(df.columns):
         raise ValueError(f"Columns {input} not in DataFrame")
-    
+
     # If using where, we need to maintain the index
     # to be able to merge back later
     if where:
@@ -270,6 +290,6 @@ def explode(
 
     # Drop any rows that contain na after exploding
     if drop_empty:
-        df = df.dropna(subset=input, how='all')
+        df = df.dropna(subset=input, how="all")
 
     return df

@@ -12,27 +12,29 @@ def batch_api_calls(url, params, input_list, batch_size):
     Batch API calls into multiple of set batch size
     """
     if input_list == []:
-        # If input list is empty, shortcut and 
+        # If input list is empty, shortcut and
         # immediately return an empty list
         return []
 
     results = None
     for i in range(0, len(input_list), batch_size):
-        headers = {'Authorization': f'Bearer {_auth.get_access_token()}'}
+        headers = {"Authorization": f"Bearer {_auth.get_access_token()}"}
         response = _utils.request_retries(
-                    request_type='POST',
-                    url=url,
-                    **{
-                        'params': params,
-                        'headers': headers,
-                        'json': input_list[i:i + batch_size]
-                    }
-                )
-        
+            request_type="POST",
+            url=url,
+            **{
+                "params": params,
+                "headers": headers,
+                "json": input_list[i : i + batch_size],
+            },
+        )
+
         # Checking status code
-        if str(response.status_code)[0] != '2':
-            raise ValueError(f"Status Code: {response.status_code} - {response.reason}. {response.text} \n")
-        
+        if str(response.status_code)[0] != "2":
+            raise ValueError(
+                f"Status Code: {response.status_code} - {response.reason}. {response.text} \n"
+            )
+
         response_json = response.json()
 
         if isinstance(response_json, list):

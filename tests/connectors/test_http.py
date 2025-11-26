@@ -9,13 +9,15 @@ def test_read():
               url: https://marvin.wrangle.works
         """
     )
-    assert isinstance(df['message'][0], str)
-    
+    assert isinstance(df["message"][0], str)
+
 
 def test_run():
     from wrangles.connectors import http
-    test = http.run('https://marvin.wrangle.works')
+
+    test = http.run("https://marvin.wrangle.works")
     assert test == None
+
 
 def test_read_oauth():
     """
@@ -38,6 +40,7 @@ def test_read_oauth():
         """
     )
     assert df.columns.tolist() == ["Settings", "Columns", "Data"]
+
 
 def test_read_orient_tight():
     """
