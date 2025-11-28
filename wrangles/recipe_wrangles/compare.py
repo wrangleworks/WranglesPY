@@ -35,7 +35,6 @@ def lists(
           - intersection
           - difference
           - union
-          - overlap
       remove_duplicates:
         type: boolean
         description: Remove duplicates from the result
@@ -44,9 +43,9 @@ def lists(
         description: Ignore case when comparing string items
     """
 
-    if method not in ["intersection", "difference", "union", "overlap"]:
+    if method not in ["intersection", "difference", "union"]:
         raise ValueError(
-            "Method must be one of 'intersection', 'difference', 'union', or 'overlap'"
+            "Method must be one of 'intersection', 'difference', 'union'"
         )
 
     # ensure that input is at least a list of two columns
