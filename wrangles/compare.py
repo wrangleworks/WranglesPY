@@ -156,8 +156,8 @@ def overlap(
 
     return results
 
-def remove_duplicates(result, remove=False, ignore_case=False):
-    if not remove:
+def deduplicate(result, enabled=False, ignore_case=False):
+    if not enabled:
         return result
 
     final = []
