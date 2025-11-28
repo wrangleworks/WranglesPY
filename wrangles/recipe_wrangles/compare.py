@@ -74,11 +74,9 @@ def lists(
         # Find the intersection by keeping only common elements in the same order
         if method == "intersection":
             result = []
-            seen = set()
             for item in main_list:
-                if item not in seen and all(item in s for s in other_lists):
+                if all(item in s for s in other_lists):
                     result.append(item)
-                    seen.add(item)
 
         # Find the difference by keeping elements that are in any lists but not in the main list
         elif method == "difference":
