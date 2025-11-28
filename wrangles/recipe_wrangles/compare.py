@@ -93,12 +93,6 @@ def lists(
                         seen.append(item)
                         result.append(item)
 
-        # Find the difference by keeping elements that are in main list but not in the others
-        elif method == "overlap":
-            others_union = set().union(*other_lists)
-
-            result = [item for item in main_list if item not in others_union]
-
         # Handle remove_duplicates
         result = _compare.deduplicate(result, remove_duplicates, ignore_case)
 

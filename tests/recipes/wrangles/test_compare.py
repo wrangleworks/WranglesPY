@@ -49,28 +49,6 @@ class TestCompareList:
 
         assert df["result"][0] == ["A"] and df["result"][1] == ["X", "Z"]
 
-    def test_compare_lists_overlap(self):
-        """
-        Test compare.lists with overlap method
-        """
-        data = pd.DataFrame(
-            {
-                "list1": [["A", "B", "C", "D"]],
-                "list2": [["B", "C", "E"]],
-                "list3": [["C", "F"]],
-            }
-        )
-        recipe = """  
-        wrangles:  
-        - compare.lists:  
-            input: [list1, list2, list3]  
-            output: result  
-            method: overlap  
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-
-        assert df["result"][0] == ["A", "D"]
-
     def test_compare_lists_multiple_lists(self):
         """
         Test compare.lists with multiple lists (first is main)
