@@ -22,7 +22,7 @@ class TestRead:
             read:
             - s3:
                 bucket: wrwx-public
-                key: World Cup Winners.xlsx
+                file_key: World Cup Winners.xlsx
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
@@ -43,7 +43,7 @@ class TestRead:
             read:
             - s3:
                 bucket: wrwx-public
-                key: World Cup Winners.xlsx
+                file_key: World Cup Winners.xlsx
             """
         )
         assert df.iloc[0]['Winners'] == 'Uruguay'
@@ -58,7 +58,7 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-public
-                    key: does_not_exist.csv
+                    file_key: does_not_exist.csv
                 """
             )
 
@@ -72,7 +72,7 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    key: does_not_exist.csv
+                    file_key: does_not_exist.csv
                 """
             )
 
@@ -86,7 +86,7 @@ class TestRead:
             read:
             - s3:
                 bucket: wrwx-public
-                key: test_gzip_read.csv.gz
+                file_key: test_gzip_read.csv.gz
             """
         )
         assert df['header'][0] == 'Sed magnam tempora adipisci velit eius consectetur'
@@ -101,7 +101,7 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-public
-                    key: World Cup Winners.xlsx
+                    file_key: World Cup Winners.xlsx
                     access_key: not_a_valid_key
                     secret_access_key: not_a_valid_secret
                 """
@@ -121,7 +121,7 @@ class TestWrite:
             write:
             - s3:
                 bucket: wrwx-public
-                key: World Cup Titles.xlsx
+                file_key: World Cup Titles.xlsx
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
@@ -146,7 +146,7 @@ class TestWrite:
             write:
             - s3:
                 bucket: wrwx-public
-                key: World Cup Titles.xlsx
+                file_key: World Cup Titles.xlsx
             """,
             dataframe=pd.DataFrame({
                 'Country': ['Brazil', 'Germany', 'Italy'],
@@ -170,7 +170,7 @@ class TestWrite:
                 write:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    key: does_not_exist.csv
+                    file_key: does_not_exist.csv
                 """
             )
 
@@ -189,7 +189,7 @@ class TestWrite:
                 write:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    key: does_not_exist.csv
+                    file_key: does_not_exist.csv
                     access_key: not_a_valid_key
                     secret_access_key: not_a_valid_secret
                 """
@@ -209,7 +209,7 @@ class TestWrite:
             write:
             - s3:
                 bucket: wrwx-public
-                key: test_gzip_write.csv.gz
+                file_key: test_gzip_write.csv.gz
             """
         )
 
@@ -230,10 +230,10 @@ class TestRunUpload:
                   on_start:
                     - s3.upload_files:
                         bucket: wrwx-public
-                        file:
+                        save_as:
                         - tests/samples/data.csv
                         - tests/samples/data.json
-                        key:
+                        file_key:
                         - Test_Upload_File.csv
                 """
             )
@@ -249,8 +249,8 @@ class TestRunUpload:
                   on_start:
                     - s3.upload_files:
                         bucket: wrwx-does-not-exist
-                        key: does_not_exist.csv
-                        file: tests/samples/data.csv
+                        file_key: does_not_exist.csv
+                        save_as: tests/samples/data.csv
                 """
             )
 
@@ -263,7 +263,7 @@ class TestRunUpload:
           on_start:
             - s3.upload_files:
                 bucket: wrwx-public
-                file: tests/samples/data.csv
+                save_as: tests/samples/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -275,8 +275,8 @@ class TestRunUpload:
           on_start:
             - s3.download_files:
                 bucket: wrwx-public
-                key: data.csv
-                file: tests/temp/data.csv
+                file_key: data.csv
+                save_as: tests/temp/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         read:
@@ -294,8 +294,8 @@ class TestRunUpload:
           on_start:
             - s3.upload_files:
                 bucket: wrwx-public
-                key: Test_Upload_File.csv
-                file: tests/samples/data.csv
+                file_key: Test_Upload_File.csv
+                save_as: tests/samples/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -307,8 +307,8 @@ class TestRunUpload:
           on_start:
             - s3.download_files:
                 bucket: wrwx-public
-                key: Test_Upload_File.csv
-                file: tests/temp/temp_download_data.csv
+                file_key: Test_Upload_File.csv
+                save_as: tests/temp/temp_download_data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         read:
@@ -334,7 +334,7 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-public
-                        key: does_not_exist.csv
+                        file_key: does_not_exist.csv
                 """
             )
 
@@ -349,7 +349,7 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-does-not-exist
-                        key: does_not_exist.csv
+                        file_key: does_not_exist.csv
                 """
             )
 
@@ -364,7 +364,7 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-public
-                        key: World Cup Winners.xlsx
+                        file_key: World Cup Winners.xlsx
                         aws_access_key_id: not_a_valid_key
                         aws_secret_access_key: not_a_valid_secret
                 """
@@ -381,10 +381,10 @@ class TestRunDownload:
                   on_success:
                     - s3.download_files:
                         bucket: wrwx-public
-                        key:
+                        file_key:
                         - Test_Upload_File.csv
                         - World Cup Titles.csv
-                        file:
+                        save_as:
                         - tests/temp/temp_download_data.csv
                 """
             )
