@@ -585,7 +585,6 @@ def _execute_wrangles(
 
                 _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
-
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
                     if key in params.keys():
