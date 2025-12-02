@@ -530,6 +530,41 @@ class TestIf:
         assert df["header"][0] == "HELLO"
         assert df["header"][1] == "WORLD"
 
+    @pytest.mark.usefixtures("caplog")  
+    def test_if_condition_logging(self, caplog):  
+        """  
+        Test that actions with false if conditions are not logged  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 1  
+                values:  
+                    col1: value  
+            
+            wrangles:  
+            - convert.case:  
+                input: col1  
+                output: should_be_logged  
+                case: upper  
+            
+            - convert.case:  
+                input: col1  
+                output: should_not_be_logged  
+                case: lower  
+                if: 1 == 2  
+            """  
+        )  
+        
+        # Check that only the executed wrangle appears in logs  
+        log_messages = [msg for msg in caplog.messages if "Wrangling ::" in msg]  
+        
+        assert any(": Wrangling :: convert.case :: ['col1'] >> should_be_logged" in msg for msg in log_messages)  
+        assert not any(": Wrangling :: convert.case :: ['col1'] >> should_not_be_logged" in msg for msg in log_messages)  
+        assert df['should_be_logged'][0] == 'VALUE'  
+        assert 'should_not_be_logged' not in df.columns
+
 class TestPositionInput:
     """
     Test using column indexes rather than names for input

@@ -522,8 +522,6 @@ def _execute_wrangles(
         for wrangle, params in step.items():
             try:
                 if params is None: params = {}
-                _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
-                
                 # Replace any conflicting reserved words with a safe alternative
                 wrangle = _reserved_word_replacements.get(wrangle, wrangle)
 
@@ -584,6 +582,9 @@ def _execute_wrangles(
                     )
                 ):
                     continue
+
+                _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
+
 
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
