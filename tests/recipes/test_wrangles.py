@@ -530,7 +530,6 @@ class TestIf:
         assert df["header"][0] == "HELLO"
         assert df["header"][1] == "WORLD"
 
-    @pytest.mark.usefixtures("caplog")  
     def test_if_condition_logging(self, caplog):  
         """  
         Test that actions with false if conditions are not logged  
