@@ -531,9 +531,10 @@ class TestIf:
         assert df["header"][1] == "WORLD"
 
     def test_if_condition_logging(self, caplog):  
-        """  
-        Test that actions with false if conditions are not logged  
-        """  
+        """
+        Test that actions with true if conditions are logged,
+        and actions with false if conditions are not logged.
+        """
         df = wrangles.recipe.run(  
             """  
             read:  
