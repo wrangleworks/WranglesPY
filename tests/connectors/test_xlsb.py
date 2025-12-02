@@ -1,10 +1,4 @@
 import wrangles
-import wrangles
-import os
-import tempfile
-import pytest
-import pandas as pd
-
 
 class TestXLSBConnector:
     def test_read_xlsb_basic_functionality(self):
@@ -15,11 +9,11 @@ class TestXLSBConnector:
         # Test basic read with columns and nrows
         recipe = """  
           read:  
-            xlsb:  
-              name: tests/samples/data.xlsb  
-              columns:  
-                - Find  
-              nrows: 3  
+            - xlsb:  
+                name: tests/samples/data.xlsb  
+                columns:  
+                  - Find  
+                nrows: 3  
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ["Find"]
@@ -33,11 +27,11 @@ class TestXLSBConnector:
         # Test sheet name and header together
         recipe = """  
           read:  
-            xlsb:  
-              name: tests/samples/data.xlsb  
-              sheet_name: 0  
-              header: 0  
-              skiprows: 0  
+            - xlsb:  
+                name: tests/samples/data.xlsb  
+                sheet_name: 0  
+                header: 0  
+                skiprows: 0  
         """
         df = wrangles.recipe.run(recipe)
         assert len(df) > 0
@@ -50,11 +44,11 @@ class TestXLSBConnector:
         # Test usecols vs columns parameter
         recipe = """  
           read:  
-            xlsb:  
-              name: tests/samples/data.xlsb  
-              usecols:  
-                - Find  
-              dtype: object  
+            - xlsb:  
+                name: tests/samples/data.xlsb  
+                usecols:  
+                  - Find  
+                dtype: object  
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ["Find"]
@@ -68,16 +62,16 @@ class TestXLSBConnector:
         # Test multiple formatting options together
         recipe = """  
           read:  
-            xlsb:  
-              name: tests/samples/data.xlsb  
-              na_values:  
-                - N/A  
-                - NULL  
-              keep_default_na: true  
-              na_filter: true  
-              decimal: '.'  
-              thousands: ','  
-              verbose: false  
+            - xlsb:  
+                name: tests/samples/data.xlsb  
+                na_values:  
+                  - N/A  
+                  - NULL  
+                keep_default_na: true  
+                na_filter: true  
+                decimal: '.'  
+                thousands: ','  
+                verbose: false  
         """
         df = wrangles.recipe.run(recipe)
         assert len(df) > 0
@@ -90,11 +84,11 @@ class TestXLSBConnector:
         # Test advanced options
         recipe = """  
           read:  
-            xlsb:  
-              name: tests/samples/data.xlsb  
-              parse_dates: false  
-              skipfooter: 0  
-              comment: null  
+            - xlsb:  
+                name: tests/samples/data.xlsb  
+                parse_dates: false  
+                skipfooter: 0  
+                comment: null  
         """
         df = wrangles.recipe.run(recipe)
         assert len(df) > 0
