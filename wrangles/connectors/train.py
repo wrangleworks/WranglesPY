@@ -102,9 +102,9 @@ class extract():
         elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
             [x.append('') for x in tmp_data['Data']]
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output', 'Notes']
         elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output', 'Notes']
         else:
             raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
 
@@ -169,9 +169,9 @@ class extract():
 
         if variant == 'pattern':
             versions = [
-                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
-                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'},
                 {'columns': ['Find', 'Output', 'Notes'], 'version': 'pattern 3.0'},
+                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
             ]
             try:
                 required_columns = [

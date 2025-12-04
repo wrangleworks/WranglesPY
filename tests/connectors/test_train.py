@@ -195,6 +195,27 @@ class TestTrainExtract:
         write:
         - train.extract:
             columns:
+                - Entity to Find
+                - Variation (Optional)
+                - Notes
+            model_id: ee5f020e-d88e-4bd5
+        """
+        data = pd.DataFrame({
+            'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
+            'Variation (Optional)': ['', '', ''],
+            'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Entity to Find'] == 'Rachel'
+
+    def test_extract_write_2_0(self):
+        """
+        Writing data to a wrangle (re-training)
+        """
+        recipe = """
+        write:
+        - train.extract:
+            columns:
                 - Find
                 - Output (Optional)
                 - Notes
