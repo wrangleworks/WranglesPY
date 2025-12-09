@@ -24,6 +24,19 @@ def test_recipe_from_file():
     )
     assert df.columns.tolist() == ['ID', 'Find2']
 
+def test_recipe_from__recipe_file():
+    """
+    Testing recipe passed as a filename with .recipe extension
+    """
+    df = wrangles.recipe.run(
+        "tests/samples/recipe_sample.recipe",
+        variables= {
+            "inputFile": 'tests/samples/data.csv',
+            "outputFile": 'tests/temp/write_data.xlsx'
+        }
+    )
+    assert df.columns.tolist() == ['ID', 'Find2']
+
 def test_recipe_from_url():
     """
     Testing reading a recipe from an https:// source
