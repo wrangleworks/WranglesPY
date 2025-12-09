@@ -366,12 +366,8 @@ def group_by(
                 inverted_dict[column].append(operation)
             else:
                 inverted_dict[column] = [operation]
-
-     # Store original groupby column names for later restoration  
-    original_by_columns = []  
-    temp_by_columns = []  
       
-   # If any of the columns to group by are also specified
+    # If any of the columns to group by are also specified
     # as an aggregate column this causes problems.
     # Temporarily rename the column to avoid this.
     if set(by).intersection(set(inverted_dict.keys())):
@@ -413,10 +409,9 @@ def group_by(
             if col.endswith(".grouped_asjkdbak")
         },
         axis=1
-    )  
+    )
   
     return df
-
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     """
     type: object
