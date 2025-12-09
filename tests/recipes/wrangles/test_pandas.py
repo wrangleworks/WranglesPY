@@ -1172,3 +1172,26 @@ class TestSort:
             })  
         )  
         assert df['column'].tolist() == pytest.approx([2.1, 4.3, 5.8], rel=1e-3)
+
+    def test_sort_mixed_data_types(self):  
+        """  
+        Test sorting with mixed float and string columns  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - sort:  
+                by:  
+                  - float_col  
+                  - str_col  
+                ascending:  
+                  - false  
+                  - true  
+            """,  
+            dataframe=pd.DataFrame({  
+                "float_col": [1.2, 2.8, 1.2, 3.5],  
+                "str_col": ["banana", "apple", "zebra", "qux"]  
+            })  
+        )  
+        assert df["float_col"].tolist() == [3.5, 2.8, 1.2, 1.2]  
+        assert df["str_col"].tolist() == ["qux", "apple", "banana", "zebra"]
