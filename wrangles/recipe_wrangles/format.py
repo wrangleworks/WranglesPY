@@ -96,7 +96,7 @@ def pad(
       skip_empty:
         type: boolean
         description: If true, skip padding for empty or whitespace-only values
-        default: (Optional) false
+        default: false
   """
     char = str(char)
     # If the output is not specified, overwrite input columns in place
@@ -159,7 +159,7 @@ def prefix(
       skip_empty:
         type: boolean
         description: Whether to skip empty values
-        default: (Optional) false
+        default: false
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -298,7 +298,7 @@ def suffix(
         skip_empty:
           type: boolean
           description: Whether to skip empty values
-          default: (Optional) false
+          default: false
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input

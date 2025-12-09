@@ -214,7 +214,7 @@ def text(
       skip_empty:
         type: boolean
         description: Whether to skip empty values
-        default: (Optional) false
+        default: false
     """
     # Ensure only a single input column is specified
     if isinstance(input, _list):

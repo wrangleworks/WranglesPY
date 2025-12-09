@@ -1333,3 +1333,111 @@ class TestMergeDictionaries:
         """  
         df = wrangles.recipe.run(recipe, dataframe=data)  
         assert df.iloc[1]['out'] == {'Hello': 'Moto', 'Hola': 'Hello'} and df.iloc[0]['out'] == ''
+
+    def test_merge_dicts_with_empty_dict(self):  
+        """  
+        Test merge.dictionaries with one empty dictionary  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{'Hello': 'Fey'}, {}, {'Hello': 'World'}],  
+            'd2': [{'Hola': 'Lucy'}, {'Hola': 'Moto'}, {'Hola': 'Nice'}],  
+        })  
+        
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+            skip_empty: true
+            output: out  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        
+        expected = [  
+            {'Hello': 'Fey', 'Hola': 'Lucy'},  
+            {'Hola': 'Moto'},  
+            {'Hello': 'World', 'Hola': 'Nice'}  
+        ]  
+        assert df['out'].tolist() == expected
+    
+    def test_merge_dicts_few_empty_dict(self):  
+        """  
+        Test merge.dictionaries with a few empty dictionaries  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{}, {'Hello': 'Fey'}, {}],  
+            'd2': [{'Hola': 'Lucy'}, {}, {'Hola': 'Moto'}],  
+            'd3': [{'key': 'value'}, {'key': 'test'}, {}]  
+        })  
+        
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+                - d3 
+            skip_empty: true 
+            output: out  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        
+        expected = [  
+            {'Hola': 'Lucy', 'key': 'value'},  
+            {'Hello': 'Fey', 'key': 'test'},  
+            {'Hola': 'Moto'}  
+        ]  
+        assert df['out'].tolist() == expected
+
+    def test_merge_dicts_all_empty_skip_empty_true(self):  
+        """  
+        Test merge.dictionaries where all dictionaries are empty  
+        """  
+        data = pd.DataFrame({  
+            'd1': [{}, {}, {}],  
+            'd2': [{}, {}, {}],  
+            'd3': [{}, {}, {}]  
+        })  
+        
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+                - d3  
+            skip_empty: true 
+            output: out  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        
+        # All rows should result in empty dictionaries  
+        expected = [{}, {}, {}]  
+        assert df['out'].tolist() == expected
+
+    def test_merge_dicts_all_empty_skip_empty_false(self):  
+        """  
+        Test merge.dictionaries where all dictionaries are empty with skip_empty=False 
+        """  
+        data = pd.DataFrame({  
+            'd1': [{}, {}, {}],  
+            'd2': [{}, {}, {}],  
+            'd3': [{}, {}, {}]  
+        })  
+        
+        recipe = """  
+        wrangles:  
+        - merge.dictionaries:  
+            input:  
+                - d1  
+                - d2  
+                - d3  
+            skip_empty: false 
+            output: out  
+        """  
+        df = wrangles.recipe.run(recipe, dataframe=data)  
+        
+        expected = [{}, {}, {}]  
+        assert df['out'].tolist() == expected
+        
