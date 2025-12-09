@@ -172,10 +172,14 @@ def element(
     # Handle default values - convert to list if needed  
     if default is None:  
         defaults = [None] * len(input)  
-    elif isinstance(default, list):  
-        if len(default) != len(input):  
-            raise ValueError('The list of default values must be the same length as input/output for select.element')  
-        defaults = default  
+    elif isinstance(default, list):
+        # Allow list of length 1 to be applied to all columns  
+        if len(default) == 1:  
+            defaults = [default[0]] * len(input)  
+        elif len(default) != len(input):    
+            raise ValueError('The list of default values must be the same length as input/output for select.element')    
+        else:  
+            defaults = default 
     else:  
         # Single default value - apply to all columns  
         defaults = [default] * len(input)

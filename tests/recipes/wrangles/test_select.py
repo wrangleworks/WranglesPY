@@ -2371,6 +2371,31 @@ class TestSelectElement:
         )
         assert df["result"][0] == "" and df["result"][1] == 1 and df["result"][2] == "do"
 
+    def test_element_default_list_length_one(self):  
+        """  
+        Test select.element with a default list of length 1  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                - col1[0]  
+                - col2[0]  
+                output:  
+                - result1  
+                - result2  
+                default:  
+                - default_1  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [["a", "b"], []],  
+                "col2": [[], ["x", "y"]]  
+            })  
+        )  
+        assert df["result1"].tolist() == ["a", "default_1"]  
+        assert df["result2"].tolist() == ["default_1", "x"]
+
     def test_select_element_empty_df(self):
         """
         Test select.element with an empty dataframe
@@ -2468,30 +2493,7 @@ class TestSelectElement:
         )  
         assert df["result1"][0] == "fallback" and df["result2"][0] == "x"  
         assert df["result1"][1] == "a" and df["result2"][1] == "fallback"  
-    
-    def test_element_multiple_defaults_length_mismatch(self):  
-        """  
-        Test error when default list length doesn't match input/output length  
-        """  
-        with pytest.raises(ValueError, match="must be the same length"):  
-            wrangles.recipe.run(  
-                """  
-                wrangles:  
-                - select.element:  
-                    input:  
-                        - col1[0]  
-                        - col2[0]  
-                    output:  
-                        - result1  
-                        - result2  
-                    default:  
-                        - default_1  
-                """,  
-                dataframe=pd.DataFrame({  
-                    "col1": [["a"]],  
-                    "col2": [["b"]]  
-                })  
-            )  
+
     
     def test_element_multiple_defaults_with_where(self):  
         """  
