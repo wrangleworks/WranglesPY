@@ -366,7 +366,7 @@ def group_by(
                 inverted_dict[column].append(operation)
             else:
                 inverted_dict[column] = [operation]
-      
+
     # If any of the columns to group by are also specified
     # as an aggregate column this causes problems.
     # Temporarily rename the column to avoid this.
@@ -410,8 +410,10 @@ def group_by(
         },
         axis=1
     )
-  
+
     return df
+
+
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     """
     type: object
