@@ -371,56 +371,49 @@ def group_by(
     original_by_columns = []  
     temp_by_columns = []  
       
-    # If any of the columns to group by are also specified  
-    # as an aggregate column this causes problems.  
-    # Temporarily rename the column to avoid this.  
-    if set(by).intersection(set(inverted_dict.keys())):  
-        for i, val in enumerate(by):  
-            if val in inverted_dict.keys():  
-                original_by_columns.append(val)  
-                temp_name = val + ".grouped_asjkdbak"  
-                temp_by_columns.append(temp_name)  
-                df[temp_name] = df[val]  
-                by[i] = temp_name  
-  
-    # Create group by object with by and aggregate columns  
-    df_grouped = df[by + list(inverted_dict.keys())].groupby(  
-        by = by,  
-        as_index=False,  
-        sort=False  
+   # If any of the columns to group by are also specified
+    # as an aggregate column this causes problems.
+    # Temporarily rename the column to avoid this.
+    if set(by).intersection(set(inverted_dict.keys())):
+        for i, val in enumerate(by):
+            if val in inverted_dict.keys():
+                df[val + ".grouped_asjkdbak"] = df[val]
+                by[i] = val + ".grouped_asjkdbak"
+
+    # Create group by object with by and aggregate columns
+    df_grouped = df[by + list(inverted_dict.keys())].groupby(
+        by = by,
+        as_index=False,
+        sort=False
+    )
+
+    # If agg columns then aggregate else return grouped
+    if kwargs:
+        df = df_grouped.agg(inverted_dict)
+    else:
+        df = df_grouped.count()
+
+    # Remove faked column if it was needed
+    if 'absjdkbatgg' in df.columns:
+        df = df.drop('absjdkbatgg', axis=1, level=0)
+
+    # Flatting multilevel headings back to one
+    df.columns = [
+        '.'.join(col).strip('.')
+        if isinstance(col, tuple)
+        else col
+        for col in df.columns
+    ]
+
+    # Rename columns back to original names if altered
+    df = df.rename(
+        {
+            col: col.replace(".grouped_asjkdbak", "")
+            for col in df.columns
+            if col.endswith(".grouped_asjkdbak")
+        },
+        axis=1
     )  
-  
-    # If agg columns then aggregate else return grouped  
-    if kwargs:  
-        df = df_grouped.agg(inverted_dict)  
-    else:  
-        df = df_grouped.count()  
-  
-    # Remove faked column if it was needed  
-    if 'absjdkbatgg' in df.columns:  
-        df = df.drop('absjdkbatgg', axis=1, level=0)  
-  
-    # Flatting multilevel headings back to one  
-    df.columns = [  
-        '.'.join(col).strip('.')  
-        if isinstance(col, tuple)  
-        else col  
-        for col in df.columns  
-    ]  
-  
-    # Only rename groupby columns back to original names  
-    # Preserve aggregation suffixes like .first, .last, etc.  
-    if original_by_columns:  
-        rename_mapping = {}  
-        for orig_col, temp_col in zip(original_by_columns, temp_by_columns):  
-            # Find columns that start with the temporary name  
-            for col in df.columns:  
-                if col.startswith(temp_col):  
-                    # Replace only the temporary suffix, preserve aggregation suffixes  
-                    new_col = col.replace(temp_col, orig_col, 1)  
-                    rename_mapping[col] = new_col  
-          
-        df = df.rename(columns=rename_mapping)  
   
     return df
 
