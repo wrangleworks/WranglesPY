@@ -79,7 +79,7 @@ class TestXLSBConnector:
                     - NonExistentColumn  
             """
             )
-        assert r"xlsb - 'Column NonExistentColumn does not exist'" in str(
+        assert r"Failed to read XLSB file" in str(
             exc_info.value
         )
 

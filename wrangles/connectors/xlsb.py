@@ -169,13 +169,20 @@ def read(
     pandas_kwargs.update(kwargs)
 
     # Read the xlsb file with explicit parameters
-    df = _pd.read_excel(file_object, **pandas_kwargs).fillna("")
+    try:
+      df = _pd.read_excel(file_object, **pandas_kwargs).fillna("")
 
-    # If the user specifies only certain columns, only include those
-    if columns is not None:
-        columns = _wildcard_expansion(df.columns, columns)
-        df = df[columns]
-
+     # If the user specifies only certain columns, only include those
+    
+      if columns is not None:
+          columns = _wildcard_expansion(df.columns, columns)
+          df = df[columns]
+    except KeyError as e:  
+      # Provide context about the file being read  
+      raise KeyError(  
+          "Failed to read XLSB file. Please check sheet names, column references, and other parameters. "  
+          f"Error: {str(e)}"  
+      ) from e
     return df
 
 
