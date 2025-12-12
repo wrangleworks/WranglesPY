@@ -25,8 +25,8 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.json
+            - json:
+                name: tests/samples/data.json
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -37,8 +37,8 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.jsonl
+            - json:
+                name: tests/samples/data.jsonl
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -49,10 +49,10 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.json
-              columns:
-                - Find
+            - json:
+                name: tests/samples/data.json
+                columns:
+                  - Find
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find']
@@ -63,10 +63,10 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.jsonl
-              columns:
-                - Find
+            - json:
+                name: tests/samples/data.jsonl
+                columns:
+                  - Find
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find']
@@ -77,9 +77,9 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.json
-              orient: records
+            - json:
+                name: tests/samples/data.json
+                orient: records
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -91,9 +91,9 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.jsonl
-              nrows: 2
+            - json:
+                name: tests/samples/data.jsonl
+                nrows: 2
         """
         df = wrangles.recipe.run(recipe)
         assert len(df) == 2
@@ -106,9 +106,9 @@ class TestRead:
         with pytest.raises(ValueError, match="nrows.*only supported.*JSONL"):
             recipe = """
               read:
-                json:
-                  name: tests/samples/data.json
-                  nrows: 2
+                - json:
+                    name: tests/samples/data.json
+                    nrows: 2
             """
             wrangles.recipe.run(recipe)
 
@@ -118,9 +118,9 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.json
-              encoding: utf-8
+            - json:
+                name: tests/samples/data.json
+                encoding: utf-8
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -131,9 +131,9 @@ class TestRead:
         """
         recipe = """
           read:
-            json:
-              name: tests/samples/data.jsonl
-              lines: true
+            - json:
+                name: tests/samples/data.jsonl
+                lines: true
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
@@ -166,6 +166,26 @@ class TestRead:
         with pytest.raises(ValueError, match="nrows.*only supported.*JSONL"):
             wrangles.connectors.json.read('tests/samples/data.json', nrows=2)
 
+    def test_read_multiple_json_sources(self):
+        """
+        Test reading multiple JSON sources in a single read section.
+        This demonstrates the list format enables multiple connector invocations
+        which are automatically combined via union.
+        """
+        recipe = """
+          read:
+            - json:
+                name: tests/samples/data.json
+                columns:
+                  - Find
+            - json:
+                name: tests/samples/data.jsonl
+                columns:
+                  - Replace
+        """
+        df = wrangles.recipe.run(recipe)
+        assert 'Find' in df.columns and 'Replace' in df.columns
+        assert len(df) == 6
 
 class TestWrite:
     """
@@ -185,8 +205,8 @@ class TestWrite:
                   Find: aaa
                   Replace: bbb
           write:
-            json:
-              name: {filename}
+            - json:
+                name: {filename}
         """
         wrangles.recipe.run(recipe)
         
@@ -208,8 +228,8 @@ class TestWrite:
                   Find: aaa
                   Replace: bbb
           write:
-            json:
-              name: {filename}
+            - json:
+                name: {filename}
         """
         wrangles.recipe.run(recipe)
         
@@ -232,11 +252,11 @@ class TestWrite:
                   Replace: bbb
                   Extra: ccc
           write:
-            json:
-              name: {filename}
-              columns:
-                - Find
-                - Replace
+            - json:
+                name: {filename}
+                columns:
+                  - Find
+                  - Replace
         """
         wrangles.recipe.run(recipe)
         
@@ -258,9 +278,9 @@ class TestWrite:
                   col1: val1
                   col2: val2
           write:
-            json:
-              name: {filename}
-              orient: records
+            - json:
+                name: {filename}
+                orient: records
         """
         wrangles.recipe.run(recipe)
 
@@ -282,9 +302,9 @@ class TestWrite:
                 values:
                   col1: val1
           write:
-            json:
-              name: {filename}
-              indent: 2
+            - json:
+                name: {filename}
+                indent: 2
         """
         wrangles.recipe.run(recipe)
         
