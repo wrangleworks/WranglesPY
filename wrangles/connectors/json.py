@@ -40,7 +40,7 @@ def read(
     compression: str = 'infer',
     nrows: int = None,
     **kwargs
-) -> _pd.DataFrame:
+):
     """
     Import a JSON or JSONL file with explicit parameter handling.
     
@@ -49,6 +49,9 @@ def read(
     
     >>> df = wrangles.connectors.json.read('myfile.json')
     >>> df = wrangles.connectors.json.read('myfile.jsonl')
+    >>> # Read in chunks for large files
+    >>> for chunk in wrangles.connectors.json.read('large.jsonl', chunksize=1000):
+    >>>     process(chunk)
     
     :param name: Path to the JSON or JSONL file
     :param columns: (Optional) Subset of columns to read. If not provided, all columns will be included
@@ -63,10 +66,10 @@ def read(
     :param encoding: Encoding to use for UTF when reading/writing. Default 'utf-8'
     :param encoding_errors: How to handle encoding errors. Default 'strict'
     :param lines: Read file as line-delimited JSON (JSONL format). Auto-detected based on extension
-    :param chunksize: Return JsonReader object for iteration
+    :param chunksize: Return an iterator yielding DataFrames with this many records per chunk
     :param compression: Compression to use. Options: 'infer', 'gzip', 'bz2', 'zip', 'xz', None
     :param nrows: Number of lines to read. Only valid when lines=True (JSONL format)
-    :return: A Pandas DataFrame of the imported data
+    :return: A Pandas DataFrame of the imported data, or an iterator of DataFrames if chunksize is specified
     """
     _logging.info(f": Reading data from JSON file :: {name}")
     
@@ -133,13 +136,30 @@ def read(
     pandas_kwargs.update(kwargs)
     
     try:
-        df = _pd.read_json(name, **pandas_kwargs).fillna('')
+        result = _pd.read_json(name, **pandas_kwargs)
     except TypeError as e:
         raise TypeError(
             f"Error reading JSON file: {e}\n"
             "This may be due to incompatible parameters. "
             "Note: 'nrows' is only valid for JSONL files."
         ) from e
+    
+    # If chunksize is specified, result is a JsonReader (iterator)
+    # We need to wrap it to apply fillna and column filtering to each chunk
+    if chunksize is not None:
+        def process_chunks(reader):
+            """Generator that processes each chunk with fillna and column filtering"""
+            for chunk in reader:
+                chunk = chunk.fillna('')
+                if columns is not None:
+                    chunk_columns = _wildcard_expansion(chunk.columns, columns)
+                    chunk = chunk[chunk_columns]
+                yield chunk
+        
+        return process_chunks(result)
+    
+    # For regular (non-chunked) reads, process the DataFrame directly
+    df = result.fillna('')
     
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
@@ -230,7 +250,10 @@ properties:
       When true, enables 'nrows' parameter.
   chunksize:
     type: integer
-    description: Return JsonReader object for iteration with this many records per chunk
+    description: |
+      Return an iterator yielding DataFrames with this many records per chunk.
+      When specified, the function returns an iterator instead of a single DataFrame.
+      Each chunk will have fillna('') and column filtering applied.
     minimum: 1
   compression:
     type: string

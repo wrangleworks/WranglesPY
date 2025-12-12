@@ -455,6 +455,47 @@ class TestParameterValidation:
         assert len(df) == 2
 
 
+class TestChunksize:
+    def test_read_jsonl_with_chunksize(self):
+        """
+        Test reading JSONL with chunksize
+        """
+        reader = wrangles.connectors.json.read('tests/samples/data.jsonl', chunksize=2)
+        
+        chunks = list(reader)
+        assert len(chunks) > 0
+        
+        for chunk in chunks:
+            assert isinstance(chunk, _pd.DataFrame)
+            assert 'Find' in chunk.columns and 'Replace' in chunk.columns
+            assert chunk.isnull().sum().sum() == 0
+    
+    def test_read_jsonl_with_chunksize_and_columns(self):
+        """
+        Test reading JSONL with chunksize and column selection
+        """
+        reader = wrangles.connectors.json.read('tests/samples/data.jsonl', chunksize=2, columns=['Find'])
+        
+        chunks = list(reader)
+        assert len(chunks) > 0
+        
+        for chunk in chunks:
+            assert chunk.columns.tolist() == ['Find']
+    
+    def test_read_jsonl_with_chunksize_direct(self):
+        """
+        Test reading JSONL with chunksize using direct connector call
+        """
+        reader = wrangles.connectors.json.read('tests/samples/data.jsonl', chunksize=1)
+
+        chunk_count = 0
+        for chunk in reader:
+            assert isinstance(chunk, _pd.DataFrame)
+            chunk_count += 1
+        
+        assert chunk_count > 0
+
+
 class TestBackwardCompatibility:
     """
     Test that json connector works with existing data files
