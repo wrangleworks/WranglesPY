@@ -1,0 +1,18 @@
+read:
+  - file:
+      name: "${inputFile}"
+      header: 0
+      
+wrangles:
+  - create.index:
+      output: ID
+      
+  - convert.case:
+      input: Find
+      output: Find2
+      case: lower
+write:
+  - dataframe:
+      columns:
+        - ID
+        - Find2
