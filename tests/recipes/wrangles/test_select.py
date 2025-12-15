@@ -2503,6 +2503,31 @@ class TestSelectElement:
         )
         assert df["result"][0] == "" and df["result"][1] == 1 and df["result"][2] == "do"
 
+    def test_element_default_list_length_one(self):  
+        """  
+        Test select.element with a default list of length 1  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                - col1[0]  
+                - col2[0]  
+                output:  
+                - result1  
+                - result2  
+                default:  
+                - default_1  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [["a", "b"], []],  
+                "col2": [[], ["x", "y"]]  
+            })  
+        )  
+        assert df["result1"].tolist() == ["a", "default_1"]  
+        assert df["result2"].tolist() == ["default_1", "x"]
+
     def test_select_element_empty_df(self):
         """
         Test select.element with an empty dataframe
@@ -2519,6 +2544,142 @@ class TestSelectElement:
             })
         )
         assert df.empty and df.columns.to_list() == ['col', 'result']
+
+    def test_element_multiple_defaults_basic(self):  
+        """  
+        Test select.element with multiple inputs/outputs and corresponding default values  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                    - col1[0]  
+                    - col2[0]  
+                output:  
+                    - result1  
+                    - result2  
+                default:  
+                    - default_1  
+                    - default_2  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [["a", "b"], []],  
+                "col2": [["x", "y"], ["z"]]  
+            })  
+        )  
+        assert df["result1"][0] == "a" and df["result2"][0] == "x"  
+        assert df["result1"][1] == "default_1" and df["result2"][1] == "z"  
+  
+    def test_element_multiple_defaults_dict(self):  
+        """  
+        Test select.element with dict default values for each column  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                    - companies[0]  
+                    - scores[0]  
+                output:  
+                    - best_match  
+                    - similarity  
+                default:  
+                    - {name: unknown, id: -1}  
+                    - 0  
+            """,  
+            dataframe=pd.DataFrame({  
+                "companies": [  
+                    [{"name": "CompanyA", "id": 123}],  
+                    []  
+                ],  
+                "scores": [[0.95], []]  
+            })  
+        )  
+        assert df["best_match"][0] == {"name": "CompanyA", "id": 123}  
+        assert df["similarity"][0] == 0.95  
+        assert df["best_match"][1] == {"name": "unknown", "id": -1}  
+        assert df["similarity"][1] == 0  
+  
+    def test_element_multiple_defaults_single_default_fallback(self):  
+        """  
+        Test that single default value still works (backward compatibility)  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                    - col1[0]  
+                    - col2[0]  
+                output:  
+                    - result1  
+                    - result2  
+                default: fallback  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [[], ["a"]],  
+                "col2": [["x"], []]  
+            })  
+        )  
+        assert df["result1"][0] == "fallback" and df["result2"][0] == "x"  
+        assert df["result1"][1] == "a" and df["result2"][1] == "fallback"  
+
+    
+    def test_element_multiple_defaults_with_where(self):  
+        """  
+        Test multiple defaults with where clause  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                    - col1[0]  
+                    - col2[0]  
+                output:  
+                    - result1  
+                    - result2  
+                default:  
+                    - default_1  
+                    - default_2  
+                where: flag == True  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [["a"], ["b"], ["c"]],  
+                "col2": [["x"], ["y"], ["z"]],  
+                "flag": [True, False, True]  
+            })  
+        )  
+        assert df["result1"][0] == "a" and df["result2"][0] == "x"  
+        assert df["result1"][1] == "" and df["result2"][1] == ""  
+        assert df["result1"][2] == "c" and df["result2"][2] == "z"  
+    
+    def test_element_multiple_defaults_empty_dataframe(self):  
+        """  
+        Test multiple defaults with empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - select.element:  
+                input:  
+                    - col1[0]  
+                    - col2[0]  
+                output:  
+                    - result1  
+                    - result2  
+                default:  
+                    - default_1  
+                    - default_2  
+            """,  
+            dataframe=pd.DataFrame({  
+                "col1": [],  
+                "col2": []  
+            })  
+        )  
+        assert df.empty and list(df.columns) == ['col1', 'col2', 'result1', 'result2']
 
 
 class TestSelectColumns:

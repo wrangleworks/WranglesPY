@@ -100,7 +100,7 @@ def element(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list] = None,
-    default: any = None
+    default: _Union[any, list] = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -169,6 +169,21 @@ def element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.element')
     
+    # Handle default values - convert to list if needed  
+    if default is None:  
+        defaults = [None] * len(input)  
+    elif isinstance(default, list):
+        # Allow list of length 1 to be applied to all columns  
+        if len(default) == 1:  
+            defaults = [default[0]] * len(input)  
+        elif len(default) != len(input):    
+            raise ValueError('The list of default values must be the same length as input/output for select.element')    
+        else:  
+            defaults = default 
+    else:  
+        # Single default value - apply to all columns  
+        defaults = [default] * len(input)
+
     def _int_or_none(val):
         try:
             return int(val)
@@ -178,7 +193,7 @@ def element(
             else:
                 return None
     
-    for in_col, out_col in zip(input, output):
+    for in_col, out_col, default_val in zip(input, output, defaults):
         # If user hasn't specified an output column
         # strip the elements from the input column
         if in_col == out_col:
@@ -212,20 +227,20 @@ def element(
                                 # using the index of the key
                                 row = row[list(row.keys())[int(element)]]
                             else:
-                                if default is not None:
-                                    row = default
+                                if default_val is not None:
+                                    row = default_val
                                     break
                                 else:
                                     raise KeyError()
                     else:
-                        if default is not None:
-                            row = default
+                        if default_val is not None:
+                            row = default_val
                             break
                         else:
                             raise KeyError()
                 except:
-                    if default is not None:
-                        row = default
+                    if default_val is not None:
+                        row = default_val
                         break
                     else:
                         raise KeyError(f"Element {element} not found in {row}") from None
