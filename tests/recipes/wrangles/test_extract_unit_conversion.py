@@ -68,7 +68,7 @@ def test_non_existing_unit():
             """,
             dataframe=data
         )
-    assert info.typename == 'ValueError' and info.value.args[0] == 'extract.attributes - Status Code: 400 - Bad Request. {"ValueError":"Invalid desiredUnit provided"}\n \n'
+    assert info.typename == 'ValueError' and info.value.args[0] == 'ERROR IN WRANGLE: extract.attributes - Status Code: 400 - Bad Request. {"ValueError":"Invalid desiredUnit provided"}\n \n'
 
 def test_wrong_match_1():
     """
