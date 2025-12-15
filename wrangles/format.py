@@ -44,6 +44,10 @@ def split(
     pad=False,
     inclusive=False,
     element: _Union[int, str] = None,
+<<<<<<< HEAD
+=======
+    skip_empty: bool = False,
+>>>>>>> origin/main
 ):
     """
     Split a list of strings into lists
@@ -54,6 +58,7 @@ def split(
     :param pad: If true, pad results to be a consistent length.
     :param inclusive: If true, the split lists will include the split char.
     :param element: Slice the output lists to specific elements.
+    :param skip_empty: If true, skip empty cells.
     """
     # Split as either regex or simple string
     if split_char[:6] == "regex:":
@@ -61,6 +66,9 @@ def split(
         results = [_re.split(split_char, x) for x in input_list]
     else:
         results = [x.split(split_char) for x in input_list]
+    
+    if skip_empty:
+        results = [[x for x in row if x.strip()] for row in results]
 
     if inclusive:
         # Get the split stuff

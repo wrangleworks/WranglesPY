@@ -2006,8 +2006,13 @@ def Try(
                             functions=functions,
                         )
                     else:
+<<<<<<< HEAD
                         raise ValueError(
                             "except must be a dictionary of column names and values or a list of wrangles"
                         )
 
+=======
+                        raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
+    
+>>>>>>> origin/main
     return df

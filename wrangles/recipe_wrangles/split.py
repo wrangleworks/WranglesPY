@@ -171,6 +171,10 @@ def text(
     pad: bool = None,
     element: _Union[int, str] = None,
     inclusive: bool = False,
+<<<<<<< HEAD
+=======
+    skip_empty: bool = False
+>>>>>>> origin/main
 ) -> _pd.DataFrame:
     """
     type: object
@@ -216,6 +220,10 @@ def text(
         description: >-
           If true, include the split character in the output.
           Default False
+      skip_empty:
+        type: boolean
+        description: Whether to skip empty values
+        default: false
     """
     # Ensure only a single input column is specified
     if isinstance(input, _list):
@@ -249,6 +257,10 @@ def text(
         pad=pad,
         inclusive=inclusive,
         element=element,
+<<<<<<< HEAD
+=======
+        skip_empty=skip_empty
+>>>>>>> origin/main
     )
 
     # Handle wildcard cases and column assignment

@@ -511,4 +511,33 @@ def test_extract_ai_properties_list():
         },
         retries=2,
     )
-    assert isinstance(result, list) and "unit" in result[0]
+    assert isinstance(result, list) and 'unit' in result[0]
+
+### Format Split Tests  
+def test_format_split_skip_empty_true():  
+    """  
+    Test format.split with skip_empty=True  
+    """  
+    result = wrangles.format.split(['hello world  test', 'foo  bar'], skip_empty=True)  
+    assert result == [['hello', 'world', 'test'], ['foo', 'bar']]  
+  
+def test_format_split_skip_empty_false():  
+    """  
+    Test format.split with skip_empty=False  
+    """  
+    result = wrangles.format.split(['hello world  test', 'foo  bar'], skip_empty=False)  
+    assert result == [['hello', 'world', '', 'test'], ['foo', '', 'bar']]  
+  
+def test_format_split_skip_empty_default():  
+    """  
+    Test format.split with default skip_empty behavior (False)  
+    """  
+    result = wrangles.format.split(['hello world  test', 'foo  bar'])  
+    assert result == [['hello', 'world', '', 'test'], ['foo', '', 'bar']]  
+  
+def test_format_split_skip_empty_with_regex():  
+    """  
+    Test format.split with skip_empty=True and regex pattern  
+    """  
+    result = wrangles.format.split(['hello,,world', 'foo,,bar'], split_char='regex:,', skip_empty=True)  
+    assert result == [['hello', 'world'], ['foo', 'bar']]

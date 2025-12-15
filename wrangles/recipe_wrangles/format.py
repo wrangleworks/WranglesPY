@@ -58,15 +58,25 @@ def dates(
         df[output_column] = _pd.to_datetime(df[input_column]).dt.strftime(format)
 
     return df
+<<<<<<< HEAD
 
 
+=======
+    
+    
+>>>>>>> origin/main
 def pad(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     pad_length: int,
     side: str,
     char: str,
+<<<<<<< HEAD
     output: _Union[str, list] = None,
+=======
+    output: _Union[str, list] =  None,
+    skip_empty: bool = False
+>>>>>>> origin/main
 ) -> _pd.DataFrame:
     """
     type: object
@@ -101,7 +111,15 @@ def pad(
         type:
           - string
         description: The character to pad the input with
+<<<<<<< HEAD
     """
+=======
+      skip_empty:
+        type: boolean
+        description: If true, skip padding for empty or whitespace-only values
+        default: false
+  """
+>>>>>>> origin/main
     char = str(char)
     # If the output is not specified, overwrite input columns in place
     if output is None:
@@ -118,17 +136,35 @@ def pad(
         raise ValueError("The lists for input and output must be the same length.")
 
     for input_column, output_column in zip(input, output):
+      if skip_empty:  
+        # Create a mask for non-empty values  
+        mask = df[input_column].astype(str).str.strip() != ''  
+
+        # Initialize output column with input values  
+        df[output_column] = df[input_column].astype(str)  
+        
+        # Only pad non-empty values  
+        df.loc[mask, output_column] = df.loc[mask, input_column].astype(str).str.pad(pad_length, side, char)  
+      else:  
         df[output_column] = df[input_column].astype(str).str.pad(pad_length, side, char)
 
     return df
 
 
 def prefix(
+<<<<<<< HEAD
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     value: _Union[str, int, float],
     output: _Union[str, list] = None,
 ) -> _pd.DataFrame:
+=======
+        df: _pd.DataFrame,
+        input: _Union[str, int, list],
+        value: _Union[str, int, float],
+        output: _Union[str, list] = None,
+        skip_empty: bool = False) -> _pd.DataFrame:
+>>>>>>> origin/main
     """
     type: object
     description: Add a prefix to a column
@@ -153,6 +189,10 @@ def prefix(
           - string
           - array
         description: (Optional) Name of the output column
+      skip_empty:
+        type: boolean
+        description: Whether to skip empty values
+        default: false
     """
     # If output is not specified, overwrite input columns in place
     if output is None:
@@ -170,7 +210,10 @@ def prefix(
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = str(value) + df[input_column].astype(str)
+        if skip_empty:
+          df[output_column] = df[input_column].apply(lambda x: value + x if x else x)
+        else:  
+          df[output_column] = str(value) + df[input_column].astype(str)
 
     return df
 
@@ -278,11 +321,20 @@ def significant_figures(
 
 
 def suffix(
+<<<<<<< HEAD
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     value: _Union[str, int, float, list],
     output: str = None,
 ) -> _pd.DataFrame:
+=======
+        df: _pd.DataFrame,
+        input: _Union[str, int, list],
+        value: _Union[str, int, float, list],
+        output: str = None,
+        skip_empty: bool = False
+  ) -> _pd.DataFrame:
+>>>>>>> origin/main
     """
     type: object
     description: Add a suffix to a column
@@ -307,6 +359,10 @@ def suffix(
             - string
             - array
           description: (Optional) Name of the output column
+        skip_empty:
+          type: boolean
+          description: Whether to skip empty values
+          default: false
     """
     # If output is not specified, overwrite input columns in place
     if output is None:
@@ -324,8 +380,16 @@ def suffix(
 
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
+<<<<<<< HEAD
         df[output_column] = df[input_column].astype(str) + str(value)
 
+=======
+        if skip_empty:
+          df[output_column] = df[input_column].apply(lambda x: x + value if x else x)
+        else:  
+          df[output_column] = df[input_column].astype(str) + str(value)
+  
+>>>>>>> origin/main
     return df
 
 
