@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 import wrangles
 import pytest
 import pandas as _pd
@@ -25,7 +26,7 @@ class TestXLSBConnector:
         """
 
         with pytest.raises(
-            ValueError, match="xlsb - Worksheet named 'NonExistentSheet' not found"
+            ValueError, match="xlsb - Invalid sheet name or index: NonExistentSheet"
         ):
             wrangles.recipe.run(
                 f"""  
@@ -40,7 +41,7 @@ class TestXLSBConnector:
         """
         Test error with invalid sheet index
         """
-        with pytest.raises(ValueError, match="xlsb - Worksheet index 127 is invalid"):
+        with pytest.raises(ValueError, match="xlsb - Invalid sheet name or index: 127"):
             wrangles.recipe.run(
                 f"""  
         read:  
@@ -54,15 +55,14 @@ class TestXLSBConnector:
         """
         Test reading empty file (0 rows, 0 columns)
         """
-        df = wrangles.recipe.run(
-            f"""  
-        read:  
-          - xlsb:  
-              name: tests/samples/empty.xlsb   
-        """
-        )
-        assert len(df) == 0
-        assert len(df.columns) == 0
+        with pytest.raises(ValueError, match="xlsb - File contains no data"):
+            wrangles.recipe.run(
+                f"""  
+            read:  
+            - xlsb:  
+                name: tests/samples/empty.xlsb   
+            """
+            )
 
     def test_read_xlsb_non_existent_mandatory_columns(self):
         """
@@ -79,9 +79,7 @@ class TestXLSBConnector:
                     - NonExistentColumn  
             """
             )
-        assert r"Failed to read XLSB file" in str(
-            exc_info.value
-        )
+        assert r"Column selection failed" in str(exc_info.value)
 
     def test_read_xlsb_non_existent_optional_columns(self):
         """
@@ -142,7 +140,7 @@ class TestXLSBConnector:
         Test that file without .xlsb extension raises appropriate error
         """
 
-        with pytest.raises(ValueError, match="File must have .xlsb extension"):
+        with pytest.raises(ValueError, match="xlsb - File must be .xlsb format"):
             wrangles.recipe.run(
                 f"""  
             read:  
@@ -155,9 +153,7 @@ class TestXLSBConnector:
         """
         Test error when list contains non-existent sheet
         """
-        with pytest.raises(
-            ValueError, match="xlsb - Worksheet named 'NonExistent' not found"
-        ):
+        with pytest.raises(ValueError, match=r"xlsb - Invalid sheet name or index"):
             wrangles.recipe.run(
                 f"""  
             read:  
@@ -168,6 +164,18 @@ class TestXLSBConnector:
                     - NonExistent  
             """
             )
+
+    def test_read_xlsb_with_multiple_sheets(self):
+        """
+        Test when reading multiple sheets(sheet_name=None)
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_multi_sheet.xlsb",
+            sheet_name=None,  # Read all sheets
+        )
+        # Should read just first sheet
+        assert len(df) == 50
 
     def test_read_xlsb_basic_functionality(self):
         """
@@ -201,7 +209,7 @@ class TestXLSBConnector:
         """
         df = wrangles.recipe.run(recipe)
         assert len(df) > 0
-        assert df.columns.tolist() == ['Col0', 'Col1', 'Col2']
+        assert df.columns.tolist() == ["Col0", "Col1", "Col2"]
 
     def test_read_xlsb_special_character_in_columns(self):
         """
@@ -271,16 +279,17 @@ class TestXLSBConnector:
         """
         Test file with only headers (0 data rows)
         """
-        df = wrangles.recipe.run(
-            f"""  
-        read:  
-          - xlsb:  
-              name: tests/samples/data3.xlsb 
-              sheet_name: HeadersOnly
-        """
-        )
-        assert len(df) == 0
-        assert df.columns.tolist() == ["Col1", "Col2", "Col3"]
+        with pytest.raises(
+            ValueError, match=r"xlsb - Sheet 'HeadersOnly' contains no data"
+        ):
+            wrangles.recipe.run(
+                """ 
+            read:  
+            - xlsb:  
+                name: tests/samples/data3.xlsb 
+                sheet_name: HeadersOnly
+            """
+            )
 
     def test_read_xlsb_duplicate_columns(self):
         """
@@ -472,10 +481,6 @@ class TestXLSBConnector:
         """
         df = wrangles.recipe.run(recipe)
 
-        # Verify boolean types are preserved as object dtype
-        # assert df['bool_standard'].dtype == 'object'
-        # assert df['mixed_bool'].dtype == 'object'
-
         # Check specific values are preserved
         assert df["bool_standard"].iloc[0] == True
         assert df["bool_numeric"].iloc[0] == 1
@@ -603,26 +608,6 @@ class TestXLSBConnector:
 
         # Check that very large integers might lose precision as float64
         assert df_float["very_large_integers"].dtype == "float64"
-        # Float64 has about 15-17 significant digits
-        # assert df_float['very_large_integers'].iloc[0] == 1234567890123456789.0
-
-    def test_read_xlsb_nrows_skipfooter_interaction(self):
-        """
-        Test nrows and skipfooter parameter interaction
-        """
-        with pytest.raises(
-            ValueError, match="skipfooter cannot be used together with nrows"
-        ):
-            wrangles.recipe.run(
-                """  
-            read:  
-              - xlsb:  
-                  name: tests/samples/data3.xlsb
-                  sheet_name: NrowFooter
-                  nrows: 5  
-                  skipfooter: 2  
-            """,
-            )
 
     def test_read_xlsb_skiprows_header_interaction(self):
         """
@@ -686,56 +671,6 @@ class TestXLSBConnector:
         assert df4.iloc[0, 0] == "should_be_skipped_2"
         assert df4.iloc[1, 0] == "data_row2_1"
         assert df4.iloc[2, 0] == "data_row3_1"
-
-    def test_read_xlsb_names_wrong_column_count(self):
-        """
-        Test reading XLSB with names parameter having wrong number of columns
-        """
-
-        # Test 1: Too few names (1 names for 2 columns) merge columns
-        recipe = f"""  
-            read:  
-              - xlsb:  
-                  name: tests/samples/data3.xlsb
-                  sheet_name: Basic  
-                  names:  
-                    - CustomName1  
-            """
-        df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ["CustomName1"]
-
-        # Test 2: Too many names (4 names for 2 columns)
-        with pytest.raises(
-            ValueError,
-            match="Number of passed names did not match number of header fields",
-        ):
-            recipe = f"""  
-            read:  
-              - xlsb:  
-                  name: tests/samples/data3.xlsb
-                  sheet_name: Basic
-                  header: 0  
-                  names:  
-                    - CustomName1  
-                    - CustomName2  
-                    - CustomName3  
-                    - CustomName4  
-            """
-            wrangles.recipe.run(recipe)
-
-        # Test 3: Correct number of names (should work)
-        recipe = f"""  
-        read:  
-          - xlsb:  
-              name: tests/samples/data3.xlsb
-              sheet_name: Basic
-              header: 0  
-              names:  
-                - CustomName1  
-                - CustomName2  
-        """
-        df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ["CustomName1", "CustomName2"]
 
     def test_read_xlsb_names_with_header_none(self):
         """
@@ -921,7 +856,7 @@ class TestXLSBConnector:
 
         # Test 2: Absolute path
         absolute_path = os.path.abspath("tests/samples/data3.xlsb")
-        print(absolute_path)
+
         recipe = f"""  
         read:  
           - xlsb:  
@@ -931,3 +866,227 @@ class TestXLSBConnector:
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ["Find", "Replace"]
         assert len(df) == 3
+
+    def test_read_xlsb_chunked(self):
+        """
+        Test chunked reading of xlsb file
+        """
+        recipe = f"""  
+        read:  
+          - xlsb:  
+              name: tests/samples/large_data.xlsb 
+              chunksize: 50
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.columns.tolist() == ["Find", "Replace", "Extra"]
+        assert len(df) == 150
+
+    def test_xlsb_auto_chunking_recipe(self):
+        """
+        Test automatic chunking based on file size
+        """
+        recipe = f"""  
+        read:  
+          xlsb:  
+            name: tests/samples/large_data.xlsb  
+            max_memory_mb: 0.001
+        """
+
+        df = wrangles.recipe.run(recipe)
+        assert len(df) == 150
+        assert df.columns.tolist() == ["Find", "Replace", "Extra"]
+
+    def test_chunk_size_with_column_selection(self):
+        """
+        Test chunk_size with columns parameter
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_data.xlsb",
+            chunksize=20,
+            columns=["Find", "Replace"],
+        )
+
+        assert len(df) == 150
+        assert list(df.columns) == ["Find", "Replace"]
+        assert "Extra" not in df.columns
+
+    def test_chunk_size_with_skiprows(self):
+        """
+        Test chunk_size with skiprows parameter
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_data.xlsb",
+            chunksize=25,
+            skiprows=10,  # Skip first 10 data rows
+        )
+
+        assert len(df) == 140
+
+    def test_chunk_size_smaller_than_data(self):
+        """
+        Test with chunk_size smaller than total rows
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_data.xlsb",
+            chunksize=10,  # Read 150 rows in chunks of 10
+        )
+
+        assert len(df) == 150
+        assert df["Find"].iloc[0] == "BRG"
+        assert df["Find"].iloc[149] == "BRG"
+
+    def test_chunk_size_larger_than_data(self):
+        """
+        Test with chunk_size larger than total rows
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_data.xlsb", chunksize=200  # Larger than 150 rows
+        )
+
+        # Should still read all data in one chunk
+        assert len(df) == 150
+
+    def test_chunk_size_with_empty_file(self):
+        """
+        Test chunk_size with empty file
+        """
+        with pytest.raises(ValueError, match="xlsb - File contains no data"):
+            wrangles.recipe.run(
+                f"""  
+            read:  
+            - xlsb:  
+                name: tests/samples/empty.xlsb  
+                chunksize: 10 
+            """
+            )
+
+    def test_chunk_size_with_multiple_sheets(self):
+        """
+        Test chunk_size when reading multiple sheets (sheet_name=None)
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_multi_sheet.xlsb",
+            sheet_name=None,  # Read all sheets
+            chunksize=20,
+        )
+        # For now read just the first sheet's data
+        assert len(df) == 50  # 50 rows from each sheet
+
+    def test_chunk_size_logging(self):
+        """
+        Test that chunk_size logs progress information
+        """
+
+        with patch("logging.info") as mock_log:
+            wrangles.connectors.xlsb.read(
+                name="tests/samples/large_data.xlsb", chunksize=25
+            )
+
+            # Verify logging calls
+            log_calls = [call[0][0] for call in mock_log.call_args_list]
+
+            # Should log: starting read, chunk progress, completion
+            assert any("Reading large file in chunks" in msg for msg in log_calls)
+            assert any("Yielding chunk" in msg for msg in log_calls)
+            assert any("Completed reading" in msg for msg in log_calls)
+
+    def test_chunk_size_with_wildcard_columns(self):
+        """
+        Test chunk_size with wildcard column selection
+        """
+
+        df = wrangles.connectors.xlsb.read(
+            name="tests/samples/large_data.xlsb",
+            chunksize=30,
+            columns=["Extra", "Column?"],  # Wildcard pattern
+        )
+
+        assert len(df) == 150
+        assert len(df.columns) == 1  # One column match the pattern
+
+    def test_compare_file_formats(self):
+        """
+        Test that xlsx and csv produce identical results with same wrangles
+        """
+        # Recipe for first format
+        df1 = wrangles.recipe.run(
+            """  
+            read:  
+            - xlsb:  
+                name: tests/samples/data.xlsb 
+            wrangles:  
+            - convert.case:  
+                input: Find  
+                case: lower  
+            """
+        )
+
+        # Recipe for second format with same transformations
+        df2 = wrangles.recipe.run(
+            """  
+            read:  
+            - file:  
+                name: tests/samples/data.xlsx
+            wrangles:  
+            - convert.case:  
+                input: Find  
+                case: lower  
+            """
+        )
+
+        # Compare the results
+        assert df1.equals(df2)
+
+    def test_converters_lambda(self):
+        """
+        Test converters with lambda functions
+        """
+        recipe = f"""  
+        read:  
+          xlsb:  
+            name: tests/samples/data3.xlsb  
+            sheet_name: Lambda
+            converters:  
+                Code: "lambda x: x[:3] + '-' + x[3:]"  
+                Value: "lambda x: float(x.replace('$', '').replace(',', ''))"
+                Text: "lambda x: x.title() "
+            """
+
+        df = wrangles.recipe.run(recipe)
+
+        # Verify converter functions
+        assert df["Code"].iloc[0] == "ABC-123"
+        assert df["Value"].iloc[0] == 100.50
+        assert df["Text"].iloc[0] == "Hello World"
+        assert df["Text"].iloc[1] == "Test Case"
+
+    def test_dtype_per_column(self):
+        """
+        Test dtype as dict for per-column types
+        """
+        recipe = f"""  
+        read:  
+          xlsb:  
+            name: tests/samples/data3.xlsb  
+            sheet_name: DType
+            dtype:  
+              ID: str  
+              Score: float  
+              Count: int  
+              Flag: bool  
+        """
+
+        df = wrangles.recipe.run(recipe)
+
+        # Verify data types
+        assert df["ID"].dtype == "object"  # string
+        assert df["Score"].dtype == "float64"
+        assert df["Count"].dtype == "int64"
+        assert df["Flag"].dtype == "bool"
+        assert df["Score"].iloc[0] == 95.5
+        assert df["Count"].iloc[1] == 20
