@@ -153,7 +153,7 @@ class TestXLSBConnector:
         """
         Test error when list contains non-existent sheet
         """
-        with pytest.raises(ValueError, match=r"xlsb - Invalid sheet name or index"):
+        with pytest.raises(ValueError, match=r"xlsb - Reading multiple sheets from .xlsb files is not supported"):
             wrangles.recipe.run(
                 f"""  
             read:  

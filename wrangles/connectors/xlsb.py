@@ -219,6 +219,9 @@ def read(
 
     # Handle key parameters
     if sheet_name not in [0, None]:
+        if isinstance(sheet_name, list):
+            # For now, restrict to single sheet when reading XLSB
+            raise ValueError("Reading multiple sheets from .xlsb files is not supported.")
         pandas_kwargs["sheet_name"] = sheet_name
 
     if header != 0:
