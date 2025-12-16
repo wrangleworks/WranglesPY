@@ -93,7 +93,7 @@ def read(
     :param columns: (Optional) Subset of the columns to be read
     :param file_object: (Optional) File object to read instead of from file system
     :param sheet_name: Name or index of sheet to read. Default 0 (first sheet).
-                      If None, reads all sheets and concatenates them.
+                      For now we can read just one list at a time.
     :param header: Row(s) to use as column names. Default 0
     :param names: List of column names to use
     :param index_col: Column(s) to use as row labels
@@ -533,5 +533,12 @@ properties:
   skipfooter:  
     type: integer  
     description: Rows to skip at end  
-    minimum: 0  
+    minimum: 0 
+  chunksize:  
+    type: integer
+    description: Number of rows to read at a time for large files 
+  max_memory_mb:
+    type: integer
+    description: Maximum memory usage in MB before switching to chunked mode
+    :param max_memory_mb: (Optional) Maximum memory usage in MB before switching to chunked mode
 """
