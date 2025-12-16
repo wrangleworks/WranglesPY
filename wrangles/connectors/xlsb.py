@@ -113,8 +113,8 @@ def read(
     :param decimal: Decimal separator
     :param comment: Comment character
     :param skipfooter: Rows to skip at end
-    :param chunksize: (Optional) Number of rows to read at a time for large files
-    :param max_memory_mb: (Optional) Maximum memory usage in MB before switching to chunked mode
+    :param chunksize: Number of rows to read at a time for large files
+    :param max_memory_mb: Maximum memory usage in MB before switching to chunked mode
     :param kwargs: Additional arguments to pass to pandas
     :return: A Pandas dataframe of the imported data
     """
@@ -543,5 +543,5 @@ properties:
   max_memory_mb:
     type: integer
     description: Maximum memory usage in MB before switching to chunked mode
-    :param max_memory_mb: (Optional) Maximum memory usage in MB before switching to chunked mode
+    :param max_memory_mb: Maximum memory usage in MB before switching to chunked mode
 """
