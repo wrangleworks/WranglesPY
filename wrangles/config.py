@@ -1,12 +1,14 @@
 """
 Configuration Settings
 """
+
 import os as _os
 
 
-api_host = 'https://api.wrangle.works'
-api_user = _os.environ.get('WRANGLES_USER')
-api_password = _os.environ.get('WRANGLES_PASSWORD')
+api_host = "https://api.wrangle.works"
+api_user = _os.environ.get("WRANGLES_USER")
+api_password = _os.environ.get("WRANGLES_PASSWORD")
+
 
 def authenticate(user, password):
     """
@@ -17,41 +19,37 @@ def authenticate(user, password):
     api_password = password
 
 
-class keycloak():
+class keycloak:
     """
     Settings for keycloak server
     """
-    host = 'https://sso.wrangle.works'
-    realm = 'wrwx'
-    client_id = 'services'
 
-# When using where, these Wrangles 
+    host = "https://sso.wrangle.works"
+    realm = "wrwx"
+    client_id = "services"
+
+
+# When using where, these Wrangles
 # overwrite the output rather than
 # trying to merge the contents
-# back to the original dataframe 
+# back to the original dataframe
 where_overwrite_output = [
-    'pandas.transpose',
-    'transpose',
-    'filter',
-    'sql',
-    'select.group_by',
-    'select.sample',
-    'select.columns',
-    'select.head',
-    'pandas.head',
-    'select.tail',
-    'pandas.tail',
-    'sort'
+    "pandas.transpose",
+    "transpose",
+    "filter",
+    "sql",
+    "select.group_by",
+    "select.sample",
+    "select.columns",
+    "select.head",
+    "pandas.head",
+    "select.tail",
+    "pandas.tail",
+    "sort",
 ]
 
 # Wrangles that don't work with where
-where_not_implemented = [
-    'drop',
-    'rename',
-    'reindex'
-]
+where_not_implemented = ["drop", "rename", "reindex"]
 
 # Recipe names that use forbidden python keywords
-reserved_word_replacements = {
-    "try": "Try"
-}
+reserved_word_replacements = {"try": "Try"}

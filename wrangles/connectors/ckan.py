@@ -11,27 +11,33 @@ _schema = {}
 
 def _get_packages_in_dataset(host, dataset, api_key):
     response = _requests.get(
-        url = f"{host}/api/3/action/package_show?id={dataset}",
-        headers={'Authorization': api_key}
+        url=f"{host}/api/3/action/package_show?id={dataset}",
+        headers={"Authorization": api_key},
     )
-    
+
     if response.status_code == 403:
-        raise RuntimeError("Access Denied to the CKAN Server. If this is a private resource, you must provide an API_KEY.")
-    
+        raise RuntimeError(
+            "Access Denied to the CKAN Server. If this is a private resource, you must provide an API_KEY."
+        )
+
     if response.status_code != 200:
-        raise ValueError("Unable to find dataset on CKAN server. Check host and dataset name.")
-    
+        raise ValueError(
+            "Unable to find dataset on CKAN server. Check host and dataset name."
+        )
+
     results = {}
     for resource in response.json()["result"]["resources"]:
         results[resource["name"]] = resource
-    
+
     return results
 
 
-def read(host: str, dataset: str, file: str, api_key: str = None, **kwargs) -> _pd.DataFrame:
+def read(
+    host: str, dataset: str, file: str, api_key: str = None, **kwargs
+) -> _pd.DataFrame:
     """
     Read data from CKAN
-    
+
     :param host: The host name of the CKAN site. e.g. https://data.example.com
     :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
     :param file: The name of the specific file within the dataset.
@@ -39,20 +45,23 @@ def read(host: str, dataset: str, file: str, api_key: str = None, **kwargs) -> _
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
     _logging.info(f": Reading data from CKAN :: {host} / {dataset} / {file}")
-    
+
     packages = _get_packages_in_dataset(host, dataset, api_key)
 
     if file not in packages.keys():
-        raise ValueError('File not found in dataset')
-    
+        raise ValueError("File not found in dataset")
+
     # Download the requested data
-    response = _requests.get(packages[file]["url"], headers={'Authorization': api_key})
+    response = _requests.get(packages[file]["url"], headers={"Authorization": api_key})
     file_io = _BytesIO(response.content)
-    df = _file.read(file, file_object=file_io, **kwargs)    
- 
+    df = _file.read(file, file_object=file_io, **kwargs)
+
     return df
-    
-_schema['read'] = """
+
+
+_schema[
+    "read"
+] = """
 type: object
 description: Read data from CKAN
 required:
@@ -74,10 +83,13 @@ properties:
     description: API Key for the CKAN site.
 """
 
-def write(df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str, **kwargs):
+
+def write(
+    df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str, **kwargs
+):
     """
     Write a file to a dataset in CKAN
-    
+
     :param df: Dataframe to be exported
     :param host: The host name of the CKAN site. e.g. https://data.example.com
     :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
@@ -88,34 +100,34 @@ def write(df: _pd.DataFrame, host: str, dataset: str, file: str, api_key: str, *
     _logging.info(f": Writing data to CKAN :: {host} / {dataset} / {file}")
 
     memory_file = _BytesIO()
-    _file.write(df, name=file, file_object=memory_file, **kwargs)    
+    _file.write(df, name=file, file_object=memory_file, **kwargs)
 
     packages = _get_packages_in_dataset(host, dataset, api_key)
 
     if file in packages.keys():
         response = _requests.post(
-            url = f"{host}/api/action/resource_update",
-            data = {"id": packages[file]["id"]},
-            headers = {"Authorization": api_key},
-            files = {'upload': (file, memory_file.getvalue())}
+            url=f"{host}/api/action/resource_update",
+            data={"id": packages[file]["id"]},
+            headers={"Authorization": api_key},
+            files={"upload": (file, memory_file.getvalue())},
         )
     else:
         response = _requests.post(
-            url = f"{host}/api/action/resource_create",
-            data={
-                "package_id": dataset,
-                "name": file
-            },
+            url=f"{host}/api/action/resource_create",
+            data={"package_id": dataset, "name": file},
             headers={"Authorization": api_key},
-            files={'upload': (file, memory_file.getvalue())}
+            files={"upload": (file, memory_file.getvalue())},
         )
 
     if response.status_code == 403:
         raise RuntimeError("Access Denied to the CKAN Server. Check your API_KEY.")
     elif response.status_code != 200:
         raise RuntimeError("Upload to CKAN Failed")
-    
-_schema['write'] = """
+
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write a file to a dataset in CKAN
 required:
@@ -138,10 +150,12 @@ properties:
     description: The name of the specific file within the dataset. e.g. example.csv
 """
 
+
 class download:
     """
     Download files from CKAN to the local file system
     """
+
     _schema = {
         "run": """
           type: object
@@ -180,11 +194,11 @@ class download:
         dataset: str,
         file: _Union[str, list],
         api_key: str = None,
-        output_file: _Union[str, list] = None
+        output_file: _Union[str, list] = None,
     ) -> None:
         """
         Download data from CKAN and save to the local file system
-        
+
         :param host: The host name of the CKAN site. e.g. https://data.example.com
         :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
         :param file: The name of the specific file within the dataset.
@@ -192,20 +206,25 @@ class download:
         :param output_file: A name or list of names that the output will be saved as. If omitted, defaults to the same as the file.
         """
         _logging.info(f": Downloading data from CKAN :: {host} / {dataset} / {file}")
-        
-        if not output_file: output_file = file
 
-        if not isinstance(file, list): file = [file]
-        if not isinstance(output_file, list): output_file = [output_file]
-        
+        if not output_file:
+            output_file = file
+
+        if not isinstance(file, list):
+            file = [file]
+        if not isinstance(output_file, list):
+            output_file = [output_file]
+
         packages = _get_packages_in_dataset(host, dataset, api_key)
-        
+
         for fname, output_fname in zip(file, output_file):
             if fname not in packages.keys():
-                raise ValueError(f'File {fname} not found in dataset')
-            
+                raise ValueError(f"File {fname} not found in dataset")
+
             # Download the requested data
-            response = _requests.get(packages[fname]["url"], headers={'Authorization': api_key})
+            response = _requests.get(
+                packages[fname]["url"], headers={"Authorization": api_key}
+            )
 
             with open(output_fname, "wb") as f:
                 f.write(_BytesIO(response.content).getbuffer())
@@ -215,6 +234,7 @@ class upload:
     """
     Upload a file or list of files to a CKAN dataset
     """
+
     _schema = {
         "run": """
             type: object
@@ -254,11 +274,11 @@ class upload:
         dataset: str,
         api_key: str,
         file: _Union[str, list],
-        output_file: _Union[str, list] = None
+        output_file: _Union[str, list] = None,
     ) -> None:
         """
         Upload a file or list of files to a CKAN dataset
-        
+
         :param host: The host name of the CKAN site. e.g. https://data.example.com
         :param dataset: The name of the dataset. This should be the url version e.g. my-dataset
         :param api_key: API Key for the CKAN site.
@@ -269,10 +289,13 @@ class upload:
 
         packages = _get_packages_in_dataset(host, dataset, api_key)
 
-        if not output_file: output_file = file
+        if not output_file:
+            output_file = file
 
-        if not isinstance(file, list): file = [file]
-        if not isinstance(output_file, list): output_file = [output_file]
+        if not isinstance(file, list):
+            file = [file]
+        if not isinstance(output_file, list):
+            output_file = [output_file]
 
         for fname, output_fname in zip(file, output_file):
             with open(fname, "rb") as f:
@@ -280,23 +303,22 @@ class upload:
 
             if output_fname in packages.keys():
                 response = _requests.post(
-                    url = f"{host}/api/action/resource_update",
-                    data = {"id": packages[output_fname]["id"]},
-                    headers = {"Authorization": api_key},
-                    files = {'upload': (output_fname, memory_file.getvalue())}
+                    url=f"{host}/api/action/resource_update",
+                    data={"id": packages[output_fname]["id"]},
+                    headers={"Authorization": api_key},
+                    files={"upload": (output_fname, memory_file.getvalue())},
                 )
             else:
                 response = _requests.post(
-                    url = f"{host}/api/action/resource_create",
-                    data={
-                        "package_id": dataset,
-                        "name": output_fname
-                    },
+                    url=f"{host}/api/action/resource_create",
+                    data={"package_id": dataset, "name": output_fname},
                     headers={"Authorization": api_key},
-                    files={'upload': (output_fname, memory_file.getvalue())}
+                    files={"upload": (output_fname, memory_file.getvalue())},
                 )
 
             if response.status_code == 403:
-                raise RuntimeError("Access Denied to the CKAN Server. Check your API_KEY.")
+                raise RuntimeError(
+                    "Access Denied to the CKAN Server. Check your API_KEY."
+                )
             elif response.status_code != 200:
                 raise RuntimeError(f"Upload to CKAN Failed - {fname}")

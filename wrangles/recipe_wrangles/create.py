@@ -1,6 +1,7 @@
 """
 Functions to create new columns
 """
+
 import uuid as _uuid
 from typing import Union as _Union
 import math as _math
@@ -10,11 +11,12 @@ import re as _re
 from jinja2 import (
     Environment as _Environment,
     FileSystemLoader as _FileSystemLoader,
-    BaseLoader as _BaseLoader
+    BaseLoader as _BaseLoader,
 )
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 import hashlib as _hashlib
+
 
 def bins(
     df: _pd.DataFrame,
@@ -22,7 +24,7 @@ def bins(
     output: _Union[str, list],
     bins: _Union[int, list],
     labels: _Union[str, list] = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -52,38 +54,38 @@ def bins(
           - array
         description: Labels for the returned bins
     """
-    if output is None: output = input
-    
+    if output is None:
+        output = input
+
     # Ensure input and outputs are lists
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
-    
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
+
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError("The lists for input and output must be the same length.")
 
     for in_col, out_col in zip(input, output):
-      # Dealing with positive infinity. At end of bins list
-      if isinstance(bins, list):
-          if bins[-1] == '+':
-              bins[-1] = _math.inf
-          
-          # Dealing with negative infinity. At start of bins list
-          if bins[0] == '-':
-              bins[0] = -_math.inf
-      
-      # Set to string in order to be able to fill NaN values when using where
-      df[out_col] = _pd.cut(
-          x=df[in_col],
-          bins=bins,
-          labels=labels,
-          **kwargs
-      ).astype(str)
-    
+        # Dealing with positive infinity. At end of bins list
+        if isinstance(bins, list):
+            if bins[-1] == "+":
+                bins[-1] = _math.inf
+
+            # Dealing with negative infinity. At start of bins list
+            if bins[0] == "-":
+                bins[0] = -_math.inf
+
+        # Set to string in order to be able to fill NaN values when using where
+        df[out_col] = _pd.cut(x=df[in_col], bins=bins, labels=labels, **kwargs).astype(
+            str
+        )
+
     return df
 
 
-def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
+def column(df: _pd.DataFrame, output: _Union[str, list], value=None) -> _pd.DataFrame:
     """
     type: object
     description: Create column(s) with a user defined value. Defaults to None (empty).
@@ -107,9 +109,9 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     """
     # If a string provided, convert to list
     if isinstance(output, str):
-      if output in df.columns:
-        raise ValueError(f'"{output}" column already exists in dataFrame.')
-      output = [output]
+        if output in df.columns:
+            raise ValueError(f'"{output}" column already exists in dataFrame.')
+        output = [output]
 
     # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
     output_dict = {}
@@ -124,13 +126,15 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
     # Check if the list of outputs exist in dataFrame
     check_list = [x for x in (output_dict.keys()) if x in df.columns]
     if len(check_list) > 0:
-      raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
+        raise ValueError(f"{check_list} column(s) already exists in the dataFrame")
 
     for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
         # Data to generate
-        data = _pd.DataFrame({
-            output_column: _generate_cell_values(values_list, len(df))
-        }).set_index(df.index)  # use the same index as original to match rows
+        data = _pd.DataFrame(
+            {output_column: _generate_cell_values(values_list, len(df))}
+        ).set_index(
+            df.index
+        )  # use the same index as original to match rows
         # Merging existing dataframe with values created
         df = _pd.concat([df, data], axis=1)
 
@@ -149,7 +153,7 @@ def embeddings(
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
     precision: str = "float32",
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -211,13 +215,16 @@ def embeddings(
           - float16
           - float32
     """
-    if output is None: output = input
+    if output is None:
+        output = input
 
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
+        raise ValueError("The lists for input and output must be the same length.")
 
     if output_type not in ["python list", "numpy array"]:
         raise ValueError('Output_type must be of value "numpy array" or "python list"')
@@ -232,14 +239,11 @@ def embeddings(
             retries,
             url,
             precision,
-            **kwargs
+            **kwargs,
         )
 
-        if output_type == 'python list':
-            df[output_col] = [
-                row.tolist()
-                for row in df[output_col].values
-            ]
+        if output_type == "python list":
+            df[output_col] = [row.tolist() for row in df[output_col].values]
 
     return df
 
@@ -266,7 +270,7 @@ def index(
     output: _Union[str, list],
     start: int = 1,
     step: int = 1,
-    by = None,
+    by=None,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -297,7 +301,8 @@ def index(
         by = [by]
 
     # If a string provided, convert to list
-    if isinstance(output, str): output = [output]
+    if isinstance(output, str):
+        output = [output]
 
     if by == None:
         # Quickly create a sequence using numpy
@@ -321,7 +326,9 @@ def index(
     return df
 
 
-def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) -> _pd.DataFrame:
+def jinja(
+    df: _pd.DataFrame, template: dict, output: list, input: str = None
+) -> _pd.DataFrame:
     """
     type: object
     description: Output text using a jinja template
@@ -331,7 +338,7 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
       - template
     properties:
       input:
-        type: 
+        type:
           - string
           - integer
         description: |
@@ -360,43 +367,42 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
     """
     if isinstance(output, list):
         output = output[0]
-    
+
     if input:
         input = input[0]
         input_list = df[input]
     else:
-        input_list = df.to_dict(orient='records')
+        input_list = df.to_dict(orient="records")
 
     # Replace special characters in column names with underscores
     input_list = [
-        {
-            _re.sub(r'[^a-zA-Z0-9_]', '_', key): val
-            for key, val in row.items()
-        }
+        {_re.sub(r"[^a-zA-Z0-9_]", "_", key): val for key, val in row.items()}
         for row in input_list
     ]
 
     if len(template) > 1:
-        raise Exception('Template must have only one key specified')
+        raise Exception("Template must have only one key specified")
 
     # Template input as a file
-    if 'file' in template:
-        environment = _Environment(loader=_FileSystemLoader(''),trim_blocks=True, lstrip_blocks=True)
-        desc_template = environment.get_template(template['file'])
+    if "file" in template:
+        environment = _Environment(
+            loader=_FileSystemLoader(""), trim_blocks=True, lstrip_blocks=True
+        )
+        desc_template = environment.get_template(template["file"])
         df[output] = [desc_template.render(row) for row in input_list]
 
     # Template input as a column of the dataframe
-    elif 'column' in list(template.keys()):
+    elif "column" in list(template.keys()):
         df[output] = [
             _Environment(loader=_BaseLoader).from_string(template).render(row)
-            for (template, row) in zip(df[template['column']], input_list)
+            for (template, row) in zip(df[template["column"]], input_list)
         ]
-        
+
     # Template input as a string
-    elif 'string' in list(template.keys()):
-        desc_template = _Environment(loader=_BaseLoader).from_string(template['string'])
+    elif "string" in list(template.keys()):
+        desc_template = _Environment(loader=_BaseLoader).from_string(template["string"])
         df[output] = [desc_template.render(row) for row in input_list]
-  
+
     else:
         raise Exception("'file', 'column' or 'string' not found")
 
@@ -418,7 +424,8 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
         description: Name or list of names of new columns
     """
     # If a string provided, convert to list
-    if isinstance(output, str): output = [output]
+    if isinstance(output, str):
+        output = [output]
 
     # Loop through and create uuid for all requested columns
     for output_column in output:
@@ -426,7 +433,13 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
 
     return df
 
-def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list], method: str = 'md5') -> _pd.DataFrame:
+
+def hash(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    output: _Union[str, list],
+    method: str = "md5",
+) -> _pd.DataFrame:
     """
     type: object
     description: Create a hash of a column
@@ -454,19 +467,22 @@ def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
           - sha256
           - sha512
     """
-    if output is None: output = input
+    if output is None:
+        output = input
 
-    if not isinstance(input, list): input = [input]
-    if not isinstance(output, list): output = [output]
+    if not isinstance(input, list):
+        input = [input]
+    if not isinstance(output, list):
+        output = [output]
 
     if len(input) != len(output):
-        raise ValueError('The lists for input and output must be the same length.')
-    
-    if method not in ['md5', 'sha1', 'sha256', 'sha512']:
-        raise ValueError('Method must be one of: md5, sha1, sha256, sha512')
+        raise ValueError("The lists for input and output must be the same length.")
+
+    if method not in ["md5", "sha1", "sha256", "sha512"]:
+        raise ValueError("Method must be one of: md5, sha1, sha256, sha512")
 
     for in_col, out_col in zip(input, output):
         hash_fn = getattr(_hashlib, method)
-        df[out_col] = [hash_fn(str(x).encode('utf-8')).hexdigest() for x in df[in_col]]
+        df[out_col] = [hash_fn(str(x).encode("utf-8")).hexdigest() for x in df[in_col]]
 
     return df

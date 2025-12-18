@@ -1,6 +1,7 @@
 """
 Split a single column to multiple columns
 """
+
 # Rename List to _list to be able to use function name list without clashing
 from typing import Union as _Union, List as _list
 import pandas as _pd
@@ -9,14 +10,15 @@ import json as _json
 import itertools as _itertools
 from ..utils import (
     wildcard_expansion_dict as _wildcard_expansion_dict,
-    get_nested_function as _get_nested_function
+    get_nested_function as _get_nested_function,
 )
+
 
 def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    default: dict = {}
+    default: dict = {},
 ) -> _pd.DataFrame:
     """
     type: object
@@ -29,7 +31,7 @@ def dictionary(
       - input
     properties:
       input:
-        type: 
+        type:
           - string
           - integer
           - array
@@ -38,7 +40,7 @@ def dictionary(
           If providing multiple dictionaries and the dictionaries
           contain overlapping values, the last value will be returned.
       output:
-        type: 
+        type:
           - string
           - array
         description: |-
@@ -53,7 +55,7 @@ def dictionary(
         description: >-
           Provide a set of default headings and values
           if they are not found within the input
-    """ 
+    """
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
@@ -61,19 +63,24 @@ def dictionary(
     def _parse_dict_or_json(val):
         if isinstance(val, dict):
             return val.items()
-        elif isinstance(val, str) and val.startswith('{') and val.endswith('}'):
+        elif isinstance(val, str) and val.startswith("{") and val.endswith("}"):
             try:
                 return _json.loads(val).items()
             except:
                 pass
-        raise ValueError(f'{val} is not a valid Dictionary') from None
-        
+        raise ValueError(f"{val} is not a valid Dictionary") from None
 
     # Generate new columns for each key in the dictionary
-    df_temp = _pd.DataFrame([
-        dict(_itertools.chain.from_iterable(_parse_dict_or_json(d) for d in ([default] + row.tolist())))
-        for row in df[input].values
-    ])
+    df_temp = _pd.DataFrame(
+        [
+            dict(
+                _itertools.chain.from_iterable(
+                    _parse_dict_or_json(d) for d in ([default] + row.tolist())
+                )
+            )
+            for row in df[input].values
+        ]
+    )
 
     # If user has defined how they'd like the output columns
     if output is not None:
@@ -86,11 +93,7 @@ def dictionary(
         # and rename as required
         output = dict(
             _itertools.chain.from_iterable(
-                [
-                    x.items() if isinstance(x, dict)
-                    else {x: x}.items()
-                    for x in output
-                ]
+                [x.items() if isinstance(x, dict) else {x: x}.items() for x in output]
             )
         )
         # Expand wildcard and regex defined columns to match the actual columns
@@ -104,8 +107,10 @@ def dictionary(
 
     return df
 
-    
-def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]) -> _pd.DataFrame:
+
+def list(
+    df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list]
+) -> _pd.DataFrame:
     """
     type: object
     description: Split a list in a single column to multiple columns.
@@ -130,8 +135,7 @@ def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list])
     """
     # Ensure rows are lists even if they are JSON strings
     results = [
-        row if isinstance(row, _list) else _json.loads(row)
-        for row in df[input].values
+        row if isinstance(row, _list) else _json.loads(row) for row in df[input].values
     ]
     # If column is empty, return early
     if len(results) == 0:
@@ -139,16 +143,18 @@ def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list])
     # Generate results and pad to a consistent length
     # as long as the max length
     max_len = max([len(x) for x in results])
-    results = [
-        x + [''] * (max_len - len(x))
-        for x in results
-    ]
+    results = [x + [""] * (max_len - len(x)) for x in results]
 
     # Handle wildcard cases and column assignment
-    if (isinstance(output, str) and '*' in output) or (isinstance(output, _list) and len(output) == 1 and '*' in output[0]):
+    if (isinstance(output, str) and "*" in output) or (
+        isinstance(output, _list) and len(output) == 1 and "*" in output[0]
+    ):
         # Use the wildcard pattern for generating output headers
         wildcard_template = output if isinstance(output, str) else output[0]
-        output_headers = [wildcard_template.replace('*', str(i)) for i in range(1, len(results[0]) + 1)]
+        output_headers = [
+            wildcard_template.replace("*", str(i))
+            for i in range(1, len(results[0]) + 1)
+        ]
         df[output_headers] = results
     else:
         # Direct assignment for single column
@@ -161,11 +167,11 @@ def text(
     df: _pd.DataFrame,
     input: str,
     output: _Union[str, _list] = None,
-    char: str = ',',
+    char: str = ",",
     pad: bool = None,
     element: _Union[int, str] = None,
     inclusive: bool = False,
-    skip_empty: bool = False
+    skip_empty: bool = False,
 ) -> _pd.DataFrame:
     """
     type: object
@@ -200,7 +206,7 @@ def text(
           Choose whether to pad to ensure a consistent length.
           Default true if outputting to columns, false for lists.
       element:
-        type: 
+        type:
           - integer
           - string
         description: >-
@@ -230,10 +236,7 @@ def text(
     if pad is None:
         # If user has specified output columns either named
         # or using a wildcard, set pad = True
-        if (
-            (isinstance(output, str) and '*' in output)
-            or isinstance(output, _list)
-        ):
+        if (isinstance(output, str) and "*" in output) or isinstance(output, _list):
             pad = True
         else:
             pad = False
@@ -244,24 +247,31 @@ def text(
     # Perform the split operation
     results = _format.split(
         df[input].astype(str).values,
-        output_length=len(output) if isinstance(output, _list) and len(output) > 1 else None,
+        output_length=(
+            len(output) if isinstance(output, _list) and len(output) > 1 else None
+        ),
         split_char=char,
         pad=pad,
         inclusive=inclusive,
         element=element,
-        skip_empty=skip_empty
+        skip_empty=skip_empty,
     )
 
     # Handle wildcard cases and column assignment
-    if (isinstance(output, str) and '*' in output) or (isinstance(output, _list) and len(output) == 1 and '*' in output[0]):
+    if (isinstance(output, str) and "*" in output) or (
+        isinstance(output, _list) and len(output) == 1 and "*" in output[0]
+    ):
         # Use the wildcard pattern for generating output headers
         wildcard_template = output if isinstance(output, str) else output[0]
-        output_headers = [wildcard_template.replace('*', str(i)) for i in range(1, len(results[0]) + 1)]
+        output_headers = [
+            wildcard_template.replace("*", str(i))
+            for i in range(1, len(results[0]) + 1)
+        ]
         df[output_headers] = results
     else:
         # Direct assignment for single column
         df[output] = results
-        
+
     return df
 
 
@@ -269,8 +279,8 @@ def tokenize(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    method: str = 'space',
-    functions: dict = {}
+    method: str = "space",
+    functions: dict = {},
 ) -> _pd.DataFrame:
     """
     type: object
@@ -288,7 +298,7 @@ def tokenize(
           - array
         description: Column(s) to be split into tokens
       output:
-        type: 
+        type:
           - string
           - array
         description: Name of the output column
@@ -311,16 +321,21 @@ def tokenize(
               or use a custom function with custom.<function>
               or use a regex pattern with regex:<pattern>
     """
-    if output is None: output = input
-    
+    if output is None:
+        output = input
+
     # Ensure input and outputs are lists
-    if not isinstance(input, _list): input = [input]
-    if not isinstance(output, _list): output = [output]
+    if not isinstance(input, _list):
+        input = [input]
+    if not isinstance(output, _list):
+        output = [output]
 
     # Ensure input and output are equal lengths
     if len(input) != len(output):
-        raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
-    
+        raise ValueError(
+            "The list of inputs and outputs must be the same length for split.tokenize"
+        )
+
     func = None
     pattern = None
 
@@ -333,13 +348,15 @@ def tokenize(
         pattern = method[6:].strip()
         method = "regex"
     # Default methods
-    elif method not in ['space', 'boundary', 'boundary_ignore_space']:
+    elif method not in ["space", "boundary", "boundary_ignore_space"]:
         raise ValueError(
-            'Method must be one of: space, boundary, '
-            'boundary_ignore_space, custom.<function>, regex:<pattern>'
+            "Method must be one of: space, boundary, "
+            "boundary_ignore_space, custom.<function>, regex:<pattern>"
         )
 
     for in_col, out_col in zip(input, output):
-        df[out_col] = _format.tokenize(df[in_col].values.tolist(), method, func, pattern)
-            
+        df[out_col] = _format.tokenize(
+            df[in_col].values.tolist(), method, func, pattern
+        )
+
     return df

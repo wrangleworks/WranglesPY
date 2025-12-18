@@ -7,9 +7,9 @@ class TestExtractAddress:
     """
     Test extract.address
     """
+
     df = pd.DataFrame(
-        [['221 B Baker St., London, England, United Kingdom']],
-        columns=['location']
+        [["221 B Baker St., London, England, United Kingdom"]], columns=["location"]
     )
 
     def test_address_street(self):
@@ -21,8 +21,8 @@ class TestExtractAddress:
                 dataType: streets
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['streets'] == ['221 B Baker St.']
-        
+        assert df.iloc[0]["streets"] == ["221 B Baker St."]
+
     def test_address_cities(self):
         recipe = """
         wrangles:
@@ -32,8 +32,8 @@ class TestExtractAddress:
                 dataType: cities
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['cities'] == ['London']
-        
+        assert df.iloc[0]["cities"] == ["London"]
+
     def test_address_countries(self):
         recipe = """
         wrangles:
@@ -43,8 +43,8 @@ class TestExtractAddress:
                     dataType: countries
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['country'] == ['United Kingdom']
-        
+        assert df.iloc[0]["country"] == ["United Kingdom"]
+
     def test_address_regions(self):
         recipe = """
         wrangles:
@@ -54,17 +54,18 @@ class TestExtractAddress:
                 dataType: regions
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['regions'] == ['England']
-        
-    
+        assert df.iloc[0]["regions"] == ["England"]
+
     def test_address_5(self):
         """
         If the input is multiple columns (a list)
         """
-        data = pd.DataFrame({
-            'col1': ['221 B Baker St., London, England, United Kingdom'],
-            'col2': ['742 Evergreen St, Springfield, USA']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["221 B Baker St., London, England, United Kingdom"],
+                "col2": ["742 Evergreen St, Springfield, USA"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.address:
@@ -77,16 +78,21 @@ class TestExtractAddress:
             dataType: streets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out2'][0] == '742 Evergreen St'
+        assert df.iloc[0]["out2"][0] == "742 Evergreen St"
 
     def test_address_where(self):
         """
         Test extract.address using where
         """
-        data = pd.DataFrame({
-            'address': ['221 B Baker St., London, England, United Kingdom', '742 Evergreen St, Springfield, USA'],
-            'elevation': [1462, 2121]
-        })
+        data = pd.DataFrame(
+            {
+                "address": [
+                    "221 B Baker St., London, England, United Kingdom",
+                    "742 Evergreen St, Springfield, USA",
+                ],
+                "elevation": [1462, 2121],
+            }
+        )
         recipe = """
         wrangles:
         - extract.address:
@@ -98,19 +104,22 @@ class TestExtractAddress:
             where: elevation > 2000
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'][0] == '742 Evergreen St'
-        
-    
+        assert (
+            df.iloc[0]["output"] == "" and df.iloc[1]["output"][0] == "742 Evergreen St"
+        )
+
     def test_address_multi_input(self):
         """
         If the input and output are not the same type
         """
-        data = pd.DataFrame({
-            'street': ['221 B Baker St.'],
-            'city': ['London'],
-            'region': ['England'],
-            'country': ['United Kingdom']
-        })
+        data = pd.DataFrame(
+            {
+                "street": ["221 B Baker St."],
+                "city": ["London"],
+                "region": ["England"],
+                "country": ["United Kingdom"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.address:
@@ -123,16 +132,13 @@ class TestExtractAddress:
             dataType: streets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out'] == ['221 B Baker St.']
+        assert df.iloc[0]["out"] == ["221 B Baker St."]
 
     def test_address_empty(self):
         """
         Test extract.address with an empty input
         """
-        data = pd.DataFrame({
-            'col1': [],
-            'col2': []
-        })
+        data = pd.DataFrame({"col1": [], "col2": []})
         recipe = """
         wrangles:
         - extract.address:
@@ -145,22 +151,24 @@ class TestExtractAddress:
             dataType: streets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty and df.columns.to_list() == ['col1', 'col2', 'out1', 'out2']
+        assert df.empty and df.columns.to_list() == ["col1", "col2", "out1", "out2"]
 
 
 class TestExtractAttributes:
     """
     Test extract.attributes
     """
-    df_test_attributes = pd.DataFrame(
-        [['hammer 5kg, 0.5m']],
-        columns=['Tools']
-    )
+
+    df_test_attributes = pd.DataFrame([["hammer 5kg, 0.5m"]], columns=["Tools"])
     df_test_attributes_all = pd.DataFrame(
-        [['hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff ']],
-        columns=['Tools']
+        [
+            [
+                "hammer 13kg, 13m, 13deg, 13m^2, 13A something random 13hp 13N and 13W, 13psi random 13V 13m^3 stuff "
+            ]
+        ],
+        columns=["Tools"],
     )
-    
+
     def test_attributes_span(self):
         recipe = """
         wrangles:
@@ -170,7 +178,7 @@ class TestExtractAttributes:
                 responseContent: span
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes)
-        assert df.iloc[0]['Attributes'] == {'length': ['0.5m'], 'weight': ['5kg']}
+        assert df.iloc[0]["Attributes"] == {"length": ["0.5m"], "weight": ["5kg"]}
 
     def test_attributes_object(self):
         """
@@ -184,13 +192,34 @@ class TestExtractAttributes:
                 responseContent: object
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes)
-        assert df.iloc[0]['Attributes'] == {'length': [{'span': '0.5m', 'standard': '0.5 m', 'symbol': 'm', 'unit': 'metre', 'value': 0.5}], 'weight': [{'span': '5kg', 'standard': '5 kg', 'symbol': 'kg', 'unit': 'kilogram', 'value': 5.0}]}
+        assert df.iloc[0]["Attributes"] == {
+            "length": [
+                {
+                    "span": "0.5m",
+                    "standard": "0.5 m",
+                    "symbol": "m",
+                    "unit": "metre",
+                    "value": 0.5,
+                }
+            ],
+            "weight": [
+                {
+                    "span": "5kg",
+                    "standard": "5 kg",
+                    "symbol": "kg",
+                    "unit": "kilogram",
+                    "value": 5.0,
+                }
+            ],
+        }
 
     def test_attributes_first_element(self):
         """
         Tests using first_element with extract.attributes (only works when attribute_type is specified)
         """
-        data = pd.DataFrame([['hammer 5kg, screwdriver 1kg, wrench 2kg']], columns=['Tools'])
+        data = pd.DataFrame(
+            [["hammer 5kg, screwdriver 1kg, wrench 2kg"]], columns=["Tools"]
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -200,13 +229,15 @@ class TestExtractAttributes:
                 first_element: True
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df.iloc[0]['Attributes'] == '5kg'
+        assert df.iloc[0]["Attributes"] == "5kg"
 
     def test_attributes_first_element_without_attribute_type(self):
         """
         Tests error when using first_element without attribute_type
         """
-        data = pd.DataFrame([['hammer 5kg, screwdriver 12in, wrench 12v']], columns=['Tools'])
+        data = pd.DataFrame(
+            [["hammer 5kg, screwdriver 12in, wrench 12v"]], columns=["Tools"]
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -217,8 +248,9 @@ class TestExtractAttributes:
         with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'TypeError' and
-            'first_element must be used with a specified attribute_type' in info.value.args[0]
+            info.typename == "TypeError"
+            and "first_element must be used with a specified attribute_type"
+            in info.value.args[0]
         )
 
     def test_attributes_angle(self):
@@ -234,7 +266,7 @@ class TestExtractAttributes:
                 attribute_type: angle
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'][0] in ['13deg', '13°']
+        assert df.iloc[0]["Attributes"][0] in ["13deg", "13°"]
 
     def test_attributes_area(self):
         """
@@ -249,7 +281,7 @@ class TestExtractAttributes:
                 attribute_type: area
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'][0] in ['13m^2', '13sq m']
+        assert df.iloc[0]["Attributes"][0] in ["13m^2", "13sq m"]
 
     def test_attributes_current(self):
         """
@@ -264,7 +296,7 @@ class TestExtractAttributes:
                 attribute_type: current
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13A']
+        assert df.iloc[0]["Attributes"] == ["13A"]
 
     def test_attributes_force(self):
         """
@@ -279,7 +311,7 @@ class TestExtractAttributes:
                 attribute_type: force
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13N']
+        assert df.iloc[0]["Attributes"] == ["13N"]
 
     def test_attributes_length(self):
         """
@@ -294,7 +326,7 @@ class TestExtractAttributes:
                 attribute_type: length
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13m']
+        assert df.iloc[0]["Attributes"] == ["13m"]
 
     def test_attributes_power(self):
         """
@@ -309,7 +341,7 @@ class TestExtractAttributes:
                 attribute_type: power
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13hp', '13W']
+        assert df.iloc[0]["Attributes"] == ["13hp", "13W"]
 
     def test_attributes_pressure(self):
         """
@@ -324,7 +356,7 @@ class TestExtractAttributes:
                 attribute_type: pressure
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13psi']
+        assert df.iloc[0]["Attributes"] == ["13psi"]
 
     def test_attributes_voltage_legacy(self):
         """
@@ -340,7 +372,7 @@ class TestExtractAttributes:
                 attribute_type: electric potential
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13V']
+        assert df.iloc[0]["Attributes"] == ["13V"]
 
     def test_attributes_voltage(self):
         """
@@ -355,7 +387,7 @@ class TestExtractAttributes:
                 attribute_type: voltage
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13V']
+        assert df.iloc[0]["Attributes"] == ["13V"]
 
     def test_attributes_volume(self):
         """
@@ -370,7 +402,7 @@ class TestExtractAttributes:
                 attribute_type: volume
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'][0] in ['13m^3', '13cu m']
+        assert df.iloc[0]["Attributes"][0] in ["13m^3", "13cu m"]
 
     def test_attributes_mass_legacy(self):
         """
@@ -385,7 +417,7 @@ class TestExtractAttributes:
                 attribute_type: mass
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13kg']
+        assert df.iloc[0]["Attributes"] == ["13kg"]
 
     def test_attributes_weight(self):
         """
@@ -400,15 +432,15 @@ class TestExtractAttributes:
                 attribute_type: weight
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_test_attributes_all)
-        assert df.iloc[0]['Attributes'] == ['13kg']
+        assert df.iloc[0]["Attributes"] == ["13kg"]
 
     def test_attributes_MinMidMax(self):
         """
         min/mid/max attributes
         """
-        data = pd.DataFrame({
-            'Tools': ['object mass ranges from 13kg to 14.5kg to 18.2kg']
-        })
+        data = pd.DataFrame(
+            {"Tools": ["object mass ranges from 13kg to 14.5kg to 18.2kg"]}
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -421,18 +453,21 @@ class TestExtractAttributes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Invalid boundary setting. min, mid or max permitted.' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Invalid boundary setting. min, mid or max permitted."
+            in info.value.args[0]
         )
 
     def test_attributes_multi_col(self):
         """
         If the input is multiple columns (a list)
         """
-        data = pd.DataFrame({
-            'col1': ['13 something 13kg 13 random'],
-            'col2': ['3 something 3kg 3 random'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["13 something 13kg 13 random"],
+                "col2": ["3 something 3kg 3 random"],
+            }
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -446,16 +481,18 @@ class TestExtractAttributes:
                 attribute_type: mass
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out2'] == ['3kg']
+        assert df.iloc[0]["out2"] == ["3kg"]
 
     def test_attributes_diff_type(self):
         """
         If the input and output are not the same type
         """
-        data = pd.DataFrame({
-            'col1': ['13 something 13kg 13 random'],
-            'col2': ['3 something 3kg 3 random'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["13 something 13kg 13 random"],
+                "col2": ["3 something 3kg 3 random"],
+            }
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -467,16 +504,18 @@ class TestExtractAttributes:
                 attribute_type: mass
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out'] == ['13kg', '3kg']
+        assert df.iloc[0]["out"] == ["13kg", "3kg"]
 
     def test_attributes_single_input_multi_output(self):
         """
         If the input and output are different lengths
         """
-        data = pd.DataFrame({
-            'col1': ['13 something 13kg 13 random'],
-            'col2': ['3 something 3kg 3 random'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["13 something 13kg 13 random"],
+                "col2": ["3 something 3kg 3 random"],
+            }
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -490,18 +529,21 @@ class TestExtractAttributes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Extract must output to a single column or equal amount of columns as input."
+            in info.value.args[0]
         )
 
     def test_attributes_where(self):
         """
         Test extract.attributes using where
         """
-        data = pd.DataFrame({
-            'col1': ['13 something 13kg 13 random', '13mm wrench', '3/8in ratchet'],
-            'numbers': [21, 3, 14]
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["13 something 13kg 13 random", "13mm wrench", "3/8in ratchet"],
+                "numbers": [21, 3, 14],
+            }
+        )
         recipe = """
         wrangles:
             - extract.attributes:
@@ -510,16 +552,15 @@ class TestExtractAttributes:
                 where: numbers < 10
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == {'length': ['13mm']}
+        assert df.iloc[0]["output"] == "" and df.iloc[1]["output"] == {
+            "length": ["13mm"]
+        }
 
     def test_attributes_empty(self):
         """
         Test extract.attributes with an empty input
         """
-        data = pd.DataFrame({
-            'col1': [],
-            'numbers': []
-        })
+        data = pd.DataFrame({"col1": [], "numbers": []})
         recipe = """
         wrangles:
             - extract.attributes:
@@ -527,41 +568,37 @@ class TestExtractAttributes:
                 output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.empty and df.columns.to_list() == ['col1', 'numbers', 'output']
+        assert df.empty and df.columns.to_list() == ["col1", "numbers", "output"]
 
 
 class TestExtractCodes:
     """
     Test extract.codes
     """
+
     # Input is string
-    df_string = pd.DataFrame(
-        [['to gain access use Z1ON0101']],
-        columns=['secret']
-    )
+    df_string = pd.DataFrame([["to gain access use Z1ON0101"]], columns=["secret"])
 
     # column is a list
     df_list = pd.DataFrame(
-        [[['to', 'gain', 'access', 'use', 'Z1ON0101']]],
-        columns=['secret']
+        [[["to", "gain", "access", "use", "Z1ON0101"]]], columns=["secret"]
     )
 
     # Multiple columns as inputs
     df_multi_input = pd.DataFrame(
-        {
-            'code1': ['code Z1ON0101-1'],
-            'code2': ['code Z1ON0101-2']
-        }
+        {"code1": ["code Z1ON0101-1"], "code2": ["code Z1ON0101-2"]}
     )
 
     def test_codes_inconsistent_input_output(self):
         """
         Check error if user provides inconsistent lists for input and output
         """
-        data = pd.DataFrame({
-            'col1': ['to gain access use Z1ON0101'],
-            'col2': ['to gain access use Z1ON0101']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["to gain access use Z1ON0101"],
+                "col2": ["to gain access use Z1ON0101"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.codes:
@@ -576,8 +613,9 @@ class TestExtractCodes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Extract must output to a single column or equal amount of columns as input."
+            in info.value.args[0]
         )
 
     def test_extract_codes_2(self):
@@ -588,7 +626,7 @@ class TestExtractCodes:
             output: code
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_string)
-        assert df.iloc[0]['code'] == ['Z1ON0101']
+        assert df.iloc[0]["code"] == ["Z1ON0101"]
 
     def test_extract_codes_list(self):
         recipe = """
@@ -598,7 +636,7 @@ class TestExtractCodes:
             output: code
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_list)
-        assert df.iloc[0]['code'] == ['Z1ON0101']
+        assert df.iloc[0]["code"] == ["Z1ON0101"]
 
     def test_extract_codes_multi_input(self):
         recipe = """
@@ -610,7 +648,7 @@ class TestExtractCodes:
             output: Codes
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['Codes'] == ['Z1ON0101-1', 'Z1ON0101', 'Z1ON0101-2']
+        assert df.iloc[0]["Codes"] == ["Z1ON0101-1", "Z1ON0101", "Z1ON0101-2"]
 
     def test_extract_codes_multi_input_output(self):
         """
@@ -627,7 +665,7 @@ class TestExtractCodes:
                 - out2
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
+        assert df.iloc[0]["out2"] == ["Z1ON0101-2", "Z1ON0101"]
 
     def test_extract_codes_one_input_multi_output(self):
         recipe = """
@@ -642,17 +680,18 @@ class TestExtractCodes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
         assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Extract must output to a single column or equal amount of columns as input."
+            in info.value.args[0]
         )
 
     def test_extract_codes_first_element(self):
         """
         Test extract.codes using first_element
         """
-        data = pd.DataFrame({
-            'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
-        })
+        data = pd.DataFrame(
+            {"col1": ["to gain access use Z1ON0101 or ZI0NOIO1, I forget which"]}
+        )
         recipe = """
         wrangles:
         - extract.codes:
@@ -661,15 +700,15 @@ class TestExtractCodes:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['code'] == 'Z1ON0101'
+        assert df.iloc[0]["code"] == "Z1ON0101"
 
     def test_extract_codes_first_element_lowercase_true(self):
         """
         Test extract.codes using first_element with true input as lowercase
         """
-        data = pd.DataFrame({
-            'col1': ['to gain access use Z1ON0101 or ZI0NOIO1, I forget which']
-        })
+        data = pd.DataFrame(
+            {"col1": ["to gain access use Z1ON0101 or ZI0NOIO1, I forget which"]}
+        )
         recipe = """
         wrangles:
         - extract.codes:
@@ -678,7 +717,7 @@ class TestExtractCodes:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['code'] == 'Z1ON0101'
+        assert df.iloc[0]["code"] == "Z1ON0101"
 
     def test_extract_codes_where(self):
         """
@@ -691,17 +730,19 @@ class TestExtractCodes:
                 input: column
                 output: code
                 where: numbers > 6
-            """, 
-            dataframe=pd.DataFrame({
+            """,
+            dataframe=pd.DataFrame(
+                {
                     "column": [
-                            'This is a code Z1ON0101',
-                            'This is also a code Z151HG52',
-                            'Yet another code HK21454L'
-                        ],
-                    "numbers": [5, 7, 8]
-                })
-            )
-        assert df.iloc[1]['code'] == ['Z151HG52'] and df.iloc[0]['code'] == ''
+                        "This is a code Z1ON0101",
+                        "This is also a code Z151HG52",
+                        "Yet another code HK21454L",
+                    ],
+                    "numbers": [5, 7, 8],
+                }
+            ),
+        )
+        assert df.iloc[1]["code"] == ["Z151HG52"] and df.iloc[0]["code"] == ""
 
     def test_extract_codes_empty(self):
         """
@@ -714,21 +755,22 @@ class TestExtractCodes:
                 input: column
                 output: code
             """,
-            dataframe=pd.DataFrame({
-                "column": [],
-                "numbers": []
-            })
+            dataframe=pd.DataFrame({"column": [], "numbers": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'numbers', 'code']
+        assert df.empty and df.columns.to_list() == ["column", "numbers", "code"]
 
     def test_extract_codes_min_length(self):
         """
         Test extract codes with a min length
         Should return only two codes that are greater than 5 in length
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -737,18 +779,22 @@ class TestExtractCodes:
                   output: codes
                   min_length: 5
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['ABC123', '56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM']
+        assert df["codes"][0] == ["ABC123", "56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM"]
 
     def test_extract_codes_max_length(self):
         """
         Test extract codes with a max length
         Should return only two codes that are less than 7 in length
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -757,18 +803,16 @@ class TestExtractCodes:
                   output: codes
                   max_length: 7
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['ABC123', 'A133']
+        assert df["codes"][0] == ["ABC123", "A133"]
 
     def test_extract_codes_strategy_lenient(self):
         """
         Test extract codes with a lenient strategy
         Should return the units also
         """
-        data = pd.DataFrame({
-            'col1': ['ABC123 Spanner 15mm']
-        })
+        data = pd.DataFrame({"col1": ["ABC123 Spanner 15mm"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -777,18 +821,16 @@ class TestExtractCodes:
                   output: codes
                   strategy: lenient
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['ABC123', '15mm']
+        assert df["codes"][0] == ["ABC123", "15mm"]
 
     def test_extract_codes_strategy_strict(self):
         """
         Test extract codes with a strict strategy
         Should not include units
         """
-        data = pd.DataFrame({
-            'col1': ['ABC123 Spanner 15mm']
-        })
+        data = pd.DataFrame({"col1": ["ABC123 Spanner 15mm"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -797,17 +839,15 @@ class TestExtractCodes:
                   output: codes
                   strategy: strict
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['ABC123']
+        assert df["codes"][0] == ["ABC123"]
 
     def test_extract_codes_sort_order_longest(self):
         """
         Test extract codes with a sort order of longest
         """
-        data = pd.DataFrame({
-            'col1': ['XYZ123 test ABC123 2Z']
-        })
+        data = pd.DataFrame({"col1": ["XYZ123 test ABC123 2Z"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -816,17 +856,15 @@ class TestExtractCodes:
                   output: codes
                   sort_order: longest
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z']
+        assert df["codes"][0] == ["ABC123 2Z", "XYZ123", "ABC123", "2Z"]
 
     def test_extract_codes_sort_order_shortest(self):
         """
         Test extract codes with a sort order of shortest
         """
-        data = pd.DataFrame({
-            'col1': ['XYZ123 test ABC123 2Z']
-        })
+        data = pd.DataFrame({"col1": ["XYZ123 test ABC123 2Z"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -835,17 +873,15 @@ class TestExtractCodes:
                   output: codes
                   sort_order: shortest
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z']
+        assert df["codes"][0] == ["2Z", "XYZ123", "ABC123", "ABC123 2Z"]
 
     def test_extract_codes_include_multi_part_tokens_false(self):
         """
         Test extract codes with that does not include multi-part-tokens
         """
-        data = pd.DataFrame({
-            'col1': ['XYZ123 test ABC123 2Z']
-        })
+        data = pd.DataFrame({"col1": ["XYZ123 test ABC123 2Z"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -854,17 +890,15 @@ class TestExtractCodes:
                   output: codes
                   include_multi_part_tokens: False
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['XYZ123', 'ABC123', '2Z']
+        assert df["codes"][0] == ["XYZ123", "ABC123", "2Z"]
 
     def test_extract_codes_disallow_patterns(self):
         """
         Test extract codes with disallow patterns
         """
-        data = pd.DataFrame({
-            'col1': ['ABC123 Spanner XYZ123']
-        })
+        data = pd.DataFrame({"col1": ["ABC123 Spanner XYZ123"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -873,17 +907,15 @@ class TestExtractCodes:
                   output: codes
                   disallowed_patterns: ABC
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['XYZ123']
+        assert df["codes"][0] == ["XYZ123"]
 
     def test_extract_codes_sort_and_max_length(self):
         """
         Test extract codes with a sort order and min_length
         """
-        data = pd.DataFrame({
-            'col1': ['XYZ123 test ABC123 2Z and also 4m']
-        })
+        data = pd.DataFrame({"col1": ["XYZ123 test ABC123 2Z and also 4m"]})
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -893,17 +925,17 @@ class TestExtractCodes:
                   sort_order: shortest
                   min_length: 3
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['XYZ123', 'ABC123', 'ABC123 2Z']
+        assert df["codes"][0] == ["XYZ123", "ABC123", "ABC123 2Z"]
 
     def test_extract_codes_sort_and_strategy(self):
         """
         Test extract codes with a sort order of shortest and strategy
         """
-        data = pd.DataFrame({
-            'col1': ['XYZ123XYZ123 test ABC123 2Z and also 4m is the length']
-        })
+        data = pd.DataFrame(
+            {"col1": ["XYZ123XYZ123 test ABC123 2Z and also 4m is the length"]}
+        )
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -913,110 +945,128 @@ class TestExtractCodes:
                   sort_order: shortest
                   strategy: strict
             """,
-            dataframe=data
+            dataframe=data,
         )
-        assert df['codes'][0] == ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123']
+        assert df["codes"][0] == ["2Z", "ABC123", "ABC123 2Z", "XYZ123XYZ123"]
 
     def test_extract_codes_wrong_params_min_length(self):
         """
         Test extract codes with a min length with wrong params
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(
-            """
+                """
             wrangles:
               - extract.codes:
                   input: col1
                   output: codes
                   min_length: hello
             """,
-            dataframe=data
-        )
+                dataframe=data,
+            )
         assert (
-            info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
+            info.typename == "ValueError"
+            and 'extract.codes - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n'
+            in info.value.args[0]
         )
-
 
     def test_extract_codes_wrong_params_max_length(self):
         """
         Test extract codes with a min length with wrong params type
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(
-            """
+                """
             wrangles:
               - extract.codes:
                   input: col1
                   output: codes
                   max_length: hello
             """,
-            dataframe=data
-        )
+                dataframe=data,
+            )
         assert (
-            info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
+            info.typename == "ValueError"
+            and 'extract.codes - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n'
+            in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_strategy(self):
         """
         Test extract codes with a strategy with wrong params
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(
-            """
+                """
             wrangles:
               - extract.codes:
                   input: col1
                   output: codes
                   strategy: super-duper-strict
             """,
-            dataframe=data
-        )
+                dataframe=data,
+            )
         assert (
-            info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
+            info.typename == "ValueError"
+            and 'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n'
+            in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_sort(self):
         """
         Test sort with wrong params type
         """
-        data = pd.DataFrame({
-            'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133"
+                ]
+            }
+        )
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(
-            """
+                """
             wrangles:
               - extract.codes:
                   input: col1
                   output: codes
                   sort_order: random
             """,
-            dataframe=data
-        )
+                dataframe=data,
+            )
         assert (
-            info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            info.typename == "ValueError"
+            and 'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n'
+            in info.value.args[0]
         )
-
-        
 
 
 class TestExtractCustom:
     """
     Test extract.custom
     """
+
     def test_extract_custom_1(self):
         df = wrangles.recipe.run(
             """
@@ -1027,20 +1077,21 @@ class TestExtractCustom:
                 model_id: 1eddb7e8-1b2b-4a52
             """,
             dataframe=pd.DataFrame(
-                [['My favorite pokemon is charizard!']],
-                columns=['Fact']
-            )
+                [["My favorite pokemon is charizard!"]], columns=["Fact"]
+            ),
         )
-        assert df.iloc[0]['Fact Output'] == ['Charizard']
+        assert df.iloc[0]["Fact Output"] == ["Charizard"]
 
     def test_custom_one_output(self):
         """
         Test using extract.custom with a single output
         """
-        data = pd.DataFrame({
-            'col1': ['My favorite pokemon is charizard!'],
-            'col2': ['My favorite pokemon is charizard2!']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["My favorite pokemon is charizard!"],
+                "col2": ["My favorite pokemon is charizard2!"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1051,17 +1102,19 @@ class TestExtractCustom:
                 - Fact Out
             model_id: 1eddb7e8-1b2b-4a52
         """
-        df =  wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Fact Out'][0] == ['Charizard']
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["Fact Out"][0] == ["Charizard"]
 
     def test_extract_custom_3(self):
         """
         Incorrect model_id missing "${ }" around value
         """
-        data = pd.DataFrame({
-            'col1': ['My favorite pokemon is charizard!'],
-            'col2': ['My favorite pokemon is charizard2!']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["My favorite pokemon is charizard!"],
+                "col2": ["My favorite pokemon is charizard2!"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1076,8 +1129,9 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX"
+            in info.value.args[0]
         )
 
     def test_extract_custom_labels(self):
@@ -1093,22 +1147,19 @@ class TestExtractCustom:
                 model_id: 829c1a73-1bfd-4ac0
                 use_labels: true
             """,
-            dataframe = pd.DataFrame({
-                'col1': ['small blue cotton jacket']
-            })
+            dataframe=pd.DataFrame({"col1": ["small blue cotton jacket"]}),
         )
-        assert (
-            df['col2'][0]['colour'] == ['blue'] and
-            df['col2'][0]['size'] == ['small']
-        )
+        assert df["col2"][0]["colour"] == ["blue"] and df["col2"][0]["size"] == [
+            "small"
+        ]
 
     def test_extract_custom_6(self):
         """
         Incorrect model_id - forget to use ${}
         """
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1119,14 +1170,15 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
+            info.typename == "ValueError"
+            and 'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value'
+            in info.value.args[0]
         )
 
     def test_extract_with_standardize_model_id(self):
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1137,8 +1189,9 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function."
+            in info.value.args[0]
         )
 
     def test_extract_custom_list(self):
@@ -1151,11 +1204,10 @@ class TestExtractCustom:
                 model_id: 1eddb7e8-1b2b-4a52
             """,
             dataframe=pd.DataFrame(
-                [[['Charizard', 'Cat', 'Pikachu', 'Mew', 'Dog']]],
-                columns=['Fact']
-            )
+                [[["Charizard", "Cat", "Pikachu", "Mew", "Dog"]]], columns=["Fact"]
+            ),
         )
-        assert df.iloc[0]['Fact Output'][0] in ['Pikachu', 'Mew', 'Charizard']
+        assert df.iloc[0]["Fact Output"][0] in ["Pikachu", "Mew", "Charizard"]
 
     def test_extract_custom_empty_input(self):
         """
@@ -1172,15 +1224,9 @@ class TestExtractCustom:
                 output: col3
                 model_id: 1eddb7e8-1b2b-4a52
             """,
-            dataframe=pd.DataFrame({
-                'col1': [],
-                'col2': []
-            })
+            dataframe=pd.DataFrame({"col1": [], "col2": []}),
         )
-        assert (
-            list(df.columns) == ['col1', 'col2', 'col3'] and
-            len(df) == 0
-        )
+        assert list(df.columns) == ["col1", "col2", "col3"] and len(df) == 0
 
     def test_extract_custom_multi_input(self):
         df = wrangles.recipe.run(
@@ -1193,15 +1239,11 @@ class TestExtractCustom:
                 output: Fact Output
                 model_id: 1eddb7e8-1b2b-4a52
             """,
-            dataframe=pd.DataFrame({
-                'col1': ['First Place Pikachu'],
-                'col2': ['Second Place Charizard']
-            })
+            dataframe=pd.DataFrame(
+                {"col1": ["First Place Pikachu"], "col2": ["Second Place Charizard"]}
+            ),
         )
-        assert (
-            'Charizard' in df['Fact Output'][0] and
-            'Pikachu' in df['Fact Output'][0]
-        )
+        assert "Charizard" in df["Fact Output"][0] and "Pikachu" in df["Fact Output"][0]
 
     def test_extract_custom_mulit_input_output(self):
         """
@@ -1219,21 +1261,22 @@ class TestExtractCustom:
                     - Fact2
                 model_id: 1eddb7e8-1b2b-4a52
             """,
-            dataframe=pd.DataFrame({
-                'col1': ['First Place Pikachu'],
-                'col2': ['Second Place Charizard']
-            })
+            dataframe=pd.DataFrame(
+                {"col1": ["First Place Pikachu"], "col2": ["Second Place Charizard"]}
+            ),
         )
-        assert df.iloc[0]['Fact2'] == ['Charizard']
-        
+        assert df.iloc[0]["Fact2"] == ["Charizard"]
+
     def test_extract_custom_where(self):
         """
         Test custom extract with where
         """
-        data = pd.DataFrame({
-            'col1': ['Pikachu', 'Stuff', 'Pikachu and Charizard'],
-            'col2': ['Charizard', 'More stuff', 'Pikachu and Charizard']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Pikachu", "Stuff", "Pikachu and Charizard"],
+                "col2": ["Charizard", "More stuff", "Pikachu and Charizard"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1245,16 +1288,21 @@ class TestExtractCustom:
             where: col1 LIKE col2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output col'] == "" and df.iloc[2]['output col'] == ['Charizard', 'Pikachu']
+        assert df.iloc[0]["output col"] == "" and df.iloc[2]["output col"] == [
+            "Charizard",
+            "Pikachu",
+        ]
 
     def test_extract_custom_multi_io_where(self):
         """
         Test custom extract with multiple inputs and outputs using where
         """
-        data = pd.DataFrame({
-            'col1': ['Pikachu', 'Stuff', 'Pikachu and Charizard'],
-            'col2': ['Charizard', 'More stuff', 'Pikachu and Charizard']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Pikachu", "Stuff", "Pikachu and Charizard"],
+                "col2": ["Charizard", "More stuff", "Pikachu and Charizard"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1268,16 +1316,21 @@ class TestExtractCustom:
             where: col1 LIKE col2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output col1'] == "" and df.iloc[2]['output col2'] == ['Charizard', 'Pikachu']
+        assert df.iloc[0]["output col1"] == "" and df.iloc[2]["output col2"] == [
+            "Charizard",
+            "Pikachu",
+        ]
 
     def test_extract_multi_custom(self):
         """
         Multiple different custom extract at the same time
         """
-        data = pd.DataFrame({
-            'Pokemon': ['my favorite pokemon is Charizard'],
-            'AI':['My favorite AIs are Dolores and TARS both from are great']
-        })
+        data = pd.DataFrame(
+            {
+                "Pokemon": ["my favorite pokemon is Charizard"],
+                "AI": ["My favorite AIs are Dolores and TARS both from are great"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1292,7 +1345,7 @@ class TestExtractCustom:
                 - 05f6bb73-de04-4cb6
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Fact2'][0] in ['Dolores', 'TARS']
+        assert df.iloc[0]["Fact2"][0] in ["Dolores", "TARS"]
 
     def test_extract_custom_first_only(self):
         """
@@ -1315,16 +1368,13 @@ class TestExtractCustom:
                 first_element: True
             """
         )
-        assert df['results'][0] == 'Charizard'
+        assert df["results"][0] == "Charizard"
 
     def test_extract_custom_case_sensitive(self):
         """
         Test extract.custom with case sensitivity
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard'],
-            'col2': ['not charizard']
-        })
+        data = pd.DataFrame({"col1": ["Charizard"], "col2": ["not charizard"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1336,16 +1386,13 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Output'] == ['Charizard']
+        assert df.iloc[0]["Output"] == ["Charizard"]
 
     def test_extract_custom_case_insensitive(self):
         """
         Test extract.custom with case insensitivity
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard'],
-            'col2': ['not jynx']
-        })
+        data = pd.DataFrame({"col1": ["Charizard"], "col2": ["not jynx"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1357,16 +1404,13 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Output'] == ['Charizard', 'Jynx']
+        assert df.iloc[0]["Output"] == ["Charizard", "Jynx"]
 
     def test_extract_custom_case_default(self):
         """
         Test extract.custom with case sensitivity's default
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard'],
-            'col2': ['not jynx']
-        })
+        data = pd.DataFrame({"col1": ["Charizard"], "col2": ["not jynx"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1377,16 +1421,13 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Output'] == ['Charizard', 'Jynx']
+        assert df.iloc[0]["Output"] == ["Charizard", "Jynx"]
 
     def test_extract_custom_case_invalid_bool(self):
         """
         Test extract.custom with case sensitivity given an invalid bool
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard'],
-            'col2': ['not jynx']
-        })
+        data = pd.DataFrame({"col1": ["Charizard"], "col2": ["not jynx"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1400,18 +1441,16 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            '{"Error":"Non-boolean parameter in caseSensitive. Use True/False"}' in info.value.args[0]
+            info.typename == "ValueError"
+            and '{"Error":"Non-boolean parameter in caseSensitive. Use True/False"}'
+            in info.value.args[0]
         )
 
     def test_extract_custom_case_sensitive_in_place(self):
         """
         Test extract.custom with case sensitivity and no output
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard'],
-            'col2': ['not charizard']
-        })
+        data = pd.DataFrame({"col1": ["Charizard"], "col2": ["not charizard"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1422,15 +1461,17 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col1'] == ['Charizard'] and df.iloc[0]['col2'] == []
+        assert df.iloc[0]["col1"] == ["Charizard"] and df.iloc[0]["col2"] == []
 
     def test_extract_custom_case_sensitive_multi_model(self):
         """
         Test extract.custom with case sensitivity using multiple models
         """
-        data = pd.DataFrame({
-            'col1': ['Charizard', 'not charizard', 'not agent smith'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Charizard", "not charizard", "not agent smith"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1442,16 +1483,14 @@ class TestExtractCustom:
                 - 05f6bb73-de04-4cb6
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == ['Charizard'] and df.iloc[2]['output'] == []
+        assert df.iloc[0]["output"] == ["Charizard"] and df.iloc[2]["output"] == []
 
     # combinations of use_labels and first_element begins
     def test_use_labels_true_and_first_element_true():
         """
-        Use_labels and first_element set to true. output is a dictionary with only one value (string)    
+        Use_labels and first_element set to true. output is a dictionary with only one value (string)
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: green']
-        })
+        data = pd.DataFrame({"col": ["colour: blue size: small colour: green"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1462,15 +1501,18 @@ class TestExtractCustom:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'colour': 'blue', 'size': 'small'} or {'colour': 'green', 'size': 'small'}
+        assert df["out"][0] == {"colour": "blue", "size": "small"} or {
+            "colour": "green",
+            "size": "small",
+        }
 
     def test_use_labels_false_first_element_true():
         """
         Use labels is false and first element is true. output is a string only
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: green size: large']
-        })
+        data = pd.DataFrame(
+            {"col": ["colour: blue size: small colour: green size: large"]}
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1481,15 +1523,25 @@ class TestExtractCustom:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == 'size: small' or df['out'][0] == 'colour: green' or df['out'][0] == 'colour: blue'
+        assert (
+            df["out"][0] == "size: small"
+            or df["out"][0] == "colour: green"
+            or df["out"][0] == "colour: blue"
+        )
 
     def test_extract_custom_raw(self):
         """
         Test extract.custom using extract_raw
         """
-        data = pd.DataFrame({
-            'col1': ['The first one is blue small', 'Second is green size medium', 'Third is black and the size is small'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "The first one is blue small",
+                    "Second is green size medium",
+                    "Third is black and the size is small",
+                ],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1499,15 +1551,24 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == ['blue', 'small'] and df.iloc[2]['output'] == ['black', 'small']
+        assert df.iloc[0]["output"] == ["blue", "small"] and df.iloc[2]["output"] == [
+            "black",
+            "small",
+        ]
 
     def test_extract_custom_raw_first_element(self):
         """
         Test extract.custom using extract_raw and first_element
         """
-        data = pd.DataFrame({
-            'col1': ['The first one is blue small', 'Second is green size medium', 'Third is black and the size is small'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "The first one is blue small",
+                    "Second is green size medium",
+                    "Third is black and the size is small",
+                ],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1518,15 +1579,21 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'blue' and df.iloc[2]['output'] == 'black' 
+        assert df.iloc[0]["output"] == "blue" and df.iloc[2]["output"] == "black"
 
     def test_extract_custom_raw_case_sensitive(self):
         """
         Test extract.custom using extract_raw and case sensitive
         """
-        data = pd.DataFrame({
-            'col1': ['The first one is Blue small', 'Second is green size medium', 'Third is black and the size is Small'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "The first one is Blue small",
+                    "Second is green size medium",
+                    "Third is black and the size is Small",
+                ],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1537,15 +1604,21 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == ['small'] and df.iloc[2]['output'] == ['black'] 
+        assert df.iloc[0]["output"] == ["small"] and df.iloc[2]["output"] == ["black"]
 
     def test_extract_custom_use_spellcheck(self):
         """
         Test extract.custom with use_spellcheck
         """
-        data = pd.DataFrame({
-            'col1': ['The first one is smal', 'Second is size medum', 'Third is coton'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "The first one is smal",
+                    "Second is size medum",
+                    "Third is coton",
+                ],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1555,15 +1628,23 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == ['size: small'] and df.iloc[2]['output'] == ['cotton'] 
+        assert df.iloc[0]["output"] == ["size: small"] and df.iloc[2]["output"] == [
+            "cotton"
+        ]
 
     def test_extract_custom_use_spellcheck_extract_raw(self):
         """
         Test extract.custom with use_spellcheck and extract_raw
         """
-        data = pd.DataFrame({
-            'col1': ['The first one is smal', 'Second is size medum', 'Third is coton'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": [
+                    "The first one is smal",
+                    "Second is size medum",
+                    "Third is coton",
+                ],
+            }
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1574,7 +1655,7 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == ['small'] and df.iloc[1]['output'] == ['medium'] 
+        assert df.iloc[0]["output"] == ["small"] and df.iloc[1]["output"] == ["medium"]
 
     def test_extract_custom_ai_single_output(self):
         """
@@ -1616,18 +1697,13 @@ class TestExtractCustom:
                 model_id: 1f3ba62b-ce20-486e
             """
         )
-        assert (
-            "Words" in df["results"][0] and
-            "Numbers" in df["results"][0]
-        )
+        assert "Words" in df["results"][0] and "Numbers" in df["results"][0]
 
     def test_use_labels_true_and_first_element_true(self):
         """
-        Use_labels and first_element set to true. output is a dictionary with only one value (string)    
+        Use_labels and first_element set to true. output is a dictionary with only one value (string)
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: green']
-        })
+        data = pd.DataFrame({"col": ["colour: blue size: small colour: green"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1638,15 +1714,18 @@ class TestExtractCustom:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'colour': 'blue', 'size': 'small'} or {'colour': 'green', 'size': 'small'}
-        
+        assert df["out"][0] == {"colour": "blue", "size": "small"} or {
+            "colour": "green",
+            "size": "small",
+        }
+
     def test_use_labels_false_first_element_true(self):
         """
         Use labels is false and first element is true. output is a string only
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: green size: large']
-        })
+        data = pd.DataFrame(
+            {"col": ["colour: blue size: small colour: green size: large"]}
+        )
         recipe = """
         wrangles:
         - extract.custom:
@@ -1657,16 +1736,18 @@ class TestExtractCustom:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == 'size: small' or df['out'][0] == 'colour: green' or df['out'][0] == 'colour: blue'
+        assert (
+            df["out"][0] == "size: small"
+            or df["out"][0] == "colour: green"
+            or df["out"][0] == "colour: blue"
+        )
 
     def test_use_labels_multiple(self):
         """
         Use labels true and first element is false. output is a dictionary where values are lists
         Testing use labels with multiple same labels and other labels
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: black']
-        })
+        data = pd.DataFrame({"col": ["colour: blue size: small colour: black"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1677,16 +1758,16 @@ class TestExtractCustom:
             first_element: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']} or df['out'][0] == {'colour': ['black', 'blue'], 'size': ['small']}
-        
+        assert df["out"][0] == {"size": ["small"], "colour": ["blue", "black"]} or df[
+            "out"
+        ][0] == {"colour": ["black", "blue"], "size": ["small"]}
+
     def test_use_labels_same_key(self):
         """
-        Testing use labels where multiple labels that are the same only. 
+        Testing use labels where multiple labels that are the same only.
         This should put all of the values from the same labels in a list
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue colour: green colour: black']
-        })
+        data = pd.DataFrame({"col": ["colour: blue colour: green colour: black"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1696,16 +1777,14 @@ class TestExtractCustom:
             use_labels: true
             first_element: false
         """
-        df =  wrangles.recipe.run(recipe, dataframe=data)
-        df['out'][0]['colour'] == ['green', 'blue', 'black']
-        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        df["out"][0]["colour"] == ["green", "blue", "black"]
+
     def test_unlabeled_in_use_labels(self):
         """
         Testing unlabeled key. This everything that is not specified in the labels
         """
-        data = pd.DataFrame({
-            'col': ['colour: blue colour: green colour: black red']
-        })
+        data = pd.DataFrame({"col": ["colour: blue colour: green colour: black red"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1715,16 +1794,14 @@ class TestExtractCustom:
             use_labels: true
             first_element: false
         """
-        df =  wrangles.recipe.run(recipe, dataframe=data)
-        df['out'][0] == {'colour': ['green', 'blue', 'black'], 'Unlabeled': ['red']}
-        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        df["out"][0] == {"colour": ["green", "blue", "black"], "Unlabeled": ["red"]}
+
     def test_unlabeled_only(self):
         """
         Getting unlabeled only
         """
-        data = pd.DataFrame({
-            'col': ['my color is red']
-        })
+        data = pd.DataFrame({"col": ["my color is red"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1734,16 +1811,14 @@ class TestExtractCustom:
             use_labels: true
             first_element: false
         """
-        df =  wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'Unlabeled': ['red']}
-        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["out"][0] == {"Unlabeled": ["red"]}
+
     def test_unlabeled_only_with_first_element_true(self):
         """
         Unlabeled only with first_element set to true
         """
-        data = pd.DataFrame({
-            'col': ['my color is red']
-        })
+        data = pd.DataFrame({"col": ["my color is red"]})
         recipe = """
         wrangles:
         - extract.custom:
@@ -1753,8 +1828,8 @@ class TestExtractCustom:
             use_labels: true
             first_element: true
         """
-        df =  wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'Unlabeled': 'red'}
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["out"][0] == {"Unlabeled": "red"}
 
     def test_extract_custom_empty(self):
         """
@@ -1768,11 +1843,9 @@ class TestExtractCustom:
                 output: out
                 model_id: 829c1a73-1bfd-4ac0
             """,
-            dataframe=pd.DataFrame({
-                'col': []
-            })
+            dataframe=pd.DataFrame({"col": []}),
         )
-        assert df.empty and df.columns.to_list() == ['col', 'out']
+        assert df.empty and df.columns.to_list() == ["col", "out"]
 
     def test_extract_regex_first(self):
         """
@@ -1789,13 +1862,15 @@ class TestExtractCustom:
                 output: Output
                 model_id: 829c1a73-1bfd-4ac0
             """,
-            dataframe=pd.DataFrame({
-                'Regex Match': ['abcdefghijk', 'abcdefg you know the rest'],
-                'Regular Match': ['cotton something', 'red rover']
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "Regex Match": ["abcdefghijk", "abcdefg you know the rest"],
+                    "Regular Match": ["cotton something", "red rover"],
+                }
+            ),
         )
-        assert df['Output'][0] == ['cotton', 'This is a match']
-        assert df['Output'][1] == ['red', 'This is a match']
+        assert df["Output"][0] == ["cotton", "This is a match"]
+        assert df["Output"][1] == ["red", "This is a match"]
 
     def test_extract_custom_multi_match(self):
         """
@@ -1812,27 +1887,29 @@ class TestExtractCustom:
                 output: Output
                 model_id: 1eddb7e8-1b2b-4a52
             """,
-            dataframe=pd.DataFrame({
-                'Col1': ['Charizard is a dragon.'],
-                'Col2': ['Charizard is a pokemon.'],
-                'Col3': ['Something else about charizard.']
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "Col1": ["Charizard is a dragon."],
+                    "Col2": ["Charizard is a pokemon."],
+                    "Col3": ["Something else about charizard."],
+                }
+            ),
         )
-        assert df.iloc[0]['Output'] == ['Charizard']
-
+        assert df.iloc[0]["Output"] == ["Charizard"]
 
 
 class TestExtractRegex:
     """
     Test extract.regex
     """
+
     def test_extract_regex(self):
         """
         Extract Regex Extract
         """
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = """
         wrangles:
         - extract.regex:
@@ -1841,15 +1918,15 @@ class TestExtractRegex:
             find: Pikachu
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['Pikachu']
+        assert df.iloc[0]["col_out"] == ["Pikachu"]
 
     def test_extract_regex_no_match(self):
         """
         Test extract.regex with a pattern that does not return a match
         """
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = """
         wrangles:
         - extract.regex:
@@ -1858,16 +1935,16 @@ class TestExtractRegex:
             find: \d+
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == []
+        assert df.iloc[0]["col_out"] == []
 
     def test_extract_regex_no_match_first_element(self):
         """
         Test extract.regex with a pattern that does not return a match
         while using first_element
         """
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = """
         wrangles:
         - extract.regex:
@@ -1877,16 +1954,16 @@ class TestExtractRegex:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ''
+        assert df.iloc[0]["col_out"] == ""
 
     def test_extract_regex_no_match_first_element_output_pattern(self):
         """
         Test extract.regex with a pattern that does not return a match
         while using first_element and output_pattern
         """
-        data = pd.DataFrame({
-            'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
-        })
+        data = pd.DataFrame(
+            {"col": ["Random Pikachu Random", "Random", "Random Random Pikachu"]}
+        )
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -1897,15 +1974,13 @@ class TestExtractRegex:
             output_pattern: \1
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ''
+        assert df.iloc[0]["col_out"] == ""
 
     def test_extract_regex_first_element(self):
         """
         Tests extract.regex using first_element
         """
-        data = pd.DataFrame({
-            'col': ['Random Pika Pika Pikachu Random']
-        })
+        data = pd.DataFrame({"col": ["Random Pika Pika Pikachu Random"]})
         recipe = """
         wrangles:
         - extract.regex:
@@ -1915,16 +1990,18 @@ class TestExtractRegex:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == 'Pika'
-        
+        assert df.iloc[0]["col_out"] == "Pika"
+
     def test_extract_regex_where(self):
         """
         Test extract.regex with where
         """
-        data = pd.DataFrame({
-            'col1': ['Pikachu', 'Stuff', 'Pikachu and Charizard'],
-            'numbers': [23, 54, 75]
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Pikachu", "Stuff", "Pikachu and Charizard"],
+                "numbers": [23, 54, 75],
+            }
+        )
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -1934,7 +2011,11 @@ class TestExtractRegex:
             where: numbers > 50
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == "" and df.iloc[1]['col_out'] == [] and df.iloc[2]['col_out'][0] == 'Pikachu'
+        assert (
+            df.iloc[0]["col_out"] == ""
+            and df.iloc[1]["col_out"] == []
+            and df.iloc[2]["col_out"][0] == "Pikachu"
+        )
 
     def test_extract_regex_empty(self):
         """
@@ -1948,20 +2029,16 @@ class TestExtractRegex:
                 output: colour
                 find: \w+
             """,
-            dataframe=pd.DataFrame({
-                    "column": []
-                })
+            dataframe=pd.DataFrame({"column": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'colour']
-    
+        assert df.empty and df.columns.to_list() == ["column", "colour"]
+
     def test_extract_regex_output_pattern_no_param(self):
         """
         Tests extract.regex with a capture group in the
         pattern but without the output_pattern parameter
         """
-        data = pd.DataFrame({
-            'col': ['55g', '120v', '1000kg']
-        })
+        data = pd.DataFrame({"col": ["55g", "120v", "1000kg"]})
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -1970,15 +2047,13 @@ class TestExtractRegex:
             find: (\d+).*
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['55g'] and df.iloc[2]['col_out'] == ['1000kg']
+        assert df.iloc[0]["col_out"] == ["55g"] and df.iloc[2]["col_out"] == ["1000kg"]
 
     def test_extract_regex_output_pattern(self):
         """
         Tests extract.regex with the output_pattern parameter specified
         """
-        data = pd.DataFrame({
-            'col': ['55g', '120v', '1000kg']
-        })
+        data = pd.DataFrame({"col": ["55g", "120v", "1000kg"]})
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -1988,15 +2063,13 @@ class TestExtractRegex:
             output_pattern: \2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['g'] and df.iloc[2]['col_out'] == ['kg']
+        assert df.iloc[0]["col_out"] == ["g"] and df.iloc[2]["col_out"] == ["kg"]
 
     def test_extract_regex_capture_multiple_groups(self):
         """
         Tests extract.regex with multiple capture groups
         """
-        data = pd.DataFrame({
-            'col': ['55g', '120v', '1000kg']
-        })
+        data = pd.DataFrame({"col": ["55g", "120v", "1000kg"]})
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -2006,15 +2079,15 @@ class TestExtractRegex:
             output_pattern: \2 \1
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['g 55'] and df.iloc[2]['col_out'] == ['kg 1000']
+        assert df.iloc[0]["col_out"] == ["g 55"] and df.iloc[2]["col_out"] == [
+            "kg 1000"
+        ]
 
     def test_extract_regex_capture_multiple_matches(self):
         """
         Tests extract.regex with multiple matches using capture groups
         """
-        data = pd.DataFrame({
-            'col': ['55v 24v', '120v 240v', '1000v 2000v']
-        })
+        data = pd.DataFrame({"col": ["55v 24v", "120v 240v", "1000v 2000v"]})
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -2024,15 +2097,16 @@ class TestExtractRegex:
             output_pattern: \1 v
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['55 v', '24 v'] and df.iloc[2]['col_out'] == ['1000 v', '2000 v']
+        assert df.iloc[0]["col_out"] == ["55 v", "24 v"] and df.iloc[2]["col_out"] == [
+            "1000 v",
+            "2000 v",
+        ]
 
     def test_extract_regex_capture_plus(self):
         """
         Tests extract.regex with multiple capture groups separated by a string
         """
-        data = pd.DataFrame({
-            'col': ['55g', '120v', '1000kg']
-        })
+        data = pd.DataFrame({"col": ["55g", "120v", "1000kg"]})
         recipe = r"""
         wrangles:
         - extract.regex:
@@ -2042,15 +2116,15 @@ class TestExtractRegex:
             output_pattern: \2 stuff \1
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df.iloc[0]['col_out'] == ['g stuff 55'] and df.iloc[2]['col_out'] == ['kg stuff 1000']
+        assert df.iloc[0]["col_out"] == ["g stuff 55"] and df.iloc[2]["col_out"] == [
+            "kg stuff 1000"
+        ]
 
     def test_extract_regex_mixed_types(self):
         """
         Test extract.regex with mixed data types (int, float, string, None)
         """
-        data = pd.DataFrame({
-            'col': [123, 'abc456', 78.9, None, 'no digits']
-        })
+        data = pd.DataFrame({"col": [123, "abc456", 78.9, None, "no digits"]})
         recipe = """
         wrangles:
         - extract.regex:
@@ -2059,19 +2133,17 @@ class TestExtractRegex:
             find: \\d+
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['digits'] == ['123']  # int -> string conversion
-        assert df.iloc[1]['digits'] == ['456']  # string with digits
-        assert df.iloc[2]['digits'] == ['78', '9']  # float -> string conversion
-        assert df.iloc[3]['digits'] == []  # None -> empty string
-        assert df.iloc[4]['digits'] == []  # no matches
+        assert df.iloc[0]["digits"] == ["123"]  # int -> string conversion
+        assert df.iloc[1]["digits"] == ["456"]  # string with digits
+        assert df.iloc[2]["digits"] == ["78", "9"]  # float -> string conversion
+        assert df.iloc[3]["digits"] == []  # None -> empty string
+        assert df.iloc[4]["digits"] == []  # no matches
 
     def test_extract_regex_mixed_types_first_element(self):
         """
         Test extract.regex with mixed data types using first_element
         """
-        data = pd.DataFrame({
-            'col': [123, 'abc456', 78.9, None]
-        })
+        data = pd.DataFrame({"col": [123, "abc456", 78.9, None]})
         recipe = """
         wrangles:
         - extract.regex:
@@ -2081,18 +2153,16 @@ class TestExtractRegex:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['first_digit'] == '123'
-        assert df.iloc[1]['first_digit'] == '456'
-        assert df.iloc[2]['first_digit'] == '78'
-        assert df.iloc[3]['first_digit'] == ''
+        assert df.iloc[0]["first_digit"] == "123"
+        assert df.iloc[1]["first_digit"] == "456"
+        assert df.iloc[2]["first_digit"] == "78"
+        assert df.iloc[3]["first_digit"] == ""
 
     def test_extract_regex_mixed_types_output_pattern(self):
         """
         Test extract.regex with mixed data types using output_pattern
         """
-        data = pd.DataFrame({
-            'col': [123, 'value456', 78.9]
-        })
+        data = pd.DataFrame({"col": [123, "value456", 78.9]})
         recipe = """
         wrangles:
         - extract.regex:
@@ -2102,17 +2172,15 @@ class TestExtractRegex:
             output_pattern: 'Found: \\1'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['formatted'] == ['Found: 123']
-        assert df.iloc[1]['formatted'] == ['Found: 456']
-        assert df.iloc[2]['formatted'] == ['Found: 78', 'Found: 9']
+        assert df.iloc[0]["formatted"] == ["Found: 123"]
+        assert df.iloc[1]["formatted"] == ["Found: 456"]
+        assert df.iloc[2]["formatted"] == ["Found: 78", "Found: 9"]
 
     def test_extract_regex_mixed_types_output_pattern_first_element(self):
         """
         Test extract.regex with mixed data types using output_pattern and first_element
         """
-        data = pd.DataFrame({
-            'col': [123, 'value456', 78.9, None]
-        })
+        data = pd.DataFrame({"col": [123, "value456", 78.9, None]})
         recipe = """
         wrangles:
         - extract.regex:
@@ -2123,19 +2191,19 @@ class TestExtractRegex:
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['first_formatted'] == 'Number: 123'
-        assert df.iloc[1]['first_formatted'] == 'Number: 456'
-        assert df.iloc[2]['first_formatted'] == 'Number: 78'
-        assert df.iloc[3]['first_formatted'] == ''
+        assert df.iloc[0]["first_formatted"] == "Number: 123"
+        assert df.iloc[1]["first_formatted"] == "Number: 456"
+        assert df.iloc[2]["first_formatted"] == "Number: 78"
+        assert df.iloc[3]["first_formatted"] == ""
 
 
 class TestExtractProperties:
     """
     Test extract.properties
     """
+
     df = pd.DataFrame(
-        [['OSHA approved Red White Blue Round Titanium Shield']],
-        columns=['Tool']
+        [["OSHA approved Red White Blue Round Titanium Shield"]], columns=["Tool"]
     )
 
     def test_extract_colours(self):
@@ -2147,8 +2215,12 @@ class TestExtractProperties:
             property_type: colours
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        check_list = ['Blue', 'Red', 'White']
-        assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
+        check_list = ["Blue", "Red", "White"]
+        assert (
+            df.iloc[0]["prop"][0] in check_list
+            and df.iloc[0]["prop"][1] in check_list
+            and df.iloc[0]["prop"][2] in check_list
+        )
 
     def test_extract_colours_first_element(self):
         """
@@ -2163,7 +2235,7 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Red'
+        assert df.iloc[0]["prop"] == "Red"
 
     def test_extract_properties_first_element_without_property_type(self):
         """
@@ -2179,10 +2251,11 @@ class TestExtractProperties:
         with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=self.df)
         assert (
-            info.typename == 'TypeError' and
-            'first_element must be used with a specified property_type' in info.value.args[0]
+            info.typename == "TypeError"
+            and "first_element must be used with a specified property_type"
+            in info.value.args[0]
         )
-        
+
     def test_extract_materials(self):
         recipe = """
         wrangles:
@@ -2192,7 +2265,7 @@ class TestExtractProperties:
             property_type: materials
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == ['Titanium']
+        assert df.iloc[0]["prop"] == ["Titanium"]
 
     def test_extract_materials_first_element(self):
         recipe = """
@@ -2204,8 +2277,8 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Titanium'
-        
+        assert df.iloc[0]["prop"] == "Titanium"
+
     def test_extract_shapes(self):
         recipe = """
         wrangles:
@@ -2215,7 +2288,7 @@ class TestExtractProperties:
             property_type: shapes
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == ['Round']
+        assert df.iloc[0]["prop"] == ["Round"]
 
     def test_extract_shapes_first_element(self):
         recipe = """
@@ -2227,8 +2300,8 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Round'
-        
+        assert df.iloc[0]["prop"] == "Round"
+
     def test_extract_standards(self):
         recipe = """
         wrangles:
@@ -2238,7 +2311,7 @@ class TestExtractProperties:
             property_type: standards
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == ['OSHA']
+        assert df.iloc[0]["prop"] == ["OSHA"]
 
     def test_extract_standards_first_element(self):
         recipe = """
@@ -2250,14 +2323,16 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'OSHA'
-        
+        assert df.iloc[0]["prop"] == "OSHA"
+
     # if the input is multiple columns (a list)
     def test_properties_5(self):
-        data = pd.DataFrame({
-            'col1': ['Why is the sky blue?'],
-            'col2': ['Temperature of a star if it looks blue'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Why is the sky blue?"],
+                "col2": ["Temperature of a star if it looks blue"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.properties:
@@ -2270,14 +2345,16 @@ class TestExtractProperties:
             property_type: colours
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out2'] == ['Blue']
-        
+        assert df.iloc[0]["out2"] == ["Blue"]
+
     # if the input and output are not the same type
     def test_properties_6(self):
-        data = pd.DataFrame({
-            'col1': ['Why is the sky blue?'],
-            'col2': ['Temperature of a star if it looks blue'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["Why is the sky blue?"],
+                "col2": ["Temperature of a star if it looks blue"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.properties:
@@ -2289,7 +2366,7 @@ class TestExtractProperties:
         """
 
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert 'Blue' in df.iloc[0]['out'] and 'Sky Blue' in df.iloc[0]['out']
+        assert "Blue" in df.iloc[0]["out"] and "Sky Blue" in df.iloc[0]["out"]
 
     def test_extract_properties_where(self):
         """
@@ -2304,16 +2381,18 @@ class TestExtractProperties:
                 property_type: colours
                 where: numbers > 6
             """,
-            dataframe=pd.DataFrame({
+            dataframe=pd.DataFrame(
+                {
                     "column": [
-                            'Red is a colour',
-                            'White is a colour',
-                            'Blue is a colour'
-                        ],
-                    "numbers": [5, 7, 8]
-                })
+                        "Red is a colour",
+                        "White is a colour",
+                        "Blue is a colour",
+                    ],
+                    "numbers": [5, 7, 8],
+                }
+            ),
         )
-        assert df['colour'][0] == '' and df['colour'][1] == ['White']
+        assert df["colour"][0] == "" and df["colour"][1] == ["White"]
 
     def test_extract_properties_empty(self):
         """
@@ -2327,20 +2406,19 @@ class TestExtractProperties:
                 output: colour
                 property_type: colours
             """,
-            dataframe=pd.DataFrame({
-                    "column": []
-                })
+            dataframe=pd.DataFrame({"column": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'colour']
+        assert df.empty and df.columns.to_list() == ["column", "colour"]
 
 
 class TestExtractHTML:
     """
     Test extract.html
     """
+
     df = pd.DataFrame(
         [r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>'],
-        columns=['HTML']
+        columns=["HTML"],
     )
 
     def test_extract_html_text(self):
@@ -2353,8 +2431,8 @@ class TestExtractHTML:
             data_type: text
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['Text'] == 'Wrangle Works!'
-        
+        assert df.iloc[0]["Text"] == "Wrangle Works!"
+
     # Links
     def test_extract_html_links(self):
         recipe = """
@@ -2366,7 +2444,7 @@ class TestExtractHTML:
             data_type: links
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+        assert df.iloc[0]["Links"] == ["https://www.wrangleworks.com/"]
 
     def test_extract_html_where(self):
         """
@@ -2381,15 +2459,19 @@ class TestExtractHTML:
                 data_type: links
                 where: numbers > 6
             """,
-            dataframe=pd.DataFrame({
+            dataframe=pd.DataFrame(
+                {
                     "column": [
-                            r'<a href="https://www.wrangles.io/">Wrangle Works!</a>',
-                            r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>'
-                        ],
-                    "numbers": [5, 7]
-                })
+                        r'<a href="https://www.wrangles.io/">Wrangle Works!</a>',
+                        r'<a href="https://www.wrangleworks.com/">Wrangle Works!</a>',
+                    ],
+                    "numbers": [5, 7],
+                }
+            ),
         )
-        assert df['Link'][0] == '' and df['Link'][1] == ['https://www.wrangleworks.com/']
+        assert df["Link"][0] == "" and df["Link"][1] == [
+            "https://www.wrangleworks.com/"
+        ]
 
     def test_extract_html_empty(self):
         """
@@ -2403,21 +2485,18 @@ class TestExtractHTML:
                 output: Link
                 data_type: links
             """,
-            dataframe=pd.DataFrame({
-                    "column": []
-                })
+            dataframe=pd.DataFrame({"column": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'Link']
-    
+        assert df.empty and df.columns.to_list() == ["column", "Link"]
+
 
 class TestExtractBrackets:
     """
     All tests for extract.brackets
     """
+
     def test_extract_brackets_1(self):
-        data = pd.DataFrame({
-            'col': ['[1234]', '{1234}']
-        })
+        data = pd.DataFrame({"col": ["[1234]", "{1234}"]})
         recipe = """
         wrangles:
         - extract.brackets:
@@ -2425,16 +2504,18 @@ class TestExtractBrackets:
             output: no_brackets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets'] == '1234'
+        assert df.iloc[0]["no_brackets"] == "1234"
 
     def test_extract_brackets_2(self):
         """
         If the input is multi column (a list)
         """
-        data = pd.DataFrame({
-            'col': ['[1234]'],
-            'col2': ['{1234}'],
-        })
+        data = pd.DataFrame(
+            {
+                "col": ["[1234]"],
+                "col2": ["{1234}"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.brackets:
@@ -2446,16 +2527,18 @@ class TestExtractBrackets:
                 - no_brackets2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets2'] == '1234'
+        assert df.iloc[0]["no_brackets2"] == "1234"
 
     def test_extract_brackets_3(self):
         """
         If the input and output are not the same type
         """
-        data = pd.DataFrame({
-            'col': ['[12345]'],
-            'col2': ['{1234}'],
-        })
+        data = pd.DataFrame(
+            {
+                "col": ["[12345]"],
+                "col2": ["{1234}"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.brackets:
@@ -2465,16 +2548,18 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 1234'
+        assert df.iloc[0]["output"] == "12345, 1234"
 
     def test_extract_brackets_multi_input(self):
         """
         If the input and output are not the same type
         """
-        data = pd.DataFrame({
-            'col': ['[12345]'],
-            'col2': ['[6789]'],
-        })
+        data = pd.DataFrame(
+            {
+                "col": ["[12345]"],
+                "col2": ["[6789]"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.brackets:
@@ -2484,17 +2569,19 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 6789'
+        assert df.iloc[0]["output"] == "12345, 6789"
 
     def test_extract_brackets_multi_input_where(self):
         """
         Test extract.brackets with multiple inputs, and one output using where
         """
-        data = pd.DataFrame({
-            'col': ['[12345]', '[this is in brackets]', '[more stuff in brackets]'],
-            'col2': ['[6789]', 'This is not in brackets', '[But this is]'],
-            'numbers': [4, 6, 10]
-        })
+        data = pd.DataFrame(
+            {
+                "col": ["[12345]", "[this is in brackets]", "[more stuff in brackets]"],
+                "col2": ["[6789]", "This is not in brackets", "[But this is]"],
+                "numbers": [4, 6, 10],
+            }
+        )
         recipe = """
         wrangles:
         - extract.brackets:
@@ -2505,12 +2592,14 @@ class TestExtractBrackets:
             where: numbers > 4
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+        assert (
+            df.iloc[0]["output"] == ""
+            and df.iloc[1]["output"] == "this is in brackets"
+            and df.iloc[2]["output"] == "more stuff in brackets, But this is"
+        )
 
     def test_brackets_round(self):
-        data = pd.DataFrame({
-            'input': ['(some)', 'example']
-        })
+        data = pd.DataFrame({"input": ["(some)", "example"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2519,13 +2608,11 @@ class TestExtractBrackets:
                 find: round
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]["output"] == "some"
+        assert df.iloc[1]["output"] == ""
 
     def test_brackets_square(self):
-        data = pd.DataFrame({
-            'input': ['[example]', 'example']
-        })
+        data = pd.DataFrame({"input": ["[example]", "example"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2534,13 +2621,11 @@ class TestExtractBrackets:
                 find: square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]["output"] == "example"
+        assert df.iloc[1]["output"] == ""
 
     def test_brackets_round_square(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]']
-        })
+        data = pd.DataFrame({"input": ["(some)", "[example]"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2551,13 +2636,13 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == 'example'
+        assert df.iloc[0]["output"] == "some"
+        assert df.iloc[1]["output"] == "example"
 
     def test_all_brackets(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2570,12 +2655,12 @@ class TestExtractBrackets:
                     - angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df["output"].tolist() == ["some", "example", "example", "example"]
 
     def test_all_brackets_no_find(self):
-        data = pd.DataFrame({
-            'input': ['(some) and (some2)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some) and (some2)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2583,12 +2668,12 @@ class TestExtractBrackets:
                 output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some, some2', 'example', 'example', 'example']
+        assert df["output"].tolist() == ["some, some2", "example", "example", "example"]
 
     def test_all_brackets_with_all_specified(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2597,12 +2682,12 @@ class TestExtractBrackets:
                 find: all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df["output"].tolist() == ["some", "example", "example", "example"]
 
     def test_multi_bracket_all_included(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2614,12 +2699,12 @@ class TestExtractBrackets:
                     - all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df["output"].tolist() == ["some", "example", "", ""]
 
     def test_all_brackets_no_find_raw(self):
-        data = pd.DataFrame({
-            'input': ['(some) and (some2)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some) and (some2)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2628,12 +2713,17 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some), (some2)', '[example]', '{example}', '<example>']
+        assert df["output"].tolist() == [
+            "(some), (some2)",
+            "[example]",
+            "{example}",
+            "<example>",
+        ]
 
     def test_all_brackets_raw(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2647,12 +2737,17 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some)', '[example]', '{example}', '<example>']
+        assert df["output"].tolist() == [
+            "(some)",
+            "[example]",
+            "{example}",
+            "<example>",
+        ]
 
     def test_two_bracket_types(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]', '{example}', '<example>']
-        })
+        data = pd.DataFrame(
+            {"input": ["(some)", "[example]", "{example}", "<example>"]}
+        )
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2663,12 +2758,10 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df["output"].tolist() == ["some", "example", "", ""]
 
     def test_brackets_curly(self):
-        data = pd.DataFrame({
-            'input': ['{example}', 'example']
-        })
+        data = pd.DataFrame({"input": ["{example}", "example"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2677,13 +2770,11 @@ class TestExtractBrackets:
                 find: curly
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]["output"] == "example"
+        assert df.iloc[1]["output"] == ""
 
     def test_brackets_angled(self):
-        data = pd.DataFrame({
-            'input': ['<example>', 'example']
-        })
+        data = pd.DataFrame({"input": ["<example>", "example"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2692,13 +2783,11 @@ class TestExtractBrackets:
                 find: angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]["output"] == "example"
+        assert df.iloc[1]["output"] == ""
 
     def test_brackets_extract_raw(self):
-        data = pd.DataFrame({
-            'input': ['(some)', '[example]']
-        })
+        data = pd.DataFrame({"input": ["(some)", "[example]"]})
         recipe = """
         wrangles:
             - extract.brackets:
@@ -2707,9 +2796,9 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '(some)'
-        assert df.iloc[1]['output'] == '[example]'
-    
+        assert df.iloc[0]["output"] == "(some)"
+        assert df.iloc[1]["output"] == "[example]"
+
     def test_where(self):
         """
         Test using a where clause
@@ -2723,11 +2812,9 @@ class TestExtractBrackets:
                   where: >-
                     column like '%x%' 
             """,
-            dataframe=pd.DataFrame({
-                'column': ['[x]', '[y]']
-            })
+            dataframe=pd.DataFrame({"column": ["[x]", "[y]"]}),
         )
-        assert df['output'].values.tolist() == ['x', '']
+        assert df["output"].values.tolist() == ["x", ""]
 
     def test_brackets_empty(self):
         """
@@ -2740,21 +2827,22 @@ class TestExtractBrackets:
                 input: column
                 output: output
             """,
-            dataframe=pd.DataFrame({
-                    "column": []
-                })
+            dataframe=pd.DataFrame({"column": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'output']
+        assert df.empty and df.columns.to_list() == ["column", "output"]
 
 
 class TestExtractDateProperties:
     """
     Test extract.date_properties
     """
+
     def test_date_properties_1(self):
-        data = pd.DataFrame({
-            'col1': ['12/24/2000'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["12/24/2000"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_properties:
@@ -2763,15 +2851,17 @@ class TestExtractDateProperties:
             property: quarter
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out1'] == 4
+        assert df.iloc[0]["out1"] == 4
 
     def test_date_properties_2(self):
         """
         Not valid property types
         """
-        data = pd.DataFrame({
-            'col1': ['12/24/2000'],
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["12/24/2000"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_properties:
@@ -2782,18 +2872,15 @@ class TestExtractDateProperties:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            '"millennium" not a valid date property.' in info.value.args[0]
+            info.typename == "ValueError"
+            and '"millennium" not a valid date property.' in info.value.args[0]
         )
 
     def test_date_properties_multi_input(self):
         """
         Multiple inputs to single output
         """
-        data = pd.DataFrame({
-            'col1': ['12/24/2000'],
-            'col2': ['4/24/2023']
-        })
+        data = pd.DataFrame({"col1": ["12/24/2000"], "col2": ["4/24/2023"]})
         recipe = """
         wrangles:
         - extract.date_properties:
@@ -2804,16 +2891,13 @@ class TestExtractDateProperties:
             property: week_day_name
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out1'] == ['Sunday','Monday']
+        assert df.iloc[0]["out1"] == ["Sunday", "Monday"]
 
     def test_multi_input_multi_output(self):
         """
         Multiple inputs and outputs
         """
-        data = pd.DataFrame({
-            'col1': ['12/24/2000'],
-            'col2': ['4/24/2023']
-        })
+        data = pd.DataFrame({"col1": ["12/24/2000"], "col2": ["4/24/2023"]})
         recipe = """
         wrangles:
         - extract.date_properties:
@@ -2826,17 +2910,19 @@ class TestExtractDateProperties:
             property: week_day_name
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['out1'] == 'Sunday' and df.iloc[0]['out2'] == 'Monday'
+        assert df.iloc[0]["out1"] == "Sunday" and df.iloc[0]["out2"] == "Monday"
 
     def test_multi_input_multi_output_where(self):
         """
         Test extract.date_properties with multiple i/o's using where
         """
-        data = pd.DataFrame({
-            'col1': ['12/24/2000', '11/10/1987', '3/13/2023'],
-            'col2': ['4/24/2023', '1/9/2006', '7/17/1907'],
-            'number': [4, 9, 3]
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["12/24/2000", "11/10/1987", "3/13/2023"],
+                "col2": ["4/24/2023", "1/9/2006", "7/17/1907"],
+                "number": [4, 9, 3],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_properties:
@@ -2850,7 +2936,7 @@ class TestExtractDateProperties:
             where: number > 3
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[1]['out1'] == 'Tuesday' and df.iloc[2]['out2'] == ""
+        assert df.iloc[1]["out1"] == "Tuesday" and df.iloc[2]["out2"] == ""
 
     def test_extract_date_empty(self):
         """
@@ -2864,22 +2950,23 @@ class TestExtractDateProperties:
                 output: output
                 property: quarter
             """,
-            dataframe=pd.DataFrame({
-                    "column": []
-                })
+            dataframe=pd.DataFrame({"column": []}),
         )
-        assert df.empty and df.columns.to_list() == ['column', 'output']
-    
+        assert df.empty and df.columns.to_list() == ["column", "output"]
+
 
 class TestExtractDateRange:
     """
     Test extract.date_range
     """
+
     def test_date_range_1(self):
-        data = pd.DataFrame({
-        'date1': ['08-13-1992'],
-        'date2': ['08-13-2022'],
-        })
+        data = pd.DataFrame(
+            {
+                "date1": ["08-13-1992"],
+                "date2": ["08-13-2022"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_range:
@@ -2889,17 +2976,19 @@ class TestExtractDateRange:
             range: years
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Range'] == 29
+        assert df.iloc[0]["Range"] == 29
 
     def test_date_range_2(self):
         """
         Test that an invalid range raises
         an appropriate error
         """
-        data = pd.DataFrame({
-        'date1': ['08-13-1992'],
-        'date2': ['08-13-2022'],
-        })
+        data = pd.DataFrame(
+            {
+                "date1": ["08-13-1992"],
+                "date2": ["08-13-2022"],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_range:
@@ -2911,19 +3000,21 @@ class TestExtractDateRange:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            '"millennium" not a valid frequency' in info.value.args[0]
+            info.typename == "ValueError"
+            and '"millennium" not a valid frequency' in info.value.args[0]
         )
 
     def test_date_range_where(self):
         """
         Test extract.date_range with where
         """
-        data = pd.DataFrame({
-        'date1': ['08-13-1992', '11-10-1987', '09-15-1933'],
-        'date2': ['08-13-2022', '11-10-2024', '09-15-2024'],
-        'number': [4, 9, 13]
-        })
+        data = pd.DataFrame(
+            {
+                "date1": ["08-13-1992", "11-10-1987", "09-15-1933"],
+                "date2": ["08-13-2022", "11-10-2024", "09-15-2024"],
+                "number": [4, 9, 13],
+            }
+        )
         recipe = """
         wrangles:
         - extract.date_range:
@@ -2934,7 +3025,11 @@ class TestExtractDateRange:
             where: number > 8
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['Range'] == '' and df.iloc[1]['Range'] == 36 and df.iloc[2]['Range'] == 90
+        assert (
+            df.iloc[0]["Range"] == ""
+            and df.iloc[1]["Range"] == 36
+            and df.iloc[2]["Range"] == 90
+        )
 
     def test_date_range_empty(self):
         """
@@ -2949,12 +3044,9 @@ class TestExtractDateRange:
                 output: Range
                 range: years
             """,
-            dataframe=pd.DataFrame({
-                    "date1": [],
-                    "date2": []
-                })
+            dataframe=pd.DataFrame({"date1": [], "date2": []}),
         )
-        assert df.empty and df.columns.to_list() == ['date1', 'date2', 'Range']
+        assert df.empty and df.columns.to_list() == ["date1", "date2", "Range"]
 
     def test_date_range_missing(self):
         """
@@ -2968,15 +3060,12 @@ class TestExtractDateRange:
                 output: Range
                 range: years
             """
-        data = pd.DataFrame({
-                "date1": ['08-13-1992'],
-                "date2": ['']
-            })
+        data = pd.DataFrame({"date1": ["08-13-1992"], "date2": [""]})
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
-            'Neither `start` nor `end` can be NaT' in info.value.args[0]
+            info.typename == "ValueError"
+            and "Neither `start` nor `end` can be NaT" in info.value.args[0]
         )
 
 
@@ -2984,6 +3073,7 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
+
     def test_ai(self):
         """
         Test openai extract with a single input and output
@@ -3004,21 +3094,21 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_only_description(self):
@@ -3039,21 +3129,21 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_formatted_as_a_list(self):
@@ -3074,21 +3164,21 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_list_keys_only(self):
@@ -3108,21 +3198,21 @@ class TestExtractAI:
                 output:
                   - length (mm)
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            '25' in str(df['length (mm)'][0]),
-            '6000' in str(df['length (mm)'][1]),
-            '3' in str(df['length (mm)'][2])
-        ])
+        matches = sum(
+            [
+                "25" in str(df["length (mm)"][0]),
+                "6000" in str(df["length (mm)"][1]),
+                "3" in str(df["length (mm)"][2]),
+            ]
+        )
         assert matches >= 1
 
     def test_ai_output_key_only(self):
@@ -3141,21 +3231,21 @@ class TestExtractAI:
                 retries: 2
                 output: length (mm)
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 1/3 as good enough for test to pass
-        matches = sum([
-            '25' in str(df['length (mm)'][0]),
-            '6000' in str(df['length (mm)'][1]),
-            '3' in str(df['length (mm)'][2])
-        ])
+        matches = sum(
+            [
+                "25" in str(df["length (mm)"][0]),
+                "6000" in str(df["length (mm)"][1]),
+                "3" in str(df["length (mm)"][2]),
+            ]
+        )
         assert matches >= 1
 
     def test_ai_multiple_output(self):
@@ -3183,24 +3273,24 @@ class TestExtractAI:
                       The type of item in the data
                       such as spanner, cellphone, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 4/6 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm',
-            df['type'][0] == 'wrench',
-            df['type'][1] == 'cable',
-            df['type'][2] == 'screwdriver'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+                df["type"][0] == "wrench",
+                df["type"][1] == "cable",
+                df["type"][2] == "screwdriver",
+            ]
+        )
         assert matches >= 4
 
     def test_ai_multiple_input(self):
@@ -3224,26 +3314,22 @@ class TestExtractAI:
                       length to form a single output text
                       e.g. bolt 5mm
             """,
-            dataframe=pd.DataFrame({
-                "type": [
-                    "wrench",
-                    "cable",
-                    "screwdriver"
-                ],
-                "length": [
-                    "25mm",
-                    "6m",
-                    "3mm"
-                ]
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "type": ["wrench", "cable", "screwdriver"],
+                    "length": ["25mm", "6m", "3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['text'][0] == 'wrench 25mm',
-            df['text'][1] == 'cable 6m',
-            df['text'][2] == 'screwdriver 3mm'
-        ])
+        matches = sum(
+            [
+                df["text"][0] == "wrench 25mm",
+                df["text"][1] == "cable 6m",
+                df["text"][2] == "screwdriver 3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_enum(self):
@@ -3268,21 +3354,25 @@ class TestExtractAI:
                       - positive
                       - negative
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "The best movie I've ever seen!",
-                    "I almost threw up. I wouldn't go again.",
-                    "I had a smile on my face all day."
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": [
+                        "The best movie I've ever seen!",
+                        "I almost threw up. I wouldn't go again.",
+                        "I had a smile on my face all day.",
+                    ],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df["sentiment"][0] == "positive",
-            df["sentiment"][1] == "negative",
-            df["sentiment"][2] == "positive"
-        ])
+        matches = sum(
+            [
+                df["sentiment"][0] == "positive",
+                df["sentiment"][1] == "negative",
+                df["sentiment"][2] == "positive",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_timeout(self):
@@ -3301,18 +3391,16 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         assert (
-            df['length'][0] == 'Timed Out' and
-            df['length'][1] == 'Timed Out' and
-            df['length'][2] == 'Timed Out'
+            df["length"][0] == "Timed Out"
+            and df["length"][1] == "Timed Out"
+            and df["length"][2] == "Timed Out"
         )
 
     def test_ai_timeout_multiple_output(self):
@@ -3340,21 +3428,19 @@ class TestExtractAI:
                       The type of item in the data
                       such as spanner, cellphone, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         assert (
-            df['length'][0] == 'Timed Out' and
-            df['length'][1] == 'Timed Out' and
-            df['length'][2] == 'Timed Out' and
-            df['type'][0] == 'Timed Out' and
-            df['type'][1] == 'Timed Out' and
-            df['type'][2] == 'Timed Out'
+            df["length"][0] == "Timed Out"
+            and df["length"][1] == "Timed Out"
+            and df["length"][2] == "Timed Out"
+            and df["type"][0] == "Timed Out"
+            and df["type"][1] == "Timed Out"
+            and df["type"][2] == "Timed Out"
         )
 
     def test_ai_messages(self):
@@ -3378,22 +3464,22 @@ class TestExtractAI:
                       such as CM, M, FT, etc.
                 messages: All response text should be in upper case.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
 
         # This is temperamental, and sometimes GPT returns lowercase
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0].upper().replace(' ', '') == '25MM',
-            df['length'][1].upper().replace(' ', '') == '6M',
-            df['length'][2].upper().replace(' ', '') == '3MM'
-        ])
+        matches = sum(
+            [
+                df["length"][0].upper().replace(" ", "") == "25MM",
+                df["length"][1].upper().replace(" ", "") == "6M",
+                df["length"][2].upper().replace(" ", "") == "3MM",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_array_no_items(self):
@@ -3418,13 +3504,14 @@ class TestExtractAI:
                       Return the names of any fruits
                       that are yellow
             """,
-            dataframe=pd.DataFrame({
-                "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+                }
+            ),
         )
-        assert (
-            ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
-            ("banana" in df['fruits'][0] or "bananas" in df['fruits'][0])
+        assert ("lemon" in df["fruits"][0] or "lemons" in df["fruits"][0]) and (
+            "banana" in df["fruits"][0] or "bananas" in df["fruits"][0]
         )
 
     def test_ai_array_item_type_specified(self):
@@ -3449,11 +3536,13 @@ class TestExtractAI:
                     description: >-
                       Get all numbers from the input
             """,
-            dataframe=pd.DataFrame({
-                "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
+                }
+            ),
         )
-        assert df['count'][0] == [3,5,2]
+        assert df["count"][0] == [3, 5, 2]
 
     def test_ai_bad_schema(self):
         """
@@ -3476,9 +3565,11 @@ class TestExtractAI:
                             Any lengths found in the data
                             such as cm, m, ft, etc.
                 """,
-                dataframe=pd.DataFrame({
-                    "data": ["wrench 25mm"],
-                })
+                dataframe=pd.DataFrame(
+                    {
+                        "data": ["wrench 25mm"],
+                    }
+                ),
             )
         assert "schema submitted for output is not valid" in error.value.args[0]
 
@@ -3503,9 +3594,11 @@ class TestExtractAI:
                             Any lengths found in the data
                             such as cm, m, ft, etc.
                 """,
-                dataframe=pd.DataFrame({
-                    "data": ["wrench 25mm"],
-                })
+                dataframe=pd.DataFrame(
+                    {
+                        "data": ["wrench 25mm"],
+                    }
+                ),
             )
         assert "API Key" in error.value.args[0]
 
@@ -3528,16 +3621,14 @@ class TestExtractAI:
                       description: Get the number from the input
                   where: data LIKE 'wrench%'
             """,
-            dataframe=pd.DataFrame({
-                "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25", "spanner 15", "wrench 35", "wrench 45"],
+                }
+            ),
         )
-        assert (
-            df['length'][1] == "" and (
-                df['length'][0] == 25 or
-                df['length'][2] == 35 or
-                df['length'][3] == 45
-            )
+        assert df["length"][1] == "" and (
+            df["length"][0] == 25 or df["length"][2] == 35 or df["length"][3] == 45
         )
 
     def test_ai_string_examples(self):
@@ -3561,21 +3652,21 @@ class TestExtractAI:
                         such as cm, m, ft, etc.
                     examples: 22mm
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_ai_empty(self):
@@ -3598,11 +3689,13 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": [],
+                }
+            ),
         )
-        assert df.empty and df.columns.to_list() == ['data', 'length']
+        assert df.empty and df.columns.to_list() == ["data", "length"]
 
     def test_ai_o3_mini(self):
         """
@@ -3624,21 +3717,21 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as cm, m, ft, etc.
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "wrench 25mm",
-                    "6m cable",
-                    "screwdriver 3mm"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["wrench 25mm", "6m cable", "screwdriver 3mm"],
+                }
+            ),
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
-        matches = sum([
-            df['length'][0] == '25mm',
-            df['length'][1] == '6m',
-            df['length'][2] == '3mm'
-        ])
+        matches = sum(
+            [
+                df["length"][0] == "25mm",
+                df["length"][1] == "6m",
+                df["length"][2] == "3mm",
+            ]
+        )
         assert matches >= 2
 
     def test_model_id(self):
@@ -3655,17 +3748,16 @@ class TestExtractAI:
                 temperature: 0.2
                 retries: 2
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "yellow square",
-                    "blue circle",
-                    "green diamond"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["yellow square", "blue circle", "green diamond"],
+                }
+            ),
         )
-        assert (
-            isinstance(df['Colors'][0], list) and
-            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values or 'diamond' in df['Shapes'].values)
+        assert isinstance(df["Colors"][0], list) and (
+            "square" in df["Shapes"].values
+            or "circle" in df["Shapes"].values
+            or "diamond" in df["Shapes"].values
         )
 
     def test_model_id_additional_properties(self):
@@ -3682,13 +3774,15 @@ class TestExtractAI:
                 seed: 1
                 retries: 2
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "3.141 is pi, 2.718 is e",
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": [
+                        "3.141 is pi, 2.718 is e",
+                    ],
+                }
+            ),
         )
-        assert 3 in df['Numbers'][0] or 2 in df['Numbers'][0]
+        assert 3 in df["Numbers"][0] or 2 in df["Numbers"][0]
 
     def test_model_id_named_output_single_column(self):
         """
@@ -3705,18 +3799,16 @@ class TestExtractAI:
                 retries: 2
                 output: result
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "yellow square",
-                    "blue circle",
-                    "green diamond"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["yellow square", "blue circle", "green diamond"],
+                }
+            ),
         )
         assert (
-            df.columns.to_list() == ['data', 'result'] and
-            isinstance(df['result'][0], dict) and
-            'Colors' in df['result'][0]
+            df.columns.to_list() == ["data", "result"]
+            and isinstance(df["result"][0], dict)
+            and "Colors" in df["result"][0]
         )
 
     def test_model_id_named_output_multi_column(self):
@@ -3736,18 +3828,16 @@ class TestExtractAI:
                   - Colors
                   - Shapes
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "yellow square",
-                    "blue circle",
-                    "green diamond"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["yellow square", "blue circle", "green diamond"],
+                }
+            ),
         )
         assert (
-            df.columns.to_list() == ['data', 'Colors', 'Shapes'] and
-            isinstance(df['Colors'][0], list) and
-            ('square' in df['Shapes'].values or 'circle' in df['Shapes'].values)
+            df.columns.to_list() == ["data", "Colors", "Shapes"]
+            and isinstance(df["Colors"][0], list)
+            and ("square" in df["Shapes"].values or "circle" in df["Shapes"].values)
         )
 
     def test_model_id_object_with_properties(self):
@@ -3764,14 +3854,13 @@ class TestExtractAI:
                 seed: 1
                 retries: 2
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "25mm spanner",
-                    "transformer - 120v"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["25mm spanner", "transformer - 120v"],
+                }
+            ),
         )
-        assert 'unit' in df['attributes'][0] and 'value' in df['attributes'][1]
+        assert "unit" in df["attributes"][0] and "value" in df["attributes"][1]
 
     def test_model_id_array_of_objects(self):
         """
@@ -3787,13 +3876,13 @@ class TestExtractAI:
                 seed: 1
                 retries: 2
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "25mm spanner + transformer - 120v"
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": ["25mm spanner + transformer - 120v"],
+                }
+            ),
         )
-        assert 'unit' in df['Attributes'][0][0] and 'value' in df['Attributes'][0][1]
+        assert "unit" in df["Attributes"][0][0] and "value" in df["Attributes"][0][1]
 
     def test_strict_mode(self):
         """
@@ -3815,10 +3904,12 @@ class TestExtractAI:
                     description: How many numbers are in the data
                     minimum: 7
             """,
-            dataframe=pd.DataFrame({
-                "data": [
-                    "1,2,3,4",
-                ],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "data": [
+                        "1,2,3,4",
+                    ],
+                }
+            ),
         )
-        assert df['numbers'][0] >= 7
+        assert df["numbers"][0] >= 7

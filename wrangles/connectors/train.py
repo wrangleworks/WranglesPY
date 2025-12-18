@@ -5,7 +5,8 @@ from .. import data as _data
 from ..utils import wildcard_expansion as _wildcard_expansion
 from ..data import model as _model
 
-class classify():
+
+class classify:
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -19,20 +20,24 @@ class classify():
 
         tmp_data = _data.model_content(model_id)
 
-        if 'Columns' in tmp_data:
-            columns = tmp_data['Columns']
-        elif len(tmp_data['Data'][0]) == 2:
+        if "Columns" in tmp_data:
+            columns = tmp_data["Columns"]
+        elif len(tmp_data["Data"][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data['Data']]
-            columns = ['Example', 'Category', 'Notes']
-        elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Example', 'Category', 'Notes']
+            [x.append("") for x in tmp_data["Data"]]
+            columns = ["Example", "Category", "Notes"]
+        elif len(tmp_data["Data"][0]) == 3:
+            columns = ["Example", "Category", "Notes"]
         else:
-            raise ValueError("Classify Wrangle data should contain three columns. Check Wrangle data")
+            raise ValueError(
+                "Classify Wrangle data should contain three columns. Check Wrangle data"
+            )
 
-        return _pd.DataFrame(tmp_data['Data'], columns=columns)
+        return _pd.DataFrame(tmp_data["Data"], columns=columns)
 
-    _schema["read"] = """
+    _schema[
+        "read"
+    ] = """
         type: object
         description: Read the training data for a Classify Wrangle
         additionalProperties: false
@@ -44,7 +49,9 @@ class classify():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
+    def write(
+        df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None
+    ) -> None:
         """
         Train a new or existing classify wrangle
 
@@ -60,13 +67,17 @@ class classify():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
-        required_columns = ['Example', 'Category', 'Notes']
+        required_columns = ["Example", "Category", "Notes"]
         if not required_columns == list(df.columns[:3]):
-            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.classify.")
+            raise ValueError(
+                f"The columns {', '.join(required_columns)} must be provided for train.classify."
+            )
 
         _train.classify(df[required_columns].values.tolist(), name, model_id)
 
-    _schema["write"] = """
+    _schema[
+        "write"
+    ] = """
         type: object
         description: Train a new or existing Classify Wrangle
         additionalProperties: false
@@ -83,7 +94,7 @@ class classify():
         """
 
 
-class extract():
+class extract:
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -97,20 +108,24 @@ class extract():
 
         tmp_data = _data.model_content(model_id)
 
-        if 'Columns' in tmp_data:
-            columns = tmp_data['Columns']
-        elif len(tmp_data['Data'][0]) == 2:
+        if "Columns" in tmp_data:
+            columns = tmp_data["Columns"]
+        elif len(tmp_data["Data"][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data['Data']]
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
-        elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            [x.append("") for x in tmp_data["Data"]]
+            columns = ["Entity to Find", "Variation (Optional)", "Notes"]
+        elif len(tmp_data["Data"][0]) == 3:
+            columns = ["Entity to Find", "Variation (Optional)", "Notes"]
         else:
-            raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
+            raise ValueError(
+                "Extract Wrangle data should contain three columns. Check Wrangle data"
+            )
 
-        return _pd.DataFrame(tmp_data['Data'], columns=columns)
+        return _pd.DataFrame(tmp_data["Data"], columns=columns)
 
-    _schema["read"] = """
+    _schema[
+        "read"
+    ] = """
         type: object
         description: Read the training data for an Extract Wrangle
         additionalProperties: false
@@ -127,7 +142,7 @@ class extract():
         columns: list = None,
         name: str = None,
         model_id: str = None,
-        variant: str = None
+        variant: str = None,
     ) -> None:
         """
         Train a new or existing extract wrangle
@@ -141,20 +156,26 @@ class extract():
 
         # Error handling for name, model_id and settings
         if name and model_id:
-            raise ValueError("Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
-        
-        if name is None and model_id is None:
-            raise ValueError("Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model.")
+            raise ValueError(
+                "Extract: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model."
+            )
 
-        if variant not in ['pattern', 'ai', None]:
+        if name is None and model_id is None:
+            raise ValueError(
+                "Extract: Either a name or a model id must be provided. Use name to create a new model or model_id to update an existing model."
+            )
+
+        if variant not in ["pattern", "ai", None]:
             raise ValueError("The variant must be either 'pattern' or 'ai'")
 
         # Error handling for variant
-        if variant == 'ai':
-            variant = 'extract-ai'
+        if variant == "ai":
+            variant = "extract-ai"
 
         if model_id and variant:
-            raise ValueError(f"It is not possible to set the variant of an existing model.")
+            raise ValueError(
+                f"It is not possible to set the variant of an existing model."
+            )
 
         # Select only specific columns if user requests them
         if columns is not None:
@@ -163,33 +184,54 @@ class extract():
 
         # Lookup the variant if retraining a model
         if variant == None:
-            variant = _model(model_id)['variant']
-            if variant == None: # Older versions do not have a variant, default to pattern
-                variant = 'pattern'
+            variant = _model(model_id)["variant"]
+            if (
+                variant == None
+            ):  # Older versions do not have a variant, default to pattern
+                variant = "pattern"
 
-        if variant == 'pattern':
+        if variant == "pattern":
             versions = [
-                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
-                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'},
-                {'columns': ['Find', 'Output', 'Notes'], 'version': 'pattern 3.0'},
+                {
+                    "columns": ["Find", "Output (Optional)", "Notes"],
+                    "version": "pattern 2.0",
+                },
+                {
+                    "columns": ["Entity to Find", "Variation (Optional)", "Notes"],
+                    "version": "pattern 1.0",
+                },
+                {"columns": ["Find", "Output", "Notes"], "version": "pattern 3.0"},
             ]
             try:
                 required_columns = [
-                        version for version in versions
-                        if set(version["columns"]).issubset(set(df.columns.to_list()))
-                    ][0]['columns']
+                    version
+                    for version in versions
+                    if set(version["columns"]).issubset(set(df.columns.to_list()))
+                ][0]["columns"]
             except:
-                required_columns = ['Find', 'Output (Optional)', 'Notes']
+                required_columns = ["Find", "Output (Optional)", "Notes"]
             col_len = 3
-        elif variant == 'extract-ai':
-            required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
+        elif variant == "extract-ai":
+            required_columns = [
+                "Find",
+                "Description",
+                "Type",
+                "Default",
+                "Examples",
+                "Enum",
+                "Notes",
+            ]
             col_len = 7
         if not required_columns == list(df.columns[:col_len]):
-            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.extract.")
+            raise ValueError(
+                f"The columns {', '.join(required_columns)} must be provided for train.extract."
+            )
 
         _train.extract(df[required_columns].values.tolist(), name, model_id, variant)
 
-    _schema["write"] = """
+    _schema[
+        "write"
+    ] = """
         type: object
         description: Train a new or existing Extract Wrangle
         additionalProperties: false
@@ -206,7 +248,7 @@ class extract():
         """
 
 
-class lookup():
+class lookup:
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -219,9 +261,11 @@ class lookup():
         _logging.info(f": Reading Lookup Wrangle data :: {model_id}")
 
         content = _data.model_content(model_id)
-        return _pd.DataFrame(content['Data'], columns=content['Columns'])
+        return _pd.DataFrame(content["Data"], columns=content["Columns"])
 
-    _schema["read"] = """
+    _schema[
+        "read"
+    ] = """
         type: object
         description: Read the training data for a Lookup Wrangle
         additionalProperties: false
@@ -233,7 +277,13 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+    def write(
+        df: _pd.DataFrame,
+        name: str = None,
+        model_id: str = None,
+        settings: dict = {},
+        variant: str = "key",
+    ) -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -247,17 +297,19 @@ class lookup():
 
         # Error handling for name, model_id and settings
         if name and model_id:
-            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
-        
+            raise ValueError(
+                "Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model."
+            )
+
         # Read in variant if there is a model_id
         if model_id:
             metadata = _data.model(model_id)
-            variant = metadata['variant']
-      
-        if variant == 'semantic':
-            variant = 'embedding'
+            variant = metadata["variant"]
 
-        settings['variant'] = variant
+        if variant == "semantic":
+            variant = "embedding"
+
+        settings["variant"] = variant
 
         _train.lookup(
             {
@@ -267,10 +319,12 @@ class lookup():
             },
             name,
             model_id,
-            settings
+            settings,
         )
 
-    _schema["write"] = """
+    _schema[
+        "write"
+    ] = """
         type: object
         description: Train a new or existing Lookup Wrangle
         additionalProperties: false
@@ -292,7 +346,8 @@ class lookup():
               - semantic
         """
 
-class standardize():
+
+class standardize:
     _schema = {}
 
     def read(model_id: str) -> _pd.DataFrame:
@@ -306,20 +361,24 @@ class standardize():
 
         tmp_data = _data.model_content(model_id)
 
-        if 'Columns' in tmp_data:
-            columns = tmp_data['Columns']
-        elif len(tmp_data['Data'][0]) == 2:
+        if "Columns" in tmp_data:
+            columns = tmp_data["Columns"]
+        elif len(tmp_data["Data"][0]) == 2:
             # Add a third column for Notes of empty strings
-            [x.append('') for x in tmp_data['Data']]
-            columns = ['Find', 'Replace', 'Notes']
-        elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Find', 'Replace', 'Notes']
+            [x.append("") for x in tmp_data["Data"]]
+            columns = ["Find", "Replace", "Notes"]
+        elif len(tmp_data["Data"][0]) == 3:
+            columns = ["Find", "Replace", "Notes"]
         else:
-            raise ValueError("Standardize Wrangle data should contain three columns. Check Wrangle data")
+            raise ValueError(
+                "Standardize Wrangle data should contain three columns. Check Wrangle data"
+            )
 
-        return _pd.DataFrame(tmp_data['Data'], columns=columns)
+        return _pd.DataFrame(tmp_data["Data"], columns=columns)
 
-    _schema["read"] = """
+    _schema[
+        "read"
+    ] = """
         type: object
         description: Read the training data for a Standardize Wrangle
         additionalProperties: false
@@ -331,7 +390,9 @@ class standardize():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None) -> None:
+    def write(
+        df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None
+    ) -> None:
         """
         Train a new or existing standardize wrangle
 
@@ -347,13 +408,17 @@ class standardize():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
-        required_columns = ['Find', 'Replace', 'Notes']
+        required_columns = ["Find", "Replace", "Notes"]
         if not required_columns == list(df.columns[:3]):
-            raise ValueError(f"The columns {', '.join(required_columns)} must be provided for train.standardize.")
+            raise ValueError(
+                f"The columns {', '.join(required_columns)} must be provided for train.standardize."
+            )
 
         _train.standardize(df[required_columns].values.tolist(), name, model_id)
 
-    _schema["write"] = """
+    _schema[
+        "write"
+    ] = """
         type: object
         description: Train a new or existing Standardize Wrangle
         additionalProperties: false

@@ -1,6 +1,7 @@
 """
 Test custom functions that are passed to recipes
 """
+
 import wrangles
 from wrangles.connectors import memory
 import pandas as pd
@@ -20,24 +21,28 @@ def test_function_not_found():
                   input: col
                   output: out
             """,
-            dataframe = pd.DataFrame({
-                'col':['Hello World']
-            })
+            dataframe=pd.DataFrame({"col": ["Hello World"]}),
         )
+
 
 def test_run():
     """
     Test passing custom function to the run section
     """
+
     def fail_func(input):
-        better_data = pd.DataFrame({
-            'col111': [input],
-        })
+        better_data = pd.DataFrame(
+            {
+                "col111": [input],
+            }
+        )
         return better_data
 
-    data = pd.DataFrame({
-        'col1': ['hello world'],
-    })
+    data = pd.DataFrame(
+        {
+            "col1": ["hello world"],
+        }
+    )
     recipe = """
     run:
       on_success:
@@ -51,15 +56,16 @@ def test_run():
             case: upper
     """
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[fail_func])
-    assert df.iloc[0]['col1'] == 'hello world'
+    assert df.iloc[0]["col1"] == "hello world"
 
 
 def test_read():
     """
     Test passing a custom function to the read section
     """
+
     def func():
-        return pd.DataFrame({'col1': ['hello world']})
+        return pd.DataFrame({"col1": ["hello world"]})
 
     recipe = """
       read:
@@ -67,13 +73,14 @@ def test_read():
     """
     df = wrangles.recipe.run(recipe, functions=[func])
 
-    assert df.iloc[0]['col1'] == 'hello world'
+    assert df.iloc[0]["col1"] == "hello world"
 
 
 def test_wrangle():
     """
     Test passing a custom function to the wrangles section
     """
+
     def func(df):
         df = df.head(5)
         return df
@@ -91,17 +98,17 @@ def test_wrangle():
 
     assert len(df) == 5
 
+
 def test_write():
     """
     Test using a custom function for write
     """
+
     def custom_funct_write(df, end_str):
-        df['out1'] = df['out1'].apply(lambda x: x + end_str)
+        df["out1"] = df["out1"].apply(lambda x: x + end_str)
         return df
 
-    data = pd.DataFrame({
-        'col1': ['Hello', 'Wrangles']
-    })
+    data = pd.DataFrame({"col1": ["Hello", "Wrangles"]})
     recipe = """
     wrangles:
       - convert.case:
@@ -113,15 +120,17 @@ def test_write():
           end_str: ' Ending'
     """
     df = wrangles.recipe.run(recipe, dataframe=data, functions=[custom_funct_write])
-    assert df.iloc[0]['out1'] == 'HELLO Ending'
+    assert df.iloc[0]["out1"] == "HELLO Ending"
+
 
 def test_no_parameters():
     """
     Test passing a custom function that does not include parameters
     e.g. custom.func: {}
     """
+
     def func():
-        return pd.DataFrame({'col1': ['hello world']})
+        return pd.DataFrame({"col1": ["hello world"]})
 
     recipe = """
       read:
@@ -129,7 +138,8 @@ def test_no_parameters():
     """
     df = wrangles.recipe.run(recipe, functions=[func])
 
-    assert df.iloc[0]['col1'] == 'hello world'
+    assert df.iloc[0]["col1"] == "hello world"
+
 
 def test_with_parameters():
     """
@@ -137,8 +147,9 @@ def test_with_parameters():
     e.g. custom.func:
            value: hello world
     """
+
     def func(value):
-        return pd.DataFrame({'col1': [value]})
+        return pd.DataFrame({"col1": [value]})
 
     recipe = """
       read:
@@ -147,19 +158,24 @@ def test_with_parameters():
     """
     df = wrangles.recipe.run(recipe, functions=[func])
 
-    assert df.iloc[0]['col1'] == 'hello world'
+    assert df.iloc[0]["col1"] == "hello world"
+
 
 # Custom Function
 def test_custom_function_1():
-    data = pd.DataFrame({
-        'Col1': ['Hello One', 'Hello Two'],
-    })
+    data = pd.DataFrame(
+        {
+            "Col1": ["Hello One", "Hello Two"],
+        }
+    )
+
     def custom_func(df, input, output):
         second_token = []
         for x in range(len(df)):
             second_token.append(df[input][x].split()[1])
         df[output] = second_token
         return df
+
     recipe = """
     wrangle:
         - custom.custom_func:
@@ -176,19 +192,24 @@ def test_custom_function_1():
                 - Col2
     """
     df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
-    assert df.iloc[1]['Col2'] == 'Two'
+    assert df.iloc[1]["Col2"] == "Two"
+
 
 # Custom Function no output specified
 def test_custom_function_2():
-    data = pd.DataFrame({
-        'Col1': ['Hello One', 'Hello Two'],
-    })
+    data = pd.DataFrame(
+        {
+            "Col1": ["Hello One", "Hello Two"],
+        }
+    )
+
     def custom_func(df, input):
         second_token = []
         for x in range(len(df)):
             second_token.append(df[input][x].split()[1])
         df[input] = second_token
         return df
+
     recipe = """
     wrangles:
         - custom.custom_func:
@@ -199,18 +220,20 @@ def test_custom_function_2():
                 - Col1
     """
     df = wrangles.recipe.run(recipe, functions=[custom_func], dataframe=data)
-    assert df.iloc[1]['Col1'] == 'Two'
-    
+    assert df.iloc[1]["Col1"] == "Two"
+
 
 # Custom Function before wrangles
 def test_custom_function_2():
-    
+
     def custom_func():
-        df = pd.DataFrame({
-            'Col1': ['Hello One', 'Hello Two'],
-        })
+        df = pd.DataFrame(
+            {
+                "Col1": ["Hello One", "Hello Two"],
+            }
+        )
         return df
-        
+
     recipe = """
     read:
         - custom.custom_func: {}
@@ -225,16 +248,17 @@ def test_custom_function_2():
                 - Col1
     """
     df = wrangles.recipe.run(recipe, functions=[custom_func])
-    assert df.iloc[0]['Col1'] == 'HELLO ONE'
+    assert df.iloc[0]["Col1"] == "HELLO ONE"
 
 
 def test_row_function():
     """
     Test a custom function that applies to an individual row
     """
+
     def add_numbers(val1, val2):
         return val1 + val2
-    
+
     df = wrangles.recipe.run(
         """
         read:
@@ -247,17 +271,19 @@ def test_row_function():
           - custom.add_numbers:
               output: val3
         """,
-        functions=[add_numbers]
+        functions=[add_numbers],
     )
-    assert df['val3'][0] == 3
+    assert df["val3"][0] == 3
+
 
 def test_row_function_list_out():
     """
     Test a custom function that applies to an individual row with multi column outputs
     """
+
     def add_three(val1, val2):
         return [val1 + 3, val2 + 3]
-    
+
     df = wrangles.recipe.run(
         """
         read:
@@ -272,9 +298,10 @@ def test_row_function_list_out():
                 - val3
                 - val4
         """,
-        functions=[add_three]
+        functions=[add_three],
     )
-    assert df['val3'][0] == 4 and df['val4'][0] == 5
+    assert df["val3"][0] == 4 and df["val4"][0] == 5
+
 
 def test_pass_error():
     """
@@ -285,8 +312,10 @@ def test_pass_error():
     test_var_pass_error = False
 
     def handle_error(error):
-        if (type(error).__name__ == 'TypeError' and
-            "convert.data_type - data_type andksankdl is not supported" in str(error)
+        if type(
+            error
+        ).__name__ == "TypeError" and "convert.data_type - data_type andksankdl is not supported" in str(
+            error
         ):
             global test_var_pass_error
             test_var_pass_error = True
@@ -309,10 +338,11 @@ def test_pass_error():
               on_failure:
                 - custom.handle_error: {}
             """,
-            functions=[handle_error]
+            functions=[handle_error],
         )
 
     assert test_var_pass_error
+
 
 def test_pass_error_with_params():
     """
@@ -324,9 +354,11 @@ def test_pass_error_with_params():
     test_var_pass_error_params = False
 
     def handle_error(error, param):
-        if (type(error).__name__ == 'TypeError' and
-            "convert.data_type - data_type andksankdl is not supported" in str(error) and
-            param == "value"
+        if (
+            type(error).__name__ == "TypeError"
+            and "convert.data_type - data_type andksankdl is not supported"
+            in str(error)
+            and param == "value"
         ):
             global test_var_pass_error_params
             test_var_pass_error_params = True
@@ -350,10 +382,11 @@ def test_pass_error_with_params():
                 - custom.handle_error:
                     param: value
             """,
-            functions=[handle_error]
+            functions=[handle_error],
         )
 
     assert test_var_pass_error_params
+
 
 def test_error_not_passed():
     """
@@ -385,10 +418,11 @@ def test_error_not_passed():
               on_failure:
                 - custom.handle_error: {}
             """,
-            functions=[handle_error]
+            functions=[handle_error],
         )
 
     assert test_var_error_not_passed
+
 
 def test_error_not_passed_with_params():
     """
@@ -423,10 +457,11 @@ def test_error_not_passed_with_params():
                 - custom.handle_error:
                     param: value
             """,
-            functions=[handle_error]
+            functions=[handle_error],
         )
 
     assert test_var_error_not_passed_params
+
 
 def test_df_at_end_of_variables():
     """
@@ -446,12 +481,14 @@ def test_df_at_end_of_variables():
           input: Products
           output: Stuff
     """
+
     def function(input, output, df):
-        df[output] = df[input] + ' sold out'
+        df[output] = df[input] + " sold out"
         return df
 
     dfNew = wrangles.recipe.run(recipe, functions=function)
-    assert dfNew['Stuff'][0] == 'Hammer sold out'
+    assert dfNew["Stuff"][0] == "Hammer sold out"
+
 
 def test_df_at_beginning_of_variables():
     """
@@ -471,18 +508,26 @@ def test_df_at_beginning_of_variables():
           input: Products
           output: Stuff
     """
+
     def function(df, input, output):
-        df[output] = df[input] + ' sold out'
+        df[output] = df[input] + " sold out"
         return df
 
     dfNew = wrangles.recipe.run(recipe, functions=function)
-    assert dfNew['Stuff'][0] == 'Hammer sold out'
+    assert dfNew["Stuff"][0] == "Hammer sold out"
+
 
 def test_empty_kwargs():
     """
     Test functionality when kwargs are empty
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -490,17 +535,28 @@ def test_empty_kwargs():
           string: this is a string
           output: Stuff
     """
+
     def function(Products, string, **kwargs):
-        return Products + ' ' + string
+        return Products + " " + string
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer this is a string' and df.iloc[1]['Stuff'] == 'Hex Nut this is a string'
+    assert (
+        df["Stuff"][0] == "Hammer this is a string"
+        and df.iloc[1]["Stuff"] == "Hex Nut this is a string"
+    )
+
 
 def test_single_kwarg():
     """
     Test functionality with single kwarg
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -508,19 +564,28 @@ def test_single_kwarg():
           string: this is a string
           output: Stuff
     """
+
     def function(Products, **kwargs):
-        output = ''
+        output = ""
         for value in kwargs.values():
-            output += Products + ' ' + value
+            output += Products + " " + value
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer this is a string'
+    assert df["Stuff"][0] == "Hammer this is a string"
+
 
 def test_multiple_kwargs():
     """
     Test functionality with multiple kwargs
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -531,19 +596,28 @@ def test_multiple_kwargs():
           string4: string
           output: Stuff
     """
+
     def function(Products, **kwargs):
         output = Products
         for value in kwargs.values():
-            output += ' ' + value
+            output += " " + value
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer this is a string'
+    assert df["Stuff"][0] == "Hammer this is a string"
+
 
 def test_kwargs_user_requires_input():
     """
     Test if the user requests input as a function parameter
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -551,17 +625,25 @@ def test_kwargs_user_requires_input():
           string: this is a string
           output: Stuff
     """
+
     def function(input, string, **kwargs):
-        return kwargs[input] + ' ' + string
-    
-    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    assert df['Stuff'][0] == 'Hammer this is a string'
+        return kwargs[input] + " " + string
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df["Stuff"][0] == "Hammer this is a string"
+
 
 def test_kwargs_output_error():
     """
     Test error when using output in custom function
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -569,17 +651,25 @@ def test_kwargs_output_error():
           string: this is a string
           output: Stuff
     """
+
     def function(output, string, **kwargs):
-        return output + ' ' + string
-    
-    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    assert df['Stuff'][0] == 'Stuff this is a string'
+        return output + " " + string
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df["Stuff"][0] == "Stuff this is a string"
+
 
 def test_kwargs_dictionary_error():
     """
     Test error when using kwargs as a string instead of a dictionary
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -587,22 +677,30 @@ def test_kwargs_dictionary_error():
           string: this is a string
           output: Stuff
     """
+
     def function(string, **kwargs):
-        return kwargs + ' ' + string
+        return kwargs + " " + string
 
     with pytest.raises(TypeError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    
+        raise wrangles.recipe.run(recipe, dataframe=df, functions=function)
+
     assert (
-        info.typename == 'TypeError' and
-        "unsupported operand type(s) for +: 'dict' and 'str'" in info.value.args[0]
+        info.typename == "TypeError"
+        and "unsupported operand type(s) for +: 'dict' and 'str'" in info.value.args[0]
     )
+
 
 def test_kwargs_only():
     """
     Test functionality when using only kwargs
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -610,20 +708,31 @@ def test_kwargs_only():
           string: this is a string
           output: Stuff
     """
+
     def function(**kwargs):
-        outputString = ''
+        outputString = ""
         for value in kwargs.values():
             outputString += value
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammerthis is a string' and df.iloc[1]['Stuff'] == 'Hex Nutthis is a string'
+    assert (
+        df["Stuff"][0] == "Hammerthis is a string"
+        and df.iloc[1]["Stuff"] == "Hex Nutthis is a string"
+    )
+
 
 def test_not_kwargs():
     """
     Test functionality when using **notkwargs in place of **kwargs
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -631,20 +740,28 @@ def test_not_kwargs():
           string: this is a string
           output: Stuff
     """
+
     def function(**notkwargs):
-        outputString = ''
+        outputString = ""
         for value in notkwargs.values():
             outputString += value
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammerthis is a string'
+    assert df["Stuff"][0] == "Hammerthis is a string"
+
 
 def test_kwargs_with_list():
     """
     Test functionality when using a list in kwargs
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -655,21 +772,29 @@ def test_kwargs_with_list():
             - this is also a string
           output: Stuff
     """
+
     def function(**kwargs):
-        outputString = ''
+        outputString = ""
         for value in kwargs.values():
             for i in range(len(value)):
                 outputString += value[i]
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammerthis is a stringso is thisthis is also a string'
+    assert df["Stuff"][0] == "Hammerthis is a stringso is thisthis is also a string"
+
 
 def test_regex_with_kwargs():
     """
     Test functionality using regex in the input
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -677,19 +802,31 @@ def test_regex_with_kwargs():
           string: this is a string
           output: Stuff
     """
+
     def function(Products, **kwargs):
-        output = ''
+        output = ""
         for value in kwargs.values():
-            output += Products + ' ' + value
+            output += Products + " " + value
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer this is a string' and df.iloc[1]['Stuff'] == 'Hex Nut this is a string'
+    assert (
+        df["Stuff"][0] == "Hammer this is a string"
+        and df.iloc[1]["Stuff"] == "Hex Nut this is a string"
+    )
+
 
 def test_wildcard_with_kwargs():
     """
     Test functionality using a wildcard
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -697,38 +834,56 @@ def test_wildcard_with_kwargs():
           string: this is a string
           output: Stuff
     """
+
     def function(Products, **kwargs):
-        output = ''
+        output = ""
         for value in kwargs.values():
-            output += Products + ' ' + value
+            output += Products + " " + value
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer this is a string'
+    assert df["Stuff"][0] == "Hammer this is a string"
+
 
 def test_kwargs_no_input():
     """
     Test functionality without a specified input
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
           string: this is a string
           output: Stuff
     """
+
     def function(**kwargs):
-        output = ''
+        output = ""
         for value in kwargs.values():
             output += str(value)
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == '1HammerToolsthis is a string'
+    assert df["Stuff"][0] == "1HammerToolsthis is a string"
+
 
 def test_kwargs_with_parameters():
     """
     Test Functionality of kwargs with parameters
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -737,19 +892,28 @@ def test_kwargs_with_parameters():
           parameters: things
           output: Stuff
     """
+
     def function(parameters, **kwargs):
-        output = ''
+        output = ""
         for value in kwargs.values():
             output += str(value) + parameters
         return output
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammerthingsthis is a stringthings'
+    assert df["Stuff"][0] == "Hammerthingsthis is a stringthings"
+
 
 def test_parameters():
     """
-    Test functionality using parameters 
+    Test functionality using parameters
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -757,18 +921,27 @@ def test_parameters():
           parameters: parameter
           output: Stuff
     """
+
     def function(Products, parameters):
         string = Products
-        string += ' ' + parameters
+        string += " " + parameters
         return string
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer parameter'
+    assert df["Stuff"][0] == "Hammer parameter"
+
 
 def test_parameters_list():
     """
-    Test functionality using a list of parameters 
+    Test functionality using a list of parameters
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -777,19 +950,28 @@ def test_parameters_list():
             - parameter2
           output: Stuff
     """
+
     def function(Products, parameters):
         string = Products
         for parameter in parameters:
-            string += ' ' + parameter
+            string += " " + parameter
         return string
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer parameter1 parameter2'
+    assert df["Stuff"][0] == "Hammer parameter1 parameter2"
+
 
 def test_parameters_not_in_function_args():
     """
-    Test functionality using a list of parameters 
+    Test functionality using a list of parameters
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -799,16 +981,25 @@ def test_parameters_not_in_function_args():
           parameter3: my_third_param 
           output: Stuff
     """
+
     def function(Products, parameter3):
-        return Products + ' ' + parameter3
+        return Products + " " + parameter3
+
     df = wrangles.recipe.run(recipe=recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] == 'Hammer my_third_param'
+    assert df["Stuff"][0] == "Hammer my_third_param"
+
 
 def test_parameters_input_error():
     """
     Tests error when using input incorrectly
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -816,17 +1007,25 @@ def test_parameters_input_error():
           parameters: parameter
           output: Stuff
     """
+
     def function(input, parameters):
-        return input + ' ' + parameters
-    
-    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    assert df['Stuff'][0] == 'Products parameter'
+        return input + " " + parameters
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df["Stuff"][0] == "Products parameter"
+
 
 def test_parameters_output_error():
     """
     Test error when using output incorrectly
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -834,17 +1033,25 @@ def test_parameters_output_error():
           parameters: this is a string
           output: Stuff
     """
+
     def function(output, parameters):
-        return output + ' ' + parameters
-    
-    df = wrangles.recipe.run(recipe, dataframe = df, functions = function)
-    assert df['Stuff'][0] == 'Stuff this is a string'
+        return output + " " + parameters
+
+    df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
+    assert df["Stuff"][0] == "Stuff this is a string"
+
 
 def test_parameters_only():
     """
     Test error when using only parameters
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -853,37 +1060,53 @@ def test_parameters_only():
             - parameter2
           output: Stuff
     """
+
     def function(parameters):
-        outputString = ''
+        outputString = ""
         for parameter in parameters:
             outputString += parameter
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] =='parameter1parameter2'
+    assert df["Stuff"][0] == "parameter1parameter2"
+
 
 def test_no_function_variables():
     """
     Test functionality when no variables are given to the function
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
           output: Stuff
     """
+
     def function():
-        outputString = 'Placeholder string'
+        outputString = "Placeholder string"
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff'][0] =='Placeholder string'
+    assert df["Stuff"][0] == "Placeholder string"
+
 
 def test_no_function_variables_output_list():
     """
     Test functionality when no variables are given to the function
     """
-    df = pd.DataFrame({'ID': [1, 2], 'Products': ['Hammer', 'Hex Nut'], 'Category': ['Tools', 'Hardware']})
+    df = pd.DataFrame(
+        {
+            "ID": [1, 2],
+            "Products": ["Hammer", "Hex Nut"],
+            "Category": ["Tools", "Hardware"],
+        }
+    )
     recipe = """
     wrangles:
       - custom.function:
@@ -891,18 +1114,23 @@ def test_no_function_variables_output_list():
             - Stuff1
             - Stuff2
     """
+
     def function():
-        outputString = 'Placeholder string'
+        outputString = "Placeholder string"
         return outputString
 
     df = wrangles.recipe.run(recipe, dataframe=df, functions=function)
-    assert df['Stuff1'][0] =='Placeholder string' and df['Stuff2'][0] =='Placeholder string'
+    assert (
+        df["Stuff1"][0] == "Placeholder string"
+        and df["Stuff2"][0] == "Placeholder string"
+    )
+
 
 def test_kwargs_with_input():
     """
     Test functionality of kwargs when a function is given an input
     """
-    recipe = '''
+    recipe = """
     read:
     - test:
         rows: 5
@@ -920,22 +1148,23 @@ def test_kwargs_with_input():
             - id
             - heading*
         my_parameter: my_value
-    '''
+    """
 
     def test_fn(my_parameter, id, heading1, **kwargs):
         my_string = str(id) + heading1
         for kwarg in kwargs:
             my_string += kwarg
         return my_string
-    
+
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    assert df['results'][0] =='1value1heading2heading3'
+    assert df["results"][0] == "1value1heading2heading3"
+
 
 def test_kwargs_with_output_list_single_column():
     """
     Test functionality of kwargs when outputting a list to a single column
     """
-    recipe = '''
+    recipe = """
     read:
     - test:
         rows: 5
@@ -953,7 +1182,7 @@ def test_kwargs_with_output_list_single_column():
             - id
             - heading*
         my_parameter: my_value
-    '''
+    """
 
     def test_fn(my_parameter, id, heading1, **kwargs):
         # return my_parameter + heading1
@@ -961,13 +1190,14 @@ def test_kwargs_with_output_list_single_column():
         return my_list
 
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    assert df['results'][0] == ['value2', 'value3', 'my_value']
+    assert df["results"][0] == ["value2", "value3", "my_value"]
+
 
 def test_kwargs_with_output_list_multiple_columns():
     """
     Test functionality of kwargs when outputting a list multiple columns
     """
-    recipe = '''
+    recipe = """
     read:
     - test:
         rows: 5
@@ -988,20 +1218,25 @@ def test_kwargs_with_output_list_multiple_columns():
             - id
             - heading*
         my_parameter: my_value
-    '''
+    """
 
     def test_fn(my_parameter, id, heading1, **kwargs):
         my_list = list(kwargs.values()) + [my_parameter]
         return my_list
-    
+
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    assert df['results1'][0] == 'value2' and df['results2'][0] == 'value3' and df['results3'][0] == 'my_value'
+    assert (
+        df["results1"][0] == "value2"
+        and df["results2"][0] == "value3"
+        and df["results3"][0] == "my_value"
+    )
+
 
 def test_output_list_single_column_without_kwargs():
     """
     Test functionality of kwargs when outputting a list to a single column
     """
-    recipe = '''
+    recipe = """
     read:
     - test:
         rows: 5
@@ -1019,19 +1254,20 @@ def test_output_list_single_column_without_kwargs():
             - id
             - heading*
         my_parameter: my_value
-    '''
+    """
 
     def test_fn(my_parameter, id, heading1):
         return [my_parameter, id, heading1]
-    
+
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    assert df['results'][0] == ['my_value', 1, 'value1']
+    assert df["results"][0] == ["my_value", 1, "value1"]
+
 
 def test_output_list_multiple_columns_without_kwargs():
     """
     Test functionality of kwargs when outputting a list to a single column
     """
-    recipe = '''
+    recipe = """
     read:
     - test:
         rows: 5
@@ -1052,19 +1288,24 @@ def test_output_list_multiple_columns_without_kwargs():
             - id
             - heading*
         my_parameter: my_value
-    '''
+    """
 
     def test_fn(my_parameter, id, heading1):
         return [my_parameter, id, heading1]
-    
+
     df = wrangles.recipe.run(recipe, functions=test_fn)
-    assert df['results1'][0] == 'my_value' and df['results2'][0] == 1 and df['results3'][0] == 'value1'
+    assert (
+        df["results1"][0] == "my_value"
+        and df["results2"][0] == 1
+        and df["results3"][0] == "value1"
+    )
+
 
 def test_column_spaces():
     """
     Test functionality when passing column names with spaces
     """
-    recipe = '''
+    recipe = """
     read:
       - test:
           rows: 5
@@ -1076,19 +1317,20 @@ def test_column_spaces():
       - custom.space_function:
           suffix: description
           output: New Description
-    '''
-    
+    """
+
     def space_function(my_description, suffix):
-        return my_description + ' ' + suffix
-    
+        return my_description + " " + suffix
+
     df = wrangles.recipe.run(recipe, functions=space_function)
-    assert df['New Description'][0] == 'this is a description'
+    assert df["New Description"][0] == "this is a description"
+
 
 def test_column_spaces_in_kwargs():
     """
     Test functionality when passing a column with a space through kwargs
     """
-    recipe = '''
+    recipe = """
     read:
       - test:
           rows: 5
@@ -1100,21 +1342,24 @@ def test_column_spaces_in_kwargs():
       - custom.space_function:
           suffix: description
           output: New Description
-    '''
+    """
+
     def space_function(**kwargs):
-        return kwargs['my description'] + ' ' + kwargs['suffix']
-    
+        return kwargs["my description"] + " " + kwargs["suffix"]
+
     df = wrangles.recipe.run(recipe, functions=space_function)
-    assert df['New Description'][0] == 'this is a description'
+    assert df["New Description"][0] == "this is a description"
+
 
 def test_row_function_where():
     """
     Test a custom function that applies to an
     individual row using where
     """
+
     def add_numbers(val1, val2):
         return val1 + val2
-    
+
     df = wrangles.recipe.run(
         """
         wrangles:
@@ -1123,12 +1368,10 @@ def test_row_function_where():
               where: val1 >= 3
         """,
         functions=[add_numbers],
-        dataframe=pd.DataFrame({
-            "val1": [1,2,3],
-            "val2": [2,4,6]
-        })
+        dataframe=pd.DataFrame({"val1": [1, 2, 3], "val2": [2, 4, 6]}),
     )
-    assert df['val3'][0] == "" and df['val3'][2] == 9
+    assert df["val3"][0] == "" and df["val3"][2] == 9
+
 
 def test_row_function_double_where():
     """
@@ -1136,10 +1379,13 @@ def test_row_function_double_where():
     individual row using two where conditions
     for different rows
     """
+
     def add_numbers(val1, val2):
         return val1 + val2
+
     def subtract_numbers(val1, val2):
         return val2 - val1
+
     df = wrangles.recipe.run(
         """
         wrangles:
@@ -1152,22 +1398,17 @@ def test_row_function_double_where():
               where: val1 = 1
         """,
         functions=[add_numbers, subtract_numbers],
-        dataframe=pd.DataFrame({
-            "val1": [1,2,3],
-            "val2": [2,4,6]
-        })
+        dataframe=pd.DataFrame({"val1": [1, 2, 3], "val2": [2, 4, 6]}),
     )
-    assert (
-        df['val3'][0] == 1 and
-        df['val3'][1] == "" and
-        df['val3'][2] == 9
-    )
+    assert df["val3"][0] == 1 and df["val3"][1] == "" and df["val3"][2] == 9
+
 
 def test_user_not_returned_dataframe_wrangle():
     """
     Check error returned if a user's custom function
     does not return a dataframe correctly
     """
+
     def wrangle_stuff(df):
         pass
 
@@ -1183,18 +1424,20 @@ def test_user_not_returned_dataframe_wrangle():
             wrangles:
             - custom.wrangle_stuff: {}
             """,
-            functions=wrangle_stuff
+            functions=wrangle_stuff,
         )
     assert (
-        info.typename == 'RuntimeError' and
-        "did not return a dataframe" in info.value.args[0]
+        info.typename == "RuntimeError"
+        and "did not return a dataframe" in info.value.args[0]
     )
+
 
 def test_user_not_returned_dataframe_read():
     """
     Check error returned if a user's custom function
     does not return a dataframe correctly
     """
+
     def wrangle_stuff():
         pass
 
@@ -1204,12 +1447,13 @@ def test_user_not_returned_dataframe_read():
             read:
             - custom.wrangle_stuff: {}
             """,
-            functions=wrangle_stuff
+            functions=wrangle_stuff,
         )
     assert (
-        info.typename == 'RuntimeError' and
-        "did not return a dataframe" in info.value.args[0]
+        info.typename == "RuntimeError"
+        and "did not return a dataframe" in info.value.args[0]
     )
+
 
 def test_model_with_custom_functions():
     """
@@ -1217,28 +1461,28 @@ def test_model_with_custom_functions():
     """
     df = wrangles.recipe.run("42f319a8-0849-4177")
     assert (
-        df['header1'][0] == "value1" and
-        df['header2'][0] == "value2" and
-        df['header3'][0] == "VALUE2"
+        df["header1"][0] == "value1"
+        and df["header2"][0] == "value2"
+        and df["header3"][0] == "VALUE2"
     )
+
 
 def test_local_takes_priority():
     """
     Ensure a locally passed custom function overrides
     a remote function of the same name
     """
+
     def convert_case(header2: str):
         return header2.title()
 
-    df = wrangles.recipe.run(
-        "42f319a8-0849-4177",
-        functions=convert_case
-    )
+    df = wrangles.recipe.run("42f319a8-0849-4177", functions=convert_case)
     assert (
-        df['header1'][0] == "value1" and
-        df['header2'][0] == "value2" and
-        df['header3'][0] == "Value2"
+        df["header1"][0] == "value1"
+        and df["header2"][0] == "value2"
+        and df["header3"][0] == "Value2"
     )
+
 
 def test_from_file():
     """
@@ -1257,18 +1501,21 @@ def test_from_file():
               input: header1
               output: header2
         """,
-        functions="tests/samples/custom_functions.py"
+        functions="tests/samples/custom_functions.py",
     )
-    assert df['header2'][0] == "VALUE1"
+    assert df["header2"][0] == "VALUE1"
+
 
 class TestVariableFunctions:
     """
     Test using custom functions to define variables
     """
+
     def test_variable_function(self):
         """
         Test a function that does not have any arguments
         """
+
         def func():
             return 5
 
@@ -1280,10 +1527,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.func"
-            },
-            functions=func
+            variables={"key": "custom.func"},
+            functions=func,
         )
 
         assert len(df) == 5
@@ -1292,6 +1537,7 @@ class TestVariableFunctions:
         """
         Test a function that uses kwargs
         """
+
         def func(key1, **kwargs):
             if key1 != 5:
                 raise ValueError("Invalid key1")
@@ -1309,12 +1555,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.func",
-                "key1": 5,
-                "key2": 6
-            },
-            functions=func
+            variables={"key": "custom.func", "key1": 5, "key2": 6},
+            functions=func,
         )
         assert len(df) == 5
 
@@ -1323,7 +1565,8 @@ class TestVariableFunctions:
         Test a function that has a default
         value for an argument
         """
-        def func(key1, key2 = 1):
+
+        def func(key1, key2=1):
             return key1 + key2
 
         df = wrangles.recipe.run(
@@ -1334,11 +1577,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.func",
-                "key1": 5
-            },
-            functions=func
+            variables={"key": "custom.func", "key1": 5},
+            functions=func,
         )
         assert len(df) == 6
 
@@ -1347,7 +1587,8 @@ class TestVariableFunctions:
         Test a function that only has
         an argument with a default
         """
-        def func(key1 = 5):
+
+        def func(key1=5):
             return key1
 
         df = wrangles.recipe.run(
@@ -1358,10 +1599,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.func"
-            },
-            functions=func
+            variables={"key": "custom.func"},
+            functions=func,
         )
         assert len(df) == 5
 
@@ -1369,6 +1608,7 @@ class TestVariableFunctions:
         """
         Test referencing a nested custom function
         """
+
         class nested:
             def func():
                 return 5
@@ -1381,10 +1621,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.nested.func"
-            },
-            functions=nested
+            variables={"key": "custom.nested.func"},
+            functions=nested,
         )
         assert len(df) == 5
 
@@ -1392,6 +1630,7 @@ class TestVariableFunctions:
         """
         Test referencing a variable as a named parameter
         """
+
         def func(named_var):
             return named_var + 1
 
@@ -1403,11 +1642,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "key": "custom.func",
-                "named_var": 5
-            },
-            functions=func
+            variables={"key": "custom.func", "named_var": 5},
+            functions=func,
         )
         assert len(df) == 6
 
@@ -1416,6 +1652,7 @@ class TestVariableFunctions:
         Test a function that uses
         the variables argument
         """
+
         def func(variables):
             return variables["var"] + 1
 
@@ -1427,11 +1664,8 @@ class TestVariableFunctions:
                 values:
                     header1: value1
             """,
-            variables={
-                "var": 5,
-                "key": "custom.func"
-            },
-            functions=func
+            variables={"var": 5, "key": "custom.func"},
+            functions=func,
         )
         assert len(df) == 6
 
@@ -1441,6 +1675,7 @@ class TestVariableFunctions:
         that does not have the correct arguments
         gives a clear error message
         """
+
         def func(a, b):
             return 5
 
@@ -1453,10 +1688,8 @@ class TestVariableFunctions:
                     values:
                         header1: value1
                 """,
-                variables={
-                    "key": "custom.func"
-                },
-                functions=func
+                variables={"key": "custom.func"},
+                functions=func,
             )
 
 
@@ -1464,6 +1697,7 @@ def test_clear_errors_df():
     """
     Test a dataframe level custom function raises a clear error message
     """
+
     def raise_error(df):
         raise RuntimeError("This is an error")
 
@@ -1478,13 +1712,15 @@ def test_clear_errors_df():
             wrangles:
                 - custom.raise_error: {}
             """,
-            functions=raise_error
+            functions=raise_error,
         )
+
 
 def test_clear_errors_row_output_missing():
     """
     Test a row level custom function raises a clear error message
     """
+
     def raise_error(header1):
         raise RuntimeError("This is an error")
 
@@ -1499,13 +1735,15 @@ def test_clear_errors_row_output_missing():
             wrangles:
                 - custom.raise_error: {}
             """,
-            functions=raise_error
+            functions=raise_error,
         )
+
 
 def test_clear_errors_row():
     """
     Test a row level custom function raises a clear error message
     """
+
     def raise_error(header1):
         raise RuntimeError("This is an error")
 
@@ -1521,13 +1759,15 @@ def test_clear_errors_row():
                 - custom.raise_error:
                     output: temp
             """,
-            functions=raise_error
+            functions=raise_error,
         )
+
 
 def test_clear_errors_read():
     """
     Test a row level custom function raises a clear error message
     """
+
     def raise_error():
         raise RuntimeError("This is an error")
 
@@ -1537,13 +1777,15 @@ def test_clear_errors_read():
             read:
               - custom.raise_error: {}
             """,
-            functions=raise_error
+            functions=raise_error,
         )
+
 
 def test_clear_errors_write():
     """
     Test a row level custom function raises a clear error message
     """
+
     def raise_error(df):
         raise RuntimeError("This is an error")
 
@@ -1553,15 +1795,14 @@ def test_clear_errors_write():
             write:
               - custom.raise_error: {}
             """,
-            functions=raise_error
+            functions=raise_error,
         )
+
 
 class nested:
     def read():
-        return pd.DataFrame({
-            "header": ["value"]
-        })
-    
+        return pd.DataFrame({"header": ["value"]})
+
     def wrangle(df, input):
         df[input] = df[input] + "1"
         return df
@@ -1572,6 +1813,7 @@ class nested:
     def run(id, value):
         memory.variables[id] = value
 
+
 def test_nested_read():
     """
     Test a nested custom function for read
@@ -1581,9 +1823,10 @@ def test_nested_read():
         read:
           - custom.nested.read: {}
         """,
-        functions=nested
+        functions=nested,
     )
-    assert df['header'][0] == "value"
+    assert df["header"][0] == "value"
+
 
 def test_nested_wrangle():
     """
@@ -1600,9 +1843,10 @@ def test_nested_wrangle():
           - custom.nested.wrangle:
               input: header
         """,
-        functions=nested
+        functions=nested,
     )
-    assert df['header'][0] == "value1"
+    assert df["header"][0] == "value1"
+
 
 def test_nested_write():
     """
@@ -1619,9 +1863,10 @@ def test_nested_write():
           - custom.nested.write:
               id: test_nested_write
         """,
-        functions=nested
+        functions=nested,
     )
     assert memory.dataframes["test_nested_write"]["header"][0] == "value"
+
 
 def test_nested_run():
     """
@@ -1635,14 +1880,16 @@ def test_nested_run():
                 id: test_nested_run
                 value: value
         """,
-        functions=nested
+        functions=nested,
     )
     assert memory.variables["test_nested_run"] == "value"
+
 
 def test_common_param_access():
     """
     Test that a custom function can access common parameters
     """
+
     def common_param_access(df, input, where):
         if len(df) != 2:
             raise ValueError("Dataframe not the correct length")
@@ -1661,6 +1908,6 @@ def test_common_param_access():
               where: header > 3
         """,
         functions=common_param_access,
-        dataframe=pd.DataFrame({"header": [1,2,3,4,5], "header2": [5,4,3,2,1]})
+        dataframe=pd.DataFrame({"header": [1, 2, 3, 4, 5], "header2": [5, 4, 3, 2, 1]}),
     )
-    assert df['header'][4] == 10 and df["header"][0] == 1
+    assert df["header"][4] == 10 and df["header"][0] == 1

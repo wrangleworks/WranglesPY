@@ -3,14 +3,16 @@ from datetime import datetime
 import time
 import pandas as pd
 
+
 def wait_and_read(duration):
     time.sleep(duration)
     return pd.DataFrame({"column": [f"value{str(duration)}"]})
 
+
 def test_read_multithread():
     """
     Test using the concurrent connector to read multithreaded
-    """    
+    """
     start = datetime.now()
 
     df = wrangles.recipe.run(
@@ -27,20 +29,18 @@ def test_read_multithread():
                     - custom.wait_and_read:
                         duration: 3
         """,
-        functions=wait_and_read
+        functions=wait_and_read,
     )
 
     end = datetime.now()
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        len(df) == 3
-    )
+    assert 5 <= (end - start).seconds < 10 and len(df) == 3
+
 
 def test_read_multiprocess():
     """
     Test using the concurrent connector to read using multiprocessing
-    """    
+    """
     start = datetime.now()
 
     df = wrangles.recipe.run(
@@ -58,23 +58,21 @@ def test_read_multiprocess():
                     - custom.wait_and_read:
                         duration: 3
         """,
-        functions=wait_and_read
+        functions=wait_and_read,
     )
 
     end = datetime.now()
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        len(df) == 3
-    )
+    assert 5 <= (end - start).seconds < 10 and len(df) == 3
 
-test_vals = {
-    "multithread": [],
-    "multiprocess": []
-}
+
+test_vals = {"multithread": [], "multiprocess": []}
+
+
 def wait_and_append(df, wait, test_vals_key):
     time.sleep(wait)
     test_vals[test_vals_key].append(wait)
+
 
 def test_write_multithread():
     """
@@ -102,15 +100,13 @@ def test_write_multithread():
                      wait: 3
                      test_vals_key: multithread
         """,
-        functions=wait_and_append
+        functions=wait_and_append,
     )
 
     end = datetime.now()
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        test_vals["multithread"] == [2,3,5]
-    )
+    assert 5 <= (end - start).seconds < 10 and test_vals["multithread"] == [2, 3, 5]
+
 
 def sleep(seconds):
     """
@@ -119,6 +115,7 @@ def sleep(seconds):
     Wrap as a python function to make the function definition available.
     """
     time.sleep(seconds)
+
 
 def test_run_multithread():
     """
@@ -140,12 +137,13 @@ def test_run_multithread():
                 - custom.sleep:
                      seconds: 3
         """,
-        functions=sleep
+        functions=sleep,
     )
 
     end = datetime.now()
 
     assert 5 <= (end - start).seconds < 10
+
 
 def test_run_multiprocess():
     """
@@ -168,7 +166,7 @@ def test_run_multiprocess():
                 - custom.sleep:
                      seconds: 3
         """,
-        functions=sleep
+        functions=sleep,
     )
 
     end = datetime.now()

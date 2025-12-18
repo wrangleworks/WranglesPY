@@ -6,6 +6,7 @@ https://www.akeneo.com/
 See https://api.akeneo.com/api-reference-index.html
 for detailed REST API docs.
 """
+
 import json as _json
 import pandas as _pd
 import requests as _requests
@@ -23,7 +24,7 @@ def read(
     client_secret: str,
     source: str,
     columns: list = None,
-    parameters: dict = {}
+    parameters: dict = {},
 ):
     """
     Read data from an Akeneo PIM
@@ -51,38 +52,33 @@ def read(
     _logging.info(f": Reading data from Akeneo :: {host} / {source}")
 
     # Set to max temporarily
-    parameters['limit'] = 100
+    parameters["limit"] = 100
 
     # TODO: deal with errors appropriately
     token = _requests.post(
         f"{host}/api/oauth/v1/token",
-        auth = (client_id, client_secret),
-        json = {
-            "username" : user,
-            "password" : password,
-            "grant_type" : "password"
-        }
-    ).json()['access_token']
-    
+        auth=(client_id, client_secret),
+        json={"username": user, "password": password, "grant_type": "password"},
+    ).json()["access_token"]
+
     # TODO: Needs to deal with pagination
     data = _requests.get(
         f"{host}/api/rest/v1/{source}",
         params=parameters,
-        headers={
-            'Accept': 'application/json',
-            'Authorization': f"Bearer {token}"
-        }
-    ).json()['_embedded']['items']
-    
+        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+    ).json()["_embedded"]["items"]
+
     df = _pd.json_normalize(data, max_level=0)
 
     if columns:
         df = df[columns]
-        
+
     return df
 
 
-_schema['read'] = """
+_schema[
+    "read"
+] = """
 type: object
 description: Read data from an Akeneo PIM
 required:
@@ -182,42 +178,42 @@ def write(
     # TODO: handle errors appropriately
     token = _requests.post(
         f"{host}/api/oauth/v1/token",
-        auth = (client_id, client_secret),
-        json={
-            "username" : user,
-            "password" : password,
-            "grant_type" : "password"
-        }
-    ).json()['access_token']
-    
+        auth=(client_id, client_secret),
+        json={"username": user, "password": password, "grant_type": "password"},
+    ).json()["access_token"]
+
     # TODO: batch this if required??
     # Create payload for Akeneo
     # JSONL formatted
-    payload = '\n'.join([_json.dumps(row) for row in df.to_dict(orient='records')])
+    payload = "\n".join([_json.dumps(row) for row in df.to_dict(orient="records")])
 
     # Upload data
     response = _requests.patch(
         f"{host}/api/rest/v1/{source}",
         headers={
-            'Content-type': 'application/vnd.akeneo.collection+json',
-            'Authorization': f"Bearer {token}"
+            "Content-type": "application/vnd.akeneo.collection+json",
+            "Authorization": f"Bearer {token}",
         },
-        data=payload
+        data=payload,
     )
-    
+
     # Returning error message if any
     # Looping through response if 200 main response
-    if str(response.status_code)[0] == '2':
-        list_of_responses = [_json.loads(x) for x in response.text.split('\n')]
-        status_error = [x for x in list_of_responses if str(x['status_code'])[0] != '2']
+    if str(response.status_code)[0] == "2":
+        list_of_responses = [_json.loads(x) for x in response.text.split("\n")]
+        status_error = [x for x in list_of_responses if str(x["status_code"])[0] != "2"]
         if status_error:
             raise ValueError(f"Error in the following data:\n{status_error[:5]}")
     else:
         json_response = _json.loads(response.text)
-        raise ValueError(f"Status Code: {json_response['code']} Message: {json_response['message']}")
+        raise ValueError(
+            f"Status Code: {json_response['code']} Message: {json_response['message']}"
+        )
 
 
-_schema['write'] = """
+_schema[
+    "write"
+] = """
 type: object
 description: Write data into an Akeneo PIM
 required:

@@ -1,21 +1,28 @@
 """
 Connector to read/write from a Microsoft SQL Database.
 """
+
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-from ..utils import (
-  wildcard_expansion as _wildcard_expansion,
-  LazyLoader as _LazyLoader
-)
+from ..utils import wildcard_expansion as _wildcard_expansion, LazyLoader as _LazyLoader
 
 # Lazy load external dependency
-_pymssql = _LazyLoader('pymssql')
+_pymssql = _LazyLoader("pymssql")
 
 _schema = {}
 
 
-def read(host: str, user: str, password: str, command: str, port = 1433, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def read(
+    host: str,
+    user: str,
+    password: str,
+    command: str,
+    port=1433,
+    database: str = "",
+    columns: _Union[str, list] = None,
+    params: _Union[list, dict] = None,
+) -> _pd.DataFrame:
     """
     Import data from a Microsoft SQL database.
 
@@ -40,10 +47,13 @@ def read(host: str, user: str, password: str, command: str, port = 1433, databas
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
-    
+
     return df
 
-_schema['read'] = r"""
+
+_schema[
+    "read"
+] = r"""
 type: object
 description: Import data from a Microsoft SQL Server
 required:
@@ -87,7 +97,17 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 1433, columns: _Union[str, list] = None) -> None:
+def write(
+    df: _pd.DataFrame,
+    host: str,
+    database: str,
+    table: str,
+    user: str,
+    password: str,
+    action="INSERT",
+    port=1433,
+    columns: _Union[str, list] = None,
+) -> None:
     """
     Export data to a Microsoft SQL database.
 
@@ -103,7 +123,7 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
     :param action: Only INSERT is supported at this time, defaults to INSERT
     :param port: (Optional) If not provided, the default port will be used
     :param columns: (Optional) Subset of the columns to be written. If not provided, all columns will be output
-    """    
+    """
     _logging.info(f": Writing data to MSSQL :: {host} / {database} / {table}")
 
     # Create appropriate connection string
@@ -114,13 +134,20 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    if action.upper() == 'INSERT':
-        df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
+    if action.upper() == "INSERT":
+        df.to_sql(
+            table, conn, if_exists="append", index=False, method="multi", chunksize=1000
+        )
     else:
         # TODO: Add UPDATE AND UPSERT
-        raise ValueError('UPDATE and UPSERT are not implemented yet.') # pragma: no cover
+        raise ValueError(
+            "UPDATE and UPSERT are not implemented yet."
+        )  # pragma: no cover
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data to a Microsoft SQL Server
 required:
@@ -154,7 +181,13 @@ properties:
 """
 
 
-def run(host: str, user: str, password: str, command: _Union[str, list], params: _Union[list, dict] = None, **kwargs
+def run(
+    host: str,
+    user: str,
+    password: str,
+    command: _Union[str, list],
+    params: _Union[list, dict] = None,
+    **kwargs,
 ) -> None:
     """
     Run a command on a Microsoft SQL Server
@@ -167,22 +200,28 @@ def run(host: str, user: str, password: str, command: _Union[str, list], params:
     :param password: Password of user
     :param command: SQL command or a list of SQL commands to execute
     :param params: Variables to pass to a parameterized query.
-    """    
+    """
     _logging.info(f": Executing MSSQL Command :: {host}")
 
     # If user has provided a single command, convert to a list of one.
-    if isinstance(command, str): command = [command]
+    if isinstance(command, str):
+        command = [command]
 
     # Establish connection
-    conn = _pymssql.connect(server=host, user=user, password=password, autocommit=True, **kwargs)
+    conn = _pymssql.connect(
+        server=host, user=user, password=password, autocommit=True, **kwargs
+    )
     cursor = conn.cursor()
 
     for sql in command:
-      cursor.execute(sql, params)
+        cursor.execute(sql, params)
 
     conn.close()
 
-_schema['run'] = """
+
+_schema[
+    "run"
+] = """
 type: object
 description: Run a command against a Microsoft SQL Server such as triggering a query or stored procedure
 required:

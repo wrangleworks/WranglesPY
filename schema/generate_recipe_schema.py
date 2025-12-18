@@ -14,45 +14,43 @@ import wrangles
 
 # inverse of reserved_word_replacements
 reserved_word_replacements = {
-    v: k
-    for k, v in wrangles.config.reserved_word_replacements.items()
+    v: k for k, v in wrangles.config.reserved_word_replacements.items()
 }
 
-schema = {
-    'run': {},
-    'read': {},
-    'wrangles': {},
-    'write': {}
-}
+schema = {"run": {}, "read": {}, "wrangles": {}, "write": {}}
 
 # Load base recipe
-with open('recipe_base_schema.json', 'r') as f:
-  recipe_schema = json.load(f)
+with open("recipe_base_schema.json", "r") as f:
+    recipe_schema = json.load(f)
+
 
 def getConnectorDocs(schema_wrangles, obj, path):
     """
     Recursively loop through all connector code looking for docs
     """
-    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
+    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith("_")]
 
     if len(non_hidden_methods) > 0:
         for method in non_hidden_methods:
-            getConnectorDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
+            getConnectorDocs(
+                schema_wrangles, getattr(obj, method), ".".join([path, method])
+            )
 
-    if '_schema' in dir(obj):
-        if 'read' in obj._schema.keys():
-            schema['read'][path[1:]] = yaml.safe_load(obj._schema['read'])
+    if "_schema" in dir(obj):
+        if "read" in obj._schema.keys():
+            schema["read"][path[1:]] = yaml.safe_load(obj._schema["read"])
 
-        if 'write' in obj._schema.keys():
-            schema['write'][path[1:]] = yaml.safe_load(obj._schema['write'])
+        if "write" in obj._schema.keys():
+            schema["write"][path[1:]] = yaml.safe_load(obj._schema["write"])
 
-        if 'run' in obj._schema.keys():
-            schema['run'][path[1:]] = yaml.safe_load(obj._schema['run'])
+        if "run" in obj._schema.keys():
+            schema["run"][path[1:]] = yaml.safe_load(obj._schema["run"])
 
-getConnectorDocs(schema, wrangles.connectors, '')
+
+getConnectorDocs(schema, wrangles.connectors, "")
 
 # Add special read functions
-schema['read']['join'] = yaml.safe_load(
+schema["read"]["join"] = yaml.safe_load(
     """
     type: object
     description: Join two data sources on key(s). Equivalent to a join in SQL.
@@ -90,7 +88,7 @@ schema['read']['join'] = yaml.safe_load(
           "$ref": "#/$defs/read/items"
     """
 )
-schema['read']['union'] = yaml.safe_load(
+schema["read"]["union"] = yaml.safe_load(
     """
     type: object
     description: Combine two or more data sets together, stacked vertically. Equivalent to a union in SQL.
@@ -105,7 +103,7 @@ schema['read']['union'] = yaml.safe_load(
           "$ref": "#/$defs/read/items"
     """
 )
-schema['read']['concatenate'] = yaml.safe_load(
+schema["read"]["concatenate"] = yaml.safe_load(
     """
     type: object
     description: Combine two or more data sets together, stacked horizontally.
@@ -122,7 +120,7 @@ schema['read']['concatenate'] = yaml.safe_load(
 )
 
 # Add special write functions
-schema['write']['dataframe'] = yaml.safe_load(
+schema["write"]["dataframe"] = yaml.safe_load(
     """
     type: object
     description: Define the dataframe that is returned from the recipe.run() function
@@ -136,94 +134,93 @@ def getMethodDocs(schema_wrangles, obj, path):
     Recursively loop through all non-hidden function and
     look for appropriately formatted docstrings
     """
-    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
+    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith("_")]
 
     if len(non_hidden_methods) > 0:
         for method in non_hidden_methods:
             # Prevent including methods twice that are referenced at the root
-            if method not in ('main', 'pandas'):
-                getMethodDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
+            if method not in ("main", "pandas"):
+                getMethodDocs(
+                    schema_wrangles, getattr(obj, method), ".".join([path, method])
+                )
     else:
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
-            if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
-                schema_wrangles[
-                    reserved_word_replacements.get(path[1:], path[1:])
-                ] = schema_wrangle
+            if "type" in schema_wrangle.keys() or "anyOf" in schema_wrangle.keys():
+                schema_wrangles[reserved_word_replacements.get(path[1:], path[1:])] = (
+                    schema_wrangle
+                )
         except Exception as e:
-            logging.warning(f'{obj} description={e}')
+            logging.warning(f"{obj} description={e}")
 
-getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
+
+getMethodDocs(schema["wrangles"], wrangles.recipe._recipe_wrangles, "")
 
 
 # Add common wrangle properties
-for wrangle in schema['wrangles']:
-    if "properties" not in schema['wrangles'][wrangle]:
-        schema['wrangles'][wrangle]["properties"] = {}
+for wrangle in schema["wrangles"]:
+    if "properties" not in schema["wrangles"][wrangle]:
+        schema["wrangles"][wrangle]["properties"] = {}
 
-    schema['wrangles'][wrangle]['properties']["if"] = {
+    schema["wrangles"][wrangle]["properties"]["if"] = {
         "$ref": f"#/$defs/wrangles/commonProperties/if"
     }
 
     if wrangle not in wrangles.config.where_not_implemented:
         if wrangle in wrangles.config.where_overwrite_output:
-            schema['wrangles'][wrangle]['properties']['where'] = {
+            schema["wrangles"][wrangle]["properties"]["where"] = {
                 "$ref": "#/$defs/wrangles/commonProperties/where_special"
             }
         else:
-            schema['wrangles'][wrangle]['properties']['where'] = {
+            schema["wrangles"][wrangle]["properties"]["where"] = {
                 "$ref": "#/$defs/wrangles/commonProperties/where"
             }
 
-        schema['wrangles'][wrangle]['properties']["where_params"] = {
+        schema["wrangles"][wrangle]["properties"]["where_params"] = {
             "$ref": f"#/$defs/wrangles/commonProperties/where_params"
         }
 
 # Add common write properties
-for write in schema['write']:
-    if "properties" in schema['write'][write]:
-        write_properties = schema['write'][write]['properties']
+for write in schema["write"]:
+    if "properties" in schema["write"][write]:
+        write_properties = schema["write"][write]["properties"]
     else:
-        write_properties = schema['write'][write]['anyOf'][-1]['properties']
+        write_properties = schema["write"][write]["anyOf"][-1]["properties"]
 
     for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
-        write_properties[x] = {
-            "$ref": f"#/$defs/write/commonProperties/{x}"
-        }
+        write_properties[x] = {"$ref": f"#/$defs/write/commonProperties/{x}"}
 
 # Add common read properties
-for read in schema['read']:
-    if "properties" in schema['read'][read]:
-        read_properties = schema['read'][read]['properties']
+for read in schema["read"]:
+    if "properties" in schema["read"][read]:
+        read_properties = schema["read"][read]["properties"]
     else:
-        read_properties = schema['read'][read]['anyOf'][-1]['properties']
+        read_properties = schema["read"][read]["anyOf"][-1]["properties"]
 
     for x in ["columns", "not_columns", "where", "where_params", "order_by", "if"]:
-        read_properties[x] = {
-            "$ref": f"#/$defs/write/commonProperties/{x}"
-        }
+        read_properties[x] = {"$ref": f"#/$defs/write/commonProperties/{x}"}
 
 # Add common run properties
-for run in schema['run']:
-    if "properties" not in schema['run'][run]:
-        schema['run'][run]['properties'] = {}
+for run in schema["run"]:
+    if "properties" not in schema["run"][run]:
+        schema["run"][run]["properties"] = {}
 
-    run_properties = schema['run'][run]['properties']
+    run_properties = schema["run"][run]["properties"]
 
     for x in ["if"]:
-        run_properties[x] = {
-            "$ref": f"#/$defs/run/commonProperties/{x}"
-        }
+        run_properties[x] = {"$ref": f"#/$defs/run/commonProperties/{x}"}
 
 # Construct final schema
-recipe_schema['$defs']['read']['items']['properties'] = schema['read']
-recipe_schema['$defs']['write']['items']['properties'] = schema['write']
-recipe_schema['$defs']['run']['items']['properties'] = schema['run']
-recipe_schema['$defs']['wrangles']['items']['properties'] = schema['wrangles']
+recipe_schema["$defs"]["read"]["items"]["properties"] = schema["read"]
+recipe_schema["$defs"]["write"]["items"]["properties"] = schema["write"]
+recipe_schema["$defs"]["run"]["items"]["properties"] = schema["run"]
+recipe_schema["$defs"]["wrangles"]["items"]["properties"] = schema["wrangles"]
 
 # Validate the generated schema
-jsonschema.validate(recipe_schema, requests.get('http://json-schema.org/draft-07/schema#').json())
+jsonschema.validate(
+    recipe_schema, requests.get("http://json-schema.org/draft-07/schema#").json()
+)
 
 # Write final schema
-with open('schema.json', 'w') as f:
+with open("schema.json", "w") as f:
     json.dump(recipe_schema, f)

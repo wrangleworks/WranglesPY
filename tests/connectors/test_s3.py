@@ -4,14 +4,16 @@ import wrangles
 import pytest
 import time
 
-s3_key = os.getenv('AWS_ACCESS_KEY_ID', '...')
-s3_secret = os.getenv('AWS_SECRET_ACCESS_KEY', '...')
+s3_key = os.getenv("AWS_ACCESS_KEY_ID", "...")
+s3_secret = os.getenv("AWS_SECRET_ACCESS_KEY", "...")
+
 
 class TestRead:
     """
     Test reading from an S3 bucket
     within the read of a recipe
     """
+
     def test_read_named_credentials(self):
         """
         Reading a file in S3 using
@@ -26,12 +28,9 @@ class TestRead:
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
-            variables={
-                's3_key': s3_key,
-                's3_secret': s3_secret
-            }
+            variables={"s3_key": s3_key, "s3_secret": s3_secret},
         )
-        assert df.iloc[0]['Winners'] == 'Uruguay'
+        assert df.iloc[0]["Winners"] == "Uruguay"
 
     def test_read_env_variables(self):
         """
@@ -46,7 +45,7 @@ class TestRead:
                 key: World Cup Winners.xlsx
             """
         )
-        assert df.iloc[0]['Winners'] == 'Uruguay'
+        assert df.iloc[0]["Winners"] == "Uruguay"
 
     def test_read_error_invalid_file(self):
         """
@@ -89,13 +88,15 @@ class TestRead:
                 key: test_gzip_read.csv.gz
             """
         )
-        assert df['header'][0] == 'Sed magnam tempora adipisci velit eius consectetur'
+        assert df["header"][0] == "Sed magnam tempora adipisci velit eius consectetur"
 
     def test_read_error_invalid_credentials(self):
         """
         Test that a clear error is raised if the credentials aren't correct
         """
-        with pytest.raises(RuntimeError, match="Access Key Id you provided does not exist"):
+        with pytest.raises(
+            RuntimeError, match="Access Key Id you provided does not exist"
+        ):
             wrangles.recipe.run(
                 """
                 read:
@@ -107,10 +108,12 @@ class TestRead:
                 """
             )
 
+
 class TestWrite:
     """
     Test writing directly to S3
     """
+
     def test_write_credentials_parameters(self):
         """
         Writing to an S3 file using
@@ -125,16 +128,19 @@ class TestWrite:
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
-            variables={
-                's3_key': s3_key,
-                's3_secret': s3_secret
-            },
-            dataframe=pd.DataFrame({
-                'Country': ['Brazil', 'Germany', 'Italy'],
-                'Titles': [5, 4, 4,],
-            })
+            variables={"s3_key": s3_key, "s3_secret": s3_secret},
+            dataframe=pd.DataFrame(
+                {
+                    "Country": ["Brazil", "Germany", "Italy"],
+                    "Titles": [
+                        5,
+                        4,
+                        4,
+                    ],
+                }
+            ),
         )
-        assert df.iloc[0]['Country'] == 'Brazil'
+        assert df.iloc[0]["Country"] == "Brazil"
 
     def test_write_env_variables(self):
         """
@@ -148,13 +154,19 @@ class TestWrite:
                 bucket: wrwx-public
                 key: World Cup Titles.xlsx
             """,
-            dataframe=pd.DataFrame({
-                'Country': ['Brazil', 'Germany', 'Italy'],
-                'Titles': [5, 4, 4,],
-            })
+            dataframe=pd.DataFrame(
+                {
+                    "Country": ["Brazil", "Germany", "Italy"],
+                    "Titles": [
+                        5,
+                        4,
+                        4,
+                    ],
+                }
+            ),
         )
-        assert df.iloc[0]['Country'] == 'Brazil'
-    
+        assert df.iloc[0]["Country"] == "Brazil"
+
     def test_write_error_invalid_bucket(self):
         """
         Test that a clear error is raised if the bucket isn't valid
@@ -178,7 +190,9 @@ class TestWrite:
         """
         Test that a clear error is raised if the credentials aren't correct
         """
-        with pytest.raises(RuntimeError, match="Access Key Id you provided does not exist"):
+        with pytest.raises(
+            RuntimeError, match="Access Key Id you provided does not exist"
+        ):
             wrangles.recipe.run(
                 """
                 read:
@@ -218,6 +232,7 @@ class TestRunUpload:
     """
     Test run s3.upload_files
     """
+
     def test_upload_error(self):
         """
         Test that an appropriate error is shown if the number of keys and filenames
@@ -283,10 +298,10 @@ class TestRunUpload:
         - file:
             name: tests/temp/data.csv
         """
-        
+
         df = wrangles.recipe.run(recipe2)
-        assert df.iloc[0]['Find'] == 'BRG'
-        
+        assert df.iloc[0]["Find"] == "BRG"
+
     # Key and file included
     def test_file_upload_and_download_2(self):
         recipe = f"""
@@ -315,14 +330,16 @@ class TestRunUpload:
         - file:
             name: tests/temp/temp_download_data.csv
         """
-        
+
         df = wrangles.recipe.run(recipe2)
-        assert df.iloc[0]['Find'] == 'BRG'
+        assert df.iloc[0]["Find"] == "BRG"
+
 
 class TestRunDownload:
     """
     Test using run s3.download_files
     """
+
     def test_run_download_error_invalid_file(self):
         """
         Test that a clear error is raised if the file is missing

@@ -3,6 +3,7 @@ Connector to read & write from the local filesystem
 
 Supports Excel, CSV, JSON and JSONL files.
 """
+
 import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
@@ -17,7 +18,9 @@ from ._formatting import file_format as _file_format
 _schema = {}
 
 
-def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwargs) -> _pd.DataFrame:
+def read(
+    name: str, columns: _Union[str, list] = None, file_object=None, **kwargs
+) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
@@ -37,49 +40,53 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
-    if (
-        isinstance(name, dict) and
-        all(x in name for x in ['name', 'data', 'mimeType'])
-    ):
+    if isinstance(name, dict) and all(x in name for x in ["name", "data", "mimeType"]):
         # User passed a file as a object
-        file_object = _BytesIO(
-            _base64.b64decode(name['data'])
-        )
-        name = name['name']
+        file_object = _BytesIO(_base64.b64decode(name["data"]))
+        name = name["name"]
 
     _logging.info(f": Reading data from file :: {name}")
-    
+
     # If user does not pass a file object then use name
     if file_object is None:
         file_object = name
     else:
-        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+        if str(name).lower().endswith("gz") and "compression" not in kwargs:
             # If the file is passed in memory but indicates it is gzipped,
             # then set appropriate compression as it can't be inferred
-            kwargs['compression'] = 'gzip'
-    
+            kwargs["compression"] = "gzip"
+
     # Open appropriate file type
-    if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
-        if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
-        df = _pd.read_excel(file_object, **kwargs).fillna('')
-    elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
-        df = _pd.read_csv(file_object, **kwargs).fillna('')
-    elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
-        df = _pd.read_json(file_object, **kwargs).fillna('')
-    elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
-        # Set lines to true 
-        kwargs['lines'] = True
+    if name.split(".")[-1] in ["xlsx", "xlsm", "xls"]:
+        if "dtype" not in kwargs.keys():
+            kwargs["dtype"] = "object"
+        df = _pd.read_excel(file_object, **kwargs).fillna("")
+    elif name.split(".")[-1] in ["csv", "txt"] or ".".join(name.split(".")[-2:]) in [
+        "csv.gz",
+        "txt.gz",
+    ]:
+        df = _pd.read_csv(file_object, **kwargs).fillna("")
+    elif name.split(".")[-1] in ["json"] or ".".join(name.split(".")[-2:]) in [
+        "json.gz"
+    ]:
+        df = _pd.read_json(file_object, **kwargs).fillna("")
+    elif name.split(".")[-1] in ["jsonl"] or ".".join(name.split(".")[-2:]) in [
+        "jsonl.gz"
+    ]:
+        # Set lines to true
+        kwargs["lines"] = True
         # Only records orientation is supported for JSONL
-        kwargs['orient'] = 'records'
-        df = _pd.read_json(file_object, **kwargs).fillna('')
-    elif (
-        name.split('.')[-1] in ['pkl', "pickle"] or 
-        (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
+        kwargs["orient"] = "records"
+        df = _pd.read_json(file_object, **kwargs).fillna("")
+    elif name.split(".")[-1] in ["pkl", "pickle"] or (
+        len(name.split(".")) >= 3 and name.split(".")[-2] in ["pkl", "pickle"]
     ):
-        df = _pd.read_pickle(file_object, **kwargs).fillna('')
+        df = _pd.read_pickle(file_object, **kwargs).fillna("")
     else:
-      # If file type is not recognised
-      raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
+        # If file type is not recognised
+        raise ValueError(
+            f"File type '{name.split('.')[-1]}' is not supported by the file connector."
+        )
 
     # If the user specifies only certain columns, only include those
     if columns is not None:
@@ -88,7 +95,10 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
 
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Import a file
 required:
@@ -135,7 +145,14 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
+def write(
+    df: _pd.DataFrame,
+    name: str,
+    columns: _Union[str, list] = None,
+    file_object: _BytesIO = None,
+    formatting: dict = None,
+    **kwargs,
+) -> None:
     """
     Output a file to the local file system as defined by the parameters.
 
@@ -144,7 +161,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     - CSV (.csv, .txt)
     - JSON (.json), JSONL (.jsonl)
     - Pickle (.pkl, .pickle)
-    
+
     JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
 
     :param df: Dataframe to be written to a file
@@ -164,63 +181,77 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     # If user does not pass a file object then write to disk
     if file_object is None:
         # Ensure directory exists
-        path_matched = _re.search(r'^.+(?=\/\w+\.\w+)', name)
+        path_matched = _re.search(r"^.+(?=\/\w+\.\w+)", name)
         if path_matched:
             _os.makedirs(path_matched[0], exist_ok=True)
 
         # Set file object to name
         file_object = name
     else:
-        if str(name).lower().endswith('gz') and 'compression' not in kwargs:
+        if str(name).lower().endswith("gz") and "compression" not in kwargs:
             # If the file is passed in memory but indicates it is gzipped,
             # then set appropriate compression as it can't be inferred
-            kwargs['compression'] = 'gzip'
+            kwargs["compression"] = "gzip"
 
     # Write appropriate file
-    if name.split('.')[-1] in ['xlsx', 'xls']:
+    if name.split(".")[-1] in ["xlsx", "xls"]:
         # Write an Excel file
         # Default to not including index if user hasn't explicitly requested it
-        if 'index' not in kwargs.keys(): kwargs['index'] = False
+        if "index" not in kwargs.keys():
+            kwargs["index"] = False
         if formatting:
-            if 'sheet_name' in kwargs.keys():
-                sheet_name = kwargs['sheet_name']
+            if "sheet_name" in kwargs.keys():
+                sheet_name = kwargs["sheet_name"]
             else:
-                sheet_name = 'Sheet1'
+                sheet_name = "Sheet1"
             _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
-            
+
         else:
             df.to_excel(file_object, **kwargs)
 
-    elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
+    elif name.split(".")[-1] in ["csv", "txt"] or ".".join(name.split(".")[-2:]) in [
+        "csv.gz",
+        "txt.gz",
+    ]:
         # Write a CSV file
         # Default to not including index if user hasn't explicitly requested it
-        if 'index' not in kwargs.keys(): kwargs['index'] = False
+        if "index" not in kwargs.keys():
+            kwargs["index"] = False
         df.to_csv(file_object, **kwargs)
 
-    elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
+    elif name.split(".")[-1] in ["json"] or ".".join(name.split(".")[-2:]) in [
+        "json.gz"
+    ]:
         # Write a JSON file
         # If user doesn't explicitly set orient, assume records - this seems a better default
-        if 'orient' not in kwargs.keys(): kwargs['orient'] = 'records'
+        if "orient" not in kwargs.keys():
+            kwargs["orient"] = "records"
         df.to_json(file_object, **kwargs)
 
-    elif name.split('.')[-1] in ['jsonl'] or '.'.join(name.split('.')[-2:]) in ['jsonl.gz']:
+    elif name.split(".")[-1] in ["jsonl"] or ".".join(name.split(".")[-2:]) in [
+        "jsonl.gz"
+    ]:
         # Write a line delimited JSONL file
-        # Set lines to true 
-        kwargs['lines'] = True
+        # Set lines to true
+        kwargs["lines"] = True
         # Only records orientation is supported for JSONL
-        kwargs['orient'] = 'records'
+        kwargs["orient"] = "records"
         df.to_json(file_object, **kwargs)
 
-    elif (
-        name.split('.')[-1] in ['pkl', "pickle"] or 
-        (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
+    elif name.split(".")[-1] in ["pkl", "pickle"] or (
+        len(name.split(".")) >= 3 and name.split(".")[-2] in ["pkl", "pickle"]
     ):
         df.to_pickle(file_object, **kwargs)
     else:
-      # If file type is not recognised
-      raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
+        # If file type is not recognised
+        raise ValueError(
+            f"File type '{name.split('.')[-1]}' is not supported by the file connector."
+        )
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Export data to a file
 required:

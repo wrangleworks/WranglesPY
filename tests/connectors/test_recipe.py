@@ -12,25 +12,28 @@ def test_read_recipe_connector():
             inputFile: 'tests/samples/data.csv'
     """
     df = wrangles.recipe.run(recipe)
-    assert df['Find2'].iloc[0] == 'brg'
-    
-    
+    assert df["Find2"].iloc[0] == "brg"
+
+
 # Recipe as a connector
 from wrangles.connectors.recipe import read, run
+
+
 def test_read_recipe_connector_2():
-  recipe = """
+    recipe = """
   read:
       - recipe:
           name: 'tests/samples/recipe_sample.wrgl.yaml'
           variables:
             inputFile: 'tests/samples/data.csv'
   """
-  df = read(recipe)
-  assert df['Find2'].iloc[0] == 'brg'
-  
+    df = read(recipe)
+    assert df["Find2"].iloc[0] == "brg"
+
+
 # writing
 def test_write_recipe_connector():
-  recipe = """
+    recipe = """
   read:
       - recipe:
           name: 'tests/samples/recipe_sample.wrgl.yaml'
@@ -42,13 +45,13 @@ def test_write_recipe_connector():
           variables:
             inputFile: 'tests/samples/data.csv'
   """
-  df = read(recipe)
-  assert df['Find2'].iloc[0] == 'brg'
+    df = read(recipe)
+    assert df["Find2"].iloc[0] == "brg"
 
 
 # Running recipe
 def test_run_recipe_connector():
-  recipe = """
+    recipe = """
   run:
     on_start:
       - recipe:
@@ -56,7 +59,7 @@ def test_run_recipe_connector():
           variables:
             inputFile: 'tests/samples/data.csv'
   """
-  assert run(recipe) == None
+    assert run(recipe) == None
 
 
 def test_function_sub_recipe():
@@ -64,24 +67,26 @@ def test_function_sub_recipe():
     Test that custom functions are able to
     be called by sub-recipes.
     """
-    main_recipe = 'tests/samples/sub_rec_main.wrgl.yaml'
+    main_recipe = "tests/samples/sub_rec_main.wrgl.yaml"
 
     # Functions
     def read_data(columns):
-        data = pd.DataFrame({
-            'col1': ['mario', 'fey'],
-            'col2': ['TACOS', 'RIBEYE'],
-            'Not this': ['No', 'No']
-        })
+        data = pd.DataFrame(
+            {
+                "col1": ["mario", "fey"],
+                "col2": ["TACOS", "RIBEYE"],
+                "Not this": ["No", "No"],
+            }
+        )
         return data[columns]
 
     def custom_func_1(df, case):
-        if case == 'upper':
-            df['col1'] = df['col1'].str.upper()
+        if case == "upper":
+            df["col1"] = df["col1"].str.upper()
         else:
-            df['col1'] = df['col1'].str.lower()
+            df["col1"] = df["col1"].str.lower()
         return df
-        
+
     def write_1(df, type):
         df.to_excel(f"tests/temp/excel.{type}")
 
@@ -91,9 +96,10 @@ def test_function_sub_recipe():
             custom_func_1,
             write_1,
             read_data,
-        ]
+        ],
     )
-    assert df['col1'][0] == 'MARIO'
+    assert df["col1"][0] == "MARIO"
+
 
 def test_read():
     """
@@ -116,6 +122,7 @@ def test_read():
     )
     assert df["header1"][0] == "VALUE1"
 
+
 def test_wrangles():
     """
     Test wrangles defined within the recipe
@@ -136,6 +143,7 @@ def test_wrangles():
         """
     )
     assert df["header1"][0] == "VALUE1"
+
 
 def test_write():
     """
@@ -160,6 +168,7 @@ def test_write():
         """
     )
     assert memory.dataframes["recipe_write"]["data"][0][0] == "VALUE1"
+
 
 def test_write_optional_col():
     """
@@ -187,7 +196,8 @@ def test_write_optional_col():
                     id: recipe_write
         """
     )
-    assert memory.dataframes['recipe_write']['columns'] == ['header1', 'HEADER!']
+    assert memory.dataframes["recipe_write"]["columns"] == ["header1", "HEADER!"]
+
 
 def test_write_optional_no_col():
     """
@@ -214,7 +224,8 @@ def test_write_optional_no_col():
                     id: recipe_write
         """
     )
-    assert memory.dataframes['recipe_write']['columns'] == ['header1']
+    assert memory.dataframes["recipe_write"]["columns"] == ["header1"]
+
 
 def test_run():
     """
@@ -241,6 +252,7 @@ def test_run():
     )
     assert memory.dataframes["recipe_run"]["data"][0][0] == "VALUE1"
 
+
 def test_model_id():
     """
     Test reading a recipe with a model ID
@@ -252,10 +264,12 @@ def test_model_id():
               name: 1e13e845-bc3f-4b27
         """
     )
-    assert (
-        len(df) == 15 and
-        list(df.columns[:3]) == ["Part Number", "Description", "Brand"]
-    )
+    assert len(df) == 15 and list(df.columns[:3]) == [
+        "Part Number",
+        "Description",
+        "Brand",
+    ]
+
 
 def test_model_with_custom_functions():
     """
@@ -269,7 +283,7 @@ def test_model_with_custom_functions():
         """
     )
     assert (
-        df['header1'][0] == "value1" and
-        df['header2'][0] == "value2" and
-        df['header3'][0] == "VALUE2"
+        df["header1"][0] == "value1"
+        and df["header2"][0] == "value2"
+        and df["header3"][0] == "VALUE2"
     )

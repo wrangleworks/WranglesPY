@@ -3,6 +3,7 @@ Connector to run a recipe.
 
 Run a recipe, from a recipe! Recipe-ception.
 """
+
 from typing import Union as _Union
 import types as _types
 from .. import recipe as _recipe
@@ -29,10 +30,14 @@ def run(
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
-    if not name: name = kwargs
+    if not name:
+        name = kwargs
     _recipe.run(name, variables=variables, functions=functions)
 
-_schema['run'] = """
+
+_schema[
+    "run"
+] = """
 anyOf:
   - "$ref": "#"
   - type: object
@@ -66,18 +71,21 @@ def read(
     :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
-    if not name: name = kwargs
+    if not name:
+        name = kwargs
     df = _recipe.run(name, variables=variables, functions=functions)
 
     # Select only specific columns if user requests them
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
-    
+
     return df
 
 
-_schema['read'] = """
+_schema[
+    "read"
+] = """
 anyOf:
   - "$ref": "#"
   - type: object
@@ -118,7 +126,8 @@ def write(
     :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
-    if not name: name = kwargs
+    if not name:
+        name = kwargs
     # Select only specific columns if user requests them
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
@@ -127,7 +136,9 @@ def write(
     _recipe.run(name, dataframe=df, variables=variables, functions=functions)
 
 
-_schema['write'] = """
+_schema[
+    "write"
+] = """
 anyOf:
   - "$ref": "#"
   - type: object
