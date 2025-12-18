@@ -3,6 +3,7 @@ Import a file from an SFTP server
 
 Supports Excel, CSV, JSON and JSONL files.
 """
+
 from typing import Union as _Union
 import pandas as _pd
 import io as _io
@@ -11,9 +12,9 @@ from . import file as _file
 from ..utils import LazyLoader as _LazyLoader
 
 # Lazy load external dependencies
-_fabric = _LazyLoader('fabric')
+_fabric = _LazyLoader("fabric")
 
-_RSAKey = _LazyLoader('paramiko').RSAKey
+_RSAKey = _LazyLoader("paramiko").RSAKey
 
 _schema = {}
 
@@ -22,11 +23,11 @@ def read(
     host: str,
     user: str,
     file: str,
-    password: str = '',
-    pkey: str = '',
+    password: str = "",
+    pkey: str = "",
     port: int = 22,
     connect_kwargs: dict = None,
-    **kwargs
+    **kwargs,
 ) -> _pd.DataFrame:
     """
     Read files from an SFTP server
@@ -50,33 +51,40 @@ def read(
 
     # Check that either password or pkey is provided and pass to connect_kwargs
     if password:
-        connect_kwargs = {'pkey': password, **connect_kwargs}
+        connect_kwargs = {"pkey": password, **connect_kwargs}
     elif pkey:
-        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        connect_kwargs = {
+            "pkey": _RSAKey(file_obj=_io.StringIO(pkey)),
+            **connect_kwargs,
+        }
     else:
-        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+        raise ValueError(
+            "Either password or pkey must be provided to connect to the SFTP server"
+        )
 
     # Get the file from the SFTP server
     tempFile = _io.BytesIO()
     with _fabric.Connection(
-        host,
-        user=user,
-        port=port,
-        connect_kwargs=connect_kwargs
+        host, user=user, port=port, connect_kwargs=connect_kwargs
     ) as conn:
         try:
             conn.get(file, local=tempFile)
         except FileNotFoundError:
-            raise FileNotFoundError(f"File not found on SFTP server :: {file}") from None
+            raise FileNotFoundError(
+                f"File not found on SFTP server :: {file}"
+            ) from None
 
     tempFile.seek(0)
-    
+
     # Read the data using the file connector
     df = _file.read(file, file_object=tempFile, **kwargs)
 
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Import a file from an SFTP server
 required:
@@ -128,11 +136,11 @@ def write(
     host: str,
     user: str,
     file: str,
-    password: str = '',
-    pkey: str = '',
+    password: str = "",
+    pkey: str = "",
     port: int = 22,
     connect_kwargs: dict = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Write files to an SFTP server
@@ -160,11 +168,16 @@ def write(
 
     # Check that either password or pkey is provided and pass to connect_kwargs
     if password:
-        connect_kwargs = {'pkey': password, **connect_kwargs}
+        connect_kwargs = {"pkey": password, **connect_kwargs}
     elif pkey:
-        connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+        connect_kwargs = {
+            "pkey": _RSAKey(file_obj=_io.StringIO(pkey)),
+            **connect_kwargs,
+        }
     else:
-        raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+        raise ValueError(
+            "Either password or pkey must be provided to connect to the SFTP server"
+        )
 
     # Create file in memory using the file connector
     tempFile = _io.BytesIO()
@@ -174,15 +187,14 @@ def write(
     # Export to SFTP server
     _logging.info(f": Exporting data via SFTP :: {host}")
     with _fabric.Connection(
-        host,
-        user=user,
-        port=port,
-        connect_kwargs=connect_kwargs
+        host, user=user, port=port, connect_kwargs=connect_kwargs
     ) as conn:
         conn.put(tempFile, remote=file)
 
 
-_schema['write'] = """
+_schema[
+    "write"
+] = """
 type: object
 description: Export a file to an SFTP server
 required:
@@ -220,10 +232,12 @@ properties:
       - values
 """
 
+
 class download_files:
     """
     Download files from an SFTP host and save to the local file system.
     """
+
     _schema = {
         "run": """
             type: object
@@ -270,11 +284,11 @@ class download_files:
         host: str,
         user: str,
         files: _Union[str, list],
-        password: str = '',
-        pkey: str = '',
+        password: str = "",
+        pkey: str = "",
         local: _Union[str, list] = None,
         port: int = 22,
-        connect_kwargs: dict = None
+        connect_kwargs: dict = None,
     ):
         """
         Download files from an SFTP host and save to the local file system.
@@ -293,9 +307,11 @@ class download_files:
 
         _logging.info(f": Downloading files from SFTP :: {host} / {files}")
 
-        # Ensure files and local are both lists and 
-        if not isinstance(files, list): files = [files]
-        if not isinstance(local, list): local = [local]
+        # Ensure files and local are both lists and
+        if not isinstance(files, list):
+            files = [files]
+        if not isinstance(local, list):
+            local = [local]
 
         # If only a single local is provided, e.g. a directory,
         # expand to the same length as files.
@@ -309,28 +325,34 @@ class download_files:
 
         # Check that either password or pkey is provided and pass to connect_kwargs
         if password:
-            connect_kwargs = {'pkey': password, **connect_kwargs}
+            connect_kwargs = {"pkey": password, **connect_kwargs}
         elif pkey:
-            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+            connect_kwargs = {
+                "pkey": _RSAKey(file_obj=_io.StringIO(pkey)),
+                **connect_kwargs,
+            }
         else:
-            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+            raise ValueError(
+                "Either password or pkey must be provided to connect to the SFTP server"
+            )
 
         with _fabric.Connection(
-            host,
-            user=user,
-            port=port,
-            connect_kwargs=connect_kwargs
+            host, user=user, port=port, connect_kwargs=connect_kwargs
         ) as conn:
             for f, l in zip(files, local):
                 try:
                     conn.get(remote=f, local=l)
                 except FileNotFoundError:
-                    raise FileNotFoundError(f"File not found on SFTP server :: {f}") from None
+                    raise FileNotFoundError(
+                        f"File not found on SFTP server :: {f}"
+                    ) from None
+
 
 class upload_files:
     """
     Upload files from the local file system to an SFTP host.
     """
+
     _schema = {
         "run": """
             type: object
@@ -377,11 +399,11 @@ class upload_files:
         host: str,
         user: str,
         files: _Union[str, list],
-        password: str = '',
-        pkey: str = '',
+        password: str = "",
+        pkey: str = "",
         remote: _Union[str, list] = None,
         port: int = 22,
-        connect_kwargs: dict = None
+        connect_kwargs: dict = None,
     ):
         """
         Upload files from the local file system to an SFTP host.
@@ -397,12 +419,14 @@ class upload_files:
         """
         if connect_kwargs is None:
             connect_kwargs = {}
-            
+
         _logging.info(f": Uploading files to SFTP :: {host} / {files}")
 
         # Ensure files and remote are both lists
-        if not isinstance(files, list): files = [files]
-        if not isinstance(remote, list): remote = [remote]
+        if not isinstance(files, list):
+            files = [files]
+        if not isinstance(remote, list):
+            remote = [remote]
 
         # If only a single remote is provided, e.g. a directory,
         # expand to the same length as files.
@@ -416,17 +440,19 @@ class upload_files:
 
         # Check that either password or pkey is provided and pass to connect_kwargs
         if password:
-            connect_kwargs = {'pkey': password, **connect_kwargs}
+            connect_kwargs = {"pkey": password, **connect_kwargs}
         elif pkey:
-            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+            connect_kwargs = {
+                "pkey": _RSAKey(file_obj=_io.StringIO(pkey)),
+                **connect_kwargs,
+            }
         else:
-            raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
+            raise ValueError(
+                "Either password or pkey must be provided to connect to the SFTP server"
+            )
 
         with _fabric.Connection(
-            host,
-            user=user,
-            port=port,
-            connect_kwargs=connect_kwargs
+            host, user=user, port=port, connect_kwargs=connect_kwargs
         ) as conn:
             for f, r in zip(files, remote):
                 conn.put(local=f, remote=r)

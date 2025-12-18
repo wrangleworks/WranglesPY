@@ -1,6 +1,7 @@
 """
 Test the file connector for reading and writing files to the local file system.
 """
+
 import uuid as _uuid
 import wrangles
 import pandas as _pd
@@ -11,6 +12,7 @@ class TestRead:
     """
     Test reading files with the file connector
     """
+
     def test_read_csv(self):
         """
         Test a basic .csv import
@@ -21,7 +23,7 @@ class TestRead:
               name: tests/samples/data.csv
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_read_txt(self):
         """
@@ -33,7 +35,7 @@ class TestRead:
               name: tests/samples/data.txt
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_read_json(self):
         """
@@ -45,7 +47,7 @@ class TestRead:
               name: tests/samples/data.json
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_read_excel(self):
         """
@@ -57,7 +59,7 @@ class TestRead:
               name: tests/samples/data.xlsx
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     ## JSON Lines
     def test_read_jsonl(self):
@@ -67,7 +69,7 @@ class TestRead:
             name: tests/samples/data.jsonl
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_read_csv_columns(self):
         """
@@ -81,7 +83,7 @@ class TestRead:
                 - Find
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find']
+        assert df.columns.tolist() == ["Find"]
 
     def test_read_json_columns(self):
         """
@@ -95,7 +97,7 @@ class TestRead:
                 - Find
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find']
+        assert df.columns.tolist() == ["Find"]
 
     def test_read_excel_columns(self):
         """
@@ -109,16 +111,16 @@ class TestRead:
                 - Find
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find']  
+        assert df.columns.tolist() == ["Find"]
 
     def test_read_pickle(self):
         """
         Test reading a pickle file
         """
         filename = str(_uuid.uuid4())
-        _pd.DataFrame(
-            {"header1": ["value1", "value2", "value3"]}
-        ).to_pickle(f"tests/temp/{filename}.pkl")
+        _pd.DataFrame({"header1": ["value1", "value2", "value3"]}).to_pickle(
+            f"tests/temp/{filename}.pkl"
+        )
 
         df = wrangles.recipe.run(
             """
@@ -126,22 +128,19 @@ class TestRead:
               - file:
                   name: tests/temp/${filename}.pkl
             """,
-            variables={"filename": filename}
+            variables={"filename": filename},
         )
-        
-        assert (
-            df["header1"][0] == "value1"
-            and len(df) == 3
-        )
+
+        assert df["header1"][0] == "value1" and len(df) == 3
 
     def test_read_pickle_gzip(self):
         """
         Test reading a pickle file that's gzipped
         """
         filename = str(_uuid.uuid4())
-        _pd.DataFrame(
-            {"header1": ["value1", "value2", "value3"]}
-        ).to_pickle(f"tests/temp/{filename}.pkl.gz")
+        _pd.DataFrame({"header1": ["value1", "value2", "value3"]}).to_pickle(
+            f"tests/temp/{filename}.pkl.gz"
+        )
 
         df = wrangles.recipe.run(
             """
@@ -149,17 +148,14 @@ class TestRead:
               - file:
                   name: tests/temp/${filename}.pkl.gz
             """,
-            variables={"filename": filename}
+            variables={"filename": filename},
         )
-        
-        assert (
-            df["header1"][0] == "value1"
-            and len(df) == 3
-        ) 
+
+        assert df["header1"][0] == "value1" and len(df) == 3
 
     def test_read_unsupported_filetype(self):
         """
-        Check an appropriate error is given if the user 
+        Check an appropriate error is given if the user
         tries to read an unknown file type
         """
         with pytest.raises(ValueError, match="'jason'"):
@@ -171,10 +167,12 @@ class TestRead:
                 """
             )
 
+
 class TestWrite:
     """
     Test writing files with the file connector
     """
+
     # Write using index
     def test_write_file_indexed(self):
         recipe = """
@@ -191,7 +189,7 @@ class TestWrite:
               index: true
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_write_file_optional_col(self):
         """
@@ -215,7 +213,7 @@ class TestWrite:
                 - find?
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace', 'find']
+        assert df.columns.tolist() == ["Find", "Replace", "find"]
 
     def test_write_file_optional_not_col(self):
         """
@@ -239,7 +237,7 @@ class TestWrite:
                 - find?
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_write_csv(self):
         """
@@ -265,7 +263,7 @@ class TestWrite:
                   name: tests/temp/temp.csv
             """
         )
-        assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 5
+        assert df.columns.tolist() == ["Find", "Replace"] and len(df) == 5
 
     def test_write_txt(self):
         """
@@ -291,7 +289,7 @@ class TestWrite:
                   name: tests/temp/temp.txt
             """
         )
-        assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 5
+        assert df.columns.tolist() == ["Find", "Replace"] and len(df) == 5
 
     def test_write_json(self):
         """
@@ -319,7 +317,7 @@ class TestWrite:
                   orient: records
             """
         )
-        assert df.columns.tolist() == ['Find', 'Replace'] and len(df) == 5
+        assert df.columns.tolist() == ["Find", "Replace"] and len(df) == 5
 
     # Write a json lines file
     def test_write_jsonl(self):
@@ -336,7 +334,7 @@ class TestWrite:
               name: tests/temp/write_data.jsonl
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_write_unsupported_filetype(self):
         """
@@ -371,7 +369,7 @@ class TestWrite:
               index: true
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ["Find", "Replace"]
 
     def test_write_pickle(self):
         """
@@ -389,13 +387,10 @@ class TestWrite:
               - file:
                   name: tests/temp/${filename}.pkl
             """,
-            variables={"filename": filename}
+            variables={"filename": filename},
         )
         df = _pd.read_pickle(f"tests/temp/{filename}.pkl")
-        assert (
-            df["header1"][0] == "value1"
-            and len(df) == 5
-        )
+        assert df["header1"][0] == "value1" and len(df) == 5
 
     def test_write_pickle_gzip(self):
         """
@@ -413,20 +408,17 @@ class TestWrite:
               - file:
                   name: tests/temp/${filename}.pkl.gz
             """,
-            variables={"filename": filename}
+            variables={"filename": filename},
         )
         df = _pd.read_pickle(f"tests/temp/{filename}.pkl.gz")
-        assert (
-            df["header1"][0] == "value1"
-            and len(df) == 5
-        )
+        assert df["header1"][0] == "value1" and len(df) == 5
 
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
         """
         df = wrangles.recipe.run(
-        """
+            """
         read:
           - test:
               rows: 5
@@ -454,14 +446,14 @@ class TestWrite:
                       font_color: '#F73BD3'
         """
         )
-        assert df.columns.tolist() == ['col1', 'col2']
+        assert df.columns.tolist() == ["col1", "col2"]
 
     def test_write_file_format_header_format(self):
         """
         Test the format function with header_format
         """
         df = wrangles.recipe.run(
-        """
+            """
         read:
           - test:
               rows: 5
@@ -479,14 +471,14 @@ class TestWrite:
                   underline: true
         """
         )
-        assert df.columns.tolist() == ['col1', 'col2']
+        assert df.columns.tolist() == ["col1", "col2"]
 
     def test_write_file_format_column_formats(self):
         """
         Test the format function with column_formats
         """
         df = wrangles.recipe.run(
-        """
+            """
         read:
           - test:
               rows: 5
@@ -510,14 +502,14 @@ class TestWrite:
                     font_color: '#F73BD3'
         """
         )
-        assert df.columns.tolist() == ['col1', 'col2']
+        assert df.columns.tolist() == ["col1", "col2"]
 
     def test_write_file_format_column_and_header_formats(self):
         """
         Test the format function with column_formats and header_format
         """
         df = wrangles.recipe.run(
-        """
+            """
         read:
           - test:
               rows: 5
@@ -546,14 +538,14 @@ class TestWrite:
                     font_color: '#F73BD3'
         """
         )
-        assert df.columns.tolist() == ['col1', 'col2']
+        assert df.columns.tolist() == ["col1", "col2"]
 
     def test_write_file_format_wrong_columns(self):
         """
         Test the format function does not error if the columns are not in the dataframe
         """
         df = wrangles.recipe.run(
-        """
+            """
         read:
           - test:
               rows: 5
@@ -577,27 +569,29 @@ class TestWrite:
                     font_color: '#F73BD3'
         """
         )
-        assert df.columns.tolist() == ['col1', 'col2']
+        assert df.columns.tolist() == ["col1", "col2"]
+
 
 def test_read_object():
     """
     Test reading a file passed directly into the recipe as an object
     """
     df = wrangles.recipe.run(
-      """
+        """
       read:
         - file:
             name: ${file}
       """,
-      variables={
-        "file": {
-          "name": "example.csv",
-          "mimeType": "text/csv",
-          "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
-        }
-      }
+        variables={
+            "file": {
+                "name": "example.csv",
+                "mimeType": "text/csv",
+                "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg==",
+            }
+        },
     )
-    assert len(df) == 3 and df['Col1'][0] == 'a'
+    assert len(df) == 3 and df["Col1"][0] == "a"
+
 
 def test_read_object_json():
     """
@@ -605,17 +599,17 @@ def test_read_object_json():
     where the variable was JSON
     """
     df = wrangles.recipe.run(
-      """
+        """
       read:
         - file:
             name: ${file}
       """,
-      variables={
-        "file": """{
+        variables={
+            "file": """{
           "name": "example.csv",
           "mimeType": "text/csv",
           "data": "Q29sMSxDb2wyCmEseApiLHkKYyx6Cg=="
         }"""
-      }
+        },
     )
-    assert len(df) == 3 and df['Col1'][0] == 'a'
+    assert len(df) == 3 and df["Col1"][0] == "a"

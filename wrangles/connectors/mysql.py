@@ -1,6 +1,7 @@
 """
 Connector to read/write from a MySQL Database.
 """
+
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
@@ -10,7 +11,16 @@ from ..utils import wildcard_expansion as _wildcard_expansion
 _schema = {}
 
 
-def read(host: str, user: str, password: str, command: str, port = 3306, database: str = '', columns: _Union[str, list] = None, params: _Union[list, dict] = None) -> _pd.DataFrame:
+def read(
+    host: str,
+    user: str,
+    password: str,
+    command: str,
+    port=3306,
+    database: str = "",
+    columns: _Union[str, list] = None,
+    params: _Union[list, dict] = None,
+) -> _pd.DataFrame:
     """
     Import data from a MySQL database.
 
@@ -35,10 +45,13 @@ def read(host: str, user: str, password: str, command: str, port = 3306, databas
     if columns is not None:
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
-    
+
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Import data from a MySQL Server
 required:
@@ -82,7 +95,17 @@ properties:
 """
 
 
-def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, password: str, action = 'INSERT', port = 3306, columns: _Union[str, list] = None) -> None:
+def write(
+    df: _pd.DataFrame,
+    host: str,
+    database: str,
+    table: str,
+    user: str,
+    password: str,
+    action="INSERT",
+    port=3306,
+    columns: _Union[str, list] = None,
+) -> None:
     """
     Export data to a MySQL database.
 
@@ -109,13 +132,20 @@ def write(df: _pd.DataFrame, host: str, database: str, table: str, user: str, pa
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    if action.upper() == 'INSERT':
-        df.to_sql(table, conn, if_exists='append', index=False, method='multi', chunksize=1000)
+    if action.upper() == "INSERT":
+        df.to_sql(
+            table, conn, if_exists="append", index=False, method="multi", chunksize=1000
+        )
     else:
         # TODO: Add UPDATE AND UPSERT
-        raise ValueError('UPDATE and UPSERT are not implemented yet.') # pragma: no cover
+        raise ValueError(
+            "UPDATE and UPSERT are not implemented yet."
+        )  # pragma: no cover
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data to a MySQL Server
 required:

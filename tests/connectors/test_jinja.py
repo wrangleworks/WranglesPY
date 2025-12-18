@@ -3,7 +3,6 @@ import pandas as pd
 import pytest
 
 
-
 def test_template_string():
     """
     Tests passing a template as string
@@ -22,10 +21,10 @@ def test_template_string():
         """
     )
 
-    with open('tests/temp/temp.jinja') as f:
+    with open("tests/temp/temp.jinja") as f:
         lines = f.read()
 
-    assert lines == 'This is a 3 inch flat head screwdriver'
+    assert lines == "This is a 3 inch flat head screwdriver"
 
 
 def test_template_file():
@@ -59,14 +58,17 @@ def test_template_file():
                 template: 
                     file: tests/temp/output_template.jinja
         """,
-        dataframe = pd.DataFrame({
-            'data column': [
-                {'Category': 'Parts', 'size': '1/2', 'color': 'brown'},
-                {'Category': 'Pieces', 'quantity': '12', 'color': 'red'}
-            ]
-        })
+        dataframe=pd.DataFrame(
+            {
+                "data column": [
+                    {"Category": "Parts", "size": "1/2", "color": "brown"},
+                    {"Category": "Pieces", "quantity": "12", "color": "red"},
+                ]
+            }
+        ),
     )
-    assert df['description'][0] == '\nsize: 1/2 '
+    assert df["description"][0] == "\nsize: 1/2 "
+
 
 def test_bad_filepath():
     """
@@ -85,13 +87,14 @@ def test_bad_filepath():
                       placeholder: value
             """
         )
-    assert info.typename == 'TemplateNotFound'
+    assert info.typename == "TemplateNotFound"
+
 
 def test_no_template():
     """
     Tests the error when not given a template
     """
-    with pytest.raises(ValueError, match='jinja: Either a file'):
+    with pytest.raises(ValueError, match="jinja: Either a file"):
         wrangles.recipe.run(
             """
             run:

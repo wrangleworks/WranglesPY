@@ -1,6 +1,7 @@
 """
 Tests for generic write functionality.
 """
+
 import wrangles
 import pandas as pd
 
@@ -9,10 +10,7 @@ def test_specify_columns():
     """
     Test writing and selecting only a subset of columns
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"]})
     recipe = """
     write:
       - dataframe: 
@@ -20,16 +18,14 @@ def test_specify_columns():
             - col1
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns == ['col1']
+    assert df.columns == ["col1"]
+
 
 def test_specify_columns_wildcard():
     """
     Test writing and selecting only a subset of columns using a wildcard
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"]})
     recipe = """
     write:
       - dataframe: 
@@ -37,17 +33,14 @@ def test_specify_columns_wildcard():
             - col*
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.tolist() == ['col1','col2']
+    assert df.columns.tolist() == ["col1", "col2"]
+
 
 def test_specify_columns_regex():
     """
     Test writing and selecting only a subset of columns using regex
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2'],
-        'col3a': ['val3']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"], "col3a": ["val3"]})
     recipe = """
     write:
       - dataframe: 
@@ -55,16 +48,14 @@ def test_specify_columns_regex():
             - "regex: col."
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns.tolist() == ['col1','col2']
+    assert df.columns.tolist() == ["col1", "col2"]
+
 
 def test_specify_not_columns():
     """
     Test writing and excluding a subset of columns
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"]})
     recipe = """
     write:
       - dataframe: 
@@ -72,17 +63,14 @@ def test_specify_not_columns():
             - col2
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns == ['col1']
+    assert df.columns == ["col1"]
+
 
 def test_specify_not_columns_wildcard():
     """
     Test writing and excluding a subset of columns using a wildcard
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2'],
-        '3col': ['val3']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"], "3col": ["val3"]})
     recipe = """
     write:
       - dataframe: 
@@ -90,17 +78,14 @@ def test_specify_not_columns_wildcard():
             - col*
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns == ['3col']
+    assert df.columns == ["3col"]
+
 
 def test_specify_not_columns_regex():
     """
     Test writing and excluding a subset of columns using a regex
     """
-    data = pd.DataFrame({
-        'col1': ['val1'],
-        'col2': ['val2'],
-        '3col': ['val3']
-    })
+    data = pd.DataFrame({"col1": ["val1"], "col2": ["val2"], "3col": ["val3"]})
     recipe = """
     write:
       - dataframe: 
@@ -108,16 +93,16 @@ def test_specify_not_columns_regex():
             - "regex: col."
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df.columns == ['3col']
+    assert df.columns == ["3col"]
+
 
 def test_specify_where():
     """
     Test writing and applying a WHERE sql criteria
     """
-    data = pd.DataFrame({
-        'col1': ['val1', 'val2', 'val3'],
-        'col2': ['vala', 'valb', 'valc']
-    })
+    data = pd.DataFrame(
+        {"col1": ["val1", "val2", "val3"], "col2": ["vala", "valb", "valc"]}
+    )
     recipe = """
     write:
       - dataframe: 
@@ -127,7 +112,8 @@ def test_specify_where():
             
     """
     df = wrangles.recipe.run(recipe, dataframe=data)
-    assert df['col1'].values.tolist() == ['val1', 'val3']
+    assert df["col1"].values.tolist() == ["val1", "val3"]
+
 
 def test_specify_where_params():
     """
@@ -141,12 +127,12 @@ def test_specify_where_params():
               where_params:
                 - val1
         """,
-        dataframe= pd.DataFrame({
-            'col1': ['val1', 'val2', 'val3'],
-            'col2': ['vala', 'valb', 'valc']
-        })
+        dataframe=pd.DataFrame(
+            {"col1": ["val1", "val2", "val3"], "col2": ["vala", "valb", "valc"]}
+        ),
     )
-    assert df['col2'][0] == "vala" and len(df) == 1
+    assert df["col2"][0] == "vala" and len(df) == 1
+
 
 def test_specify_where_params_dict():
     """
@@ -160,12 +146,12 @@ def test_specify_where_params_dict():
               where_params:
                 var: val1
         """,
-        dataframe= pd.DataFrame({
-            'col1': ['val1', 'val2', 'val3'],
-            'col2': ['vala', 'valb', 'valc']
-        })
+        dataframe=pd.DataFrame(
+            {"col1": ["val1", "val2", "val3"], "col2": ["vala", "valb", "valc"]}
+        ),
     )
-    assert df['col2'][0] == "vala" and len(df) == 1
+    assert df["col2"][0] == "vala" and len(df) == 1
+
 
 def test_where_no_results():
     """
@@ -177,15 +163,15 @@ def test_where_no_results():
           - dataframe:
               where: col1 = 3
         """,
-        dataframe= pd.DataFrame({
-            'col1': [1, 2],
-            'col2': ['HeLlO', 'WoRlD'],
-        })
+        dataframe=pd.DataFrame(
+            {
+                "col1": [1, 2],
+                "col2": ["HeLlO", "WoRlD"],
+            }
+        ),
     )
-    assert (
-        df.columns.tolist() == ['col1', 'col2'] and
-        len(df) == 0
-    )
+    assert df.columns.tolist() == ["col1", "col2"] and len(df) == 0
+
 
 def test_multiple():
     """
@@ -221,13 +207,14 @@ def test_multiple():
         """
     )
     assert (
-        df1.columns.tolist() == ['Column1', 'Column2'] and
-        len(df1) == 3 and
-        df1['Column1'][0] == 'aaa' and
-        df2.columns.tolist() == ['Column1', 'Column2'] and
-        len(df2) == 3 and
-        df2['Column2'][0] == 'bbb'
+        df1.columns.tolist() == ["Column1", "Column2"]
+        and len(df1) == 3
+        and df1["Column1"][0] == "aaa"
+        and df2.columns.tolist() == ["Column1", "Column2"]
+        and len(df2) == 3
+        and df2["Column2"][0] == "bbb"
     )
+
 
 def test_order_by():
     """
@@ -239,9 +226,10 @@ def test_order_by():
         - dataframe: 
             order_by: col1
         """,
-        dataframe=pd.DataFrame({'col1': [3,2,1]})
+        dataframe=pd.DataFrame({"col1": [3, 2, 1]}),
     )
-    assert df['col1'].values.tolist() == [1, 2, 3]
+    assert df["col1"].values.tolist() == [1, 2, 3]
+
 
 def test_order_by_desc():
     """
@@ -253,9 +241,10 @@ def test_order_by_desc():
         - dataframe: 
             order_by: col1 DESC
         """,
-        dataframe=pd.DataFrame({'col1': [1,2,3]})
+        dataframe=pd.DataFrame({"col1": [1, 2, 3]}),
     )
-    assert df['col1'].values.tolist() == [3, 2, 1]
+    assert df["col1"].values.tolist() == [3, 2, 1]
+
 
 def test_order_two_column():
     """
@@ -267,15 +256,12 @@ def test_order_two_column():
         - dataframe: 
             order_by: col1 DESC, col2
         """,
-        dataframe=pd.DataFrame({
-            'col1': [1,1,2,2],
-            'col2': ["b","a","d","c"]
-        })
+        dataframe=pd.DataFrame({"col1": [1, 1, 2, 2], "col2": ["b", "a", "d", "c"]}),
     )
-    assert (
-        df['col1'].values.tolist() == [2,2,1,1] and
-        df['col2'].values.tolist() == ['c', 'd', 'a', 'b']
-    )
+    assert df["col1"].values.tolist() == [2, 2, 1, 1] and df[
+        "col2"
+    ].values.tolist() == ["c", "d", "a", "b"]
+
 
 def test_order_by_column_with_space():
     """
@@ -287,9 +273,10 @@ def test_order_by_column_with_space():
         - dataframe: 
             order_by: '"col 1"'
         """,
-        dataframe=pd.DataFrame({'col 1': [3,2,1]})
+        dataframe=pd.DataFrame({"col 1": [3, 2, 1]}),
     )
-    assert df['col 1'].values.tolist() == [1, 2, 3]
+    assert df["col 1"].values.tolist() == [1, 2, 3]
+
 
 def test_order_by_independence():
     """
@@ -304,12 +291,20 @@ def test_order_by_independence():
         - memory:
             id: test_independence_unordered
         """,
-        dataframe=pd.DataFrame({'col1': [3,2,1]})
+        dataframe=pd.DataFrame({"col1": [3, 2, 1]}),
     )
-    assert (
-        wrangles.connectors.memory.dataframes["test_independence_unordered"]["data"] == [[3], [2], [1]] and
-        wrangles.connectors.memory.dataframes["test_independence_ordered"]["data"] == [[1], [2], [3]]
-    )
+    assert wrangles.connectors.memory.dataframes["test_independence_unordered"][
+        "data"
+    ] == [[3], [2], [1]] and wrangles.connectors.memory.dataframes[
+        "test_independence_ordered"
+    ][
+        "data"
+    ] == [
+        [1],
+        [2],
+        [3],
+    ]
+
 
 def test_write_order_by_and_where():
     """
@@ -329,10 +324,11 @@ def test_write_order_by_and_where():
         """
     )
     assert (
-        df.tail(1)["header"].iloc[0] == max(df["header"].values) and
-        df.head(1)["header"].iloc[0] == min(df["header"].values) and
-        df.head(1)["header"].iloc[0] > 50
+        df.tail(1)["header"].iloc[0] == max(df["header"].values)
+        and df.head(1)["header"].iloc[0] == min(df["header"].values)
+        and df.head(1)["header"].iloc[0] > 50
     )
+
 
 def test_write_if_true():
     """
@@ -354,7 +350,8 @@ def test_write_if_true():
                 - header1
         """
     )
-    assert df.columns.tolist() == ['header1']
+    assert df.columns.tolist() == ["header1"]
+
 
 def test_write_if_false():
     """
@@ -376,7 +373,8 @@ def test_write_if_false():
                 - header1
         """
     )
-    assert df.columns.tolist() == ['header1', 'header2']
+    assert df.columns.tolist() == ["header1", "header2"]
+
 
 def test_write_if_template_variable():
     """
@@ -397,9 +395,10 @@ def test_write_if_template_variable():
               columns:
                 - header1
         """,
-        variables={"var": 1}
+        variables={"var": 1},
     )
-    assert df.columns.tolist() == ['header1']
+    assert df.columns.tolist() == ["header1"]
+
 
 def test_write_if_columns_variable():
     """
@@ -421,7 +420,8 @@ def test_write_if_columns_variable():
                 - header1
         """
     )
-    assert df.columns.tolist() == ['header1', 'header2']
+    assert df.columns.tolist() == ["header1", "header2"]
+
 
 def test_write_if_column_count_variable():
     """
@@ -443,7 +443,8 @@ def test_write_if_column_count_variable():
                 - header1
         """
     )
-    assert df.columns.tolist() == ['header1', 'header2']
+    assert df.columns.tolist() == ["header1", "header2"]
+
 
 def test_write_if_row_count_variable():
     """
@@ -465,6 +466,7 @@ def test_write_if_row_count_variable():
     )
     assert len(df) == 100000
 
+
 def test_write_if_dataframe_access():
     """
     Test a write that uses the dataframe variable
@@ -478,13 +480,11 @@ def test_write_if_dataframe_access():
               columns:
                 - header
         """,
-        dataframe=pd.DataFrame({
-            'header': ['hello', 'world'],
-            'other': ['a', 'b']
-        })
+        dataframe=pd.DataFrame({"header": ["hello", "world"], "other": ["a", "b"]}),
     )
-    assert df.columns.tolist() == ['header']
+    assert df.columns.tolist() == ["header"]
     assert len(df) == 2
+
 
 def test_write_if_dataframe_access_false():
     """
@@ -499,14 +499,12 @@ def test_write_if_dataframe_access_false():
               columns:
                 - header
         """,
-        dataframe=pd.DataFrame({
-            'header': ['hello', 'world'],
-            'other': ['a', 'b']
-        })
+        dataframe=pd.DataFrame({"header": ["hello", "world"], "other": ["a", "b"]}),
     )
     # When write condition is false, it returns the original dataframe
-    assert df.columns.tolist() == ['header', 'other']
+    assert df.columns.tolist() == ["header", "other"]
     assert len(df) == 2
+
 
 def test_overwrite_write():
     """
@@ -516,10 +514,10 @@ def test_overwrite_write():
 
     class file:
         def write(df, name):
-            check_var['len'] = len(df)
-            check_var['columns'] = df.columns.tolist()
-            check_var['name'] = name
-        
+            check_var["len"] = len(df)
+            check_var["columns"] = df.columns.tolist()
+            check_var["name"] = name
+
     wrangles.recipe.run(
         """
         read:
@@ -531,11 +529,11 @@ def test_overwrite_write():
           - file:
               name: abc
         """,
-        functions=file
+        functions=file,
     )
-    
+
     assert (
-        check_var['len'] == 10 and
-        check_var['columns'] == ['header'] and
-        check_var['name'] == 'abc'
+        check_var["len"] == 10
+        and check_var["columns"] == ["header"]
+        and check_var["name"] == "abc"
     )

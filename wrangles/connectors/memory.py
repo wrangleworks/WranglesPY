@@ -1,6 +1,6 @@
 """
 The memory connector allows saving dataframes and
-variables in memory for communication between successive wrangles 
+variables in memory for communication between successive wrangles
 and recipes. All contents of the memory connector are lost once the
 python script finishes executing.
 
@@ -9,6 +9,7 @@ python script finishes executing.
 >>> memory.variables
 >>> memory.queue
 """
+
 import uuid as _uuid
 from collections import deque as _deque
 import pandas as _pandas
@@ -19,6 +20,7 @@ _schema = {}
 dataframes = {}
 variables = {}
 queue = _deque([])
+
 
 def clear():
     """
@@ -69,11 +71,7 @@ def read(id: str = None, orient: str = "tight", **kwargs):
         return data
     elif orient == "split":
         # Ensure custom user keys aren't included
-        data = {
-            k: v
-            for k, v in data.items()
-            if k in ["data", "columns", "index"]
-        }
+        data = {k: v for k, v in data.items() if k in ["data", "columns", "index"]}
         return _pandas.DataFrame(**data)
     elif orient in ["tight", "index"]:
         return _pandas.DataFrame().from_dict(data, orient=orient)
@@ -81,7 +79,9 @@ def read(id: str = None, orient: str = "tight", **kwargs):
         return _pandas.DataFrame(data)
 
 
-_schema['read'] = """
+_schema[
+    "read"
+] = """
 type: object
 description: >-
   The memory connector allows saving dataframes and
@@ -109,6 +109,7 @@ properties:
       Default is tight
 """
 
+
 def write(df, id: str = None, orient: str = "tight", **kwargs):
     """
     Write a dataframe to memory for reference later
@@ -131,13 +132,12 @@ def write(df, id: str = None, orient: str = "tight", **kwargs):
     if id is None:
         id = _uuid.uuid4()
 
-    dataframes[id] = {
-        **df.to_dict(orient=orient),
-        **kwargs
-    }
+    dataframes[id] = {**df.to_dict(orient=orient), **kwargs}
 
 
-_schema['write'] = """
+_schema[
+    "write"
+] = """
 type: object
 description: >-
   The memory connector allows saving dataframes and

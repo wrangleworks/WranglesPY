@@ -1,10 +1,11 @@
 """
 Use JINJA to manipulate a template
 """
+
 from ..utils import LazyLoader as _LazyLoader
 
 # Lazy load external dependency
-_jinja = _LazyLoader('jinja2')
+_jinja = _LazyLoader("jinja2")
 
 
 _schema = {}
@@ -17,24 +18,29 @@ def run(template: dict, context: dict, output_file: str):
     :param context: A dictionary used to define the output template
     :param output_file: File name/path for the file to be output
     """
-    if 'file' in template:
+    if "file" in template:
         template = _jinja.Environment(
-            loader=_jinja.FileSystemLoader(''),
-            trim_blocks=True,
-            lstrip_blocks=True
-        ).get_template(template['file'])
+            loader=_jinja.FileSystemLoader(""), trim_blocks=True, lstrip_blocks=True
+        ).get_template(template["file"])
 
-    elif 'string' in template:
-       template = _jinja.Environment(loader=_jinja.BaseLoader).from_string(template['string'])
+    elif "string" in template:
+        template = _jinja.Environment(loader=_jinja.BaseLoader).from_string(
+            template["string"]
+        )
 
     else:
-       raise ValueError('jinja: Either a file or string must be provided for the template')
-    
+        raise ValueError(
+            "jinja: Either a file or string must be provided for the template"
+        )
+
     # writing the file makes it easy to see what the Description template does
-    with open (output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(template.render(context))
 
-_schema['run'] = """
+
+_schema[
+    "run"
+] = """
 type: object
 description: Use a Jinja template with a context to create a file
 additionalProperties: false

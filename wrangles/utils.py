@@ -15,7 +15,7 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
 
     This expects the input to be in the format:
     {"in_col": "out_col", "unchanged": "unchanged"}
-    
+
     :param all_columns: List of all available columns in the dataframe
     :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
     """
@@ -23,11 +23,12 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
     tmp_columns = {}
     for k, v in selected_columns.items():
         # If column contains * without escape
-        if _re.search(r'[^\\]?\*', str(k)) and not str(k).lower().startswith('regex:'):
+        if _re.search(r"[^\\]?\*", str(k)) and not str(k).lower().startswith("regex:"):
             # Convert wildcard to a regex pattern for key
-            k = 'regex:' + _re.sub(r'(?<!\\)\*', r'(.*)', k)
+            k = "regex:" + _re.sub(r"(?<!\\)\*", r"(.*)", k)
             # Convert wildcard to a regex pattern for value
             group_counter = [0]
+
             def replacer(_):
                 """
                 Increment group number using a mutable object
@@ -35,9 +36,10 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
                 a unique capture group number for each wildcard
                 """
                 # Use the current counter value, then increment it
-                group_counter[0] += 1                
-                return fr'\g<{group_counter[0]}>'
-            v = _re.sub(r'(?<!\\)\*', replacer, v)
+                group_counter[0] += 1
+                return rf"\g<{group_counter[0]}>"
+
+            v = _re.sub(r"(?<!\\)\*", replacer, v)
             tmp_columns[k] = v
         else:
             tmp_columns[k] = v
@@ -49,32 +51,39 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
 
     # Identify any matching columns using regex within the list
     for column in selected_columns:
-        if column.lower().startswith('regex:'):
+        if column.lower().startswith("regex:"):
             # result_columns.update() # Read Note below
-            matching_columns = dict.fromkeys(list(
-                filter(_re.compile(column[6:].strip()).fullmatch, all_columns)
-            ))
+            matching_columns = dict.fromkeys(
+                list(filter(_re.compile(column[6:].strip()).fullmatch, all_columns))
+            )
             try:
                 if column == selected_columns[column]:
                     # If the column is not renamed, maintain the original matching column names
-                    renamed_columns = [_re.sub("(" + column[6:].strip() + ")", r"\1", col, count=1) for col in matching_columns]
+                    renamed_columns = [
+                        _re.sub("(" + column[6:].strip() + ")", r"\1", col, count=1)
+                        for col in matching_columns
+                    ]
                 else:
                     # Else rename the columns using the provided regex pattern
-                    renamed_columns = [_re.sub(column[6:].strip(), selected_columns[column], col, count=1) for col in matching_columns]
+                    renamed_columns = [
+                        _re.sub(
+                            column[6:].strip(), selected_columns[column], col, count=1
+                        )
+                        for col in matching_columns
+                    ]
             except _re.error as e:
-                raise ValueError(f"Invalid regex pattern: {selected_columns[column]}. Are you missing a capture group?") from None
-            
+                raise ValueError(
+                    f"Invalid regex pattern: {selected_columns[column]}. Are you missing a capture group?"
+                ) from None
+
             if len(renamed_columns) != len(set(renamed_columns)):
                 _logging.warning(
                     "Renamed columns contain duplicate values. Consider including a wildcard or regex capture group."
                 )
 
             result_columns = {
-                **{
-                    k: v
-                    for k, v in zip(matching_columns, renamed_columns)
-                },
-                **result_columns
+                **{k: v for k, v in zip(matching_columns, renamed_columns)},
+                **result_columns,
             }
         else:
             # Check if a column is indicated as
@@ -88,7 +97,7 @@ def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
                 result_columns[column] = selected_columns[column]
             else:
                 if not optional_column:
-                    raise KeyError(f'Column {column} does not exist')
+                    raise KeyError(f"Column {column} does not exist")
 
     return result_columns
 
@@ -97,7 +106,7 @@ def get_nested_function(
     fn_string: str,
     stock_functions: _types.ModuleType = None,
     custom_functions: dict = None,
-    default_stock_functions: str = None
+    default_stock_functions: str = None,
 ):
     """
     Get a nested function from obj as defined by a string
@@ -109,12 +118,12 @@ def get_nested_function(
     :param default_stock_functions: Some stock functions use a default final function to call
     """
     if custom_functions is None and stock_functions is None:
-        raise ValueError('No functions provided')
+        raise ValueError("No functions provided")
 
-    fn_list = fn_string.strip().split('.')
-    if fn_list[0] == 'custom':
+    fn_list = fn_string.strip().split(".")
+    if fn_list[0] == "custom":
         if len(fn_list) == 1:
-            raise ValueError('Custom function not defined correctly')
+            raise ValueError("Custom function not defined correctly")
         fn_list = fn_list[1:]
         obj = custom_functions
     else:
@@ -127,7 +136,7 @@ def get_nested_function(
                 for name in dir(stock_functions)
                 if isinstance(
                     getattr(stock_functions, name),
-                    (_types.FunctionType, _types.ModuleType, type)
+                    (_types.FunctionType, _types.ModuleType, type),
                 )
                 and not name.startswith("_")
             }
@@ -139,21 +148,17 @@ def get_nested_function(
     for fn_name in fn_list:
         if isinstance(obj, dict):
             if fn_name not in obj:
-                raise ValueError(f'Function {fn_string} not recognized')
+                raise ValueError(f"Function {fn_string} not recognized")
             obj = obj[fn_name]
         else:
             if not hasattr(obj, fn_name):
-                raise ValueError(f'Function {fn_string} not recognized')
+                raise ValueError(f"Function {fn_string} not recognized")
             obj = getattr(obj, fn_name)
-    
+
     return obj
 
 
-def validate_function_args(
-    func: _types.FunctionType,
-    args: dict,
-    name: str
-):
+def validate_function_args(func: _types.FunctionType, args: dict, name: str):
     """
     Validate that all required arguments are provided for a custom function
 
@@ -165,8 +170,7 @@ def validate_function_args(
 
     missing_args = [
         x
-        for x
-        in argspec.args[:len(argspec.args) - len(argspec.defaults or [])]
+        for x in argspec.args[: len(argspec.args) - len(argspec.defaults or [])]
         if x not in args.keys()
     ]
 
@@ -180,7 +184,7 @@ def add_special_parameters(
     functions: dict = {},
     variables: dict = {},
     error: Exception = None,
-    common_params: dict = {}
+    common_params: dict = {},
 ):
     """
     Add special parameters to the params dictionary if they are required by the function
@@ -195,25 +199,18 @@ def add_special_parameters(
     """
     # Check args and pass on special parameters if requested
     argspec = _inspect.getfullargspec(fn).args
-    if ("functions" not in params and "functions" in argspec):
-        params['functions'] = functions
-    if ("variables" not in params and "variables" in argspec):
-        params['variables'] = variables
+    if "functions" not in params and "functions" in argspec:
+        params["functions"] = functions
+    if "variables" not in params and "variables" in argspec:
+        params["variables"] = variables
 
     if error and "error" not in params and "error" in argspec:
-        params['error'] = error
+        params["error"] = error
 
     # Allow functions to access common
     # parameters only if they need them
     if common_params:
-        params = {
-            **params,
-            **{
-                k: v
-                for k, v in common_params.items()
-                if k in argspec
-            }
-        }
+        params = {**params, **{k: v for k, v in common_params.items() if k in argspec}}
 
     return params
 
@@ -221,16 +218,17 @@ def add_special_parameters(
 def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -> list:
     """
     Finds matching columns for wildcards or regex from all available columns
-    
+
     :param all_columns: List of all available columns in the dataframe
     :param selected_columns: List or string with selected columns. May contain wildcards (*) or regex.
     """
+
     def escape_except(text, chars_not_to_escape):
         """
         Escape regex characters except for those specified
         """
         # Define all regex special characters
-        special_chars = set(r'[]{}()^$.|*+?\\')
+        special_chars = set(r"[]{}()^$.|*+?\\")
         # Determine the characters to escape
         chars_to_escape = special_chars - set(chars_not_to_escape)
         # Create a regex pattern to match any of the characters to escape
@@ -250,11 +248,11 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 
         # Catch not syntax errors
         if isinstance(val, list):
-            newline = '\n'
+            newline = "\n"
             raise ValueError(
-                "Column name is not formatted correctly. " + 
-                f"Got: {_yaml.dump(val).strip(newline)}. " +
-                "Did you mean to use '-column_name' without a space? "
+                "Column name is not formatted correctly. "
+                + f"Got: {_yaml.dump(val).strip(newline)}. "
+                + "Did you mean to use '-column_name' without a space? "
             )
 
         # If the column is an integer - a positional index
@@ -262,8 +260,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             val = int(val)
             if val < 0 or val >= len(all_columns):
                 raise ValueError(
-                    f"Column index {val} is out of range. " +
-                    f"Must be between 0 and {len(all_columns) - 1}"
+                    f"Column index {val} is out of range. "
+                    + f"Must be between 0 and {len(all_columns) - 1}"
                 )
 
             # Get the name of the column at the index
@@ -271,23 +269,19 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             continue
 
         # If column contains * without escape
-        if (
-            _re.search(r'[^\\]?\*', str(val)) and
-            not 'regex:' in str(val).lower()
-        ):
+        if _re.search(r"[^\\]?\*", str(val)) and not "regex:" in str(val).lower():
             # Replace with a regex pattern and escape
             # other regex special characters
-            selected_columns[i] = 'regex:' + _re.sub(
-                r'(?<!\\)\*', r'(.*)',
-                escape_except(val, ['*', '\\'])
+            selected_columns[i] = "regex:" + _re.sub(
+                r"(?<!\\)\*", r"(.*)", escape_except(val, ["*", "\\"])
             )
 
     # Using a dict to preserve insert order.
     # Order is preserved for Dictionaries from Python 3.7+
     if (
-        all([str(column).startswith('-') for column in selected_columns]) and
-        not any([col in all_columns for col in selected_columns]) and
-        not any([":" in col for col in selected_columns])
+        all([str(column).startswith("-") for column in selected_columns])
+        and not any([col in all_columns for col in selected_columns])
+        and not any([":" in col for col in selected_columns])
     ):
         # If all selected columns are not columns then
         # initialize with all columns
@@ -297,8 +291,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         result_columns = {}
 
     counter = 0
-    gibberish = 'zsdhgfahkjh'
-    
+    gibberish = "zsdhgfahkjh"
+
     # Function that checks to see if columns exist in result_columns,
     # adds a known suffix for preservation if so
     def column_checker(col, result_cols):
@@ -313,6 +307,7 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
         else:
             result_cols[col] = None
         return result_cols
+
     # Identify any matching columns using regex within the list
     for column in selected_columns:
         # If the column is already in all_columns, add it
@@ -322,11 +317,11 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             continue
 
         # Rearrange -regex: to regex:- to allow either to work
-        if str(column).lower().startswith('-regex:'):
+        if str(column).lower().startswith("-regex:"):
             column = "regex:-" + column[7:]
 
-        if column.lower().startswith('regex:'):
-            pattern = column[6:].strip() 
+        if column.lower().startswith("regex:"):
+            pattern = column[6:].strip()
             if pattern.startswith("-"):
                 # Remove columns that match the negative regex pattern
                 result_columns = {
@@ -336,24 +331,30 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
                 }
             else:
                 # Add columns that match the regex pattern
-                result_columns.update(dict.fromkeys(list(
-                    filter(_re.compile(pattern).fullmatch, all_columns)
-                ))) # Read Note below
-            
+                result_columns.update(
+                    dict.fromkeys(
+                        list(filter(_re.compile(pattern).fullmatch, all_columns))
+                    )
+                )  # Read Note below
+
             continue
 
         if ":" in column:
             # If the column contains a colon, check if it is slicing notation
             slices = column.split(":")
-            if len(slices) <= 3 and all([_re.fullmatch(r"-?\d+|", idx) for idx in slices]):
+            if len(slices) <= 3 and all(
+                [_re.fullmatch(r"-?\d+|", idx) for idx in slices]
+            ):
                 result_columns.update(
                     dict.fromkeys(
-                        all_columns[slice(*[None if idx == "" else int(idx) for idx in slices])]
+                        all_columns[
+                            slice(*[None if idx == "" else int(idx) for idx in slices])
+                        ]
                     )
                 )
                 continue
 
-        if column not in all_columns and str(column).startswith('-'):
+        if column not in all_columns and str(column).startswith("-"):
             # Columns prefixed with - indicate not to include them
             result_columns.pop(column[1:], None)
             continue
@@ -371,12 +372,16 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
             continue
         else:
             if not optional_column:
-                raise KeyError(f'Column {column} does not exist')
-            
+                raise KeyError(f"Column {column} does not exist")
+
     # If wildcard expansion is the only input and there are no matches, then raise an error
-    if len(result_columns) == 0 and len(selected_columns) == 1 and str(selected_columns[0]).startswith('regex'):
-        raise KeyError(f'Wildcard expansion pattern did not find any matching columns')
-    
+    if (
+        len(result_columns) == 0
+        and len(selected_columns) == 1
+        and str(selected_columns[0]).startswith("regex")
+    ):
+        raise KeyError(f"Wildcard expansion pattern did not find any matching columns")
+
     # Return, preserving original order
     return [key.split(gibberish)[0] for key in result_columns.keys()]
 
@@ -384,10 +389,10 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
 def statement_modifier(statement):
     """
     Strip variables of their wrapper
-    
+
     :param statement: Statement string to modify
     """
-    return _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
+    return _re.sub(r"\$\{([A-Za-z0-9_]+)\}", r"\1", str(statement))
 
 
 def evaluate_conditional(statement, variables: dict = {}):
@@ -402,8 +407,10 @@ def evaluate_conditional(statement, variables: dict = {}):
     """
     statement_modified = statement_modifier(statement)
 
-    if _re.match(r'\$\{(.+)\}', statement_modified):
-        raise ValueError(f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'")
+    if _re.match(r"\$\{(.+)\}", statement_modified):
+        raise ValueError(
+            f"Variables used in if statements may only contain chars A-z, 0-9, and _ (underscore). Got: '{statement}'"
+        )
 
     try:
         # Evaluate the statement
@@ -413,14 +420,16 @@ def evaluate_conditional(statement, variables: dict = {}):
         if isinstance(result, bool):
             return result
         # Result was a string like true or false
-        if isinstance(result, str) and result.strip().lower() in ['true', 'false']:
-            return result.strip().lower() == 'true'
+        if isinstance(result, str) and result.strip().lower() in ["true", "false"]:
+            return result.strip().lower() == "true"
         # Otherwise return python truthiness
         else:
             return bool(result)
     except:
-        raise ValueError(f"An error occurred when trying to evaluate if condition '{statement}'") from None
-    
+        raise ValueError(
+            f"An error occurred when trying to evaluate if condition '{statement}'"
+        ) from None
+
 
 def request_retries(request_type, url, **kwargs):
     """
@@ -433,15 +442,15 @@ def request_retries(request_type, url, **kwargs):
     """
     session = _requests.Session()
     session.mount(
-        'https://',
+        "https://",
         _requests.adapters.HTTPAdapter(
             max_retries=_Retry(
                 total=3,
                 backoff_factor=0.5,
                 status_forcelist=[500, 502, 503, 504],
-                allowed_methods={'GET', 'PUT', 'POST', 'PATCH', 'OPTIONS'},
+                allowed_methods={"GET", "PUT", "POST", "PATCH", "OPTIONS"},
             )
-        )
+        ),
     )
 
     try:
@@ -456,7 +465,7 @@ def safe_str_transform(value, func, warnings={}, **kwargs):
     """
     Function to apply a string transformation.
     If the input value is not a string, the original value is returned and a warning is logged.
-    
+
     :param value: The value to transform
     :param func: The function to apply to the value
     :param warnings: A dictionary containing the warning status. This will be mutated to only log the warning once.
@@ -465,13 +474,12 @@ def safe_str_transform(value, func, warnings={}, **kwargs):
         return getattr(str, func)(value, **kwargs)
     else:
         # Only show this once to not spam the logs
-        if not warnings.get("invalid_data", {}).get('logged', False):
-            _logging.warning(warnings['invalid_data']['message'])
-            warnings["invalid_data"]['logged'] = True
+        if not warnings.get("invalid_data", {}).get("logged", False):
+            _logging.warning(warnings["invalid_data"]["message"])
+            warnings["invalid_data"]["logged"] = True
         return value
 
 
-        
 class LazyLoader:
     """
     Use to lazy load optional dependencies
@@ -480,6 +488,7 @@ class LazyLoader:
 
     :param module_name: Name of the module to load
     """
+
     def __init__(self, module_name):
         self.module_name = module_name
         self._module = None

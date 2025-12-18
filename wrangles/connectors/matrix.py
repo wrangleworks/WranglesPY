@@ -1,7 +1,8 @@
 """
 The matrix connector lets you use variables to define multiple actions
-that are executed based on the combinations of those variables. 
+that are executed based on the combinations of those variables.
 """
+
 import re as _re
 import itertools as _itertools
 from collections import ChainMap as _chainmap
@@ -16,11 +17,12 @@ import os as _os
 
 _schema = {}
 
+
 def _define_permutations(
     variables: dict,
     strategy: str = "loop",
     functions: dict = {},
-    df: _pd.DataFrame = None
+    df: _pd.DataFrame = None,
 ):
 
     def _zip_cycle(*iterables, empty_default=None):
@@ -35,12 +37,14 @@ def _define_permutations(
         if isinstance(val, list):
             vals = val
 
-        # set(column) - unique values in a column 
-        elif _re.fullmatch(r'set\((.*)\)', val.strip()):
-            column_name = _re.fullmatch(r'set\((.*)\)', val.strip())[1]
+        # set(column) - unique values in a column
+        elif _re.fullmatch(r"set\((.*)\)", val.strip()):
+            column_name = _re.fullmatch(r"set\((.*)\)", val.strip())[1]
 
             if df is None or not isinstance(df, _pd.DataFrame):
-                raise ValueError("The set(column_name) syntax is not valid for this type of matrix.")
+                raise ValueError(
+                    "The set(column_name) syntax is not valid for this type of matrix."
+                )
 
             if column_name not in df.columns:
                 raise ValueError(f"{column_name} not recognized as a valid column")
@@ -53,19 +57,18 @@ def _define_permutations(
                 # Use pandas drop_duplicates which handles most non-hashable types
                 vals = df[column_name].drop_duplicates().tolist()
 
-        # dir(path) - List a directory 
-        elif _re.fullmatch(r'dir\((.*)\)', val.strip()):
-            directory = _re.fullmatch(r'dir\((.*)\)', val.strip())[1]
+        # dir(path) - List a directory
+        elif _re.fullmatch(r"dir\((.*)\)", val.strip()):
+            directory = _re.fullmatch(r"dir\((.*)\)", val.strip())[1]
             # Ensure directory doesn't end with a slash
-            if directory.endswith('/'):
+            if directory.endswith("/"):
                 directory = directory[:-1]
             vals = [
-                '/'.join([directory, fname])
-                for fname in sorted(_os.listdir(directory))
+                "/".join([directory, fname]) for fname in sorted(_os.listdir(directory))
             ]
 
         # Use a custom function
-        elif _re.fullmatch(r'custom.(.*)', val.strip()):
+        elif _re.fullmatch(r"custom.(.*)", val.strip()):
             vals = _get_nested_function(val, custom_functions=functions)()
 
         else:
@@ -80,18 +83,12 @@ def _define_permutations(
     if strategy.lower() == "permutations":
         # Calc all permutations
         permutations = list(_itertools.product(*permutations))
-        permutations = [
-            dict(_chainmap(*permutation))
-            for permutation in permutations
-        ]
+        permutations = [dict(_chainmap(*permutation)) for permutation in permutations]
     elif strategy.lower() == "loop":
-        permutations = [
-            permutation
-            for permutation in _zip_cycle(*permutations)
-        ]
+        permutations = [permutation for permutation in _zip_cycle(*permutations)]
     else:
         raise ValueError(f"Invalid setting {strategy} for strategy")
-    
+
     return permutations
 
 
@@ -101,7 +98,7 @@ def run(
     functions: dict = {},
     strategy: str = "loop",
     use_multiprocessing: bool = False,
-    max_concurrency: int = 10
+    max_concurrency: int = 10,
 ):
     """
     The matrix connector lets you use variables to automatically execute
@@ -118,7 +115,7 @@ def run(
         is completed. permutations uses the combination of all variables against all other variables. \
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-    """    
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -128,22 +125,23 @@ def run(
     with pool_executor(max_workers=max_concurrency) as executor:
         futures = []
         for permutation in _define_permutations(
-            variables=variables,
-            strategy=strategy,
-            functions=functions
+            variables=variables, strategy=strategy, functions=functions
         ):
             future = executor.submit(
                 _wrangles.recipe.run,
-                recipe={'run': {"on_start": run}},
+                recipe={"run": {"on_start": run}},
                 variables=permutation,
-                functions=functions
+                functions=functions,
             )
 
             # Wait for all futures to complete
             for future in futures:
                 future.result()
 
-_schema['run'] = """
+
+_schema[
+    "run"
+] = """
 type: object
 description: >-
   The matrix connector lets you use variables to automatically execute
@@ -184,13 +182,14 @@ properties:
       more than this, the rest will be queued. Default 10.
 """
 
+
 def read(
     variables: dict,
     read: list,
     functions: dict = {},
     strategy: str = "loop",
     use_multiprocessing: bool = False,
-    max_concurrency: int = 10
+    max_concurrency: int = 10,
 ):
     """
     The matrix connector lets you use variables to automatically execute
@@ -206,7 +205,7 @@ def read(
         is completed. permutations uses the combination of all variables against all other variables. \
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-    """    
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -215,22 +214,25 @@ def read(
 
     with pool_executor(max_workers=max_concurrency) as executor:
         permutations = _define_permutations(
-            variables=variables,
-            strategy=strategy,
-            functions=functions
+            variables=variables, strategy=strategy, functions=functions
         )
 
-        dfs = list(executor.map(
-            _wrangles.recipe.run,
-            [{'read': read} for _ in permutations],
-            permutations,
-            [None for _ in permutations],
-            [functions for _ in permutations]
-        ))
+        dfs = list(
+            executor.map(
+                _wrangles.recipe.run,
+                [{"read": read} for _ in permutations],
+                permutations,
+                [None for _ in permutations],
+                [functions for _ in permutations],
+            )
+        )
 
     return dfs
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: >-
   The matrix connector lets you use variables to automatically execute
@@ -273,6 +275,7 @@ properties:
       more than this, the rest will be queued. Default 10.
 """
 
+
 def write(
     df: _pd.DataFrame,
     variables: dict,
@@ -280,7 +283,7 @@ def write(
     functions: _Union[_types.FunctionType, list, dict] = {},
     strategy: str = "loop",
     use_multiprocessing: bool = False,
-    max_concurrency: int = 10
+    max_concurrency: int = 10,
 ):
     """
     The matrix connector lets you use variables in a single write definition to
@@ -297,7 +300,7 @@ def write(
         is completed. permutations uses the combination of all variables against all other variables. \
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
-    """    
+    """
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -307,24 +310,24 @@ def write(
     with pool_executor(max_workers=max_concurrency) as executor:
         futures = []
         for permutation in _define_permutations(
-            variables=variables,
-            strategy=strategy,
-            functions=functions,
-            df=df
+            variables=variables, strategy=strategy, functions=functions, df=df
         ):
             future = executor.submit(
                 _wrangles.recipe.run,
-                recipe={'write': write},
+                recipe={"write": write},
                 dataframe=df.copy(),
                 variables=permutation,
-                functions=functions
+                functions=functions,
             )
 
             # Wait for all futures to complete
             for future in futures:
                 future.result()
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: >-
   The matrix connector lets you use variables in a single write definition to

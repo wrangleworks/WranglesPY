@@ -1,16 +1,17 @@
-import os 
-import pandas as pd 
-import pytest 
+import os
+import pandas as pd
+import pytest
 import wrangles
 import wrangles.generate
 
-@pytest.mark.skipif("OPENAI_API_KEY" not in os.environ,
-                    reason="needs live OpenAI access")
+
+@pytest.mark.skipif(
+    "OPENAI_API_KEY" not in os.environ, reason="needs live OpenAI access"
+)
 def test_generate_ai_recipe_without_web_search_real_call():
-    data = pd.DataFrame({
-        "product_name": ["Widget One"],
-        "features": ["Lightweight; durable"]
-    })
+    data = pd.DataFrame(
+        {"product_name": ["Widget One"], "features": ["Lightweight; durable"]}
+    )
 
     df = wrangles.recipe.run(
         recipe="""
@@ -50,21 +51,19 @@ def test_generate_ai_recipe_without_web_search_real_call():
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
                     
-                 """   ,
-        dataframe=data
+                 """,
+        dataframe=data,
     )
 
     assert df.at[0, "short_description"]  # non-empty
     assert df.at[0, "category"]
     assert df.at[0, "source"] == "input"
-    
 
 
 def test_generate_ai_recipe_without_web_search_real_call_chain():
-    data = pd.DataFrame({
-        "product_name": ["Widget One"],
-        "features": ["Lightweight; durable"]
-    })
+    data = pd.DataFrame(
+        {"product_name": ["Widget One"], "features": ["Lightweight; durable"]}
+    )
 
     df = wrangles.recipe.run(
         recipe="""
@@ -103,10 +102,9 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
         """,
-        dataframe=data
+        dataframe=data,
     )
 
     assert df.at[0, "short_description"]  # non-empty
     assert df.at[0, "category"] or df.at[0, "short_description"]
     assert df.at[0, "source"] == "input"
-    

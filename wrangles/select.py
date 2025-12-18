@@ -1,12 +1,14 @@
 """
 Select subsets of input data
 """
+
 from typing import Union as _Union
 import json as _json
 import itertools as _itertools
 import fnmatch as _fnmatch
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
 from .utils import wildcard_expansion as _wildcard_expansion
+
 
 def highest_confidence(data_list):
     """
@@ -17,9 +19,11 @@ def highest_confidence(data_list):
         highest_confidence = 0
         highest_result = None
         for cell in row:
-            if isinstance(cell, str) and ' || ' in cell: cell = cell.split(' || ')
-           
-            if isinstance(cell, list) and len(cell) > 1 and isinstance(cell[1], str): cell[1] = float(cell[1])
+            if isinstance(cell, str) and " || " in cell:
+                cell = cell.split(" || ")
+
+            if isinstance(cell, list) and len(cell) > 1 and isinstance(cell[1], str):
+                cell[1] = float(cell[1])
 
             if isinstance(cell, list) and all(isinstance(i, list) for i in cell):
                 for object in cell:
@@ -28,24 +32,33 @@ def highest_confidence(data_list):
                         highest_confidence = float(object[1])
                 results.append(highest_result)
                 return results
-            
+
             if not isinstance(cell, list):
                 if not isinstance(cell, str):
                     cell = str(cell)
-                try: 
+                try:
                     cell = _json.loads(cell)
                     if float(list(cell.values())[0]) > highest_confidence:
-                        highest_result = [list(cell.keys())[0] , float(list(cell.values())[0])]
+                        highest_result = [
+                            list(cell.keys())[0],
+                            float(list(cell.values())[0]),
+                        ]
                         highest_confidence = float(list(cell.values())[0])
-                except(ValueError, TypeError):
-                    raise ValueError(f"Invalid Input: Input must be a list with a string value and a confidence value")
+                except (ValueError, TypeError):
+                    raise ValueError(
+                        f"Invalid Input: Input must be a list with a string value and a confidence value"
+                    )
 
-            if isinstance(cell, list) and len(cell) > 1 and float(cell[1]) > highest_confidence:
+            if (
+                isinstance(cell, list)
+                and len(cell) > 1
+                and float(cell[1]) > highest_confidence
+            ):
                 highest_result = cell
                 highest_confidence = float(cell[1])
 
         results.append(highest_result)
-        
+
     return results
 
 
@@ -54,10 +67,11 @@ def confidence_threshold(list_1, list_2, threshold):
     Select the first option if it exceeds a given threshold, else the second option.
     """
     results = []
-    
+
     for cell_1, cell_2 in zip(list_1, list_2):
-        if isinstance(cell_1, str): cell_1 = cell_1.split(' || ')
-        
+        if isinstance(cell_1, str):
+            cell_1 = cell_1.split(" || ")
+
         if cell_1 == None:
             if isinstance(cell_2, list):
                 results.append(cell_2[0])
@@ -70,14 +84,15 @@ def confidence_threshold(list_1, list_2, threshold):
                 results.append(cell_2[0])
             else:
                 results.append(cell_2)
-            
+
     return results
 
 
-def list_element(input, n: _Union[str, int], default = ""):
+def list_element(input, n: _Union[str, int], default=""):
     """
     Select a numbered element of a list (zero indexed).
     """
+
     def _int_or_none(val):
         try:
             return int(val)
@@ -90,7 +105,7 @@ def list_element(input, n: _Union[str, int], default = ""):
     def _list_get(lst, index, default=None):
         if isinstance(lst, str) and lst.startswith("["):
             lst = _json.loads(lst)
-            
+
         try:
             return lst[index]
         except IndexError:
@@ -100,14 +115,11 @@ def list_element(input, n: _Union[str, int], default = ""):
         slicer = slice(*map(_int_or_none, str(n).split(":")))
     else:
         slicer = int(n)
-        
-    return [
-        _list_get(row, slicer, default)
-        for row in input
-    ]
+
+    return [_list_get(row, slicer, default) for row in input]
 
 
-def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any=""):
+def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any = ""):
     """
     Select an element or elements of a dictionary
     """
@@ -120,11 +132,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
     if isinstance(key, list):
         key = dict(
             _itertools.chain.from_iterable(
-                [
-                    x.items() if isinstance(x, dict)
-                    else {x: x}.items()
-                    for x in key
-                ]
+                [x.items() if isinstance(x, dict) else {x: x}.items() for x in key]
             )
         )
         results = []
@@ -144,19 +152,14 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     **{
                         k: default
                         for k in key.keys()
-                        if (
-                            "regex:" not in k.lower() and
-                            "*" not in k
-                        )
+                        if ("regex:" not in k.lower() and "*" not in k)
                     },
-                    **row
+                    **row,
                 }
             rename_dict = _wildcard_expansion_dict(row.keys(), key)
-            results.append({
-                rename_dict[k]: row.get(k, default)
-                for k in rename_dict
-            })
+            results.append({rename_dict[k]: row.get(k, default) for k in rename_dict})
     else:
+
         def _get_value(value):
             """
             Get the value of a key in a dictionary or JSON dictionary
@@ -172,10 +175,18 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
                     return default
             except:
                 return default
-        
+
         # Expand wildcard keys
         try:
-            key_expanded = list(set(item for sublist in [_wildcard_expansion(row.keys(), key) for row in input] for item in sublist))
+            key_expanded = list(
+                set(
+                    item
+                    for sublist in [
+                        _wildcard_expansion(row.keys(), key) for row in input
+                    ]
+                    for item in sublist
+                )
+            )
 
             # Convert lists of one or zero to strings
             if len(key_expanded) == 1 and key_expanded == [key]:
@@ -192,14 +203,11 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
 
         # Wildcard keys are wrapped in a single-element list to ensure
         # consistent return types (always a list) from dict_element.
-        elif isinstance(key, str) and key.endswith('*'):
+        elif isinstance(key, str) and key.endswith("*"):
             results = dict_element(input, [key], default)
-        
+
         else:
-            results = [
-                _get_value(row)
-                for row in input
-            ]
+            results = [_get_value(row) for row in input]
 
     if single_input:
         return results[0]

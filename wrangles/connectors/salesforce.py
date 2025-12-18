@@ -3,10 +3,10 @@ Sample:
 
 read:
   - salesforce:
-      instance: 
-      user: 
-      password: 
-      token: 
+      instance:
+      user:
+      password:
+      token:
       object: Contact
       command: |
         SELECT Id, Email, Name
@@ -14,22 +14,20 @@ read:
 
 write:
   - salesforce:
-      instance: 
-      user: 
-      password: 
-      token: 
+      instance:
+      user:
+      password:
+      token:
       object: Contact
       id: Id
 """
+
 import pandas as _pd
 import logging as _logging
-from ..utils import (
-  wildcard_expansion as _wildcard_expansion,
-  LazyLoader as _LazyLoader
-)
+from ..utils import wildcard_expansion as _wildcard_expansion, LazyLoader as _LazyLoader
 
 # Lazy load external dependency
-_salesforce = _LazyLoader('simple_salesforce')
+_salesforce = _LazyLoader("simple_salesforce")
 
 _schema = {}
 
@@ -43,7 +41,7 @@ def read(
     command: str,
     columns: list = None,
     params: dict = {},
-    domain: str = None
+    domain: str = None,
 ) -> _pd.DataFrame:
     """
     Read data from Salesforce
@@ -69,21 +67,21 @@ def read(
         username=user,
         password=password,
         security_token=token,
-        domain=domain
+        domain=domain,
     )
 
     sf_object = getattr(sf.bulk, object)
 
     if params:
         command = _salesforce.format_soql(command, **params)
-    
+
     responses = sf_object.query(command, lazy_operation=True)
 
     results = []
     for response in responses:
         results.extend(response)
 
-    df = _pd.DataFrame(results).drop('attributes',axis=1)
+    df = _pd.DataFrame(results).drop("attributes", axis=1)
 
     # Select only specific columns if user requests them
     if columns is not None:
@@ -92,7 +90,10 @@ def read(
 
     return df
 
-_schema['read'] = """
+
+_schema[
+    "read"
+] = """
 type: object
 description: Import data from Salesforce
 required:
@@ -144,7 +145,7 @@ def write(
     password: str,
     token: str,
     columns: list = None,
-    domain: str = None
+    domain: str = None,
 ) -> None:
     """
     Write data to Salesforce.
@@ -174,13 +175,16 @@ def write(
         username=user,
         password=password,
         security_token=token,
-        domain=domain
+        domain=domain,
     )
-    getattr(sf.bulk, object).upsert(df.to_dict('records'), id)
+    getattr(sf.bulk, object).upsert(df.to_dict("records"), id)
 
     # TODO: the response provides a success/failure for each individual record. React appropriately to notify user of failures.
 
-_schema['write'] = """
+
+_schema[
+    "write"
+] = """
 type: object
 description: Write data to Salesforce
 required:
