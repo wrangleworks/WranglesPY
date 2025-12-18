@@ -145,6 +145,33 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
           Specify a list to sort multiple columns in different orders.
           If this is a list of bools then it must match the length of the by.
     """
+
+    
+    # Extart and normalize the 'by' parameter  
+    by = kwargs.get("by")  
+    if by is None:  
+        raise ValueError("'by' parameter is required for sorting")  
+      
+    # Ensure 'by' is a list for consistent processing  
+    by_columns = [by] if isinstance(by, str) else by  
+      
+    # Check if any columns need dtype conversion (float16 -> float32)  
+    # float16 can cause sorting issues in pandas  
+    needs_conversion = any(  
+        col in df.columns and df[col].dtype == "float16"   
+        for col in by_columns  
+    )  
+      
+    if needs_conversion:  
+        # Create a copy to avoid modifying the original DataFrame  
+        df = df.copy()  
+          
+        # Convert float16 columns to float32 for stable sorting  
+        for col in by_columns:  
+            if col in df.columns and df[col].dtype == "float16":  
+                df[col] = df[col].astype("float32")  
+      
+    # Perform the sort operation  
     return df.sort_values(ignore_index=ignore_index, **kwargs)
 
 
