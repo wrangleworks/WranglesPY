@@ -594,7 +594,15 @@ def custom(
       sort:
         type: string
         description: Sort the results
-        default: training_order
+        enum:
+          - training_order
+          - input_order
+          - longest
+          - shortest
+          - alphabetical
+          - reverse_alphabetical
+          - ascending
+          - descending
     """
     if output is None: output = input
     
