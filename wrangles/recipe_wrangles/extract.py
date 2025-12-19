@@ -550,6 +550,7 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    sort: str = 'training_order',
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -590,6 +591,18 @@ def custom(
       use_spellcheck:
         type: boolean
         description: Use spellcheck to also find minor mispellings compared to the reference data
+      sort:
+        type: string
+        description: Sort the results
+        enum:
+          - training_order
+          - input_order
+          - longest
+          - shortest
+          - alphabetical
+          - reverse_alphabetical
+          - ascending
+          - descending
     """
     if output is None: output = input
     
@@ -610,6 +623,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
     
@@ -627,6 +641,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
 
@@ -644,6 +659,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
 
