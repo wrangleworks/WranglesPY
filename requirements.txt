@@ -18,3 +18,4 @@ jinja2
 polars==1.33.0
 xlsxwriter
 pydantic
+serpapi

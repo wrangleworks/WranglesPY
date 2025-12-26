@@ -1,0 +1,285 @@
+# SerpAPI wrapper wrangle
+#
+# Prerequisites:
+# - SerpAPI account and API key (https://serpapi.com/)
+# - Set environment variable: export SERPAPI_KEY=your_api_key_here
+#
+
+# Example 1: Basic web search
+# Performs a simple web search and returns top 10 results
+---
+read:
+  - test:
+      rows: 3
+      values:
+        search_query:
+          - best python libraries 2024
+          - machine learning frameworks
+          - data science tools
+
+wrangles:
+  - search.web:
+      input: search_query
+      output: search_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 10
+
+write:
+  - file:
+      name: search_results_basic.json
+      type: json
+
+---
+
+# Example 2: Product search with prices
+# Searches for products and includes price information
+read:
+  - test:
+      rows: 2
+      values:
+        product:
+          - wireless headphones
+          - laptop stand
+
+wrangles:
+  - search.web:
+      input: product
+      output: product_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 5
+      include_prices: true
+
+write:
+  - file:
+      name: product_search_results.json
+      type: json
+
+---
+
+# Example 3: Search with country and language filters
+# Performs searches with specific geographic and language settings
+read:
+  - test:
+      rows: 2
+      values:
+        query:
+          - restaurants near me
+          - local news
+
+wrangles:
+  - search.web:
+      input: query
+      output: localized_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 5
+      gl: uk  
+      hl: en 
+      location: London, England
+
+write:
+  - file:
+      name: localized_search_results.json
+      type: json
+
+---
+
+# Example 4: Multi-column search
+# Combines multiple columns into a single search query
+read:
+  - test:
+      rows: 3
+      values:
+        topic:
+          - artificial intelligence
+          - blockchain
+          - quantum computing
+        year:
+          - 2024
+          - 2023
+          - 2024
+
+wrangles:
+  - search.web:
+      input:
+        - topic
+        - year
+      output: combined_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 3
+
+write:
+  - file:
+      name: multi_column_search.json
+      type: json
+
+---
+
+# Example 5: Parallel searches on different columns
+# Performs separate searches on multiple columns
+read:
+  - test:
+      rows: 2
+      values:
+        tech_query:
+          - python tutorials
+          - javascript frameworks
+        science_query:
+          - climate change research
+          - space exploration news
+
+wrangles:
+  - search.web:
+      input:
+        - tech_query
+        - science_query
+      output:
+        - tech_results
+        - science_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 5
+      threads: 10  # Number of parallel requests
+
+write:
+  - file:
+      name: parallel_search_results.json
+      type: json
+
+---
+
+# Example 6: Conditional search with where clause
+# Only performs searches for rows meeting certain criteria
+read:
+  - test:
+      rows: 5
+      values:
+        search_term:
+          - active search 1
+          - inactive search
+          - active search 2
+          - inactive search 2
+          - active search 3
+        priority:
+          - high
+          - low
+          - high
+          - low
+          - high
+
+wrangles:
+  - search.web:
+      input: search_term
+      output: filtered_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 3
+      where: priority = 'high'
+
+write:
+  - file:
+      name: conditional_search_results.json
+      type: json
+
+---
+
+# Example 7: Mobile device search
+# Performs searches as if from a mobile device
+read:
+  - test:
+      rows: 2
+      values:
+        mobile_query:
+          - best mobile apps
+          - mobile games 2024
+
+wrangles:
+  - search.web:
+      input: mobile_query
+      output: mobile_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 5
+      device: mobile
+
+write:
+  - file:
+      name: mobile_search_results.json
+      type: json
+
+---
+
+# Example 8: Extract specific information from search results
+# Combines search with additional data extraction
+read:
+  - test:
+      rows: 1
+      values:
+        query:
+          - best restaurants in Austin
+
+wrangles:
+  # Perform web search
+  - search.web:
+      input: query
+      output: raw_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 10
+  
+  # Extract just the titles from results
+  - create.jinja:
+      input: raw_results
+      output: result_titles
+      template: "{{ [item.title for item in value] | join(', ') }}"
+  
+  # Extract just the links
+  - create.jinja:
+      input: raw_results
+      output: result_links
+      template: "{{ [item.link for item in value] | join(', ') }}"
+
+write:
+  - file:
+      name: extracted_search_data.csv
+      type: csv
+
+---
+
+# Example 9: Batch processing with controlled concurrency
+# Process many searches with controlled parallel execution
+read:
+  - test:
+      rows: 20
+      values:
+        batch_query:
+          - query 1
+          - query 2
+          - query 3
+          - query 4
+          - query 5
+          - query 6
+          - query 7
+          - query 8
+          - query 9
+          - query 10
+          - query 11
+          - query 12
+          - query 13
+          - query 14
+          - query 15
+          - query 16
+          - query 17
+          - query 18
+          - query 19
+          - query 20
+
+wrangles:
+  - search.web:
+      input: batch_query
+      output: batch_results
+      api_key: ${SERPAPI_KEY}
+      n_results: 3
+      threads: 5  # Limit concurrent requests to avoid rate limits
+
+write:
+  - file:
+      name: batch_search_results.json
+      type: json
+
+
