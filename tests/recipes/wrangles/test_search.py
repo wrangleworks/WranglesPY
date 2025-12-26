@@ -40,7 +40,7 @@ class MockSerpAPIClient:
 class TestSearchWeb:
     """Test search.web functionality"""
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_single_query(self, mock_client):
         """Test basic single query search"""
         mock_client.return_value = MockSerpAPIClient
@@ -67,7 +67,7 @@ class TestSearchWeb:
         assert 'snippet' in df.iloc[0]['results'][0]
         assert 'position' in df.iloc[0]['results'][0]
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_multiple_queries(self, mock_client):
         """Test search with multiple queries"""
         mock_client.return_value = MockSerpAPIClient
@@ -91,7 +91,7 @@ class TestSearchWeb:
         assert all(len(row['results']) == 3 for _, row in df.iterrows())
         assert df.iloc[1]['results'][0]['title'] == 'Result 1 for machine learning'
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_with_n_results(self, mock_client):
         """Test search with different n_results values"""
         mock_client.return_value = MockSerpAPIClient
@@ -113,7 +113,7 @@ class TestSearchWeb:
         
         assert len(df.iloc[0]['results']) == 7
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_multiple_input_columns(self, mock_client):
         """Test search with multiple input columns (concatenated)"""
         mock_client.return_value = MockSerpAPIClient
@@ -141,7 +141,7 @@ class TestSearchWeb:
         # Query should be concatenated: "wireless headphones"
         assert 'wireless headphones' in df.iloc[0]['results'][0]['title']
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_multiple_output_columns(self, mock_client):
         """Test search with multiple input/output columns"""
         mock_client.return_value = MockSerpAPIClient
@@ -171,7 +171,7 @@ class TestSearchWeb:
         assert 'python' in df.iloc[0]['results1'][0]['title']
         assert 'javascript' in df.iloc[0]['results2'][0]['title']
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_where_clause(self, mock_client):
         """Test search.web using where clause"""
         mock_client.return_value = MockSerpAPIClient
@@ -197,7 +197,7 @@ class TestSearchWeb:
         assert len(df.iloc[1]['results']) == 2  # priority = 5, processed
         assert len(df.iloc[2]['results']) == 2  # priority = 3, processed
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_empty_input(self, mock_client):
         """Test search with empty input"""
         mock_client.return_value = MockSerpAPIClient
@@ -222,7 +222,7 @@ class TestSearchWeb:
         assert len(df.iloc[1]['results']) == 3
         assert df.iloc[2]['results'] == []
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_include_prices(self, mock_client):
         """Test search with include_prices parameter"""
         mock_client.return_value = MockSerpAPIClient
@@ -246,7 +246,7 @@ class TestSearchWeb:
         assert 'price' in df.iloc[0]['results'][0]
         assert df.iloc[0]['results'][0]['price'] == '$10.99'
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_with_country(self, mock_client):
         """Test search with country parameter"""
         mock_client.return_value = MockSerpAPIClient
@@ -269,7 +269,7 @@ class TestSearchWeb:
         
         assert len(df.iloc[0]['results']) == 3
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_with_language(self, mock_client):
         """Test search with language parameter"""
         mock_client.return_value = MockSerpAPIClient
@@ -309,7 +309,7 @@ class TestSearchWeb:
         with pytest.raises(Exception):
             wrangles.recipe.run(recipe, dataframe=data)
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_search_empty_results(self, mock_client):
         """Test handling of queries that return no results"""
         mock_client.return_value = MockSerpAPIClient
@@ -335,7 +335,7 @@ class TestSearchWeb:
 class TestSearchWebDirect:
     """Test direct wrangles.search.web() function calls"""
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_direct_single_query(self, mock_client):
         """Test direct function call with single query"""
         mock_client.return_value = MockSerpAPIClient
@@ -350,7 +350,7 @@ class TestSearchWebDirect:
         assert len(results) == 3
         assert results[0]['title'] == 'Result 1 for wireless headphones'
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_direct_multiple_queries(self, mock_client):
         """Test direct function call with list of queries"""
         mock_client.return_value = MockSerpAPIClient
@@ -367,7 +367,7 @@ class TestSearchWebDirect:
         assert results[0][0]['title'] == 'Result 1 for python'
         assert results[1][0]['title'] == 'Result 1 for java'
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_direct_with_kwargs(self, mock_client):
         """Test direct function call with additional kwargs"""
         mock_client.return_value = MockSerpAPIClient
@@ -400,7 +400,7 @@ class TestSearchWebDirect:
         with pytest.raises(ValueError, match="n_results cannot exceed 100"):
             wrangles.search.web("test", api_key="key", n_results=101)
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_direct_empty_query(self, mock_client):
         """Test direct call with empty query"""
         mock_client.return_value = MockSerpAPIClient
@@ -413,7 +413,7 @@ class TestSearchWebDirect:
         
         assert results == []
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_direct_error_handling(self, mock_client):
         """Test error handling in search"""
         mock_client.return_value = MockSerpAPIClient
@@ -433,7 +433,7 @@ class TestSearchWebDirect:
 class TestSearchWebEdgeCases:
     """Test edge cases and error conditions"""
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_dataframe_with_single_row(self, mock_client):
         """Test with DataFrame containing single row"""
         mock_client.return_value = MockSerpAPIClient
@@ -452,7 +452,7 @@ class TestSearchWebEdgeCases:
         assert len(df) == 1
         assert isinstance(df.iloc[0]['results'], list)
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_dataframe_with_many_rows(self, mock_client):
         """Test with DataFrame containing many rows (tests threading)"""
         mock_client.return_value = MockSerpAPIClient
@@ -476,7 +476,7 @@ class TestSearchWebEdgeCases:
         assert len(df) == 50
         assert all(len(row['results']) == 2 for _, row in df.iterrows())
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_special_characters_in_query(self, mock_client):
         """Test queries with special characters"""
         mock_client.return_value = MockSerpAPIClient
@@ -499,7 +499,7 @@ class TestSearchWebEdgeCases:
         assert len(df) == 3
         assert all(isinstance(row['results'], list) for _, row in df.iterrows())
     
-    @patch('wrangles.search._get_serpapi_client')
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
     def test_numeric_input_column(self, mock_client):
         """Test with numeric values in input column"""
         mock_client.return_value = MockSerpAPIClient

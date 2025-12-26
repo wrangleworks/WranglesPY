@@ -21,7 +21,7 @@ def _search_single_query(
     api_key: str,
     n_results: int,
     include_prices: bool,
-    **kwargs
+    kwargs: dict = None
 ) -> list:
     """
     Perform a single web search using SerpAPI.
@@ -33,8 +33,12 @@ def _search_single_query(
     :param kwargs: Additional SerpAPI parameters (gl, hl, num, etc.)
     :return: List of search results
     """
-    if not query or not str(query).strip():
+    query_str = str(query).strip().lower()
+    if query is None or not query_str or query_str in ('none', 'nan', 'nat'):
         return []
+    
+    if kwargs is None:
+        kwargs = {}
     
     try:
         SerpApiClient = _get_serpapi_client()
@@ -110,13 +114,13 @@ def web(
              If input was a list, returns a list of lists.
     """
     if not api_key:
-        raise ValueError("api_key is required for search functionality")
+        raise ValueError("api_key is required")
     
     if not isinstance(n_results, int) or n_results < 1:
         raise ValueError("n_results must be a positive integer")
     
     if n_results > 100:
-        raise ValueError("n_results cannot exceed 100 (SerpAPI limit)")
+        raise ValueError("n_results cannot exceed 100")
 
     input_was_scalar = False
     if not isinstance(input, list):
