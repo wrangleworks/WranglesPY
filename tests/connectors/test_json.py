@@ -554,3 +554,375 @@ class TestBackwardCompatibility:
         assert len(original_df) == len(result_df)
         
         _os.remove(filename)
+
+
+class TestComplexParameterCombinations:
+    """
+    Complex tests utilizing at least 4 parameters to ensure robust handling
+    of parameter combinations in real-world scenarios.
+    """
+    
+    def test_read_jsonl_with_multi_params(self):
+        """
+        Test reading JSONL with 5 parameters: columns, nrows, encoding, lines, orient
+        """
+        df = wrangles.connectors.json.read(
+            'tests/samples/data.jsonl',
+            columns=['Find'],
+            nrows=2,
+            encoding='utf-8',
+            lines=True,
+            orient='records'
+        )
+        assert df.columns.tolist() == ['Find']
+        assert len(df) == 2
+    
+    def test_read_jsonl_chunksize_multi_params(self):
+        """
+        Test reading JSONL with 5 parameters: chunksize, columns, encoding, lines, precise_float
+        """
+        reader = wrangles.connectors.json.read(
+            'tests/samples/data.jsonl',
+            chunksize=1,
+            columns=['Replace'],
+            encoding='utf-8',
+            lines=True,
+            precise_float=True
+        )
+        
+        chunks = list(reader)
+        assert len(chunks) > 0
+        for chunk in chunks:
+            assert chunk.columns.tolist() == ['Replace']
+            assert len(chunk) <= 1
+    
+    def test_read_json_dtype_and_dates(self):
+        """
+        Test reading JSON with 5 parameters: columns, dtype, convert_dates, keep_default_dates, encoding
+        Complex scenario with type conversion and date handling
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.json"
+        
+        # Create test data with mixed types
+        test_df = _pd.DataFrame({
+            'string_col': ['a', 'b', 'c'],
+            'int_col': [1, 2, 3],
+            'float_col': [1.1, 2.2, 3.3],
+            'date_col': ['2023-01-01', '2023-01-02', '2023-01-03']
+        })
+        wrangles.connectors.json.write(test_df, filename)
+        
+        # Read with multiple parameters
+        df = wrangles.connectors.json.read(
+            filename,
+            columns=['string_col', 'int_col', 'float_col', 'date_col'],
+            dtype={'string_col': str, 'int_col': int},
+            convert_dates=['date_col'],
+            keep_default_dates=False,
+            encoding='utf-8'
+        )
+        
+        assert len(df) == 3
+        assert df.columns.tolist() == ['string_col', 'int_col', 'float_col', 'date_col']
+        
+        _os.remove(filename)
+    
+    def test_read_compressed_jsonl_multi_params(self):
+        """
+        Test reading compressed JSONL with 5 parameters: compression, nrows, lines, columns, encoding
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.jsonl.gz"
+        
+        # Create compressed test file
+        test_df = _pd.DataFrame({
+            'col1': [f'value_{i}' for i in range(10)],
+            'col2': list(range(10)),
+            'col3': [i * 1.5 for i in range(10)]
+        })
+        wrangles.connectors.json.write(test_df, filename)
+        
+        # Read with multiple parameters
+        df = wrangles.connectors.json.read(
+            filename,
+            compression='gzip',
+            nrows=5,
+            lines=True,
+            columns=['col1', 'col2'],
+            encoding='utf-8'
+        )
+        
+        assert len(df) == 5
+        assert df.columns.tolist() == ['col1', 'col2']
+        assert 'col3' not in df.columns
+        
+        _os.remove(filename)
+    
+    def test_write_json_formatting_params(self):
+        """
+        Test writing JSON with 5 parameters: orient, indent, index, compression, columns
+        Complex formatting scenario
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.json"
+        
+        df = _pd.DataFrame({
+            'col1': ['a', 'b', 'c'],
+            'col2': [1, 2, 3],
+            'col3': [1.5, 2.5, 3.5],
+            'col4': ['ignore', 'ignore', 'ignore']
+        })
+        
+        wrangles.connectors.json.write(
+            df,
+            filename,
+            orient='records',
+            indent=4,
+            index=False,
+            compression='infer',
+            columns=['col1', 'col2', 'col3']
+        )
+        
+        # Verify file was created with proper formatting
+        with open(filename, 'r') as f:
+            content = f.read()
+        assert '    ' in content  # Check for 4-space indentation
+        
+        # Verify data integrity
+        result_df = wrangles.connectors.json.read(filename)
+        assert result_df.columns.tolist() == ['col1', 'col2', 'col3']
+        assert 'col4' not in result_df.columns
+        assert len(result_df) == 3
+        
+        _os.remove(filename)
+    
+    def test_write_jsonl_with_date_params(self):
+        """
+        Test writing JSONL with 5 parameters: date_format, date_unit, lines, columns, encoding
+        Complex scenario with date handling
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.jsonl"
+        
+        df = _pd.DataFrame({
+            'name': ['Alice', 'Bob', 'Charlie'],
+            'timestamp': _pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-03']),
+            'value': [100, 200, 300],
+            'extra': ['drop', 'drop', 'drop']
+        })
+        
+        wrangles.connectors.json.write(
+            df,
+            filename,
+            date_format='iso',
+            date_unit='s',
+            lines=True,
+            columns=['name', 'timestamp', 'value'],
+            index=False
+        )
+        
+        # Verify the file was written correctly
+        result_df = wrangles.connectors.json.read(filename)
+        assert result_df.columns.tolist() == ['name', 'timestamp', 'value']
+        assert len(result_df) == 3
+        assert 'extra' not in result_df.columns
+        
+        _os.remove(filename)
+    
+    def test_write_json_precision_params(self):
+        """
+        Test writing JSON with 5 parameters: double_precision, force_ascii, orient, index, columns
+        Complex scenario with precision and encoding
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.json"
+        
+        df = _pd.DataFrame({
+            'id': [1, 2, 3],
+            'precise_value': [1.123456789012345, 2.987654321098765, 3.456789012345678],
+            'text': ['test', 'data', 'here'],
+            'unicode': ['café', 'naïve', 'résumé'],
+            'extra': ['x', 'y', 'z']
+        })
+        
+        wrangles.connectors.json.write(
+            df,
+            filename,
+            double_precision=15,
+            force_ascii=False,
+            orient='records',
+            index=False,
+            columns=['id', 'precise_value', 'text', 'unicode']
+        )
+        
+        # Verify data integrity
+        result_df = wrangles.connectors.json.read(filename)
+        assert len(result_df) == 3
+        assert result_df.columns.tolist() == ['id', 'precise_value', 'text', 'unicode']
+        assert 'extra' not in result_df.columns
+        
+        _os.remove(filename)
+    
+    def test_write_compressed_jsonl_multi_params(self):
+        """
+        Test writing compressed JSONL with 6 parameters: compression, lines, orient, index, date_format, columns
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.jsonl.gz"
+        
+        df = _pd.DataFrame({
+            'product': ['Widget A', 'Widget B', 'Widget C'],
+            'price': [19.99, 29.99, 39.99],
+            'created': _pd.to_datetime(['2023-01-01', '2023-01-02', '2023-01-03']),
+            'category': ['electronics', 'electronics', 'home'],
+            'internal_id': [1001, 1002, 1003]
+        })
+        
+        wrangles.connectors.json.write(
+            df,
+            filename,
+            compression='gzip',
+            lines=True,
+            orient='records',
+            index=False,
+            date_format='epoch',
+            columns=['product', 'price', 'created', 'category']
+        )
+        
+        # Verify compressed file was created and is readable
+        assert _os.path.exists(filename)
+        result_df = wrangles.connectors.json.read(filename)
+        assert len(result_df) == 3
+        assert result_df.columns.tolist() == ['product', 'price', 'created', 'category']
+        assert 'internal_id' not in result_df.columns
+        
+        _os.remove(filename)
+    
+    def test_round_trip_complex_params(self):
+        """
+        Test round-trip with complex parameters on both write and read
+        Parameters: columns, orient, indent, encoding (write) + columns, encoding, dtype (read)
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.json"
+        
+        original_df = _pd.DataFrame({
+            'string_field': ['alpha', 'beta', 'gamma'],
+            'integer_field': [10, 20, 30],
+            'float_field': [1.11, 2.22, 3.33],
+            'boolean_field': [True, False, True],
+            'drop_field': ['x', 'y', 'z']
+        })
+        
+        # Write with complex parameters
+        wrangles.connectors.json.write(
+            original_df,
+            filename,
+            columns=['string_field', 'integer_field', 'float_field', 'boolean_field'],
+            orient='records',
+            indent=2,
+            index=False
+        )
+        
+        # Read with complex parameters
+        result_df = wrangles.connectors.json.read(
+            filename,
+            columns=['string_field', 'integer_field', 'float_field'],
+            encoding='utf-8',
+            dtype={'string_field': str, 'integer_field': int}
+        )
+        
+        assert len(result_df) == 3
+        assert result_df.columns.tolist() == ['string_field', 'integer_field', 'float_field']
+        assert 'boolean_field' not in result_df.columns
+        assert 'drop_field' not in result_df.columns
+        
+        _os.remove(filename)
+    
+    def test_chunksize_with_complex_params(self):
+        """
+        Test chunked reading with 6 parameters: chunksize, nrows, columns, encoding, lines, precise_float
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.jsonl"
+        
+        # Create larger test file
+        large_df = _pd.DataFrame({
+            'id': list(range(100)),
+            'value': [i * 2.5 for i in range(100)],
+            'category': [f'cat_{i % 5}' for i in range(100)],
+            'description': [f'item_{i}' for i in range(100)]
+        })
+        wrangles.connectors.json.write(large_df, filename)
+        
+        # Read in chunks with multiple parameters
+        reader = wrangles.connectors.json.read(
+            filename,
+            chunksize=10,
+            nrows=50,  # Only read first 50 rows
+            columns=['id', 'value', 'category'],
+            encoding='utf-8',
+            lines=True,
+            precise_float=True
+        )
+        
+        chunks = list(reader)
+        total_rows = sum(len(chunk) for chunk in chunks)
+        
+        assert total_rows == 50  # Should respect nrows
+        assert len(chunks) == 5  # 50 rows / 10 per chunk
+        
+        for chunk in chunks:
+            assert chunk.columns.tolist() == ['id', 'value', 'category']
+            assert 'description' not in chunk.columns
+        
+        _os.remove(filename)
+    
+    def test_recipe_with_complex_read_params(self):
+        """
+        Test using recipe format with complex read parameters
+        Parameters: columns, encoding, lines, nrows
+        """
+        recipe = """
+          read:
+            - json:
+                name: tests/samples/data.jsonl
+                columns:
+                  - Find
+                encoding: utf-8
+                lines: true
+                nrows: 2
+          wrangles:
+            - convert.case:
+                input: Find
+                case: upper
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.columns.tolist() == ['Find']
+        assert len(df) == 2
+    
+    def test_recipe_with_complex_write_params(self):
+        """
+        Test using recipe format with complex write parameters
+        Parameters: columns, orient, indent, index
+        """
+        filename = f"tests/temp/{_uuid.uuid4()}.json"
+        recipe = f"""
+          read:
+            - test:
+                rows: 5
+                values:
+                  col1: value1
+                  col2: value2
+                  col3: value3
+          write:
+            - json:
+                name: {filename}
+                columns:
+                  - col1
+                  - col2
+                orient: records
+                indent: 2
+                index: false
+        """
+        wrangles.recipe.run(recipe)
+        
+        # Verify output
+        result_df = wrangles.connectors.json.read(filename)
+        assert result_df.columns.tolist() == ['col1', 'col2']
+        assert len(result_df) == 5
+        
+        _os.remove(filename)
