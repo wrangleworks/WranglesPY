@@ -21,6 +21,30 @@ from ..utils import wildcard_expansion as _wildcard_expansion
 
 _schema = {}
 
+_READ_PARAMS = [
+    {'name': 'typ', 'default': 'frame'},
+    {'name': 'dtype', 'default': None},
+    {'name': 'convert_axes', 'default': None},
+    {'name': 'convert_dates', 'default': True},
+    {'name': 'keep_default_dates', 'default': True},
+    {'name': 'precise_float', 'default': False},
+    {'name': 'date_unit', 'default': None},
+    {'name': 'encoding', 'default': None},
+    {'name': 'encoding_errors', 'default': 'strict'},
+    {'name': 'chunksize', 'default': None},
+    {'name': 'compression', 'default': 'infer'},
+    {'name': 'nrows', 'default': None},
+]
+
+_WRITE_PARAMS = [
+    {'name': 'date_format', 'default': None},
+    {'name': 'double_precision', 'default': 10},
+    {'name': 'force_ascii', 'default': True},
+    {'name': 'date_unit', 'default': 'ms'},
+    {'name': 'default_handler', 'default': None},
+    {'name': 'compression', 'default': 'infer'},
+]
+
 
 def read(
     name: str,
@@ -93,45 +117,18 @@ def read(
         pandas_kwargs['orient'] = orient
     elif lines:
         pandas_kwargs['orient'] = 'records'
-    
-    if typ != 'frame':
-        pandas_kwargs['typ'] = typ
-    
-    if dtype is not None:
-        pandas_kwargs['dtype'] = dtype
-    
-    if convert_axes is not None:
-        pandas_kwargs['convert_axes'] = convert_axes
-    
-    if convert_dates is not True:
-        pandas_kwargs['convert_dates'] = convert_dates
-    
-    if not keep_default_dates:
-        pandas_kwargs['keep_default_dates'] = keep_default_dates
-    
-    if precise_float:
-        pandas_kwargs['precise_float'] = precise_float
-    
-    if date_unit is not None:
-        pandas_kwargs['date_unit'] = date_unit
-    
-    if encoding is not None:
-        pandas_kwargs['encoding'] = encoding
-    
-    if encoding_errors != 'strict':
-        pandas_kwargs['encoding_errors'] = encoding_errors
-    
+
     if lines:
         pandas_kwargs['lines'] = True
     
-    if chunksize is not None:
-        pandas_kwargs['chunksize'] = chunksize
-    
-    if compression != 'infer':
-        pandas_kwargs['compression'] = compression
-    
-    if nrows is not None:
-        pandas_kwargs['nrows'] = nrows
+    local_vars = locals()
+    for param_config in _READ_PARAMS:
+        param_name = param_config['name']
+        param_value = local_vars[param_name]
+        default_value = param_config['default']
+        
+        if param_value != default_value:
+            pandas_kwargs[param_name] = param_value
     
     pandas_kwargs.update(kwargs)
     
@@ -144,8 +141,6 @@ def read(
             "Note: 'nrows' is only valid for JSONL files."
         ) from e
     
-    # If chunksize is specified, result is a JsonReader (iterator)
-    # We need to wrap it to apply fillna and column filtering to each chunk
     if chunksize is not None:
         def process_chunks(reader):
             """Generator that processes each chunk with fillna and column filtering"""
@@ -158,7 +153,6 @@ def read(
         
         return process_chunks(result)
     
-    # For regular (non-chunked) reads, process the DataFrame directly
     df = result.fillna('')
     
     if columns is not None:
@@ -331,25 +325,8 @@ def write(
     
     if orient is not None:
         pandas_kwargs['orient'] = orient
-    elif lines:
-        pandas_kwargs['orient'] = 'records'
     else:
         pandas_kwargs['orient'] = 'records'
-    
-    if date_format is not None:
-        pandas_kwargs['date_format'] = date_format
-    
-    if double_precision != 10:
-        pandas_kwargs['double_precision'] = double_precision
-    
-    if not force_ascii:
-        pandas_kwargs['force_ascii'] = force_ascii
-    
-    if date_unit != 'ms':
-        pandas_kwargs['date_unit'] = date_unit
-    
-    if default_handler is not None:
-        pandas_kwargs['default_handler'] = default_handler
     
     if lines:
         pandas_kwargs['lines'] = True
@@ -359,13 +336,19 @@ def write(
         if indent is not None:
             pandas_kwargs['indent'] = indent
     
-    if compression != 'infer':
-        pandas_kwargs['compression'] = compression
-    
     if index is not None:
         pandas_kwargs['index'] = index
     elif lines:
         pandas_kwargs['index'] = False
+    
+    local_vars = locals()
+    for param_config in _WRITE_PARAMS:
+        param_name = param_config['name']
+        param_value = local_vars[param_name]
+        default_value = param_config['default']
+        
+        if param_value != default_value:
+            pandas_kwargs[param_name] = param_value
 
     pandas_kwargs.update(kwargs)
     
