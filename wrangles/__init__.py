@@ -23,6 +23,7 @@ from .translate import translate
 from .standardize import standardize
 from . import format
 from . import openai
+from .clients import serp_api as search
 
 from . import data
 from .train import train
