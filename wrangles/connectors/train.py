@@ -233,7 +233,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'upsert') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -242,33 +242,154 @@ class lookup():
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
         :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
+        :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
-        _logging.info(": Training Lookup Wrangle")
+        _logging.info(f": Training Lookup Wrangle")
+        if action.upper() == 'UPSERT':
+            if name and model_id:
+                raise ValueError("Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.") 
+            # Prepare new data  
+            new_data = {  
+                k.title(): v  
+                for k, v in df.to_dict(orient="tight").items()  
+                if k in ["columns", "data"]  
+            }  
+            if name and not model_id:    
+                existing_models = _data.user.models()  
+                model_names = [model.get('name') for model in existing_models if model.get('name')]  
+                    
+                if name in model_names:  
+                    # Find the model_id for existing model  
+                    existing_model = next((m for m in existing_models if m.get('name') == name), None)  
+                    if existing_model:  
+                        model_id = existing_model['id']  
+                        # Read variant from existing model  
+                        metadata = _data.model(model_id)  
+                        variant = metadata['variant']  
+                        if variant == 'semantic':  
+                            variant = 'embedding'  
+                        settings['variant'] = variant  
+            if model_id:  
+                # Row-level upsert for existing model  
+                existing_content = _data.model_content(model_id)  
+                existing_df = _pd.DataFrame(  
+                    existing_content['Data'],   
+                    columns=existing_content['Columns']  
+                )[new_data['Columns']]  # Ensure same column order
+                
+                # Get variant from existing model  
+                metadata = _data.model(model_id)  
+                variant = metadata['variant']  
+                if variant == 'semantic':  
+                    variant = 'embedding'  
+                settings['variant'] = variant  
+                
+                # Merge data - avoid duplicates based on Key column  
+                if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:            
+                    if df['Key'].duplicated().any():  
+                        raise ValueError("Lookup: All Keys must be unique")
+                    # For key lookups, remove existing keys from new data  
+                    existing_keys = set(existing_df['Key'].tolist())  
+                    new_rows = df[~df['Key'].isin(existing_keys)]  
+                    merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
+                else:  
+                    # For semantic lookups or no Key column, append all new data  
+                    merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+                
+                # Convert merged data back to required format  
+                merged_data = {  
+                    'Columns': merged_df.columns.tolist(),  
+                    'Data': merged_df.values.tolist()  
+                }  
+                
+                # Update with merged data  
+                _train.lookup(merged_data, None, model_id, settings)  
+                
+            else:  
+                # Standard create/update logic  
+                if model_id:  
+                    metadata = _data.model(model_id)  
+                    variant = metadata['variant']  
+                if variant == 'semantic':  
+                    variant = 'embedding'  
+                settings['variant'] = variant  
+                _train.lookup(new_data, name, model_id, settings)
+    
 
-        # Error handling for name, model_id and settings
-        if name and model_id:
-            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        elif action.upper() == 'UPDATE':  
+            # Verify model exists  
+            try:  
+                metadata = _data.model(model_id)  
+                if metadata.get('message') == 'error':  
+                    raise ValueError(f"Lookup model '{model_id}' not found")  
+            except:  
+                raise ValueError(f"Lookup model '{model_id}' not found")  
+            
+            # Get existing model data  
+            existing_data = _data.model_content(model_id)  
+            existing_df = _pd.DataFrame(existing_data['Data'], columns=existing_data['Columns'])  
+             
+            if 'Key' in df.columns and 'Key' in existing_df.columns:  
+                # Only update records that exist in the model  
+                existing_keys = set(existing_df['Key'].tolist())  
+                df_filtered = df[df['Key'].isin(existing_keys)].copy()  
+                    
+                if df_filtered.empty:  
+                    _logging.info("No matching keys found in existing model. No updates performed.")  
+                    return  
+                    
+                # Merge with existing data  
+                merged_df = existing_df.copy()  
+                for idx, row in df_filtered.iterrows():  
+                    key = row['Key']  
+                    mask = merged_df['Key'] == key  
+                    for col in df_filtered.columns:  
+                        if col != 'Key':  
+                            merged_df.loc[mask, col] = row[col]  
+                    
+                df = merged_df  
+            else:  
+                raise ValueError("Both DataFrames must contain 'Key' column")  
         
-        # Read in variant if there is a model_id
-        if model_id:
-            metadata = _data.model(model_id)
-            variant = metadata['variant']
-      
-        if variant == 'semantic':
-            variant = 'embedding'
+            # Preserve existing variant  
+            variant = metadata.get('variant', 'key')  
+            if variant == 'semantic':  
+                variant = 'embedding'  
+            settings['variant'] = variant  
+                
+            # Retrain the model with updated data  
+            _train.lookup(  
+                {  
+                    k.title(): v  
+                    for k, v in df.to_dict(orient="tight").items()  
+                    if k in ["columns", "data"]  
+                },  
+                None,  # No name for update  
+                model_id,  
+                settings  
+)
+        elif action.upper() == 'INSERT':  
+            if not name:  
+                raise ValueError("INSERT action requires 'name' parameter")  
+            if model_id:  
+                raise ValueError("INSERT action cannot use 'model_id' parameter")  
+            
+            # Check if model already exists  
+            existing_models = _data.user.models()  
+            if any(model['name'] == name for model in existing_models):  
+                raise ValueError(f"Lookup model '{name}' already exists")  
+            
 
-        settings['variant'] = variant
-
-        _train.lookup(
-            {
-                k.title(): v
-                for k, v in df.to_dict(orient="tight").items()
-                if k in ["columns", "data"]
-            },
-            name,
-            model_id,
-            settings
-        )
+            settings['variant'] = variant 
+            
+            _train.lookup(  
+                {k.title(): v for k, v in df.to_dict(orient="tight").items()   
+                if k in ["columns", "data"]},  
+                name, None, settings  
+            )  
+        
+        else:  
+            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, or UPSERT")
 
     _schema["write"] = """
         type: object
@@ -290,6 +411,13 @@ class lookup():
             enum:
               - key
               - semantic
+        action:
+            type: string
+            description: Action to take when training the lookup wrangle
+            enum:
+              - insert
+              - update
+              - upsert
         """
 
 class standardize():

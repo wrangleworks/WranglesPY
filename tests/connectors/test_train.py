@@ -1,3 +1,4 @@
+import uuid
 import wrangles
 import pandas as pd
 import pytest
@@ -526,10 +527,165 @@ class TestTrainLookup:
                   'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
-
-
-
-
+  
+    def test_insert_success(self):  
+        """  
+        Test successful insert of new lookup model  
+        """  
+        recipe = f"""
+        write:
+          - train.lookup:
+              name: model {{ {uuid.uuid4().hex[:8]} }}
+              action: INSERT
+              variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+  
+    def test_insert_duplicate_model_name(self):  
+        """  
+        Test insert fails when model name already exists  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Dolores'],  
+            'Value': ['Blade Runner', 'Westworld']  
+        }) 
+        recipe = """
+        write:
+          - train.lookup:
+              name: My Lookup Wrangle
+              action: INSERT
+              variant: key
+        """ 
+        with pytest.raises(ValueError, match="Lookup model 'My Lookup Wrangle' already exists"):  
+            wrangles.recipe.run(recipe, dataframe=df)  
+  
+    def test_insert_duplicate_keys(self):  
+        """  
+        Test insert fails when DataFrame contains duplicate keys  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Rachel', 'Dolores'],  # Duplicate Rachel  
+            'Value': ['Blade Runner', 'Not Rachel', 'Westworld']  
+        })  
+        recipe = f"""
+            write:
+            - train.lookup:
+                name: model {{ {uuid.uuid4().hex[:8]} }}
+                action: INSERT
+                variant: key
+            """ 
+        with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
+            wrangles.recipe.run(recipe, dataframe=df)   
+  
+    def test_update_model_not_found(self):  
+        """  
+        Test update fails when model doesn't exist   
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Dolores'],  
+            'Value': ['Blade Runner 2049', 'Westworld Updated']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              model_id: test-model-id  
+              action: UPDATE  
+        """  
+          
+        # This would test with an actual existing model  
+        # For testing purposes, we'll catch the expected error  
+        with pytest.raises(ValueError, match="Lookup model 'test-model-id' not found"):  
+            wrangles.recipe.run(recipe, dataframe=df)  
+  
+    def test_action_parameter_validation_recipe(self):  
+        """  
+        Test invalid action parameter using recipe  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel'],  
+            'Value': ['Blade Runner']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              name: Test Lookup  
+              action: INVALID_ACTION  
+        """  
+          
+        with pytest.raises(ValueError, match="Unsupported action: INVALID_ACTION"):  
+            wrangles.recipe.run(recipe, dataframe=df)  
+  
+    def test_update_model(self):  
+        """  
+        Test UPDATE action with existing model
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Dolores', 'Phipi'],  
+            'Value': ['Updated Rachel', 'Updated Dolores', 'Updated Phipi']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              model_id: 3c8f6707-2de4-4be3
+              action: UPDATE  
+        """  
+        
+        df = wrangles.recipe.run(recipe, dataframe=df)  
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
+                                                            
+    def test_upsert_new_model_recipe(self):  
+        """  
+        Test upsert creates new model when model_id doesn't exist  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'NewCharacter'],  
+            'Value': ['Updated Rachel', 'New Movie']  
+        })  
+        model_name = f"model {{ {uuid.uuid4().hex[:8]} }}"
+        
+        recipe = f"""  
+        write:  
+        - train.lookup:  
+            name: {model_name} 
+            action: UPSERT  
+            variant: key  
+        """  
+        
+        result = wrangles.recipe.run(recipe, dataframe=df)  
+        assert len(result) == 2  
+        assert 'NewCharacter' in result['Key'].tolist()  
+        assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
+        models = wrangles.data.user.models('lookup')
+        assert any(m['name'] == model_name for m in models)
+  
+    def test_action_parameter_upsert(self):  
+        """  
+        Test write method with action='UPSERT'  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel'],  
+            'Value': ['Updated Rachel']  
+        })  
+        recipe = f"""  
+        write:  
+        - train.lookup:  
+            model_id: b2cd1a8a-4d99-4be1
+            action: UPSERT  
+            variant: key  
+        """  
+        result = wrangles.recipe.run(recipe, dataframe=df)  
+        assert len(result) == 1
+        assert result.iloc[0]['Key'] == 'Rachel' and result.iloc[0]['Value'] == 'Updated Rachel'
+  
+    
 #
 # Standardize
 #
