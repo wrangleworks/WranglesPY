@@ -13,7 +13,8 @@ _schema = {}
 
 def read(
     bucket: str,
-    file_key: str,
+    key: str = None,
+    file_key: str = None,
     access_key: str = None,
     secret_access_key: str = None,
     **kwargs
@@ -22,11 +23,19 @@ def read(
     Import data from a file in AWS S3
     
     :param bucket: The name of the bucket to download object from
+    :param key: The name of the key to download from (Deprecated, use file_key instead)
     :param file_key: The name of the key to download from
     :param access_key: S3 access key
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas read a file function.
     """
+    # Handle backwards compatibility  
+    if key is not None and file_key is None:  
+        file_key = key 
+
+    if file_key is None:  
+        raise ValueError("Either file_key or key (deprecated) must be provided")  
+
     _logging.info(f": Reading data from S3 :: {bucket} / {file_key}")
 
     # Check if access keys are not none then auth
@@ -62,11 +71,13 @@ type: object
 description: Import data from a file in AWS S3
 required:
   - bucket
-  - file_key
 properties:
   bucket:
     type: string
     description: The name of the bucket where file will be read
+  key:
+    type: string
+    description: The name of the key to download from (Deprecated, use file_key instead)
   file_key:
     type: string
     description: The name of the file_key to download from
@@ -79,17 +90,24 @@ properties:
     
 """
 
-def write(df: _pd.DataFrame, bucket: str, file_key: str, access_key: str = None, secret_access_key: str = None, **kwargs):
+def write(df: _pd.DataFrame, bucket: str, key: str = None, file_key: str = None, access_key: str = None, secret_access_key: str = None, **kwargs):
     """
     Write a file to AWS S3
     
     :param df: Dataframe to be exported
     :param bucket: The name of the bucket where file will be written
+    :param key: The name of the key to download from (Deprecated, use file_key instead)
     :param file_key: The name of the key to download from
     :param access_key: S3 access key
     :param secret_access_key: S3 secret access key
     :param kwargs: (Optional) Named arguments to pass to respective pandas write a file function.
     """
+    # Handle backwards compatibility
+    if key is not None and file_key is None:
+        file_key = key
+    if file_key is None:
+        raise ValueError("Either file_key or key (deprecated) must be provided")
+    
     _logging.info(f": Writing data to S3 :: {bucket} / {file_key}")
 
     # Check if access keys are not none then auth
@@ -124,11 +142,13 @@ type: object
 description: Write a file to AWS S3
 required:
   - bucket
-  - file_key
 properties:
   bucket:
     type: string
     description: The name of the bucket where file will be written
+  key:
+    type: string
+    description: The name of the key to write to (Deprecated, use file_key instead)
   file_key:
     type: string
     description: The name of the key of the file written
@@ -150,16 +170,25 @@ class download_files:
             description: Download file(s) from S3 and save to the local file system.
             required:
                 - bucket
-                - file_key
             properties:
                 bucket:
                     type: string
                     description: S3 Bucket
+                key:
+                    type:
+                      - string
+                      - array
+                    description: S3 file key or list of keys to download (Deprecated, use file_key instead)
                 file_key:
                     type:
                       - string
                       - array
                     description: S3 file key or list of keys to download
+                file:
+                    type:
+                      - string
+                      - array
+                    description: Local filename or list of filenames to save the downloaded files as (Deprecated, use save_as instead)
                 save_as:
                     type:
                       - string
@@ -177,17 +206,27 @@ class download_files:
         """
     }
 
-    def run(bucket: str, file_key: _Union[str, list], save_as: _Union[str, list] = None, **kwargs):
+    def run(bucket: str, key: _Union[str, list] = None, file_key: _Union[str, list] = None, file: _Union[str, list] = None, save_as: _Union[str, list] = None, **kwargs):
         """
         Download file(s) from S3 and save to the local file system.
 
         :param bucket: S3 Bucket
+        :param key: S3 file key or list of keys to download (Deprecated, use file_key instead)
         :param file_key: S3 file key or list of keys to download
+        :param file: Local filename or list of filenames to save the downloaded files as (Deprecated, use save_as instead)
         :param save_as: Local filename or list of filenames to save the downloaded files as.
         :param endpoint_url: Override the S3 host for alternative S3 storage providers.
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
+        # Handle backwards compatibility  
+        if key is not None and file_key is None:  
+            file_key = key  
+        if file_key is None:
+            raise ValueError("Either file_key or key (deprecated) must be provided")
+        if file is not None and save_as is None:  
+            save_as = file
+
         _logging.info(f": Downloading files from S3 :: {bucket} / {file_key}")
 
         s3 = _boto3.client('s3', **kwargs)
@@ -238,16 +277,25 @@ class upload_files:
             description: Upload file(s) to S3 from the local file system.
             required:
                 - bucket
-                - save_as
             properties:
                 bucket:
                     type: string
                     description: S3 Bucket
+                key:
+                    type:
+                      - string
+                      - array
+                    description: S3 file key or list of keys to upload as (Deprecated, use file_key instead)
                 file_key:
                     type:
                       - string
                       - array
                     description: S3 file key or list of keys to upload as
+                file:
+                    type:
+                      - string
+                      - array
+                    description: File or list of files to upload  (Deprecated, use save_as instead)
                 save_as:
                     type:
                       - string
@@ -265,17 +313,27 @@ class upload_files:
         """
     }
 
-    def run(bucket: str, save_as: _Union[str, list], file_key: _Union[str, list] = None, **kwargs):
+    def run(bucket: str, key: _Union[str, list] = None, file: _Union[str, list] = None, save_as: _Union[str, list] = None, file_key: _Union[str, list] = None, **kwargs):
         """
         Upload file(s) to S3 from the local file system.
 
         :param bucket: S3 Bucket
+        :param key: S3 file key or list of keys to upload as (Deprecated, use file_key instead)
+        :param file: File or list of files to upload  (Deprecated, use save_as instead)
         :param save_as: File or list of files to upload.
         :param file_key: S3 file key or list of keys to upload as
         :param endpoint_url: Override the S3 host for alternative S3 storage providers.
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
+        # Handle backwards compatibility  
+        if key is not None and file_key is None:  
+            file_key = key  
+        if file is not None and save_as is None:  
+            save_as = file
+        if save_as is None:
+            raise ValueError("Either save_as or file (deprecated) must be provided")
+        
         _logging.info(f": Uploading files to S3 :: {bucket} / {file_key}")
 
         s3 = _boto3.client('s3', **kwargs)

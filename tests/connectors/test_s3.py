@@ -22,7 +22,7 @@ class TestRead:
             read:
             - s3:
                 bucket: wrwx-public
-                file_key: World Cup Winners.xlsx
+                key: World Cup Winners.xlsx
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
@@ -43,7 +43,7 @@ class TestRead:
             read:
             - s3:
                 bucket: wrwx-public
-                file_key: World Cup Winners.xlsx
+                key: World Cup Winners.xlsx
             """
         )
         assert df.iloc[0]['Winners'] == 'Uruguay'
@@ -58,7 +58,7 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-public
-                    file_key: does_not_exist.csv
+                    key: does_not_exist.csv
                 """
             )
 
@@ -72,11 +72,26 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    file_key: does_not_exist.csv
+                    key: does_not_exist.csv
                 """
             )
 
     def test_read_gzip(self):
+        """
+        Test reading a gzipped file
+        """
+        # Download and verify it matches
+        df = wrangles.recipe.run(
+            """
+            read:
+            - s3:
+                bucket: wrwx-public
+                key: test_gzip_read.csv.gz
+            """
+        )
+        assert df['header'][0] == 'Sed magnam tempora adipisci velit eius consectetur'
+
+    def test_read_gzip_backward_compatibility(self):
         """
         Test reading a gzipped file
         """
@@ -101,7 +116,7 @@ class TestRead:
                 read:
                 - s3:
                     bucket: wrwx-public
-                    file_key: World Cup Winners.xlsx
+                    key: World Cup Winners.xlsx
                     access_key: not_a_valid_key
                     secret_access_key: not_a_valid_secret
                 """
@@ -121,7 +136,7 @@ class TestWrite:
             write:
             - s3:
                 bucket: wrwx-public
-                file_key: World Cup Titles.xlsx
+                key: World Cup Titles.xlsx
                 access_key: ${s3_key}
                 secret_access_key: ${s3_secret}
             """,
@@ -146,7 +161,7 @@ class TestWrite:
             write:
             - s3:
                 bucket: wrwx-public
-                file_key: World Cup Titles.xlsx
+                key: World Cup Titles.xlsx
             """,
             dataframe=pd.DataFrame({
                 'Country': ['Brazil', 'Germany', 'Italy'],
@@ -170,7 +185,7 @@ class TestWrite:
                 write:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    file_key: does_not_exist.csv
+                    key: does_not_exist.csv
                 """
             )
 
@@ -189,13 +204,31 @@ class TestWrite:
                 write:
                 - s3:
                     bucket: wrwx-does-not-exist
-                    file_key: does_not_exist.csv
+                    key: does_not_exist.csv
                     access_key: not_a_valid_key
                     secret_access_key: not_a_valid_secret
                 """
             )
 
     def test_write_gzip(self):
+        """
+        Test writing a gzipped file
+        """
+        wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 100
+                values:
+                    header: <sentence>
+            write:
+            - s3:
+                bucket: wrwx-public
+                key: test_gzip_write.csv.gz
+            """
+        )
+
+    def test_write_gzip_backward_compatibility(self):
         """
         Test writing a gzipped file
         """
@@ -230,6 +263,26 @@ class TestRunUpload:
                   on_start:
                     - s3.upload_files:
                         bucket: wrwx-public
+                        file:
+                        - tests/samples/data.csv
+                        - tests/samples/data.json
+                        key:
+                        - Test_Upload_File.csv
+                """
+            )
+
+    def test_upload_error_backward_capability(self):
+        """
+        Test that an appropriate error is shown if the number of keys and filenames
+        are not equal when attempting to upload files
+        """
+        with pytest.raises(ValueError, match="equal number of files and keys"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.upload_files:
+                        bucket: wrwx-public
                         save_as:
                         - tests/samples/data.csv
                         - tests/samples/data.json
@@ -239,6 +292,21 @@ class TestRunUpload:
             )
 
     def test_run_upload_error_invalid_bucket(self):
+        """
+        Test that a clear error is raised if the bucket isn't valid
+        """
+        with pytest.raises(RuntimeError, match="Failed to write"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.upload_files:
+                        bucket: wrwx-does-not-exist
+                        key: does_not_exist.csv
+                        file: tests/samples/data.csv
+                """
+            )
+    def test_run_upload_error_invalid_bucket_backward_compatibility(self):
         """
         Test that a clear error is raised if the bucket isn't valid
         """
@@ -263,7 +331,7 @@ class TestRunUpload:
           on_start:
             - s3.upload_files:
                 bucket: wrwx-public
-                save_as: tests/samples/data.csv
+                file: tests/samples/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         """
@@ -275,8 +343,8 @@ class TestRunUpload:
           on_start:
             - s3.download_files:
                 bucket: wrwx-public
-                file_key: data.csv
-                save_as: tests/temp/data.csv
+                key: data.csv
+                file: tests/temp/data.csv
                 aws_access_key_id: {s3_key}
                 aws_secret_access_key: {s3_secret}
         read:
@@ -289,6 +357,37 @@ class TestRunUpload:
         
     # Key and file included
     def test_file_upload_and_download_2(self):
+        recipe = f"""
+        run:
+          on_start:
+            - s3.upload_files:
+                bucket: wrwx-public
+                key: Test_Upload_File.csv
+                file: tests/samples/data.csv
+                aws_access_key_id: {s3_key}
+                aws_secret_access_key: {s3_secret}
+        """
+        wrangles.recipe.run(recipe)
+        time.sleep(3)
+        # Reading uploaded file to complete the cycle
+        recipe2 = f"""
+        run:
+          on_start:
+            - s3.download_files:
+                bucket: wrwx-public
+                key: Test_Upload_File.csv
+                file: tests/temp/temp_download_data.csv
+                aws_access_key_id: {s3_key}
+                aws_secret_access_key: {s3_secret}
+        read:
+        - file:
+            name: tests/temp/temp_download_data.csv
+        """
+        
+        df = wrangles.recipe.run(recipe2)
+        assert df.iloc[0]['Find'] == 'BRG'
+
+    def test_file_upload_and_download_backward_compatibility(self):
         recipe = f"""
         run:
           on_start:
@@ -334,6 +433,20 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-public
+                        key: does_not_exist.csv
+                """
+            )
+    def test_run_download_error_invalid_file_backward_compatibility(self):
+        """
+        Test that a clear error is raised if the file is missing
+        """
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.download_files:
+                        bucket: wrwx-public
                         file_key: does_not_exist.csv
                 """
             )
@@ -349,7 +462,7 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-does-not-exist
-                        file_key: does_not_exist.csv
+                        key: does_not_exist.csv
                 """
             )
 
@@ -364,13 +477,31 @@ class TestRunDownload:
                   on_start:
                     - s3.download_files:
                         bucket: wrwx-public
-                        file_key: World Cup Winners.xlsx
+                        key: World Cup Winners.xlsx
                         aws_access_key_id: not_a_valid_key
                         aws_secret_access_key: not_a_valid_secret
                 """
             )
 
     def test_download_error(self):
+        """
+        Downloading multiple files error
+        """
+        with pytest.raises(ValueError, match="equal number of keys and files"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_success:
+                    - s3.download_files:
+                        bucket: wrwx-public
+                        key:
+                        - Test_Upload_File.csv
+                        - World Cup Titles.csv
+                        file:
+                        - tests/temp/temp_download_data.csv
+                """
+            )
+    def test_download_error_backward_compatibility(self):
         """
         Downloading multiple files error
         """
