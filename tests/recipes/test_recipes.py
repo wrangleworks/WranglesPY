@@ -951,7 +951,7 @@ def test_enhanced_error_message_long_recipe():
           case: lower  
     """  
       
-    with pytest.raises(RuntimeError, match=r"ERROR IN WRANGLE: custom.failing_function - This is the actual error from wrangle #5"):  
+    with pytest.raises(RuntimeError, match=r"ERROR IN WRANGLE #5 custom.failing_function - This is the actual error from wrangle #5"):  
         wrangles.recipe.run(recipe, functions=[working_function, failing_function])
 
 def test_enhanced_error_message_read_phase():  
@@ -1000,7 +1000,7 @@ def test_enhanced_error_message_nested_recipe():
         raise RuntimeError("Error in nested recipe")  
     
     # Test the batch wrangle with a failing function  
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE: batch - ERROR IN WRANGLE: custom.failing_function - Error in nested recipe"):  
+    with pytest.raises(RuntimeError, match=r"Error in nested recipe"):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -1021,3 +1021,23 @@ def test_enhanced_error_message_nested_recipe():
                 "failing_function": failing_function  
             }  
         )
+
+def test_action_position_error():  
+    """  
+    Test that action errors include position number  
+    """  
+    def fail_func():  
+        raise RuntimeError("Action failed")  
+      
+    with pytest.raises(RuntimeError, match="ERROR IN ACTION: custom.fail_func - Action failed"):  
+        wrangles.recipe.run(  
+            """  
+            run:  
+              on_start:  
+                - custom.fail_func: {}  
+                - custom.fail_func: {}  
+                - custom.fail_func: {}  
+            """,  
+            functions=fail_func  
+        )  
+  

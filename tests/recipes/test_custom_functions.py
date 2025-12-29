@@ -1664,3 +1664,122 @@ def test_common_param_access():
         dataframe=pd.DataFrame({"header": [1,2,3,4,5], "header2": [5,4,3,2,1]})
     )
     assert df['header'][4] == 10 and df["header"][0] == 1
+
+def test_wrangle_position_error():  
+    """  
+    Test that error messages include wrangle position number  
+    when multiple identical wrangles exist  
+    """  
+    def raise_error(df):  
+        raise RuntimeError("This is an error")  
+      
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #1 custom.raise_error - This is an error"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - test:  
+                  rows: 5  
+                  values:  
+                    header1: value1  
+            wrangles:  
+                - custom.raise_error: {}  
+                - convert.case:  
+                    input: header1  
+                    output: temp  
+                    case: upper  
+                - custom.raise_error: {}  
+            """,  
+            functions=raise_error  
+        )  
+
+def test_wrangle_position_error_2():  
+    """  
+    Test that error messages include wrangle position number  
+    when multiple identical wrangles exist  
+    """  
+    def raise_error(df):  
+        raise RuntimeError("This is an error")  
+      
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 custom.raise_error - This is an error"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - test:  
+                  rows: 5  
+                  values:  
+                    header1: value1  
+            wrangles:  
+                - convert.case:  
+                    input: header1  
+                    output: temp  
+                    case: upper  
+                - custom.raise_error: {}  
+                - convert.case:  
+                    input: header1  
+                    output: temp  
+                    case: lower  
+                - custom.raise_error: {}  
+            """,  
+            functions=raise_error  
+        )  
+  
+def test_wrangle_position_multiple_same_type():  
+    """  
+    Test error reporting with multiple wrangles of same type  
+    """  
+    with pytest.raises(TypeError, match="ERROR IN WRANGLE #2 convert.data_type - data_type invalid_type is not supported."):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - test:  
+                  rows: 5  
+                  values:  
+                    header1: value1  
+            wrangles:  
+                - convert.data_type:  
+                    input: header1  
+                    output: temp1  
+                    data_type: str  
+                - convert.data_type:  
+                    input: header1  
+                    output: temp2  
+                    data_type: invalid_type  
+            """  
+        )
+
+def test_complete_error_reporting_flow():  
+    """  
+    Test complete error reporting with nested batch and multiple wrangles  
+    """  
+    def batch_error(df):  
+        if len(df) > 5:  
+            raise RuntimeError("Batch too large")  
+        return df  
+      
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 batch - Batch #1 - ERROR IN WRANGLE #1 custom.batch_error - Batch too large"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - test:  
+                  rows: 20  
+                  values:  
+                    header1: value1  
+            wrangles:  
+                - convert.case:  
+                    input: header1  
+                    output: temp  
+                    case: upper  
+                - batch:  
+                    batch_size: 10  
+                    wrangles:  
+                        - custom.batch_error: {}  
+                        - convert.case:  
+                            input: header1  
+                            case: lower  
+                - convert.case:  
+                    input: header1  
+                    output: final  
+                    case: title  
+            """,  
+            functions=batch_error  
+        )

@@ -508,7 +508,7 @@ def _execute_wrangles(
     if not isinstance(wrangles_list, list):
         wrangles_list = [wrangles_list]
 
-    for step in wrangles_list:
+    for i, step in enumerate(wrangles_list, 1):  # Start from 1 for user-friendly numbering  
         # Ensure step is a dictionary
         if not isinstance(step, dict):
             if isinstance(step, str):
@@ -822,7 +822,7 @@ def _execute_wrangles(
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRANGLE: {wrangle} - {e}").with_traceback(e.__traceback__) from None
+                raise e.__class__(f"ERROR IN WRANGLE #{i} {wrangle} - {e}").with_traceback(e.__traceback__) from None
 
     return df
 
