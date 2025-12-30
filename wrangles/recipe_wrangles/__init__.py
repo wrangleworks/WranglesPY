@@ -26,3 +26,4 @@ from . import select
 from . import split
 from . import compare
 from . import generate
+from . import compute
