@@ -32,6 +32,8 @@ def _define_permutations(
 
     for key, val in variables.items():
         # User provided a list
+        if not isinstance(val, str):
+            val = str(val)
         if isinstance(val, list):
             vals = val
 
