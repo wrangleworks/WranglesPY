@@ -28,7 +28,8 @@ from .utils import (
     get_nested_function as _get_nested_function,
     validate_function_args as _validate_function_args,
     add_special_parameters as _add_special_parameters,
-    wildcard_expansion as _wildcard_expansion
+    wildcard_expansion as _wildcard_expansion,
+    wildcard_expansion_dict as _wildcard_expansion_dict
 )
 try:
     from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
@@ -526,6 +527,7 @@ def _execute_wrangles(
                 wrangle = _reserved_word_replacements.get(wrangle, wrangle)
 
                 original_params = params.copy()
+                original_columns = set(df.columns)
 
                 # Used to store parameters common to all wrangles - e.g where
                 common_params = {}
@@ -581,9 +583,8 @@ def _execute_wrangles(
                         }
                     )
                 ):
+                    _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
                     continue
-
-                _logging.info(f": Wrangling :: {wrangle} :: {params.get('input', 'None')} >> {params.get('output', 'Dynamic')}")
 
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
@@ -821,6 +822,49 @@ def _execute_wrangles(
                     # Run a second pass of df.fillna() in order to fill NaT's (not picked up before) with zeros
                     # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
                     df = df.fillna('0')
+                    if wrangle != 'log':  
+                        # Determine what columns were actually produced for logging
+                        if 'output' in params:  
+                            if isinstance(params['output'], list):  
+                                # Handle mixed list types (strings and dicts)  
+                                output_columns = []  
+                                for item in params['output']:  
+                                    if isinstance(item, dict):  
+                                        # Extract just the column names from dicts  
+                                        output_columns.extend(list(item.keys()))  
+                                    else:  
+                                        output_columns.append(item)  
+                            elif isinstance(params['output'], dict):  
+                                # Direct dict format  
+                                output_columns = list(params['output'].keys()) 
+                            elif isinstance(params['output'], str):  
+                                print(params['output'])
+                                if '*' in params['output']:  
+                                    # Expand wildcard to actual columns  
+                                    try:
+                                        output_columns = _wildcard_expansion(df.columns, [params['output']])  
+                                    except KeyError:  
+                                        # Handle case where wildcard matches no columns  
+                                        output_columns = [f"No matches for {params['output']}"]  
+                                else:  
+                                    output_columns = [params['output']]   
+                            else:  
+                                output_columns = [params['output']]  
+                        else:  
+                            # Dynamic output - find new columns  
+                            new_columns = set(df.columns) - original_columns  
+                            if new_columns:  
+                                output_columns = list(new_columns)  
+                            else:  
+                                output_columns = original_columns 
+                        
+                        # Convert all items to strings for display
+                        input_display = params.get('input', 'None')  
+                        if isinstance(input_display, list):  
+                            input_display = ', '.join(str(x) for x in input_display)  
+                          
+                        output_display = ', '.join(str(col) for col in output_columns)  
+                        _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception

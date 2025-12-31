@@ -559,9 +559,9 @@ class TestIf:
         
         # Check that only the executed wrangle appears in logs  
         log_messages = [msg for msg in caplog.messages if "Wrangling ::" in msg]  
-        
-        assert any(": Wrangling :: convert.case :: ['col1'] >> should_be_logged" in msg for msg in log_messages)  
-        assert not any(": Wrangling :: convert.case :: ['col1'] >> should_not_be_logged" in msg for msg in log_messages)  
+
+        assert any(": Wrangling :: convert.case :: col1 >> should_be_logged" in msg for msg in log_messages)  
+        assert not any(": Wrangling :: convert.case :: col1 >> should_not_be_logged" in msg for msg in log_messages)  
         assert df['should_be_logged'][0] == 'VALUE'  
         assert 'should_not_be_logged' not in df.columns
 
