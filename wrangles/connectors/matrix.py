@@ -32,10 +32,13 @@ def _define_permutations(
 
     for key, val in variables.items():
         # User provided a list
-        if not isinstance(val, str):
+        print(f"Processing variable {key}: {val}")
+        if not isinstance(val, str) and not isinstance(val, list):
             val = str(val)
-        if isinstance(val, list):
             vals = val
+        elif isinstance(val, list):
+            vals = val
+
 
         # set(column) - unique values in a column 
         elif _re.fullmatch(r'set\((.*)\)', val.strip()):
