@@ -969,12 +969,7 @@ def lookup(
             num_rows = len(df)
             if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
                 # User specified all columns from the wrangle
-                if isinstance(single_result, list):
-                    # Multiple columns returned as a list
-                    df[output] = [single_result] * num_rows
-                else:
-                    # Single column or dict returned
-                    df[output] = [single_result] * num_rows
+                df[output] = [single_result] * num_rows
             elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
                 # User specified no columns from the wrangle (returns dict)
                 for out in output:
