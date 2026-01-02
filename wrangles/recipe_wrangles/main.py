@@ -902,6 +902,13 @@ def lookup(
           - string
           - array
         description: Name of the output column(s)
+    
+    Optimization Note:
+        When all rows in the input column contain the same value, this function
+        optimizes by performing a single lookup instead of looking up each row
+        individually. The single result is then broadcasted to all rows.
+        This significantly reduces API calls and improves performance for scenarios
+        like looking up a constant configuration value for all records.
     """
     # Ensure input is only 1 value
     if isinstance(input, list):
