@@ -953,7 +953,6 @@ def lookup(
 
         # Optimization: Check if all values in the input column are the same
         # If so, perform lookup only once and broadcast the result
-        input_values = df[input].values.tolist()
         unique_values = df[input].unique()
         
         if len(unique_values) == 1:
@@ -979,6 +978,7 @@ def lookup(
                 raise ValueError('Lookup may only contain all named or unnamed columns.')
         else:
             # Multiple unique values - use standard batch lookup
+            input_values = df[input].values.tolist()
             if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
                 # User specified all columns from the wrangle
                 # Add respective columns to the dataframe
