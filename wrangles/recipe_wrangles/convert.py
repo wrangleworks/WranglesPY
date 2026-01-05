@@ -78,7 +78,10 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
             df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
 
         elif desired_case == 'sentence':
-            def _getSentenceCase(source: str, warnings={}):
+            def _getSentenceCase(source: str, warnings=None):
+                if warnings is None:
+                    warnings = {}
+                
                 if isinstance(source, str):
                     output = []
                     isFirstWord = True

@@ -16,7 +16,7 @@ def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    default: dict = {}
+    default: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -54,6 +54,9 @@ def dictionary(
           Provide a set of default headings and values
           if they are not found within the input
     """ 
+    if default is None:
+        default = {}
+    
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
