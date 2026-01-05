@@ -737,7 +737,7 @@ def test_select_dict_element_renamed_keys():
 def test_compare_contrast_difference():
     """
     Test compare.contrast with difference type (default)
-    Returns words not in the first string
+    Returns words that appear in any string but not in the intersection of all strings
     """
     result = wrangles.compare.contrast([['apple banana', 'apple date']])
     assert result == ['date']
