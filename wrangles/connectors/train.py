@@ -233,7 +233,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -243,6 +243,9 @@ class lookup():
         :param settings: Specific settings to apply to the wrangle
         :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
         """
+        if settings is None:
+            settings = {}
+        
         _logging.info(": Training Lookup Wrangle")
 
         # Error handling for name, model_id and settings

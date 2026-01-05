@@ -107,7 +107,7 @@ def _generate_cell_values(data_type: _Union[str, list], rows: int):
         return [data_type for _ in range(rows)]
 
 
-def read(rows: int, values: dict = {}) -> _pd.DataFrame:
+def read(rows: int, values: dict = None) -> _pd.DataFrame:
     """
     Create a test dataframe
 
@@ -128,6 +128,9 @@ def read(rows: int, values: dict = {}) -> _pd.DataFrame:
     :param values: Dictionary of header and values
     :return: Pandas Dataframe of the created data
     """
+    if values is None:
+        values = {}
+    
     _logging.info(f": Generating test data :: {rows} row{'s' if rows > 1 else ''}")
 
     data = {}

@@ -390,7 +390,7 @@ def statement_modifier(statement):
     return _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
 
 
-def evaluate_conditional(statement, variables: dict = {}):
+def evaluate_conditional(statement, variables: dict = None):
     """
     Evaluate a conditional statement using the variables provided
     to determine if the statement is true or false
@@ -400,6 +400,9 @@ def evaluate_conditional(statement, variables: dict = {}):
     :param statement: Python style statement
     :param variables: Dictionary of variables to use in the statement
     """
+    if variables is None:
+        variables = {}
+    
     statement_modified = statement_modifier(statement)
 
     if _re.match(r'\$\{(.+)\}', statement_modified):
@@ -452,7 +455,7 @@ def request_retries(request_type, url, **kwargs):
     return response
 
 
-def safe_str_transform(value, func, warnings={}, **kwargs):
+def safe_str_transform(value, func, warnings=None, **kwargs):
     """
     Function to apply a string transformation.
     If the input value is not a string, the original value is returned and a warning is logged.
@@ -461,6 +464,9 @@ def safe_str_transform(value, func, warnings={}, **kwargs):
     :param func: The function to apply to the value
     :param warnings: A dictionary containing the warning status. This will be mutated to only log the warning once.
     """
+    if warnings is None:
+        warnings = {}
+    
     if isinstance(value, str):
         return getattr(str, func)(value, **kwargs)
     else:
