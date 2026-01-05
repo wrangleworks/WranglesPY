@@ -448,3 +448,375 @@ def test_format_split_skip_empty_with_regex():
     """  
     result = wrangles.format.split(['hello,,world', 'foo,,bar'], split_char='regex:,', skip_empty=True)  
     assert result == [['hello', 'world'], ['foo', 'bar']]
+
+### Format Concatenate Tests
+def test_format_concatenate_basic():
+    """
+    Test format.concatenate with basic list
+    """
+    result = wrangles.format.concatenate([['hello', 'world'], ['foo', 'bar']], ' ')
+    assert result == ['hello world', 'foo bar']
+
+def test_format_concatenate_skip_empty_true():
+    """
+    Test format.concatenate with skip_empty=True
+    """
+    result = wrangles.format.concatenate([['hello', '', 'world'], ['foo', None, 'bar']], ' ', skip_empty=True)
+    assert result == ['hello world', 'foo bar']
+
+def test_format_concatenate_skip_empty_false():
+    """
+    Test format.concatenate with skip_empty=False
+    """
+    result = wrangles.format.concatenate([['hello', '', 'world'], ['foo', None, 'bar']], '-', skip_empty=False)
+    assert result == ['hello--world', 'foo-None-bar']
+
+def test_format_concatenate_different_separator():
+    """
+    Test format.concatenate with different separator
+    """
+    result = wrangles.format.concatenate([['a', 'b', 'c'], ['x', 'y', 'z']], ', ')
+    assert result == ['a, b, c', 'x, y, z']
+
+### Format Coalesce Tests
+def test_format_coalesce_basic():
+    """
+    Test format.coalesce returns first non-empty value
+    """
+    result = wrangles.format.coalesce([['', 'second', 'third'], ['', '', 'third']])
+    assert result == ['second', 'third']
+
+def test_format_coalesce_all_empty():
+    """
+    Test format.coalesce with all empty values
+    """
+    result = wrangles.format.coalesce([['', '', ''], [None, '', '']])
+    assert result == ['', '']
+
+def test_format_coalesce_first_value():
+    """
+    Test format.coalesce when first value is valid
+    """
+    result = wrangles.format.coalesce([['first', 'second', 'third'], ['alpha', 'beta', 'gamma']])
+    assert result == ['first', 'alpha']
+
+def test_format_coalesce_with_whitespace():
+    """
+    Test format.coalesce strips whitespace
+    """
+    result = wrangles.format.coalesce([['  ', 'second', 'third'], ['', 'beta', 'gamma']])
+    assert result == ['second', 'beta']
+
+### Format Remove Duplicates Tests
+def test_format_remove_duplicates_list():
+    """
+    Test format.remove_duplicates with lists
+    """
+    result = wrangles.format.remove_duplicates([['apple', 'banana', 'apple', 'cherry'], ['x', 'y', 'x', 'z']])
+    assert result == [['apple', 'banana', 'cherry'], ['x', 'y', 'z']]
+
+def test_format_remove_duplicates_string():
+    """
+    Test format.remove_duplicates with strings
+    """
+    result = wrangles.format.remove_duplicates(['apple banana apple cherry', 'x y x z'])
+    assert result == ['apple banana cherry', 'x y z']
+
+def test_format_remove_duplicates_ignore_case_true():
+    """
+    Test format.remove_duplicates with ignore_case=True
+    """
+    result = wrangles.format.remove_duplicates([['Apple', 'banana', 'APPLE', 'Cherry'], ['X', 'y', 'x', 'Z']], ignore_case=True)
+    assert result == [['Apple', 'banana', 'Cherry'], ['X', 'y', 'Z']]
+
+def test_format_remove_duplicates_ignore_case_false():
+    """
+    Test format.remove_duplicates with ignore_case=False (case sensitive)
+    """
+    result = wrangles.format.remove_duplicates([['Apple', 'banana', 'APPLE', 'Cherry']], ignore_case=False)
+    assert result == [['Apple', 'banana', 'APPLE', 'Cherry']]
+
+def test_format_remove_duplicates_string_ignore_case():
+    """
+    Test format.remove_duplicates with strings and ignore_case=True
+    """
+    result = wrangles.format.remove_duplicates(['Apple banana APPLE cherry'], ignore_case=True)
+    assert result == ['Apple banana cherry']
+
+### Format Tokenize Tests
+def test_format_tokenize_space():
+    """
+    Test format.tokenize with space method (default)
+    """
+    result = wrangles.format.tokenize(['hello world test', 'foo bar'])
+    assert result == [['hello', 'world', 'test'], ['foo', 'bar']]
+
+def test_format_tokenize_boundary():
+    """
+    Test format.tokenize with boundary method
+    """
+    result = wrangles.format.tokenize(["hello-world's test"], method='boundary')
+    assert result == [['hello', '-', 'world', "'", 's', ' ', 'test']]
+
+def test_format_tokenize_boundary_ignore_space():
+    """
+    Test format.tokenize with boundary_ignore_space method
+    """
+    result = wrangles.format.tokenize(["hello-world's test"], method='boundary_ignore_space')
+    assert result == [['hello', '-', 'world', "'", 's', 'test']]
+
+def test_format_tokenize_with_func():
+    """
+    Test format.tokenize with custom function
+    """
+    def custom_split(text):
+        return text.split(',')
+    result = wrangles.format.tokenize(['hello,world,test', 'foo,bar'], method=None, func=custom_split)
+    assert result == [['hello', 'world', 'test'], ['foo', 'bar']]
+
+def test_format_tokenize_list_input():
+    """
+    Test format.tokenize with list of lists
+    """
+    result = wrangles.format.tokenize([['hello world', 'foo bar']])
+    assert result == [['hello', 'world', 'foo', 'bar']]
+
+### Format Flatten Lists Tests
+def test_format_flatten_lists_basic():
+    """
+    Test format.flatten_lists with nested lists
+    """
+    result = wrangles.format.flatten_lists([[1, 2], [3, 4]])
+    assert result == [1, 2, 3, 4]
+
+def test_format_flatten_lists_deeply_nested():
+    """
+    Test format.flatten_lists with deeply nested lists
+    """
+    result = wrangles.format.flatten_lists([1, [2, [3, [4, 5]]]])
+    assert result == [1, 2, 3, 4, 5]
+
+def test_format_flatten_lists_mixed():
+    """
+    Test format.flatten_lists with mixed types
+    """
+    result = wrangles.format.flatten_lists([1, 'two', [3, ['four', 5]]])
+    assert result == [1, 'two', 3, 'four', 5]
+
+### Select Highest Confidence Tests
+def test_select_highest_confidence_basic():
+    """
+    Test select.highest_confidence with basic input
+    """
+    result = wrangles.select.highest_confidence([[['option1', 0.7], ['option2', 0.9]]])
+    assert result == [['option2', 0.9]]
+
+def test_select_highest_confidence_string_input():
+    """
+    Test select.highest_confidence with string confidence values
+    """
+    result = wrangles.select.highest_confidence([[['option1', '0.7'], ['option2', '0.9']]])
+    assert result == [['option2', 0.9]]
+
+def test_select_highest_confidence_with_separator():
+    """
+    Test select.highest_confidence with separator format
+    """
+    result = wrangles.select.highest_confidence([['option1 || 0.7', 'option2 || 0.9']])
+    assert result == [['option2', 0.9]]
+
+### Select Confidence Threshold Tests
+def test_select_confidence_threshold_above():
+    """
+    Test select.confidence_threshold when first option exceeds threshold
+    """
+    result = wrangles.select.confidence_threshold(['option1 || 0.9'], ['fallback'], 0.8)
+    assert result == ['option1']
+
+def test_select_confidence_threshold_below():
+    """
+    Test select.confidence_threshold when first option is below threshold
+    """
+    result = wrangles.select.confidence_threshold(['option1 || 0.7'], ['fallback'], 0.8)
+    assert result == ['fallback']
+
+def test_select_confidence_threshold_none_first():
+    """
+    Test select.confidence_threshold when first option is None
+    """
+    result = wrangles.select.confidence_threshold([None], ['fallback'], 0.5)
+    assert result == ['fallback']
+
+def test_select_confidence_threshold_list_fallback():
+    """
+    Test select.confidence_threshold with list as fallback
+    """
+    result = wrangles.select.confidence_threshold(['option1 || 0.7'], [['fallback', 0.6]], 0.8)
+    assert result == ['fallback']
+
+### Select List Element Tests
+def test_select_list_element_single_index():
+    """
+    Test select.list_element with single index
+    """
+    result = wrangles.select.list_element([['a', 'b', 'c'], ['x', 'y', 'z']], 1)
+    assert result == ['b', 'y']
+
+def test_select_list_element_slice():
+    """
+    Test select.list_element with slice notation
+    """
+    result = wrangles.select.list_element([['a', 'b', 'c', 'd'], ['w', 'x', 'y', 'z']], '1:3')
+    assert result == [['b', 'c'], ['x', 'y']]
+
+def test_select_list_element_default():
+    """
+    Test select.list_element with index out of range and default value
+    """
+    result = wrangles.select.list_element([['a', 'b'], ['x', 'y']], 5, default='N/A')
+    assert result == ['N/A', 'N/A']
+
+def test_select_list_element_negative_index():
+    """
+    Test select.list_element with negative index
+    """
+    result = wrangles.select.list_element([['a', 'b', 'c'], ['x', 'y', 'z']], -1)
+    assert result == ['c', 'z']
+
+def test_select_list_element_json_string():
+    """
+    Test select.list_element with JSON string input
+    """
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], 1)
+    assert result == ['b', 'y']
+
+### Select Dict Element Tests
+def test_select_dict_element_single_key():
+    """
+    Test select.dict_element with single key
+    """
+    result = wrangles.select.dict_element([{'name': 'Alice', 'age': 30}, {'name': 'Bob', 'age': 25}], 'name')
+    assert result == ['Alice', 'Bob']
+
+def test_select_dict_element_multiple_keys():
+    """
+    Test select.dict_element with multiple keys (list)
+    """
+    result = wrangles.select.dict_element([{'name': 'Alice', 'age': 30}, {'name': 'Bob', 'age': 25}], ['name', 'age'])
+    assert result == [{'name': 'Alice', 'age': 30}, {'name': 'Bob', 'age': 25}]
+
+def test_select_dict_element_default():
+    """
+    Test select.dict_element with default value for missing key
+    """
+    result = wrangles.select.dict_element([{'name': 'Alice'}, {'name': 'Bob'}], 'age', default='Unknown')
+    assert result == ['Unknown', 'Unknown']
+
+def test_select_dict_element_json_string():
+    """
+    Test select.dict_element with JSON string input
+    """
+    result = wrangles.select.dict_element(['{"name": "Alice", "age": 30}', '{"name": "Bob", "age": 25}'], 'name')
+    assert result == ['Alice', 'Bob']
+
+def test_select_dict_element_single_dict():
+    """
+    Test select.dict_element with single dict (not a list)
+    """
+    result = wrangles.select.dict_element({'name': 'Alice', 'age': 30}, 'name')
+    assert result == 'Alice'
+
+def test_select_dict_element_renamed_keys():
+    """
+    Test select.dict_element with key renaming
+    """
+    result = wrangles.select.dict_element([{'old_name': 'Alice'}, {'old_name': 'Bob'}], [{'old_name': 'new_name'}])
+    assert result == [{'new_name': 'Alice'}, {'new_name': 'Bob'}]
+
+### Compare Contrast Tests
+def test_compare_contrast_difference():
+    """
+    Test compare.contrast with difference type (default)
+    Returns words not in the first string
+    """
+    result = wrangles.compare.contrast([['apple banana', 'apple date']])
+    assert result == ['date']
+
+def test_compare_contrast_intersection():
+    """
+    Test compare.contrast with intersection type
+    """
+    result = wrangles.compare.contrast([['apple banana cherry', 'apple date cherry']], type='intersection')
+    assert result == ['apple cherry']
+
+def test_compare_contrast_case_insensitive():
+    """
+    Test compare.contrast with case_sensitive=False
+    """
+    result = wrangles.compare.contrast([['Apple Banana', 'apple Date']], type='intersection', case_sensitive=False)
+    assert result == ['Apple']
+
+def test_compare_contrast_custom_separator():
+    """
+    Test compare.contrast with custom separator
+    """
+    result = wrangles.compare.contrast([['apple,banana', 'apple,date']], type='difference', char=',')
+    assert result == ['date']
+
+def test_compare_contrast_multiple_strings():
+    """
+    Test compare.contrast with more than two strings
+    """
+    result = wrangles.compare.contrast([['apple banana', 'apple cherry', 'apple date']], type='intersection')
+    assert result == ['apple']
+
+### Compare Overlap Tests
+def test_compare_overlap_basic():
+    """
+    Test compare.overlap with basic matching
+    """
+    result = wrangles.compare.overlap([['hello', 'hallo']])
+    assert result == ['h*llo']
+
+def test_compare_overlap_exact_match():
+    """
+    Test compare.overlap with exact match
+    """
+    result = wrangles.compare.overlap([['test', 'test']])
+    assert result == ['test']
+
+def test_compare_overlap_with_ratio():
+    """
+    Test compare.overlap with include_ratio=True
+    """
+    result = wrangles.compare.overlap([['hello', 'hallo']], include_ratio=True)
+    assert isinstance(result[0], list) and len(result[0]) == 2
+    assert result[0][1] > 0 and result[0][1] < 1
+
+def test_compare_overlap_empty_strings():
+    """
+    Test compare.overlap with empty strings
+    """
+    result = wrangles.compare.overlap([['', '']], all_empty='both empty')
+    assert result == ['both empty']
+
+def test_compare_overlap_case_insensitive():
+    """
+    Test compare.overlap with case_sensitive=False
+    """
+    result = wrangles.compare.overlap([['HELLO', 'hello']], case_sensitive=False)
+    assert result == ['hello']
+
+def test_compare_overlap_custom_non_match():
+    """
+    Test compare.overlap with custom non_match_char
+    """
+    result = wrangles.compare.overlap([['hello', 'hallo']], non_match_char='?')
+    assert result == ['h?llo']
+
+def test_compare_overlap_exact_match_custom():
+    """
+    Test compare.overlap with exact_match parameter
+    """
+    result = wrangles.compare.overlap([['test', 'test']], exact_match='MATCH')
+    assert result == ['MATCH']
