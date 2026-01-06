@@ -100,7 +100,7 @@ def element(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
     output: _Union[str, list] = None,
-    default: any = None
+    default: _Union[any, list] = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -169,6 +169,21 @@ def element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.element')
     
+    # Handle default values - convert to list if needed  
+    if default is None:  
+        defaults = [None] * len(input)  
+    elif isinstance(default, list):
+        # Allow list of length 1 to be applied to all columns  
+        if len(default) == 1:  
+            defaults = [default[0]] * len(input)  
+        elif len(default) != len(input):    
+            raise ValueError('The list of default values must be the same length as input/output for select.element')    
+        else:  
+            defaults = default 
+    else:  
+        # Single default value - apply to all columns  
+        defaults = [default] * len(input)
+
     def _int_or_none(val):
         try:
             return int(val)
@@ -178,7 +193,7 @@ def element(
             else:
                 return None
     
-    for in_col, out_col in zip(input, output):
+    for in_col, out_col, default_val in zip(input, output, defaults):
         # If user hasn't specified an output column
         # strip the elements from the input column
         if in_col == out_col:
@@ -212,20 +227,20 @@ def element(
                                 # using the index of the key
                                 row = row[list(row.keys())[int(element)]]
                             else:
-                                if default is not None:
-                                    row = default
+                                if default_val is not None:
+                                    row = default_val
                                     break
                                 else:
                                     raise KeyError()
                     else:
-                        if default is not None:
-                            row = default
+                        if default_val is not None:
+                            row = default_val
                             break
                         else:
                             raise KeyError()
                 except:
-                    if default is not None:
-                        row = default
+                    if default_val is not None:
+                        row = default_val
                         break
                     else:
                         raise KeyError(f"Element {element} not found in {row}") from None
@@ -367,52 +382,62 @@ def group_by(
             else:
                 inverted_dict[column] = [operation]
 
-    # If any of the columns to group by are also specified
-    # as an aggregate column this causes problems.
-    # Temporarily rename the column to avoid this.
-    if set(by).intersection(set(inverted_dict.keys())):
-        for i, val in enumerate(by):
-            if val in inverted_dict.keys():
-                df[val + ".grouped_asjkdbak"] = df[val]
-                by[i] = val + ".grouped_asjkdbak"
-
-    # Create group by object with by and aggregate columns
-    df_grouped = df[by + list(inverted_dict.keys())].groupby(
-        by = by,
-        as_index=False,
-        sort=False
-    )
-
-    # If agg columns then aggregate else return grouped
-    if kwargs:
-        df = df_grouped.agg(inverted_dict)
-    else:
-        df = df_grouped.count()
-
-    # Remove faked column if it was needed
-    if 'absjdkbatgg' in df.columns:
-        df = df.drop('absjdkbatgg', axis=1, level=0)
-
-    # Flatting multilevel headings back to one
-    df.columns = [
-        '.'.join(col).strip('.')
-        if isinstance(col, tuple)
-        else col
-        for col in df.columns
-    ]
-
-    # Rename columns back to original names if altered
-    df = df.rename(
-        {
-            col: col.replace(".grouped_asjkdbak", "")
-            for col in df.columns
-            if col.endswith(".grouped_asjkdbak")
-        },
-        axis=1
-    )
-
+     # Store original groupby column names for later restoration  
+    original_by_columns = []  
+    temp_by_columns = []  
+      
+    # If any of the columns to group by are also specified  
+    # as an aggregate column this causes problems.  
+    # Temporarily rename the column to avoid this.  
+    if set(by).intersection(set(inverted_dict.keys())):  
+        for i, val in enumerate(by):  
+            if val in inverted_dict.keys():  
+                original_by_columns.append(val)  
+                temp_name = val + ".grouped_asjkdbak"  
+                temp_by_columns.append(temp_name)  
+                df[temp_name] = df[val]  
+                by[i] = temp_name  
+  
+    # Create group by object with by and aggregate columns  
+    df_grouped = df[by + list(inverted_dict.keys())].groupby(  
+        by = by,  
+        as_index=False,  
+        sort=False  
+    )  
+  
+    # If agg columns then aggregate else return grouped  
+    if kwargs:  
+        df = df_grouped.agg(inverted_dict)  
+    else:  
+        df = df_grouped.count()  
+  
+    # Remove faked column if it was needed  
+    if 'absjdkbatgg' in df.columns:  
+        df = df.drop('absjdkbatgg', axis=1, level=0)  
+  
+    # Flatting multilevel headings back to one  
+    df.columns = [  
+        '.'.join(col).strip('.')  
+        if isinstance(col, tuple)  
+        else col  
+        for col in df.columns  
+    ]  
+  
+    # Only rename groupby columns back to original names  
+    # Preserve aggregation suffixes like .first, .last, etc.  
+    if original_by_columns:  
+        rename_mapping = {}  
+        for orig_col, temp_col in zip(original_by_columns, temp_by_columns):  
+            # Find columns that start with the temporary name  
+            for col in df.columns:  
+                if col.startswith(temp_col):  
+                    # Replace only the temporary suffix, preserve aggregation suffixes  
+                    new_col = col.replace(temp_col, orig_col, 1)  
+                    rename_mapping[col] = new_col  
+          
+        df = df.rename(columns=rename_mapping)  
+  
     return df
-
 
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
     """

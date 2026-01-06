@@ -194,6 +194,7 @@ def _batch_thread(
         else:
             raise err from None
 
+
 def batch(
     df,
     wrangles: list,

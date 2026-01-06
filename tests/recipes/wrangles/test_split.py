@@ -588,7 +588,91 @@ class TestSplitText:
             })
         )
         assert df.empty and df.columns.to_list() == ['col1', 'out1']
-        
+    
+    def test_split_text_skip_empty_true(self):
+        """
+        Test split.text with skip_empty: true skips empty tokens
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text:
+                input: col1
+                output: out
+                char: ','
+                skip_empty: true
+            """,
+            dataframe=pd.DataFrame({'col1': ['a,,b, ,c,,']})
+        )
+        assert df['out'][0] == ['a', 'b', 'c']
+
+    def test_split_text_skip_empty_false(self):
+        """
+        Test split.text with skip_empty: false includes empty tokens
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text:
+                input: col1
+                output: out
+                char: ','
+                skip_empty: false
+            """,
+            dataframe=pd.DataFrame({'col1': ['a,,b, ,c,,']})
+        )
+        assert df['out'][0] == ['a', '', 'b', ' ', 'c', '', '']
+
+    def test_split_text_skip_empty_default(self):
+        """
+        Test split.text with skip_empty not set (should include empty tokens by default)
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text:
+                input: col1
+                output: out
+                char: ','
+            """,
+            dataframe=pd.DataFrame({'col1': ['a,,b, ,c,,']})
+        )
+        assert df['out'][0] == ['a', '', 'b', ' ', 'c', '', '']
+
+    def test_split_text_skip_empty_all_empty(self):
+        """
+        Test split.text with skip_empty: true and all tokens empty
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text:
+                input: col1
+                output: out
+                char: ','
+                skip_empty: true
+            """,
+            dataframe=pd.DataFrame({'col1': [',,,']})
+        )
+        assert df['out'][0] == []
+
+    def test_split_text_skip_empty_leading_trailing(self):
+        """
+        Test split.text with skip_empty: true and leading/trailing delimiters
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text:
+                input: col1
+                output: out
+                char: ','
+                skip_empty: true
+            """,
+            dataframe=pd.DataFrame({'col1': [',a,b,']})
+        )
+        assert df['out'][0] == ['a', 'b']
+
 
 class TestSplitList:
     """

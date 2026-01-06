@@ -24,7 +24,7 @@
 			],
 			"settings": {
 				"yaml.schemas": {
-					"https://public.wrangle.works/schema/recipes/schema.json": ["*.wrgl.yml", "*.wrgl.yaml"]
+					"https://public.wrangle.works/schema/recipes/schema.json": ["*.wrgl.yml", "*.wrgl.yaml", "*.recipe"]
 				},
 				"python.testing.pytestArgs": ["tests"],
 				"python.testing.unittestEnabled": false,
