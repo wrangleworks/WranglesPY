@@ -53,11 +53,12 @@ brew install freetds
 This is required for pymssql to work properly.
 
 ### Testing the Installation
-After installing, verify with:
+After installing the package (step 4 above), verify with:
 ```bash
 wrangles.recipe tests/samples/generate-data.wrgl.yml
 ```
 Expected: Should execute successfully and display a 5-row dataframe.
+Note: This command requires the package to be installed (`pip install .`) to work.
 
 ## Testing
 
@@ -70,7 +71,9 @@ pytest
 - **Test discovery:** pytest --collect-only
 
 ### Test Structure
-- `tests/test_wrangles.py` - Core wrangles functionality (1600+ tests total)
+Total: ~1617 tests across all files.
+
+- `tests/test_wrangles.py` - Core wrangles functionality (~55 test functions)
 - `tests/test_back_processes.py` - Authentication and backend processes
 - `tests/recipes/` - Recipe-related tests
   - `test_read.py`, `test_write.py` - Connector tests
@@ -103,7 +106,7 @@ Tests will fail with "User or password not provided" if credentials are missing.
 - **`schema/`** - JSON schema generation for recipe validation
   - `generate_recipe_schema.py` - Schema generator
   - `recipe_base_schema.json` - Base schema definition
-- **`setup.py`** - Package configuration (version 1.15.1)
+- **`setup.py`** - Package configuration (check file for current version)
 - **`requirements.txt`** - Dependencies
 - **`dockerfile`** - Docker container definition
 
