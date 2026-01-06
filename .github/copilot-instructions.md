@@ -3,16 +3,17 @@
 ## Overview
 WranglesPY is a Python package for data wrangling and transformation. It provides modular transformations for data cleaning and enrichment, backed by machine learning models. The package supports both direct function calls and YAML-based recipe execution for automated data workflows.
 
-**Repository Size:** ~17,000 lines of Python code  
+**Repository Size:** Several thousand lines of Python code  
 **Language:** Python  
 **Supported Versions:** Python 3.10, 3.11, 3.12, 3.13  
 **Package Manager:** pip  
 **Testing Framework:** pytest 7.4.4
 
 ## Key Dependencies
+Core dependencies (see `requirements.txt` for exact versions):
 - pandas >= 2.0, < 3.0
 - numpy
-- polars == 1.33.0
+- polars (pinned version)
 - openpyxl >= 3.1.0
 - sqlalchemy >= 2.0, < 3.0
 - Database connectors: pymssql, psycopg2-binary, pymysql, pymongo
@@ -36,7 +37,7 @@ WranglesPY is a Python package for data wrangling and transformation. It provide
    ```bash
    pip install -r requirements.txt
    ```
-   Time: ~30-60 seconds. Large dependencies include polars (~39 MB) and pandas (~12 MB).
+   Time: ~30-60 seconds. Includes large dependencies like polars and pandas.
 
 4. **Install package in development mode (optional):**
    ```bash
