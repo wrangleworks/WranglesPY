@@ -2150,20 +2150,20 @@ class TestExtractProperties:
         check_list = ['Blue', 'Red', 'White']
         assert df.iloc[0]['prop'][0] in check_list and df.iloc[0]['prop'][1] in check_list and df.iloc[0]['prop'][2] in check_list
 
-    # def test_extract_colours_first_element(self):
-    #     """
-    #     Test extract.properties using property_type and first_element
-    #     """
-    #     recipe = """
-    #     wrangles:
-    #     - extract.properties:
-    #         input: Tool
-    #         output: prop
-    #         property_type: colours
-    #         first_element: True
-    #     """
-    #     df = wrangles.recipe.run(recipe, dataframe=self.df)
-    #     assert df.iloc[0]['prop'] == 'Blue'
+    def test_extract_colours_first_element(self):
+        """
+        Test extract.properties using property_type and first_element
+        """
+        recipe = """
+        wrangles:
+        - extract.properties:
+            input: Tool
+            output: prop
+            property_type: colours
+            first_element: True
+        """
+        df = wrangles.recipe.run(recipe, dataframe=self.df)
+        assert df.iloc[0]['prop'] == 'Blue'
 
     def test_extract_properties_first_element_without_property_type(self):
         """
