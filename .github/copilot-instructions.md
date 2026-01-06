@@ -71,9 +71,9 @@ pytest
 - **Test discovery:** pytest --collect-only
 
 ### Test Structure
-Total: ~1617 tests across all files.
+Total: over 1600 tests across all files (use `pytest --collect-only` to see current count).
 
-- `tests/test_wrangles.py` - Core wrangles functionality (~55 test functions)
+- `tests/test_wrangles.py` - Core wrangles functionality (primary test file)
 - `tests/test_back_processes.py` - Authentication and backend processes
 - `tests/recipes/` - Recipe-related tests
   - `test_read.py`, `test_write.py` - Connector tests
@@ -97,7 +97,7 @@ Tests will fail with "User or password not provided" if credentials are missing.
 ### Core Directories
 - **`wrangles/`** - Main package code
   - `__init__.py` - Package exports (classify, extract, lookup, translate, etc.)
-  - `recipe.py` - Recipe execution engine (45KB, complex)
+  - `recipe.py` - Recipe execution engine (large, complex file)
   - `extract.py`, `format.py`, `generate.py`, etc. - Wrangle functions
   - `auth.py`, `config.py` - Authentication and configuration
   - `connectors/` - Data source connectors (file, database, cloud, APIs)
@@ -106,7 +106,7 @@ Tests will fail with "User or password not provided" if credentials are missing.
 - **`schema/`** - JSON schema generation for recipe validation
   - `generate_recipe_schema.py` - Schema generator
   - `recipe_base_schema.json` - Base schema definition
-- **`setup.py`** - Package configuration (check file for current version)
+- **`setup.py`** - Package configuration and metadata
 - **`requirements.txt`** - Dependencies
 - **`dockerfile`** - Docker container definition
 
@@ -177,8 +177,7 @@ The `build/` directory is created during `pip install .` and contains compiled p
 
 ### Recipe Wrangles
 - Located in `wrangles/recipe_wrangles/`
-- Main entry point: `main.py` contains all recipe-callable wrangles
-- Large file (~60KB) with comprehensive wrangle implementations
+- Main entry point: `main.py` contains all recipe-callable wrangles (large, comprehensive file)
 
 ## DO NOT's
 - Do NOT add linting tools (none configured)
