@@ -13,7 +13,7 @@ WranglesPY is a Python package for data wrangling and transformation. It provide
 Core dependencies (see `requirements.txt` for exact versions):
 - pandas >= 2.0, < 3.0
 - numpy
-- polars (pinned version)
+- polars (pinned to specific version in requirements.txt)
 - openpyxl >= 3.1.0
 - sqlalchemy >= 2.0, < 3.0
 - Database connectors: pymssql, psycopg2-binary, pymysql, pymongo
@@ -122,8 +122,9 @@ Tests will fail with "User or password not provided" if credentials are missing.
 
 ### Workflows
 1. **`.github/workflows/publish-main.yml`** (Push to main/PRs to main):
-   - Runs on: ubuntu-latest, windows-latest, macos-14, macos-latest
+   - Runs on: ubuntu-latest, windows-latest, macos-14
    - Matrix: Python 3.10, 3.11, 3.12, 3.13
+   - Separate macos-latest job with Python 3.11, 3.12, 3.13 (requires FreeTDS)
    - Jobs:
      - `pytest` - Run all tests with credentials
      - `test-pip-install` - Test package installation
