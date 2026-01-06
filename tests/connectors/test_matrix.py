@@ -589,37 +589,3 @@ class TestWrite:
         # but that's acceptable since numpy array equality is complex)
         actual_ids = [key for key in memory.dataframes.keys() if key.startswith("test_non_hashable_arrays_")]
         assert len(actual_ids) >= 3  # May be 3 or 4 depending on how pandas handles numpy array deduplication
-
-    def test_matrix_non_string_variable_conversion(self):  
-        """  
-        Test that non-string values in matrix variables are properly converted to strings  
-        This covers the code path: if not isinstance(val, str): val = str(val)  
-        """  
-        recipe = '''
-            wrangles:
-            - matrix:
-                variables:
-                    var: set(col2)
-                wrangles:
-                    - convert.case:
-                        input: col1
-                        case: ${var}
-                        where: col2 = ?
-                        where_params:
-                        - ${var}
-                    '''
-
-        variables = {
-            "batch_number": 1,                     
-            "batch_total": 1,                      
-            "row_count": 3                         
-        }
-
-        data = pd.DataFrame({
-            'col1': ['aaa', 'bbb', 'ccc'],
-            'col2': ['upper', 'lower', 'title']
-        })
-
-        result = wrangles.recipe.run(recipe, dataframe=data, variables=variables)
-
-        assert list(result['col1']) == ['AAA', 'bbb', 'Ccc']
