@@ -50,7 +50,7 @@ def read(
 
     # Check that either password or pkey is provided and pass to connect_kwargs
     if password:
-        connect_kwargs = {'pkey': password, **connect_kwargs}
+        connect_kwargs = {'password': password, **connect_kwargs}
     elif pkey:
         connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
     else:
@@ -160,7 +160,7 @@ def write(
 
     # Check that either password or pkey is provided and pass to connect_kwargs
     if password:
-        connect_kwargs = {'pkey': password, **connect_kwargs}
+        connect_kwargs = {'password': password, **connect_kwargs}
     elif pkey:
         connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
     else:
@@ -309,7 +309,7 @@ class download_files:
 
         # Check that either password or pkey is provided and pass to connect_kwargs
         if password:
-            connect_kwargs = {'pkey': password, **connect_kwargs}
+            connect_kwargs = {'password': password, **connect_kwargs}
         elif pkey:
             connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
         else:
@@ -416,7 +416,7 @@ class upload_files:
 
         # Check that either password or pkey is provided and pass to connect_kwargs
         if password:
-            connect_kwargs = {'pkey': password, **connect_kwargs}
+            connect_kwargs = {'password': password, **connect_kwargs}
         elif pkey:
             connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
         else:
