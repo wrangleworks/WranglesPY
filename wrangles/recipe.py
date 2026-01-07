@@ -823,7 +823,7 @@ def _execute_wrangles(
                     # Could also use _pandas.api.types.is_datetime64_any_dtype(df) as a check
                     df = df.fillna('0')
                     if wrangle != 'log':  
-                        # Determine what columns were actually produced for logging
+                        # Determine what columns were actually produced for logging  
                         if 'output' in params:  
                             if isinstance(params['output'], list):  
                                 # Handle mixed list types (strings and dicts)  
@@ -832,22 +832,32 @@ def _execute_wrangles(
                                     if isinstance(item, dict):  
                                         # Extract just the column names from dicts  
                                         output_columns.extend(list(item.keys()))  
+                                    elif isinstance(item, str):  
+                                        # Handle wildcard expansion for single-item lists  
+                                        if '*' in item and len(params['output']) == 1:  
+                                            try:  
+                                                expanded = _wildcard_expansion(df.columns, [item])  
+                                                output_columns.extend(expanded)  
+                                            except KeyError:  
+                                                # Handle case where wildcard matches no columns  
+                                                output_columns.append(f"No matches for {item}")  
+                                        else:  
+                                            output_columns.append(item)  
                                     else:  
                                         output_columns.append(item)  
                             elif isinstance(params['output'], dict):  
                                 # Direct dict format  
-                                output_columns = list(params['output'].keys()) 
+                                output_columns = list(params['output'].keys())  
                             elif isinstance(params['output'], str):  
-                                print(params['output'])
                                 if '*' in params['output']:  
                                     # Expand wildcard to actual columns  
-                                    try:
+                                    try:  
                                         output_columns = _wildcard_expansion(df.columns, [params['output']])  
                                     except KeyError:  
                                         # Handle case where wildcard matches no columns  
                                         output_columns = [f"No matches for {params['output']}"]  
                                 else:  
-                                    output_columns = [params['output']]   
+                                    output_columns = [params['output']]  
                             else:  
                                 output_columns = [params['output']]  
                         else:  
@@ -856,13 +866,13 @@ def _execute_wrangles(
                             if new_columns:  
                                 output_columns = list(new_columns)  
                             else:  
-                                output_columns = original_columns 
+                                output_columns = original_columns  
                         
-                        # Convert all items to strings for display
+                        # Convert all items to strings for display  
                         input_display = params.get('input', 'None')  
                         if isinstance(input_display, list):  
                             input_display = ', '.join(str(x) for x in input_display)  
-                          
+                            
                         output_display = ', '.join(str(col) for col in output_columns)  
                         _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
 

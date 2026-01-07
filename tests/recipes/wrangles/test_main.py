@@ -6534,3 +6534,45 @@ class TestWrangleExecutionLogging:
             dataframe=pd.DataFrame({'Col1': ['hello']}),  
         )  
         assert ": Wrangling :: convert.case :: Col1 >> Col1" in caplog.messages[-1]
+
+    def test_output_wildcard_string_logging(_self, caplog):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: 
+                      - Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert ": Wrangling :: split.list :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
+    
+    def test_logging_wildcard_multi_list_no_expansion(self, caplog):  
+        """  
+        Test that wildcards in multi-item lists are NOT expanded  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['Hello'],  
+            'col2': ['World'],  
+        })  
+        
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - merge.concatenate:  
+                input:  
+                    - col1  
+                    - col2  
+                output:   
+                    - col*  
+                    - other  
+                char: ', '  
+            """,  
+            dataframe=data  
+        )  
+
+        # Check that the wildcard is not expanded (appears as literal)  
+        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
