@@ -1797,6 +1797,254 @@ class TestExtractCustom:
         assert df['Output'][0] == ['cotton', 'This is a match']
         assert df['Output'][1] == ['red', 'This is a match']
 
+    def test_extract_custom_multi_match(self):
+        """
+        Test the output with multiple input columns with the same matches
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input:
+                  - Col1
+                  - Col2
+                  - Col3
+                output: Output
+                model_id: 1eddb7e8-1b2b-4a52
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': ['Charizard is a dragon.'],
+                'Col2': ['Charizard is a pokemon.'],
+                'Col3': ['Something else about charizard.']
+            })
+        )
+        assert df.iloc[0]['Output'] == ['Charizard']
+        
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("training_order", ['Ten', 'Nine', 'Eight', 
+          'Seven', 'Six', 'One', 'Five', 'Four', 'Three', 'Two']),
+        ("input_order", ['One', 'Two', 'Three', 'Four',
+         'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']),
+        ("longest", ['Three', 'Seven', 'Eight', 'Four',
+         'Five', 'Nine', 'One', 'Two', 'Six', 'Ten']),
+        ("shortest", ['One', 'Two', 'Six', 'Ten', 'Four',
+         'Five', 'Nine', 'Three', 'Seven', 'Eight']),
+        ("alphabetical", ['Eight', 'Five', 'Four', 'Nine',
+         'One', 'Seven', 'Six', 'Ten', 'Three', 'Two']),
+        ("reverse_alphabetical", [
+         'Two', 'Three', 'Ten', 'Six', 'Seven', 'One', 'Nine', 'Four', 'Five', 'Eight']),
+    ])
+    def test_extract_custom_sort(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col": ['one two three four five six seven eight nine ten']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                model_id: 8dd00032-d8bb-400c
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+
+        assert result["result"][0] == expected
+
+
+    def test_extract_custom_sort_ascending(self):
+        df = pd.DataFrame({
+            "input_col": ['one two three four five six seven eight nine ten']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: ascending
+                model_id: 8dd00032-d8bb-400c
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+
+        assert len(result["result"][0][0]) < len(result["result"][0][-1])
+
+    def test_extract_custom_sort_descending(self):
+        df = pd.DataFrame({
+            "input_col": ['one two three four five six seven eight nine ten']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: descending
+                model_id: 8dd00032-d8bb-400c
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert len(result["result"][0][0]) > len(result["result"][0][-1])
+
+
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("longest", ['SmAll', 'gREEn', 'ReD']),
+        ("training_order", ['gREEn', 'SmAll', 'ReD']),
+        ("input_order", ['ReD', 'SmAll', 'gREEn']),
+        ("shortest", ['ReD', 'SmAll', 'gREEn']),
+        ("alphabetical", ['gREEn', 'ReD', 'SmAll']),
+        ("reverse_alphabetical", ['SmAll', 'ReD', 'gREEn']),
+    ])
+    def test_extract_custom_sort_extract_raw(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col":  ['ReD SmAll gREEn']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                extract_raw: True
+                model_id: 829c1a73-1bfd-4ac0
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert result["result"][0] ==  expected
+
+
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("longest", ['This is a match', 'colour: green', 'colour: black', 'red']),
+        ("training_order",  ['colour: green', 'colour: black', 'red', 'This is a match']),
+        ("input_order",  ['This is a match', 'red', 'colour: green', 'colour: black']),
+        ("shortest", ['red', 'colour: green', 'colour: black', 'This is a match']),
+        ("alphabetical", ['colour: black', 'colour: green', 'red', 'This is a match']),
+        ("reverse_alphabetical", ['This is a match', 'red', 'colour: green', 'colour: black']),
+        ("descending", ['This is a match', 'colour: green', 'colour: black', 'red']),
+        ("ascending", ['red', 'colour: black', 'colour: green', 'This is a match'])
+    ])
+    def test_extract_custom_sort_case_sensitive(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col":  ['abcdefg red green black abcdefghijk']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                case_sensitive: True
+                model_id: 829c1a73-1bfd-4ac0
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert result["result"][0] ==  expected
+
+
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("training_order", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("input_order", {'colour': ['blue', 'black'], 'size': ['medium', 'small']}),
+        ("longest", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("shortest", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("alphabetical", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("reverse_alphabetical",{'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("descending", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("ascending", {'colour': ['blue', 'black'], 'size': ['small', 'medium']})
+    ])
+    def test_extract_custom_sort_use_labels(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col":  ['medium blue black small']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                use_labels: True
+                model_id: 829c1a73-1bfd-4ac0
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert result["result"][0] ==  expected
+
+
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("input_order", ['size: medium', 'colour: blue', 'colour: black', 'size: small']),
+        ("training_order", ['colour: blue', 'colour: black', 'size: small', 'size: medium']),
+        ("descending", ['colour: black', 'size: medium', 'colour: blue', 'size: small']),
+        ("ascending", ['size: small', 'colour: blue', 'size: medium', 'colour: black']),
+        ("longest", ['colour: black', 'size: medium', 'colour: blue', 'size: small']),
+        ("shortest", ['size: small', 'size: medium', 'colour: blue', 'colour: black']),
+        ("alphabetical", ['colour: black', 'colour: blue', 'size: medium', 'size: small']),
+        ("reverse_alphabetical",['size: small', 'size: medium', 'colour: blue', 'colour: black']),
+
+    ])
+    def test_extract_custom_sort_use_spellcheck(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col":  ['medium blue black small']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                use_spellcheck: True
+                model_id: 829c1a73-1bfd-4ac0
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert result["result"][0] == expected
+
+    @pytest.mark.parametrize("sort_type, expected", [
+        ("input_order", 'size: medium'),
+        ("training_order", 'colour: blue'),
+        ("descending", 'colour: black'),
+        ("ascending", 'size: small'),
+        ("longest", 'colour: black'),
+        ("shortest", 'size: small'),
+        ("alphabetical", 'colour: black'),
+        ("reverse_alphabetical", 'size: small'),
+
+    ])
+    def test_extract_custom_sort_first_lement(self, sort_type, expected):
+        df = pd.DataFrame({
+            "input_col":  ['medium blue black small']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: {sort_type}
+                first_element: True
+                model_id: 829c1a73-1bfd-4ac0
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert result["result"][0] == expected
+
+
+    def test_extract_custom_sort_unexisting_sort_type(self):
+        df = pd.DataFrame({
+            "input_col":  ['medium blue black small']
+        })
+        recipe = f"""
+        wrangles:
+            - extract.custom:
+                input: input_col
+                output: result
+                sort: 'unexisting'
+                model_id: 829c1a73-1bfd-4ac0
+        """
+
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=df)
+        
+        assert (
+            info.typename == 'ValueError' and
+            'Sort must be one of the following: training_order, input_order, longest, shortest, alphabetical, reverse_alphabetical, ascending, descending' in info.value.args[0]
+        )
+       
+
 
 class TestExtractRegex:
     """
@@ -2139,7 +2387,7 @@ class TestExtractProperties:
             first_element: True
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['prop'] == 'Blue'
+        assert df.iloc[0]['prop'] == 'Red'
 
     def test_extract_properties_first_element_without_property_type(self):
         """

@@ -132,6 +132,18 @@ class TestTrainExtract:
         df = wrangles.recipe.run(recipe)
         assert len(df) == 3
 
+    def test_extract_read_no_optional_label(self):
+        """
+        Read an extract that does not have (Optional) in Output column
+        """
+        recipe = """
+        read:
+          - train.extract:
+              model_id: 5313d577-0bb6-4174
+        """
+        df = wrangles.recipe.run(recipe)
+        assert len(df) == 3
+
     def test_extract_write_backwards_compatible(self):
         """
         Writing data to a wrangle using backwards compatibility
@@ -153,6 +165,28 @@ class TestTrainExtract:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Entity to Find'] == 'Rachel'
 
+    def test_extract_write_backwards_compatible_adding_optional_label(self):
+        """
+        Adding data to a wrangle that does not have (Optional) in Output column
+        """
+        recipe="""
+        write:
+          - train.extract:
+              columns:
+                - Find
+                - Output (Optional)
+                - Notes
+              model_id: 5313d577-0bb6-4174
+        """
+        data = pd.DataFrame({
+            'Find': ['C#', 'F#', 'D#'],
+            'Output (Optional)': ['C Sharp', 'F Sharp', 'D Sharp'],
+            'Notes': ['', '', '']
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Output (Optional)'] == 'C Sharp'
+
+
     def test_extract_write(self):
         """
         Writing data to a wrangle (re-training)
@@ -173,6 +207,27 @@ class TestTrainExtract:
         })
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Find'] == 'Rachel'
+
+    def test_extract_write_no_optional_label(self):
+        """
+        Writing data to a wrangle re-training without (Optional)
+        """
+        recipe="""
+        write:
+          - train.extract:
+              columns:
+                - Find
+                - Output
+                - Notes
+              model_id: 5313d577-0bb6-4174
+        """
+        data = pd.DataFrame({
+            'Find': ['C#', 'F#', 'D#'],
+            'Output': ['C Sharp', 'F Sharp', 'D Sharp'],
+            'Notes': ['', '', '']
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Output'] == 'C Sharp'
 
     def test_extract_ai_write(self):
         """
