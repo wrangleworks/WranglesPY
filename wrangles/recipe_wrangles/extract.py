@@ -550,6 +550,7 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    sort: str = 'training_order',
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -590,6 +591,18 @@ def custom(
       use_spellcheck:
         type: boolean
         description: Use spellcheck to also find minor mispellings compared to the reference data
+      sort:
+        type: string
+        description: Sort the results
+        enum:
+          - training_order
+          - input_order
+          - longest
+          - shortest
+          - alphabetical
+          - reverse_alphabetical
+          - ascending
+          - descending
     """
     if output is None: output = input
     
@@ -610,6 +623,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
     
@@ -627,6 +641,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
 
@@ -644,6 +659,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                sort=sort,
                 **kwargs
             )
 
@@ -1002,11 +1018,11 @@ def regex(
         type: string
         description: |
           Specifies the format to output matches and specific capture groups using backreferences (e.g., `\1`, `\2`). Default is to return entire matches.
+
+          **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
       first_element:
         type: boolean
         description: Get the first element from results
-
-          **Example**: For a regex pattern `r'(\d+)\s(\w+)'` and `output_pattern = '\2 \1'`, with input `'120 volt'`, the output would be `'volt 120'`.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: 

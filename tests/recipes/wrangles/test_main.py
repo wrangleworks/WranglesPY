@@ -5906,6 +5906,39 @@ class TestMatrix:
         )
         assert df['What is for lunch?'][0] == "we are having hamburgers"
 
+    def test_matrix_non_string_variable_conversion(self):  
+        """  
+        Test that non-string values in matrix variables are properly converted to strings  
+        This covers the code path: if not isinstance(val, str): val = str(val)  
+        """  
+        recipe = '''
+            wrangles:
+            - matrix:
+                variables:
+                    var: set(col2)
+                wrangles:
+                    - convert.case:
+                        input: col1
+                        case: ${var}
+                        where: col2 = ?
+                        where_params:
+                        - ${var}
+                    '''
+
+        variables = {
+            "batch_number": 1,                     
+            "batch_total": 1,                      
+            "row_count": 3                         
+        }
+
+        data = pd.DataFrame({
+            'col1': ['aaa', 'bbb', 'ccc'],
+            'col2': ['upper', 'lower', 'title']
+        })
+
+        result = wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+
+        assert list(result['col1']) == ['AAA', 'bbb', 'Ccc']
 
 def wait_then_update(df, duration, input, output, value):
     """
