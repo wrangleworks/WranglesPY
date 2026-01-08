@@ -17,7 +17,12 @@ from ._formatting import file_format as _file_format
 _schema = {}
 
 
-def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwargs) -> _pd.DataFrame:
+def read(
+    name: str,
+    columns: _Union[str, list] = None,
+    file_object = None,
+    **kwargs
+    ) -> _pd.DataFrame:
     """
     Import a file as defined by user parameters.
 
@@ -57,6 +62,9 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
             # If the file is passed in memory but indicates it is gzipped,
             # then set appropriate compression as it can't be inferred
             kwargs['compression'] = 'gzip'
+
+    # Pop skip_empty out of kwargs for use later
+    drop_empty = kwargs.pop('drop_empty', False)
     
     # Open appropriate file type
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
@@ -86,6 +94,10 @@ def read(name: str, columns: _Union[str, list] = None, file_object = None, **kwa
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
+    # If drop_empty is set, drop any columns that are completely empty
+    if drop_empty:
+        df = df.replace('', _pd.NA).dropna(axis=1, how='all')
+
     return df
 
 _schema['read'] = """
@@ -100,6 +112,9 @@ properties:
   columns:
     type: array
     description: Columns to select
+  drop_empty:
+    type: boolean
+    description: Whether to drop columns that are completely empty, defaults to false
   nrows:
     type: integer
     description: Number of rows to read
