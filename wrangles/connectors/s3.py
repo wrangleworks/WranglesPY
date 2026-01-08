@@ -76,7 +76,7 @@ properties:
     description: The name of the bucket where file will be read
   file_key:
     type: string
-        description: The name of the key to download from. Use this parameter instead of the 'key'.
+    description: The name of the key to download from. Use this parameter instead of the 'key'.
   access_key:
     type: string
     description: S3 access key
