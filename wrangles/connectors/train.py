@@ -233,7 +233,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'upsert') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -245,7 +245,30 @@ class lookup():
         :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
         _logging.info(f": Training Lookup Wrangle")
-        if action.upper() == 'UPSERT':
+        if action.upper() == 'OVERWRITE':
+            # Read in variant if there is a model_id
+            if name and model_id:
+                raise ValueError("Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.") 
+            if model_id:
+                metadata = _data.model(model_id)
+                variant = metadata['variant']
+        
+            if variant == 'semantic':
+                variant = 'embedding'
+
+            settings['variant'] = variant
+
+            _train.lookup(
+                {
+                    k.title(): v
+                    for k, v in df.to_dict(orient="tight").items()
+                    if k in ["columns", "data"]
+                },
+                name,
+                model_id,
+                settings
+            )
+        elif action.upper() == 'UPSERT':
             if name and model_id:
                 raise ValueError("Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.") 
             # Prepare new data  
@@ -254,21 +277,7 @@ class lookup():
                 for k, v in df.to_dict(orient="tight").items()  
                 if k in ["columns", "data"]  
             }  
-            if name and not model_id:    
-                existing_models = _data.user.models()  
-                model_names = [model.get('name') for model in existing_models if model.get('name')]  
-                    
-                if name in model_names:  
-                    # Find the model_id for existing model  
-                    existing_model = next((m for m in existing_models if m.get('name') == name), None)  
-                    if existing_model:  
-                        model_id = existing_model['id']  
-                        # Read variant from existing model  
-                        metadata = _data.model(model_id)  
-                        variant = metadata['variant']  
-                        if variant == 'semantic':  
-                            variant = 'embedding'  
-                        settings['variant'] = variant  
+            
             if model_id:  
                 # Row-level upsert for existing model  
                 existing_content = _data.model_content(model_id)  
@@ -303,8 +312,7 @@ class lookup():
                 }  
                 
                 # Update with merged data  
-                _train.lookup(merged_data, None, model_id, settings)  
-                
+                _train.lookup(merged_data, None, model_id, settings)            
             else:  
                 # Standard create/update logic  
                 if model_id:  
@@ -373,12 +381,6 @@ class lookup():
                 raise ValueError("INSERT action requires 'name' parameter")  
             if model_id:  
                 raise ValueError("INSERT action cannot use 'model_id' parameter")  
-            
-            # Check if model already exists  
-            existing_models = _data.user.models()  
-            if any(model['name'] == name for model in existing_models):  
-                raise ValueError(f"Lookup model '{name}' already exists")  
-            
 
             settings['variant'] = variant 
             
@@ -389,7 +391,7 @@ class lookup():
             )  
         
         else:  
-            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, or UPSERT")
+            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE")
 
     _schema["write"] = """
         type: object
@@ -418,6 +420,7 @@ class lookup():
               - insert
               - update
               - upsert
+              - overwrite
         """
 
 class standardize():

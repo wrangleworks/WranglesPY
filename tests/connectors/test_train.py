@@ -546,24 +546,6 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
   
-    def test_insert_duplicate_model_name(self):  
-        """  
-        Test insert fails when model name already exists  
-        """  
-        df = pd.DataFrame({  
-            'Key': ['Rachel', 'Dolores'],  
-            'Value': ['Blade Runner', 'Westworld']  
-        }) 
-        recipe = """
-        write:
-          - train.lookup:
-              name: My Lookup Wrangle
-              action: INSERT
-              variant: key
-        """ 
-        with pytest.raises(ValueError, match="Lookup model 'My Lookup Wrangle' already exists"):  
-            wrangles.recipe.run(recipe, dataframe=df)  
-  
     def test_insert_duplicate_keys(self):  
         """  
         Test insert fails when DataFrame contains duplicate keys  
