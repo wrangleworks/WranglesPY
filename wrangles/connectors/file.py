@@ -63,7 +63,7 @@ def read(
             # then set appropriate compression as it can't be inferred
             kwargs['compression'] = 'gzip'
 
-    # Pop skip_empty out of kwargs for use later
+    # Pop drop_empty out of kwargs for use later
     drop_empty = kwargs.pop('drop_empty', False)
     
     # Open appropriate file type
