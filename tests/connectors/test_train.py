@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 
-# Mock only for tests related to the new action parameter
+# Mock only for tests related to the new action parameter to avoid real model changes
 @pytest.fixture
 def mock_lookup_action_backend(mocker):
     calls = {"last_name": None}
@@ -16,40 +16,39 @@ def mock_lookup_action_backend(mocker):
             return pd.DataFrame(data, columns=cols)
         raise TypeError("Unexpected payload for mocked train.lookup")
 
+    # Patch the connector's imported train symbol to avoid backend writes
     def fake_lookup(payload, name, model_id, settings):
         calls["last_name"] = name or calls["last_name"]
         df = _to_df(payload)
         variant = settings.get("variant", "key")
-        # Enforce key constraints similar to backend
         if "Key" not in df.columns:
             raise ValueError("Data must contain one column named Key")
         if variant == "key" and df["Key"].duplicated().any():
             raise ValueError("Lookup: All Keys must be unique")
-        # Return df so recipe.run returns the input unchanged as usual
         return df
 
-    mocker.patch("wrangles.train.train.lookup", side_effect=fake_lookup)
+    mocker.patch("wrangles.connectors.train._train.lookup", side_effect=fake_lookup)
 
-    # Provide minimal metadata and content for models used by these tests
+    # Patch connector's data access used by write logic
     def fake_model(mid):
         if mid == "test-model-id":
             return {"message": "error"}
-        if mid == "e8658a6f-c694-45d0":  # semantic lookup
+        if mid == "e8658a6f-c694-45d0":
             return {"variant": "semantic"}
         return {"variant": "key"}
 
-    mocker.patch("wrangles.data.model", side_effect=fake_model)
+    mocker.patch("wrangles.connectors.train._data.model", side_effect=fake_model)
 
     def fake_model_content(mid):
-        if mid == "3c8f6707-2de4-4be3":  # key lookup
+        if mid == "3c8f6707-2de4-4be3":
             return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]}
-        if mid == "e8658a6f-c694-45d0":  # semantic lookup w/ duplicates allowed
+        if mid == "e8658a6f-c694-45d0":
             return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Rachel", "Not Rachel"], ["Dolores", "Westworld"]]}
-        if mid == "b2cd1a8a-4d99-4be1":  # used by UPSERT test
+        if mid == "b2cd1a8a-4d99-4be1":
             return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Updated Rachel"]]}
         return {"Columns": ["Key", "Value"], "Data": []}
 
-    mocker.patch("wrangles.data.model_content", side_effect=fake_model_content)
+    mocker.patch("wrangles.connectors.train._data.model_content", side_effect=fake_model_content)
 
     def fake_user_models(kind=None):
         if kind and kind != "lookup":
@@ -59,7 +58,6 @@ def mock_lookup_action_backend(mocker):
 
     mocker.patch("wrangles.data.user.models", side_effect=fake_user_models)
     return calls
-
 #
 # Classify
 #
