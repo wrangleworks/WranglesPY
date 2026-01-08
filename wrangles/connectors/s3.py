@@ -145,7 +145,7 @@ properties:
     description: The name of the bucket where file will be written
   file_key:
     type: string
-        description: The name of the key of the file written. Use this parameter instead of the 'key'.
+    description: The name of the key of the file written. Use this parameter instead of the 'key'.
   access_key:
     type: string
     description: S3 access key
