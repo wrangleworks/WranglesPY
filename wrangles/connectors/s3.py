@@ -177,7 +177,7 @@ class download_files:
                     type:
                       - string
                       - array
-                    description: Local filename or list of filenames to save the downloaded files as (replaces deprecated 'file').
+                    description: Local filename or list of filenames to save the downloaded files as (replaces 'file').
                 endpoint_url:
                     type: string
                     description: Override the S3 host for alternative S3 storage providers.
@@ -275,7 +275,7 @@ class upload_files:
                     type:
                       - string
                       - array
-                    description: File or list of files to upload (replaces deprecated 'file').
+                    description: File or list of files to upload (replaces 'file').
                 endpoint_url:
                     type: string
                     description: Override the S3 host for alternative S3 storage providers.
