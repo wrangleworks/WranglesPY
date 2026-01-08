@@ -71,7 +71,7 @@ class TestRead:
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
-        assert df.empty == True
+        assert df.empty
 
     def test_read_excel(self):
         """
@@ -121,7 +121,7 @@ class TestRead:
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
-        assert df.empty == True
+        assert df.empty
 
     ## JSON Lines
     def test_read_jsonl(self):
