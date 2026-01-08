@@ -70,6 +70,7 @@ type: object
 description: Import data from a file in AWS S3
 required:
   - bucket
+  - file_key
 properties:
   bucket:
     type: string
