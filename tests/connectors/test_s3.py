@@ -91,7 +91,7 @@ class TestRead:
         )
         assert df['header'][0] == 'Sed magnam tempora adipisci velit eius consectetur'
 
-    def test_read_gzip_backward_compatibility(self):
+    def test_read_gzip_file_key(self):
         """
         Test reading a gzipped file
         """
@@ -228,7 +228,7 @@ class TestWrite:
             """
         )
 
-    def test_write_gzip_backward_compatibility(self):
+    def test_write_gzip_file_key(self):
         """
         Test writing a gzipped file
         """
@@ -271,7 +271,7 @@ class TestRunUpload:
                 """
             )
 
-    def test_upload_error_backward_capability(self):
+    def test_upload_error_save_as_file_key(self):
         """
         Test that an appropriate error is shown if the number of keys and filenames
         are not equal when attempting to upload files
@@ -306,7 +306,7 @@ class TestRunUpload:
                         file: tests/samples/data.csv
                 """
             )
-    def test_run_upload_error_invalid_bucket_backward_compatibility(self):
+    def test_run_upload_error_invalid_bucket_file_key(self):
         """
         Test that a clear error is raised if the bucket isn't valid
         """
@@ -387,7 +387,7 @@ class TestRunUpload:
         df = wrangles.recipe.run(recipe2)
         assert df.iloc[0]['Find'] == 'BRG'
 
-    def test_file_upload_and_download_backward_compatibility(self):
+    def test_file_upload_and_download_file_key(self):
         recipe = f"""
         run:
           on_start:
@@ -436,7 +436,7 @@ class TestRunDownload:
                         key: does_not_exist.csv
                 """
             )
-    def test_run_download_error_invalid_file_backward_compatibility(self):
+    def test_run_download_error_invalid_file_file_key(self):
         """
         Test that a clear error is raised if the file is missing
         """
@@ -501,7 +501,7 @@ class TestRunDownload:
                         - tests/temp/temp_download_data.csv
                 """
             )
-    def test_download_error_backward_compatibility(self):
+    def test_download_error_file_key(self):
         """
         Downloading multiple files error
         """
