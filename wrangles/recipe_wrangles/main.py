@@ -167,6 +167,7 @@ def accordion(
 
 def _batch_thread(
     df,
+    batch_num: int,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
     variables: dict = {},
@@ -186,13 +187,13 @@ def _batch_thread(
         )
     except Exception as err:
         if on_error:
-            _logging.error(f": Suppressed error in batch: {str(err)}")
+            _logging.error(f": Suppressed error in batch #{batch_num}: {str(err)}")
             return df.assign(**{
                 k: [v] * len(df)
                 for k, v in on_error.items()
             })
         else:
-            raise err from None
+            raise err.__class__(f"Batch #{batch_num} - {err}").with_traceback(err.__traceback__) from None 
 
 
 def batch(
@@ -274,6 +275,7 @@ def batch(
         results = executor.map(
             _batch_thread,
             batches,
+            range(1, len(batches) + 1), 
             [wrangles] * len(batches),
             [functions] * len(batches),
             [variables] * len(batches),

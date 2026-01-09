@@ -5078,6 +5078,35 @@ class TestBatch:
             variables={"condition": True}
         )
         assert df['column'].tolist() == ["A"] * 1000
+    
+    def test_batch_error_reports_batch_number(self):  
+        """  
+        Test that batch errors include the batch number in the error message  
+        """  
+        batch_counter = [0]  
+        def fail_on_2nd_batch(df):  
+            batch_counter[0] += 1  
+            if batch_counter[0] == 2:  
+                raise KeyError("column1 does not exist")  
+            return df  
+        
+        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+            wrangles.recipe.run(  
+                """  
+                read:  
+                - test:  
+                    rows: 150  
+                    values:  
+                        column: a  
+                wrangles:  
+                - batch:  
+                    batch_size: 50  
+                    wrangles:  
+                        - custom.fail_on_2nd_batch: {}  
+                """,  
+                functions=fail_on_2nd_batch  
+        )  
+  
 
 
 class TestLookup:
