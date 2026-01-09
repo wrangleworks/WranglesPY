@@ -914,3 +914,130 @@ def test_write_as_string():
         functions=write_values
     )
     assert ref_values == ["value"]
+
+def test_enhanced_error_message_long_recipe():  
+    """  
+    Test that error messages clearly identify the failed wrangle in a long recipe  
+    """  
+    def failing_function(df):  
+        raise RuntimeError("This is the actual error from wrangle #5")  
+      
+    def working_function(df):  
+        df["temp"] = "processed"  
+        return df  
+      
+    recipe = """  
+    read:  
+      - test:  
+          rows: 5  
+          values:  
+            col1: value1  
+      
+    wrangles:  
+      - custom.working_function: {}  
+      - convert.case:  
+          input: col1  
+          output: step2  
+          case: upper  
+      - custom.working_function: {}  
+      - format.trim:  
+          input: step2  
+          output: step4  
+      - custom.failing_function: {}  
+      - custom.working_function: {}  
+      - convert.case:  
+          input: temp  
+          output: final  
+          case: lower  
+    """  
+      
+    with pytest.raises(RuntimeError, match=r"ERROR IN WRANGLE #5 custom.failing_function - This is the actual error from wrangle #5"):  
+        wrangles.recipe.run(recipe, functions=[working_function, failing_function])
+
+def test_enhanced_error_message_read_phase():  
+    """Test error message prominence in read phase"""  
+    def failing_read():  
+        raise RuntimeError("Read operation failed")  
+      
+    with pytest.raises(RuntimeError, match=r"ERROR IN READ: custom.failing_read.*Read operation failed"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - custom.failing_read: {}  
+            """,  
+            functions=[failing_read]  
+        )  
+    
+def test_enhanced_error_message_write_phase():  
+    """Test error message prominence in write phase"""  
+    def failing_write(df):  
+        raise RuntimeError("Write operation failed")  
+      
+    with pytest.raises(RuntimeError, match=r"ERROR IN WRITE: custom.failing_write.*Write operation failed"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+              - test:  
+                  rows: 1  
+                  values:  
+                    col1: test  
+            write:  
+              - custom.failing_write: {}  
+            """,  
+            functions=[failing_write]  
+        )
+
+def test_enhanced_error_message_nested_recipe():  
+    """Test error messages work correctly with nested meta-wrangles"""  
+
+    def working_function(df):  
+        """A working custom function for testing"""  
+        df["temp"] = "processed"  
+        return df  
+    
+    def failing_function(df):  
+        """A function that always fails"""  
+        raise RuntimeError("Error in nested recipe")  
+    
+    # Test the batch wrangle with a failing function  
+    with pytest.raises(RuntimeError, match=r"Error in nested recipe"):  
+        wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 5  
+                values:  
+                    column: value  
+            
+            wrangles:  
+            - batch:  
+                wrangles:  
+                - custom.working_function: {}  
+                - custom.failing_function: {}  
+                - custom.working_function: {}  
+            """,  
+            functions={  
+                "working_function": working_function,  
+                "failing_function": failing_function  
+            }  
+        )
+
+def test_action_position_error():  
+    """  
+    Test that action errors include position number  
+    """  
+    def fail_func():  
+        raise RuntimeError("Action failed")  
+      
+    with pytest.raises(RuntimeError, match="ERROR IN ACTION: custom.fail_func - Action failed"):  
+        wrangles.recipe.run(  
+            """  
+            run:  
+              on_start:  
+                - custom.fail_func: {}  
+                - custom.fail_func: {}  
+                - custom.fail_func: {}  
+            """,  
+            functions=fail_func  
+        )  
+  
