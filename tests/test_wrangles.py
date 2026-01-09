@@ -121,11 +121,11 @@ def test_extract_html_str():
 # Translate
 def test_translate():
     result = wrangles.translate('My name is Chris', 'DE')
-    assert result == 'Mein Name ist Chris'
+    assert result == 'Mein Name ist Chris.'
 
 def test_translate_list():
     result = wrangles.translate(['My name is Chris'], 'DE')
-    assert result[0] == 'Mein Name ist Chris'
+    assert result[0] == 'Mein Name ist Chris.'
     
 # Invalid input type (dict)
 def test_translate_typeError():
