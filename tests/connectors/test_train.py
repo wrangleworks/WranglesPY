@@ -5,58 +5,70 @@ import pytest
 
 
 # Mock only for tests related to the new action parameter to avoid real model changes
-@pytest.fixture
-def mock_lookup_action_backend(mocker):
-    calls = {"last_name": None}
-
-    def _to_df(payload):
-        if isinstance(payload, dict):
-            cols = payload.get("Columns") or payload.get("columns")
-            data = payload.get("Data") or payload.get("data")
-            return pd.DataFrame(data, columns=cols)
-        raise TypeError("Unexpected payload for mocked train.lookup")
-
-    # Patch the connector's imported train symbol to avoid backend writes
-    def fake_lookup(payload, name, model_id, settings):
-        calls["last_name"] = name or calls["last_name"]
-        df = _to_df(payload)
-        variant = settings.get("variant", "key")
-        if "Key" not in df.columns:
-            raise ValueError("Data must contain one column named Key")
-        if variant == "key" and df["Key"].duplicated().any():
-            raise ValueError("Lookup: All Keys must be unique")
-        return df
-
-    mocker.patch("wrangles.connectors.train._train.lookup", side_effect=fake_lookup)
-
-    # Patch connector's data access used by write logic
-    def fake_model(mid):
-        if mid == "test-model-id":
-            return {"message": "error"}
-        if mid == "e8658a6f-c694-45d0":
-            return {"variant": "semantic"}
-        return {"variant": "key"}
-
-    mocker.patch("wrangles.connectors.train._data.model", side_effect=fake_model)
-
-    def fake_model_content(mid):
-        if mid == "3c8f6707-2de4-4be3":
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]}
-        if mid == "e8658a6f-c694-45d0":
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Rachel", "Not Rachel"], ["Dolores", "Westworld"]]}
-        if mid == "b2cd1a8a-4d99-4be1":
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Updated Rachel"]]}
-        return {"Columns": ["Key", "Value"], "Data": []}
-
-    mocker.patch("wrangles.connectors.train._data.model_content", side_effect=fake_model_content)
-
-    def fake_user_models(kind=None):
-        if kind and kind != "lookup":
-            return []
-        last = calls["last_name"]
-        return ([{"name": last}] if last else [{"name": "dummy"}])
-
-    mocker.patch("wrangles.data.user.models", side_effect=fake_user_models)
+@pytest.fixture  
+def mock_lookup_action_backend(mocker):  
+    calls = {"last_name": None}  
+    model_state = {}  # Track model data changes  
+      
+    def _to_df(payload):  
+        if isinstance(payload, dict):  
+            cols = payload.get("Columns") or payload.get("columns")  
+            data = payload.get("Data") or payload.get("data")  
+            return pd.DataFrame(data, columns=cols)  
+        raise TypeError("Unexpected payload for mocked train.lookup")  
+  
+    # Patch the connector's imported train symbol to avoid backend writes  
+    def fake_lookup(payload, name, model_id, settings):  
+        calls["last_name"] = name or calls["last_name"]  
+        df = _to_df(payload)  
+        variant = settings.get("variant", "key")  
+        if "Key" not in df.columns:  
+            raise ValueError("Data must contain one column named Key")  
+        if variant == "key" and df["Key"].duplicated().any():  
+            raise ValueError("Lookup: All Keys must be unique")  
+          
+        # Update model state to simulate the write operation  
+        if model_id:  
+            model_state[model_id] = {  
+                "Columns": df.columns.tolist(),  
+                "Data": df.values.tolist()  
+            }  
+          
+        return df  
+  
+    mocker.patch("wrangles.connectors.train._train.lookup", side_effect=fake_lookup)  
+  
+    # Patch connector's data access used by write logic  
+    def fake_model(mid):  
+        if mid == "test-model-id":  
+            return {"message": "error"}  
+        if mid == "e8658a6f-c694-45d0":  
+            return {"variant": "semantic"}  
+        return {"variant": "key"}  
+  
+    mocker.patch("wrangles.connectors.train._data.model", side_effect=fake_model)  
+  
+    def fake_model_content(mid):  
+        # Return updated state if available, otherwise original data  
+        if mid in model_state:  
+            return model_state[mid]  
+        elif mid == "3c8f6707-2de4-4be3":  
+            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]}  
+        elif mid == "e8658a6f-c694-45d0":  
+            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Rachel", "Not Rachel"], ["Dolores", "Westworld"]]}  
+        elif mid == "b2cd1a8a-4d99-4be1":  
+            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Updated Rachel"]]}  
+        return {"Columns": ["Key", "Value"], "Data": []}  
+  
+    mocker.patch("wrangles.connectors.train._data.model_content", side_effect=fake_model_content)  
+  
+    def fake_user_models(kind=None):  
+        if kind and kind != "lookup":  
+            return []  
+        last = calls["last_name"]  
+        return ([{"name": last}] if last else [{"name": "dummy"}])  
+  
+    mocker.patch("wrangles.data.user.models", side_effect=fake_user_models)  
     return calls
 #
 # Classify
@@ -590,7 +602,7 @@ class TestTrainLookup:
         recipe = f"""
         write:
           - train.lookup:
-              name: model {{ {uuid.uuid4().hex[:8]} }}
+              model_id: 3c8f6707-2de4-4be3 
               action: INSERT
               variant: key
         """
@@ -612,14 +624,65 @@ class TestTrainLookup:
         recipe = f"""
             write:
             - train.lookup:
-                name: model {{ {uuid.uuid4().hex[:8]} }}
+                model_id: 3c8f6707-2de4-4be3 
                 action: INSERT
                 variant: key
             """ 
         with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
-            wrangles.recipe.run(recipe, dataframe=df)   
-  
-    def test_update_model_not_found(self, mock_lookup_action_backend):  
+            wrangles.recipe.run(recipe, dataframe=df)
+        
+    # def test_insert_adds_only_new_keys(self):  
+    #     initial_data = {  
+    #         "Columns": ["Key", "Value"],  
+    #         "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]  
+    #     }  
+    #     merged_data = {  
+    #         "Columns": ["Key", "Value"],  
+    #         "Data": [  
+    #             ["Rachel", "Blade Runner"],  
+    #             ["Dolores", "Westworld"],  
+    #             ["TARS", "Interstellar"],  
+    #             ["test", "v4"]  
+    #         ]  
+    #     }  
+        
+    
+    #     df = pd.DataFrame({  
+    #         'Key': ['Rachel', 'test'],  
+    #         'Value': ['v17', 'v4']  
+    #     })  
+    #     recipe = """  
+    #     write:  
+    #     - train.lookup:  
+    #         model_id: 3c8f6707-2de4-4be3  
+    #         action: INSERT  
+    #         variant: key  
+    #     """  
+    #     # result = wrangles.recipe.run(recipe, dataframe=df)
+    #     # recipe = """  
+    #     # read:  
+    #     # - train.lookup:  
+    #     #     model_id: 3c8f6707-2de4-4be3  
+    #     # """  
+    #     # result = wrangles.recipe.run(recipe)    
+    #     # print(result)
+    
+    #     # expected = pd.DataFrame(merged_data["Data"], columns=merged_data["Columns"])  
+    #     # pd.testing.assert_frame_equal(result.sort_values("Key").reset_index(drop=True),  
+    #     #                             expected.sort_values("Key").reset_index(drop=True))
+        
+    #     # rollback changes         
+    #     df = pd.DataFrame(initial_data["Data"], columns=initial_data["Columns"])
+    #     recipe = """  
+    #     write:  
+    #     - train.lookup:  
+    #         model_id: 3c8f6707-2de4-4be3  
+    #         action: OVERWRITE  
+    #         variant: key  
+    #     """  
+    #     result = wrangles.recipe.run(recipe, dataframe=df)
+    
+    def test_update_model_not_found(self):  
         """  
         Test update fails when model doesn't exist   
         """  
@@ -637,7 +700,7 @@ class TestTrainLookup:
           
         # This would test with an actual existing model  
         # For testing purposes, we'll catch the expected error  
-        with pytest.raises(ValueError, match="Lookup model 'test-model-id' not found"):  
+        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
             wrangles.recipe.run(recipe, dataframe=df)  
   
     def test_action_parameter_validation_recipe(self, mock_lookup_action_backend):  
@@ -721,6 +784,72 @@ class TestTrainLookup:
         result = wrangles.recipe.run(recipe, dataframe=df)  
         assert len(result) == 1
         assert result.iloc[0]['Key'] == 'Rachel' and result.iloc[0]['Value'] == 'Updated Rachel'
+
+    def test_upsert_updates_existing_keys(self, mock_lookup_action_backend):
+        """
+        UPSERT should update values for existing keys in an existing model.
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'Phipi'],
+            'Value': ['Blade Runner 2049', 'Westworld Updated', 'New Movie']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+              action: UPSERT
+              variant: key
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        recipe = """
+        read:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+        """
+        result = wrangles.recipe.run(recipe)
+        # Expect updates applied while keeping other rows
+        values = {k: v for k, v in result[['Key', 'Value']].values}
+        assert values.get('Rachel') == 'Blade Runner 2049'
+        assert values.get('Dolores') == 'Westworld Updated'
+        assert values.get('TARS') == 'Interstellar'
+        assert values.get('Phipi') == 'New Movie'
+
+    def test_upsert_mismatched_columns_existing_model(self, mock_lookup_action_backend):
+        """
+        UPSERT should fail when new data includes columns not present
+        in the existing model schema.
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel'],
+            'Other': ['Blade Runner']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: b2cd1a8a-4d99-4be1
+              action: UPSERT
+              variant: key
+        """
+        with pytest.raises(ValueError, match="The following columns are not present in the existing model: Other"):
+            wrangles.recipe.run(recipe, dataframe=df)
+
+    def test_upsert_missing_key_for_key_variant(self, mock_lookup_action_backend):
+        """
+        UPSERT should require 'Key' column for key variant when updating
+        an existing model.
+        """
+        df = pd.DataFrame({
+            'Value': ['Blade Runner']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: b2cd1a8a-4d99-4be1
+              action: UPSERT
+              variant: key
+        """
+        with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
+            wrangles.recipe.run(recipe, dataframe=df)
   
     
 #

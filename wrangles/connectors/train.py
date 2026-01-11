@@ -246,6 +246,11 @@ class lookup():
         """
         _logging.info(f": Training Lookup Wrangle")
 
+        # Error handling for name, model_id and settings
+        if name and model_id:
+            raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
+        
+
         # Normalize inputs and avoid mutating default args
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
@@ -274,12 +279,10 @@ class lookup():
             settings['variant'] = v
             return v
 
+        
+        _set_variant(model_id, variant)
+
         if act == 'OVERWRITE':
-            if name and model_id:
-                raise ValueError("Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
-
-            _set_variant(model_id, variant)
-
             _train.lookup(
                 _to_tight(df),
                 name,
@@ -288,49 +291,72 @@ class lookup():
             )
 
         elif act == 'UPSERT':
-            if name and model_id:
-                raise ValueError("Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
-
             new_data = _to_tight(df)
-
             if model_id:
                 # Row-level upsert for existing model
                 existing_content = _data.model_content(model_id)
-                existing_df = _pd.DataFrame(
+                existing_df_all = _pd.DataFrame(
                     existing_content['Data'],
                     columns=existing_content['Columns']
-                )[new_data['Columns']]  # Ensure same column order
+                )
 
-                v = _set_variant(model_id, variant)
+                # Validate column compatibility with existing model
+                requested_cols = new_data['Columns']
+                missing_in_existing = [c for c in requested_cols if c not in existing_df_all.columns]
+                if missing_in_existing:
+                    raise ValueError(
+                        "Lookup: The following columns are not present in the existing model: "
+                        + ", ".join(missing_in_existing)
+                    )
+
+                existing_df = existing_df_all[requested_cols]  # Ensure same column order
+
+                # For key variant, ensure new data contains Key column
+                normalized_variant = settings.get('variant', variant)
+                if normalized_variant == 'key' and 'Key' not in df.columns:
+                    raise ValueError("Lookup: 'Key' column must be provided for 'key' variant")
 
                 # Merge data - avoid duplicates based on Key column
-                if v == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
+                if variant== 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
                     if df['Key'].duplicated().any():
                         raise ValueError("Lookup: All Keys must be unique")
                     existing_keys = set(existing_df['Key'].tolist())
-                    new_rows = df[~df['Key'].isin(existing_keys)]
-                    merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)
+
+                    # Start with current data
+                    merged_df = existing_df.copy()
+
+                    # Apply updates for matching keys
+                    for _, row in df.iterrows():
+                        key = row['Key']
+                        if key in existing_keys:
+                            mask = merged_df['Key'] == key
+                            for col in df.columns:
+                                if col != 'Key' and col in merged_df.columns:
+                                    merged_df.loc[mask, col] = row[col]
+                        else:
+                            # Insert new rows for non-existing keys
+                            merged_df = _pd.concat(
+                                [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                ignore_index=True
+                            )
                 else:
+                    # For non-key variants, just append all data
                     merged_df = _pd.concat([existing_df, df], ignore_index=True)
 
                 merged_data = {
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
-
                 _train.lookup(merged_data, None, model_id, settings)
             else:
-                _set_variant(None, variant)
                 _train.lookup(new_data, name, None, settings)
 
         elif act == 'UPDATE':
             # Verify model exists
             try:
                 metadata = _data.model(model_id)
-                if metadata.get('message') == 'error':
-                    raise ValueError(f"Lookup model '{model_id}' not found")
-            except Exception:
-                raise ValueError(f"Lookup model '{model_id}' not found")
+            except Exception as e:
+                raise e
 
             # Get existing model data
             existing_data = _data.model_content(model_id)
@@ -367,18 +393,38 @@ class lookup():
                 settings
             )
 
-        elif act == 'INSERT':
-            if not name:
-                raise ValueError("INSERT action requires 'name' parameter")
-            if model_id:
-                raise ValueError("INSERT action cannot use 'model_id' parameter")
-
-            _set_variant(None, variant)
-
-            _train.lookup(
-                _to_tight(df),
-                name, None, settings
-            )
+        elif act == 'INSERT':  
+            if not model_id:  
+                raise ValueError("INSERT action requires 'model_id' parameter for existing model")  
+            if name:  
+                raise ValueError("INSERT action cannot use 'name' parameter when updating existing model")  
+            
+            # Get existing data  
+            existing_content = _data.model_content(model_id)  
+            existing_df = _pd.DataFrame(  
+                existing_content['Data'],  
+                columns=existing_content['Columns']  
+            )  
+            print(existing_df)
+            print(df)
+            
+            # Only add rows with new keys (skip existing keys)  
+            if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
+                if df['Key'].duplicated().any():  
+                    raise ValueError("Lookup: All Keys must be unique")  
+                existing_keys = set(existing_df['Key'].tolist())  
+                new_rows = df[~df['Key'].isin(existing_keys)]  
+                merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
+            else:  
+                # For non-key variants, just append all data  
+                merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+            
+            merged_data = {  
+                'Columns': merged_df.columns.tolist(),  
+                'Data': merged_df.values.tolist()  
+            }  
+            print(merged_data)
+            _train.lookup(merged_data, None, model_id, settings)
 
         else:
             raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE")
