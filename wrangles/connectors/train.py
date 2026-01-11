@@ -405,8 +405,6 @@ class lookup():
                 existing_content['Data'],  
                 columns=existing_content['Columns']  
             )  
-            print(existing_df)
-            print(df)
             
             # Only add rows with new keys (skip existing keys)  
             if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
@@ -423,7 +421,6 @@ class lookup():
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
-            print(merged_data)
             _train.lookup(merged_data, None, model_id, settings)
 
         else:
