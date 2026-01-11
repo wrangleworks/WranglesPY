@@ -631,56 +631,34 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
             wrangles.recipe.run(recipe, dataframe=df)
         
-    # def test_insert_adds_only_new_keys(self):  
-    #     initial_data = {  
-    #         "Columns": ["Key", "Value"],  
-    #         "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]  
-    #     }  
-    #     merged_data = {  
-    #         "Columns": ["Key", "Value"],  
-    #         "Data": [  
-    #             ["Rachel", "Blade Runner"],  
-    #             ["Dolores", "Westworld"],  
-    #             ["TARS", "Interstellar"],  
-    #             ["test", "v4"]  
-    #         ]  
-    #     }  
-        
-    
-    #     df = pd.DataFrame({  
-    #         'Key': ['Rachel', 'test'],  
-    #         'Value': ['v17', 'v4']  
-    #     })  
-    #     recipe = """  
-    #     write:  
-    #     - train.lookup:  
-    #         model_id: 3c8f6707-2de4-4be3  
-    #         action: INSERT  
-    #         variant: key  
-    #     """  
-    #     # result = wrangles.recipe.run(recipe, dataframe=df)
-    #     # recipe = """  
-    #     # read:  
-    #     # - train.lookup:  
-    #     #     model_id: 3c8f6707-2de4-4be3  
-    #     # """  
-    #     # result = wrangles.recipe.run(recipe)    
-    #     # print(result)
-    
-    #     # expected = pd.DataFrame(merged_data["Data"], columns=merged_data["Columns"])  
-    #     # pd.testing.assert_frame_equal(result.sort_values("Key").reset_index(drop=True),  
-    #     #                             expected.sort_values("Key").reset_index(drop=True))
-        
-    #     # rollback changes         
-    #     df = pd.DataFrame(initial_data["Data"], columns=initial_data["Columns"])
-    #     recipe = """  
-    #     write:  
-    #     - train.lookup:  
-    #         model_id: 3c8f6707-2de4-4be3  
-    #         action: OVERWRITE  
-    #         variant: key  
-    #     """  
-    #     result = wrangles.recipe.run(recipe, dataframe=df)
+    def test_insert_add_new_values(self, mock_lookup_action_backend):
+        """
+        INSERT should add new keys
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'Phipi'],
+            'Value': ['Blade Runner 2049', 'Westworld Updated', 'New Movie']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+              action: INSERT
+              variant: key
+        """
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        recipe = """
+        read:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3
+        """
+        result = wrangles.recipe.run(recipe)
+        # Expect insert applied while keeping other rows
+        values = {k: v for k, v in result[['Key', 'Value']].values}
+        assert values.get('Rachel') == 'Blade Runner'
+        assert values.get('Dolores') == 'Westworld'
+        assert values.get('TARS') == 'Interstellar'
+        assert values.get('Phipi') == 'New Movie'
     
     def test_update_model_not_found(self):  
         """  
