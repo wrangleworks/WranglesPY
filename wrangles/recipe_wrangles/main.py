@@ -1398,12 +1398,27 @@ def rename(
     if input is None:
         # Check that column name exists
         rename_cols = list(kwargs.keys())
+        filtered_kwargs = {}
+          
         for x in rename_cols:
-            if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
-        # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
-        
-        rename_dict = kwargs
+            # Handle optional column syntax
+            if x.endswith("?"):
+                actual_col = x[:-1]
+                if actual_col not in list(df.columns):
+                    # Skip this column if it doesn't exist
+                    continue
+                else:
+                    # Use actual column name for renaming
+                    filtered_kwargs[actual_col] = kwargs[x]
+            elif x not in list(df.columns):
+                raise ValueError(f'Rename column "{x}" not found.')
+            else:
+                filtered_kwargs[x] = kwargs[x]
+          
+        # Check if the new column names exist if so drop them  
+        df = df.drop(columns=[x for x in list(filtered_kwargs.values()) if x in df.columns and x not in list(filtered_kwargs.keys())])
+          
+        rename_dict = filtered_kwargs
     else:
         if not output:
             raise ValueError('If an input is provided, an output must also be provided.')
@@ -1411,17 +1426,36 @@ def rename(
         # If a string provided, convert to list
         if not isinstance(input, list): input = [input]
         if not isinstance(output, list): output = [output]
+  
+        # Handle optional columns in input
+        filtered_input = []
+        filtered_output = []
 
         # Ensure input and output are equal lengths
         if len(input) != len(output):
             raise ValueError('The lists for input and output must be the same length.')
-        
+          
+        for inp, out in zip(input, output):
+            if inp.endswith("?"):
+                actual_col = inp[:-1]
+                if actual_col not in list(df.columns):
+                    # Skip this column if it doesn't exist
+                    continue  # This skips both input and output
+                else:
+                    filtered_input.append(actual_col)
+                    filtered_output.append(out)
+            elif inp not in list(df.columns):
+                raise ValueError(f'Rename column "{inp}" not found.')
+            else:
+                filtered_input.append(inp)
+                filtered_output.append(out)
+          
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
-        
+        df = df.drop(columns=[x for x in filtered_output if x in df.columns and x not in filtered_input])
+          
         # Otherwise create a dict from input and output columns
-        rename_dict = dict(zip(input, output))
-
+        rename_dict = dict(zip(filtered_input, filtered_output))
+  
     return df.rename(columns=rename_dict)
 
 
