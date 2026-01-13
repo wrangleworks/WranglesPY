@@ -6486,3 +6486,155 @@ class TestTry:
         )
         
         assert retry_count_zero == 1
+
+
+@pytest.mark.usefixtures("caplog")  
+class TestWrangleExecutionLogging:  
+    """  
+    Test wrangle execution logging functionality  
+    """  
+      
+    def test_basic_wrangle_logging(self, caplog):  
+        """  
+        Test basic wrangle execution logging with explicit output  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                output: Col2  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']})  
+        )  
+        assert ": Wrangling :: convert.case :: Col1 >> Col2" in caplog.messages[-1]  
+      
+    def test_dynamic_output_logging(self, caplog):  
+        """  
+        Test logging with dynamic output (new columns created)  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - split.text:  
+                input: Col1  
+                output: Col*  
+                char: ' '  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello world']}),   
+        )  
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
+      
+    def test_skipped_wrangle_logging(self, caplog):  
+        """  
+        Test logging when wrangle is skipped due to if condition  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                output: Col2  
+                case: upper  
+                if: false  
+            - convert.case:  
+                input: Col1  
+                output: Col3  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']})  
+        )  
+        assert ": Wrangling :: convert.case skipped due to not passing the if statement." in caplog.messages[-2]  
+        assert ": Wrangling :: convert.case :: Col1 >> Col3" in caplog.messages[-1]   
+      
+    def test_mixed_output_logging(self, caplog):  
+        """  
+        Test logging with mixed output types (strings and dicts)  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - create.column:  
+                output:  
+                  - col2  
+                  - col3: <boolean>  
+                  - col4: <code(10)>  
+            """,  
+            dataframe=pd.DataFrame({'col1': ['test']}),  
+        )  
+        assert ": Wrangling :: create.column :: None >> col2, col3, col4" in caplog.messages[-1]  
+      
+    def test_backward_compatibility_logging(self, caplog):  
+        """  
+        Test that default logging still shows 'Dynamic' for backward compatibility  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - split.text:  
+                input: Col1  
+                output: Col*  
+                char: ' '  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello world']})  
+        )  
+        print(df)
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
+      
+    def test_input_overwrite_logging(self, caplog):  
+        """  
+        Test logging when input column is overwritten  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']}),  
+        )  
+        assert ": Wrangling :: convert.case :: Col1 >> Col1" in caplog.messages[-1]
+
+    def test_output_wildcard_string_logging(_self, caplog):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: 
+                      - Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert ": Wrangling :: split.list :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
+    
+    def test_logging_wildcard_multi_list_no_expansion(self, caplog):  
+        """  
+        Test that wildcards in multi-item lists are NOT expanded  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['Hello'],  
+            'col2': ['World'],  
+        })  
+        
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - merge.concatenate:  
+                input:  
+                    - col1  
+                    - col2  
+                output:   
+                    - col*  
+                    - other  
+                char: ', '  
+            """,  
+            dataframe=data  
+        )  
+
+        # Check that the wildcard is not expanded (appears as literal)  
+        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
