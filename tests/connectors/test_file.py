@@ -96,7 +96,7 @@ class TestRead:
               drop_empty: true
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Replace']
+        assert df.columns.tolist() == ['Find', 'Not Empty', 'Replace']
 
     def test_read_excel_drop_empty_default(self):
         """
@@ -108,7 +108,7 @@ class TestRead:
               name: tests/samples/empty_cols.xlsx
         """
         df = wrangles.recipe.run(recipe)
-        assert df.columns.tolist() == ['Find', 'Empty1', 'Replace', 'Empty2']
+        assert df.columns.tolist() == ['Find', 'Empty1', 'Also Empty', 'Not Empty', 'Replace', 'Empty2']
 
     def test_read_excel_drop_empty_empty_df(self):
         """
