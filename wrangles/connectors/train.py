@@ -283,12 +283,14 @@ class lookup():
         _set_variant(model_id, variant)
 
         if act == 'OVERWRITE':
+            row_count = len(df)
             _train.lookup(
                 _to_tight(df),
                 name,
                 model_id,
                 settings
             )
+            _logging.info(f"Lookup OVERWRITE: {row_count} rows written. Total rows: {row_count}.")
 
         elif act == 'UPSERT':
             new_data = _to_tight(df)
@@ -316,6 +318,9 @@ class lookup():
                 if normalized_variant == 'key' and 'Key' not in df.columns:
                     raise ValueError("Lookup: 'Key' column must be provided for 'key' variant")
 
+                inserted = 0
+                updated = 0
+
                 # Merge data - avoid duplicates based on Key column
                 if variant== 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
                     if df['Key'].duplicated().any():
@@ -333,34 +338,43 @@ class lookup():
                             for col in df.columns:
                                 if col != 'Key' and col in merged_df.columns:
                                     merged_df.loc[mask, col] = row[col]
+                            updated += 1
                         else:
                             # Insert new rows for non-existing keys
                             merged_df = _pd.concat(
                                 [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
                                 ignore_index=True
                             )
+                            inserted += 1
                 else:
                     # For non-key variants, just append all data
                     merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                    inserted = len(df)
 
                 merged_data = {
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
+                total_rows = len(merged_df)
                 _train.lookup(merged_data, None, model_id, settings)
+                _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
             else:
+                inserted = len(df)
                 _train.lookup(new_data, name, None, settings)
+                _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
         elif act == 'UPDATE':
             # Verify model exists
             try:
                 metadata = _data.model(model_id)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise RuntimeError(f"Model with id {model_id} does not exist or access is demied.")
 
             # Get existing model data
             existing_data = _data.model_content(model_id)
             existing_df = _pd.DataFrame(existing_data['Data'], columns=existing_data['Columns'])
+
+            updated = 0
 
             if 'Key' in df.columns and 'Key' in existing_df.columns:
                 # Only update records that exist in the model
@@ -379,6 +393,7 @@ class lookup():
                     for col in df_filtered.columns:
                         if col != 'Key':
                             merged_df.loc[mask, col] = row[col]
+                    updated += 1
 
                 df = merged_df
             else:
@@ -386,12 +401,14 @@ class lookup():
 
             settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
+            total_rows = len(df)
             _train.lookup(
                 _to_tight(df),
                 None,
                 model_id,
                 settings
             )
+            _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
 
         elif act == 'INSERT':  
             if not model_id:  
@@ -406,22 +423,27 @@ class lookup():
                 columns=existing_content['Columns']  
             )  
             
+            inserted = 0
             # Only add rows with new keys (skip existing keys)  
             if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
                 if df['Key'].duplicated().any():  
                     raise ValueError("Lookup: All Keys must be unique")  
                 existing_keys = set(existing_df['Key'].tolist())  
                 new_rows = df[~df['Key'].isin(existing_keys)]  
+                inserted = len(new_rows)
                 merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
             else:  
                 # For non-key variants, just append all data  
+                inserted = len(df)
                 merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
             merged_data = {  
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
+            total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
+            _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
 
         else:
             raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE")

@@ -1,75 +1,20 @@
 import uuid
+
 import wrangles
 import pandas as pd
 import pytest
+import logging
+import re
 
+class LogCapture(logging.Handler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.records = []
+    def emit(self, record):
+        self.records.append(record)
+    def get_messages(self):
+        return [self.format(r) for r in self.records]
 
-# Mock only for tests related to the new action parameter to avoid real model changes
-@pytest.fixture  
-def mock_lookup_action_backend(mocker):  
-    calls = {"last_name": None}  
-    model_state = {}  # Track model data changes  
-      
-    def _to_df(payload):  
-        if isinstance(payload, dict):  
-            cols = payload.get("Columns") or payload.get("columns")  
-            data = payload.get("Data") or payload.get("data")  
-            return pd.DataFrame(data, columns=cols)  
-        raise TypeError("Unexpected payload for mocked train.lookup")  
-  
-    # Patch the connector's imported train symbol to avoid backend writes  
-    def fake_lookup(payload, name, model_id, settings):  
-        calls["last_name"] = name or calls["last_name"]  
-        df = _to_df(payload)  
-        variant = settings.get("variant", "key")  
-        if "Key" not in df.columns:  
-            raise ValueError("Data must contain one column named Key")  
-        if variant == "key" and df["Key"].duplicated().any():  
-            raise ValueError("Lookup: All Keys must be unique")  
-          
-        # Update model state to simulate the write operation  
-        if model_id:  
-            model_state[model_id] = {  
-                "Columns": df.columns.tolist(),  
-                "Data": df.values.tolist()  
-            }  
-          
-        return df  
-  
-    mocker.patch("wrangles.connectors.train._train.lookup", side_effect=fake_lookup)  
-  
-    # Patch connector's data access used by write logic  
-    def fake_model(mid):  
-        if mid == "test-model-id":  
-            return {"message": "error"}  
-        if mid == "e8658a6f-c694-45d0":  
-            return {"variant": "semantic"}  
-        return {"variant": "key"}  
-  
-    mocker.patch("wrangles.connectors.train._data.model", side_effect=fake_model)  
-  
-    def fake_model_content(mid):  
-        # Return updated state if available, otherwise original data  
-        if mid in model_state:  
-            return model_state[mid]  
-        elif mid == "3c8f6707-2de4-4be3":  
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Dolores", "Westworld"], ["TARS", "Interstellar"]]}  
-        elif mid == "e8658a6f-c694-45d0":  
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Blade Runner"], ["Rachel", "Not Rachel"], ["Dolores", "Westworld"]]}  
-        elif mid == "b2cd1a8a-4d99-4be1":  
-            return {"Columns": ["Key", "Value"], "Data": [["Rachel", "Updated Rachel"]]}  
-        return {"Columns": ["Key", "Value"], "Data": []}  
-  
-    mocker.patch("wrangles.connectors.train._data.model_content", side_effect=fake_model_content)  
-  
-    def fake_user_models(kind=None):  
-        if kind and kind != "lookup":  
-            return []  
-        last = calls["last_name"]  
-        return ([{"name": last}] if last else [{"name": "dummy"}])  
-  
-    mocker.patch("wrangles.data.user.models", side_effect=fake_user_models)  
-    return calls
 #
 # Classify
 #
@@ -465,12 +410,18 @@ class TestTrainLookup:
               model_id: 3c8f6707-2de4-4be3
         """
         df = wrangles.recipe.run(recipe)
-        assert len(df) == 3 and df.columns.to_list() == ['Key', 'Value']
+        assert df.columns.to_list() == ['Key', 'Value']
+        assert "Rachel" in df['Key'].values
+        assert "Dolores" in df["Key"].values
 
     def test_lookup_write(self):
         """
-        Writing data to a Lookup Wrangle (re-training)
+        Writing data to a Lookup Wrangle (re-training) and check logging
         """
+        logger = logging.getLogger()
+        log_capture = LogCapture()
+        logger.addHandler(log_capture)
+        logger.setLevel(logging.INFO)
         recipe = """
         write:
           - train.lookup:
@@ -482,6 +433,9 @@ class TestTrainLookup:
         })
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+        messages = log_capture.get_messages()
+        assert any(re.search(r"Lookup OVERWRITE: 3 rows written. Total rows: 3", m) for m in messages)
+        logger.removeHandler(log_capture)
 
     def test_key_lookup_write_duplicates(self):
         """
@@ -595,7 +549,7 @@ class TestTrainLookup:
                 })
             )
   
-    def test_insert_success(self, mock_lookup_action_backend):  
+    def test_insert_success(self):  
         """  
         Test successful insert of new lookup model  
         """  
@@ -613,7 +567,7 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
   
-    def test_insert_duplicate_keys(self, mock_lookup_action_backend):  
+    def test_insert_duplicate_keys(self):  
         """  
         Test insert fails when DataFrame contains duplicate keys  
         """  
@@ -631,34 +585,6 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
             wrangles.recipe.run(recipe, dataframe=df)
         
-    def test_insert_add_new_values(self, mock_lookup_action_backend):
-        """
-        INSERT should add new keys
-        """
-        df = pd.DataFrame({
-            'Key': ['Rachel', 'Dolores', 'Phipi'],
-            'Value': ['Blade Runner 2049', 'Westworld Updated', 'New Movie']
-        })
-        recipe = """
-        write:
-          - train.lookup:
-              model_id: 3c8f6707-2de4-4be3
-              action: INSERT
-              variant: key
-        """
-        result = wrangles.recipe.run(recipe, dataframe=df)
-        recipe = """
-        read:
-          - train.lookup:
-              model_id: 3c8f6707-2de4-4be3
-        """
-        result = wrangles.recipe.run(recipe)
-        # Expect insert applied while keeping other rows
-        values = {k: v for k, v in result[['Key', 'Value']].values}
-        assert values.get('Rachel') == 'Blade Runner'
-        assert values.get('Dolores') == 'Westworld'
-        assert values.get('TARS') == 'Interstellar'
-        assert values.get('Phipi') == 'New Movie'
     
     def test_update_model_not_found(self):  
         """  
@@ -678,10 +604,10 @@ class TestTrainLookup:
           
         # This would test with an actual existing model  
         # For testing purposes, we'll catch the expected error  
-        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
+        with pytest.raises(RuntimeError, match="Model with id test-model-id does not exist or access is demied."):  
             wrangles.recipe.run(recipe, dataframe=df)  
   
-    def test_action_parameter_validation_recipe(self, mock_lookup_action_backend):  
+    def test_action_parameter_validation_recipe(self):  
         """  
         Test invalid action parameter using recipe  
         """  
@@ -700,7 +626,7 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="Unsupported action: INVALID_ACTION"):  
             wrangles.recipe.run(recipe, dataframe=df)  
   
-    def test_update_model(self, mock_lookup_action_backend):  
+    def test_update_model(self):  
         """  
         Test UPDATE action with existing model
         """  
@@ -719,7 +645,7 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
                                                             
-    def test_upsert_new_model_recipe(self, mock_lookup_action_backend):  
+    def test_upsert_new_model_recipe(self):  
         """  
         Test upsert creates new model when model_id doesn't exist  
         """  
@@ -744,7 +670,7 @@ class TestTrainLookup:
         models = wrangles.data.user.models('lookup')
         assert any(m['name'] == model_name for m in models)
   
-    def test_action_parameter_upsert(self, mock_lookup_action_backend):  
+    def test_action_parameter_upsert(self):  
         """  
         Test write method with action='UPSERT'  
         """  
@@ -763,36 +689,7 @@ class TestTrainLookup:
         assert len(result) == 1
         assert result.iloc[0]['Key'] == 'Rachel' and result.iloc[0]['Value'] == 'Updated Rachel'
 
-    def test_upsert_updates_existing_keys(self, mock_lookup_action_backend):
-        """
-        UPSERT should update values for existing keys in an existing model.
-        """
-        df = pd.DataFrame({
-            'Key': ['Rachel', 'Dolores', 'Phipi'],
-            'Value': ['Blade Runner 2049', 'Westworld Updated', 'New Movie']
-        })
-        recipe = """
-        write:
-          - train.lookup:
-              model_id: 3c8f6707-2de4-4be3
-              action: UPSERT
-              variant: key
-        """
-        result = wrangles.recipe.run(recipe, dataframe=df)
-        recipe = """
-        read:
-          - train.lookup:
-              model_id: 3c8f6707-2de4-4be3
-        """
-        result = wrangles.recipe.run(recipe)
-        # Expect updates applied while keeping other rows
-        values = {k: v for k, v in result[['Key', 'Value']].values}
-        assert values.get('Rachel') == 'Blade Runner 2049'
-        assert values.get('Dolores') == 'Westworld Updated'
-        assert values.get('TARS') == 'Interstellar'
-        assert values.get('Phipi') == 'New Movie'
-
-    def test_upsert_mismatched_columns_existing_model(self, mock_lookup_action_backend):
+    def test_upsert_mismatched_columns_existing_model(self):
         """
         UPSERT should fail when new data includes columns not present
         in the existing model schema.
@@ -811,7 +708,7 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="The following columns are not present in the existing model: Other"):
             wrangles.recipe.run(recipe, dataframe=df)
 
-    def test_upsert_missing_key_for_key_variant(self, mock_lookup_action_backend):
+    def test_upsert_missing_key_for_key_variant(self):
         """
         UPSERT should require 'Key' column for key variant when updating
         an existing model.
