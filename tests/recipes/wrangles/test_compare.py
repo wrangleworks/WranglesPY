@@ -7,6 +7,158 @@ class TestCompareList:
     Test compare.list
     """
 
+    def test_compare_lists_integers_intersection(self):
+        data = pd.DataFrame({"a": [[1, 2, 3], [4, 5, 6]], "b": [[2, 3, 4], [5, 6, 7]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[2, 3], [5, 6]]
+
+    def test_compare_lists_integers_difference(self):
+        data = pd.DataFrame({"a": [[1, 2, 3], [4, 5, 6]], "b": [[2, 3, 4], [5, 6, 7]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[1], [4]]
+
+    def test_compare_lists_bools_intersection(self):
+        data = pd.DataFrame({"a": [[True, False], [True]], "b": [[False, True], [False]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[True, False], []]
+
+    def test_compare_lists_bools_difference(self):
+        data = pd.DataFrame({"a": [[True, False], [True]], "b": [[False, True], [False]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[], [True]]
+
+    def test_compare_lists_of_lists_intersection(self):
+        data = pd.DataFrame({"a": [[[1,2],[3,4]], [[5,6]]], "b": [[[1,2],[4,3]], [[6,5]]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[[1,2]], []]
+
+    def test_compare_lists_of_lists_difference(self):
+        data = pd.DataFrame({"a": [[[1,2],[3,4]], [[5,6]]], "b": [[[1,2],[4,3]], [[6,5]]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[[3,4]], [[5,6]]]
+
+    def test_compare_lists_of_dicts_intersection(self):
+        data = pd.DataFrame({"a": [[{"x":1},{"y":2}]], "b": [[{"x":1},{"y":3}]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[{"x":1}]]
+
+    def test_compare_lists_of_dicts_difference(self):
+        data = pd.DataFrame({"a": [[{"x":1},{"y":2}]], "b": [[{"x":1},{"y":3}]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df["result"].tolist() == [[{"y":2}]]
+
+    def test_compare_lists_mixed_types_intersection(self):
+        data = pd.DataFrame({"a": [[1, '2', True]], "b": [[1, 2, 1]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Only 1 is equal (True == 1 in Python)
+        assert df["result"].tolist() == [[1, True]]
+
+    def test_compare_lists_mixed_types_difference(self):
+        data = pd.DataFrame({"a": [[1, '2', True]], "b": [[1, 2, 1]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Only '2' is not in b
+        assert df["result"].tolist() == [['2']]
+
+    def test_compare_lists_not_lists(self):
+        data = pd.DataFrame({"a": [123], "b": [123]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a, b]
+            output: result
+            method: intersection
+        """
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+            assert False, "Should raise an error if input columns are not lists"
+        except Exception:
+            pass
+
+    def test_compare_lists_one_column(self):
+        data = pd.DataFrame({"a": [[1, 2, 3]]})
+        recipe = """
+        wrangles:
+        - compare.lists:
+            input: [a]
+            output: result
+            method: intersection
+        """
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+            assert False, "Should raise an error if only one column is passed"
+        except Exception:
+            pass
+
     def test_compare_lists_intersection(self):
         """
         Test compare.lists with intersection method
@@ -85,7 +237,6 @@ class TestCompareList:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert set(df["result"][0]) == {"a", "b"}
-
 
 class TestCompareText:
     """
