@@ -527,7 +527,45 @@ class TestTrainLookup:
                 })
             )
 
+    def test_lookup_semantic_no_key(self):
+        """
+        Test training a semantic lookup without Key column
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            settings:
+              embeddings_columns:
+                - Not Key
+        """
+        data = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.columns.to_list() == ['Not Key', 'Not Value']
 
+    #### The following test is to ensure that calling train.lookup directly works as expected when... ####
+    #### passed a list of data to train a semantic lookup model. ####
+    def test_lookup_directly_list_semantic(self):
+        """
+        Test calling train.lookup directly with a list of data and no Key column
+        """
+        # Use a list of data in order to hit the checks in train.lookup
+        list_data = [['Not Key', 'Not Value'],['Rachel', 'Blade Runner'], ['Dolores', 'Westworld'], ['TARS', 'Interstellar']]
+        wrangles.train.lookup(data=list_data, model_id='89637e77-7214-49a0', settings={'embeddings_columns': ['Not Key']})
+
+        # Read lookup to ensure that the model was trained correctly
+        recipe = """
+        read:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+        """
+        
+        df = wrangles.recipe.run(recipe)
+
+        assert df.columns.to_list() == ['Not Key', 'Not Value']
 
 
 #
