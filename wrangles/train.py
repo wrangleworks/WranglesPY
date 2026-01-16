@@ -128,7 +128,7 @@ class train():
         """
         # Read in variant
         if name:
-            variant = settings.get("variant", "")
+            variant = settings.get("variant", "key")
         elif model_id:
             metadata = _data.model(model_id)
             variant = metadata['variant']
@@ -143,7 +143,7 @@ class train():
             if not isinstance(data[0], list):
                 raise ValueError("Lookup: The data must be a 2D array.")
 
-            if variant != "embedding" and not data[0][0] == "Key":
+            if variant == "key" and not data[0][0] == "Key":
                 raise ValueError("Lookup: Column 1 must be named Key")
             
         elif isinstance(data, dict):
