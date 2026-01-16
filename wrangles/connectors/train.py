@@ -179,7 +179,7 @@ class extract():
                         if set(version["columns"]).issubset(set(df.columns.to_list()))
                     ][0]['columns']
             except:
-                required_columns = ['Find', 'Output (Optional)', 'Notes']
+                required_columns = ['Find', 'Output', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
