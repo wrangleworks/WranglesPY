@@ -5,6 +5,7 @@ from typing import Union as _Union
 from . import config as _config
 from . import auth as _auth
 from . import utils as _utils
+from . import data as _data
 import requests as _requests
 
 
@@ -126,7 +127,13 @@ class train():
         :param settings: Specific settings to apply to the lookup wrangle.
         """
         # Read in variant
-        variant = settings.get("variant", "")
+        if name:
+            variant = settings.get("variant", "")
+        elif model_id:
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
+        else:
+            raise ValueError('Lookup: Either a name or a model id must be provided')
 
         # Validate input
         if isinstance(data, list):
