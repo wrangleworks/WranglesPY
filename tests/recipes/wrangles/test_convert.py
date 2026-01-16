@@ -1326,6 +1326,76 @@ class TestConvertToJSON:
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
 
+    def test_scalar_string_to_json_array(self):
+        """
+        Test converting a scalar string to a JSON array
+        """
+        data = pd.DataFrame({'Test': ['abcd']})
+        recipe = """
+        wrangles:
+            - convert.to_json:
+                input: Test
+                output: Test_json
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Test_json'] == '["abcd"]'
+    
+    def test_multiple_scalar_columns_to_json_array(self):
+        """
+        Test converting multiple scalar columns to JSON arrays
+        """
+        data = pd.DataFrame({
+            'col1': ['a'],
+            'col2': ['b']
+        })
+        recipe = """
+        wrangles:
+            - convert.to_json:
+                input:
+                - col1
+                - col2
+                output:
+                - col1_json
+                - col2_json
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1_json'] == '["a"]' and df.iloc[0]['col2_json'] == '["b"]'
+
+    def test_mixed_scalar_and_list_columns_to_json_array(self):
+        """
+        Test converting a scalar and a list column to JSON arrays
+        """
+        data = pd.DataFrame({
+            'col1': ['a'],
+            'col2': [['b', 'c']]
+        })
+        recipe = """
+        wrangles:
+            - convert.to_json:
+                input:
+                - col1
+                - col2
+                output:
+                - col1_json
+                - col2_json
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1_json'] == '["a"]' and df.iloc[0]['col2_json'] == '["b", "c"]'
+
+    def test_numeric_scalar_column_to_json_array(self):
+        """
+        Test converting a numeric scalar column to a JSON array
+        """
+        data = pd.DataFrame({'num': [123]})
+        recipe = """
+        wrangles:
+            - convert.to_json:
+                input: num
+                output: num_json
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['num_json'] == '[123]'
+        
 
 class TestConvertToYAML:
     """
