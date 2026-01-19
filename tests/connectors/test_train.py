@@ -536,7 +536,7 @@ class TestTrainLookup:
         - train.lookup:
             model_id: 89637e77-7214-49a0
             settings:
-              embeddings_columns:
+              MatchingColumns:
                 - Not Key
         """
         data = pd.DataFrame({
@@ -554,7 +554,7 @@ class TestTrainLookup:
         """
         # Use a list of data in order to hit the checks in train.lookup
         list_data = [['Not Key', 'Not Value'],['Rachel', 'Blade Runner'], ['Dolores', 'Westworld'], ['TARS', 'Interstellar']]
-        wrangles.train.lookup(data=list_data, model_id='89637e77-7214-49a0', settings={'embeddings_columns': ['Not Key']})
+        wrangles.train.lookup(data=list_data, model_id='89637e77-7214-49a0', settings={'MatchingColumns': ['Not Key']})
 
         # Read lookup to ensure that the model was trained correctly
         recipe = """
