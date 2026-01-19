@@ -1251,7 +1251,7 @@ class TestConvertToJSON:
                 "column": [pd.Timestamp('2020-01-01')]
             })
         )
-        assert df['column'][0][:22] == '"2020-01-01T00:00:00.0'
+        assert df['column'][0][:22] == '["2020-01-01T00:00:00.'
 
     def test_numpy_float(self):
         """
