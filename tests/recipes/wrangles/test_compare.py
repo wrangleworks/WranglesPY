@@ -8,6 +8,9 @@ class TestCompareList:
     """
 
     def test_compare_lists_integers_intersection(self):
+        """
+        Test compare.lists with integer lists using intersection method.
+        """
         data = pd.DataFrame({"a": [[1, 2, 3], [4, 5, 6]], "b": [[2, 3, 4], [5, 6, 7]]})
         recipe = """
         wrangles:
@@ -20,6 +23,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[2, 3], [5, 6]]
 
     def test_compare_lists_integers_difference(self):
+        """
+        Test compare.lists with integer lists using difference method.
+        """
         data = pd.DataFrame({"a": [[1, 2, 3], [4, 5, 6]], "b": [[2, 3, 4], [5, 6, 7]]})
         recipe = """
         wrangles:
@@ -32,6 +38,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[1], [4]]
 
     def test_compare_lists_bools_intersection(self):
+        """
+        Test compare.lists with boolean lists using intersection method.
+        """
         data = pd.DataFrame({"a": [[True, False], [True]], "b": [[False, True], [False]]})
         recipe = """
         wrangles:
@@ -44,6 +53,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[True, False], []]
 
     def test_compare_lists_bools_difference(self):
+        """
+        Test compare.lists with boolean lists using difference method.
+        """
         data = pd.DataFrame({"a": [[True, False], [True]], "b": [[False, True], [False]]})
         recipe = """
         wrangles:
@@ -56,6 +68,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[], [True]]
 
     def test_compare_lists_of_lists_intersection(self):
+        """
+        Test compare.lists with lists of lists using intersection method.
+        """
         data = pd.DataFrame({"a": [[[1,2],[3,4]], [[5,6]]], "b": [[[1,2],[4,3]], [[6,5]]]})
         recipe = """
         wrangles:
@@ -68,6 +83,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[[1,2]], []]
 
     def test_compare_lists_of_lists_difference(self):
+        """
+        Test compare.lists with lists of lists using difference method.
+        """
         data = pd.DataFrame({"a": [[[1,2],[3,4]], [[5,6]]], "b": [[[1,2],[4,3]], [[6,5]]]})
         recipe = """
         wrangles:
@@ -80,6 +98,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[[3,4]], [[5,6]]]
 
     def test_compare_lists_of_dicts_intersection(self):
+        """
+        Test compare.lists with lists of dicts using intersection method.
+        """
         data = pd.DataFrame({"a": [[{"x":1},{"y":2}]], "b": [[{"x":1},{"y":3}]]})
         recipe = """
         wrangles:
@@ -92,6 +113,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[{"x":1}]]
 
     def test_compare_lists_of_dicts_difference(self):
+        """
+        Test compare.lists with lists of dicts using difference method.
+        """
         data = pd.DataFrame({"a": [[{"x":1},{"y":2}]], "b": [[{"x":1},{"y":3}]]})
         recipe = """
         wrangles:
@@ -104,6 +128,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[{"y":2}]]
 
     def test_compare_lists_mixed_types_intersection(self):
+        """
+        Test compare.lists with mixed types using intersection method.
+        """
         data = pd.DataFrame({"a": [[1, '2', True]], "b": [[1, 2, 1]]})
         recipe = """
         wrangles:
@@ -117,6 +144,9 @@ class TestCompareList:
         assert df["result"].tolist() == [[1, True]]
 
     def test_compare_lists_mixed_types_difference(self):
+        """
+        Test compare.lists with mixed types using difference method.
+        """
         data = pd.DataFrame({"a": [[1, '2', True]], "b": [[1, 2, 1]]})
         recipe = """
         wrangles:
@@ -130,6 +160,9 @@ class TestCompareList:
         assert df["result"].tolist() == [['2']]
 
     def test_compare_lists_not_lists(self):
+        """
+        Test error is raised if input columns are not lists.
+        """
         data = pd.DataFrame({"a": [123], "b": [123]})
         recipe = """
         wrangles:
@@ -145,6 +178,9 @@ class TestCompareList:
             pass
 
     def test_compare_lists_one_column(self):
+        """
+        Test error is raised if only one column is passed to compare.lists.
+        """
         data = pd.DataFrame({"a": [[1, 2, 3]]})
         recipe = """
         wrangles:
@@ -160,6 +196,9 @@ class TestCompareList:
             pass
 
     def test_compare_lists_intersection(self):
+        """
+        Test compare.lists with intersection method and string lists.
+        """
         """
         Test compare.lists with intersection method
         """
@@ -182,6 +221,9 @@ class TestCompareList:
 
     def test_compare_lists_difference(self):
         """
+        Test compare.lists with difference method and string lists.
+        """
+        """
         Test compare.lists with difference method
         """
         data = pd.DataFrame(
@@ -203,6 +245,9 @@ class TestCompareList:
 
     def test_compare_lists_multiple_lists(self):
         """
+        Test compare.lists with more than two lists (first is main).
+        """
+        """
         Test compare.lists with multiple lists (first is main)
         """
         data = pd.DataFrame(
@@ -223,6 +268,9 @@ class TestCompareList:
         assert df["result"][0] == ["A", "D"]
 
     def test_compare_lists_ignore_case(self):
+        """
+        Test compare.lists with ignore_case=true for case-insensitive comparison.
+        """
         """
         Test compare.lists with ignore_case=true
         """
