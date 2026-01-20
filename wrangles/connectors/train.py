@@ -281,8 +281,10 @@ class lookup():
 
         
         _set_variant(model_id, variant)
+        if act.upper() not in ['INSERT', 'UPDATE', 'UPSERT', 'OVERWRITE']:
+            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE(default)")
 
-        if act == 'OVERWRITE':
+        elif act == 'OVERWRITE' or name:
             row_count = len(df)
             _train.lookup(
                 _to_tight(df),
@@ -364,11 +366,7 @@ class lookup():
                 _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
         elif act == 'UPDATE':
-            # Verify model exists
-            try:
-                metadata = _data.model(model_id)
-            except Exception:
-                raise RuntimeError(f"Model with id {model_id} does not exist or access is demied.")
+            metadata = _data.model(model_id)
 
             # Get existing model data
             existing_data = _data.model_content(model_id)
@@ -444,9 +442,6 @@ class lookup():
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
             _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
-
-        else:
-            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE")
 
     _schema["write"] = """
         type: object

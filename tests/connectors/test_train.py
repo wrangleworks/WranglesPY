@@ -604,7 +604,7 @@ class TestTrainLookup:
           
         # This would test with an actual existing model  
         # For testing purposes, we'll catch the expected error  
-        with pytest.raises(RuntimeError, match="Model with id test-model-id does not exist or access is demied."):  
+        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
             wrangles.recipe.run(recipe, dataframe=df)  
   
     def test_action_parameter_validation_recipe(self):  
