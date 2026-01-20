@@ -2043,6 +2043,28 @@ class TestExtractCustom:
             info.typename == 'ValueError' and
             'Sort must be one of the following: training_order, input_order, longest, shortest, alphabetical, reverse_alphabetical, ascending, descending' in info.value.args[0]
         )
+        
+    def test_extract_custom_use_labels_empty_keys(self):
+        """
+        Test that extract.custom with use_labels returns empty keys for all labels if not present
+        """
+        data = pd.DataFrame({
+            'col': ['no known label here']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input: col
+            output: out
+            model_id: 829c1a73-1bfd-4ac0
+            use_labels: true
+            first_element: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        print(df)
+        # Should contain all possible labels as keys, with empty lists if not matched
+        assert 'colour' in df['out'][0] and 'size' in df['out'][0]
+        assert df['out'][0]['colour'] == [] and df['out'][0]['size'] == []
        
 
 

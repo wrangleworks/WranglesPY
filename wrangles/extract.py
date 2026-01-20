@@ -498,8 +498,17 @@ def custom(
         if first_element and not use_labels:
             results = [x[0] if len(x) >= 1 else "" for x in results]
         
-        if use_labels and first_element:
-            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+        if use_labels:
+            # Ensure every label has a key, create empty keys if missing
+            all_labels = set()
+            for objs in results:
+                all_labels.update(objs.keys())
+            for objs in results:
+                for label in all_labels:
+                    if label not in objs:
+                        objs[label] = ""
+            if first_element:
+                results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:
         raise ValueError(f'API Response did not return an expected format for model {model_id}')
 
