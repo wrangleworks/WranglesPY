@@ -1102,6 +1102,33 @@ class TestExtractCustom:
             df['col2'][0]['size'] == ['small']
         )
 
+    def test_extract_custom_labels_columns_format(self):
+        """
+        Test use_labels option with output_format: columns to expand labels into dataframe columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+                output_format: columns
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['small blue cotton jacket']
+            })
+        )
+
+        # Expect new columns `colour` and `size` created and populated
+        assert (
+            'colour' in df.columns and
+            'size' in df.columns and
+            df['colour'][0] == ['blue'] and
+            df['size'][0] == ['small']
+        )
+
     def test_extract_custom_6(self):
         """
         Incorrect model_id - forget to use ${}
@@ -1733,6 +1760,7 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
             use_labels: true
             first_element: false
+            include_empty_labels: false
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': ['red']}
@@ -1752,6 +1780,7 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
             use_labels: true
             first_element: true
+            include_empty_labels: false
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': 'red'}
@@ -2044,28 +2073,32 @@ class TestExtractCustom:
             'Sort must be one of the following: training_order, input_order, longest, shortest, alphabetical, reverse_alphabetical, ascending, descending' in info.value.args[0]
         )
         
-    def test_extract_custom_use_labels_empty_keys(self):
-        """
-        Test that extract.custom with use_labels returns empty keys for all labels if not present
-        """
-        data = pd.DataFrame({
-            'col': ['no known label here']
-        })
-        recipe = """
-        wrangles:
-        - extract.custom:
-            input: col
-            output: out
-            model_id: 829c1a73-1bfd-4ac0
-            use_labels: true
-            first_element: false
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        print(df)
-        # Should contain all possible labels as keys, with empty lists if not matched
-        assert 'colour' in df['out'][0] and 'size' in df['out'][0]
-        assert df['out'][0]['colour'] == [] and df['out'][0]['size'] == []
-       
+    def test_extract_custom_use_labels_empty_matches(self):  
+        """  
+        Test that use_labels=True creates empty keys for all labels when no matches are found  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - extract.custom:  
+                input: col1  
+                output: out  
+                model_id: 829c1a73-1bfd-4ac0  
+                use_labels: true  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['this text has no matching labels']
+            })  
+        )  
+        result = df['out'][0]  
+        
+        # Should contain empty keys for all possible labels from the model  
+        expected_labels = ['colour', 'size']  # Based on the model's expected labels  
+        
+        # Verify all expected labels exist with empty values  
+        for label in expected_labels:  
+            assert label in result, f"Missing label '{label}' in output"  
+            assert result[label] == [], f"Label '{label}' should be empty list"
 
 
 class TestExtractRegex:
