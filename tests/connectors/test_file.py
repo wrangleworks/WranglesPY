@@ -23,6 +23,19 @@ class TestRead:
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
 
+    def test_read_csv_drop_empty(self):
+        """
+        Test a .csv import using drop_empty parameter
+        """
+        recipe = """
+          read:
+            file:
+              name: tests/samples/data.csv
+              drop_empty: true
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.columns.tolist() == ['Find', 'Replace']
+
     def test_read_txt(self):
         """
         Test a basic .txt import
@@ -47,6 +60,19 @@ class TestRead:
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
 
+    def test_read_json_empty_df(self):
+        """
+        Test a .json import with empty columns and drop_empty parameter
+        """
+        recipe = """
+          read:
+            file:
+              name: tests/samples/empty_df.json
+              drop_empty: true
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.empty
+
     def test_read_excel(self):
         """
         Test a basic .xlsx import
@@ -58,6 +84,44 @@ class TestRead:
         """
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
+
+    def test_read_excel_drop_empty_true(self):
+        """
+        Test file connector's drop_empty parameter on an excel file
+        """
+        recipe = """
+          read:
+            file:
+              name: tests/samples/empty_cols.xlsx
+              drop_empty: true
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.columns.tolist() == ['Find', 'Not Empty', 'Replace']
+
+    def test_read_excel_drop_empty_default(self):
+        """
+        Test that empty columns persist when drop_empty is not set
+        """
+        recipe = """
+          read:
+            file:
+              name: tests/samples/empty_cols.xlsx
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.columns.tolist() == ['Find', 'Empty1', 'Also Empty', 'Not Empty', 'Replace', 'Spaces']
+
+    def test_read_excel_drop_empty_empty_df(self):
+        """
+        Test drop_empty with an excel file that only has column headers
+        """
+        recipe = """
+          read:
+            file:
+              name: tests/samples/empty_df.xlsx
+              drop_empty: true
+        """
+        df = wrangles.recipe.run(recipe)
+        assert df.empty
 
     ## JSON Lines
     def test_read_jsonl(self):
