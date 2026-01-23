@@ -5,6 +5,7 @@ from typing import Union as _Union
 from . import config as _config
 from . import auth as _auth
 from . import utils as _utils
+from . import data as _data
 import requests as _requests
 
 
@@ -125,6 +126,15 @@ class train():
         :param model_id: If provided, will update this model.
         :param settings: Specific settings to apply to the lookup wrangle.
         """
+        # Read in variant
+        if name:
+            variant = settings.get("variant", "key")
+        elif model_id:
+            metadata = _data.model(model_id)
+            variant = metadata['variant']
+        else:
+            raise ValueError('Lookup: Either a name or a model id must be provided')
+
         # Validate input
         if isinstance(data, list):
             if len(data) < 2:
@@ -133,7 +143,7 @@ class train():
             if not isinstance(data[0], list):
                 raise ValueError("Lookup: The data must be a 2D array.")
 
-            if not data[0][0] == "Key":
+            if variant == "key" and not data[0][0] == "Key":
                 raise ValueError("Lookup: Column 1 must be named Key")
             
         elif isinstance(data, dict):
@@ -141,7 +151,7 @@ class train():
                 raise ValueError(
                     "Lookup: The data must be a dictionary of the format {'Data': [[]], 'Columns': [], 'Settings': {}}"
                 )
-            if settings['variant'] =='key':
+            if variant =='key':
                 # Check that one of the columns is named Key
                 if "Key" not in data["Columns"]:
                     raise ValueError("Lookup: Data must contain one column named Key")
@@ -155,7 +165,7 @@ class train():
                 if number_keys != without_duplicates:
                     raise ValueError("Lookup: All Keys must be unique")
             
-        if name is not None and settings.get("variant", "") not in ["key", "embedding", "fuzzy", "recipe"]:
+        if name is not None and variant not in ["key", "embedding", "fuzzy", "recipe"]:
             raise ValueError(
                 "A new lookup must contain a value (key or semantic) for setting/variant."
             )
