@@ -3,6 +3,7 @@
 .vscode
 tests/temp/*
 !tests/temp/README.md
+demo_lookup_optimization.py
 
 
 # Byte-compiled / optimized / DLL files

@@ -904,6 +904,13 @@ def lookup(
           - string
           - array
         description: Name of the output column(s)
+    
+    Optimization Note:
+        When all rows in the input column contain the same value, this function
+        optimizes by performing a single lookup instead of looking up each row
+        individually. The single result is then broadcasted to all rows.
+        This significantly reduces API calls and improves performance for scenarios
+        like looking up a constant configuration value for all records.
     """
     # Ensure input is only 1 value
     if isinstance(input, list):
@@ -946,29 +953,57 @@ def lookup(
             for val in output    
         ]
 
-        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
-            # User specified all columns from the wrangle
-            # Add respective columns to the dataframe
-            data = _lookup(
-                df[input].values.tolist(),
+        # Optimization: Check if all values in the input column are the same
+        # If so, perform lookup only once and broadcast the result
+        unique_values = df[input].unique()
+        
+        if len(unique_values) == 1:
+            # All rows have the same value - optimize by looking up once
+            single_result = _lookup(
+                unique_values[0],
                 model_id,
-                columns=wrangle_output,
+                columns=wrangle_output if all([col in metadata["settings"]["columns"] for col in wrangle_output]) else None,
                 **kwargs
             )
-            df[output] = data
-        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
-            # User specified no columns from the wrangle
-            # Add dict of all values to those columns
-            data = _lookup(
-                df[input].values.tolist(),
-                model_id,
-                **kwargs
-            )
-            for out in output:
-                df[out] = data
+            
+            # Broadcast the single result to all rows
+            num_rows = len(df)
+            if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+                # User specified all columns from the wrangle
+                df[output] = [single_result] * num_rows
+            elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+                # User specified no columns from the wrangle (returns dict)
+                for out in output:
+                    df[out] = [single_result] * num_rows
+            else:
+                # User specified a mixture of unrecognized columns and columns from the wrangle
+                raise ValueError('Lookup may only contain all named or unnamed columns.')
         else:
-            # User specified a mixture of unrecognized columns and columns from the wrangle
-            raise ValueError('Lookup may only contain all named or unnamed columns.')
+            # Multiple unique values - use standard batch lookup
+            input_values = df[input].values.tolist()
+            if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+                # User specified all columns from the wrangle
+                # Add respective columns to the dataframe
+                data = _lookup(
+                    input_values,
+                    model_id,
+                    columns=wrangle_output,
+                    **kwargs
+                )
+                df[output] = data
+            elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+                # User specified no columns from the wrangle
+                # Add dict of all values to those columns
+                data = _lookup(
+                    input_values,
+                    model_id,
+                    **kwargs
+                )
+                for out in output:
+                    df[out] = data
+            else:
+                # User specified a mixture of unrecognized columns and columns from the wrangle
+                raise ValueError('Lookup may only contain all named or unnamed columns.')
     else:
         raise ValueError('model_id is required for lookup')
     
@@ -1157,7 +1192,7 @@ def python(
         exception = None
 
     # Raise a warniing for illegal python variables
-    if _re.search('\${.*\s.*}', command):
+    if _re.search(r'\${.*\s.*}', command):
         _logging.warning(f'Spaces should be dropped in python wrangle variables in order to be valid python syntax.')
 
     # Clean up variables and replace column variables with the column name
