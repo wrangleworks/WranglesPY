@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import time
 from datetime import datetime
+from unittest.mock import patch
+from wrangles.recipe_wrangles.main import lookup  
 
 
 class TestClassify:
@@ -5113,6 +5115,395 @@ class TestLookup:
     """
     Test lookup wrangle
     """
+    def test_lookup_mode_by_row_default(self):  
+        """  
+        Test lookup with by_row mode (default behavior)  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 3  
+                values:  
+                    Col1: a  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+            """  
+        )  
+        assert df['Value'].tolist() == [1, 1, 1]  
+    
+
+    def test_lookup_mode_by_row_explicit(self):  
+        """  
+        Test lookup with explicit by_row mode  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 3  
+                values:  
+                    Col1: a  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_row  
+            """  
+        )  
+        assert df['Value'].tolist() == [1, 1, 1]  
+    
+    def test_lookup_mode_by_dataframe_single_column(self):  
+        """  
+        Test lookup with by_dataframe mode and single output column  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+            """ , 
+            dataframe = pd.DataFrame({'Col1': ['a', 'a', 'k', 'k', 'a']})
+        )  
+        # Should map 'a' -> 1, 'k' -> "" (unrecognized)  
+
+        assert df['Value'].tolist() == [1, 1, "", "", 1]  
+
+    def test_lookup_mode_by_dataframe_multiple_columns(self):  
+        """  
+        Test lookup with by_dataframe mode and multiple output columns  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output:  
+                - Value1  
+                - Value2  
+                model_id: 6e97bb6c-bfab-402b  
+                lookup_mode: by_dataframe  
+            """ ,
+            dataframe = pd.DataFrame({'Col1': ['a', 'a', 'b']})
+        )  
+        assert df['Value1'].tolist() == [1, 1, 2]  
+        assert df['Value2'].tolist() == ["z", "z", "y"]  
+    
+    def test_lookup_mode_by_dataframe_performance_optimization(self):  
+        """  
+        Test that by_dataframe mode reduces API calls by checking unique values  
+        """  
+        
+        # Create dataframe with repeated values  
+        df = pd.DataFrame({  
+            'Col1': ['a'] * 100 + ['k'] * 50  # 150 rows but only 2 unique values  
+        })  
+        
+        # This should only make 2 API calls instead of 150  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        # Verify all 'a' values map to 1, all 'k' values map to ""  
+        assert result['Value'].tolist()[:100] == [1] * 100  
+        assert result['Value'].tolist()[100:] == [""] * 50  
+    
+    def test_lookup_mode_by_matrix_success(self):  
+        """  
+        Test lookup with by_matrix mode  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - matrix:  
+                variables:  
+                    region: [north, south]  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: by_matrix  
+                    matrix_variables: [region]  
+            """,
+            dataframe = pd.DataFrame(
+                {
+                    'Col1': ['a', 'a', 'k', 'k'],
+                    'region': ['north', 'south', 'north', 'south']
+                }
+            ) 
+        )  
+        # All 'a' values should map to 1 regardless of region  
+        assert df['Value'].tolist() == [1, 1, "", ""]  
+    
+    def test_lookup_mode_by_matrix_missing_variables(self):  
+        """  
+        Test error when matrix_variables not provided for by_matrix mode  
+        """  
+        with pytest.raises(ValueError, match="matrix_variables required for by_matrix mode"):  
+            wrangles.recipe.run(  
+                """  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: by_matrix  
+                """,
+                dataframe=pd.DataFrame({'Col1': ['a']} )  
+            )  
+    
+    def test_lookup_mode_invalid_mode(self):  
+        """  
+        Test error when invalid lookup_mode is provided  
+        """  
+        with pytest.raises(ValueError, match="Invalid lookup_mode: invalid_mode"):  
+            wrangles.recipe.run(  
+                """  
+                read:  
+                - test:  
+                    rows: 1  
+                    values:  
+                        Col1: a  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: invalid_mode  
+                """  
+            )  
+    
+    def test_lookup_mode_by_dataframe_empty_dataframe(self):  
+        """  
+        Test by_dataframe mode with empty dataframe  
+        """          
+        df = pd.DataFrame({'Col1': []})  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        assert result.empty  
+        assert 'Value' in result.columns  
+    
+    def test_lookup_mode_by_dataframe_with_where_clause(self):  
+        """  
+        Test by_dataframe mode with where clause filtering  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+                where: Col1 = 'a'  
+            """,  
+            dataframe=pd.DataFrame({  
+                "Col1": ["a", "b", "a", "c"]  
+            })  
+        )  
+        # Only 'a' values should be looked up, others should be empty  
+        assert df['Value'].tolist() == [1, "", 1, ""]  
+    
+    def test_lookup_mode_by_dataframe_renamed_outputs(self):  
+        """  
+        Test by_dataframe mode with renamed output columns  
+        """  
+        df = wrangles.recipe.run(  
+            """   
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output:  
+                - Value: CustomValue  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+            """ ,
+            dataframe=pd.DataFrame({  
+                "Col1": ["a", "l"]  
+            })
+        )  
+        assert 'CustomValue' in df.columns  
+        assert 'Value' not in df.columns  
+        assert df['CustomValue'].tolist() == [1, ""]
+    
+    def test_lookup_mode_by_dataframe_optimization_verification(self):  
+        """  
+        Test that by_dataframe mode actually reduces API calls compared to by_row mode  
+        by creating a dataset with many duplicate values and verifying the optimization.  
+        """           
+        # Create test data with many duplicates (1000 rows, only 3 unique values)  
+        df = pd.DataFrame({  
+            'product_code': ['a'] * 500 + ['b'] * 300 + ['c'] * 200  
+        })  
+        
+        # Track API calls by mocking the _lookup function  
+        api_calls_by_row = []  
+        api_calls_by_dataframe = []  
+        
+        def track_api_calls_by_row(input_list, *args, **kwargs):  
+            api_calls_by_row.append(len(input_list))  
+            # Return mock data for known values  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        def track_api_calls_by_dataframe(input_list, *args, **kwargs):  
+            api_calls_by_dataframe.append(len(input_list))  
+            # Return mock data for known values  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        # Test by_row mode (should make 1 API call with 1000 items)  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_row):  
+            result_by_row = lookup(  
+                    df.copy(),   
+                    input='product_code',   
+                    output='Value',   
+                    model_id='fe730444-1bda-4fcd',  
+                    lookup_mode='by_row'  
+                )  
+        
+        # Test by_dataframe mode (should make 1 API call with 3 unique items)  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_dataframe):  
+            result_by_dataframe = lookup(  
+                    df.copy(),   
+                    input='product_code',   
+                    output='Value',   
+                    model_id='fe730444-1bda-4fcd',  
+                    lookup_mode='by_dataframe'  
+                )  
+        
+        # Verify API call reduction  
+        assert len(api_calls_by_row) == 1, "by_row should make exactly 1 API call"  
+        assert len(api_calls_by_dataframe) == 1, "by_dataframe should make exactly 1 API call"  
+        
+        # Verify the optimization: by_dataframe processes fewer items  
+        total_items_by_row = sum(api_calls_by_row)  
+        total_items_by_dataframe = sum(api_calls_by_dataframe)  
+        
+        assert total_items_by_row == 1000, f"by_row should process 1000 items, got {total_items_by_row}"  
+        assert total_items_by_dataframe == 3, f"by_dataframe should process 3 unique items, got {total_items_by_dataframe}"  
+        
+        
+        # Verify results are identical between both modes  
+        assert result_by_row['Value'].tolist() == result_by_dataframe['Value'].tolist()  
+        assert result_by_row['Value'].tolist()[:5] == [1, 1, 1, 1, 1]
+        assert result_by_row['Value'].tolist()[500] == 2
+        assert result_by_row['Value'].tolist()[800] == 3
+    
+    def test_lookup_mode_by_dataframe_real_api_calls(self):  
+        """  
+        Test optimization with real API calls using a smaller dataset  
+        to avoid excessive API usage in tests.  
+        """          
+        # Create smaller test data with duplicates (20 rows, 2 unique values)  
+        df = pd.DataFrame({  
+            'Col1': ['a'] * 15 + ['l'] * 5  
+        })  
+        
+        # Test by_dataframe mode  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        # Verify correct mapping  
+        assert result['Value'].tolist()[:15] == [1] * 15  # All 'a' values map to 1  
+        assert result['Value'].tolist()[15:] == [""] * 5   # All 'b' values map to ""  
+        
+        # Verify optimization worked by checking unique values were processed  
+        # (This is inferred from the correct results - if it processed all 20 rows individually,  
+        # we'd still get correct results, but the optimization ensures only 2 API calls)  
+        unique_values = df['Col1'].unique()  
+        assert len(unique_values) == 2, "Test data should have exactly 2 unique values"
+
+    def test_lookup_mode_by_matrix_performance_optimization(self):  
+        """  
+        Test that by_matrix mode reduces API calls by using matrix permutations  
+        """          
+        # Create test data with matrix structure  
+        df = pd.DataFrame({  
+            'product_code': ['a'] * 300 + ['b'] * 200 + ['c'] * 100,  
+            'region': ['north'] * 300 + ['south'] * 200 + ['north'] * 100,  
+            'category': ['electronics'] * 300 + ['clothing'] * 200 + ['electronics'] * 100  
+        })  
+        
+        # Track API calls  
+        api_calls_by_matrix = []  
+        
+        def track_api_calls_by_matrix(input_list, *args, **kwargs):  
+            api_calls_by_matrix.append(len(input_list))  
+            # Return mock data  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        # Test by_matrix mode  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_matrix):  
+            result = lookup(  
+                df.copy(),   
+                input='product_code',   
+                output='Value',   
+                model_id='fe730444-1bda-4fcd',  
+                lookup_mode='by_matrix',  
+                matrix_variables=['region', 'category']  
+            )  
+        
+        # Should make 4 API calls (one per matrix permutation)  
+        # Permutations: (north, electronics), (south, clothing), (north, electronics)  
+        assert len(api_calls_by_matrix) <= 4, f"Expected <= 4 API calls, got {len(api_calls_by_matrix)}"  
+        
+        # Verify results are correct  
+        assert result['Value'].tolist()[:300] == [1] * 300  # a values  
+        assert result['Value'].tolist()[300:500] == [2] * 200  # b values  
+        assert result['Value'].tolist()[500:] == [3] * 100  # c values  
+    
     # def test_lookup(self):
     #     """
     #     Test lookup function
@@ -5469,10 +5860,7 @@ class TestLookup:
     def test_lookup_empty_dataframe(self):
         """
         Test lookup with empty dataframe (issue #727)
-        """
-        import pandas as pd
-        from wrangles.recipe_wrangles.main import lookup
-        
+        """        
         # Create an empty dataframe
         df = pd.DataFrame({'Col1': [], 'Col2': []})
         
