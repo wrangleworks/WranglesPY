@@ -1696,6 +1696,84 @@ class TestRename:
         )
         assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+    def test_rename_wrangles_input_optional(self):
+        """
+        Use wrangles to rename only a subset of columns selected via optional input markers
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - rename:
+                wrangles:
+                    - convert.case:
+                        input:
+                            - header4?
+                            - header2?
+                        case: ${case}
+            """,
+            variables={"case": "upper"},
+            dataframe=pd.DataFrame({  
+                'header1': [1, 2, 3],  
+                'header2': [4, 5, 6]  
+            }),
+        )
+        assert df.columns.tolist() == ['header1', 'HEADER2']
+
+    def test_rename_optional_custom_function(self):
+        """
+        Test that a custom function for rename wrangles works correctly with optional input markers
+        """
+        def func(columns):
+            return columns + "_1"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - custom.func:
+                        input:
+                            - header1?
+                            - header3?
+                        output: columns
+            """,
+            functions=func
+        )
+        assert df.columns.tolist() == ["header1_1","header2"]
+
+    def test_rename_optional_custom_function_fail(self):
+        """
+        Test that a custom function for rename wrangles works correctly with optional input markers
+        """
+        def func(columns):
+            return columns + "_1"
+        
+        with pytest.raises(ValueError, match="Rename column \"header3\" not found"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 5
+                    values:
+                        header1: value1
+                        header2: value2
+                wrangles:
+                - rename:
+                    wrangles:
+                        - custom.func:
+                            input:
+                                - header1?
+                                - header3
+                            output: columns
+                """,
+                functions=func
+            )
+
     def test_rename_wrangles_variables_if(self):
         """
         Use wrangles to rename columns based on a variable with an if
