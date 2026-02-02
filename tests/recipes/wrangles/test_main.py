@@ -1994,7 +1994,91 @@ class TestRename:
                     'col2': [2, 7]  
                 })  
             )
+    
+    def test_rename_wildcard(self):
+            """
+            Test rename with wildcard pattern
+            """
 
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        'Col*': 'Renamed_*'
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [1, 2],
+                    'Col2': [3, 4],
+                    'Other': [5, 6]
+                })
+            )
+            assert 'Renamed_1' in df.columns and 'Renamed_2' in df.columns and 'Other' in df.columns
+
+    def test_rename_wildcard_no_match_raises(self):
+        """
+        Test wildcard pattern that matches no columns raises error
+        """
+        with pytest.raises(ValueError, match='did not match any columns'):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        'No*': 'New_*'
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [1],
+                    'Col2': [2]
+                })
+            )
+
+    def test_rename_wildcard_optional_no_match_skips(self):
+        """
+        Optional wildcard pattern that matches no columns should be ignored
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    'No*?': 'New_*'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [1],
+                'Col2': [2]
+            })
+        )
+        assert df.columns.tolist() == ['Col1', 'Col2']
+
+    def test_rename_wildcard_output_escape(self):
+        """
+        Output template containing an escaped star should produce a literal '*'
+        """
+        df = wrangles.recipe.run(r"""
+            wrangles:
+                - rename:
+                    'Col*': 'Renamed_\*'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [1],
+                'Other': [2]
+            })
+        )
+        assert 'Renamed_*' in df.columns and 'Other' in df.columns
+
+    def test_rename_wildcard_escaped_input_literal(self):
+        """
+        Escaped wildcard in input should match a literal '*' character in column name
+        """
+        df = wrangles.recipe.run(r"""
+            wrangles:
+                - rename:
+                    'Col\*': StarCol
+            """,
+            dataframe=pd.DataFrame({
+                'Col*': [10],
+                'Other': [20]
+            })
+        )
+        assert 'StarCol' in df.columns and 'Other' in df.columns
 
 class TestSimilarity:
     """

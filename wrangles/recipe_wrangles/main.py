@@ -1438,29 +1438,65 @@ def rename(
 
     # If short form of paired names is provided, use that
     if input is None:
-        # Check that column name exists
-        rename_cols = list(kwargs.keys())
-        filtered_kwargs = {}
-          
-        for x in rename_cols:
-            # Handle optional column syntax
-            if x.endswith("?"):
-                actual_col = x[:-1]
-                if actual_col not in list(df.columns):
-                    # Skip this column if it doesn't exist
-                    continue
-                else:
-                    # Use actual column name for renaming
-                    filtered_kwargs[actual_col] = kwargs[x]
-            elif x not in list(df.columns):
-                raise ValueError(f'Rename column "{x}" not found.')
+      # Check that column name exists; support wildcard patterns (e.g. Col* -> Renamed_*)
+      rename_cols = list(kwargs.keys())
+      rename_dict = {}
+      outputs_to_check = []
+      cols = list(df.columns)
+
+      for x in rename_cols:
+        optional = False
+        name = x
+        if name.endswith("?"):
+          optional = True
+          name = name[:-1]
+
+        # Handle escaped wildcard literal (e.g. Col\*) => literal 'Col*'
+        if "\\*" in name:
+          literal = name.replace('\\*', '*')
+          if literal not in cols:
+            if optional:
+              continue
             else:
-                filtered_kwargs[x] = kwargs[x]
-          
-        # Check if the new column names exist if so drop them  
-        df = df.drop(columns=[x for x in list(filtered_kwargs.values()) if x in df.columns and x not in list(filtered_kwargs.keys())])
-          
-        rename_dict = filtered_kwargs
+              raise ValueError(f'Rename column "{literal}" not found.')
+          rename_dict[literal] = kwargs[x]
+          outputs_to_check.append(kwargs[x])
+          continue
+
+        # Handle wildcard pattern
+        if '*' in name:
+          pattern = '^' + _re.escape(name).replace('\\*', '(.*)') + '$'
+          matched = False
+          for col in cols:
+            m = _re.match(pattern, col)
+            if m:
+              matched = True
+              captured = m.group(1)
+              out_template = kwargs[x]
+              # Support escaped star in output
+              if '\\*' in out_template:
+                out_name = out_template.replace('\\*', '*')
+              elif '*' in out_template:
+                out_name = out_template.replace('*', captured)
+              else:
+                out_name = out_template
+              rename_dict[col] = out_name
+              outputs_to_check.append(out_name)
+          if not matched and not optional:
+            raise ValueError(f'Rename pattern "{x}" did not match any columns.')
+          continue
+
+        # Regular non-wildcard name
+        if name not in cols:
+          if optional:
+            continue
+          else:
+            raise ValueError(f'Rename column "{name}" not found.')
+        rename_dict[name] = kwargs[x]
+        outputs_to_check.append(kwargs[x])
+
+      # Remove any existing columns that would be overwritten by the rename
+      df = df.drop(columns=[o for o in outputs_to_check if o in df.columns and o not in list(rename_dict.keys())])
     else:
         if not output:
             raise ValueError('If an input is provided, an output must also be provided.')
