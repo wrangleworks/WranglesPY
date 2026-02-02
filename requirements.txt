@@ -1,20 +1,35 @@
-requests
-pyyaml
-numpy
+# --- Core Data & Processing ---
 pandas>=2.0,<3.0
+polars==1.33.0
+numpy
+numexpr
+pydantic
+
+# --- File Formats (Excel/YAML) ---
+xlsxwriter
+pyyaml
 openpyxl>=3.1.0
+
+# --- AI / Models  ---
+openai
+google-genai>=1.61.0
+
+# --- Cloud & External APIs ---
+boto3                 # AWS
+serpapi>=0.1.5        # Google Search Results (Official New SDK)
+simple-salesforce     # Salesforce
+requests              # HTTP
+httpx>=0.28.1         # Modern HTTP (Required by google-genai)
+apprise               # Notifications
+fabric==3.1.0         # SSH/Deployment
+
+# --- Database & Storage ---
 sqlalchemy>=2.0,<3.0
 pymssql>=2.3.3
 psycopg2-binary>=2.9.10
 pymysql
-fabric==3.1.0
-apprise
-lorem
 pymongo[srv]
-simple-salesforce
-numexpr
-boto3
+
+# --- Utilities & Templating ---
 jinja2
-polars==1.33.0
-xlsxwriter
-pydantic
+lorem
