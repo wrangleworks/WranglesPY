@@ -1573,7 +1573,7 @@ class TestRename:
                 """
             )
         
-        assert "column named 'columns' must be returned" in error.value.args[0]
+        assert "If an input is provided, an output must also be provided" in error.value.args[0]
 
     def test_rename_wrangles_filtered_error(self):
         """

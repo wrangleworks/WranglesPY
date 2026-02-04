@@ -1366,71 +1366,75 @@ def rename(
         items:
           "$ref": "#/$defs/wrangles/items"
     """
-    # Allow using wrangles to manipulate the column names
+        # Allow using wrangles to manipulate the column names
     if wrangles:
-      original_columns = list(df.columns)
-      
-      # Work on a mutable list of column names
-      current = original_columns[:]
+        original_columns = list(df.columns)
+        # Work on a mutable list of column names
+        current = original_columns[:]
 
-      # Default set of source columns passed to inner wrangles is all columns
-      source_columns = original_columns
-
-      # Detect if any inner wrangle provides an explicit `input` list
-      for item in wrangles:
-        if not isinstance(item, dict):
-          continue
-        for _, params in item.items():
-          if not isinstance(params, dict):
-            continue
-          if 'input' in params and isinstance(params['input'], list):
-            candidate = params['input']
-            if any(isinstance(x, str) and (x.endswith('?') or x in original_columns) for x in candidate):
-              picked = []
-              for x in candidate:
+        # Helper to resolve a wrangle's input list to actual column names
+        def resolve_input(candidate_list):
+            picked = []
+            for x in candidate_list:
                 if not isinstance(x, str):
-                  continue
+                    continue
                 if x == 'columns':
-                  picked = original_columns
-                  break
+                    picked = current[:]
+                    break
                 if x.endswith('?'):
-                  base = x[:-1]
-                  if base in original_columns:
-                    picked.append(base)
+                    base = x[:-1]
+                    if base in current:
+                        picked.append(base)
                 else:
-                  if x in original_columns:
-                    picked.append(x)
-                  else:
-                    # If explicit non-optional input missing -> error
-                    raise ValueError(f'Rename column "{x}" not found.')
-              source_columns = picked
-              # Rewrite inner wrangle to operate on the injected `columns`
-              params['input'] = 'columns'
-              break
-        if source_columns is not original_columns:
-          break
+                    if x in current:
+                        picked.append(x)
+                    else:
+                        raise ValueError(f'Rename column "{x}" not found.')
+            return picked
 
-      try:
-        output = _wrangles.recipe.run(
-          {"wrangles": wrangles},
-          dataframe=_pd.DataFrame({
-            "columns": source_columns
-          }),
-          functions=kwargs.get("functions", {}),
-          variables=kwargs.get("variables", {})
-        )["columns"].tolist()
-      except:
-        raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
+        # Run each inner wrangle sequentially, applying only to its input columns
+        for item in wrangles:
+            if not isinstance(item, dict):
+                continue
+            for wrangle_name, params in item.items():
+                if not isinstance(params, dict):
+                    continue
+                # Determine which columns this wrangle should affect
+                if 'input' in params and isinstance(params['input'], list):
+                    target = resolve_input(params['input'])
+                else:
+                    target = current[:]
 
-      if len(source_columns) != len(output):
-        raise RuntimeError(
-          "If using wrangles to rename columns, " +
-          "the results must be the same length as the input columns."
-        )
+                # Prepare a temporary DataFrame with only the target columns
+                temp_df = _pd.DataFrame({"columns": target})
 
-      # Build mapping only for the selected source columns
-      rename_dict = dict(zip(source_columns, output))
-      return df.rename(columns=rename_dict)
+                # Rewrite this wrangle to operate on 'columns'
+                local_params = params.copy()
+                local_params['input'] = 'columns'
+
+                # Run the inner wrangle
+                try:
+                    result = _wrangles.recipe.run(
+                        {"wrangles": [{wrangle_name: local_params}]},
+                        dataframe=temp_df,
+                        functions=kwargs.get("functions", {}),
+                        variables=kwargs.get("variables", {})
+                    )["columns"].tolist()
+                except Exception as e:
+                    raise RuntimeError(f"Failed running {wrangle_name} in rename wrangles: {e}")
+
+                if len(target) != len(result):
+                    raise RuntimeError(
+                        f"If using wrangles to rename columns, the results must be the same length as the input columns for {wrangle_name}."
+                    )
+                # Update only the targeted positions in the current list
+                mapping = dict(zip(target, result))
+                for i, col in enumerate(current):
+                    if col in mapping:
+                        current[i] = mapping[col]
+        # Build final rename dict from original -> transformed
+        rename_dict = dict(zip(original_columns, current))
+        return df.rename(columns=rename_dict)
     else:
         # Drop functions if not needed
         if (
@@ -1438,6 +1442,7 @@ def rename(
             isinstance(kwargs["functions"], dict)
         ):
             del kwargs["functions"]
+
 
     # If short form of paired names is provided, use that
     if input is None:
