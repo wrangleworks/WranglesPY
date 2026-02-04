@@ -1486,7 +1486,6 @@ class TestRename:
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
 
-
     def test_rename_wrangles(self):
         """
         Use wrangles to rename columns
@@ -1573,6 +1572,7 @@ class TestRename:
                             columns: cause_error
                 """
             )
+        
         assert "column named 'columns' must be returned" in error.value.args[0]
 
     def test_rename_wrangles_filtered_error(self):
@@ -1975,6 +1975,23 @@ class TestRename:
             dataframe=pd.DataFrame()  
         )  
         assert df.empty  
+
+    def test_rename_optional_empty_columns_dataframe(self):  
+        """  
+        Test optional columns with empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                col1?: new_col1  
+                col2?: new_col2  
+            """,  
+            dataframe=pd.DataFrame({'col1': [], 'col2': []}) 
+        )  
+
+        assert df.columns.tolist() == ['new_col1', 'new_col2']
+        assert df.empty  
   
     def test_rename_optional_with_where(self):  
         """  
@@ -2079,6 +2096,79 @@ class TestRename:
             })
         )
         assert 'StarCol' in df.columns and 'Other' in df.columns
+    
+    def test_rename_wildcard_multiple_matches_single_output(self):
+        """
+        Raise error if wildcard input matches multiple columns and output is a single non-wildcard name
+        """
+        data = pd.DataFrame({
+            'col1': [1],
+            'col2': [2],
+            'col3': [3],
+            'data': [4],
+        })
+        recipe = """
+        wrangles:
+        - rename:
+            col*: new_col
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(recipe, dataframe=data)
+
+        assert (
+            info.typename == 'ValueError' and
+            'matched multiple columns but output' in info.value.args[0]
+        )
+    def test_rename_wrangles_multiple_optional_inputs(self):
+        """
+        Ensure all optional columns from multiple wrangles are included and processed
+        """
+        data = pd.DataFrame({
+                'header1': ['a'],
+                'header2': ['b'],
+                'header4': ['c'],
+                'header5': ['d']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                wrangles:
+                    - format.prefix:
+                            input:
+                                - header5?
+                                - header1?
+                            value: PRE_
+                    - convert.case:
+                            input:
+                                - header4
+                                - header2?
+                            case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Check that all columns were processed and renamed
+        assert 'PRE_header5' in df.columns
+        assert 'PRE_header1' in df.columns
+        assert 'HEADER4' in df.columns
+        assert 'HEADER2' in df.columns
+
+    # def test_rename_optional_string_input(self):
+    #     """
+    #     Check that optional columns (that exist) passed as a string are not ignored
+    #     """
+    #     data = pd.DataFrame({
+    #         'Col1': ['abc']
+    #     })
+    #     recipe = """
+    #     wrangles:
+    #         - rename:
+    #             wrangles:
+    #                 input: Col1?
+    #                 case: upper
+    #     """
+    #     df = wrangles.recipe.run(recipe, dataframe=data)
+    #     # Should rename Col1 to COL1_UPPER and apply upper case
+    #     assert 'COL1_UPPER' in df.columns
+    #     assert df['COL1_UPPER'][0] == 'ABC'
 
 class TestSimilarity:
     """

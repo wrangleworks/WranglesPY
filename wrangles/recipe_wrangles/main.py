@@ -1369,6 +1369,9 @@ def rename(
     # Allow using wrangles to manipulate the column names
     if wrangles:
       original_columns = list(df.columns)
+      
+      # Work on a mutable list of column names
+      current = original_columns[:]
 
       # Default set of source columns passed to inner wrangles is all columns
       source_columns = original_columns
@@ -1466,6 +1469,10 @@ def rename(
         # Handle wildcard pattern
         if '*' in name:
           pattern = '^' + _re.escape(name).replace('\\*', '(.*)') + '$'
+          matched_cols = sum(1 for col in cols if _re.match(pattern, col))
+          out_template = kwargs[x]
+          if matched_cols > 1 and (not isinstance(out_template, str) or '*' not in out_template):
+            raise ValueError(f'Rename pattern "{x}" matched multiple columns but output "{out_template}" does not contain a wildcard. Please provide a wildcard in the output or use a list of outputs.')
           matched = False
           for col in cols:
             m = _re.match(pattern, col)
