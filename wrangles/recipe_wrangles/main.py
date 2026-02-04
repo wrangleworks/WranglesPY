@@ -1552,7 +1552,7 @@ def rename(
 def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Quick find and replace for simple values. Can use regex in the find field.
+    description: Quick find and replace for simple values. Can use regex if 'input' in params and isinstance(params['input'], list):in the find field.
     additionalProperties: false
     required:
       - input

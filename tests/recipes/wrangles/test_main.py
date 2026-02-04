@@ -2151,24 +2151,41 @@ class TestRename:
         assert 'HEADER4' in df.columns
         assert 'HEADER2' in df.columns
 
-    # def test_rename_optional_string_input(self):
-    #     """
-    #     Check that optional columns (that exist) passed as a string are not ignored
-    #     """
-    #     data = pd.DataFrame({
-    #         'Col1': ['abc']
-    #     })
-    #     recipe = """
-    #     wrangles:
-    #         - rename:
-    #             wrangles:
-    #                 input: Col1?
-    #                 case: upper
-    #     """
-    #     df = wrangles.recipe.run(recipe, dataframe=data)
-    #     # Should rename Col1 to COL1_UPPER and apply upper case
-    #     assert 'COL1_UPPER' in df.columns
-    #     assert df['COL1_UPPER'][0] == 'ABC'
+    def test_rename_optional_string_input(self):
+        """
+        Check that optional columns (that exist) passed as a string are not ignored
+        """
+        data = pd.DataFrame({
+            'Col1': ['abc']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                input: Col1?
+                output: COL1_UPPER
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should rename Col1 to COL1_UPPER
+        assert 'COL1_UPPER' in df.columns
+
+    def test_rename_optional_string_input_convert_case(self):
+        """
+        Check that optional columns (that exist) passed as a string are not ignored
+        """
+        data = pd.DataFrame({
+            'Col1': ['abc']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                wrangles:
+                - convert.case:
+                    input: Col1?
+                    case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should rename Col1 to COL1
+        assert 'COL1' in df.columns
 
 class TestSimilarity:
     """
