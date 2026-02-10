@@ -128,6 +128,36 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
+def test_classify_write_logs_new_model_id(mocker, caplog):  
+    """  
+    When creating a new classify model (using name), the new model_id should be logged.  
+    """  
+    # Mock the POST response to include a model_id in the JSON body  
+    mock_response = mocker.Mock()  
+    mock_response.ok = True  
+    mock_response.json.return_value = {"model_id": "12345678-1234-1234-1234-123456789abc"}  
+    mock_post = mocker.patch("wrangles.train._requests.post", return_value=mock_response)  
+  
+    df = pd.DataFrame({  
+        'Example': ['apple', 'banana'],  
+        'Category': ['fruit', 'fruit'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.classify:  
+              name: Test Classify Model  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Verify the POST was called once  
+    assert mock_post.call_count == 1  
+  
+    assert "New classify model created :: 12345678-1234-1234-1234-123456789abc" in [record.message for record in caplog.records]
+
 
 class TestTrainExtract:
     """
@@ -414,7 +444,6 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
-
 
 class TestTrainLookup:
     """
@@ -914,8 +943,41 @@ class TestTrainLookup:
         # Row count unchanged; updates applied
         assert len(captured['Data']) == len(existing_df)
 
-  
+
+    def test_lookup_write_logs_new_model_id(self, mocker, caplog):  
+        """  
+        When creating a new lookup model (using name), the new model_id should be logged.  
+        """  
+        # Mock the POST response to include a model_id in the JSON body  
+        mock_response = mocker.Mock()  
+        mock_response.ok = True  
+        mock_response.json.return_value = {"model_id": "abcdef01-2345-6789-0123-456789abcdef"}  
+        mock_post = mocker.patch("wrangles.train._requests.post", return_value=mock_response)  
     
+        df = pd.DataFrame({  
+            'Key': ['red', 'blue'],  
+            'Value': ['#FF0000', '#0000FF']  
+        })  
+    
+        wrangles.recipe.run(  
+            """  
+            write:  
+            - train.lookup:  
+                name: Test Lookup Model  
+                variant: key  
+            """,  
+            dataframe=df  
+        )  
+    
+        # Verify the POST was called once  
+        assert mock_post.call_count == 1
+
+        assert any(  
+        "abcdef01-2345-6789-0123-456789abcdef" in record.message  
+        for record in caplog.records  
+        if record.levelname == "INFO"  
+    )
+
 #
 # Standardize
 #
@@ -996,5 +1058,41 @@ def test_standardize_error():
                 'Notes': ['Notes here', 'and here', 'and also here']
             })
         )
+
+
+def test_standardize_write_logs_new_model_id(mocker, caplog):  
+    """  
+    When creating a new standardize model (using name), the new model_id should be logged.  
+    """  
+    # Mock the POST response to include a model_id in the JSON body  
+    mock_response = mocker.Mock()  
+    mock_response.ok = True  
+    mock_response.json.return_value = {"model_id": "fedcba09-8765-4321-2100-123456789fed"}  
+    mock_post = mocker.patch("wrangles.train._requests.post", return_value=mock_response)  
+  
+    df = pd.DataFrame({  
+        'Find': ['ASAP', 'ETA'],  
+        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.standardize:  
+              name: Test Standardize Model  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Verify the POST was called once  
+    assert mock_post.call_count == 1  
+  
+    # Verify that the new model_id was logged at INFO level  
+    assert any(  
+        "fedcba09-8765-4321-2100-123456789fed" in record.message  
+        for record in caplog.records  
+        if record.levelname == "INFO"  
+    )
 
 
