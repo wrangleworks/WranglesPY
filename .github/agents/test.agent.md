@@ -57,7 +57,7 @@ Console script: `wrangles.recipe` (see [setup.py](setup.py))
 - **Critical Paths:** 100% for connectors and recipe_wrangles
 
 ### Coverage Analysis Workflow
-1. **Run tests with coverage:** 
+1. **Run tests with coverage:** `pytest --cov=wrangles`
 2. **Analyze gaps using testing agent:** Identify missing tests and edge cases
 3. **Prioritize by severity:** High → Medium → Low
 4. **Write tests for high-priority gaps first**
