@@ -370,6 +370,62 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
         parts.append(f"at line {line}")
     parts.append(orig_msg)
 
+    # Add a concise suggestion to help the user resolve the issue
+    suggestion = None
+    try:
+        if isinstance(original_exception, FileNotFoundError):
+            suggestion = (
+                "Check the file path and permissions; ensure the file exists "
+                "and the path is correct."
+            )
+        elif isinstance(original_exception, KeyError):
+            suggestion = (
+                "Check for missing keys in the recipe, variables, or function "
+                "parameters; verify spelling and casing."
+            )
+        elif isinstance(original_exception, ValueError):
+            suggestion = (
+                "Validate parameter formats and values in the recipe; ensure "
+                "types match expectations."
+            )
+        elif isinstance(original_exception, TypeError):
+            suggestion = (
+                "Verify function argument types and the number of parameters "
+                "in the recipe or custom functions."
+            )
+        elif isinstance(original_exception, NotImplementedError):
+            suggestion = (
+                "This feature is not implemented; remove or change the offending "
+                "parameter or use an alternative wrangle."
+            )
+        elif isinstance(original_exception, RuntimeError):
+            suggestion = (
+                "Check function return values and that connectors return the "
+                "expected types (e.g. DataFrame for reads)."
+            )
+        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
+            suggestion = (
+                "Check YAML syntax and encoding (use UTF-8); look for indentation "
+                "or quoting issues."
+            )
+        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
+            suggestion = (
+                "Verify the recipe URL, network connectivity, authentication, "
+                "and response status."
+            )
+        else:
+            suggestion = (
+                "Inspect the recipe at the indicated line; check parameters, "
+                "variable names, and custom functions for issues."
+            )
+    except Exception:
+        suggestion = (
+            "Inspect the recipe at the indicated line; check parameters, "
+            "variable names, and custom functions for issues."
+        )
+
+    parts.append(f"Suggestion: {suggestion}")
+
     enhanced = " - ".join([p for p in parts if p])
 
     # Re-raise same exception type with enhanced message

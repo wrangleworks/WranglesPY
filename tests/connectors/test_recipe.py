@@ -1,5 +1,8 @@
 import wrangles
 import pandas as pd
+import pytest
+import yaml
+import requests
 from wrangles.connectors import memory
 
 
@@ -273,3 +276,56 @@ def test_model_with_custom_functions():
         df['header2'][0] == "value2" and
         df['header3'][0] == "VALUE2"
     )
+
+
+def test_recipe_error_suggestion():
+        """
+        Ensure that recipe errors include a Suggestion in the enhanced message
+        """
+        data = pd.DataFrame({'col': ['a'], 'col2': ['b']})
+        recipe = """
+        wrangles:
+        - copy:
+                input:
+                    - col
+                    - col2
+                output:
+                    - col-copy
+        """
+        with pytest.raises(ValueError) as info:
+                wrangles.recipe.run(recipe=recipe, dataframe=data)
+
+        assert info.typename == 'ValueError'
+        msg = str(info.value)
+        assert 'Suggestion:' in msg
+        assert 'Validate parameter formats' in msg or 'types match expectations' in msg
+
+
+def test_wrap_and_raise_suggestions_various():
+    """
+    Directly call the internal _wrap_and_raise helper with different
+    exception types to ensure suggestions are included and relevant.
+    """
+    import wrangles.recipe as recipe_module
+
+    # Provide a simple recipe string so line lookups can succeed
+    recipe_module._CURRENT_RECIPE_STRING = "\n- extract.attributes:\n- copy:\n- explode:\n"
+
+    cases = [
+        (FileNotFoundError("missing"), 'Check the file path'),
+        (KeyError('k'), 'missing keys'),
+        (ValueError('v'), 'Validate parameter formats'),
+        (TypeError('t'), 'Verify function argument types'),
+        (NotImplementedError('n'), 'not implemented'),
+        (RuntimeError('r'), 'expected types'),
+        (yaml.YAMLError('y'), 'Check YAML syntax'),
+        (requests.exceptions.RequestException('req'), 'Verify the recipe URL')
+    ]
+
+    for exc, expected in cases:
+        with pytest.raises(type(exc)) as ei:
+            recipe_module._wrap_and_raise('wrangle', 'extract.attributes', 1, exc)
+
+        em = str(ei.value)
+        assert 'Suggestion:' in em
+        assert expected in em
