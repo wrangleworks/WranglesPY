@@ -425,7 +425,9 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = 'dict',
     **kwargs
 ) -> list:
     """
@@ -464,6 +466,15 @@ def custom(
     }
 
     model_properties = _data.model(model_id)
+    model_content = _data.model_content(model_id)
+
+    model_labels = set()
+    for item in model_content['Data']:  
+        if len(item) >= 2: 
+            if ':' in item[1]: 
+                label = item[1].split(':')[0]  # Second column typically contains the label/type  
+                model_labels.add(label.strip())
+    
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error':
         raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -493,13 +504,26 @@ def custom(
                 {results["columns"][i]: row[i] for i in range(len(row))}
                 for row in results["data"]
             ]
-
     if isinstance(results, list):
         if first_element and not use_labels:
             results = [x[0] if len(x) >= 1 else "" for x in results]
         
-        if use_labels and first_element:
-            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+        if use_labels:
+            if include_empty_labels:
+                # Ensure every label has a key, create empty keys if missing.
+                # Use both labels discovered from results and labels defined in the model.
+                all_labels = set(model_labels or [])
+                for objs in results:
+                    all_labels.update([str(k).lower() for k in objs.keys()])
+
+                for objs in results:
+                    # Normalize existing keys to lower-case while preserving original keys
+                    existing = {str(k).lower(): k for k in objs.keys()}
+                    for label in all_labels:
+                        if label not in existing:
+                            objs[label] = []
+            if first_element:
+                results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:
         raise ValueError(f'API Response did not return an expected format for model {model_id}')
 
