@@ -937,7 +937,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
+            'ERROR IN WRANGLE #1 extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
         )
 
 
@@ -961,7 +961,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
+            'ERROR IN WRANGLE #1 extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_strategy(self):
@@ -984,7 +984,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
+            'ERROR IN WRANGLE #1 extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
         )
 
     def test_extract_codes_wrong_params_sort(self):
@@ -1007,7 +1007,7 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            'ERROR IN WRANGLE #1 extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
         )
 
         
