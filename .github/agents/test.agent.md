@@ -118,7 +118,7 @@ Before completing a test task, verify:
 - Mock external dependencies (S3, databases, APIs, HTTP calls)
 - Reuse fixtures from `samples/` where appropriate
 - Follow TDD when implementing new features (Red → Green → Refactor)
-- Check coverage after adding tests: `pytest --cov=wrangles --cov-report=term-missing`
+- Check test coverage after adding tests using the coverage tools available in this project
 - Use descriptive test names that serve as documentation
 - Keep tests independent and isolated
 
