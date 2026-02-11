@@ -36,7 +36,7 @@ You are a **Software Development Engineer in Test (SDET)** for a Python data wra
 - `wrangles/connectors/` – Database/file/cloud connectors
 - `wrangles/recipe_wrangles/` – Recipe-backed transformations
 - `tests/` – Test suite (PRIMARY WRITE location)
-- `samples/` – Example recipes and test fixtures
+- `tests/samples/` – Example recipes and test fixtures
 - `schema/` – Recipe validation schemas
 
 ### Entry Point
