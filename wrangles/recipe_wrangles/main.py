@@ -1306,7 +1306,7 @@ def remove_words(
         description: Name of the output columns
       tokenize_to_remove:
         type: boolean
-        description: (Default True) Tokenize all to_remove inputs. Multiple spaces are reduced to single space. If inputs are already lists, tokenization is skipped.
+        description: (Default True) Tokenize all to_remove inputs by splitting on whitespace. Multiple spaces are reduced to single space. List inputs are first converted to strings by joining elements before tokenization.
         default: true
       ignore_case:
         type: boolean

@@ -612,11 +612,29 @@ def remove_words(
             text = str(text)
         # Strip leading/trailing spaces and punctuation (but keep alphanumerics at core)
         text = text.strip()
-        # Strip leading non-alphanumeric
-        text = _re.sub(r'^[^\w]+', '', text)
-        # Strip trailing non-alphanumeric  
-        text = _re.sub(r'[^\w]+$', '', text)
+        # Strip leading non-alphanumeric (not including underscores)
+        text = _re.sub(r'^[^a-zA-Z0-9]+', '', text)
+        # Strip trailing non-alphanumeric (not including underscores)
+        text = _re.sub(r'[^a-zA-Z0-9]+$', '', text)
         return text
+    
+    def build_letters_numbers_pattern(cleaned_token):
+        """Build regex pattern for letters_numbers_only mode"""
+        pattern_chars = []
+        for i, char in enumerate(cleaned_token):
+            if i > 0:
+                # Allow optional non-alphanumeric between characters
+                pattern_chars.append('[^a-zA-Z0-9]*')
+            pattern_chars.append(_re.escape(char))
+        
+        token_pattern = ''.join(pattern_chars)
+        
+        # Match with optional leading/trailing non-alphanumeric up to whitespace boundary
+        return r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
+    
+    def replace_preserving_space(match):
+        """Replace function that preserves captured whitespace"""
+        return match.group(1) if match.group(1) else ''
     
     # Deal with ignore_case
     if ignore_case == True:
@@ -675,27 +693,9 @@ def remove_words(
                         if not cleaned_token:
                             continue
                         
-                        # Build a pattern that matches the token with surrounding non-alphanumeric chars
-                        # Pattern should match from non-alphanum (or start) to non-alphanum (or end)
-                        pattern_chars = []
-                        for i, char in enumerate(cleaned_token):
-                            if i > 0:
-                                # Allow optional non-alphanumeric between characters
-                                pattern_chars.append('[^a-zA-Z0-9]*')
-                            pattern_chars.append(_re.escape(char))
-                        
-                        token_pattern = ''.join(pattern_chars)
-                        
-                        # Match the token with optional leading/trailing non-alphanumeric
-                        # up to the next alphanumeric or whitespace boundary
-                        # This will match "3/8"" as a whole including the quote
-                        pattern = r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
-                        
-                        # Replace with the captured whitespace (group 1) if it exists
-                        def replace_fn(match):
-                            return match.group(1) if match.group(1) else ''
-                        
-                        text = _re.sub(pattern, replace_fn, text, flags=flags).strip()
+                        # Build pattern and apply replacement
+                        pattern = build_letters_numbers_pattern(cleaned_token)
+                        text = _re.sub(pattern, replace_preserving_space, text, flags=flags).strip()
                     else:
                         # Use exact match with escape for 'all' mode
                         subtoken_escaped = _re.escape(subtoken_stripped)
@@ -713,22 +713,9 @@ def remove_words(
                     if not cleaned_token:
                         continue
                     
-                    # Build a pattern that matches with optional punctuation
-                    pattern_chars = []
-                    for i, char in enumerate(cleaned_token):
-                        if i > 0:
-                            pattern_chars.append('[^a-zA-Z0-9]*')
-                        pattern_chars.append(_re.escape(char))
-                    
-                    token_pattern = ''.join(pattern_chars)
-                    
-                    # Match with optional leading/trailing non-alphanumeric
-                    pattern = r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
-                    
-                    def replace_fn(match):
-                        return match.group(1) if match.group(1) else ''
-                    
-                    text = _re.sub(pattern, replace_fn, text, flags=flags).strip()
+                    # Build pattern and apply replacement
+                    pattern = build_letters_numbers_pattern(cleaned_token)
+                    text = _re.sub(pattern, replace_preserving_space, text, flags=flags).strip()
                 else:
                     # Use exact match for 'all' mode
                     remove_escaped = _re.escape(remove)
