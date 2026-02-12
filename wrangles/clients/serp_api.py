@@ -286,7 +286,7 @@ def fetch_serp_results(
         meta_language = search_params.get("hl", "")
 
         search_meta = (res or {}).get("search_metadata", {})
-        meta_id = search_meta.get("id","")
+        meta_id = search_meta.get("id", "")
         meta_status = search_meta.get("status", "")
         meta_google_url = search_meta.get("google_url", "")
         meta_date_time = convert_to_eastern(search_meta.get("processed_at", "")).strftime("%Y-%m-%d %H:%M:%S")
@@ -295,6 +295,9 @@ def fetch_serp_results(
         raw_card_pricing = (res or {}).get("product_result", {}).get("pricing", []) or []
 
         # --- A. Process Organic Results with Deduplication ---
+        # Track count of results added for this query to avoid O(n²) complexity
+        query_result_count = 0
+        
         for it in raw_organic:
             link = it.get("link", "")
             if not link:
@@ -323,8 +326,8 @@ def fetch_serp_results(
             row_organic_results.append(it)
 
             # 2. Refined Search Content (Limit to n_results per query for the UI)
-            # We check length of current query results added to keep the limit per query
-            if len([x for x in row_search_content if x['query_index'] == query_idx]) < n_results:
+            # Use counter to track results added for this query (avoids O(n²) complexity)
+            if query_result_count < n_results:
                 row_search_content.append({
                     "item_index": len(row_search_content) + 1,
                     "query_index": query_idx,
@@ -343,6 +346,7 @@ def fetch_serp_results(
                     "matched_words": list(set(it.get("snippet_highlighted_words", []))),
                     "source": html.unescape(str(it.get("source", "")))
                 })
+                query_result_count += 1
 
         # --- B. Pricing Content (Rich Snippets from Organic) ---
         # Note: Since row_organic_results is already deduped, these will be unique
@@ -358,7 +362,6 @@ def fetch_serp_results(
                     "currency": rs_currency,
                     "vendor": html.unescape(str(it.get("source", ""))),
                     **({"availability": rs_avail} if rs_avail else {}), # only add if found
-                    "part_code_found": False, # placeholder, gets updated after scoring
                     "link": _clean_link(it.get("link", "")),
                     "description": html.unescape(str(it.get("snippet", ""))),
                     "query": meta_q,

@@ -634,16 +634,16 @@ class TestNewSerpAPIFunctions:
         # Test with valid ISO timestamp
         timestamp = "2024-01-15T10:30:00Z"
         result = convert_to_eastern(timestamp)
-        # Check that the result has Eastern timezone (don't compare tzinfo objects directly)
-        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+        # Check that the result has Eastern timezone by checking the zone attribute
+        assert hasattr(result.tzinfo, 'zone') and result.tzinfo.zone == 'US/Eastern'
         
         # Test with empty string
         result = convert_to_eastern("")
-        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+        assert hasattr(result.tzinfo, 'zone') and result.tzinfo.zone == 'US/Eastern'
         
         # Test with invalid timestamp
         result = convert_to_eastern("invalid")
-        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+        assert hasattr(result.tzinfo, 'zone') and result.tzinfo.zone == 'US/Eastern'
     
     def test_parse_snippet_extensions_with_price(self):
         """Test _parse_snippet_extensions with price data"""
