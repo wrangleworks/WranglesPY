@@ -382,6 +382,15 @@ def fetch_serp_results(
             buying_options = item.get("buying_options", [])
             avail = buying_options[0] if buying_options else ""
             
+            # Extract currency from price if available, otherwise use primary_currency
+            card_currency = primary_currency
+            price_str = item.get("price", "")
+            if price_str:
+                # Try to extract currency symbol from price string
+                cur_match = re.search(r'([^\d\s\.,]+)', str(price_str))
+                if cur_match:
+                    card_currency = cur_match.group(1)
+            
             row_pricing_content.append({
                 "item_index": pricing_idx_counter,
                 "query": meta_q,
@@ -391,11 +400,11 @@ def fetch_serp_results(
                 "data_source": "Product Card",
                 "vendor": html.unescape(str(item.get("name", ""))),
                 "price": _format_card_price(item),
-                "currency": primary_currency, # this should be the currency found, not input
+                "currency": card_currency,
                 "availability": avail,
                 "link": _clean_link(card_link),
                 "description": html.unescape(str(item.get("description", ""))),
-                "source": html.unescape(str(it.get("source", "")))
+                "source": html.unescape(str(item.get("source", "")))
             })
             pricing_idx_counter += 1
 
