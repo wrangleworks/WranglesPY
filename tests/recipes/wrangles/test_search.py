@@ -21,11 +21,13 @@ class MockSerpAPIClient:
             return {"organic_results": []}
         
         results = []
+        # Include query in URL to avoid deduplication issues in tests
+        query_slug = query.replace(" ", "-").lower()
         for i in range(min(num_results, 10)):
             result = {
                 "position": i + 1,
                 "title": f"Result {i + 1} for {query}",
-                "link": f"https://example.com/result{i + 1}",
+                "link": f"https://example.com/{query_slug}/result{i + 1}",
                 "snippet": f"This is a snippet for result {i + 1} about {query}"
             }
             
@@ -522,4 +524,291 @@ class TestSearchWebEdgeCases:
         assert len(df) == 2
         assert all(isinstance(row['results'], list) for _, row in df.iterrows())
 
+
+class TestNewSerpAPIFunctions:
+    """Test new serpapi_client functions"""
+    
+    def test_ensure_list_with_string(self):
+        """Test _ensure_list with a string input"""
+        from wrangles.clients.serp_api import _ensure_list
+        
+        result = _ensure_list("test query")
+        assert result == ["test query"]
+        
+        result = _ensure_list("")
+        assert result == []
+        
+        result = _ensure_list("  ")
+        assert result == []
+    
+    def test_ensure_list_with_list(self):
+        """Test _ensure_list with a list input"""
+        from wrangles.clients.serp_api import _ensure_list
+        
+        result = _ensure_list(["query1", "query2"])
+        assert result == ["query1", "query2"]
+        
+        result = _ensure_list(["query1", "", "query2", None])
+        assert result == ["query1", "query2"]
+    
+    def test_ensure_list_with_none(self):
+        """Test _ensure_list with None input"""
+        from wrangles.clients.serp_api import _ensure_list
+        
+        result = _ensure_list(None)
+        assert result == []
+    
+    def test_clean_link(self):
+        """Test _clean_link function"""
+        from wrangles.clients.serp_api import _clean_link
+        
+        # Test with srsltid parameter
+        url = "https://example.com/page?srsltid=123456&other=param"
+        result = _clean_link(url)
+        assert result == "https://example.com/page"
+        
+        # Test with trailing ? and &
+        url = "https://example.com/page?"
+        result = _clean_link(url)
+        assert result == "https://example.com/page"
+        
+        # Test with HTML entities
+        url = "https://example.com/page&amp;param=1"
+        result = _clean_link(url)
+        assert "amp;" not in result
+        
+        # Test with empty string
+        assert _clean_link("") == ""
+        assert _clean_link(None) == ""
+    
+    def test_normalize_site(self):
+        """Test _normalize_site function for deduplication"""
+        from wrangles.clients.serp_api import _normalize_site
+        
+        # Test protocol removal
+        assert _normalize_site("https://example.com") == _normalize_site("http://example.com")
+        
+        # Test www removal
+        assert _normalize_site("https://www.example.com") == _normalize_site("https://example.com")
+        
+        # Test trailing slash removal
+        assert _normalize_site("https://example.com/page") == _normalize_site("https://example.com/page/")
+        
+        # Test query parameter removal
+        assert _normalize_site("https://example.com/page?param=1") == _normalize_site("https://example.com/page")
+        
+        # Test case insensitivity
+        assert _normalize_site("https://EXAMPLE.COM") == _normalize_site("https://example.com")
+        
+        # Test comprehensive example
+        url1 = "https://www.Example.com/page/?param=1"
+        url2 = "http://example.com/page"
+        assert _normalize_site(url1) == _normalize_site(url2)
+    
+    def test_format_card_price(self):
+        """Test _format_card_price function"""
+        from wrangles.clients.serp_api import _format_card_price
+        
+        # Test with just price
+        item = {"price": "$19.99"}
+        assert _format_card_price(item) == "$19.99"
+        
+        # Test with original price
+        item = {"price": "$15.99", "original_price": "$19.99"}
+        result = _format_card_price(item)
+        assert "15.99" in result
+        assert "Was: $19.99" in result
+        
+        # Test with tag
+        item = {"price": "$15.99", "original_price": "$19.99", "tag": "20% off"}
+        result = _format_card_price(item)
+        assert "15.99" in result
+        assert "Was: $19.99" in result
+        assert "20% off" in result
+    
+    def test_convert_to_eastern(self):
+        """Test convert_to_eastern function"""
+        from wrangles.clients.serp_api import convert_to_eastern
+        import pytz
+        
+        # Test with valid ISO timestamp
+        timestamp = "2024-01-15T10:30:00Z"
+        result = convert_to_eastern(timestamp)
+        # Check that the result has Eastern timezone (don't compare tzinfo objects directly)
+        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+        
+        # Test with empty string
+        result = convert_to_eastern("")
+        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+        
+        # Test with invalid timestamp
+        result = convert_to_eastern("invalid")
+        assert str(result.tzinfo) in ['EST', 'EDT', 'US/Eastern']
+    
+    def test_parse_snippet_extensions_with_price(self):
+        """Test _parse_snippet_extensions with price data"""
+        from wrangles.clients.serp_api import _parse_snippet_extensions
+        
+        # Test with detected price
+        rich_snippet = {
+            "bottom": {
+                "detected_extensions": {
+                    "price": "19.99",
+                    "currency": "USD"
+                }
+            }
+        }
+        price, currency, availability = _parse_snippet_extensions(rich_snippet, "$")
+        assert price == 19.99
+        assert currency == "USD"
+        assert availability == ""
+    
+    def test_parse_snippet_extensions_with_range(self):
+        """Test _parse_snippet_extensions with price range"""
+        from wrangles.clients.serp_api import _parse_snippet_extensions
+        
+        # Test with price range
+        rich_snippet = {
+            "bottom": {
+                "detected_extensions": {
+                    "price": "$19.99 to $29.99"
+                }
+            }
+        }
+        price, currency, availability = _parse_snippet_extensions(rich_snippet, "$")
+        assert price == 19.99  # Should take lower bound
+        assert currency == "$"
+    
+    def test_parse_snippet_extensions_with_availability(self):
+        """Test _parse_snippet_extensions with availability"""
+        from wrangles.clients.serp_api import _parse_snippet_extensions
+        
+        # Test with availability in extensions
+        rich_snippet = {
+            "bottom": {
+                "extensions": ["In stock", "$19.99"]
+            }
+        }
+        price, currency, availability = _parse_snippet_extensions(rich_snippet, "$")
+        assert availability == "In stock"
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_google_search(self, mock_client):
+        """Test google_search function"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import google_search
+        
+        result = google_search("test query", "test_api_key")
+        
+        assert "organic_results" in result
+        assert isinstance(result["organic_results"], list)
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_fetch_serp_results_single_query(self, mock_client):
+        """Test fetch_serp_results with single query"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import fetch_serp_results
+        
+        search_content, pricing_content, organic_results = fetch_serp_results(
+            "test query",
+            "test_api_key",
+            n_results=3
+        )
+        
+        assert isinstance(search_content, list)
+        assert isinstance(pricing_content, list)
+        assert isinstance(organic_results, list)
+        assert len(search_content) <= 3
+        assert len(organic_results) <= 3
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_fetch_serp_results_multiple_queries(self, mock_client):
+        """Test fetch_serp_results with multiple queries"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import fetch_serp_results
+        
+        search_content, pricing_content, organic_results = fetch_serp_results(
+            ["query1", "query2"],
+            "test_api_key",
+            n_results=2
+        )
+        
+        assert isinstance(search_content, list)
+        assert isinstance(organic_results, list)
+        # Should have results from both queries
+        assert len(search_content) > 0
+        assert any(item.get("query_index") == 1 for item in search_content)
+        assert any(item.get("query_index") == 2 for item in search_content)
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_fetch_serp_results_deduplication(self, mock_client):
+        """Test that fetch_serp_results deduplicates results"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import fetch_serp_results
+        
+        # Test with same query twice - should deduplicate
+        search_content, pricing_content, organic_results = fetch_serp_results(
+            ["test query", "test query"],
+            "test_api_key",
+            n_results=5
+        )
+        
+        # Extract all links
+        links = [item.get("link") for item in search_content]
+        
+        # Check that we don't have exact duplicates
+        # (Note: MockSerpAPIClient generates unique URLs per result, so this tests the mechanism)
+        assert len(links) == len(set(links))
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_fetch_serp_results_metadata_injection(self, mock_client):
+        """Test that fetch_serp_results properly injects metadata"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import fetch_serp_results
+        
+        search_content, pricing_content, organic_results = fetch_serp_results(
+            "test query",
+            "test_api_key",
+            n_results=2
+        )
+        
+        # Check search_content has required metadata
+        if search_content:
+            first_result = search_content[0]
+            assert "query" in first_result
+            assert "query_index" in first_result
+            assert "item_index" in first_result
+            assert "position" in first_result
+            assert "title" in first_result
+            assert "link" in first_result
+            assert "snippet" in first_result
+        
+        # Check organic_results has metadata
+        if organic_results:
+            first_organic = organic_results[0]
+            assert "query" in first_organic
+            assert "query_index" in first_organic
+            assert "date_time" in first_organic
+    
+    @patch('wrangles.clients.serp_api._get_serpapi_client')
+    def test_fetch_serp_results_with_config(self, mock_client):
+        """Test fetch_serp_results with custom config"""
+        mock_client.return_value = MockSerpAPIClient
+        from wrangles.clients.serp_api import fetch_serp_results
+        
+        config = {
+            "language": "es",
+            "country": "es",
+            "location": "Madrid, Spain"
+        }
+        
+        search_content, pricing_content, organic_results = fetch_serp_results(
+            "test query",
+            "test_api_key",
+            n_results=2,
+            config=config
+        )
+        
+        assert isinstance(search_content, list)
+        assert isinstance(organic_results, list)
 

@@ -73,11 +73,11 @@ def _normalize_site(url: str) -> str:
     # Remove www.
     url = re.sub(r'^www\.', '', url)
     
+    # Remove query parameters and fragments BEFORE removing trailing slashes
+    url = re.split(r'[?#]', url)[0]
+    
     # Remove trailing slashes
     url = url.rstrip('/')
-    
-    # Remove query parameters and fragments
-    url = re.split(r'[?#]', url)[0]
     
     return url
 
