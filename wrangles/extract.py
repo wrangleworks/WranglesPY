@@ -587,16 +587,37 @@ def properties(
 
 
 # SUPER MARIO
-def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
+def remove_words(
+    input: _Union[str, list],
+    to_remove: list,
+    tokenize_to_remove: bool = True,
+    ignore_case: bool = True,
+    characters_to_consider: str = "letters_numbers_only"
+):
     """
     Remove all the elements that occur in one list from another.
     
-    :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
-    :param output: a string of remaining words
-    :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
-    :pram ignore_case: (Optional) ignore the case of input and to_remove
+    :param input: both input and to_remove can be a string or a list or multiple lists.
+    :param to_remove: a string or list of strings to be removed
+    :param tokenize_to_remove: (Optional, default True) tokenize all of to_remove columns
+    :param ignore_case: (Optional, default True) ignore the case of input and to_remove
+    :param characters_to_consider: (Optional, default letters_numbers_only) 'all' or 'letters_numbers_only'.
+        When 'letters_numbers_only', removes non-alphanumeric characters from tokens before matching.
+    :return: a string of remaining words
     """
-        
+    
+    def strip_punctuation_spaces(text):
+        """Strip punctuation and spaces from beginning and end of text"""
+        if not isinstance(text, str):
+            text = str(text)
+        # Strip leading/trailing spaces and punctuation (but keep alphanumerics at core)
+        text = text.strip()
+        # Strip leading non-alphanumeric
+        text = _re.sub(r'^[^\w]+', '', text)
+        # Strip trailing non-alphanumeric  
+        text = _re.sub(r'[^\w]+$', '', text)
+        return text
+    
     # Deal with ignore_case
     if ignore_case == True:
         flags = _re.IGNORECASE
@@ -607,45 +628,123 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     for _in, _remove in zip(input, to_remove):
         
         # Check if the input is a string or a list
-        if isinstance(_in, list):
+        input_was_list = isinstance(_in, list)
+        if input_was_list:
             # Make appropriate changes to the input to convert to a string
-            _in = ' '.join(_in)
+            _in = ' '.join([str(x) for x in _in])
+        else:
+            _in = str(_in)
+        
+        # Strip leading/trailing punctuation and spaces from input
+        _in = strip_punctuation_spaces(_in)
         
         # flatten the _remove lists if necessary
         _remove = _flatten_lists(_remove)
-        
-        #Custom word boundary that considers a space, the start of the string, or the end of the string as a boundary
-        boundary = r'(?:\s|,|^|$)'
         
         text = _in
         for remove in _remove:
             # Convert to string since _re.escape only accepts strings
             remove = str(remove)
             
+            # Strip leading/trailing punctuation and spaces from remove value
+            remove = strip_punctuation_spaces(remove)
+            
+            # Skip empty strings
+            if not remove:
+                continue
+            
+            # Determine if we should tokenize
+            should_tokenize = tokenize_to_remove
+            
             # if Tokenize is true
-            if tokenize_to_remove == True:
-                # Tokenize                        
-                token_remove = _re.split(r'\s|,', remove)
+            if should_tokenize:
+                # Tokenize - split on whitespace and reduce multiple spaces to single space
+                token_remove = _re.split(r'\s+', remove)
+                # Filter out empty tokens
+                token_remove = [t for t in token_remove if t]
+                
                 for subtoken in token_remove:
-                    subtoken = _re.escape(subtoken)  # escape the special characters just in case
-
-                    # Use the custom word boundary in the regex pattern
-                    pattern = r'{}{}{}'.format(boundary, subtoken, boundary)
-
-                    # Use re.sub with the custom pattern, and remove extra spaces
-                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
+                    # Strip punctuation from subtoken
+                    subtoken_stripped = strip_punctuation_spaces(subtoken)
+                    if not subtoken_stripped:
+                        continue
+                        
+                    if characters_to_consider == "letters_numbers_only":
+                        # Extract only alphanumeric characters
+                        cleaned_token = _re.sub(r'[^a-zA-Z0-9]', '', subtoken_stripped)
+                        if not cleaned_token:
+                            continue
+                        
+                        # Build a pattern that matches the token with surrounding non-alphanumeric chars
+                        # Pattern should match from non-alphanum (or start) to non-alphanum (or end)
+                        pattern_chars = []
+                        for i, char in enumerate(cleaned_token):
+                            if i > 0:
+                                # Allow optional non-alphanumeric between characters
+                                pattern_chars.append('[^a-zA-Z0-9]*')
+                            pattern_chars.append(_re.escape(char))
+                        
+                        token_pattern = ''.join(pattern_chars)
+                        
+                        # Match the token with optional leading/trailing non-alphanumeric
+                        # up to the next alphanumeric or whitespace boundary
+                        # This will match "3/8"" as a whole including the quote
+                        pattern = r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
+                        
+                        # Replace with the captured whitespace (group 1) if it exists
+                        def replace_fn(match):
+                            return match.group(1) if match.group(1) else ''
+                        
+                        text = _re.sub(pattern, replace_fn, text, flags=flags).strip()
+                    else:
+                        # Use exact match with escape for 'all' mode
+                        subtoken_escaped = _re.escape(subtoken_stripped)
+                        # Use whitespace-based boundaries for exact matching
+                        boundary = r'(?:\s|^|$)'
+                        pattern = r'{}{}{}'.format(boundary, subtoken_escaped, boundary)
+                        
+                        # Use re.sub with the custom pattern
+                        text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
             else:
-                remove = _re.escape(remove) # escape the special characters just in case
+                if characters_to_consider == "letters_numbers_only":
+                    # Extract only alphanumeric characters
+                    cleaned_token = _re.sub(r'[^a-zA-Z0-9]', '', remove)
+                    if not cleaned_token:
+                        continue
+                    
+                    # Build a pattern that matches with optional punctuation
+                    pattern_chars = []
+                    for i, char in enumerate(cleaned_token):
+                        if i > 0:
+                            pattern_chars.append('[^a-zA-Z0-9]*')
+                        pattern_chars.append(_re.escape(char))
+                    
+                    token_pattern = ''.join(pattern_chars)
+                    
+                    # Match with optional leading/trailing non-alphanumeric
+                    pattern = r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
+                    
+                    def replace_fn(match):
+                        return match.group(1) if match.group(1) else ''
+                    
+                    text = _re.sub(pattern, replace_fn, text, flags=flags).strip()
+                else:
+                    # Use exact match for 'all' mode
+                    remove_escaped = _re.escape(remove)
+                    boundary = r'(?:\s|^|$)'
+                    pattern = r'{}{}{}'.format(boundary, remove_escaped, boundary)
+                    
+                    # Use re.sub with the custom pattern
+                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
-                # Use the custom word boundary in the regex pattern
-                pattern = r'{}{}{}'.format(boundary, remove, boundary)
-                
-                # Use re.sub with the custom pattern, and remove extra spaces
-                text = _re.sub(pattern, ' ', text, flags=flags).strip()
-                
-            # remove any double spaces
-            text = _re.sub(r'\s+', ' ', text)
+            # remove any double spaces and strip
+            text = _re.sub(r'\s+', ' ', text).strip()
+        
+        # Final cleanup: if only non-alphanumeric characters remain, return empty string
+        if text and _re.match(r'^[^a-zA-Z0-9]+$', text):
+            text = ''
+        
         results.append(text)
     return results
 
