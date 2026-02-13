@@ -189,9 +189,6 @@ class train():
                         json=data
                     )
         elif model_id:
-            print("Model ID provided, retraining existing model.")
-            print(data)
-            print(settings)
             # Only use retries when retraining an existing model
             response = _utils.request_retries(
                         request_type='PUT',
