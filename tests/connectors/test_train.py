@@ -527,6 +527,47 @@ class TestTrainLookup:
                 })
             )
 
+    def test_semantic_lookup_no_key_no_embeddings_columns(self):
+        """
+        Test error when training a semantic lookup without Key column and without embeddings_columns
+        """
+        with pytest.raises(ValueError, match="Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.lookup:
+                    model_id: ee320e2b-ccda-47ed
+                    variant: embedding
+                """,
+                dataframe=pd.DataFrame({
+                    'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_semantic_lookup_with_embeddings_columns_no_error(self):
+        """
+        Test training a semantic lookup with variant: embedding and embeddings_columns, expecting no error
+        """
+        df = pd.DataFrame({
+                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                'Description': ['Movie 1', 'Movie 2', 'Movie 3']
+        })
+        result = wrangles.recipe.run(
+                """
+                write:
+                    - train.lookup:
+                            model_id: ee320e2b-ccda-47ed
+                            variant: embedding
+                            settings:
+                                embeddings_columns:
+                                    - Description
+                """,
+                dataframe=df
+        )
+        assert 'Blade Runner' in result.values
+        assert 'Westworld' in result.values
+        assert 'Interstellar' in result.values
+        assert 'Value' in result.columns and 'Description' in result.columns
 
 
 

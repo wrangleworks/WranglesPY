@@ -288,49 +288,6 @@ def test_lookup_list_value_list_column():
     result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", ["Value"])
     assert result == [[1]]
 
-def test_semantic_lookup_no_key_no_embeddings_columns():
-    """
-    Test error when training a semantic lookup without Key column and without embeddings_columns
-    """
-    with pytest.raises(ValueError, match="Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings."):
-        wrangles.recipe.run(
-            """
-            write:
-            - train.lookup:
-                name: MySemanticLookup
-                variant: embedding
-            """,
-            dataframe=pd.DataFrame({
-                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
-            })
-        )
-
-def test_semantic_lookup_with_embeddings_columns_no_error():
-    """
-    Test training a semantic lookup with variant: embedding and embeddings_columns, expecting no error
-    """
-    df = pd.DataFrame({
-            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
-            'Description': ['Movie 1', 'Movie 2', 'Movie 3']
-    })
-    result = wrangles.recipe.run(
-            """
-            write:
-                - train.lookup:
-                        name: MySemanticLookup
-                        variant: embedding
-                        settings:
-                            embeddings_columns:
-                                - Description
-            """,
-            dataframe=df
-    )
-    assert 'Blade Runner' in result.values
-    assert 'Westworld' in result.values
-    assert 'Interstellar' in result.values
-    assert 'Value' in result.columns and 'Description' in result.columns
-
-
 def test_embedding_single():
     """
     Test generating an embedding from a single value
