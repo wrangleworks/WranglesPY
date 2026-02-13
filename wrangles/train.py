@@ -175,6 +175,9 @@ class train():
             columns = []
             if isinstance(data, dict) and "Columns" in data:
                 columns = data["Columns"]
+            elif isinstance(data, list) and data and isinstance(data[0], list):
+                # For list-based data, treat the first row as the header row (column names)
+                columns = data[0]
             # If embeddings_columns is not provided but Key exists, default embeddings_columns to ['Key']
             if not settings.get("embeddings_columns") and "Key" in columns:
                 settings["embeddings_columns"] = ["Key"]
