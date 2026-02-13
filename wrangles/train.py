@@ -181,7 +181,7 @@ class train():
             if ("Key" not in columns) and settings.get("MatchingColumns"):
                 columns.append(settings.get("MatchingColumns"))
             # If neither Key nor embeddings_columns, raise error
-            else:
+            elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns") != []:
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings.")
         if name:
             response = _requests.post(
