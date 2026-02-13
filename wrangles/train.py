@@ -178,10 +178,8 @@ class train():
             # If embeddings_columns is not provided but Key exists, default embeddings_columns to ['Key']
             if not settings.get("embeddings_columns") and "Key" in columns:
                 settings["embeddings_columns"] = ["Key"]
-            if ("Key" not in columns) and settings.get("MatchingColumns"):
-                columns.append(settings.get("MatchingColumns"))
             # If neither Key nor embeddings_columns, raise error
-            elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns") != []:
+            elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings.")
         if name:
             response = _requests.post(
@@ -191,6 +189,9 @@ class train():
                         json=data
                     )
         elif model_id:
+            print("Model ID provided, retraining existing model.")
+            print(data)
+            print(settings)
             # Only use retries when retraining an existing model
             response = _utils.request_retries(
                         request_type='PUT',
