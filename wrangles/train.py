@@ -175,9 +175,14 @@ class train():
             columns = []
             if isinstance(data, dict) and "Columns" in data:
                 columns = data["Columns"]
-            if ("Key" not in columns) and not settings.get("embeddings_columns"):
+            # If embeddings_columns is not provided but Key exists, default embeddings_columns to ['Key']
+            if not settings.get("embeddings_columns") and "Key" in columns:
+                settings["embeddings_columns"] = ["Key"]
+            if ("Key" not in columns) and settings.get("MatchingColumns"):
+                columns.append(settings.get("MatchingColumns"))
+            # If neither Key nor embeddings_columns, raise error
+            else:
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings.")
-
         if name:
             response = _requests.post(
                         f'{_config.api_host}/model/content',
