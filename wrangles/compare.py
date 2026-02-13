@@ -155,3 +155,18 @@ def overlap(
             results.append(''.join(result))
 
     return results
+
+def deduplicate(result, enabled=False, ignore_case=False):
+    if not enabled:
+        return result
+
+    final = []
+    seen = set()
+
+    for item in result:
+        key = str(item).lower() if ignore_case and isinstance(item, str) else item
+        if key not in seen:
+            seen.add(key)
+            final.append(item)
+
+    return final

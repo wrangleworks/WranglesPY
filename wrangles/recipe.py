@@ -540,7 +540,8 @@ def _execute_wrangles(
                         'merge.key_value_pairs',
                         'split.text',
                         'split.list',
-                        'select.element'
+                        'select.element',
+                        'rename'
                     ]
                 ):
                     # Expand out any wildcards or regex in column names

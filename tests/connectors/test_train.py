@@ -1,6 +1,19 @@
+import uuid
+
 import wrangles
 import pandas as pd
 import pytest
+import logging
+import re
+
+class LogCapture(logging.Handler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.records = []
+    def emit(self, record):
+        self.records.append(record)
+    def get_messages(self):
+        return [self.format(r) for r in self.records]
 
 #
 # Classify
@@ -188,6 +201,27 @@ class TestTrainExtract:
 
 
     def test_extract_write(self):
+        """
+        Writing data to a wrangle (re-training)
+        """
+        recipe = """
+        write:
+        - train.extract:
+            columns:
+                - Entity to Find
+                - Variation (Optional)
+                - Notes
+            model_id: ee5f020e-d88e-4bd5
+        """
+        data = pd.DataFrame({
+            'Entity to Find': ['Rachel', 'Dolores', 'TARS'],
+            'Variation (Optional)': ['', '', ''],
+            'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Entity to Find'] == 'Rachel'
+
+    def test_extract_write_2_0(self):
         """
         Writing data to a wrangle (re-training)
         """
@@ -397,12 +431,18 @@ class TestTrainLookup:
               model_id: 3c8f6707-2de4-4be3
         """
         df = wrangles.recipe.run(recipe)
-        assert len(df) == 3 and df.columns.to_list() == ['Key', 'Value']
+        assert df.columns.to_list() == ['Key', 'Value']
+        assert "Rachel" in df['Key'].values
+        assert "Dolores" in df["Key"].values
 
     def test_lookup_write(self):
         """
-        Writing data to a Lookup Wrangle (re-training)
+        Writing data to a Lookup Wrangle (re-training) and check logging
         """
+        logger = logging.getLogger()
+        log_capture = LogCapture()
+        logger.addHandler(log_capture)
+        logger.setLevel(logging.INFO)
         recipe = """
         write:
           - train.lookup:
@@ -414,6 +454,9 @@ class TestTrainLookup:
         })
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+        messages = log_capture.get_messages()
+        assert any(re.search(r"Lookup OVERWRITE: 3 rows written. Total rows: 3", m) for m in messages)
+        logger.removeHandler(log_capture)
 
     def test_key_lookup_write_duplicates(self):
         """
@@ -526,6 +569,186 @@ class TestTrainLookup:
                   'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
+  
+    def test_insert_success(self):  
+        """  
+        Test successful insert of new lookup model  
+        """  
+        recipe = f"""
+        write:
+          - train.lookup:
+              model_id: 3c8f6707-2de4-4be3 
+              action: INSERT
+              variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores', 'TARS'],
+            'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Blade Runner'
+  
+    def test_insert_duplicate_keys(self):  
+        """  
+        Test insert fails when DataFrame contains duplicate keys  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Rachel', 'Dolores'],  # Duplicate Rachel  
+            'Value': ['Blade Runner', 'Not Rachel', 'Westworld']  
+        })  
+        recipe = f"""
+            write:
+            - train.lookup:
+                model_id: 3c8f6707-2de4-4be3 
+                action: INSERT
+                variant: key
+            """ 
+        with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
+            wrangles.recipe.run(recipe, dataframe=df)
+        
+    
+    def test_update_model_not_found(self):  
+        """  
+        Test update fails when model doesn't exist   
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Dolores'],  
+            'Value': ['Blade Runner 2049', 'Westworld Updated']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              model_id: test-model-id  
+              action: UPDATE  
+        """  
+          
+        # This would test with an actual existing model  
+        # For testing purposes, we'll catch the expected error  
+        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
+            wrangles.recipe.run(recipe, dataframe=df)  
+  
+    def test_action_parameter_validation_recipe(self):  
+        """  
+        Test invalid action parameter using recipe  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel'],  
+            'Value': ['Blade Runner']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              name: Test Lookup  
+              action: INVALID_ACTION  
+        """  
+          
+        with pytest.raises(ValueError, match="Unsupported action: INVALID_ACTION"):  
+            wrangles.recipe.run(recipe, dataframe=df)  
+  
+    def test_update_model(self):  
+        """  
+        Test UPDATE action with existing model
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'Dolores', 'Phipi'],  
+            'Value': ['Updated Rachel', 'Updated Dolores', 'Updated Phipi']  
+        })  
+          
+        recipe = """  
+        write:  
+          - train.lookup:  
+              model_id: 3c8f6707-2de4-4be3
+              action: UPDATE  
+        """  
+        
+        df = wrangles.recipe.run(recipe, dataframe=df)  
+        assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
+                                                            
+    def test_upsert_new_model_recipe(self):  
+        """  
+        Test upsert creates new model when model_id doesn't exist  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel', 'NewCharacter'],  
+            'Value': ['Updated Rachel', 'New Movie']  
+        })  
+        model_name = f"model {{ {uuid.uuid4().hex[:8]} }}"
+        
+        recipe = f"""  
+        write:  
+        - train.lookup:  
+            name: {model_name} 
+            action: UPSERT  
+            variant: key  
+        """  
+        
+        result = wrangles.recipe.run(recipe, dataframe=df)  
+        assert len(result) == 2  
+        assert 'NewCharacter' in result['Key'].tolist()  
+        assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
+        models = wrangles.data.user.models('lookup')
+        assert any(m['name'] == model_name for m in models)
+  
+    def test_action_parameter_upsert(self):  
+        """  
+        Test write method with action='UPSERT'  
+        """  
+        df = pd.DataFrame({  
+            'Key': ['Rachel'],  
+            'Value': ['Updated Rachel']  
+        })  
+        recipe = f"""  
+        write:  
+        - train.lookup:  
+            model_id: b2cd1a8a-4d99-4be1
+            action: UPSERT  
+            variant: key  
+        """  
+        result = wrangles.recipe.run(recipe, dataframe=df)  
+        assert len(result) == 1
+        assert result.iloc[0]['Key'] == 'Rachel' and result.iloc[0]['Value'] == 'Updated Rachel'
+
+    def test_lookup_semantic_no_key(self):
+        """
+        Test training a semantic lookup without Key column
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            settings:
+              MatchingColumns:
+                - Not Key
+        """
+        data = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.columns.to_list() == ['Not Key', 'Not Value']
+
+    #### The following test is to ensure that calling train.lookup directly works as expected when... ####
+    #### passed a list of data to train a semantic lookup model. ####
+    def test_lookup_directly_list_semantic(self):
+        """
+        Test calling train.lookup directly with a list of data and no Key column
+        """
+        # Use a list of data in order to hit the checks in train.lookup
+        list_data = [['Not Key', 'Not Value'],['Rachel', 'Blade Runner'], ['Dolores', 'Westworld'], ['TARS', 'Interstellar']]
+        wrangles.train.lookup(data=list_data, model_id='89637e77-7214-49a0', settings={'MatchingColumns': ['Not Key']})
+
+        # Read lookup to ensure that the model was trained correctly
+        recipe = """
+        read:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+        """
+        
+        df = wrangles.recipe.run(recipe)
+
+        assert df.columns.to_list() == ['Not Key', 'Not Value']
 
     def test_semantic_lookup_no_key_no_embeddings_columns(self):
         """
@@ -569,8 +792,44 @@ class TestTrainLookup:
         assert 'Interstellar' in result.values
         assert 'Value' in result.columns and 'Description' in result.columns
 
+    def test_upsert_mismatched_columns_existing_model(self):
+        """
+        UPSERT should fail when new data includes columns not present
+        in the existing model schema.
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel'],
+            'Other': ['Blade Runner']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: b2cd1a8a-4d99-4be1
+              action: UPSERT
+              variant: key
+        """
+        with pytest.raises(ValueError, match="The following columns are not present in the existing model: Other"):
+            wrangles.recipe.run(recipe, dataframe=df)
 
-
+    def test_upsert_missing_key_for_key_variant(self):
+        """
+        UPSERT should require 'Key' column for key variant when updating
+        an existing model.
+        """
+        df = pd.DataFrame({
+            'Value': ['Blade Runner']
+        })
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: b2cd1a8a-4d99-4be1
+              action: UPSERT
+              variant: key
+        """
+        with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
+            wrangles.recipe.run(recipe, dataframe=df)
+  
+    
 #
 # Standardize
 #
