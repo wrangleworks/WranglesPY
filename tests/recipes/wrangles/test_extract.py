@@ -217,7 +217,7 @@ class TestExtractAttributes:
         with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'TypeError' and
+            type(info.value).__name__ == 'TypeError' and
             'first_element must be used with a specified attribute_type' in info.value.args[0]
         )
 
@@ -421,7 +421,7 @@ class TestExtractAttributes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Invalid boundary setting. min, mid or max permitted.' in info.value.args[0]
         )
 
@@ -490,7 +490,7 @@ class TestExtractAttributes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
         )
 
@@ -576,7 +576,7 @@ class TestExtractCodes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
         )
 
@@ -642,7 +642,7 @@ class TestExtractCodes:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
         )
 
@@ -936,7 +936,7 @@ class TestExtractCodes:
             dataframe=data
         )
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'extract.codes - Status Code: 400 - Bad Request. {"message": "min_length must be non-negative integer"} \n' in info.value.args[0]
         )
 
@@ -960,7 +960,7 @@ class TestExtractCodes:
             dataframe=data
         )
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'extract.codes - Status Code: 400 - Bad Request. {"message": "max length must be an integer greater than zero"} \n' in info.value.args[0]
         )
 
@@ -983,7 +983,7 @@ class TestExtractCodes:
             dataframe=data
         )
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter strategy. Expected lenient, balanced, or strict."} \n' in info.value.args[0]
         )
 
@@ -1006,7 +1006,7 @@ class TestExtractCodes:
             dataframe=data
         )
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
         )
 
@@ -1076,7 +1076,7 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
         )
 
@@ -1119,7 +1119,7 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
         )
 
@@ -1137,7 +1137,7 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.' in info.value.args[0]
         )
 
@@ -1400,7 +1400,7 @@ class TestExtractCustom:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             '{"Error":"Non-boolean parameter in caseSensitive. Use True/False"}' in info.value.args[0]
         )
 
@@ -2040,7 +2040,7 @@ class TestExtractCustom:
             raise wrangles.recipe.run(recipe, dataframe=df)
         
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Sort must be one of the following: training_order, input_order, longest, shortest, alphabetical, reverse_alphabetical, ascending, descending' in info.value.args[0]
         )
        
@@ -2403,7 +2403,7 @@ class TestExtractProperties:
         with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=self.df)
         assert (
-            info.typename == 'TypeError' and
+            type(info.value).__name__ == 'TypeError' and
             'first_element must be used with a specified property_type' in info.value.args[0]
         )
         
@@ -3006,7 +3006,7 @@ class TestExtractDateProperties:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             '"millennium" not a valid date property.' in info.value.args[0]
         )
 
@@ -3135,7 +3135,7 @@ class TestExtractDateRange:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             '"millennium" not a valid frequency' in info.value.args[0]
         )
 
@@ -3199,7 +3199,7 @@ class TestExtractDateRange:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'Neither `start` nor `end` can be NaT' in info.value.args[0]
         )
 

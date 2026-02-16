@@ -67,7 +67,7 @@ class TestSelectDictionaryElement:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
         )
 
@@ -472,7 +472,7 @@ class TestSelectListElement:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.list_element" in info.value.args[0]
         )
 
@@ -1063,7 +1063,7 @@ class TestSelectLeft:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
         )
 
@@ -1263,7 +1263,7 @@ class TestSelectRight:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
         )
 
@@ -1513,7 +1513,7 @@ class TestSelectSubstring:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "Either start or length must be provided." in info.value.args[0]
         )
 
@@ -1538,7 +1538,7 @@ class TestSelectSubstring:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
         )
 
@@ -2207,7 +2207,7 @@ class TestSelectElement:
                     "col": [{"a": 1, "b": 2, "c": 3}]
                 })
             )
-        assert info.typename == 'KeyError' and "not found" in info.value.args[0]
+        assert type(info.value).__name__ == 'KeyError' and "not found" in info.value.args[0]
 
     def test_element_list_not_found(self):
         """
@@ -2226,7 +2226,7 @@ class TestSelectElement:
                     "col": [["a","b","c"]]
                 })
             )
-        assert info.typename == 'KeyError' and "not found" in info.value.args[0]
+        assert type(info.value).__name__ == 'KeyError' and "not found" in info.value.args[0]
 
     def test_element_dict_default(self):
         """
@@ -2751,7 +2751,7 @@ class TestSelectColumns:
         """
         with pytest.raises(KeyError) as info:
             raise wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
+        assert type(info.value).__name__ == 'KeyError' and "YOLO" in info.value.args[0]
         
     def test_select_columns_where(self):
         """

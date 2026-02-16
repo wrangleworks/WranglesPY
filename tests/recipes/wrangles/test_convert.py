@@ -85,7 +85,7 @@ class TestConvertCase:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -105,7 +105,7 @@ class TestConvertCase:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -307,7 +307,7 @@ class TestConvertDataType:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -328,7 +328,7 @@ class TestConvertDataType:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -542,7 +542,7 @@ class TestConvertDataType:
         with pytest.raises(TypeError) as info:
             raise wrangles.recipe.run(recipe, dataframe=df)
         assert (
-            info.typename == 'TypeError' and
+            type(info.value).__name__ == 'TypeError' and
             'convert.data_type - data_type squirrel is not supported.' in info.value.args[0]
         )
 
@@ -607,7 +607,7 @@ class TestConvertFractionToDecimal:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -630,7 +630,7 @@ class TestConvertFractionToDecimal:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
         
@@ -749,7 +749,7 @@ class TestConvertFromJSON:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -769,7 +769,7 @@ class TestConvertFromJSON:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -1075,7 +1075,7 @@ class TestConvertToJSON:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 

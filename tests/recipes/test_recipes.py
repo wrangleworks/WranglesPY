@@ -62,7 +62,7 @@ def test_recipe_from_url_not_found():
     with pytest.raises(ValueError) as info:
         raise wrangles.recipe.run(recipe, dataframe=data)
     assert (
-        info.typename == 'ValueError' and
+        type(info.value).__name__ == 'ValueError' and
         info.value.args[0] == 'Error getting recipe from url: https://public.wrangle.works/tests/recipe.wrgl.yaaml\nReason: Not Found-404'
     )
 
@@ -158,7 +158,7 @@ def test_timeout():
             timeout=2
         )
     
-    assert info.typename == 'TimeoutError'
+    assert type(info.value).__name__ == 'TimeoutError'
 
 def test_timeout_time():
     """
@@ -191,7 +191,7 @@ def test_timeout_time():
     stop = time.time()
 
     assert (
-        info.typename == 'TimeoutError' and
+        type(info.value).__name__ == 'TimeoutError' and
         stop - start < 2.5 and
         stop - start > 1.5
     )
@@ -231,7 +231,7 @@ def test_timeout_failure_actions():
         )
 
     assert (
-        info.typename == 'TimeoutError' and
+        type(info.value).__name__ == 'TimeoutError' and
         memory.variables["timeout fail action"] == "got here"
     )
     
@@ -243,7 +243,7 @@ def test_invalid_recipe_file_extension():
     with pytest.raises(RuntimeError) as info:
         raise wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
     assert (
-        info.typename == 'RuntimeError' and
+        type(info.value).__name__ == 'RuntimeError' and
         info.value.args[0].startswith('Error reading recipe')
     )
 
@@ -774,7 +774,7 @@ class TestColumnWildcards:
                 dataframe=data
             )
         assert (
-            info.typename == 'KeyError' and
+            type(info.value).__name__ == 'KeyError' and
             'Wildcard expansion pattern did not find any matching columns' in info.value.args[0]
         )
 
@@ -800,7 +800,7 @@ class TestColumnWildcards:
                 dataframe=data
             )
         assert (
-            info.typename == 'KeyError' and
+            type(info.value).__name__ == 'KeyError' and
             'Wildcard expansion pattern did not find any matching columns' in info.value.args[0]
         )
 
@@ -827,7 +827,7 @@ class TestColumnWildcards:
                 dataframe=data
             )
         assert (
-            info.typename == 'KeyError' and
+            type(info.value).__name__ == 'KeyError' and
             "format.trim - 'Column nothing does not exist'" in info.value.args[0]
         )
 

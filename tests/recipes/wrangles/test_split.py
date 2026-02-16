@@ -1356,7 +1356,7 @@ class TestTokenize:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "The list of inputs and outputs must be the same length for split.tokenize" in info.value.args[0]
         )
 

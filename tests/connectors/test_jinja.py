@@ -85,7 +85,7 @@ def test_bad_filepath():
                       placeholder: value
             """
         )
-    assert info.typename == 'TemplateNotFound'
+    assert type(info.value).__name__ == 'TemplateNotFound'
 
 def test_no_template():
     """

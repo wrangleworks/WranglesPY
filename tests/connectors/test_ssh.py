@@ -53,4 +53,4 @@ def test_run_ssh_4(mocker):
     }
     with pytest.raises(ValueError) as info:
         raise run(**config)
-    assert info.typename == 'ValueError' and info.value.args[0] == 'A password or private key is required for the SSH connection'
+    assert type(info.value).__name__ == 'ValueError' and info.value.args[0] == 'A password or private key is required for the SSH connection'

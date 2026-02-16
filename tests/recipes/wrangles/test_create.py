@@ -107,7 +107,7 @@ class TestCreateColumn:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             '"col" column already exists in dataFrame.' in info.value.args[0]
         )
 
@@ -127,7 +127,7 @@ class TestCreateColumn:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             "['col'] column(s)" in info.value.args[0]
         )
 
@@ -666,7 +666,7 @@ class TestCreateJinja:
         with pytest.raises(Exception) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'Exception' and
+            type(info.value).__name__ == 'Exception' and
             'Template must have only one key specified' in info.value.args[0]
         )
 
@@ -709,7 +709,7 @@ class TestCreateJinja:
         with pytest.raises(Exception) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'Exception' and
+            type(info.value).__name__ == 'Exception' and
             "'file', 'column' or 'string' not found" in info.value.args[0]
         )
 
@@ -976,7 +976,7 @@ class TestCreateBins:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 
@@ -1012,7 +1012,7 @@ class TestCreateBins:
         with pytest.raises(ValueError) as info:
             raise wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'ValueError' and
+            type(info.value).__name__ == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
         )
 

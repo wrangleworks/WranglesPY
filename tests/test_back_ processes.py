@@ -17,7 +17,7 @@ def test_get_access_token_error1(mocker):
     m.return_value = temp_response
     with pytest.raises(RuntimeError) as info:
         raise get_access_token()
-    assert info.typename == 'RuntimeError' and info.value.args[0] == 'Invalid login details provided'
+    assert type(info.value).__name__ == 'RuntimeError' and info.value.args[0] == 'Invalid login details provided'
     
 # get_access_token using Unexpected error
 class temp_unexpected_error():
@@ -30,7 +30,7 @@ def test_get_access_token_error2(mocker):
     m2.return_value = 'None'
     with pytest.raises(RuntimeError) as info:
         raise get_access_token()
-    assert info.typename == 'RuntimeError' and info.value.args[0] == 'Unexpected error when authenticating'
+    assert type(info.value).__name__ == 'RuntimeError' and info.value.args[0] == 'Unexpected error when authenticating'
     
 # Testing Batching
 from wrangles.batching import batch_api_calls

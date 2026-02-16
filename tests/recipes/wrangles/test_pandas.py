@@ -380,7 +380,7 @@ class TestCopy:
         with pytest.raises(ValueError) as info:
             wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert (
-            info.typename == "ValueError" and 
+            type(info.value).__name__ == "ValueError" and 
             str(info.value) == "ERROR IN WRANGLE #1 copy - Input and output must be the same length"
         )
 
@@ -856,7 +856,7 @@ class TestExplode:
                     'C': [['a', 'b', 'c'], 'NAN', [], ['d', 'e']]
                 })
             )
-        assert info.typename == 'KeyError'
+        assert type(info.value).__name__ == 'KeyError'
 
     def test_explode_multiple_columns_wildcard(self):
         """
@@ -901,7 +901,7 @@ class TestExplode:
                 })
             )
         assert (
-            info.typename == "ValueError" and 
+            type(info.value).__name__ == "ValueError" and 
             str(info.value) == "ERROR IN WRANGLE #1 explode - columns must have matching element counts"
         )
 

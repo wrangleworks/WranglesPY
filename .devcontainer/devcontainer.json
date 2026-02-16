@@ -12,7 +12,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
-	"onCreateCommand": "pip install pytest==7.4.4 lorem pytest-mock",
+	"onCreateCommand": "pip install pytest==9.0.2 lorem pytest-mock",
 	"postCreateCommand": "pip3 install --user -r requirements.txt",
 
 	// Configure tool-specific properties.

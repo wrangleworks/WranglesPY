@@ -594,7 +594,7 @@ def test_kwargs_dictionary_error():
         raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
-        info.typename == 'TypeError' and
+        type(info.value).__name__ == 'TypeError' and
         "unsupported operand type(s) for +: 'dict' and 'str'" in info.value.args[0]
     )
 
@@ -1186,7 +1186,7 @@ def test_user_not_returned_dataframe_wrangle():
             functions=wrangle_stuff
         )
     assert (
-        info.typename == 'RuntimeError' and
+        type(info.value).__name__ == 'RuntimeError' and
         "did not return a dataframe" in info.value.args[0]
     )
 
@@ -1207,7 +1207,7 @@ def test_user_not_returned_dataframe_read():
             functions=wrangle_stuff
         )
     assert (
-        info.typename == 'RuntimeError' and
+        type(info.value).__name__ == 'RuntimeError' and
         "did not return a dataframe" in info.value.args[0]
     )
 
