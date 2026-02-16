@@ -15,9 +15,9 @@ class temp_response():
 def test_get_access_token_error1(mocker):
     m = mocker.patch("wrangles.auth._refresh_access_token")
     m.return_value = temp_response
-    with pytest.raises(RuntimeError) as info:
+    with pytest.raises(TypeError) as info:
         raise get_access_token()
-    assert type(info.value).__name__ == 'RuntimeError' and info.value.args[0] == 'Invalid login details provided'
+    assert type(info.value).__name__ == 'TypeError' and info.value.args[0] == 'Invalid login details provided'
     
 # get_access_token using Unexpected error
 class temp_unexpected_error():
@@ -28,9 +28,9 @@ def test_get_access_token_error2(mocker):
     m.return_value = temp_unexpected_error
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
-    with pytest.raises(RuntimeError) as info:
+    with pytest.raises(TypeError) as info:
         raise get_access_token()
-    assert type(info.value).__name__ == 'RuntimeError' and info.value.args[0] == 'Unexpected error when authenticating'
+    assert type(info.value).__name__ == 'TypeError' and info.value.args[0] == 'Unexpected error when authenticating'
     
 # Testing Batching
 from wrangles.batching import batch_api_calls
@@ -57,7 +57,7 @@ def test_refresh_token_error():
     """
     wrangles.auth.refresh_token = "should fail"
 
-    with pytest.raises(RuntimeError, match="Error refreshing"):
+    with pytest.raises(TypeError, match="Error refreshing"):
         wrangles.extract.codes('test ABC123ZZ')
 
     wrangles.auth.refresh_token = None
