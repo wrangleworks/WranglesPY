@@ -18,6 +18,7 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
+from difflib import SequenceMatcher as _SequenceMatcher
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -1331,6 +1332,80 @@ def remove_words(
         df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
     
     return df
+
+
+def map(
+    df: _pd.DataFrame,
+    to: _Union[str, list],
+    threshold: float = 0.6,
+    case_sensitive: bool = False
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Automatically map column names to a target list using semantic similarity.
+    additionalProperties: false
+    required:
+      - to
+    properties:
+      to:
+        type:
+          - string
+          - array
+        description: Target column name or list of column names to map to
+      threshold:
+        type: number
+        description: Minimum similarity threshold (0-1) for matching. Default is 0.6
+        minimum: 0
+        maximum: 1
+      case_sensitive:
+        type: boolean
+        description: Whether matching should be case sensitive. Default is False
+    """
+    # Convert single target to list
+    if isinstance(to, str):
+        to = [to]
+    
+    # Get current column names
+    current_columns = df.columns.tolist()
+    
+    # Create mapping dictionary
+    rename_dict = {}
+    used_targets = set()
+    
+    # For each current column, find best matching target
+    for current_col in current_columns:
+        best_match = None
+        best_ratio = 0
+        
+        # Compare with each target column
+        for target_col in to:
+            # Skip if target already used
+            if target_col in used_targets:
+                continue
+            
+            # Prepare strings for comparison
+            if case_sensitive:
+                current_str = str(current_col)
+                target_str = str(target_col)
+            else:
+                current_str = str(current_col).lower()
+                target_str = str(target_col).lower()
+            
+            # Calculate similarity ratio
+            ratio = _SequenceMatcher(None, current_str, target_str).ratio()
+            
+            # Update best match if this is better
+            if ratio > best_ratio and ratio >= threshold:
+                best_ratio = ratio
+                best_match = target_col
+        
+        # Add to rename dict if a match was found
+        if best_match:
+            rename_dict[current_col] = best_match
+            used_targets.add(best_match)
+    
+    # Apply the rename
+    return df.rename(columns=rename_dict)
 
 
 def rename(
