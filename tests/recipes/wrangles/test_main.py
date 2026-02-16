@@ -3029,7 +3029,7 @@ class TestReplace:
         data = pd.DataFrame({
             'Abbrev': ['random 123 random'],
         })
-        recipe = """
+        recipe = r"""
         wrangles:
             - replace:
                 input: Abbrev

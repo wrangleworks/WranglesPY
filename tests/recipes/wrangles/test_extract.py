@@ -2074,7 +2074,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2092,7 +2092,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2130,7 +2130,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pika Pika Pikachu Random']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2275,12 +2275,12 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': [123, 'abc456', 78.9, None, 'no digits']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
             output: digits
-            find: \\d+
+            find: \d+
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['digits'] == ['123']  # int -> string conversion
@@ -2296,12 +2296,12 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': [123, 'abc456', 78.9, None]
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
             output: first_digit
-            find: \\d+
+            find: \d+
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
@@ -2317,13 +2317,13 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': [123, 'value456', 78.9]
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
             output: formatted
-            find: (\\d+)
-            output_pattern: 'Found: \\1'
+            find: (\d+)
+            output_pattern: 'Found: \1'
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['formatted'] == ['Found: 123']
@@ -2337,13 +2337,13 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': [123, 'value456', 78.9, None]
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
             output: first_formatted
-            find: (\\d+)
-            output_pattern: 'Number: \\1'
+            find: (\d+)
+            output_pattern: 'Number: \1'
             first_element: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
