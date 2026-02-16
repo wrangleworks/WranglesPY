@@ -1412,8 +1412,10 @@ class TestMap:
             })
         )
         # Original columns should remain if no good match
-        assert 'xyz' in df.columns or 'Completely Different Name' in df.columns
-        assert 'abc' in df.columns or len(df.columns) >= 1
+        # 'xyz' and 'abc' have very low similarity to 'Completely Different Name'
+        assert 'xyz' in df.columns and 'abc' in df.columns
+        assert df['xyz'][0] == 'value1'
+        assert df['abc'][0] == 'value2'
 
     def test_map_partial_matching(self):
         """
@@ -1482,8 +1484,12 @@ class TestMap:
         # Only the best matching column should be renamed to 'Name'
         # The exact match 'name' should win
         assert 'Name' in df.columns
-        # Other columns should keep their original names
-        assert ('full_name' in df.columns or 'product_name' in df.columns)
+        assert df['Name'][0] == 'Value1'
+        # Other columns should keep their original names since 'Name' is already used
+        assert 'full_name' in df.columns
+        assert 'product_name' in df.columns
+        assert df['full_name'][0] == 'Value2'
+        assert df['product_name'][0] == 'Value3'
 
     def test_map_case_sensitive_true(self):
         """
