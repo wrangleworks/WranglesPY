@@ -7084,3 +7084,195 @@ class TestWrangleExecutionLogging:
 
         # Check that the wildcard is not expanded (appears as literal)  
         assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
+
+
+class TestMap:
+    """Tests for the semantic column name mapping wrangle `map`."""
+
+    def test_map_basic(self):
+        """Basic mapping of common column names to targets."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Product Name: Widget
+                    Unit Price: 9.99
+                    Qty: 5
+            wrangles:
+                - map:
+                    targets:
+                    - name
+                    - price
+                    - quantity
+            """
+        )
+        assert df.columns.tolist() == ['name', 'price', 'quantity']
+
+    def test_map_subset_input(self):
+        """Map only a subset of columns via input list."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Product Name: Widget
+                    Unit Price: 9.99
+                    Qty: 5
+                    Notes: NA
+            wrangles:
+                - map:
+                    input:
+                    - Product Name
+                    - Qty
+                    targets:
+                    - name
+                    - quantity
+            """
+        )
+        # Only specified inputs mapped; others retained
+        assert df.columns.tolist() == ['name', 'Unit Price', 'quantity', 'Notes']
+
+    def test_map_threshold_blocks_low_similarity(self):
+        """Use high threshold to prevent mapping when similarity is low."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Alpha: X
+                    Beta: Y
+            wrangles:
+                - map:
+                    targets:
+                    - gamma
+                    - delta
+                    threshold: 0.99
+            """
+        )
+        # Columns unchanged due to strict threshold
+        assert df.columns.tolist() == ['Alpha', 'Beta']
+
+    def test_map_conflict_resolution_unique_targets(self):
+        """Ensure unique assignment to targets when inputs are similar."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Price: 10
+                    Unit Price: 9.5
+            wrangles:
+                - map:
+                    targets:
+                    - price
+                    - unit price
+            """
+        )
+        assert sorted(df.columns.tolist()) == sorted(['price', 'unit price'])
+
+    def test_map_drop_unmapped(self):
+        """Drop unmapped columns when `drop_unmapped` is true."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    Product Name: X
+                    FooBar: Z
+            wrangles:
+                - map:
+                    targets:
+                    - name
+                    drop_unmapped: true
+            """
+        )
+        # Only 'Product Name' mapped to 'name'; 'FooBar' dropped
+        assert df.columns.tolist() == ['name']
+
+    def test_map_existing_target_overwrite(self):
+        """If a target exists as a column, ensure no duplicates."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    price: 1.0
+                    Unit Price: 2.0
+            wrangles:
+                - map:
+                    targets:
+                    - price
+            """
+        )
+        # Result should have a single 'price' column
+        assert df.columns.tolist() == ['price']
+
+    def test_map_invalid_params(self):
+        """Invalid targets type and threshold values raise errors."""
+        with pytest.raises(ValueError):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - map:
+                        targets: 123
+                """
+            )
+        with pytest.raises(ValueError):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - map:
+                        targets:
+                        - a
+                        threshold: -0.1
+                """
+            )
+
+    def test_map_case_sensitive_false(self):
+        """Case-insensitive mapping should succeed on case-only differences."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    SKU: X
+                    Name: Widget
+            wrangles:
+                - map:
+                    targets:
+                    - sku
+                    - name
+                    case_sensitive: false
+            """
+        )
+        assert df.columns.tolist() == ['sku', 'name']
+
+    def test_map_case_sensitive_true(self):
+        """Case-sensitive mapping should not match case-only differences."""
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    SKU: X
+                    Name: Widget
+            wrangles:
+                - map:
+                    targets:
+                    - sku
+                    - name
+                    case_sensitive: true
+                    threshold: 0.9
+            """
+        )
+        # No case-only matches; columns remain unchanged
+        assert df.columns.tolist() == ['SKU', 'Name']
