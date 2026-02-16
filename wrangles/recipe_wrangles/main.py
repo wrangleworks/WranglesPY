@@ -30,6 +30,7 @@ from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
+from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
 
 
 def accordion(
@@ -1196,15 +1197,7 @@ def python(
         else:
             return _apply_command(variables, **kwargs)
 
-    variables = {
-        **variables,
-        **{
-            "row_count": len(df),
-            "column_count": len(df.columns),
-            "columns": df.columns.tolist(),
-            "df": df
-        }
-    }
+    variables = _delayed_variable_interpretation(df, variables)
 
     df[output] = df[input].apply(
         lambda x: _exception_handler(variables, **x, **kwargs),
