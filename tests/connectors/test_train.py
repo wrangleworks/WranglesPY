@@ -931,10 +931,10 @@ def test_standardize_write_logs_new_model_id(caplog):
         dataframe=df  
     )  
   
-    # Check that model_id was logged  
+    # Check that model creation was logged  
     assert any(  
         record.message for record in caplog.records   
-        if record.levelname == "INFO" and "Try to create a new standardize mode" in record.message  
+        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
 
 
