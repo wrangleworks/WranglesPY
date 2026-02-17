@@ -183,7 +183,7 @@ class train():
                 settings["embeddings_columns"] = ["Key"]
             # If neither Key nor embeddings_columns, raise error
             elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
-                raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings.")
+                raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings.")
         if name:
             response = _requests.post(
                         f'{_config.api_host}/model/content',
