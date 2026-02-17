@@ -279,6 +279,23 @@ class lookup():
             settings['variant'] = v
             return v
 
+        def _get_matching_columns(df: _pd.DataFrame, settings: dict) -> list:
+            """
+            Get the columns to use for matching records.
+            Returns 'Key' column if present, otherwise MatchingColumns from settings.
+            """
+            if 'Key' in df.columns:
+                return ['Key']
+            elif 'MatchingColumns' in settings:
+                matching_cols = settings['MatchingColumns']
+                # Validate that all matching columns exist in the dataframe
+                missing_cols = [col for col in matching_cols if col not in df.columns]
+                if missing_cols:
+                    raise ValueError(f"MatchingColumns not found in DataFrame: {', '.join(missing_cols)}")
+                return matching_cols
+            else:
+                return []
+
         
         _set_variant(model_id, variant)
         if act.upper() not in ['INSERT', 'UPDATE', 'UPSERT', 'OVERWRITE']:
@@ -323,33 +340,39 @@ class lookup():
                 inserted = 0
                 updated = 0
 
-                # Merge data - avoid duplicates based on Key column
-                if variant== 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
-                    if df['Key'].duplicated().any():
-                        raise ValueError("Lookup: All Keys must be unique")
-                    existing_keys = set(existing_df['Key'].tolist())
-
+                # Get matching columns (Key or MatchingColumns from settings)
+                matching_cols = _get_matching_columns(df, settings)
+                
+                if matching_cols:
+                    # Check for duplicates in new data based on matching columns
+                    if df[matching_cols].duplicated().any():
+                        raise ValueError(f"Lookup: All combinations of {matching_cols} must be unique")
+                    
                     # Start with current data
                     merged_df = existing_df.copy()
-
-                    # Apply updates for matching keys
+                    
+                    # Apply updates for matching records, insert for new records
                     for _, row in df.iterrows():
-                        key = row['Key']
-                        if key in existing_keys:
-                            mask = merged_df['Key'] == key
+                        # Create a mask for matching records
+                        mask = _pd.Series([True] * len(merged_df))
+                        for col in matching_cols:
+                            mask &= (merged_df[col] == row[col])
+                        
+                        if mask.any():
+                            # Update existing record
                             for col in df.columns:
-                                if col != 'Key' and col in merged_df.columns:
+                                if col not in matching_cols and col in merged_df.columns:
                                     merged_df.loc[mask, col] = row[col]
                             updated += 1
                         else:
-                            # Insert new rows for non-existing keys
+                            # Insert new record
                             merged_df = _pd.concat(
                                 [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
                                 ignore_index=True
                             )
                             inserted += 1
                 else:
-                    # For non-key variants, just append all data
+                    # No matching columns specified, just append all data
                     merged_df = _pd.concat([existing_df, df], ignore_index=True)
                     inserted = len(df)
 
@@ -374,28 +397,39 @@ class lookup():
 
             updated = 0
 
-            if 'Key' in df.columns and 'Key' in existing_df.columns:
-                # Only update records that exist in the model
-                existing_keys = set(existing_df['Key'].tolist())
-                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+            # Get matching columns (Key or MatchingColumns from settings)
+            matching_cols = _get_matching_columns(df, settings)
+            
+            if not matching_cols:
+                raise ValueError("UPDATE requires either a 'Key' column or 'MatchingColumns' in settings")
 
-                if df_filtered.empty:
-                    _logging.info("No matching keys found in existing model. No updates performed.")
-                    return
+            # Verify matching columns exist in both dataframes
+            missing_in_existing = [col for col in matching_cols if col not in existing_df.columns]
+            if missing_in_existing:
+                raise ValueError(f"Matching columns not found in existing model: {', '.join(missing_in_existing)}")
 
-                # Merge with existing data
-                merged_df = existing_df.copy()
-                for idx, row in df_filtered.iterrows():
-                    key = row['Key']
-                    mask = merged_df['Key'] == key
-                    for col in df_filtered.columns:
-                        if col != 'Key':
+            # Start with existing data
+            merged_df = existing_df.copy()
+            
+            # Update matching records
+            for _, row in df.iterrows():
+                # Create a mask for matching records
+                mask = _pd.Series([True] * len(merged_df))
+                for col in matching_cols:
+                    mask &= (merged_df[col] == row[col])
+                
+                if mask.any():
+                    # Update the matching record(s)
+                    for col in df.columns:
+                        if col not in matching_cols and col in merged_df.columns:
                             merged_df.loc[mask, col] = row[col]
                     updated += 1
 
-                df = merged_df
-            else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
+            if updated == 0:
+                _logging.info("No matching records found in existing model. No updates performed.")
+                return
+
+            df = merged_df
 
             settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
@@ -422,16 +456,36 @@ class lookup():
             )  
             
             inserted = 0
-            # Only add rows with new keys (skip existing keys)  
-            if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
-                if df['Key'].duplicated().any():  
-                    raise ValueError("Lookup: All Keys must be unique")  
-                existing_keys = set(existing_df['Key'].tolist())  
-                new_rows = df[~df['Key'].isin(existing_keys)]  
-                inserted = len(new_rows)
-                merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
-            else:  
-                # For non-key variants, just append all data  
+            
+            # Get matching columns (Key or MatchingColumns from settings)
+            matching_cols = _get_matching_columns(df, settings)
+            
+            if matching_cols:
+                # Check for duplicates in new data based on matching columns
+                if df[matching_cols].duplicated().any():
+                    raise ValueError(f"Lookup: All combinations of {matching_cols} must be unique")
+                
+                # Filter out rows that already exist in the model
+                new_rows_list = []
+                for _, row in df.iterrows():
+                    # Create a mask for matching records in existing data
+                    mask = _pd.Series([True] * len(existing_df))
+                    for col in matching_cols:
+                        mask &= (existing_df[col] == row[col])
+                    
+                    # Only add if no match found
+                    if not mask.any():
+                        new_rows_list.append(row)
+                
+                if new_rows_list:
+                    new_rows = _pd.DataFrame(new_rows_list)
+                    inserted = len(new_rows)
+                    merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)
+                else:
+                    inserted = 0
+                    merged_df = existing_df
+            else:
+                # No matching columns specified, just append all data
                 inserted = len(df)
                 merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
