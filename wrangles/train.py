@@ -34,7 +34,7 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
-            _logging.info(f": Try to create a new classify model :: {name}")
+            _logging.info(f": Creating new classify model :: {name}")
             response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'classify', 'name': name},
@@ -43,7 +43,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            _logging.info(f": Try to update classify model :: {model_id}")
+            _logging.info(f": Updating classify model :: {model_id}")
             response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
@@ -105,7 +105,7 @@ class train():
                 training_data = [['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']] + training_data
         
         if name:
-            _logging.info(f": Try to create a new extract model :: {name}")
+            _logging.info(f": Creating new extract model :: {name}")
             response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'extract', 'name': name, 'variant': variant},
@@ -113,7 +113,7 @@ class train():
                         json=training_data
                     )
         elif model_id:
-            _logging.info(f": Try to update extract model :: {model_id}")
+            _logging.info(f": Updating extract model :: {model_id}")
             # Only use retries when retraining an existing model
             response = _utils.request_retries(
                         request_type='PUT',
@@ -204,7 +204,7 @@ class train():
             )
 
         if name:
-            _logging.info(f": Try to create a new lookup model :: {name}")
+            _logging.info(f": Creating new lookup model :: {name}")
             response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'lookup', 'name': name, **settings},
@@ -213,7 +213,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            _logging.info(f": Try to update lookup model :: {model_id}")
+            _logging.info(f": Updating lookup model :: {model_id}")
             response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
@@ -268,7 +268,7 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
-            _logging.info(f": Try to create a new standardize model :: {name}")
+            _logging.info(f": Creating new standardize model :: {name}")
             response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'standardize', 'name': name},
@@ -277,7 +277,7 @@ class train():
                     )
         elif model_id:
             # Only use retries when retraining an existing model
-            _logging.info(f": Try to update standardize model :: {model_id}")
+            _logging.info(f": Updating standardize model :: {model_id}")
             response = _utils.request_retries(
                         request_type='PUT',
                         url=f'{_config.api_host}/model/content',
