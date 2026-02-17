@@ -787,6 +787,221 @@ class TestTrainLookup:
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
+
+    def test_insert_multi_column_match_no_duplicates(self):
+        """
+        Test INSERT action with multi-column matching - no duplicates should be inserted
+        """
+        # First, overwrite with initial data
+        recipe_initial = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: OVERWRITE
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        initial_data = pd.DataFrame({
+            'City': ['London', 'Manchester'],
+            'Country': ['United Kingdom', 'United Kingdom'],
+            'Population': ['9M', '2.7M']
+        })
+        wrangles.recipe.run(recipe_initial, dataframe=initial_data)
+        
+        # Now try to INSERT with duplicates
+        recipe_insert = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: INSERT
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        insert_data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany'],
+            'Population': ['9M', '2.7M', '3.7M']
+        })
+        wrangles.recipe.run(recipe_insert, dataframe=insert_data)
+        
+        # Read back and verify only Berlin was inserted (London and Manchester already existed)
+        read_recipe = """
+        read:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+        """
+        result = wrangles.recipe.run(read_recipe)
+        
+        # Should have 3 rows total (2 original + 1 new)
+        assert len(result) == 3
+        # Verify Berlin is there
+        assert 'Berlin' in result['City'].values
+
+    def test_upsert_multi_column_match(self):
+        """
+        Test UPSERT action with multi-column matching - should update existing and insert new
+        """
+        # First, overwrite with initial data
+        recipe_initial = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: OVERWRITE
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        initial_data = pd.DataFrame({
+            'City': ['London', 'Manchester'],
+            'Country': ['United Kingdom', 'United Kingdom'],
+            'Population': ['9M', '2.7M']
+        })
+        wrangles.recipe.run(recipe_initial, dataframe=initial_data)
+        
+        # Now UPSERT with some updates and new data
+        recipe_upsert = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: UPSERT
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        upsert_data = pd.DataFrame({
+            'City': ['London', 'Berlin'],
+            'Country': ['United Kingdom', 'Germany'],
+            'Population': ['9.5M', '3.7M']  # Updated London, new Berlin
+        })
+        wrangles.recipe.run(recipe_upsert, dataframe=upsert_data)
+        
+        # Read back and verify
+        read_recipe = """
+        read:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+        """
+        result = wrangles.recipe.run(read_recipe)
+        
+        # Should have 3 rows total (2 original, 1 updated + 1 new)
+        assert len(result) == 3
+        # Verify London was updated
+        london_row = result[(result['City'] == 'London') & (result['Country'] == 'United Kingdom')]
+        assert london_row.iloc[0]['Population'] == '9.5M'
+        # Verify Berlin was inserted
+        assert 'Berlin' in result['City'].values
+
+    def test_update_multi_column_match(self):
+        """
+        Test UPDATE action with multi-column matching - should only update existing records
+        """
+        # First, overwrite with initial data
+        recipe_initial = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: OVERWRITE
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        initial_data = pd.DataFrame({
+            'City': ['London', 'Manchester'],
+            'Country': ['United Kingdom', 'United Kingdom'],
+            'Population': ['9M', '2.7M']
+        })
+        wrangles.recipe.run(recipe_initial, dataframe=initial_data)
+        
+        # Now UPDATE with some updates and new data (new data should be ignored)
+        recipe_update = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: UPDATE
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        update_data = pd.DataFrame({
+            'City': ['London', 'Berlin'],  # London exists, Berlin doesn't
+            'Country': ['United Kingdom', 'Germany'],
+            'Population': ['9.5M', '3.7M']
+        })
+        wrangles.recipe.run(recipe_update, dataframe=update_data)
+        
+        # Read back and verify
+        read_recipe = """
+        read:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+        """
+        result = wrangles.recipe.run(read_recipe)
+        
+        # Should still have 2 rows (Berlin should not be added)
+        assert len(result) == 2
+        # Verify London was updated
+        london_row = result[(result['City'] == 'London') & (result['Country'] == 'United Kingdom')]
+        assert london_row.iloc[0]['Population'] == '9.5M'
+        # Verify Berlin was NOT inserted
+        assert 'Berlin' not in result['City'].values
+
+    def test_insert_multi_column_duplicate_check(self):
+        """
+        Test INSERT with duplicate multi-column combinations in input data should fail
+        """
+        # First, overwrite with initial data
+        recipe_initial = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: OVERWRITE
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        initial_data = pd.DataFrame({
+            'City': ['London'],
+            'Country': ['United Kingdom'],
+            'Population': ['9M']
+        })
+        wrangles.recipe.run(recipe_initial, dataframe=initial_data)
+        
+        # Try to INSERT data with duplicate combinations
+        recipe_insert = """
+        write:
+          - train.lookup:
+              model_id: 89637e77-7214-49a0
+              action: INSERT
+              settings:
+                variant: semantic
+                MatchingColumns:
+                  - City
+                  - Country
+        """
+        duplicate_data = pd.DataFrame({
+            'City': ['Berlin', 'Berlin'],  # Duplicate combination
+            'Country': ['Germany', 'Germany'],
+            'Population': ['3.7M', '3.8M']
+        })
+        
+        with pytest.raises(ValueError, match="All combinations of .* must be unique"):
+            wrangles.recipe.run(recipe_insert, dataframe=duplicate_data)
   
     
 #
@@ -869,5 +1084,6 @@ def test_standardize_error():
                 'Notes': ['Notes here', 'and here', 'and also here']
             })
         )
+
 
 
