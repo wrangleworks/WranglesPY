@@ -102,9 +102,9 @@ class extract():
         elif len(tmp_data['Data'][0]) == 2:
             # Add a third column for Notes of empty strings
             [x.append('') for x in tmp_data['Data']]
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output', 'Notes']
         elif len(tmp_data['Data'][0]) == 3:
-            columns = ['Entity to Find', 'Variation (Optional)', 'Notes']
+            columns = ['Find', 'Output', 'Notes']
         else:
             raise ValueError("Extract Wrangle data should contain three columns. Check Wrangle data")
 
@@ -169,9 +169,9 @@ class extract():
 
         if variant == 'pattern':
             versions = [
-                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
-                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'},
                 {'columns': ['Find', 'Output', 'Notes'], 'version': 'pattern 3.0'},
+                {'columns': ['Find', 'Output (Optional)', 'Notes'], 'version': 'pattern 2.0'},
+                {'columns': ['Entity to Find', 'Variation (Optional)', 'Notes'], 'version': 'pattern 1.0'}
             ]
             try:
                 required_columns = [
@@ -179,7 +179,7 @@ class extract():
                         if set(version["columns"]).issubset(set(df.columns.to_list()))
                     ][0]['columns']
             except:
-                required_columns = ['Find', 'Output (Optional)', 'Notes']
+                required_columns = ['Find', 'Output', 'Notes']
             col_len = 3
         elif variant == 'extract-ai':
             required_columns = ['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']
@@ -233,7 +233,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -242,33 +242,206 @@ class lookup():
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
         :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
+        :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
-        _logging.info(": Training Lookup Wrangle")
+        _logging.info(f": Training Lookup Wrangle")
 
         # Error handling for name, model_id and settings
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
         
-        # Read in variant if there is a model_id
-        if model_id:
-            metadata = _data.model(model_id)
-            variant = metadata['variant']
-      
-        if variant == 'semantic':
-            variant = 'embedding'
 
-        settings['variant'] = variant
+        # Normalize inputs and avoid mutating default args
+        act = (action or 'overwrite').upper()
+        settings = dict(settings or {})
 
-        _train.lookup(
-            {
+        def _to_tight(dataframe: _pd.DataFrame) -> dict:
+            return {
                 k.title(): v
-                for k, v in df.to_dict(orient="tight").items()
+                for k, v in dataframe.to_dict(orient="tight").items()
                 if k in ["columns", "data"]
-            },
-            name,
-            model_id,
-            settings
-        )
+            }
+
+        def _normalize_variant(mid: str, var: str) -> str:
+            v = var
+            if mid:
+                try:
+                    md = _data.model(mid)
+                    v = md.get('variant', v)
+                except Exception:
+                    pass
+            if v == 'semantic':
+                v = 'embedding'
+            return v
+
+        def _set_variant(mid: str, var: str) -> str:
+            v = _normalize_variant(mid, var)
+            settings['variant'] = v
+            return v
+
+        
+        _set_variant(model_id, variant)
+        if act.upper() not in ['INSERT', 'UPDATE', 'UPSERT', 'OVERWRITE']:
+            raise ValueError(f"Unsupported action: {action}. Use INSERT, UPDATE, UPSERT or OVERWRITE(default)")
+
+        elif act == 'OVERWRITE' or name:
+            row_count = len(df)
+            _train.lookup(
+                _to_tight(df),
+                name,
+                model_id,
+                settings
+            )
+            _logging.info(f"Lookup OVERWRITE: {row_count} rows written. Total rows: {row_count}.")
+
+        elif act == 'UPSERT':
+            new_data = _to_tight(df)
+            if model_id:
+                # Row-level upsert for existing model
+                existing_content = _data.model_content(model_id)
+                existing_df_all = _pd.DataFrame(
+                    existing_content['Data'],
+                    columns=existing_content['Columns']
+                )
+
+                # Validate column compatibility with existing model
+                requested_cols = new_data['Columns']
+                missing_in_existing = [c for c in requested_cols if c not in existing_df_all.columns]
+                if missing_in_existing:
+                    raise ValueError(
+                        "Lookup: The following columns are not present in the existing model: "
+                        + ", ".join(missing_in_existing)
+                    )
+
+                existing_df = existing_df_all[requested_cols]  # Ensure same column order
+
+                # For key variant, ensure new data contains Key column
+                normalized_variant = settings.get('variant', variant)
+                if normalized_variant == 'key' and 'Key' not in df.columns:
+                    raise ValueError("Lookup: 'Key' column must be provided for 'key' variant")
+
+                inserted = 0
+                updated = 0
+
+                # Merge data - avoid duplicates based on Key column
+                if variant== 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
+                    if df['Key'].duplicated().any():
+                        raise ValueError("Lookup: All Keys must be unique")
+                    existing_keys = set(existing_df['Key'].tolist())
+
+                    # Start with current data
+                    merged_df = existing_df.copy()
+
+                    # Apply updates for matching keys
+                    for _, row in df.iterrows():
+                        key = row['Key']
+                        if key in existing_keys:
+                            mask = merged_df['Key'] == key
+                            for col in df.columns:
+                                if col != 'Key' and col in merged_df.columns:
+                                    merged_df.loc[mask, col] = row[col]
+                            updated += 1
+                        else:
+                            # Insert new rows for non-existing keys
+                            merged_df = _pd.concat(
+                                [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                ignore_index=True
+                            )
+                            inserted += 1
+                else:
+                    # For non-key variants, just append all data
+                    merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                    inserted = len(df)
+
+                merged_data = {
+                    'Columns': merged_df.columns.tolist(),
+                    'Data': merged_df.values.tolist()
+                }
+                total_rows = len(merged_df)
+                _train.lookup(merged_data, None, model_id, settings)
+                _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
+            else:
+                inserted = len(df)
+                _train.lookup(new_data, name, None, settings)
+                _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
+
+        elif act == 'UPDATE':
+            metadata = _data.model(model_id)
+
+            # Get existing model data
+            existing_data = _data.model_content(model_id)
+            existing_df = _pd.DataFrame(existing_data['Data'], columns=existing_data['Columns'])
+
+            updated = 0
+
+            if 'Key' in df.columns and 'Key' in existing_df.columns:
+                # Only update records that exist in the model
+                existing_keys = set(existing_df['Key'].tolist())
+                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+
+                if df_filtered.empty:
+                    _logging.info("No matching keys found in existing model. No updates performed.")
+                    return
+
+                # Merge with existing data
+                merged_df = existing_df.copy()
+                for idx, row in df_filtered.iterrows():
+                    key = row['Key']
+                    mask = merged_df['Key'] == key
+                    for col in df_filtered.columns:
+                        if col != 'Key':
+                            merged_df.loc[mask, col] = row[col]
+                    updated += 1
+
+                df = merged_df
+            else:
+                raise ValueError("Both DataFrames must contain 'Key' column")
+
+            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
+
+            total_rows = len(df)
+            _train.lookup(
+                _to_tight(df),
+                None,
+                model_id,
+                settings
+            )
+            _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
+
+        elif act == 'INSERT':  
+            if not model_id:  
+                raise ValueError("INSERT action requires 'model_id' parameter for existing model")  
+            if name:  
+                raise ValueError("INSERT action cannot use 'name' parameter when updating existing model")  
+            
+            # Get existing data  
+            existing_content = _data.model_content(model_id)  
+            existing_df = _pd.DataFrame(  
+                existing_content['Data'],  
+                columns=existing_content['Columns']  
+            )  
+            
+            inserted = 0
+            # Only add rows with new keys (skip existing keys)  
+            if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
+                if df['Key'].duplicated().any():  
+                    raise ValueError("Lookup: All Keys must be unique")  
+                existing_keys = set(existing_df['Key'].tolist())  
+                new_rows = df[~df['Key'].isin(existing_keys)]  
+                inserted = len(new_rows)
+                merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
+            else:  
+                # For non-key variants, just append all data  
+                inserted = len(df)
+                merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+            
+            merged_data = {  
+                'Columns': merged_df.columns.tolist(),  
+                'Data': merged_df.values.tolist()  
+            }  
+            total_rows = len(merged_df)
+            _train.lookup(merged_data, None, model_id, settings)
+            _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
 
     _schema["write"] = """
         type: object
@@ -290,6 +463,14 @@ class lookup():
             enum:
               - key
               - semantic
+        action:
+            type: string
+            description: Action to take when training the lookup wrangle
+            enum:
+              - insert
+              - update
+              - upsert
+              - overwrite
         """
 
 class standardize():

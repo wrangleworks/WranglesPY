@@ -1393,7 +1393,7 @@ class TestRename:
         """
         Check error if a column specified in input doesn't exist
         """
-        with pytest.raises(KeyError) as info:
+        with pytest.raises(ValueError) as info:
             wrangles.recipe.run(
                 """
                 wrangles:
@@ -1406,7 +1406,7 @@ class TestRename:
                     'Part Number': ['CH465517080'],
                 })
             )
-        assert info.typename == 'KeyError'
+        assert info.typename == 'ValueError'
 
     def test_rename_into_existing_column(self):
         """
@@ -1485,7 +1485,6 @@ class TestRename:
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert [str(type(df[x])) for x in df.columns] == ["<class 'pandas.core.series.Series'>" for _ in range(len(df.columns))]
-
 
     def test_rename_wrangles(self):
         """
@@ -1573,7 +1572,8 @@ class TestRename:
                             columns: cause_error
                 """
             )
-        assert "column named 'columns' must be returned" in error.value.args[0]
+        
+        assert "If an input is provided, an output must also be provided" in error.value.args[0]
 
     def test_rename_wrangles_filtered_error(self):
         """
@@ -1696,6 +1696,84 @@ class TestRename:
         )
         assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+    def test_rename_wrangles_input_optional(self):
+        """
+        Use wrangles to rename only a subset of columns selected via optional input markers
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - rename:
+                wrangles:
+                    - convert.case:
+                        input:
+                            - header4?
+                            - header2?
+                        case: ${case}
+            """,
+            variables={"case": "upper"},
+            dataframe=pd.DataFrame({  
+                'header1': [1, 2, 3],  
+                'header2': [4, 5, 6]  
+            }),
+        )
+        assert df.columns.tolist() == ['header1', 'HEADER2']
+
+    def test_rename_optional_custom_function(self):
+        """
+        Test that a custom function for rename wrangles works correctly with optional input markers
+        """
+        def func(columns):
+            return columns + "_1"
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    header1: value1
+                    header2: value2
+            wrangles:
+            - rename:
+                wrangles:
+                    - custom.func:
+                        input:
+                            - header1?
+                            - header3?
+                        output: columns
+            """,
+            functions=func
+        )
+        assert df.columns.tolist() == ["header1_1","header2"]
+
+    def test_rename_optional_custom_function_fail(self):
+        """
+        Test that a custom function for rename wrangles works correctly with optional input markers
+        """
+        def func(columns):
+            return columns + "_1"
+        
+        with pytest.raises(ValueError, match="Rename column \"header3\" not found"):
+            wrangles.recipe.run(
+                """
+                read:
+                - test:
+                    rows: 5
+                    values:
+                        header1: value1
+                        header2: value2
+                wrangles:
+                - rename:
+                    wrangles:
+                        - custom.func:
+                            input:
+                                - header1?
+                                - header3
+                            output: columns
+                """,
+                functions=func
+            )
+
     def test_rename_wrangles_variables_if(self):
         """
         Use wrangles to rename columns based on a variable with an if
@@ -1740,6 +1818,374 @@ class TestRename:
         )
         assert df.empty and df.columns.tolist() == ['Company', 'MPN']
 
+    def test_rename_dict_optional_exists(self):  
+        """  
+        Test rename with optional column that exists  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                col1?: new_col1  
+                col2: new_col2  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['a'],  
+                'col2': ['b'],  
+                'col3': ['c']  
+            })  
+        )  
+        assert df.columns.tolist() == ['new_col1', 'new_col2', 'col3']  
+        assert df.iloc[0]['new_col1'] == 'a'  
+  
+    def test_rename_dict_optional_not_exists(self):  
+        """  
+        Test rename with optional column that doesn't exist  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                col1?: new_col1  
+                missing_col?: new_missing  
+                col2: new_col2  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['a'],  
+                'col2': ['b']  
+            })  
+        )  
+        assert df.columns.tolist() == ['new_col1', 'new_col2']  
+        assert df.iloc[0]['new_col1'] == 'a'  
+  
+    def test_rename_dict_all_optional_not_exists(self):  
+        """  
+        Test rename with all optional columns that don't exist  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                missing1?: new1  
+                missing2?: new2  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['a'],  
+                'col2': ['b']  
+            })  
+        )  
+        assert df.columns.tolist() == ['col1', 'col2']  
+  
+    def test_rename_input_output_optional_exists(self):  
+        """  
+        Test rename with input/output format and optional columns that exist  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                input:  
+                    - col1?  
+                    - col2?  
+                    - col3  
+                output:  
+                    - new_col1  
+                    - new_col2  
+                    - new_col3  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['a'],  
+                'col2': ['b'],  
+                'col3': ['c']  
+            })  
+        )  
+        assert df.columns.tolist() == ['new_col1', 'new_col2', 'new_col3']  
+  
+    def test_rename_input_output_all_optional_not_exists(self):  
+        """  
+        Test rename with all optional input columns missing  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:
+            - rename:
+                input: 
+                - first?
+                - second?
+                output:
+                - Two
+                - Columns
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['a'],  
+                'col2': ['b']  
+            })  
+        )  
+        assert df.columns.tolist() == ['col1', 'col2']  
+  
+    def test_rename_optional_mixed_required(self):  
+        """  
+        Test rename with mix of optional and required columns  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                required_col: new_required  
+                optional1?: new_opt1  
+                optional2?: new_opt2  
+                another_required: new_another  
+            """,  
+            dataframe=pd.DataFrame({  
+                'required_col': ['a'],  
+                'optional1': ['b'],  
+                'another_required': ['c']  
+            })  
+        )  
+        assert df.columns.tolist() == ['new_required', 'new_opt1', 'new_another']  
+  
+    def test_rename_optional_error_required_missing(self):  
+        """  
+        Test that required columns still raise errors when missing  
+        """  
+        with pytest.raises(ValueError, match="not found"):  
+            wrangles.recipe.run(  
+                """  
+                wrangles:  
+                - rename:  
+                    required_col: new_required  
+                    optional?: new_opt  
+                """,  
+                dataframe=pd.DataFrame({  
+                    'other_col': ['a']  
+                })  
+            )  
+  
+    def test_rename_optional_empty_dataframe(self):  
+        """  
+        Test optional columns with empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                col1?: new_col1  
+                col2?: new_col2  
+            """,  
+            dataframe=pd.DataFrame()  
+        )  
+        assert df.empty  
+
+    def test_rename_optional_empty_columns_dataframe(self):  
+        """  
+        Test optional columns with empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - rename:  
+                col1?: new_col1  
+                col2?: new_col2  
+            """,  
+            dataframe=pd.DataFrame({'col1': [], 'col2': []}) 
+        )  
+
+        assert df.columns.tolist() == ['new_col1', 'new_col2']
+        assert df.empty  
+  
+    def test_rename_optional_with_where(self):  
+        """  
+        Test optional columns with where clause (should raise NotImplementedError)  
+        """  
+        with pytest.raises(NotImplementedError, match="where"):  
+            wrangles.recipe.run(  
+                """  
+                wrangles:  
+                - rename:  
+                    col1?: new_col1  
+                    col2: new_col2  
+                    where: col1 > 5  
+                """,  
+                dataframe=pd.DataFrame({  
+                    'col1': [1, 6],  
+                    'col2': [2, 7]  
+                })  
+            )
+    
+    def test_rename_wildcard(self):
+            """
+            Test rename with wildcard pattern
+            """
+
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        'Col*': 'Renamed_*'
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [1, 2],
+                    'Col2': [3, 4],
+                    'Other': [5, 6]
+                })
+            )
+            assert 'Renamed_1' in df.columns and 'Renamed_2' in df.columns and 'Other' in df.columns
+
+    def test_rename_wildcard_no_match_raises(self):
+        """
+        Test wildcard pattern that matches no columns raises error
+        """
+        with pytest.raises(ValueError, match='did not match any columns'):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                    - rename:
+                        'No*': 'New_*'
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [1],
+                    'Col2': [2]
+                })
+            )
+
+    def test_rename_wildcard_optional_no_match_skips(self):
+        """
+        Optional wildcard pattern that matches no columns should be ignored
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - rename:
+                    'No*?': 'New_*'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [1],
+                'Col2': [2]
+            })
+        )
+        assert df.columns.tolist() == ['Col1', 'Col2']
+
+    def test_rename_wildcard_output_escape(self):
+        """
+        Output template containing an escaped star should produce a literal '*'
+        """
+        df = wrangles.recipe.run(r"""
+            wrangles:
+                - rename:
+                    'Col*': 'Renamed_\*'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [1],
+                'Other': [2]
+            })
+        )
+        assert 'Renamed_*' in df.columns and 'Other' in df.columns
+
+    def test_rename_wildcard_escaped_input_literal(self):
+        """
+        Escaped wildcard in input should match a literal '*' character in column name
+        """
+        df = wrangles.recipe.run(r"""
+            wrangles:
+                - rename:
+                    'Col\*': StarCol
+            """,
+            dataframe=pd.DataFrame({
+                'Col*': [10],
+                'Other': [20]
+            })
+        )
+        assert 'StarCol' in df.columns and 'Other' in df.columns
+    
+    def test_rename_wildcard_multiple_matches_single_output(self):
+        """
+        Raise error if wildcard input matches multiple columns and output is a single non-wildcard name
+        """
+        data = pd.DataFrame({
+            'col1': [1],
+            'col2': [2],
+            'col3': [3],
+            'data': [4],
+        })
+        recipe = """
+        wrangles:
+        - rename:
+            col*: new_col
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(recipe, dataframe=data)
+
+        assert (
+            info.typename == 'ValueError' and
+            'matched multiple columns but output' in info.value.args[0]
+        )
+    def test_rename_wrangles_multiple_optional_inputs(self):
+        """
+        Ensure all optional columns from multiple wrangles are included and processed
+        """
+        data = pd.DataFrame({
+                'header1': ['a'],
+                'header2': ['b'],
+                'header4': ['c'],
+                'header5': ['d']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                wrangles:
+                    - format.prefix:
+                            input:
+                                - header5?
+                                - header1?
+                            value: PRE_
+                    - convert.case:
+                            input:
+                                - header4
+                                - header2?
+                            case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Check that all columns were processed and renamed
+        assert 'PRE_header5' in df.columns
+        assert 'PRE_header1' in df.columns
+        assert 'HEADER4' in df.columns
+        assert 'HEADER2' in df.columns
+
+    def test_rename_optional_string_input(self):
+        """
+        Check that optional columns (that exist) passed as a string are not ignored
+        """
+        data = pd.DataFrame({
+            'Col1': ['abc']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                input: Col1?
+                output: COL1_UPPER
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should rename Col1 to COL1_UPPER
+        assert 'COL1_UPPER' in df.columns
+
+    def test_rename_optional_string_input_convert_case(self):
+        """
+        Check that optional columns (that exist) passed as a string are not ignored
+        """
+        data = pd.DataFrame({
+            'Col1': ['abc']
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                wrangles:
+                - convert.case:
+                    input: Col1?
+                    case: upper
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should rename Col1 to COL1
+        assert 'COL1' in df.columns
 
 class TestSimilarity:
     """
@@ -5078,6 +5524,35 @@ class TestBatch:
             variables={"condition": True}
         )
         assert df['column'].tolist() == ["A"] * 1000
+    
+    def test_batch_error_reports_batch_number(self):  
+        """  
+        Test that batch errors include the batch number in the error message  
+        """  
+        batch_counter = [0]  
+        def fail_on_2nd_batch(df):  
+            batch_counter[0] += 1  
+            if batch_counter[0] == 2:  
+                raise KeyError("column1 does not exist")  
+            return df  
+        
+        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+            wrangles.recipe.run(  
+                """  
+                read:  
+                - test:  
+                    rows: 150  
+                    values:  
+                        column: a  
+                wrangles:  
+                - batch:  
+                    batch_size: 50  
+                    wrangles:  
+                        - custom.fail_on_2nd_batch: {}  
+                """,  
+                functions=fail_on_2nd_batch  
+        )  
+  
 
 
 class TestLookup:
@@ -5906,6 +6381,39 @@ class TestMatrix:
         )
         assert df['What is for lunch?'][0] == "we are having hamburgers"
 
+    def test_matrix_non_string_variable_conversion(self):  
+        """  
+        Test that non-string values in matrix variables are properly converted to strings  
+        This covers the code path: if not isinstance(val, str): val = str(val)  
+        """  
+        recipe = '''
+            wrangles:
+            - matrix:
+                variables:
+                    var: set(col2)
+                wrangles:
+                    - convert.case:
+                        input: col1
+                        case: ${var}
+                        where: col2 = ?
+                        where_params:
+                        - ${var}
+                    '''
+
+        variables = {
+            "batch_number": 1,                     
+            "batch_total": 1,                      
+            "row_count": 3                         
+        }
+
+        data = pd.DataFrame({
+            'col1': ['aaa', 'bbb', 'ccc'],
+            'col2': ['upper', 'lower', 'title']
+        })
+
+        result = wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+
+        assert list(result['col1']) == ['AAA', 'bbb', 'Ccc']
 
 def wait_then_update(df, duration, input, output, value):
     """
@@ -6424,3 +6932,155 @@ class TestTry:
         )
         
         assert retry_count_zero == 1
+
+
+@pytest.mark.usefixtures("caplog")  
+class TestWrangleExecutionLogging:  
+    """  
+    Test wrangle execution logging functionality  
+    """  
+      
+    def test_basic_wrangle_logging(self, caplog):  
+        """  
+        Test basic wrangle execution logging with explicit output  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                output: Col2  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']})  
+        )  
+        assert ": Wrangling :: convert.case :: Col1 >> Col2" in caplog.messages[-1]  
+      
+    def test_dynamic_output_logging(self, caplog):  
+        """  
+        Test logging with dynamic output (new columns created)  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - split.text:  
+                input: Col1  
+                output: Col*  
+                char: ' '  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello world']}),   
+        )  
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
+      
+    def test_skipped_wrangle_logging(self, caplog):  
+        """  
+        Test logging when wrangle is skipped due to if condition  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                output: Col2  
+                case: upper  
+                if: false  
+            - convert.case:  
+                input: Col1  
+                output: Col3  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']})  
+        )  
+        assert ": Wrangling :: convert.case skipped due to not passing the if statement." in caplog.messages[-2]  
+        assert ": Wrangling :: convert.case :: Col1 >> Col3" in caplog.messages[-1]   
+      
+    def test_mixed_output_logging(self, caplog):  
+        """  
+        Test logging with mixed output types (strings and dicts)  
+        """  
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - create.column:  
+                output:  
+                  - col2  
+                  - col3: <boolean>  
+                  - col4: <code(10)>  
+            """,  
+            dataframe=pd.DataFrame({'col1': ['test']}),  
+        )  
+        assert ": Wrangling :: create.column :: None >> col2, col3, col4" in caplog.messages[-1]  
+      
+    def test_backward_compatibility_logging(self, caplog):  
+        """  
+        Test that default logging still shows 'Dynamic' for backward compatibility  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - split.text:  
+                input: Col1  
+                output: Col*  
+                char: ' '  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello world']})  
+        )  
+        print(df)
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
+      
+    def test_input_overwrite_logging(self, caplog):  
+        """  
+        Test logging when input column is overwritten  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - convert.case:  
+                input: Col1  
+                case: upper  
+            """,  
+            dataframe=pd.DataFrame({'Col1': ['hello']}),  
+        )  
+        assert ": Wrangling :: convert.case :: Col1 >> Col1" in caplog.messages[-1]
+
+    def test_output_wildcard_string_logging(_self, caplog):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+                - split.list:
+                    input: Col
+                    output: 
+                      - Col*
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [["Hello", "Wrangles!", "and", "World!"]]
+            })
+        )
+        assert ": Wrangling :: split.list :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
+    
+    def test_logging_wildcard_multi_list_no_expansion(self, caplog):  
+        """  
+        Test that wildcards in multi-item lists are NOT expanded  
+        """  
+        data = pd.DataFrame({  
+            'col1': ['Hello'],  
+            'col2': ['World'],  
+        })  
+        
+        wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - merge.concatenate:  
+                input:  
+                    - col1  
+                    - col2  
+                output:   
+                    - col*  
+                    - other  
+                char: ', '  
+            """,  
+            dataframe=data  
+        )  
+
+        # Check that the wildcard is not expanded (appears as literal)  
+        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)

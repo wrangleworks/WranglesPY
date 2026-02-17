@@ -449,15 +449,19 @@ def to_json(
     # Ensure input and output are equal lengths
     if len(input) == len(output):
         # Loop through and apply for all columns
-        for input_columns, output_column in zip(input, output):
+        for input_column, output_column in zip(input, output):
+            def wrap_scalar(val):
+                if _pd.api.types.is_scalar(val):
+                    return [val]
+                return val
             df[output_column] = [
-                _json.dumps(
-                    row,
-                    ensure_ascii=ensure_ascii,
-                    default=handle_unusual_datatypes,
-                    **kwargs
-                ) 
-                for row in df[input_columns].values
+            _json.dumps(
+                wrap_scalar(row),
+                ensure_ascii=ensure_ascii,
+                default=handle_unusual_datatypes,
+                **kwargs
+            )
+            for row in df[input_column].values
             ]
     elif len(input) > 1 and len(output) == 1:
         df[output] = [
