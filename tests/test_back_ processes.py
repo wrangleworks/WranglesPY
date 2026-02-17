@@ -13,6 +13,8 @@ class temp_response():
 
 # get_access_token using invalid credentials error
 def test_get_access_token_error1(mocker):
+    import wrangles.auth
+    wrangles.auth.refresh_token = None
     m = mocker.patch("wrangles.auth._refresh_access_token")
     m.return_value = temp_response()
     with pytest.raises(RuntimeError) as info:
