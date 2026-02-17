@@ -6,19 +6,18 @@ import requests
 
 
 # Testing Auth
-from wrangles.auth import get_access_token
+import wrangles.auth
 
 class temp_response():
     status_code = 401
 
 # get_access_token using invalid credentials error
 def test_get_access_token_error1(mocker):
-    import wrangles.auth
     wrangles.auth.refresh_token = None
     m = mocker.patch("wrangles.auth._refresh_access_token")
     m.return_value = temp_response()
     with pytest.raises(RuntimeError) as info:
-        get_access_token()
+        wrangles.auth.get_access_token()
     assert type(info.value).__name__ == 'RuntimeError' and info.value.args[0] == 'Invalid login details provided'
     
 # get_access_token using Unexpected error
@@ -31,7 +30,7 @@ def test_get_access_token_error2(mocker):
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
     with pytest.raises(RuntimeError) as info:
-        get_access_token()
+        wrangles.auth.get_access_token()
     assert type(info.value).__name__ == 'TypeError' and info.value.args[0] == 'Unexpected error when authenticating'
     
 # Testing Batching
