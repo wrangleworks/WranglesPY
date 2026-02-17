@@ -754,7 +754,7 @@ class TestTrainLookup:
         """
         Test error when training a semantic lookup without Key column and without embeddings_columns
         """
-        with pytest.raises(ValueError, match="Semantic lookup: You must provide either a 'Key' column or 'embeddings_columns' in settings."):
+        with pytest.raises(ValueError, match="Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings."):
             wrangles.recipe.run(
                 """
                 write:
