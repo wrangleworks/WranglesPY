@@ -1,5 +1,7 @@
 import uuid
 
+from pytest_mock import mocker
+
 import wrangles
 import pandas as pd
 import pytest
@@ -128,6 +130,23 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
+def test_classify_write_logs_new_model_id_integration(caplog):  
+    df = pd.DataFrame({  
+        'Example': ['apple', 'banana'],  
+        'Category': ['fruit', 'fruit'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.classify:  
+              name: Test Classify Model  
+        """,  
+        dataframe=df  
+    )  
+  
+    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
 
 class TestTrainExtract:
     """
@@ -414,7 +433,6 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
-
 
 class TestTrainLookup:
     """
@@ -787,8 +805,32 @@ class TestTrainLookup:
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
+
+def test_lookup_write_logs_new_model_id(caplog):  
+    """  
+    Integration test for lookup model creation logging  
+    """  
+    df = pd.DataFrame({  
+        'Key': ['apple', 'banana'],  
+        'Value': ['fruit', 'fruit']  
+    })  
   
-    
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.lookup:  
+              name: Test Lookup Model Integration  
+              variant: key  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Check that model_id was logged  
+    assert any(  
+        record.message for record in caplog.records   
+        if record.levelname == "INFO" and "New lookup model created" in record.message  
+    )
+
 #
 # Standardize
 #
@@ -869,5 +911,30 @@ def test_standardize_error():
                 'Notes': ['Notes here', 'and here', 'and also here']
             })
         )
+
+def test_standardize_write_logs_new_model_id(caplog):  
+    """  
+    Integration test for standardize model creation logging  
+    """  
+    df = pd.DataFrame({  
+        'Find': ['ASAP', 'ETA'],  
+        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.standardize:  
+              name: Test Standardize Model Integration  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Check that model creation was logged  
+    assert any(  
+        record.message for record in caplog.records   
+        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
+    )
 
 
