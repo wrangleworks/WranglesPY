@@ -162,10 +162,10 @@ class extract():
             df = df[columns]
 
         # Older versions do not have a variant, default to pattern
-        if variant == None and name:
+        if variant is None and name:
             variant = 'pattern'
         # Lookup the variant if retraining a model
-        if variant == None and model_id:
+        if variant is None and model_id:
             variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
