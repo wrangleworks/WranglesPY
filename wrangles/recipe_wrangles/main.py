@@ -795,7 +795,8 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = None
+    log_data: bool = None,
+    **kwargs
 ):
     """
     type: object
@@ -824,6 +825,10 @@ def log(
         type: boolean
         description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
+    variables = kwargs.pop('variables', {})
+
+    variables = _delayed_variable_interpretation(df, variables)
+
     if columns is not None:
 
         # Get the wildcards
