@@ -19,7 +19,7 @@
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
-- **Testing:** pytest (7.4.4), pytest-mock, lorem (test data generation)
+- **Testing:** pytest (8.4.2), pytest-mock, lorem (test data generation)
 - **Containerization:** Docker (Python 3.10.16-slim-bookworm base)
 
 ## Project Structure
