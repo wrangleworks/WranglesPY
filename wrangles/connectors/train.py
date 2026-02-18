@@ -166,7 +166,7 @@ class extract():
             variant = 'pattern'
         # Lookup the variant if retraining a model
         if variant == None and model_id:
-            variant = _model(model_id)['variant']
+            variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
             versions = [
