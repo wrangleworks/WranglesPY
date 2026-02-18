@@ -750,6 +750,89 @@ class TestTrainLookup:
 
         assert df.columns.to_list() == ['Not Key', 'Not Value']
 
+    def test_semantic_insert_multi_key_mocked_dedup(self, monkeypatch):
+        """
+        Mocked INSERT on semantic variant with multiple match columns. Verify append behavior
+        without touching real models.
+        """
+        from wrangles.connectors import train as conn_train
+
+        # Prepare existing mock content
+        existing_df = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        model_id = 'mock-model-insert'
+
+        def fake_model_content(mid):
+            assert mid == model_id
+            return {
+                'Columns': existing_df.columns.tolist(),
+                'Data': existing_df.values.tolist(),
+            }
+
+        captured = {}
+        def fake_train_lookup(payload, name, mid, settings):
+            assert mid == model_id
+            captured['Columns'] = payload['Columns']
+            captured['Data'] = payload['Data']
+
+        monkeypatch.setattr(conn_train._data, 'model_content', fake_model_content)
+        monkeypatch.setattr(conn_train._train, 'lookup', fake_train_lookup)
+
+        # Duplicate input should be deduplicated (no new rows) under MatchingColumns
+        dup = existing_df.copy()
+        conn_train.lookup.write(
+            df=dup,
+            model_id=model_id,
+            action='INSERT',
+            variant='semantic',
+            settings={'MatchingColumns': ['Not Key', 'Not Value']}
+        )
+
+        assert len(captured['Data']) == len(existing_df)
+
+    def test_semantic_upsert_multi_key_mocked_dedup(self, monkeypatch):
+        """
+        Mocked UPSERT on semantic variant with multiple match columns. Verify append behavior
+        without touching real models.
+        """
+        from wrangles.connectors import train as conn_train
+
+        existing_df = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        model_id = 'mock-model-upsert'
+
+        def fake_model_content(mid):
+            assert mid == model_id
+            return {
+                'Columns': existing_df.columns.tolist(),
+                'Data': existing_df.values.tolist(),
+            }
+
+        captured = {}
+        def fake_train_lookup(payload, name, mid, settings):
+            assert mid == model_id
+            captured['Columns'] = payload['Columns']
+            captured['Data'] = payload['Data']
+
+        monkeypatch.setattr(conn_train._data, 'model_content', fake_model_content)
+        monkeypatch.setattr(conn_train._train, 'lookup', fake_train_lookup)
+
+        dup = existing_df.copy()
+        conn_train.lookup.write(
+            df=dup,
+            model_id=model_id,
+            action='UPSERT',
+            variant='semantic',
+            settings={'MatchingColumns': ['Not Key', 'Not Value']}
+        )
+
+        # Current behavior deduplicates under MatchingColumns; no extra rows
+        assert len(captured['Data']) == len(existing_df)
+
 
     def test_upsert_mismatched_columns_existing_model(self):
         """
@@ -787,6 +870,50 @@ class TestTrainLookup:
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
+    
+    def test_semantic_update_multi_key_mocked(self, monkeypatch):
+        """
+        Mock UPDATE with semantic variant using MatchingColumns; should update rows with no change in count.
+        """
+        from wrangles.connectors import train as conn_train
+
+        existing_df = pd.DataFrame({
+            'Not Key': ['Rachel'],
+            'Not Value': ['Blade Runner'],
+        })
+        model_id = 'mock-model-update'
+
+        def fake_model_content(mid):
+            assert mid == model_id
+            return {
+                'Columns': existing_df.columns.tolist(),
+                'Data': existing_df.values.tolist(),
+            }
+
+        def fake_model(mid):
+            assert mid == model_id
+            return {'variant': 'embedding', 'purpose': 'lookup'}
+
+        captured = {}
+        def fake_train_lookup(payload, name, mid, settings):
+            assert mid == model_id
+            captured['Columns'] = payload['Columns']
+            captured['Data'] = payload['Data']
+
+        monkeypatch.setattr(conn_train._data, 'model_content', fake_model_content)
+        monkeypatch.setattr(conn_train._data, 'model', fake_model)
+        monkeypatch.setattr(conn_train._train, 'lookup', fake_train_lookup)
+
+        conn_train.lookup.write(
+            df=existing_df.copy(),
+            model_id=model_id,
+            action='UPDATE',
+            variant='semantic',
+            settings={'MatchingColumns': ['Not Key', 'Not Value']}
+        )
+        # Row count unchanged; updates applied
+        assert len(captured['Data']) == len(existing_df)
+
   
     
 #

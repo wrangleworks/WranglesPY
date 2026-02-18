@@ -349,9 +349,44 @@ class lookup():
                             )
                             inserted += 1
                 else:
-                    # For non-key variants, just append all data
-                    merged_df = _pd.concat([existing_df, df], ignore_index=True)
-                    inserted = len(df)
+                    # For non-key variants (e.g., semantic), use MatchingColumns to avoid duplicates
+                    matching_cols = settings.get('MatchingColumns', [])
+                    if matching_cols:
+                        # Validate matching columns exist in both datasets
+                        missing_in_existing = [c for c in matching_cols if c not in existing_df_all.columns]
+                        missing_in_new = [c for c in matching_cols if c not in df.columns]
+                        if missing_in_existing or missing_in_new:
+                            raise ValueError(
+                                f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                            )
+
+                        # Start with current data
+                        merged_df = existing_df_all.copy()
+
+                        # Update matching rows
+                        updated = 0
+                        for _, row in df.iterrows():
+                            mask = _pd.Series([True] * len(merged_df))
+                            for col in matching_cols:
+                                mask &= (merged_df[col] == row[col])
+                            if mask.any():
+                                for col in df.columns:
+                                    if col not in matching_cols and col in merged_df.columns:
+                                        merged_df.loc[mask, col] = row[col]
+                                updated += int(mask.sum())
+                            else:
+                                # Insert if no match
+                                merged_df = _pd.concat(
+                                    [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                    ignore_index=True
+                                )
+                                inserted += 1
+                        # Align to requested columns order if provided
+                        merged_df = merged_df[existing_df_all.columns]
+                    else:
+                        # Without MatchingColumns, append all
+                        merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                        inserted = len(df)
 
                 merged_data = {
                     'Columns': merged_df.columns.tolist(),
@@ -393,15 +428,41 @@ class lookup():
                             merged_df.loc[mask, col] = row[col]
                     updated += 1
 
-                df = merged_df
+                df_out = merged_df
             else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
+                # Non-key variant: use MatchingColumns for updates
+                matching_cols = settings.get('MatchingColumns', [])
+                if not matching_cols:
+                    raise ValueError("Lookup: UPDATE requires 'Key' or 'MatchingColumns' for non-key variants")
+                missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                missing_in_new = [c for c in matching_cols if c not in df.columns]
+                if missing_in_existing or missing_in_new:
+                    raise ValueError(
+                        f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                    )
+
+                merged_df = existing_df.copy()
+                any_updated = False
+                for _, row in df.iterrows():
+                    mask = _pd.Series([True] * len(merged_df))
+                    for col in matching_cols:
+                        mask &= (merged_df[col] == row[col])
+                    if mask.any():
+                        for col in df.columns:
+                            if col not in matching_cols and col in merged_df.columns:
+                                merged_df.loc[mask, col] = row[col]
+                        updated += int(mask.sum())
+                        any_updated = True
+                if not any_updated:
+                    _logging.info("No matching records found based on MatchingColumns. No updates performed.")
+                    return
+                df_out = merged_df
 
             settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
-            total_rows = len(df)
+            total_rows = len(df_out)
             _train.lookup(
-                _to_tight(df),
+                _to_tight(df_out),
                 None,
                 model_id,
                 settings
@@ -431,9 +492,28 @@ class lookup():
                 inserted = len(new_rows)
                 merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
             else:  
-                # For non-key variants, just append all data  
-                inserted = len(df)
-                merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+                # For non-key variants, use MatchingColumns to avoid duplicates
+                matching_cols = settings.get('MatchingColumns', [])
+                if matching_cols:
+                    missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                    missing_in_new = [c for c in matching_cols if c not in df.columns]
+                    if missing_in_existing or missing_in_new:
+                        raise ValueError(
+                            f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                        )
+
+                    # Identify new rows where composite key not present
+                    merged_df = existing_df.copy()
+                    # Build a MultiIndex for faster membership checks
+                    existing_idx = _pd.MultiIndex.from_frame(existing_df[matching_cols])
+                    new_idx = _pd.MultiIndex.from_frame(df[matching_cols])
+                    is_new = ~new_idx.isin(existing_idx)
+                    new_rows = df[is_new].copy()
+                    inserted = len(new_rows)
+                    merged_df = _pd.concat([merged_df, new_rows], ignore_index=True)
+                else:
+                    inserted = len(df)
+                    merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
             merged_data = {  
                 'Columns': merged_df.columns.tolist(),  
