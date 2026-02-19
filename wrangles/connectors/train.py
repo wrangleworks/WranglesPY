@@ -161,11 +161,12 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
+        # Older versions do not have a variant, default to pattern
+        if variant is None and name:
+            variant = 'pattern'
         # Lookup the variant if retraining a model
-        if variant == None:
-            variant = _model(model_id)['variant']
-            if variant == None: # Older versions do not have a variant, default to pattern
-                variant = 'pattern'
+        if variant is None and model_id:
+            variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
             versions = [

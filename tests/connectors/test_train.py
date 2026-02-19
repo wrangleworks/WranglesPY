@@ -413,6 +413,52 @@ class TestTrainExtract:
                 })
             )
 
+    def test_extract_write_name_no_variant(self):
+        """
+        Tests that variant is set to pattern when training a new model without using variant by
+        checking that the proper error is thrown when the columns for pattern are not provided 
+        """
+        with pytest.raises(ValueError, match="The columns Find, Output, Notes must be provided for train.extract."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Not Find
+                        - Not Output
+                        - Not Notes
+                    name: This will error
+                """,
+                dataframe=pd.DataFrame({
+                    'Not Find': ['Rachel', 'Dolores', 'TARS'],
+                    'Not Output': ['', '', ''],
+                    'Not Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_extract_write_old_version_no_variant(self):
+        """
+        Tests that variant is set to pattern when retraining an old model that
+        did not have a variant set.
+        """
+        with pytest.raises(ValueError, match="The columns Find, Output, Notes must be provided for train.extract."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Not Find
+                        - Not Output
+                        - Not Notes
+                    model_id: ee5f020e-d88e-4bd5
+                """,
+                dataframe=pd.DataFrame({
+                    'Not Find': ['Rachel', 'Dolores', 'TARS'],
+                    'Not Output': ['', '', ''],
+                    'Not Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
     def test_extract_error(self):
         """
         Not Providing model_id or name in train wrangles
