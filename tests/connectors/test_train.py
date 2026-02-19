@@ -717,7 +717,7 @@ class TestTrainLookup:
         recipe = """
         write:
         - train.lookup:
-            model_id: 89637e77-7214-49a0
+            model_id: 89637e77-7214-49a0 # My Test Lookup
             settings:
               MatchingColumns:
                 - Not Key
@@ -731,12 +731,12 @@ class TestTrainLookup:
 
     def test_lookup_semantic_non_existent_matchingcolumns(self):
         """
-        Test training a semantic lookup with non-existent MatchingColumns
+        Test error when training a semantic lookup with non-existent MatchingColumns
         """
         recipe = """
         write:
         - train.lookup:
-            model_id: 89637e77-7214-49a0
+            model_id: 89637e77-7214-49a0 # My Test Lookup
             settings:
               MatchingColumns:
                 - This column does not exist
@@ -745,8 +745,8 @@ class TestTrainLookup:
             'Not Key': ['Rachel', 'Dolores', 'TARS'],
             'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
         })
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.columns.to_list() == ['Not Key', 'Not Value']
+        with pytest.raises(ValueError, match="Lookup: Matching Column This column does not exist does not exist in the data"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
     #### The following test is to ensure that calling train.lookup directly works as expected when... ####
     #### passed a list of data to train a semantic lookup model. ####
