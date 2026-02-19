@@ -177,6 +177,8 @@ class train():
         # Raise error if MatchingColumns are passed that do not exist in the data
         if "MatchingColumns" in settings:
             match_columns = settings["MatchingColumns"]
+            if not isinstance(match_columns, list):
+                match_columns = [match_columns]
             if isinstance(data, list):
                 header = data[0]
             else:
