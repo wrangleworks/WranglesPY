@@ -793,6 +793,72 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.columns.to_list() == ['Not Key', 'Not Value']
 
+    def test_lookup_matchingcolumns_missing_raises(self):
+        """
+        If MatchingColumns contains column names not present in the input DataFrame,
+        the connector should raise a ValueError before persisting or training.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
+        """
+        Creating a new lookup model with `name` and MatchingColumns that don't exist
+        in the provided DataFrame should raise before training/persisting.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            name: TempLookupModel
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_insert_existing_model(self):
+        """
+        INSERT into an existing model should validate MatchingColumns and raise
+        if they are not present.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: INSERT
+            variant: key
+            settings:
+              MatchingColumns:
+                - Not City
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle'],
+            'Country': ['USA'],
+            'Key': ['K1'],
+            'Value': ['V1']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
     #### The following test is to ensure that calling train.lookup directly works as expected when... ####
     #### passed a list of data to train a semantic lookup model. ####
     def test_lookup_directly_list_semantic(self):
