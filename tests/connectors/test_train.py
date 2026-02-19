@@ -729,6 +729,25 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.columns.to_list() == ['Not Key', 'Not Value']
 
+    def test_lookup_semantic_non_existent_matchingcolumns(self):
+        """
+        Test training a semantic lookup with non-existent MatchingColumns
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            settings:
+              MatchingColumns:
+                - This column does not exist
+        """
+        data = pd.DataFrame({
+            'Not Key': ['Rachel', 'Dolores', 'TARS'],
+            'Not Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.columns.to_list() == ['Not Key', 'Not Value']
+
     #### The following test is to ensure that calling train.lookup directly works as expected when... ####
     #### passed a list of data to train a semantic lookup model. ####
     def test_lookup_directly_list_semantic(self):
