@@ -114,7 +114,7 @@ class train():
         data: _Union[dict, list],
         name: str = None,
         model_id: str = None,
-        settings: dict = {}
+        settings: dict = None
     ):
         """
         Train a lookup model. This can be used as reference data to look values up from.
@@ -126,6 +126,10 @@ class train():
         :param model_id: If provided, will update this model.
         :param settings: Specific settings to apply to the lookup wrangle.
         """
+        # Ensure settings is a dictionary even if not provided
+        if settings is None:
+            settings = {}
+
         # Read in variant
         if name:
             variant = settings.get("variant", "key")
@@ -169,6 +173,17 @@ class train():
             raise ValueError(
                 "A new lookup must contain a value (key or semantic) for setting/variant."
             )
+        
+        # Raise error if MatchingColumns are passed that do not exist in the data
+        if "MatchingColumns" in settings:
+            match_columns = settings["MatchingColumns"]
+            if isinstance(data, list):
+                header = data[0]
+            else:
+                header = data["Columns"]
+            for column in match_columns:
+                if column not in header:
+                    raise ValueError(f"Lookup: Matching Column {column} does not exist in the data")
 
         if name:
             response = _requests.post(
