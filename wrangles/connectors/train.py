@@ -375,39 +375,54 @@ class lookup():
 
             updated = 0
 
-            if 'Key' in df.columns and 'Key' in existing_df.columns:
-                # Only update records that exist in the model
-                existing_keys = set(existing_df['Key'].tolist())
-                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+            # Determine the effective variant for this model (normalize semantic -> embedding)
+            normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
-                if df_filtered.empty:
-                    _logging.info("No matching keys found in existing model. No updates performed.")
-                    return
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
-                # Merge with existing data
-                merged_df = existing_df.copy()
-                for idx, row in df_filtered.iterrows():
-                    key = row['Key']
-                    mask = merged_df['Key'] == key
-                    for col in df_filtered.columns:
-                        if col != 'Key':
-                            merged_df.loc[mask, col] = row[col]
-                    updated += 1
+                    if df_filtered.empty:
+                        _logging.info("No matching keys found in existing model. No updates performed.")
+                        return
 
-                df = merged_df
+                    # Merge with existing data
+                    merged_df = existing_df.copy()
+                    for idx, row in df_filtered.iterrows():
+                        key = row['Key']
+                        mask = merged_df['Key'] == key
+                        for col in df_filtered.columns:
+                            if col != 'Key':
+                                merged_df.loc[mask, col] = row[col]
+                        updated += 1
+
+                    df = merged_df
+                else:
+                    raise ValueError("Both DataFrames must contain 'Key' column")
+                settings['variant'] = normalized_variant
+                total_rows = len(df)
+                _train.lookup(
+                    _to_tight(df),
+                    None,
+                    model_id,
+                    settings
+                )
+                _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
             else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
-
-            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
-
-            total_rows = len(df)
-            _train.lookup(
-                _to_tight(df),
-                None,
-                model_id,
-                settings
-            )
-            _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
+                # Semantic/embedding model: allow UPDATE without 'Key' and replace model content
+                settings['variant'] = normalized_variant
+                total_rows = len(df)
+                _train.lookup(
+                    _to_tight(df),
+                    None,
+                    model_id,
+                    settings
+                )
+                _logging.info(f"Lookup UPDATE: replaced model data. Total rows: {total_rows}.")
+                return
 
         elif act == 'INSERT':  
             if not model_id:  

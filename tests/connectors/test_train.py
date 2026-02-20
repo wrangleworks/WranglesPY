@@ -852,6 +852,43 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
 
+    def test_lookup_update_semantic_allows_no_key(self):
+        """
+        Updating a semantic lookup model should not require a 'Key' column.
+        This verifies the `UPDATE` action succeeds for semantic variants.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            action: UPDATE
+            variant: semantic
+        """
+        data = pd.DataFrame({
+            'Not Key': ['A', 'B'],
+            'Not Value': ['X', 'Y']
+        })
+        # Should not raise
+        wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_update_key_variant_requires_key(self):
+        """
+        Updating a key-based lookup model should require a 'Key' column in both DataFrames.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: UPDATE
+            variant: key
+        """
+        data = pd.DataFrame({
+            'NotKey': ['A', 'B'],
+            'Value': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
     Integration test for lookup model creation logging  
@@ -876,6 +913,7 @@ def test_lookup_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "New lookup model created" in record.message  
     )
+
 
 #
 # Standardize
