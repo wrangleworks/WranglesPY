@@ -4,46 +4,131 @@ from pytest_mock import mocker
 
 import wrangles
 import pandas as pd
-import pytest
-import logging
-import re
+    def test_lookup_update_semantic_allows_no_key(self):
+        """
+        Updating a semantic lookup model should not require a 'Key' column.
+        This verifies the `UPDATE` action succeeds for semantic variants.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            action: UPDATE
+            variant: semantic
+        """
+        data = pd.DataFrame({
+            'Not Key': ['A', 'B'],
+            'Not Value': ['X', 'Y']
+        })
+        # Should not raise
+        wrangles.recipe.run(recipe, dataframe=data)
 
-class LogCapture(logging.Handler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.records = []
-    def emit(self, record):
-        self.records.append(record)
-    def get_messages(self):
-        return [self.format(r) for r in self.records]
+    def test_lookup_update_key_variant_requires_key(self):
+        """
+        Updating a key-based lookup model should require a 'Key' column in both DataFrames.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: UPDATE
+            variant: key
+        """
+        data = pd.DataFrame({
+            'NotKey': ['A', 'B'],
+            'Value': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
-#
-# Classify
-#
-def test_classify_read():
-    """
-    Testing reading classify wrangle data (using Food data)
-    """
-    recipe = """
-    read:
-      - train.classify:
-          model_id: 94674750-f9e1-44af
-    """
-    df = wrangles.recipe.run(recipe)
-    assert df.iloc[0]['Category'] == 'Grains'
+    def test_recipe_lookup_matchingcolumns_semantic_overwrite(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: OVERWRITE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - Not City
+                        - Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not City" in str(e)
+            )
 
-def test_classify_write():
-    """
-    Writing data to a Wrangle (re-training)
-    """
-    recipe = """
-    write:
-      - train.classify:
-          columns:
-            - Example
-            - Category
-            - Notes
-          model_id: 94674750-f9e1-44af
+    def test_recipe_lookup_matchingcolumns_semantic_upsert(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPSERT
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - Not City
+                        - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not City, Not Country" in str(e)
+            )
+
+    def test_recipe_lookup_matchingcolumns_semantic_update(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPDATE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - City
+                        - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not Country" in str(e)
+            )
+        # Should succeed if all columns present
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPDATE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - City
+                        - Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        wrangles.recipe.run(recipe, dataframe=data)
     """
     data = pd.DataFrame({
         'Example': ['rice', 'milk', 'beef'],
@@ -918,6 +1003,7 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
 
+<<<<<<< HEAD
     def test_lookup_update_semantic_allows_no_key(self):
         """
         Updating a semantic lookup model should not require a 'Key' column.
@@ -954,6 +1040,98 @@ class TestTrainLookup:
         })
         with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
             wrangles.recipe.run(recipe, dataframe=data)
+=======
+    def test_recipe_lookup_matchingcolumns_semantic_overwrite(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: OVERWRITE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - Not City
+                        - Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not City" in str(e)
+            )
+
+    def test_recipe_lookup_matchingcolumns_semantic_upsert(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPSERT
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - Not City
+                        - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not City, Not Country" in str(e)
+            )
+    def test_recipe_lookup_matchingcolumns_semantic_update(self):
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPDATE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - City
+                        - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        try:
+            wrangles.recipe.run(recipe, dataframe=data)
+        except ValueError as e:
+            # Assert the error message is as expected
+            assert (
+                "ERROR IN WRITE: train.lookup - Lookup: The following MatchingColumns are not present in the provided data: Not Country" in str(e)
+            )
+        
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3e2f579d-448a-4348
+                action: UPDATE
+                variant: semantic
+                settings:
+                    MatchingColumns:
+                        - City
+                        - Country
+        """
+        data = pd.DataFrame({
+            'City': ['London', 'Manchester', 'Berlin', 'Tokyo', 'Washington'],
+            'Country': ['United Kingdom', 'United Kingdom', 'Germany', 'Japan', 'United States'],
+        })
+        
+        wrangles.recipe.run(recipe, dataframe=data)
+
+
+>>>>>>> 0471f89 (add more tests)
 
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
