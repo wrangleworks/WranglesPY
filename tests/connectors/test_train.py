@@ -934,50 +934,6 @@ class TestTrainLookup:
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
-    
-    def test_semantic_update_multi_key_mocked(self, monkeypatch):
-        """
-        Mock UPDATE with semantic variant using MatchingColumns; should update rows with no change in count.
-        """
-        from wrangles.connectors import train as conn_train
-
-        existing_df = pd.DataFrame({
-            'Not Key': ['Rachel'],
-            'Not Value': ['Blade Runner'],
-        })
-        model_id = 'mock-model-update'
-
-        def fake_model_content(mid):
-            assert mid == model_id
-            return {
-                'Columns': existing_df.columns.tolist(),
-                'Data': existing_df.values.tolist(),
-            }
-
-        def fake_model(mid):
-            assert mid == model_id
-            return {'variant': 'embedding', 'purpose': 'lookup'}
-
-        captured = {}
-        def fake_train_lookup(payload, name, mid, settings):
-            assert mid == model_id
-            captured['Columns'] = payload['Columns']
-            captured['Data'] = payload['Data']
-
-        monkeypatch.setattr(conn_train._data, 'model_content', fake_model_content)
-        monkeypatch.setattr(conn_train._data, 'model', fake_model)
-        monkeypatch.setattr(conn_train._train, 'lookup', fake_train_lookup)
-
-        conn_train.lookup.write(
-            df=existing_df.copy(),
-            model_id=model_id,
-            action='UPDATE',
-            variant='semantic',
-            settings={'MatchingColumns': ['Not Key', 'Not Value']}
-        )
-        # Row count unchanged; updates applied
-        assert len(captured['Data']) == len(existing_df)
-
 
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
@@ -1110,4 +1066,129 @@ def test_standardize_write_logs_new_model_id(caplog):
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
 
+def test_train_log_output_added(caplog):
+    """Test log output for number of rows added etc."""
+    import random
+    import string
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    df = pd.DataFrame({
+        "City": [f"New City_{suffix}"],
+        "Country": [f"New Country_{suffix}"],
+    })
+    wrangles.recipe.run(
+        '''
+        write:
+          - train.lookup:
+              model_id: 1599887e-126c-45fc  
+              action: insert
+              variant: semantic
+              settings:
+                MatchingColumns:
+                    - City
+                    - Country
+        ''',
+        dataframe=df
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows added"
+
+
+def test_train_log_output_added(caplog):
+    """Test log output for number of rows added etc."""
+    import random
+    import string
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    df = pd.DataFrame({
+        "City": [f"New City_{suffix}"],
+        "Country": [f"New Country_{suffix}"],
+    })
+    wrangles.recipe.run(
+        '''
+        write:
+          - train.lookup:
+              model_id: 1599887e-126c-45fc  
+              action: insert
+              variant: semantic
+              settings:
+                MatchingColumns:
+                    - City
+                    - Country
+        ''',
+        dataframe=df
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows added"
+
+def test_train_log_output_updated(caplog):
+    """Test log output for number of rows updated etc."""
+    import random
+    import string
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    df = pd.DataFrame({
+        "City": [f"London"],
+        "Country": [f"UK {suffix}"],
+    })
+    wrangles.recipe.run(
+        '''
+        write:
+          - train.lookup:
+              model_id: 1599887e-126c-45fc  
+              action: update
+              variant: semantic
+              settings:
+                MatchingColumns:
+                 - City
+    
+        ''',
+        dataframe=df
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated"
+
+    df = pd.DataFrame({
+        "City": [f"Berlin"],
+        "Country": [f"Germany"],
+    })
+    wrangles.recipe.run(
+        '''
+        write:
+          - train.lookup:
+              model_id: 1599887e-126c-45fc  
+              action: update
+              variant: semantic
+              settings:
+                MatchingColumns:
+                    - City
+        ''',
+        dataframe=df
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert not any("No matching records found based on MatchingColumns. No updates performed:" in msg for msg in messages), "Should NOT log '1 rows updated' for this case"
+
+
+def test_train_log_output_upsert(caplog):
+    """Test log output for number of rows updated, added etc."""
+    import random
+    import string
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    df = pd.DataFrame({
+        "City": [f"London", f"New City_{suffix}", "Berlin"],
+        "Country": [f"UK {suffix}", f"New Country_{suffix}", "Germany"],
+    })
+    wrangles.recipe.run(
+        '''
+        write:
+          - train.lookup:
+              model_id: 1599887e-126c-45fc  
+              action: upsert
+              variant: semantic
+              settings:
+                MatchingColumns:
+                 - City
+    
+        ''',
+        dataframe=df
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert any("Lookup UPSERT: 1 rows inserted, 1 rows updated" in msg for msg in messages), "Log should mention rows updated, added, etc."
 

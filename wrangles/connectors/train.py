@@ -371,10 +371,16 @@ class lookup():
                             for col in matching_cols:
                                 mask &= (merged_df[col] == row[col])
                             if mask.any():
+                                changed = False
                                 for col in df.columns:
                                     if col not in matching_cols and col in merged_df.columns:
-                                        merged_df.loc[mask, col] = row[col]
-                                updated += int(mask.sum())
+                                        before = merged_df.loc[mask, col]
+                                        after = row[col]
+                                        if not (before == after).all():
+                                            merged_df.loc[mask, col] = after
+                                            changed = True
+                                if changed:
+                                    updated += int(mask.sum())
                             else:
                                 # Insert if no match
                                 merged_df = _pd.concat(
@@ -424,10 +430,16 @@ class lookup():
                 for idx, row in df_filtered.iterrows():
                     key = row['Key']
                     mask = merged_df['Key'] == key
+                    changed = False
                     for col in df_filtered.columns:
                         if col != 'Key':
-                            merged_df.loc[mask, col] = row[col]
-                    updated += 1
+                            before = merged_df.loc[mask, col]
+                            after = row[col]
+                            if not (before == after).all():
+                                merged_df.loc[mask, col] = after
+                                changed = True
+                    if changed:
+                        updated += int(mask.sum())
 
                 df_out = merged_df
             else:
@@ -449,11 +461,17 @@ class lookup():
                     for col in matching_cols:
                         mask &= (merged_df[col] == row[col])
                     if mask.any():
+                        changed = False
                         for col in df.columns:
                             if col not in matching_cols and col in merged_df.columns:
-                                merged_df.loc[mask, col] = row[col]
-                        updated += int(mask.sum())
-                        any_updated = True
+                                before = merged_df.loc[mask, col]
+                                after = row[col]
+                                if not (before == after).all():
+                                    merged_df.loc[mask, col] = after
+                                    changed = True
+                        if changed:
+                            updated += int(mask.sum())
+                            any_updated = True
                 if not any_updated:
                     _logging.info("No matching records found based on MatchingColumns. No updates performed.")
                     return
