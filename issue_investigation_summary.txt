@@ -1,0 +1,131 @@
+================================================================
+ISSUE INVESTIGATION COMPLETE - SUMMARY
+================================================================
+
+Repository: wrangleworks/WranglesPY
+Date: February 21, 2026
+Investigator: GitHub Copilot CLI Agent
+
+================================================================
+SCOPE
+================================================================
+Investigated ALL 70 open issues in the repository
+Issue range: #913 (newest) down to #486 (oldest)
+Investigation depth: Full code search, test review, PR cross-reference
+
+================================================================
+KEY DELIVERABLE
+================================================================
+File: ISSUE_INVESTIGATION_REPORT.md
+Size: 2,349 lines
+Format: Markdown with detailed analysis for each issue
+
+================================================================
+MAIN FINDINGS
+================================================================
+
+CAN CLOSE: 1 issue (1.4%)
+--------------------------
+✅ #860 - Set up Copilot instructions (PR #885 merged)
+
+MUST REMAIN OPEN: 69 issues (98.6%)
+------------------------------------
+
+CRITICAL BUGS (5 issues):
+  #809 - Where clause empty results
+  #747 - Custom function kwargs broken
+  #850 - Accordion empty dataframe
+  #783 - extract.ai comma splitting
+  #749 - Embeddings timeout (EASY FIX)
+
+HIGH PRIORITY (6 issues):
+  #876, #898, #900 - Train.lookup validation
+  #801 - Optional syntax wildcards
+  #765 - If statement validation
+  #770 - Matrix error handling
+
+MISSING CONNECTORS (6 issues):
+  #830 - JSON
+  #810 - DuckDB
+  #793 - MS Access
+  #690 - Org/team files
+  #494 - Excel workbook write
+  #486 - Binary Excel (IN PROGRESS)
+
+MAJOR FEATURES (5 issues):
+  #705 - Recipe variables
+  #704 - Inline lookups
+  #638 - Spread operator
+  #536 - Multi-key lookups
+  #496 - Dictionary keys (REOPENED)
+
+BLOCKED (4 issues):
+  #719 - Standardize datatypes (microservice)
+  #888 - Standardize spellcheck (microservice)
+  #682 - Train tests (issue #869)
+  #901 - Pytest 8.x (breaking changes)
+
+v1.17 MILESTONE (15 issues):
+  Active work with assignees
+
+================================================================
+STATISTICS
+================================================================
+
+By Type:
+  - Enhancements: 40 (57%)
+  - Bugs: 18 (26%)
+  - Housekeeping: 7 (10%)
+  - Infrastructure: 5 (7%)
+
+By Status:
+  - Not Started: 45 (65%)
+  - In Progress: 10 (14%)
+  - Blocked: 5 (7%)
+  - Active Work: 9 (13%)
+  - Can Close: 1 (1%)
+
+================================================================
+RECOMMENDATIONS
+================================================================
+
+IMMEDIATE ACTIONS:
+1. Close issue #860 (reference PR #885)
+2. Fix #749 embeddings timeout (trivial - add timeout=30)
+3. Prioritize critical bugs (#809, #747, #850, #783)
+4. Address train.lookup validation trio (#876, #898, #900)
+
+SHORT TERM:
+5. Implement #496 (solution proposed in comments)
+6. Complete #486 binary Excel (assignee committed)
+7. Continue v1.17 milestone work (15 issues)
+
+MEDIUM TERM:
+8. New connectors (#830 JSON, #810 DuckDB, #690 org files)
+9. Major features (#705 variables, #704 lookups, #638 spread)
+10. Unblock issues waiting on microservice/dependencies
+
+================================================================
+INVESTIGATION METHODOLOGY
+================================================================
+
+For each of the 70 issues:
+1. Retrieved full issue details from GitHub API
+2. Searched codebase for related implementations
+3. Examined source files and test coverage
+4. Reviewed recent commits and PRs
+5. Cross-referenced related issues
+6. Analyzed comments and discussions
+7. Verified claimed implementations
+8. Documented findings with evidence
+
+Files examined: 50+
+Tests reviewed: 200+
+PRs analyzed: 10+
+Search patterns: 100+
+
+================================================================
+END OF SUMMARY
+================================================================
+
+Full detailed report: ISSUE_INVESTIGATION_REPORT.md
