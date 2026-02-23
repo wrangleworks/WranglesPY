@@ -256,6 +256,32 @@ class lookup():
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
 
+        def _get_columns_from_payload(payload):
+            # payload can be a DataFrame or the 'tight' dict produced by _to_tight
+            if isinstance(payload, dict) and 'Columns' in payload:
+                return payload['Columns']
+            try:
+                return list(payload.columns)
+            except Exception:
+                return []
+
+        def _validate_matching_columns(payload, settings_dict):
+            matching = settings_dict.get('MatchingColumns')
+            if not matching:
+                return
+            # Accept both string and list for MatchingColumns
+            if isinstance(matching, str):
+                matching = [matching]
+            elif not isinstance(matching, list):
+                raise TypeError("MatchingColumns must be a string or a list of strings")
+            cols = _get_columns_from_payload(payload)
+            missing = [c for c in matching if c not in cols]
+            if missing:
+                raise ValueError(
+                    "Lookup: The following MatchingColumns are not present in the provided data: "
+                    + ", ".join(missing)
+                )
+
         def _to_tight(dataframe: _pd.DataFrame) -> dict:
             return {
                 k.title(): v
@@ -287,6 +313,7 @@ class lookup():
 
         elif act == 'OVERWRITE' or name:
             row_count = len(df)
+            _validate_matching_columns(df, settings)
             _train.lookup(
                 _to_tight(df),
                 name,
@@ -406,6 +433,7 @@ class lookup():
                 _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
             else:
                 inserted = len(df)
+                _validate_matching_columns(new_data, settings)
                 _train.lookup(new_data, name, None, settings)
                 _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
@@ -484,6 +512,7 @@ class lookup():
             settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
             total_rows = len(df_out)
+            _validate_matching_columns(df_out, settings)
             _train.lookup(
                 _to_tight(df_out),
                 None,
@@ -544,6 +573,7 @@ class lookup():
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
+            _validate_matching_columns(merged_data, settings)
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
             _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
