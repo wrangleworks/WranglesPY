@@ -269,6 +269,11 @@ class lookup():
             matching = settings_dict.get('MatchingColumns')
             if not matching:
                 return
+            # Accept both string and list for MatchingColumns
+            if isinstance(matching, str):
+                matching = [matching]
+            elif not isinstance(matching, list):
+                raise TypeError("MatchingColumns must be a string or a list of strings")
             cols = _get_columns_from_payload(payload)
             missing = [c for c in matching if c not in cols]
             if missing:
@@ -427,7 +432,6 @@ class lookup():
                 else:
                     raise ValueError("Both DataFrames must contain 'Key' column")
                 settings['variant'] = normalized_variant
-                _validate_matching_columns(df, settings)
                 total_rows = len(df)
                 _train.lookup(
                     _to_tight(df),
