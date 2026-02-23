@@ -353,6 +353,8 @@ class lookup():
                     # For non-key variants (e.g., semantic), use MatchingColumns to avoid duplicates
                     matching_cols = settings.get('MatchingColumns', [])
                     if matching_cols:
+                        if isinstance(matching_cols, str):
+                            matching_cols = [matching_cols]
                         # Validate matching columns exist in both datasets
                         missing_in_existing = [c for c in matching_cols if c not in existing_df_all.columns]
                         missing_in_new = [c for c in matching_cols if c not in df.columns]
@@ -447,6 +449,8 @@ class lookup():
                 matching_cols = settings.get('MatchingColumns', [])
                 if not matching_cols:
                     raise ValueError("Lookup: UPDATE requires 'Key' or 'MatchingColumns' for non-key variants")
+                if isinstance(matching_cols, str):
+                    matching_cols = [matching_cols]
                 missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
                 missing_in_new = [c for c in matching_cols if c not in df.columns]
                 if missing_in_existing or missing_in_new:
@@ -514,6 +518,8 @@ class lookup():
                 # For non-key variants, use MatchingColumns to avoid duplicates
                 matching_cols = settings.get('MatchingColumns', [])
                 if matching_cols:
+                    if isinstance(matching_cols, str):
+                        matching_cols = [matching_cols]
                     missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
                     missing_in_new = [c for c in matching_cols if c not in df.columns]
                     if missing_in_existing or missing_in_new:
