@@ -889,6 +889,176 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
             wrangles.recipe.run(recipe, dataframe=data)
 
+    def test_lookup_matchingcolumns_missing_raises(self):
+        """
+        If MatchingColumns contains column names not present in the input DataFrame,
+        the connector should raise a ValueError before persisting or training.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
+        """
+        Creating a new lookup model with `name` and MatchingColumns that don't exist
+        in the provided DataFrame should raise before training/persisting.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            name: TempLookupModel
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_insert_existing_model(self):
+        """
+        INSERT into an existing model should validate MatchingColumns and raise
+        if they are not present.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: INSERT
+            variant: key
+            settings:
+              MatchingColumns:
+                - Not City
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle'],
+            'Country': ['USA'],
+            'Key': ['K1'],
+            'Value': ['V1']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_overwrite_matchingcolumns_missing(self):
+        """
+        OVERWRITE should raise ValueError if MatchingColumns are missing in the data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: OVERWRITE
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_upsert_new_matchingcolumns_missing(self):
+        """
+        UPSERT (new model) should raise ValueError if MatchingColumns are missing in the new data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    name: 083ed6fe-a073-4b1a
+                    action: UPSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+                    wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_upsert_existing_matchingcolumns_missing(self):
+        """
+        UPSERT (existing model, after merge) should raise ValueError if MatchingColumns are missing in the merged data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: UPSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        # Simulate existing model with only City/Country
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_insert_matchingcolumns_missing(self):
+        """
+        INSERT should raise ValueError if MatchingColumns are missing in the merged data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: INSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        # Simulate existing model with only City/Country
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
+    
+    def test_lookup_matchingcolumns_string_not_list(self):
+        """
+        MatchingColumns as a string (not a list) should be accepted and validated.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3c8f6707-2de4-4be3
+                settings:
+                    MatchingColumns: Not City
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+            wrangles.recipe.run(recipe, dataframe=data)
+            
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
     Integration test for lookup model creation logging  
@@ -1020,5 +1190,4 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
-
 
