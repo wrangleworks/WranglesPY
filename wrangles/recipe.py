@@ -315,10 +315,121 @@ def _load_recipe(
 
     recipe_object = _yaml.safe_load(recipe_string)
 
+    # Keep a copy of the raw recipe string for line lookups
+    global _CURRENT_RECIPE_STRING
+    _CURRENT_RECIPE_STRING = recipe_string
+
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object, functions
+
+
+def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
+    """Best-effort: find the 1-based line number of the Nth occurrence of
+    an item defined as "- item_name:" in the last loaded recipe string.
+    Returns None if not found.
+    """
+    if not _CURRENT_RECIPE_STRING:
+        return None
+    try:
+        pattern = _re.compile(r"^\s*-\s*" + _re.escape(item_name) + r"\s*:", _re.MULTILINE)
+        matches = list(pattern.finditer(_CURRENT_RECIPE_STRING))
+        if len(matches) < occurrence_index or occurrence_index < 1:
+            return None
+        m = matches[occurrence_index - 1]
+        # line numbers are 1-based
+        return _CURRENT_RECIPE_STRING[:m.start()].count('\n') + 1
+    except Exception:
+        return None
+
+
+def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
+    line = None
+    try:
+        # For wrangles, we may have an index
+        if section.upper() == 'WRANGLE' and index is not None:
+            line = _find_item_line(name, index)
+        else:
+            # Best-effort: find first occurrence
+            line = _find_item_line(name, 1)
+    except Exception:
+        line = None
+
+    # Build enhanced message but keep original exception class so tests expecting
+    # original exceptions continue to work.
+    orig_msg = f"{original_exception}"
+    header = f"ERROR IN {section.upper()}"
+    if index is not None:
+        header += f" #{index}"
+    if name:
+        header += f" {name}"
+
+    parts = [header]
+    if line is not None:
+        parts.append(f"at line {line}")
+    parts.append(orig_msg)
+
+    # Add a concise suggestion to help the user resolve the issue
+    suggestion = None
+    try:
+        if isinstance(original_exception, FileNotFoundError):
+            suggestion = (
+                "Check the file path and permissions; ensure the file exists "
+                "and the path is correct."
+            )
+        elif isinstance(original_exception, KeyError):
+            suggestion = (
+                "Check for missing keys in the recipe, variables, or function "
+                "parameters; verify spelling and casing."
+            )
+        elif isinstance(original_exception, ValueError):
+            suggestion = (
+                "Validate parameter formats and values in the recipe; ensure "
+                "types match expectations."
+            )
+        elif isinstance(original_exception, TypeError):
+            suggestion = (
+                "Verify function argument types and the number of parameters "
+                "in the recipe or custom functions."
+            )
+        elif isinstance(original_exception, NotImplementedError):
+            suggestion = (
+                "This feature is not implemented; remove or change the offending "
+                "parameter or use an alternative wrangle."
+            )
+        elif isinstance(original_exception, RuntimeError):
+            suggestion = (
+                "Check function return values and that connectors return the "
+                "expected types (e.g. DataFrame for reads)."
+            )
+        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
+            suggestion = (
+                "Check YAML syntax and encoding (use UTF-8); look for indentation "
+                "or quoting issues."
+            )
+        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
+            suggestion = (
+                "Verify the recipe URL, network connectivity, authentication, "
+                "and response status."
+            )
+        else:
+            suggestion = (
+                "Inspect the recipe at the indicated line; check parameters, "
+                "variable names, and custom functions for issues."
+            )
+    except Exception:
+        suggestion = (
+            "Inspect the recipe at the indicated line; check parameters, "
+            "variable names, and custom functions for issues."
+        )
+
+    parts.append(f"Suggestion: {suggestion}")
+
+    enhanced = " - ".join([p for p in parts if p])
+
+    # Re-raise same exception type with enhanced message
+    raise original_exception.__class__(enhanced).with_traceback(original_exception.__traceback__) from None
 
 
 def _run_actions(
@@ -373,8 +484,8 @@ def _run_actions(
                 # Execute the function
                 func(**args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN ACTION: {action_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('ACTION', action_type, None, e)
 
 def _read_data(
     recipe: _Union[dict, list],
@@ -480,8 +591,8 @@ def _read_data(
                     raise RuntimeError(f"Function {read_type} did not return a dataframe")
 
             except Exception as e:
-                # Append name of read to message and pass through exception
-                raise e.__class__(f"ERROR IN READ: {read_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('READ', read_type, None, e)
     if len(results) == 1:
         return results[0]
     else:
@@ -876,8 +987,8 @@ def _execute_wrangles(
                         _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
 
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRANGLE #{i} {wrangle} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information and include wrangle index
+                _wrap_and_raise('WRANGLE', wrangle, i, e)
 
     return df
 
@@ -1027,8 +1138,8 @@ def _write_data(
                     # Execute the function
                     func(df_temp, **args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRITE: {export_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('WRITE', export_type, None, e)
     return df_return
 
 
