@@ -292,7 +292,7 @@ def test_pass_error():
             test_var_pass_error = True
 
     with pytest.raises(Exception) as err:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -332,7 +332,7 @@ def test_pass_error_with_params():
             test_var_pass_error_params = True
 
     with pytest.raises(Exception) as err:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -368,7 +368,7 @@ def test_error_not_passed():
         test_var_error_not_passed = True
 
     with pytest.raises(Exception) as err:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -405,7 +405,7 @@ def test_error_not_passed_with_params():
             test_var_error_not_passed_params = True
 
     with pytest.raises(Exception) as err:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -591,7 +591,7 @@ def test_kwargs_dictionary_error():
         return kwargs + ' ' + string
 
     with pytest.raises(TypeError) as info:
-        raise wrangles.recipe.run(recipe, dataframe = df, functions = function)
+        wrangles.recipe.run(recipe, dataframe = df, functions = function)
     
     assert (
         info.typename == 'TypeError' and
@@ -1172,7 +1172,7 @@ def test_user_not_returned_dataframe_wrangle():
         pass
 
     with pytest.raises(RuntimeError) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -1199,7 +1199,7 @@ def test_user_not_returned_dataframe_read():
         pass
 
     with pytest.raises(RuntimeError) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - custom.wrangle_stuff: {}
@@ -1445,7 +1445,7 @@ class TestVariableFunctions:
             return 5
 
         with pytest.raises(ValueError, match="requires arguments"):
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:

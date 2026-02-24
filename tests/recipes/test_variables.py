@@ -169,7 +169,7 @@ def test_missing_error():
           name: ${missing}
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
+        wrangles.recipe.run(recipe)
     assert (
         info.typename == 'ValueError' 
         and info.value.args[0] == 'Variable ${missing} was not found.'
@@ -187,7 +187,7 @@ def test_missing_within_string_error():
           name: file-${missing}.xlsx
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
+        wrangles.recipe.run(recipe)
     assert (
         info.typename == 'ValueError' 
         and info.value.args[0] == 'Variable ${missing} was not found.'

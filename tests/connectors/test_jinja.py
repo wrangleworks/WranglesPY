@@ -73,7 +73,7 @@ def test_bad_filepath():
     Tests a bad template filepath
     """
     with pytest.raises(Exception) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             run:
               on_start:

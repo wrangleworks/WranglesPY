@@ -105,7 +105,7 @@ class TestCreateColumn:
             output: col
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             '"col" column already exists in dataFrame.' in info.value.args[0]
@@ -125,7 +125,7 @@ class TestCreateColumn:
                 - col
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "['col'] column(s)" in info.value.args[0]
@@ -664,7 +664,7 @@ class TestCreateJinja:
                 column: template column
         """
         with pytest.raises(Exception) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'Exception' and
             'Template must have only one key specified' in info.value.args[0]
@@ -675,7 +675,7 @@ class TestCreateJinja:
         Tests that the appropriate error message is shown when no template is given
         """
         with pytest.raises(ValueError, match="requires arguments") as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - create.jinja:
@@ -707,7 +707,7 @@ class TestCreateJinja:
                 wrong: test
         """
         with pytest.raises(Exception) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'Exception' and
             "'file', 'column' or 'string' not found" in info.value.args[0]
@@ -974,7 +974,7 @@ class TestCreateBins:
                 - '100 and above'
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -1010,7 +1010,7 @@ class TestCreateBins:
                 - '100 and above'
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -1214,7 +1214,7 @@ class TestCreateEmbeddings:
         if an invalid output type is given
         """
         with pytest.raises(ValueError, match="must be of value"):
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:

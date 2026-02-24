@@ -99,7 +99,7 @@ class TestClassify:
                 model_id: a62c7480-500e-480c
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -123,7 +123,7 @@ class TestClassify:
                 model_id: 1eddb7e8-1b2b-4a52
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.' in info.value.args[0]
@@ -149,7 +149,7 @@ class TestClassify:
                 model_id: noWord
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
@@ -175,7 +175,7 @@ class TestClassify:
                 model_id: {noWord}
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
@@ -366,7 +366,7 @@ class TestCleanWhitespace:
                   - out1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -624,7 +624,7 @@ class TestFilter:
                 - 133
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Can only use "between" with two values' in info.value.args[0]
@@ -1062,7 +1062,7 @@ class TestRemoveWords:
                 output: Product1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -1557,7 +1557,7 @@ class TestRename:
         ensure an appropriate error is show
         """
         with pytest.raises(RuntimeError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -1581,7 +1581,7 @@ class TestRename:
         by wrangling then ensure an appropriate error is returned.
         """
         with pytest.raises(RuntimeError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -2271,7 +2271,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
@@ -2295,7 +2295,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2358,7 +2358,7 @@ class TestSimilarity:
                 method: euclidean
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and
             'exceptions must derive from BaseException' in info.value.args[0]
@@ -2382,7 +2382,7 @@ class TestSimilarity:
                 method: euclidean
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2465,7 +2465,7 @@ class TestSimilarity:
                 method: adjusted cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
@@ -2489,7 +2489,7 @@ class TestSimilarity:
                 method: adjusted cosine
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2510,7 +2510,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and 
             'Input must consist of a list of two columns' in info.value.args[0]
@@ -2536,7 +2536,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and 
             'Input must consist of a list of two columns' in info.value.args[0]
@@ -2560,7 +2560,7 @@ class TestSimilarity:
                 method: tangent
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and 
             'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
@@ -2643,7 +2643,7 @@ class TestStandardize:
                 model_id: wrong_model
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect model_id. May be missing "${ }" around value' in info.value.args[0]
@@ -2664,7 +2664,7 @@ class TestStandardize:
                 model_id: 6c4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
@@ -2685,7 +2685,7 @@ class TestStandardize:
                 model_id: 1eddb7e8-1b2b-4a52
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.' in info.value.args[0]
@@ -2706,7 +2706,7 @@ class TestStandardize:
                 model_id: a62c7480-500e-480c
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
@@ -2749,7 +2749,7 @@ class TestStandardize:
                 model_id: 6ca4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -2909,7 +2909,7 @@ class TestStandardize:
                 model_id: 6ca4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
@@ -3312,7 +3312,7 @@ class TestTranslate:
                 target_language: English
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -3501,7 +3501,7 @@ class TestSQL:
                 WHERE header1 >= 2
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Only SELECT statements are supported for sql wrangles' in info.value.args[0]
@@ -3792,7 +3792,7 @@ class TestDateCalculator:
             time_value: 6
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
 
         assert (
             info.typename == 'ValueError' and
