@@ -1665,8 +1665,11 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
     elif method == 'euclidean':
         similarity_list = []
         for idx, (x, y) in enumerate(zip(df[input[0]].values, df[input[1]].values)):
-            if len(x) != len(y):
-                raise ValueError(f'Vectors must have the same length. Row {idx}: len({input[0]})={len(x)}, len({input[1]})={len(y)}')
+            # Check for invalid types (strings should fail with TypeError from subtraction)
+            if not isinstance(x, str) and not isinstance(y, str):
+                # Only validate length for valid vector types
+                if len(x) != len(y):
+                    raise ValueError(f'Vectors must have the same length. Row {idx}: len({input[0]})={len(x)}, len({input[1]})={len(y)}')
             similarity_list.append(
                 _math.sqrt(
                     sum(
