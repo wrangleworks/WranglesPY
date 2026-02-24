@@ -14,7 +14,7 @@ class temp_response():
 # get_access_token using invalid credentials error
 def test_get_access_token_error1(mocker):
     m = mocker.patch("wrangles.auth._refresh_access_token")
-    m.return_value = temp_response
+    m.return_value = temp_response()
     with pytest.raises(RuntimeError) as info:
         get_access_token()
     assert info.typename == 'RuntimeError' and info.value.args[0] == 'Invalid login details provided'
@@ -25,7 +25,7 @@ class temp_unexpected_error():
 
 def test_get_access_token_error2(mocker):
     m = mocker.patch("wrangles.auth._refresh_access_token")
-    m.return_value = temp_unexpected_error
+    m.return_value = temp_unexpected_error()
     m2 = mocker.patch("wrangles.auth.get_access_token")
     m2.return_value = 'None'
     with pytest.raises(RuntimeError) as info:
