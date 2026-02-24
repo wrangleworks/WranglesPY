@@ -13,6 +13,10 @@ class temp_response():
 
 # get_access_token using invalid credentials error
 def test_get_access_token_error1(mocker):
+    # Reset global state to ensure the function calls _refresh_access_token
+    wrangles.auth._access_token = None
+    wrangles.auth._access_token_expiry = wrangles.auth._datetime.now()
+    
     m = mocker.patch("wrangles.auth._refresh_access_token")
     m.return_value = temp_response()
     with pytest.raises(RuntimeError) as info:
@@ -24,10 +28,12 @@ class temp_unexpected_error():
     status_code = 500
 
 def test_get_access_token_error2(mocker):
+    # Reset global state to ensure the function calls _refresh_access_token
+    wrangles.auth._access_token = None
+    wrangles.auth._access_token_expiry = wrangles.auth._datetime.now()
+    
     m = mocker.patch("wrangles.auth._refresh_access_token")
     m.return_value = temp_unexpected_error()
-    m2 = mocker.patch("wrangles.auth.get_access_token")
-    m2.return_value = 'None'
     with pytest.raises(RuntimeError) as info:
         get_access_token()
     assert info.typename == 'RuntimeError' and info.value.args[0] == 'Unexpected error when authenticating'
@@ -55,6 +61,9 @@ def test_refresh_token_error():
     """
     Check error is raised when invalid refresh token is used.
     """
+    # Reset global state to ensure get_access_token needs to refresh
+    wrangles.auth._access_token = None
+    wrangles.auth._access_token_expiry = wrangles.auth._datetime.now()
     wrangles.auth.refresh_token = "should fail"
 
     with pytest.raises(RuntimeError, match="Error refreshing"):
