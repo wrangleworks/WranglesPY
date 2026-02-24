@@ -170,7 +170,7 @@ def test_standardize_train_2():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.standardize(**config)
+        train.standardize(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == 'Training_data list must contain'
     
 def test_standardize_train_3():
@@ -181,7 +181,7 @@ def test_standardize_train_3():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.standardize(**config)
+        train.standardize(**config)
     assert info.typename == 'ValueError' and info.value.args[0] == 'A list is expected for training_data'
 
 
@@ -206,7 +206,7 @@ def test_classify_train_1():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.classify(**config)
+        train.classify(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 class temp_extract():
@@ -225,7 +225,7 @@ def test_extract_train_1():
         'name': 'test_extract'
     }
     with pytest.raises(ValueError) as info:
-        raise train.extract(**config)
+        train.extract(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 # format
