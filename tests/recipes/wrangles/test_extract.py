@@ -215,7 +215,7 @@ class TestExtractAttributes:
                 first_element: True
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and
             'first_element must be used with a specified attribute_type' in info.value.args[0]
@@ -419,7 +419,7 @@ class TestExtractAttributes:
                 bound: Minimum
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Invalid boundary setting. min, mid or max permitted.' in info.value.args[0]
@@ -488,7 +488,7 @@ class TestExtractAttributes:
                 attribute_type: mass
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
@@ -574,7 +574,7 @@ class TestExtractCodes:
                 - code_c
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
@@ -640,7 +640,7 @@ class TestExtractCodes:
                 - out2
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
+            wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
         assert (
             info.typename == 'ValueError' and
             'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
@@ -925,7 +925,7 @@ class TestExtractCodes:
             'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
         })
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
             """
             wrangles:
               - extract.codes:
@@ -949,7 +949,7 @@ class TestExtractCodes:
             'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
         })
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
             """
             wrangles:
               - extract.codes:
@@ -972,7 +972,7 @@ class TestExtractCodes:
             'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
         })
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
             """
             wrangles:
               - extract.codes:
@@ -995,7 +995,7 @@ class TestExtractCodes:
             'col1': ['test ABC123,  mega code 56AAAJN244FTGJ3DASJDFNFJANVRIJGAOM and A133']
         })
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
             """
             wrangles:
               - extract.codes:
@@ -1074,7 +1074,7 @@ class TestExtractCustom:
             model_id: noWork
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
@@ -1117,7 +1117,7 @@ class TestExtractCustom:
             model_id: {model_id_here}
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
@@ -1135,7 +1135,7 @@ class TestExtractCustom:
             model_id: 6ca4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using standardize model_id 6ca4ab44-8c66-40e8 in an extract function.' in info.value.args[0]
@@ -1398,7 +1398,7 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             '{"Error":"Non-boolean parameter in caseSensitive. Use True/False"}' in info.value.args[0]
@@ -2037,7 +2037,7 @@ class TestExtractCustom:
         """
 
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=df)
+            wrangles.recipe.run(recipe, dataframe=df)
         
         assert (
             info.typename == 'ValueError' and
@@ -2401,7 +2401,7 @@ class TestExtractProperties:
             first_element: True
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=self.df)
+            wrangles.recipe.run(recipe, dataframe=self.df)
         assert (
             info.typename == 'TypeError' and
             'first_element must be used with a specified property_type' in info.value.args[0]
@@ -3004,7 +3004,7 @@ class TestExtractDateProperties:
             property: millennium
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             '"millennium" not a valid date property.' in info.value.args[0]
@@ -3133,7 +3133,7 @@ class TestExtractDateRange:
             range: millennium
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             '"millennium" not a valid frequency' in info.value.args[0]
@@ -3197,7 +3197,7 @@ class TestExtractDateRange:
                 "date2": ['']
             })
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Neither `start` nor `end` can be NaT' in info.value.args[0]
@@ -3685,7 +3685,7 @@ class TestExtractAI:
         if the schema is not valid
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                   - extract.ai:
@@ -3712,7 +3712,7 @@ class TestExtractAI:
         if the api key is invalid
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                   - extract.ai:

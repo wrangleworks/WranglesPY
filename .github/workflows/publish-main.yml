@@ -32,8 +32,9 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest==7.4.4 lorem pytest-mock
+          pip install pytest==9.0.2 lorem pytest-mock
           pip install -r requirements.txt
+          pip install .
           
       - name: Run Tests
         run: pytest
@@ -67,8 +68,9 @@ jobs:
           brew update
           brew install freetds
           python -m pip install --upgrade pip
-          pip install pytest==7.4.4 lorem pytest-mock
+          pip install pytest==9.0.2 lorem pytest-mock
           pip install -r requirements.txt
+          pip install .
         
       - name: Run Tests
         run: pytest
@@ -214,7 +216,7 @@ jobs:
       - name: Install Test Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest==7.4.4 lorem pytest-mock
+          pip install pytest==9.0.2 lorem pytest-mock
           
       - name: Run Tests
         run: pytest
