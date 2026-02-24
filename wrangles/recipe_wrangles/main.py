@@ -30,6 +30,7 @@ from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
+from difflib import SequenceMatcher as _SequenceMatcher
 
 
 def accordion(
@@ -1547,6 +1548,168 @@ def rename(
         rename_dict = dict(zip(filtered_input, filtered_output))
   
     return df.rename(columns=rename_dict)
+
+
+def map(
+    df: _pd.DataFrame,
+    targets: list,
+    input: _Union[str, int, list] = None,
+    threshold: float = 0.6,
+    drop_unmapped: bool = False,
+    case_sensitive: bool = False
+  ) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Automatically map input column names to a user-defined list of target column names
+      using semantic similarity. Assigns each input column to the best matching target
+      above a configurable threshold, ensuring unique target assignments.
+    additionalProperties: false
+    required:
+      - targets
+    properties:
+      targets:
+        type: array
+        description: List of desired target column names to map to. Each target will be assigned at most once.
+        minItems: 1
+      items:
+        type: string
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: >-
+          Name or list of input columns to consider for mapping. If omitted, all columns are considered.
+      threshold:
+        type: number
+        description: >-
+          Minimum similarity score (0-1) required to assign an input column to a target. Default 0.6.
+      drop_unmapped:
+        type: boolean
+        description: >-
+          Whether to drop input columns that do not meet the threshold for any target. Default False.
+      case_sensitive:
+        type: boolean
+        description: >-
+          When true, similarity is calculated without lowercasing; case differences reduce similarity. Default False.
+    """
+    if not isinstance(df, _pd.DataFrame):
+      raise ValueError('Input must be a pandas DataFrame')
+
+    # Validate targets
+    if not isinstance(targets, list) or not all(isinstance(t, str) for t in targets):
+      raise ValueError('targets must be a list of strings')
+    if len(targets) == 0:
+      raise ValueError('targets must contain at least one name')
+
+    # Resolve input columns
+    if input is None:
+      candidate_cols = list(df.columns)
+    else:
+      candidate_cols = input if isinstance(input, list) else [input]
+      # Validate that specified inputs exist (support optional "?" suffix)
+      resolved = []
+      for col in candidate_cols:
+        if isinstance(col, str) and col.endswith('?'):
+          base = col[:-1]
+          if base in df.columns:
+            resolved.append(base)
+        else:
+          if col not in df.columns:
+            raise ValueError(f'Map column "{col}" not found.')
+          resolved.append(col)
+      candidate_cols = resolved
+
+    # Validate threshold
+    try:
+      threshold = float(threshold)
+    except Exception:
+      raise ValueError('threshold must be a number between 0 and 1')
+    if threshold < 0 or threshold > 1:
+      raise ValueError('threshold must be a number between 0 and 1')
+
+    def _normalize(name: str) -> str:
+      s = name if case_sensitive else name.lower()
+      s = _re.sub(r'[_\-]+', ' ', s)
+      s = _re.sub(r'[^a-z0-9 ]+', ' ', s)
+      tokens = []
+      # Basic expansions for common abbreviations (case-insensitive)
+      expansions = {
+        'qty': 'quantity',
+        'qnty': 'quantity',
+        'desc': 'description',
+        'priceusd': 'price',
+        'cost': 'price'
+      }
+      for t in s.split():
+        if not t:
+          continue
+        repl = expansions.get(t.lower(), t)
+        tokens.append(repl)
+      return ' '.join(tokens)
+
+    def _similar(a: str, b: str) -> float:
+      # Combine SequenceMatcher ratio and token overlap (Jaccard)
+      na = _normalize(a)
+      nb = _normalize(b)
+      ratio = _SequenceMatcher(None, na, nb).ratio()
+      # Target coverage: proportion of target tokens present in input
+      a_tokens = set(na.split())
+      b_tokens = nb.split()
+      coverage = (sum(1 for t in b_tokens if t in a_tokens) / len(b_tokens)) if b_tokens else 0.0
+      return (ratio + coverage) / 2.0
+
+    # Compute greedy best matching: each target used at most once
+    remaining_targets = targets[:]
+    rename_dict: dict[str, str] = {}
+
+    # Pre-drop any existing columns that would be overwritten by a future rename
+    to_drop = []
+    for tgt in remaining_targets:
+      if tgt in df.columns and tgt not in candidate_cols:
+        to_drop.append(tgt)
+    if to_drop:
+      df = df.drop(columns=to_drop)
+
+    # Build all candidate pairs with scores
+    pairs = []
+    for col in candidate_cols:
+      for tgt in remaining_targets:
+        # Avoid identity pairs to prevent trivial self-mapping
+        if str(col) == str(tgt):
+          continue
+        pairs.append((col, tgt, _similar(col, tgt)))
+
+    # Sort by descending similarity
+    pairs.sort(key=lambda x: x[2], reverse=True)
+
+    used_cols = set()
+    used_targets = set()
+    for col, tgt, score in pairs:
+      if col in used_cols or tgt in used_targets:
+        continue
+      if score >= threshold:
+        rename_dict[col] = tgt
+        used_cols.add(col)
+        used_targets.add(tgt)
+
+    # Handle unmapped columns
+    if drop_unmapped:
+      drop_cols = [c for c in candidate_cols if c not in rename_dict]
+      if drop_cols:
+        df = df.drop(columns=drop_cols)
+
+    # Drop any existing columns that would be overwritten by the rename
+    if rename_dict:
+      outputs = set(rename_dict.values())
+      sources = set(rename_dict.keys())
+      drop_conflicts = [c for c in outputs if c in df.columns and c not in sources]
+      if drop_conflicts:
+        df = df.drop(columns=drop_conflicts)
+      return df.rename(columns=rename_dict)
+    # No mappings found
+    return df
 
 
 def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
