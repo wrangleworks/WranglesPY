@@ -30,7 +30,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest==9.0.2 lorem pytest-mock
           pip install -r requirements.txt
-          
+      - name: Install WranglesPY package
+        run: pip install .
       - name: Run Tests
         run: pytest
         env:
