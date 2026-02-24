@@ -60,7 +60,7 @@ WranglesPY/
 ### Standard Installation
 ```bash
 pip install --upgrade pip
-pip install pytest==7.4.4 lorem pytest-mock
+pip install pytest==9.0.2 lorem pytest-mock
 pip install -r requirements.txt
 ```
 
