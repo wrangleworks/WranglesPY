@@ -2361,7 +2361,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and
-            'exceptions must derive from BaseException' in info.value.args[0]
+            'Vectors must be of the same length for euclidean similarity' in str(info.value)
         )
 
     def test_similarity_euclidean_string(self):
