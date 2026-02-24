@@ -2357,10 +2357,10 @@ class TestSimilarity:
                 output: Cos Sim
                 method: euclidean
         """
-        with pytest.raises(TypeError) as info:
+        with pytest.raises(ValueError) as info:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
-            info.typename == 'TypeError' and
+            info.typename == 'ValueError' and
             'Vectors must have the same length' in info.value.args[0]
         )
 

@@ -1663,20 +1663,18 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
     elif method == 'euclidean':
-        # Validate that vectors have the same length
+        similarity_list = []
         for idx, (x, y) in enumerate(zip(df[input[0]].values, df[input[1]].values)):
             if len(x) != len(y):
-                raise TypeError(f'Vectors must have the same length. Row {idx}: len({input[0]})={len(x)}, len({input[1]})={len(y)}')
-        
-        similarity_list = [
-            _math.sqrt(
-                sum(
-                    pow(a -b, 2)
-                    for a, b in zip(x, y)
+                raise ValueError(f'Vectors must have the same length. Row {idx}: len({input[0]})={len(x)}, len({input[1]})={len(y)}')
+            similarity_list.append(
+                _math.sqrt(
+                    sum(
+                        pow(a - b, 2)
+                        for a, b in zip(x, y)
+                    )
                 )
             )
-            for x, y in zip(df[input[0]].values, df[input[1]].values)
-        ]
     else:
         # Ensure method is of a valid type
         raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
