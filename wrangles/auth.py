@@ -25,16 +25,20 @@ def _refresh_access_token_from_refresh_token():
 
     try:
         url = f"{_config.keycloak.host}/auth/realms/{_config.keycloak.realm}/protocol/openid-connect/token"
+        try:
+            client_id = _jwt.decode(refresh_token, options={"verify_signature": False})['azp']
+        except Exception:
+            raise RuntimeError('Error refreshing access token using refresh token')
         data={
             "grant_type": "refresh_token",
-            "client_id": _jwt.decode(refresh_token, options={"verify_signature": False})['azp'],
+            "client_id": client_id,
             "refresh_token": refresh_token,
         }
 
         response = _utils.request_retries(request_type='POST', url=url, **{'data': data})
 
         response.raise_for_status()
-    except:
+    except Exception:
         raise RuntimeError('Error refreshing access token using refresh token')
 
     return response
