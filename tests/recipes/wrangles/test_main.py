@@ -5503,7 +5503,131 @@ class TestLookup:
         assert result['Value'].tolist()[:300] == [1] * 300  # a values  
         assert result['Value'].tolist()[300:500] == [2] * 200  # b values  
         assert result['Value'].tolist()[500:] == [3] * 100  # c values  
+
     
+    def test_lookup_mode_by_matrix_performance_optimization(self):  
+        """  
+        Test that by_matrix mode reduces API calls by using matrix permutations  
+        """          
+        # Create test data with matrix structure  
+        df = pd.DataFrame({  
+            'product_code': ['a'] * 300 + ['b'] * 200 + ['c'] * 100,  
+            'region': ['north'] * 300 + ['south'] * 200 + ['north'] * 100,  
+            'category': ['electronics'] * 300 + ['clothing'] * 200 + ['electronics'] * 100  
+        })  
+        
+        # Track API calls  
+        api_calls_by_matrix = []  
+        
+        def track_api_calls_by_matrix(input_list, *args, **kwargs):  
+            api_calls_by_matrix.append(len(input_list))  
+            # Return mock data  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        # Test by_matrix mode  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_matrix):  
+            result = lookup(  
+                df.copy(),   
+                input='product_code',   
+                output='Value',   
+                model_id='fe730444-1bda-4fcd',  
+                lookup_mode='by_matrix',  
+                matrix_variables=['region', 'category']  
+            )  
+        
+        # Should make 4 API calls (one per matrix permutation)  
+        # Permutations: (north, electronics), (south, clothing), (north, electronics)  
+        assert len(api_calls_by_matrix) <= 4, f"Expected <= 4 API calls, got {len(api_calls_by_matrix)}"  
+        
+        # Verify results are correct  
+        assert result['Value'].tolist()[:300] == [1] * 300  # a values  
+        assert result['Value'].tolist()[300:500] == [2] * 200  # b values  
+        assert result['Value'].tolist()[500:] == [3] * 100  # c values
+
+    def test_lookup_by_dataframe_faster_than_by_row(self):  
+        """  
+        Test that lookup_mode: by_dataframe is faster than by_row
+        """  
+        import timeit   
+    
+        df = pd.DataFrame({  
+            'City': ['London', 'Austin', 'Berlin', 'London', 'Berlin'] * 100,  
+            'Country': ['UK', 'USA', 'Germany', 'United Kingdom', 'Germany'] * 100  
+        })  
+    
+
+        def by_row():  
+            return wrangles.recipe.run(  
+                dataframe=df.copy(),  
+                recipe="""  
+                wrangles:  
+                - merge.to_dict:  
+                    input: [City, Country]  
+                    output: Col1  
+                - convert.to_yaml:  
+                    input: Col1  
+                    output: Col1  
+                - lookup:  
+                    input: Col1  
+                    output: Value_DF  
+                    model_id: '1ac1dddb-fcb5-45f3'  
+                    lookup_mode: by_row  
+                """  
+            )  
+    
+            api_calls_by_row.clear()  
+            by_row()  
+            calls_by_row = len(api_calls_by_row)  
+        
+        def by_dataframe():  
+            return wrangles.recipe.run(  
+                dataframe=df.copy(),  
+                recipe=f"""  
+                wrangles:  
+                - merge.to_dict:  
+                    input: [City, Country]  
+                    output: Col1  
+                - convert.to_yaml:  
+                    input: Col1  
+                    output: Col1  
+                - lookup:  
+                    input: Col1  
+                    output: Value_DF  
+                    model_id: '1ac1dddb-fcb5-45f3' 
+                    lookup_mode: by_dataframe  
+                """  
+            )  
+        
+        by_row()  
+        by_dataframe()  
+    
+        # Timing  
+        n = 3  
+        t_row = timeit.timeit(by_row, number=n)  
+        t_df = timeit.timeit(by_dataframe, number=n)  
+    
+        avg_row = t_row / n  
+        avg_df = t_df / n  
+        speedup = avg_row / avg_df  
+    
+        print(f'by_row:       {t_row:.3f}s total ({avg_row:.3f}s per run)')  
+        print(f'by_dataframe: {t_df:.3f}s total ({avg_df:.3f}s per run)')  
+        print(f'Speedup: {speedup:.2f}x')  
+    
+        # Assertions  
+        assert avg_df < avg_row, f"Expected by_dataframe ({avg_df:.3f}s) faster than by_row ({avg_row:.3f}s)"  
+        assert speedup > 1.0, f"Expected speedup > 1.0x, got {speedup:.2f}x"  
+
     # def test_lookup(self):
     #     """
     #     Test lookup function

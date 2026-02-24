@@ -1010,21 +1010,19 @@ def lookup(
                         )  
                         
             elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-                # User specified no columns from the wrangle  
-                unique_data = _lookup(  
-                    unique_values.tolist(),  
-                    model_id,  
-                    **kwargs  
-                )  
-                
-                # Create mapping from values to results  
-                value_to_result = dict(zip(unique_values, unique_data))  
-                
-                # Map results back to all rows - extract correct values  
-                for out in output:  
-                    df[out] = df[input].map(  
-                        lambda x: value_to_result.get(x, {}).get(out, "") if x in value_to_result and isinstance(value_to_result[x], dict) else ""  
-                    )  
+              # User specified no columns from the wrangle  
+              unique_data = _lookup(  
+                unique_values.tolist(),  
+                model_id, 
+                **kwargs
+              )  
+
+              # Create mapping from values to results (preserve full dict as in by_row)
+              value_to_result = dict(zip(unique_values, unique_data))
+
+              # Map results back to all rows - output is the full dict as in by_row
+              for out in output:
+                df[out] = df[input].map(lambda x: value_to_result.get(x, {}))
             else:  
                 # User specified a mixture of unrecognized columns and columns from the wrangle  
                 raise ValueError('Lookup may only contain all named or unnamed columns.')
@@ -1091,10 +1089,8 @@ def lookup(
                         value_to_result = dict(zip(perm_values, perm_data))  
                         
                         # Apply results to matching rows - extract correct values  
-                        for out in output:  
-                            df.loc[mask, out] = df.loc[mask, input].map(  
-                                lambda x: value_to_result.get(x, {}).get(out, "") if x in value_to_result and isinstance(value_to_result[x], dict) else ""  
-                            )  
+                        for out in output:
+                            df.loc[mask, out] = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
                     else:  
                         # User specified a mixture of unrecognized columns and columns from the wrangle  
                         raise ValueError('Lookup may only contain all named or unnamed columns.')
