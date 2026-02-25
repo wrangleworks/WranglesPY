@@ -203,6 +203,20 @@ class train():
                 "A new lookup must contain a value (key or semantic) for setting/variant."
             )
 
+        # Additional check for semantic/embedding lookups: must have Key or embeddings_columns
+        if settings.get('variant') in ['embedding', 'semantic']:
+            columns = []
+            if isinstance(data, dict) and "Columns" in data:
+                columns = data["Columns"]
+            elif isinstance(data, list) and data and isinstance(data[0], list):
+                # For list-based data, treat the first row as the header row (column names)
+                columns = data[0]
+            # If embeddings_columns is not provided but Key exists, default embeddings_columns to ['Key']
+            if not settings.get("embeddings_columns") and "Key" in columns:
+                settings["embeddings_columns"] = ["Key"]
+            # If neither Key nor embeddings_columns, raise error
+            elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
+                raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings.")
         if name:
             _logging.info(f": Creating new lookup model :: {name}")
             response = _requests.post(
