@@ -886,7 +886,7 @@ class TestTrainLookup:
             'NotKey': ['A', 'B'],
             'Value': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
+        with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: NotKey"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises(self):
@@ -907,7 +907,7 @@ class TestTrainLookup:
             'City': ['Seattle', 'Portland'],
             'Country': ['USA', 'USA'],
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+        with pytest.raises(ValueError, match="he following MatchingColumns are not present in the provided data: Not City, Not Country"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
@@ -952,7 +952,7 @@ class TestTrainLookup:
             'Key': ['K1'],
             'Value': ['V1']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+        with pytest.raises(ValueError, match="The following columns are not present in the existing model: City, Country"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_overwrite_matchingcolumns_missing(self):
@@ -973,7 +973,7 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+        with pytest.raises(ValueError, match="The following MatchingColumns are not present in the provided data: NotKey, NotValue"):
                 wrangles.recipe.run(recipe, dataframe=data)
 
     def test_upsert_new_matchingcolumns_missing(self):
@@ -1058,6 +1058,33 @@ class TestTrainLookup:
         })
         with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
             wrangles.recipe.run(recipe, dataframe=data)
+    
+    def test_missing_columns_error_message(self):  
+        """  
+        Verify that INSERT/UPSERT/UPDATE raise the expected error  
+        when incoming columns are not present in the existing model.  
+        """  
+
+        df = pd.DataFrame({  
+            "Key": ["k3"],  
+            "Value": ["v3"],  
+            "ExtraCol": ["x"]  # This column does not exist in the model  
+        })  
+
+    
+        # Test each action that performs the column-alignment check  
+        for action in ("insert", "upsert", "update"):  
+            recipe = f"""
+                write:
+                    - train.lookup:
+                        model_id: bc3ee6a0-e104-4700
+                        action: {action}
+                        variant: key
+
+                """
+            with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
+                wrangles.recipe.run(recipe, dataframe=df)
+    
             
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
