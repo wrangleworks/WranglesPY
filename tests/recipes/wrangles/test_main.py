@@ -5454,56 +5454,6 @@ class TestLookup:
         # we'd still get correct results, but the optimization ensures only 2 API calls)  
         unique_values = df['Col1'].unique()  
         assert len(unique_values) == 2, "Test data should have exactly 2 unique values"
-
-    def test_lookup_mode_by_matrix_performance_optimization(self):  
-        """  
-        Test that by_matrix mode reduces API calls by using matrix permutations  
-        """          
-        # Create test data with matrix structure  
-        df = pd.DataFrame({  
-            'product_code': ['a'] * 300 + ['b'] * 200 + ['c'] * 100,  
-            'region': ['north'] * 300 + ['south'] * 200 + ['north'] * 100,  
-            'category': ['electronics'] * 300 + ['clothing'] * 200 + ['electronics'] * 100  
-        })  
-        
-        # Track API calls  
-        api_calls_by_matrix = []  
-        
-        def track_api_calls_by_matrix(input_list, *args, **kwargs):  
-            api_calls_by_matrix.append(len(input_list))  
-            # Return mock data  
-            result = []  
-            for item in input_list:  
-                if item == 'a':  
-                    result.append([1])  
-                elif item == 'b':  
-                    result.append([2])  
-                elif item == 'c':  
-                    result.append([3])  
-                else:  
-                    result.append([""])  
-            return result  
-        
-        # Test by_matrix mode  
-        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_matrix):  
-            result = lookup(  
-                df.copy(),   
-                input='product_code',   
-                output='Value',   
-                model_id='fe730444-1bda-4fcd',  
-                lookup_mode='by_matrix',  
-                matrix_variables=['region', 'category']  
-            )  
-        
-        # Should make 4 API calls (one per matrix permutation)  
-        # Permutations: (north, electronics), (south, clothing), (north, electronics)  
-        assert len(api_calls_by_matrix) <= 4, f"Expected <= 4 API calls, got {len(api_calls_by_matrix)}"  
-        
-        # Verify results are correct  
-        assert result['Value'].tolist()[:300] == [1] * 300  # a values  
-        assert result['Value'].tolist()[300:500] == [2] * 200  # b values  
-        assert result['Value'].tolist()[500:] == [3] * 100  # c values  
-
     
     def test_lookup_mode_by_matrix_performance_optimization(self):  
         """  
