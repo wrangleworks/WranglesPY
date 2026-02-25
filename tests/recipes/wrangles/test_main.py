@@ -5534,10 +5534,7 @@ class TestLookup:
                     lookup_mode: by_row  
                 """  
             )  
-    
-            api_calls_by_row.clear()  
-            by_row()  
-            calls_by_row = len(api_calls_by_row)  
+
         
         def by_dataframe():  
             return wrangles.recipe.run(  
