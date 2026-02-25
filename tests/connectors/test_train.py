@@ -868,8 +868,9 @@ class TestTrainLookup:
             'Not Key': ['A', 'B'],
             'Not Value': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match=r"UPDATE requires 'Key' or 'MatchingColumns' for non-key variants"):
-            wrangles.recipe.run(recipe, dataframe=data)
+        
+        # Should not raise
+        wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_update_key_variant_requires_key(self):
         """

@@ -428,6 +428,7 @@ class lookup():
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
+                _validate_matching_columns(merged_data, settings)
                 total_rows = len(merged_df)
                 _train.lookup(merged_data, None, model_id, settings)
                 _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
@@ -509,7 +510,12 @@ class lookup():
                     return
                 df_out = merged_df
 
-            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
             total_rows = len(df_out)
             _validate_matching_columns(df_out, settings)
