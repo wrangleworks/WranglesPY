@@ -868,8 +868,9 @@ class TestTrainLookup:
             'Not Key': ['A', 'B'],
             'Not Value': ['X', 'Y']
         })
-        # Should not raise
-        wrangles.recipe.run(recipe, dataframe=data)
+        
+        with pytest.raises(ValueError, match="UPDATE requires 'Key' or 'MatchingColumns' for non-key variants"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_update_key_variant_requires_key(self):
         """
@@ -886,7 +887,7 @@ class TestTrainLookup:
             'NotKey': ['A', 'B'],
             'Value': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="Both DataFrames must contain 'Key' column"):
+        with pytest.raises(ValueError, match=r"UPDATE requires 'Key' or 'MatchingColumns' for non-key variants"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises(self):
@@ -973,8 +974,8 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
-                wrangles.recipe.run(recipe, dataframe=data)
+        with pytest.raises(ValueError, match=r"MatchingColumns are not present in the provided data: NotKey, NotValue"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
     def test_upsert_new_matchingcolumns_missing(self):
         """
@@ -994,8 +995,8 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
-                    wrangles.recipe.run(recipe, dataframe=data)
+        with pytest.raises(ValueError, match=r"MatchingColumns are not present in the provided data: NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
 
     def test_upsert_existing_matchingcolumns_missing(self):
         """
@@ -1016,7 +1017,7 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+        with pytest.raises(ValueError, match=r".*MatchingColumns missing. In existing: \['NotKey', 'NotValue'\]. In new data: \['NotKey', 'NotValue'\]"):
                 wrangles.recipe.run(recipe, dataframe=data)
 
     def test_insert_matchingcolumns_missing(self):
@@ -1038,7 +1039,7 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*NotKey, NotValue"):
+        with pytest.raises(ValueError, match=r".*MatchingColumns missing. In existing: \['NotKey', 'NotValue'\]. In new data: \['NotKey', 'NotValue'\]"):
                 wrangles.recipe.run(recipe, dataframe=data)
     
     def test_lookup_matchingcolumns_string_not_list(self):
@@ -1058,6 +1059,268 @@ class TestTrainLookup:
         })
         with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
             wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_update_matchingcolumns_list(self, caplog):
+        """
+        Test UPDATE with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"London"],
+                "Country": [f"UK {suffix}"],
+                "Code": [f"LON- {suffix}"],
+                "Currency": ['USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: update
+                        variant: semantic
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated (variant specified)"
+
+
+    def test_lookup_update_matchingcolumns_list(self, caplog):
+        """
+        Test UPDATE with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"Paris"],
+                "Country": [f"France"],
+                "Code": [f"FRA- {suffix}"],
+                "Currency": ['EUR']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: update
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                            - City
+                            - Country
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated (variant specified)"
+
+
+    def test_lookup_insert_matchingcolumns_single(self, caplog):
+        """
+        Test INSERT with multiple MatchingColumns as a string
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "London"],
+                "Country": [f"UK {suffix}", "UK {suffix}"],
+                "Code": [f"LON- {suffix}", f"LON- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: insert
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+
+    def test_lookup_insert_matchingcolumns_list(self, caplog):
+        """
+        Test INSERT with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "Paris"],
+                "Country": [f"UK {suffix}", "France"],
+                "Code": [f"LON- {suffix}", f"FRA- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: insert
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                                - City
+                                - Country
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+
+    def test_lookup_upsert_matchingcolumns_single(self, caplog):
+        """
+        Test UPSERT with multiple MatchingColumns as a string
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "Portland"],
+                "Country": [f"UK {suffix}", f"USA {suffix}"],
+                "Code": [f"LON- {suffix}", f"PDX- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: upsert
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPSERT: 1 rows inserted, 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+        
+    
+    def test_lookup_upsert_matchingcolumns_list(self, caplog):
+        """
+        Test UPSERT with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "London", "Seattle"],
+                "Country": [f"UK {suffix}", f"UK {suffix}", "USA"],
+                "Code": [f"LON- {suffix}", f"LON- {suffix}", f"SEA- {suffix}"],
+                "Currency": ['USD', 'USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: upsert
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                                - City
+                                - Country
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPSERT: 2 rows inserted, 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+    def test_insert_key_only(self, caplog):
+        """
+        Test INSERT with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: INSERT
+                variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores'],
+            'City': ['Toronto', 'Canada'],
+        })
+        wrangles.recipe.run(recipe, dataframe=data)
+
+        recipe = """
+        read:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+        """
+        df = wrangles.recipe.run(recipe)
+        assert 'Rachel' in df['Key'].values
+        assert 'Dolores' in df['Key'].values
+        assert 'Toronto' in df['City'].values
+        assert 'Canada' in df['City'].values
+        
+
+    def test_update_key_only(self):
+        """
+        Test UPDATE with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: UPDATE
+        """
+        data = pd.DataFrame({
+            'Key': ['Alice'],
+            'City': ['London Updated'],
+        })
+        wrangles.recipe.run(recipe, dataframe=data)
+
+        recipe = """
+        read:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+        """
+        df = wrangles.recipe.run(recipe)
+
+        assert 'London Updated' in df['City'].values
+
+    def test_upsert_key_only(self):
+        """
+        Test UPSERT with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: UPSERT
+                variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Charlie', 'NewKey'],
+            'City': ['Blade Runner Upsert', 'New Value'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert 'Blade Runner Upsert' in df['City'].values
+        assert 'New Value' in df['City'].values
             
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
@@ -1190,4 +1453,3 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
-
