@@ -509,7 +509,7 @@ class lookup():
                     _logging.info("No matching records found based on MatchingColumns. No updates performed.")
                     return
                 df_out = merged_df
-
+            normalized_variant = settings.get('variant', variant)
             if normalized_variant == 'key':
                 # Key-based model: require 'Key' in both DataFrames and perform merge/update
                 if 'Key' in df.columns and 'Key' in existing_df.columns:
