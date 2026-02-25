@@ -407,6 +407,14 @@ class lookup():
             # Determine the effective variant for this model (normalize semantic -> embedding)
             normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
+            # Column alignment check
+            missing_in_existing = [c  for c in df.columns if c not in existing_df.columns]
+            if missing_in_existing:
+                raise ValueError(
+                    "Lookup: The following columns are not present in the existing model: "
+                    + ", ".join(missing_in_existing)
+                )
+
             if normalized_variant == 'key':
                 # Key-based model: require 'Key' in both DataFrames and perform merge/update
                 if 'Key' in df.columns and 'Key' in existing_df.columns:
@@ -467,6 +475,14 @@ class lookup():
                 columns=existing_content['Columns']  
             )  
             
+            # Column alignment check
+            missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
+            if missing_in_existing:
+                raise ValueError(
+                    "Lookup: The following columns are not present in the existing model: "
+                    + ", ".join(missing_in_existing)
+                )
+
             inserted = 0
             # Only add rows with new keys (skip existing keys)  
             if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
