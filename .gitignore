@@ -3,6 +3,8 @@
 .vscode
 tests/temp/*
 !tests/temp/README.md
+*.xlsx
+*.csv
 
 
 # Byte-compiled / optimized / DLL files
