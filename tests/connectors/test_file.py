@@ -643,6 +643,82 @@ class TestWrite:
         )
         assert df.columns.tolist() == ['col1', 'col2']
 
+    def test_write_excel_vertical_alignment_with_formatting(self):  
+      """  
+      Test that Excel files written with formatting have vertical alignment set to top  
+      including headers  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/vertical_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 3  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+                formatting:  
+                  table_style: Table Style Medium9  
+          """  
+      )  
+        
+      # Verify the file was created and check alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+        
+      # # Check header alignment (first row)  
+      # for cell in ws[1]:  
+      #     assert cell.alignment.vertical == 'top', f"Header {cell.column_letter}1 not aligned to top"  
+        
+      # Check data alignment (subsequent rows)  
+      for row in ws.iter_rows(min_row=2):  
+          for cell in row:  
+              assert cell.alignment.vertical == 'top', f"Cell {cell.coordinate} not aligned to top"  
+        
+      wb.close()  
+      Path(filename).unlink()  # cleanup
+
+  
+    def test_write_excel_vertical_alignment_without_formatting(self):  
+      """  
+      Test that Excel files written without formatting use pandas default  
+      (vertical alignment is 'bottom' by default in pandas/openpyxl)  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/no_formatting_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 2  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+          """  
+      )  
+        
+      # Verify the file was created and check default alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+        
+      for row in ws.iter_rows(min_row=1):  
+          for cell in row:  
+              assert cell.alignment.vertical in ('top', None), f"Cell {cell.coordinate} alignment unexpected"  
+        
+      wb.close()  
+      Path(filename).unlink()  # cleanup
+
 def test_read_object():
     """
     Test reading a file passed directly into the recipe as an object

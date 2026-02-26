@@ -20,8 +20,21 @@ def file_format(
     if "table_style" not in kwargs:
         kwargs["table_style"] = "Table Style Medium9"
 
+    # Set default header format with valign top
+    # Merge so caller-supplied header_format takes precedence
+    kwargs["header_format"] = {"valign": "top", **kwargs.get("header_format", {})}
+
+    # Start with any existing column_formats
+    col_formats = kwargs.pop("column_formats", {})
+
+    # Inject 'valign': 'top' into every column's format
+    # Existing per-column settings take precedence
+    for col in pl_df.columns:
+        col_formats[col] = {"valign": "top", **col_formats.get(col, {})}
+
     pl_df.write_excel(
         workbook=workbook,
         worksheet=worksheet,
+        column_formats=col_formats,
         **kwargs
     )
