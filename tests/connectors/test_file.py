@@ -671,11 +671,7 @@ class TestWrite:
       # Verify the file was created and check alignment  
       wb = openpyxl.load_workbook(filename)  
       ws = wb.active  
-        
-      # # Check header alignment (first row)  
-      # for cell in ws[1]:  
-      #     assert cell.alignment.vertical == 'top', f"Header {cell.column_letter}1 not aligned to top"  
-        
+      
       # Check data alignment (subsequent rows)  
       for row in ws.iter_rows(min_row=2):  
           for cell in row:  
