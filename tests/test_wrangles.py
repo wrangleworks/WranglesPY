@@ -690,6 +690,30 @@ def test_select_list_element_json_string():
     result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], 1)
     assert result == ['b', 'y']
 
+def test_select_list_element_slice():
+    """
+    Test select.list_element with slice
+    """
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], '1:3')
+    assert result == [['b', 'c'], ['y', 'z']]
+
+def test_select_list_element_slice_bracket():
+    """
+    Test select.list_element with slice bracket
+    """
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], '[1:3]')
+    assert result == [['b', 'c'], ['y', 'z']]
+
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], '[1::]')
+    assert result == [['b', 'c'], ['y', 'z']]
+
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], '[::2]')
+    assert result == [['a', 'c'], ['x', 'z']]
+
+    result = wrangles.select.list_element(['["a", "b", "c"]', '["x", "y", "z"]'], '[::]')
+    assert result == [['a', 'b', 'c'], ['x', 'y', 'z']]
+
+
 ### Select Dict Element Tests
 def test_select_dict_element_single_key():
     """
