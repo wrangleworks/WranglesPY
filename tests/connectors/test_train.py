@@ -1060,9 +1060,9 @@ class TestTrainLookup:
         with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
             wrangles.recipe.run(recipe, dataframe=data)
 
-    def test_lookup_update_matchingcolumns_list(self, caplog):
+    def test_lookup_update_matchingcolumns_string(self, caplog):
         """
-        Test UPDATE with multiple MatchingColumns as a list
+        Test UPDATE with simple MatchingColumns as a string
         """
         import random
         import string
@@ -1091,7 +1091,7 @@ class TestTrainLookup:
         assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated (variant specified)"
 
 
-    def test_lookup_update_matchingcolumns_list(self, caplog):
+    def test_lookup_update_multiple_matchingcolumns_list(self, caplog):
         """
         Test UPDATE with multiple MatchingColumns as a list
         """
