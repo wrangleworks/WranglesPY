@@ -23,9 +23,6 @@ class PropertyDefinition(BaseModel):
     examples: Optional[List[Any]] = None
     items: Optional["PropertyDefinition"] = None
 
-PropertyDefinition.model_rebuild()
-
-
 def _perform_web_search(query: str) -> str:
     if BeautifulSoup is None:
         return "Web search unavailable because beautifulsoup4 is not installed."
