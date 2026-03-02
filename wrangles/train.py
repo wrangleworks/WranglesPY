@@ -171,7 +171,7 @@ class train():
             )
 
         # Additional check for semantic/embedding lookups: must have Key or embeddings_columns
-        if settings.get('variant') in ['embedding', 'semantic']:
+        if settings.get('variant') in ['embedding', 'semantic'] or variant in ['embedding', 'semantic']:
             columns = []
             if isinstance(data, dict) and "Columns" in data:
                 columns = data["Columns"]

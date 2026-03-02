@@ -760,7 +760,8 @@ class TestTrainLookup:
                 write:
                 - train.lookup:
                     model_id: ee320e2b-ccda-47ed
-                    variant: embedding
+                    settings:
+                        variant: embedding
                 """,
                 dataframe=pd.DataFrame({
                     'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
