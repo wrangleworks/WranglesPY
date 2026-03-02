@@ -1366,26 +1366,75 @@ def rename(
         items:
           "$ref": "#/$defs/wrangles/items"
     """
-    # Allow using wrangles to manipulate the column names
+        # Allow using wrangles to manipulate the column names
     if wrangles:
-        input = df.columns.tolist()
-        try:
-            output = _wrangles.recipe.run(
-                {"wrangles": wrangles},
-                dataframe=_pd.DataFrame({
-                    "columns": input
-                }),
-                functions=kwargs.get("functions", {}),
-                variables=kwargs.get("variables", {})
-            )["columns"].tolist()
-        except:
-            raise RuntimeError("If using wrangles to rename, a column named 'columns' must be returned.")
-    
-        if len(input) != len(output):
-            raise RuntimeError(
-                "If using wrangles to rename columns, " +
-                "the results must be the same length as the input columns."
-            )
+        original_columns = list(df.columns)
+        # Work on a mutable list of column names
+        current = original_columns[:]
+
+        # Helper to resolve a wrangle's input list to actual column names
+        def resolve_input(candidate_list):
+            picked = []
+            for x in candidate_list:
+                if not isinstance(x, str):
+                    continue
+                if x == 'columns':
+                    picked = current[:]
+                    break
+                if x.endswith('?'):
+                    base = x[:-1]
+                    if base in current:
+                        picked.append(base)
+                else:
+                    if x in current:
+                        picked.append(x)
+                    else:
+                        raise ValueError(f'Rename column "{x}" not found.')
+            return picked
+
+        # Run each inner wrangle sequentially, applying only to its input columns
+        for item in wrangles:
+            if not isinstance(item, dict):
+                continue
+            for wrangle_name, params in item.items():
+                if not isinstance(params, dict):
+                    continue
+                # Determine which columns this wrangle should affect
+                if 'input' in params and isinstance(params['input'], list):
+                    target = resolve_input(params['input'])
+                else:
+                    target = current[:]
+
+                # Prepare a temporary DataFrame with only the target columns
+                temp_df = _pd.DataFrame({"columns": target})
+
+                # Rewrite this wrangle to operate on 'columns'
+                local_params = params.copy()
+                local_params['input'] = 'columns'
+
+                # Run the inner wrangle
+                try:
+                    result = _wrangles.recipe.run(
+                        {"wrangles": [{wrangle_name: local_params}]},
+                        dataframe=temp_df,
+                        functions=kwargs.get("functions", {}),
+                        variables=kwargs.get("variables", {})
+                    )["columns"].tolist()
+                except Exception as e:
+                    raise RuntimeError(f"Failed running {wrangle_name} in rename wrangles: {e}")
+
+                if len(target) != len(result):
+                    raise RuntimeError(
+                        f"If using wrangles to rename columns, the results must be the same length as the input columns for {wrangle_name}."
+                    )
+                # Update only the targeted positions in the current list
+                mapping = dict(zip(target, result))
+                for i, col in enumerate(current):
+                    if col in mapping:
+                        current[i] = mapping[col]
+        # Build final rename dict from original -> transformed
+        rename_dict = dict(zip(original_columns, current))
+        return df.rename(columns=rename_dict)
     else:
         # Drop functions if not needed
         if (
@@ -1394,16 +1443,72 @@ def rename(
         ):
             del kwargs["functions"]
 
+
     # If short form of paired names is provided, use that
     if input is None:
-        # Check that column name exists
-        rename_cols = list(kwargs.keys())
-        for x in rename_cols:
-            if x not in list(df.columns): raise ValueError(f'Rename column "{x}" not found.')
-        # Check if the new column names exist if so drop them
-        df = df.drop(columns=[x for x in list(kwargs.values()) if x in df.columns and x not in list(kwargs.keys())])
-        
-        rename_dict = kwargs
+      # Check that column name exists; support wildcard patterns (e.g. Col* -> Renamed_*)
+      rename_cols = list(kwargs.keys())
+      rename_dict = {}
+      outputs_to_check = []
+      cols = list(df.columns)
+
+      for x in rename_cols:
+        optional = False
+        name = x
+        if name.endswith("?"):
+          optional = True
+          name = name[:-1]
+
+        # Handle escaped wildcard literal (e.g. Col\*) => literal 'Col*'
+        if "\\*" in name:
+          literal = name.replace('\\*', '*')
+          if literal not in cols:
+            if optional:
+              continue
+            else:
+              raise ValueError(f'Rename column "{literal}" not found.')
+          rename_dict[literal] = kwargs[x]
+          outputs_to_check.append(kwargs[x])
+          continue
+
+        # Handle wildcard pattern
+        if '*' in name:
+          pattern = '^' + _re.escape(name).replace('\\*', '(.*)') + '$'
+          matched_cols = sum(1 for col in cols if _re.match(pattern, col))
+          out_template = kwargs[x]
+          if matched_cols > 1 and (not isinstance(out_template, str) or '*' not in out_template):
+            raise ValueError(f'Rename pattern "{x}" matched multiple columns but output "{out_template}" does not contain a wildcard. Please provide a wildcard in the output or use a list of outputs.')
+          matched = False
+          for col in cols:
+            m = _re.match(pattern, col)
+            if m:
+              matched = True
+              captured = m.group(1)
+              out_template = kwargs[x]
+              # Support escaped star in output
+              if '\\*' in out_template:
+                out_name = out_template.replace('\\*', '*')
+              elif '*' in out_template:
+                out_name = out_template.replace('*', captured)
+              else:
+                out_name = out_template
+              rename_dict[col] = out_name
+              outputs_to_check.append(out_name)
+          if not matched and not optional:
+            raise ValueError(f'Rename pattern "{x}" did not match any columns.')
+          continue
+
+        # Regular non-wildcard name
+        if name not in cols:
+          if optional:
+            continue
+          else:
+            raise ValueError(f'Rename column "{name}" not found.')
+        rename_dict[name] = kwargs[x]
+        outputs_to_check.append(kwargs[x])
+
+      # Remove any existing columns that would be overwritten by the rename
+      df = df.drop(columns=[o for o in outputs_to_check if o in df.columns and o not in list(rename_dict.keys())])
     else:
         if not output:
             raise ValueError('If an input is provided, an output must also be provided.')
@@ -1411,24 +1516,43 @@ def rename(
         # If a string provided, convert to list
         if not isinstance(input, list): input = [input]
         if not isinstance(output, list): output = [output]
+  
+        # Handle optional columns in input
+        filtered_input = []
+        filtered_output = []
 
         # Ensure input and output are equal lengths
         if len(input) != len(output):
             raise ValueError('The lists for input and output must be the same length.')
-        
+          
+        for inp, out in zip(input, output):
+            if inp.endswith("?"):
+                actual_col = inp[:-1]
+                if actual_col not in list(df.columns):
+                    # Skip this column if it doesn't exist
+                    continue  # This skips both input and output
+                else:
+                    filtered_input.append(actual_col)
+                    filtered_output.append(out)
+            elif inp not in list(df.columns):
+                raise ValueError(f'Rename column "{inp}" not found.')
+            else:
+                filtered_input.append(inp)
+                filtered_output.append(out)
+          
         # Check that the output columns don't already exist if so drop them
-        df = df.drop(columns=[x for x in output if x in df.columns and x not in input])
-        
+        df = df.drop(columns=[x for x in filtered_output if x in df.columns and x not in filtered_input])
+          
         # Otherwise create a dict from input and output columns
-        rename_dict = dict(zip(input, output))
-
+        rename_dict = dict(zip(filtered_input, filtered_output))
+  
     return df.rename(columns=rename_dict)
 
 
 def replace(df: _pd.DataFrame, input: _Union[str, int, list], find: str, replace: str, output: _Union[str, list] = None) -> _pd.DataFrame:
     """
     type: object
-    description: Quick find and replace for simple values. Can use regex in the find field.
+    description: Quick find and replace for simple values. Can use regex if 'input' in params and isinstance(params['input'], list):in the find field.
     additionalProperties: false
     required:
       - input

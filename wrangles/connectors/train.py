@@ -161,11 +161,12 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
+        # Older versions do not have a variant, default to pattern
+        if variant is None and name:
+            variant = 'pattern'
         # Lookup the variant if retraining a model
-        if variant == None:
-            variant = _model(model_id)['variant']
-            if variant == None: # Older versions do not have a variant, default to pattern
-                variant = 'pattern'
+        if variant is None and model_id:
+            variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
             versions = [
@@ -255,6 +256,32 @@ class lookup():
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
 
+        def _get_columns_from_payload(payload):
+            # payload can be a DataFrame or the 'tight' dict produced by _to_tight
+            if isinstance(payload, dict) and 'Columns' in payload:
+                return payload['Columns']
+            try:
+                return list(payload.columns)
+            except Exception:
+                return []
+
+        def _validate_matching_columns(payload, settings_dict):
+            matching = settings_dict.get('MatchingColumns')
+            if not matching:
+                return
+            # Accept both string and list for MatchingColumns
+            if isinstance(matching, str):
+                matching = [matching]
+            elif not isinstance(matching, list):
+                raise TypeError("MatchingColumns must be a string or a list of strings")
+            cols = _get_columns_from_payload(payload)
+            missing = [c for c in matching if c not in cols]
+            if missing:
+                raise ValueError(
+                    "Lookup: The following MatchingColumns are not present in the provided data: "
+                    + ", ".join(missing)
+                )
+
         def _to_tight(dataframe: _pd.DataFrame) -> dict:
             return {
                 k.title(): v
@@ -286,6 +313,7 @@ class lookup():
 
         elif act == 'OVERWRITE' or name:
             row_count = len(df)
+            _validate_matching_columns(df, settings)
             _train.lookup(
                 _to_tight(df),
                 name,
@@ -357,11 +385,13 @@ class lookup():
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
+                _validate_matching_columns(merged_data, settings)
                 total_rows = len(merged_df)
                 _train.lookup(merged_data, None, model_id, settings)
                 _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
             else:
                 inserted = len(df)
+                _validate_matching_columns(new_data, settings)
                 _train.lookup(new_data, name, None, settings)
                 _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
@@ -374,39 +404,55 @@ class lookup():
 
             updated = 0
 
-            if 'Key' in df.columns and 'Key' in existing_df.columns:
-                # Only update records that exist in the model
-                existing_keys = set(existing_df['Key'].tolist())
-                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+            # Determine the effective variant for this model (normalize semantic -> embedding)
+            normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
-                if df_filtered.empty:
-                    _logging.info("No matching keys found in existing model. No updates performed.")
-                    return
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
-                # Merge with existing data
-                merged_df = existing_df.copy()
-                for idx, row in df_filtered.iterrows():
-                    key = row['Key']
-                    mask = merged_df['Key'] == key
-                    for col in df_filtered.columns:
-                        if col != 'Key':
-                            merged_df.loc[mask, col] = row[col]
-                    updated += 1
+                    if df_filtered.empty:
+                        _logging.info("No matching keys found in existing model. No updates performed.")
+                        return
 
-                df = merged_df
+                    # Merge with existing data
+                    merged_df = existing_df.copy()
+                    for idx, row in df_filtered.iterrows():
+                        key = row['Key']
+                        mask = merged_df['Key'] == key
+                        for col in df_filtered.columns:
+                            if col != 'Key':
+                                merged_df.loc[mask, col] = row[col]
+                        updated += 1
+
+                    df = merged_df
+                else:
+                    raise ValueError("Both DataFrames must contain 'Key' column")
+                settings['variant'] = normalized_variant
+                total_rows = len(df)
+                _train.lookup(
+                    _to_tight(df),
+                    None,
+                    model_id,
+                    settings
+                )
+                _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
             else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
-
-            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
-
-            total_rows = len(df)
-            _train.lookup(
-                _to_tight(df),
-                None,
-                model_id,
-                settings
-            )
-            _logging.info(f"Lookup UPDATE: {updated} rows updated. Total rows: {total_rows}.")
+                # Semantic/embedding model: allow UPDATE without 'Key' and replace model content
+                settings['variant'] = normalized_variant
+                _validate_matching_columns(df, settings)
+                total_rows = len(df)
+                _train.lookup(
+                    _to_tight(df),
+                    None,
+                    model_id,
+                    settings
+                )
+                _logging.info(f"Lookup UPDATE: replaced model data. Total rows: {total_rows}.")
+                return
 
         elif act == 'INSERT':  
             if not model_id:  
@@ -439,6 +485,7 @@ class lookup():
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
+            _validate_matching_columns(merged_data, settings)
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
             _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
