@@ -908,7 +908,7 @@ class TestTrainLookup:
             'City': ['Seattle', 'Portland'],
             'Country': ['USA', 'USA'],
         })
-        with pytest.raises(ValueError, match="he following MatchingColumns are not present in the provided data: Not City, Not Country"):
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City, Not Country"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
