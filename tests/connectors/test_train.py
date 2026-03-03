@@ -953,7 +953,7 @@ class TestTrainLookup:
             'Key': ['K1'],
             'Value': ['V1']
         })
-        with pytest.raises(ValueError, match="The following columns are not present in the existing model: City, Country"):
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_overwrite_matchingcolumns_missing(self):
