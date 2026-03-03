@@ -451,7 +451,7 @@ class lookup():
             normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
 
             # Column alignment check
-            missing_in_existing = [c  for c in df.columns if c not in existing_df.columns]
+            missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
             if missing_in_existing:
                 raise ValueError(
                     "Lookup: The following columns are not present in the existing model: "
