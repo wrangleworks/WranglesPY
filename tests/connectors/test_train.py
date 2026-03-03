@@ -1069,7 +1069,7 @@ class TestTrainLookup:
         suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         df = pd.DataFrame({
                 "City": [f"London"],
-                "Country": [f"UK {suffix}"],
+                "Country": [f"UK"],
                 "Code": [f"LON- {suffix}"],
                 "Currency": ['USD']
         })
@@ -1178,7 +1178,6 @@ class TestTrainLookup:
                         settings:
                             MatchingColumns: 
                                 - City
-                                - Country
             ''',
             dataframe=df
         )
@@ -1186,10 +1185,9 @@ class TestTrainLookup:
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
         assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
 
-
     def test_lookup_upsert_matchingcolumns_single(self, caplog):
         """
-        Test UPSERT with multiple MatchingColumns as a string
+        Test UPSERT with single MatchingColumns as a string
         """
         import random
         import string
@@ -1215,8 +1213,7 @@ class TestTrainLookup:
 
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
         assert any("Lookup UPSERT: 1 rows inserted, 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
-        
-    
+
     def test_lookup_upsert_matchingcolumns_list(self, caplog):
         """
         Test UPSERT with multiple MatchingColumns as a list
@@ -1226,7 +1223,7 @@ class TestTrainLookup:
         suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
         df = pd.DataFrame({
                 "City": [f"City {suffix}", "London", "Seattle"],
-                "Country": [f"UK {suffix}", f"UK {suffix}", "USA"],
+                "Country": [f"UK {suffix}", "UK", "USA"],
                 "Code": [f"LON- {suffix}", f"LON- {suffix}", f"SEA- {suffix}"],
                 "Currency": ['USD', 'USD', 'USD']
         })
@@ -1247,7 +1244,7 @@ class TestTrainLookup:
         )
 
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
-        assert any("Lookup UPSERT: 2 rows inserted, 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+        assert any("Lookup UPSERT: 1 rows inserted, 2 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
 
     def test_insert_key_only(self, caplog):
         """
