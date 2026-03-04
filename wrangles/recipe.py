@@ -904,6 +904,10 @@ def _filter_dataframe(
     :param order_by: SQL order by criteria to sort based on
     :param preserve_index: Whether the maintain the index after filtering or reset to the default order
     """
+    # remove empty-named columns before filtering
+    if any(col == "" for col in df.columns):
+        df = df.loc[:, df.columns != ""]
+
     if where or order_by:
         sql = (
             f"""
