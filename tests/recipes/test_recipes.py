@@ -5,7 +5,7 @@ Specific tests for individual connectors or wrangles should be placed within
 a file for the respective wrangle/connector.
 """
 import wrangles
-from wrangles.connectors import memory
+from wrangles.connectors import memory, recipe
 import pandas as pd
 import pytest
 import time
@@ -828,7 +828,7 @@ class TestColumnWildcards:
             )
         assert (
             info.typename == 'KeyError' and
-            "format.trim - 'Column nothing does not exist'" in info.value.args[0]
+            "format.trim - at line 3 - 'Column nothing does not exist'" in info.value.args[0]
         )
 
 
@@ -959,7 +959,7 @@ def test_enhanced_error_message_read_phase():
     def failing_read():  
         raise RuntimeError("Read operation failed")  
       
-    with pytest.raises(RuntimeError, match=r"ERROR IN READ: custom.failing_read.*Read operation failed"):  
+    with pytest.raises(RuntimeError, match=r"ERROR IN READ custom.failing_read - at line 3 - Read operation failed"):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -973,7 +973,7 @@ def test_enhanced_error_message_write_phase():
     def failing_write(df):  
         raise RuntimeError("Write operation failed")  
       
-    with pytest.raises(RuntimeError, match=r"ERROR IN WRITE: custom.failing_write.*Write operation failed"):  
+    with pytest.raises(RuntimeError, match=r"ERROR IN WRITE custom.failing_write - at line 8 - Write operation failed"):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -1029,7 +1029,7 @@ def test_action_position_error():
     def fail_func():  
         raise RuntimeError("Action failed")  
       
-    with pytest.raises(RuntimeError, match="ERROR IN ACTION: custom.fail_func - Action failed"):  
+    with pytest.raises(RuntimeError, match="ERROR IN ACTION custom.fail_func - at line 4 - Action failed"):  
         wrangles.recipe.run(  
             """  
             run:  
@@ -1041,3 +1041,42 @@ def test_action_position_error():
             functions=fail_func  
         )  
   
+
+def test_wrangle_error_includes_index_and_name_and_line():
+    # Wrangle that does not exist should raise the original exception (ValueError)
+    r = """
+        wrangles:
+        - nonexistent_wrangle:
+            input: col1
+        """
+    with pytest.raises(KeyError) as exc:
+        recipe.run(r)
+
+    msg = str(exc.value)
+    assert 'ERROR IN WRANGLE' in msg
+    assert 'nonexistent_wrangle' in msg
+
+
+def test_read_error_shows_line():
+    r = """
+        read:
+        - nonexistent_read: {}
+        """
+    with pytest.raises(ValueError) as exc:
+        recipe.run(r)
+    msg = str(exc.value)
+    assert 'ERROR IN READ' in msg
+    assert 'nonexistent_read' in msg
+
+
+def test_write_error_shows_line():
+    r = """
+        write:
+        - nonexistent_write: {}
+        """
+    with pytest.raises(ValueError) as exc:
+        # run will execute write even with no read; run will process wrangles then write
+        recipe.run(r)
+    msg = str(exc.value)
+    assert 'ERROR IN WRITE' in msg
+    assert 'nonexistent_write' in msg
