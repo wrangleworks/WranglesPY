@@ -1303,6 +1303,224 @@ class TestRemoveWords:
             })
         )
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
+    
+    def test_remove_words_punctuation_overlap(self):
+        """
+        Test example from issue: Any, Words, Overlap? should match "Any Words Overlap"
+        """
+        data = pd.DataFrame({
+            'col': ['Any, Words, Overlap?'],
+            'rem': ['Any Words Overlap']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+    
+    def test_remove_words_characters_to_consider_all(self):
+        """
+        Test characters_to_consider: all - should require exact match with punctuation
+        """
+        data = pd.DataFrame({
+            'col': ['Any, Words, Overlap?'],
+            'rem': ['Any Words Overlap']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # With characters_to_consider: all, exact whitespace boundaries matter
+        # "Any" won't match "Any," (comma after), "Words" won't match "Words,"
+        # But "Overlap" will match " Overlap" (space before, end of string after)
+        assert df['Out'].iloc[0] == 'Any, Words,'
+    
+    def test_remove_words_leading_trailing_punctuation(self):
+        """
+        Test that leading/trailing punctuation is stripped before tokenization
+        """
+        data = pd.DataFrame({
+            'col': ['  !!!Hello### World*** test  '],
+            'rem': ['  ###Hello***   ***World!!!  ']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'test'
+    
+    def test_remove_words_tokenize_default_true(self):
+        """
+        Test that tokenize_to_remove defaults to True
+        """
+        data = pd.DataFrame({
+            'col': ['Metal Carbon Water Tank'],
+            'materials': ['Metal Carbon']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - materials
+            output: Out
+        """
+        # Should tokenize by default and remove both "Metal" and "Carbon"
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Water Tank'
+    
+    def test_remove_words_multiple_spaces_reduction(self):
+        """
+        Test that multiple spaces are reduced to single space
+        """
+        data = pd.DataFrame({
+            'col': ['Word1    Word2   Word3     Word4'],
+            'rem': ['Word2    Word3']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Word1 Word4'
+    
+    def test_remove_words_ignore_case_default(self):
+        """
+        Test that ignore_case defaults to True
+        """
+        data = pd.DataFrame({
+            'col': ['HELLO world TEST'],
+            'rem': ['hello test']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        # Should ignore case by default
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'world'
+    
+    def test_remove_words_punctuation_in_middle(self):
+        """
+        Test removal with punctuation in the middle of words - tokens separated by spaces
+        """
+        data = pd.DataFrame({
+            'col': ['Test Case One Two Three'],
+            'rem': ['Test!!! Case??? One Two']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Punctuation is ignored, so Test matches Test!!!, etc.
+        assert df['Out'].iloc[0] == 'Three'
+    
+    def test_remove_words_numbers_with_punctuation(self):
+        """
+        Test removal of numbers with punctuation like 3/8"
+        """
+        data = pd.DataFrame({
+            'col': ['Size 3/8" bolt with 1/2" washer'],
+            'rem': ['3/8"']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Size bolt with 1/2" washer'
+    
+    def test_remove_words_special_regex_chars(self):
+        """
+        Test that special regex characters are properly escaped
+        """
+        data = pd.DataFrame({
+            'col': ['Test (with) [brackets] {and} $special ^characters'],
+            'rem': ['(with) [brackets]']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Should handle special regex characters properly
+        assert df['Out'].iloc[0] == 'Test {and} $special ^characters'
+    
+    def test_remove_words_empty_after_removal(self):
+        """
+        Test that result is empty string when all words removed (from issue example)
+        """
+        data = pd.DataFrame({
+            'col': ['Any, Words, Overlap?'],
+            'rem': ['Any Words Overlap']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+    
+    def test_remove_words_preserve_non_matching_punctuation(self):
+        """
+        Test that non-matching tokens with punctuation are preserved
+        """
+        data = pd.DataFrame({
+            'col': ['Brand Model Series'],
+            'rem': ['Model']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        # Model should be removed
+        assert df['Out'].iloc[0] == 'Brand Series'
 
 
 class TestRename:
