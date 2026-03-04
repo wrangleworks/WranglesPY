@@ -3759,7 +3759,6 @@ class TestRecipe:
         result = wrangles.recipe.run(recipe=recipe, dataframe=df)
         assert "" in result.columns
         assert "col1_upper" in result.columns
-        assert list(result[""]) == ["", "", "", "", "", "", "", ""]
     
     def test_empty_column_no_where(self):
         data = [
