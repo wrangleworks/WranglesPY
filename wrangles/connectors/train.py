@@ -161,11 +161,12 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
+        # Older versions do not have a variant, default to pattern
+        if variant is None and name:
+            variant = 'pattern'
         # Lookup the variant if retraining a model
-        if variant == None:
-            variant = _model(model_id)['variant']
-            if variant == None: # Older versions do not have a variant, default to pattern
-                variant = 'pattern'
+        if variant is None and model_id:
+            variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
             versions = [
@@ -255,6 +256,32 @@ class lookup():
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
 
+        def _get_columns_from_payload(payload):
+            # payload can be a DataFrame or the 'tight' dict produced by _to_tight
+            if isinstance(payload, dict) and 'Columns' in payload:
+                return payload['Columns']
+            try:
+                return list(payload.columns)
+            except Exception:
+                return []
+
+        def _validate_matching_columns(payload, settings_dict):
+            matching = settings_dict.get('MatchingColumns')
+            if not matching:
+                return
+            # Accept both string and list for MatchingColumns
+            if isinstance(matching, str):
+                matching = [matching]
+            elif not isinstance(matching, list):
+                raise TypeError("MatchingColumns must be a string or a list of strings")
+            cols = _get_columns_from_payload(payload)
+            missing = [c for c in matching if c not in cols]
+            if missing:
+                raise ValueError(
+                    "Lookup: The following MatchingColumns are not present in the provided data: "
+                    + ", ".join(missing)
+                )
+
         def _to_tight(dataframe: _pd.DataFrame) -> dict:
             return {
                 k.title(): v
@@ -286,6 +313,7 @@ class lookup():
 
         elif act == 'OVERWRITE' or name:
             row_count = len(df)
+            _validate_matching_columns(df, settings)
             _train.lookup(
                 _to_tight(df),
                 name,
@@ -349,19 +377,64 @@ class lookup():
                             )
                             inserted += 1
                 else:
-                    # For non-key variants, just append all data
-                    merged_df = _pd.concat([existing_df, df], ignore_index=True)
-                    inserted = len(df)
+                    # For non-key variants (e.g., semantic), use MatchingColumns to avoid duplicates
+                    matching_cols = settings.get('MatchingColumns', [])
+                    if matching_cols:
+                        if isinstance(matching_cols, str):
+                            matching_cols = [matching_cols]
+                        # Validate matching columns exist in both datasets
+                        missing_in_existing = [c for c in matching_cols if c not in existing_df_all.columns]
+                        missing_in_new = [c for c in matching_cols if c not in df.columns]
+                        if missing_in_existing or missing_in_new:
+                            raise ValueError(
+                                f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                            )
+
+                        # Start with current data
+                        merged_df = existing_df_all.copy()
+
+                        # Update matching rows
+                        updated = 0
+                        for _, row in df.iterrows():
+                            mask = _pd.Series([True] * len(merged_df))
+                            for col in matching_cols:
+                                mask &= (merged_df[col] == row[col])
+                            if mask.any():
+                                changed = False
+                                for col in df.columns:
+                                    if col not in matching_cols and col in merged_df.columns:
+                                        before = merged_df.loc[mask, col]
+                                        after = row[col]
+                                        if not (before == after).all():
+                                            merged_df.loc[mask, col] = after
+                                            changed = True
+                                if changed:
+                                    updated += int(mask.sum())
+                            else:
+                                # Insert if no match
+                                merged_df = _pd.concat(
+                                    [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                    ignore_index=True
+                                )
+                                inserted += 1
+                        # Align to requested columns order if provided
+                        merged_df = merged_df[existing_df_all.columns]
+                    else:
+                        # Without MatchingColumns, append all
+                        merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                        inserted = len(df)
 
                 merged_data = {
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
+                _validate_matching_columns(merged_data, settings)
                 total_rows = len(merged_df)
                 _train.lookup(merged_data, None, model_id, settings)
                 _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
             else:
                 inserted = len(df)
+                _validate_matching_columns(new_data, settings)
                 _train.lookup(new_data, name, None, settings)
                 _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
@@ -388,20 +461,66 @@ class lookup():
                 for idx, row in df_filtered.iterrows():
                     key = row['Key']
                     mask = merged_df['Key'] == key
+                    changed = False
                     for col in df_filtered.columns:
                         if col != 'Key':
-                            merged_df.loc[mask, col] = row[col]
-                    updated += 1
+                            before = merged_df.loc[mask, col]
+                            after = row[col]
+                            if not (before == after).all():
+                                merged_df.loc[mask, col] = after
+                                changed = True
+                    if changed:
+                        updated += int(mask.sum())
 
-                df = merged_df
+                df_out = merged_df
             else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
+                # Non-key variant: use MatchingColumns for updates
+                matching_cols = settings.get('MatchingColumns', [])
+                if not matching_cols:
+                    raise ValueError("Lookup: UPDATE requires 'Key' or 'MatchingColumns' for non-key variants")
+                if isinstance(matching_cols, str):
+                    matching_cols = [matching_cols]
+                missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                missing_in_new = [c for c in matching_cols if c not in df.columns]
+                if missing_in_existing or missing_in_new:
+                    raise ValueError(
+                        f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                    )
 
-            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
+                merged_df = existing_df.copy()
+                any_updated = False
+                for _, row in df.iterrows():
+                    mask = _pd.Series([True] * len(merged_df))
+                    for col in matching_cols:
+                        mask &= (merged_df[col] == row[col])
+                    if mask.any():
+                        changed = False
+                        for col in df.columns:
+                            if col not in matching_cols and col in merged_df.columns:
+                                before = merged_df.loc[mask, col]
+                                after = row[col]
+                                if not (before == after).all():
+                                    merged_df.loc[mask, col] = after
+                                    changed = True
+                        if changed:
+                            updated += int(mask.sum())
+                            any_updated = True
+                if not any_updated:
+                    _logging.info("No matching records found based on MatchingColumns. No updates performed.")
+                    return
+                df_out = merged_df
+            normalized_variant = settings.get('variant', variant)
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
-            total_rows = len(df)
+            total_rows = len(df_out)
+            _validate_matching_columns(df_out, settings)
             _train.lookup(
-                _to_tight(df),
+                _to_tight(df_out),
                 None,
                 model_id,
                 settings
@@ -431,14 +550,36 @@ class lookup():
                 inserted = len(new_rows)
                 merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
             else:  
-                # For non-key variants, just append all data  
-                inserted = len(df)
-                merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+                # For non-key variants, use MatchingColumns to avoid duplicates
+                matching_cols = settings.get('MatchingColumns', [])
+                if matching_cols:
+                    if isinstance(matching_cols, str):
+                        matching_cols = [matching_cols]
+                    missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                    missing_in_new = [c for c in matching_cols if c not in df.columns]
+                    if missing_in_existing or missing_in_new:
+                        raise ValueError(
+                            f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                        )
+
+                    # Identify new rows where composite key not present
+                    merged_df = existing_df.copy()
+                    # Build a MultiIndex for faster membership checks
+                    existing_idx = _pd.MultiIndex.from_frame(existing_df[matching_cols])
+                    new_idx = _pd.MultiIndex.from_frame(df[matching_cols])
+                    is_new = ~new_idx.isin(existing_idx)
+                    new_rows = df[is_new].copy()
+                    inserted = len(new_rows)
+                    merged_df = _pd.concat([merged_df, new_rows], ignore_index=True)
+                else:
+                    inserted = len(df)
+                    merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
             merged_data = {  
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
+            _validate_matching_columns(merged_data, settings)
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
             _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
