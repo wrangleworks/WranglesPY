@@ -3757,7 +3757,7 @@ class TestRecipe:
         """
     
         result = wrangles.recipe.run(recipe=recipe, dataframe=df)
-        assert "" in result.columns
+        assert "" not in result.columns
         assert "col1_upper" in result.columns
     
     def test_empty_column_no_where(self):
@@ -3783,7 +3783,7 @@ class TestRecipe:
         """
     
         result = wrangles.recipe.run(recipe=recipe, dataframe=df)
-        assert "" in result.columns
+        assert "" not in result.columns
         assert "col1_upper" in result.columns
     
     def test_empty_column_multiple_wrangles(self):
@@ -3814,11 +3814,11 @@ class TestRecipe:
         """
     
         result = wrangles.recipe.run(recipe=recipe, dataframe=df)
-        assert "" in result.columns
+        assert "" not in result.columns
         assert "col1_upper" in result.columns
         assert "col2_upper" in result.columns
-        # Order: col1, '', col2, col1_upper, col2_upper
-        expected_order = ["col1", "", "col2", "col1_upper", "col2_upper"]
+        # Order: col1, col2, col1_upper, col2_upper
+        expected_order = ["col1", "col2", "col1_upper", "col2_upper"]
         assert list(result.columns) == expected_order
 
 

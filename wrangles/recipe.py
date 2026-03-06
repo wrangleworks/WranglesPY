@@ -502,6 +502,10 @@ def _execute_wrangles(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
+    # remove empty-named columns before executing wrangles - these can cause issues with some wrangles and are unlikely to be intentional
+    if any(col == "" for col in df.columns):
+        df = df.loc[:, df.columns != ""]
+
     if variables is None:
         variables = {}
 
@@ -904,9 +908,6 @@ def _filter_dataframe(
     :param order_by: SQL order by criteria to sort based on
     :param preserve_index: Whether the maintain the index after filtering or reset to the default order
     """
-    # remove empty-named columns before filtering
-    if any(col == "" for col in df.columns):
-        df = df.loc[:, df.columns != ""]
 
     if where or order_by:
         sql = (
