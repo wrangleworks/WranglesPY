@@ -3732,6 +3732,95 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
+    
+    def test_recipe_empty_column_preserved(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+        wrangles:
+            - convert.case:
+                input: col1
+                output: col1_upper
+                case: upper
+                where: col2 = '1'
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+    
+    def test_empty_column_no_where(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+        wrangles:
+            - convert.case:
+                input: col1
+                output: col1_upper
+                case: upper
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+    
+    def test_empty_column_multiple_wrangles(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+            wrangles:
+                - convert.case:
+                    input: col1
+                    output: col1_upper
+                    case: upper
+                    where: col2 = '1'
+                - convert.case:
+                    input: col2
+                    output: col2_upper
+                    case: upper
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+        assert "col2_upper" in result.columns
+        # Order: col1, col2, col1_upper, col2_upper
+        expected_order = ["col1", "col2", "col1_upper", "col2_upper"]
+        assert list(result.columns) == expected_order
+
 
 class TestDateCalculator:
     """
