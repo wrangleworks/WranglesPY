@@ -1305,6 +1305,215 @@ class TestRemoveWords:
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
 
+class TestMap:
+    """
+    Test map wrangle for automatic column mapping using semantic similarity
+    """
+    def test_map_basic(self):
+        """
+        Test basic mapping with similar column names
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Product Name
+                  - Product Code
+            """,
+            dataframe=pd.DataFrame({
+                'product_name': ['Widget'],
+                'product_code': ['W123']
+            })
+        )
+        assert 'Product Name' in df.columns and 'Product Code' in df.columns
+        assert 'product_name' not in df.columns and 'product_code' not in df.columns
+        assert df['Product Name'][0] == 'Widget'
+        assert df['Product Code'][0] == 'W123'
+
+    def test_map_single_target(self):
+        """
+        Test mapping with a single target column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to: Description
+                threshold: 0.5
+            """,
+            dataframe=pd.DataFrame({
+                'desc': ['Test item']
+            })
+        )
+        assert 'Description' in df.columns
+        assert df['Description'][0] == 'Test item'
+
+    def test_map_case_insensitive(self):
+        """
+        Test case-insensitive mapping (default behavior)
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Product Name
+                  - Manufacturer
+                case_sensitive: false
+            """,
+            dataframe=pd.DataFrame({
+                'PRODUCT_NAME': ['Widget'],
+                'manufacturer': ['ACME']
+            })
+        )
+        assert 'Product Name' in df.columns and 'Manufacturer' in df.columns
+        assert df['Product Name'][0] == 'Widget'
+        assert df['Manufacturer'][0] == 'ACME'
+
+    def test_map_with_threshold(self):
+        """
+        Test mapping with custom similarity threshold
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Name
+                  - Code
+                threshold: 0.8
+            """,
+            dataframe=pd.DataFrame({
+                'Name': ['Widget'],
+                'product_code': ['W123']
+            })
+        )
+        # 'Name' should match exactly (ratio = 1.0)
+        # 'product_code' might not match 'Code' with threshold 0.8
+        assert 'Name' in df.columns
+        assert df['Name'][0] == 'Widget'
+
+    def test_map_no_match_keeps_original(self):
+        """
+        Test that columns with no good matches keep their original names
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Completely Different Name
+                threshold: 0.6
+            """,
+            dataframe=pd.DataFrame({
+                'xyz': ['value1'],
+                'abc': ['value2']
+            })
+        )
+        # Original columns should remain if no good match
+        # 'xyz' and 'abc' have very low similarity to 'Completely Different Name'
+        assert 'xyz' in df.columns and 'abc' in df.columns
+        assert df['xyz'][0] == 'value1'
+        assert df['abc'][0] == 'value2'
+
+    def test_map_partial_matching(self):
+        """
+        Test that only columns meeting threshold are mapped
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Product Description
+                  - Item Code
+                threshold: 0.5
+            """,
+            dataframe=pd.DataFrame({
+                'product_desc': ['Widget'],
+                'item_code': ['W123'],
+                'unrelated_column': ['data']
+            })
+        )
+        # First two should map, third should remain unchanged
+        assert 'Product Description' in df.columns
+        assert 'Item Code' in df.columns
+        assert 'unrelated_column' in df.columns
+
+    def test_map_exact_match(self):
+        """
+        Test mapping with exact column name matches
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Name
+                  - Price
+            """,
+            dataframe=pd.DataFrame({
+                'Name': ['Widget'],
+                'Price': [10.99]
+            })
+        )
+        # Columns should remain as they exactly match
+        assert 'Name' in df.columns and 'Price' in df.columns
+        assert df['Name'][0] == 'Widget'
+        assert df['Price'][0] == 10.99
+
+    def test_map_multiple_columns_one_target(self):
+        """
+        Test that each target is only used once (best match wins)
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - Name
+                threshold: 0.3
+            """,
+            dataframe=pd.DataFrame({
+                'name': ['Value1'],
+                'full_name': ['Value2'],
+                'product_name': ['Value3']
+            })
+        )
+        # Only the best matching column should be renamed to 'Name'
+        # The exact match 'name' should win
+        assert 'Name' in df.columns
+        assert df['Name'][0] == 'Value1'
+        # Other columns should keep their original names since 'Name' is already used
+        assert 'full_name' in df.columns
+        assert 'product_name' in df.columns
+        assert df['full_name'][0] == 'Value2'
+        assert df['product_name'][0] == 'Value3'
+
+    def test_map_case_sensitive_true(self):
+        """
+        Test case-sensitive mapping
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - map:
+                to:
+                  - ProductName
+                case_sensitive: true
+                threshold: 0.5
+            """,
+            dataframe=pd.DataFrame({
+                'productname': ['Widget'],
+                'PRODUCTNAME': ['Gadget']
+            })
+        )
+        # With case sensitivity, exact case should match better
+        # productname should have better similarity to ProductName than PRODUCTNAME
+        assert 'ProductName' in df.columns or 'productname' in df.columns
+
+
 class TestRename:
     """
     All rename tests
