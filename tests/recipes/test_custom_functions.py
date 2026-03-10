@@ -1673,7 +1673,7 @@ def test_wrangle_position_error():
     def raise_error(df):  
         raise RuntimeError("This is an error")  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #1 custom.raise_error - at line 8 - This is an error"):  
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE custom.raise_error - at line 8 - This is an error"):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -1700,7 +1700,7 @@ def test_wrangle_position_error_2():
     def raise_error(df):  
         raise RuntimeError("This is an error")  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 custom.raise_error - at line 17 - This is an error"):  
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE custom.raise_error - at line 17 - This is an error"):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -1727,7 +1727,7 @@ def test_wrangle_position_multiple_same_type():
     """  
     Test error reporting with multiple wrangles of same type  
     """  
-    with pytest.raises(TypeError, match="ERROR IN WRANGLE #2 convert.data_type - at line 12 - data_type invalid_type is not supported."):  
+    with pytest.raises(TypeError, match="ERROR IN WRANGLE convert.data_type - at line 12 - data_type invalid_type is not supported."):  
         wrangles.recipe.run(  
             """  
             read:  
@@ -1756,7 +1756,7 @@ def test_complete_error_reporting_flow():
             raise RuntimeError("Batch too large")  
         return df  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE #2 batch - Batch #1 - ERROR IN WRANGLE #1 custom.batch_error - at line 2 - Batch too large"):  
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE batch - Batch #1 - ERROR IN WRANGLE custom.batch_error - at line 2 - Batch too large"):  
         wrangles.recipe.run(  
             """  
             read:  
