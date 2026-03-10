@@ -951,7 +951,7 @@ def test_enhanced_error_message_long_recipe():
           case: lower  
     """  
       
-    with pytest.raises(RuntimeError, match=r"ERROR IN WRANGLE #5 custom.failing_function - This is the actual error from wrangle #5"):  
+    with pytest.raises(RuntimeError, match=r"ERROR IN WRANGLE custom.failing_function - This is the actual error from wrangle #5"):  
         wrangles.recipe.run(recipe, functions=[working_function, failing_function])
 
 def test_enhanced_error_message_read_phase():  

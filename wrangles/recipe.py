@@ -360,8 +360,6 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
     # original exceptions continue to work.
     orig_msg = f"{original_exception}"
     header = f"ERROR IN {section.upper()}"
-    if index is not None:
-        header += f" #{index}"
     if name:
         header += f" {name}"
 

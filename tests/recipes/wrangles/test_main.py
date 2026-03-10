@@ -5536,7 +5536,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE custom\.fail_on_2nd_batch.*"'):  
             wrangles.recipe.run(  
                 """  
                 read:  
