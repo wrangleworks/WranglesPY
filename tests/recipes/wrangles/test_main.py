@@ -5093,6 +5093,26 @@ class TestAccordion:
             len(df) == 5 and
             df["list_column"][0] == ["A","B","C"]
         )
+        
+    def test_accordion_empty_dataframe(self):  
+        """  
+        Test accordion with an empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - accordion:  
+                input: list_column  
+                wrangles:  
+                    - convert.case:  
+                        input: list_column  
+                        case: upper  
+            """,  
+            dataframe=pd.DataFrame({  
+                "list_column": []  
+            })  
+        )  
+        assert df.empty and df.columns.tolist() == ["list_column"]
 
 
 class TestBatch:
