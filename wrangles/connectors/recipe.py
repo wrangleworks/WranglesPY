@@ -15,7 +15,7 @@ _schema = {}
 
 def run(
     name: str = None,
-    variables: dict = {},
+    variables: dict = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> None:
@@ -29,6 +29,8 @@ def run(
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if variables is None:
+        variables = {}
     if not name: name = kwargs
     _recipe.run(name, variables=variables, functions=functions)
 
@@ -50,7 +52,7 @@ anyOf:
 
 def read(
     name: str = None,
-    variables: dict = {},
+    variables: dict = None,
     columns: list = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
@@ -66,6 +68,8 @@ def read(
     :param columns: (Optional) Subset of the columns to include from the output of the recipe. If not provided, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if variables is None:
+        variables = {}
     if not name: name = kwargs
     df = _recipe.run(name, variables=variables, functions=functions)
 
@@ -101,7 +105,7 @@ anyOf:
 def write(
     df: _pd.DataFrame,
     name: str = None,
-    variables: dict = {},
+    variables: dict = None,
     columns: list = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
@@ -118,6 +122,8 @@ def write(
     :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
     """
+    if variables is None:
+        variables = {}
     if not name: name = kwargs
     # Select only specific columns if user requests them
     if columns is not None:
