@@ -547,7 +547,9 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = 'dict',
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -600,6 +602,15 @@ def custom(
           - reverse_alphabetical
           - ascending
           - descending
+      include_empty_labels:
+        type: boolean
+        description: Include labels with no found values in the output when using use_labels=True
+      output_format:
+        type: string
+        description: Format of the output when using use_labels=True
+        enum:
+          - dict
+          - columns
     """
     if output is None: output = input
     
@@ -609,20 +620,39 @@ def custom(
     if not isinstance(model_id, list): model_id = [model_id]
     
     if len(input) == len(output) and len(model_id) == 1:
-        # if one model_id, then use that model for all columns inputs and outputs
-        model_id = [model_id[0] for _ in range(len(input))]
-        for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(
-                df[in_col].astype(str).tolist(),
-                model_id=model,
-                first_element=first_element,
-                use_labels=use_labels,
-                case_sensitive=case_sensitive,
-                extract_raw=extract_raw,
-                use_spellcheck=use_spellcheck,
-                sort=sort,
-                **kwargs
-            )
+      # if one model_id, then use that model for all columns inputs and outputs
+      model_id = [model_id[0] for _ in range(len(input))]
+      for in_col, out_col, model in zip(input, output, model_id):
+        results = _extract.custom(
+          df[in_col].astype(str).tolist(),
+          model_id=model,
+          first_element=first_element,
+          use_labels=use_labels,
+          case_sensitive=case_sensitive,
+          extract_raw=extract_raw,
+          use_spellcheck=use_spellcheck,
+          include_empty_labels=include_empty_labels,
+          output_format=output_format,
+          sort=sort,
+          **kwargs
+        )
+
+        if use_labels and output_format == 'columns':
+          # Expand list-of-dicts into columns
+          try:
+            df_temp = _pd.DataFrame(results)
+          except Exception:
+            df[out_col] = results
+            continue
+
+          df_temp.index = df.index
+          if not df_temp.empty:
+            df_temp = df_temp.fillna('')
+            df[df_temp.columns] = df_temp.values
+          else:
+            df[out_col] = results
+        else:
+          df[out_col] = results
     
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         model_id = [model_id[0] for _ in range(len(input))]
@@ -630,17 +660,36 @@ def custom(
         single_model_id = model_id[0]
         df_temp = _pd.DataFrame(index=range(len(df)))
         for i, in_col in enumerate(input):
-            df_temp[output + str(i)] = _extract.custom(
-                df[in_col].astype(str).tolist(),
-                model_id=single_model_id,
-                first_element=first_element,
-                use_labels=use_labels,
-                case_sensitive=case_sensitive,
-                extract_raw=extract_raw,
-                use_spellcheck=use_spellcheck,
-                sort=sort,
-                **kwargs
-            )
+          results = _extract.custom(
+            df[in_col].astype(str).tolist(),
+            model_id=single_model_id,
+            first_element=first_element,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            extract_raw=extract_raw,
+            use_spellcheck=use_spellcheck,
+            include_empty_labels=include_empty_labels,
+            output_format=output_format,
+            sort=sort,
+            **kwargs
+          )
+
+          # If requested as columns and use_labels, expand and add with suffix
+          if use_labels and output_format == 'columns':
+            try:
+              df_exp = _pd.DataFrame(results)
+            except Exception:
+              df_temp[output + str(i)] = results
+              continue
+
+            # Prefixing to avoid collisions: use original output name + index
+            df_exp.index = df.index
+            df_exp = df_exp.fillna('')
+            # Insert each column with a suffix to keep unique names
+            for col in df_exp.columns:
+              df_temp[f"{col}{i}"] = df_exp[col].values
+          else:
+            df_temp[output + str(i)] = results
 
         # Concatenate the results into a single column
         df[output] = [list(dict.fromkeys(_format.concatenate([x for x in row if x], ' '))) for row in df_temp.values.tolist()]
@@ -648,17 +697,35 @@ def custom(
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(
-                df[in_col].astype(str).tolist(),
-                model_id=model,
-                first_element=first_element,
-                use_labels=use_labels,
-                case_sensitive=case_sensitive,
-                extract_raw=extract_raw,
-                use_spellcheck=use_spellcheck,
-                sort=sort,
-                **kwargs
-            )
+          results = _extract.custom(
+            df[in_col].astype(str).tolist(),
+            model_id=model,
+            first_element=first_element,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            extract_raw=extract_raw,
+            use_spellcheck=use_spellcheck,
+            include_empty_labels=include_empty_labels,
+            output_format=output_format,
+            sort=sort,
+            **kwargs
+          )
+
+          if use_labels and output_format == 'columns':
+            try:
+              df_temp = _pd.DataFrame(results)
+            except Exception:
+              df[out_col] = results
+              continue
+
+            df_temp.index = df.index
+            if not df_temp.empty:
+              df_temp = df_temp.fillna('')
+              df[df_temp.columns] = df_temp.values
+            else:
+              df[out_col] = results
+          else:
+            df[out_col] = results
 
     return df
 
