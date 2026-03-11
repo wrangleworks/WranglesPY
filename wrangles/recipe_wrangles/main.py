@@ -2005,10 +2005,6 @@ def Try(
   retries: int = 0,
   **kwargs
 ):
-  if functions is None:
-    functions = {}
-  if variables is None:
-    variables = {}
     """
     type: object
     description: Try a list of wrangles and catch any errors that occur
@@ -2036,6 +2032,10 @@ def Try(
         description: Number of times to retry the wrangles if an error occurs. Default 0.
         minimum: 0
     """
+    if functions is None:
+      functions = {}
+    if variables is None:
+      variables = {}
     for attempt in range(retries + 1):
         try:
             df = _wrangles.recipe.run(
