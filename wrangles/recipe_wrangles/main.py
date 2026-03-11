@@ -100,7 +100,7 @@ def accordion(
 
     # Convert any columns containing JSON arrays to lists
     for col in input:
-        if not isinstance(df_temp[col][0], list):
+        if not df_temp.empty and not isinstance(df_temp[col].iloc[0], list):
             try:
                 df_temp[col] = df_temp[col].apply(_json.loads)
             except:
