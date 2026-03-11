@@ -5094,6 +5094,33 @@ class TestAccordion:
             df["list_column"][0] == ["A","B","C"]
         )
 
+    def test_accordion_filter_out_first_row(self):
+        """
+        Test accordion when we filter first rows
+        """
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - accordion:  
+                input: list_column  
+                where: numbers > 1  # This filters out the first row (index 0)  
+                wrangles:  
+                    - convert.case:  
+                        input: list_column  
+                        case: upper  
+            """,  
+            dataframe = pd.DataFrame({  
+                "list_column": [["a","b","c"], ["d","e","f"], ["g","h","i"]],  
+                "numbers": [1, 2, 3]  
+            })) 
+        
+        assert (
+            len(df) == 3 and
+            df["list_column"][0] == ["a","b","c"] and
+            df["list_column"][1] == ["D","E","F"] and
+            df["list_column"][2] == ["G","H","I"]
+        )
+
 
 class TestBatch:
     """
