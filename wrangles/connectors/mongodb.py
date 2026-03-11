@@ -13,7 +13,7 @@ _pymongo = _LazyLoader('pymongo')
 
 _schema = {}
 
-def read(user: str, password: str, database: str, collection: str, host: str, query: dict = {}, projection: dict = {}) -> _pd.DataFrame:
+def read(user: str, password: str, database: str, collection: str, host: str, query: dict = None, projection: dict = None) -> _pd.DataFrame:
     """
     Import data from a MongoDB database
     
@@ -30,6 +30,10 @@ def read(user: str, password: str, database: str, collection: str, host: str, qu
     """
     _logging.info(f": Reading data from MongoDB :: {host} / {database} / {collection}")
 
+    if query is None:
+        query = {}
+    if projection is None:
+        projection = {}
     # Encoding password and username using percent encoding
     user = _quote_plus(user)
     password = _quote_plus(password)

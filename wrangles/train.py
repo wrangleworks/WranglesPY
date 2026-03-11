@@ -147,7 +147,7 @@ class train():
         data: _Union[dict, list],
         name: str = None,
         model_id: str = None,
-        settings: dict = {}
+        settings: dict = None
     ):
         """
         Train a lookup model. This can be used as reference data to look values up from.
@@ -159,6 +159,8 @@ class train():
         :param model_id: If provided, will update this model.
         :param settings: Specific settings to apply to the lookup wrangle.
         """
+        if settings is None:
+            settings = {}
         # Read in variant
         if name:
             variant = settings.get("variant", "key")

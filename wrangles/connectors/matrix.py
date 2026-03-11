@@ -19,7 +19,7 @@ _schema = {}
 def _define_permutations(
     variables: dict,
     strategy: str = "loop",
-    functions: dict = {},
+    functions: dict = None,
     df: _pd.DataFrame = None
 ):
 
@@ -29,6 +29,8 @@ def _define_permutations(
             yield dict(_chainmap(*[next(i, empty_default) for i in cycles]))
 
     permutations = []
+    if functions is None:
+        functions = {}
 
     for key, val in variables.items():
         # User provided a list
@@ -103,7 +105,7 @@ def _define_permutations(
 def run(
     variables: dict,
     run: list,
-    functions: dict = {},
+    functions: dict = None,
     strategy: str = "loop",
     use_multiprocessing: bool = False,
     max_concurrency: int = 10
@@ -124,6 +126,8 @@ def run(
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
     """    
+    if functions is None:
+        functions = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -192,7 +196,7 @@ properties:
 def read(
     variables: dict,
     read: list,
-    functions: dict = {},
+    functions: dict = None,
     strategy: str = "loop",
     use_multiprocessing: bool = False,
     max_concurrency: int = 10
@@ -212,6 +216,8 @@ def read(
     :param use_multiprocessing: Use multiprocessing instead of threading
     :param max_concurrency: The maximum number to execute in parallel. If there are more than this, the rest will be queued.
     """    
+    if functions is None:
+        functions = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
