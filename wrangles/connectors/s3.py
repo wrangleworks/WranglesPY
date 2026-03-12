@@ -37,10 +37,17 @@ def read(
 
     _logging.info(f": Reading data from S3 :: {bucket} / {file_key}")
 
+    # Use environment variables if keys are not provided
+    if access_key is None:
+        access_key = _os.environ.get('AWS_ACCESS_KEY_ID')
+    if secret_access_key is None:
+        secret_access_key = _os.environ.get('AWS_SECRET_ACCESS_KEY')
+
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
         s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
+        print("No AWS credentials provided, attempting to read from S3 using environment variables or IAM role permissions if running on AWS infrastructure.")
         # if using environment variables
         s3 = _boto3.client('s3')
     
@@ -106,6 +113,12 @@ def write(df: _pd.DataFrame, bucket: str, file_key: str = None, access_key: str 
         raise ValueError("file_key must be provided")
     
     _logging.info(f": Writing data to S3 :: {bucket} / {file_key}")
+
+    # Use environment variables if keys are not provided
+    if access_key is None:
+        access_key = _os.environ.get('AWS_ACCESS_KEY_ID')
+    if secret_access_key is None:
+        secret_access_key = _os.environ.get('AWS_SECRET_ACCESS_KEY')
 
     # Check if access keys are not none then auth
     if None not in (access_key, secret_access_key):
