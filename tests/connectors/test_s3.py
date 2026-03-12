@@ -47,6 +47,38 @@ class TestRead:
             """
         )
         assert df.iloc[0]['Winners'] == 'Uruguay'
+        
+    def test_read_env_vars_access_key_secret_access_key(self, monkeypatch):
+        """
+        Test reading a file using access_key and secret_access_key as env vars
+        """
+        monkeypatch.setenv('AWS_ACCESS_KEY_ID', s3_key)
+        monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', s3_secret)
+        df = wrangles.recipe.run(
+            """
+            read:
+            - s3:
+                bucket: wrwx-public
+                key: World Cup Winners.xlsx
+            """
+        )
+        assert df.iloc[0]['Winners'] == 'Uruguay'
+
+    def test_read_env_vars_missing_access_key_secret_access_key(self, monkeypatch):
+        """
+        Test error when AWS credential env vars are missing
+        """
+        monkeypatch.delenv('AWS_ACCESS_KEY_ID', raising=False)
+        monkeypatch.delenv('AWS_SECRET_ACCESS_KEY', raising=False)
+        with pytest.raises(RuntimeError):
+            wrangles.recipe.run(
+                    """
+                    read:
+                    - s3:
+                        bucket: wrwx-public
+                        key: World Cup Winners.xlsx
+                    """
+                )
 
     def test_read_error_invalid_file(self):
         """
