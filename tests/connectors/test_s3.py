@@ -70,15 +70,15 @@ class TestRead:
         """
         monkeypatch.delenv('AWS_ACCESS_KEY_ID', raising=False)
         monkeypatch.delenv('AWS_SECRET_ACCESS_KEY', raising=False)
-        # with pytest.raises(RuntimeError):
-        wrangles.recipe.run(
-                """
-                read:
-                - s3:
-                    bucket: wrwx-public
-                    key: World Cup Winners.xlsx
-                """
-            )
+        with pytest.raises(RuntimeError):
+            wrangles.recipe.run(
+                    """
+                    read:
+                    - s3:
+                        bucket: wrwx-public
+                        key: World Cup Winners.xlsx
+                    """
+                )
 
     def test_read_error_invalid_file(self):
         """
