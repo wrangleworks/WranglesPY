@@ -47,7 +47,6 @@ def read(
     if None not in (access_key, secret_access_key):
         s3 = _boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_access_key)
     else:
-        print("No AWS credentials provided, attempting to read from S3 using environment variables or IAM role permissions if running on AWS infrastructure.")
         # if using environment variables
         s3 = _boto3.client('s3')
     
