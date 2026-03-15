@@ -1,0 +1,40 @@
+# Full dependencies including all optional connectors and extras.
+# Used for running the complete test suite.
+#
+#   pip install -r requirements-full.txt
+
+-r requirements.txt
+
+# Excel
+openpyxl>=3.1.0
+xlsxwriter
+
+# Database connectors
+sqlalchemy>=2.0,<3.0
+pymssql>=2.3.3
+psycopg2-binary>=2.9.10
+pymysql
+
+# Cloud / storage
+boto3
+
+# SSH / SFTP
+fabric==3.1.0
+
+# Notifications
+apprise
+
+# MongoDB
+pymongo[srv]
+
+# Salesforce
+simple-salesforce
+
+# Polars connector
+polars==1.33.0
+
+# Math evaluate wrangle
+numexpr
+
+# Test data generation
+lorem
