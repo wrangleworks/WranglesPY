@@ -1,7 +1,12 @@
-requests
-pyyaml
-pandas>=2.0,<3.0
-numpy
 jinja2
+lorem
+numexpr
+numpy
+pandas>=2.0,<3.0
+polars==1.33.0
 pydantic>=2.12.0
 pyarrow
+pyyaml
+requests
+PyJWT
+boto3
