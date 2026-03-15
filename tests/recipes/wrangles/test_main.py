@@ -1304,6 +1304,465 @@ class TestRemoveWords:
         )
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
+    def test_remove_words_tokenize_default_true(self):
+        """
+        Test that tokenize_to_remove defaults to True and multiple spaces are reduced to single.
+        """
+        data = pd.DataFrame({
+            'col': ['A   B   C'],
+            'rem': ['B']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A C'
+
+    def test_remove_words_tokenize_multiple_spaces(self):
+        """
+        Test that more than one space is reduced to a single space in tokens.
+        """
+        data = pd.DataFrame({
+            'col': ['A    B    C'],
+            'rem': ['B']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A C'
+
+    def test_remove_words_list_input_no_tokenize(self):
+        """
+        Test that if input is already a list, tokenization is ignored.
+        """
+        data = pd.DataFrame({
+            'col': [['A', 'B', 'C']],
+            'rem': ['B']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A C'
+        
+    def test_remove_words_strip_punct_and_spaces(self):
+        """
+        Test that punctuation and spaces will be removed from input and to_remove
+        """
+        data = pd.DataFrame({
+            'col': ['  ,Hello world! ', '...Goodbye  cruel world...'],
+            'to_remove': [' world! ', ' cruel world...']
+        })
+        recipe = """
+            wrangles:
+            - remove_words:
+                input: col
+                to_remove:
+                    - to_remove
+                output: output
+        """
+        result = wrangles.recipe.run(recipe, dataframe=data)
+        # Should remove punctuation/spaces from input and to_remove before tokenization
+        assert result['output'][0].strip() == 'Hello'
+        assert result['output'][1].strip() == 'Goodbye'
+
+    def test_remove_words_strip_to_remove_list(self):
+        """
+        Test that punctuation and spaces will be removed from input and to_remove
+        """
+        data = pd.DataFrame({
+            'col': ['  ,Hello world! ', '...Goodbye, cruel world...'],
+            'to_remove': [[' world! ', 'Hello'], [' cruel world...', 'Goodbye']]
+        })
+
+        recipe = """
+            wrangles:
+            - remove_words:
+                input: col
+                to_remove:
+                    - to_remove
+                output: output
+        """
+        result = wrangles.recipe.run(recipe, dataframe=data)
+        # Should remove punctuation/spaces from each to_remove element
+        assert result['output'][0].strip() == ''
+        assert result['output'][1].strip() == ''
+
+    def test_remove_words_list_input_str_to_remove(self):
+        """
+        If input is a list and to_remove is a string, to_remove should be tokenized and removal should work in list mode.
+        """
+        data = pd.DataFrame({
+            'col': [['A', 'B', 'C', 'D']],
+            'rem': ['B C']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A D'
+
+    def test_remove_words_str_input_list_to_remove(self):
+        """
+        If input is a string and to_remove is a list, input should be tokenized and removal should work in list mode.
+        """
+        data = pd.DataFrame({
+            'col': ['A B C D'],
+            'rem': [['B', 'C']]
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A D'
+        
+    def test_remove_words_characters_to_consider_complex_punct(self):
+        """
+        Test removal with complex punctuation and spaces, default mode
+        """
+        data = pd.DataFrame({
+            'col': ['A/B,C! D? E;F', 'G@H#I$ J%K^L&M*N'],
+            'to_remove': [['B,C!', 'J%K^L&M*N'], ['H#I$', 'E;F']]
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - to_remove
+            output: output
+            characters_to_consider: letters_numbers_only
+        """
+        result = wrangles.recipe.run(recipe, dataframe=data)
+        assert result['output'][0] == 'A/B,C! D? E;F'
+        assert result['output'][1] == 'G@H#I$ J%K^L&M*N'
+
+    def test_remove_words_overlap_punctuation(self):
+        """
+        Tokens with trailing/leading punctuation still match.
+        input:     'Any, Words, Overlap?'
+        to_remove: 'Any Words Overlap'
+        With default tokenize_to_remove=True and characters_to_consider=letters_numbers_only,
+        'Any,' normalizes to 'any', 'Words,' to 'words', 'Overlap' to 'overlap' - all removed.
+        """
+        data = pd.DataFrame({
+            'col': ['Any, Words, Overlap?'],
+            'rem': ['Any Words Overlap']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_remove_words_default_tokenize_true(self):
+        """
+        tokenize_to_remove defaults to True, so string to_remove values are tokenized.
+        'Metal Carbon' is split into 'Metal' and 'Carbon' and each is removed individually.
+        """
+        data = pd.DataFrame({
+            'col': ['Metal Carbon Water Tank'],
+            'rem': ['Metal Carbon']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Water Tank'
+
+    def test_remove_words_default_ignore_case_true(self):
+        """
+        ignore_case defaults to True - matching is case-insensitive by default.
+        """
+        data = pd.DataFrame({
+            'col': ['METAL Carbon water TANK'],
+            'rem': ['metal carbon']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'water TANK'
+
+    def test_remove_words_characters_letters_numbers_only(self):
+        """
+        Default characters_to_consider=letters_numbers_only: non-alphanumeric chars are
+        stripped from tokens before comparison so 'A-100' matches 'A100'.
+        """
+        data = pd.DataFrame({
+            'col': ['A-100 B-200 C-300'],
+            'rem': ['A100 C300']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'B-200'
+
+    def test_remove_words_characters_all(self):
+        """
+        characters_to_consider=all: full token used for comparison, so 'A-100' does NOT
+        match 'A100' because the hyphen is included in the comparison.
+        """
+        data = pd.DataFrame({
+            'col': ['A-100 B-200 C-300'],
+            'rem': ['A100 C300']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A-100 B-200 C-300'
+
+    def test_remove_words_strip_leading_trailing_punc(self):
+        """
+        Leading/trailing punctuation on the input string and to_remove values is stripped
+        before tokenization, so '?Overlap' in to_remove still matches 'Overlap' in input.
+        """
+        data = pd.DataFrame({
+            'col': ['  Alpha Beta Gamma  '],
+            'rem': ['?Alpha! Beta,']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Gamma'
+
+    def test_remove_words_collapse_multiple_spaces(self):
+        """
+        Multiple consecutive spaces in to_remove are collapsed to a single space before
+        tokenization so tokens do not contain spaces.
+        """
+        data = pd.DataFrame({
+            'col': ['Metal Carbon Water Tank'],
+            'rem': ['Metal  Carbon']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Water Tank'
+
+    def test_remove_words_list_input_str_to_remove(self):
+        """
+        When input is a list and to_remove is a string, the string is tokenized and
+        matched against each element of the input list.
+        """
+        data = pd.DataFrame({
+            'col': [['Steel', 'Blue', 'Bottle']],
+            'rem': ['Steel Blue']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Bottle'
+
+    def test_remove_words_list_to_remove_skips_tokenize(self):
+        """
+        When to_remove values are already lists, the tokenize step is skipped for those
+        items. Each list element is treated as a single token regardless of spaces.
+        Single-word list elements still match correctly.
+        """
+        data = pd.DataFrame({
+            'col': ['Steel Blue Bottle'],
+            'rem': [['Steel', 'Blue']]
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Bottle'
+
+    def test_remove_words_tokenize_false_ignore_case_true(self):
+        """
+        tokenize_to_remove=False with ignore_case=True (phrase-based, case-insensitive).
+        """
+        data = pd.DataFrame({
+            'col': ['Steel BLUE Bottle'],
+            'rem': ['blue']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: False
+            ignore_case: True
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Steel Bottle'
+
+    def test_remove_words_tokenize_false_ignore_case_false(self):
+        """
+        tokenize_to_remove=False with ignore_case=False (phrase-based, case-sensitive).
+        'blue' does not match 'BLUE' so nothing is removed.
+        """
+        data = pd.DataFrame({
+            'col': ['Steel BLUE Bottle'],
+            'rem': ['blue']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: False
+            ignore_case: False
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Steel BLUE Bottle'
+
+    def test_remove_words_tokenize_true_characters_all_ignore_case_true(self):
+        """
+        tokenize_to_remove=True, characters_to_consider=all, ignore_case=True.
+        Full tokens (lowercased) are compared, so 'a-100' does not match 'a100'.
+        But 'steel' does match 'STEEL'.
+        """
+        data = pd.DataFrame({
+            'col': ['STEEL A-100 Bottle'],
+            'rem': ['steel A100']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: True
+            characters_to_consider: all
+            ignore_case: True
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A-100 Bottle'
+
+    def test_remove_words_tokenize_true_characters_all_ignore_case_false(self):
+        """
+        tokenize_to_remove=True, characters_to_consider=all, ignore_case=False.
+        Exact full-token match required. 'STEEL' != 'steel', 'A-100' != 'A100'.
+        Nothing removed.
+        """
+        data = pd.DataFrame({
+            'col': ['STEEL A-100 Bottle'],
+            'rem': ['steel A100']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: True
+            characters_to_consider: all
+            ignore_case: False
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'STEEL A-100 Bottle'
+
+    def test_remove_words_tokenize_true_characters_lno_ignore_case_false(self):
+        """
+        tokenize_to_remove=True, characters_to_consider=letters_numbers_only, ignore_case=False.
+        Non-alnum stripped for comparison but case preserved. 'A-100' -> 'A100', 'a100' -> 'a100'.
+        'A100' != 'a100' so A-100 is not removed. 'Steel' matches 'Steel' exactly.
+        """
+        data = pd.DataFrame({
+            'col': ['Steel A-100 Bottle'],
+            'rem': ['Steel a100']
+        })
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: True
+            characters_to_consider: letters_numbers_only
+            ignore_case: False
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A-100 Bottle'
+
+
 
 class TestRename:
     """
