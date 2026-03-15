@@ -3,7 +3,17 @@
 #
 #   pip install -r requirements-full.txt
 
--r requirements.txt
+# Core requirements (from requirements.txt)
+jinja2
+lorem
+numexpr
+numpy
+pandas>=2.0,<3.0
+polars==1.33.0
+pydantic>=2.12.0
+pyyaml
+requests
+PyJWT
 
 # Excel
 openpyxl>=3.1.0
@@ -30,11 +40,4 @@ pymongo[srv]
 # Salesforce
 simple-salesforce
 
-# Polars connector
-polars==1.33.0
 
-# Math evaluate wrangle
-numexpr
-
-# Test data generation
-lorem
