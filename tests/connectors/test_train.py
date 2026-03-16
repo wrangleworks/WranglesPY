@@ -1492,3 +1492,73 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
+
+
+#
+# Meta Data
+#
+def test_meta_data_read():
+    """
+    Read metadata for a model
+    """
+
+    df = wrangles.recipe.run(
+        """
+        read:
+          - train.meta_data:
+              model_id: 41789e35-eada-4239
+        """
+    )
+
+    assert df.iloc[0]["name"] == "meta-data-demo-bd0238a3"
+    assert df.iloc[0]["variant"] == "key"
+    assert df.iloc[0]["purpose"] == "lookup"
+
+
+def test_meta_data_read_all_fields():
+    """
+    Read metadata returns all fields from the API response as columns
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - train.meta_data:
+              model_id: 41789e35-eada-4239
+        """
+    )
+    assert all(col in df.columns for col in ["id", "name", "variant", "purpose", "batch_size", "settings"])
+
+
+def test_meta_data_write(mocker):
+    """
+    Write (update) metadata for a model
+    """
+    m1 = mocker.patch("wrangles.data.model_update")
+    wrangles.recipe.run(
+        """
+        write:
+          - train.meta_data:
+              model_id: 41789e35-eada-4239
+        """,
+        dataframe=pd.DataFrame([{"name": "Updated Name", "batch_size": 1000}])
+    )
+    m1.assert_called_once_with("41789e35-eada-4239", {"name": "Updated Name", "batch_size": 1000})
+
+
+def test_meta_data_write_ignores_nan(mocker):
+    """
+    NaN values in the DataFrame are not sent to the API
+    """
+    import numpy as np
+    m1 = mocker.patch("wrangles.data.model_update")
+    wrangles.recipe.run(
+        """
+        write:
+          - train.meta_data:
+              model_id: test_meta_data_write
+        """,
+        dataframe=pd.DataFrame([{"name": "My Model", "batch_size": np.nan}])
+    )
+    call_args = m1.call_args[0][1]
+    assert "batch_size" not in call_args
+    assert call_args["name"] == "My Model"

@@ -614,6 +614,58 @@ class lookup():
               - overwrite
         """
 
+
+class meta_data():
+    _schema = {}
+
+    def read(model_id: str) -> _pd.DataFrame:
+        """
+        Read the metadata for a Wrangle model.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's metadata as a single row
+        """
+        _logging.info(f": Reading Wrangle metadata :: {model_id}")
+        metadata = _data.model(model_id)
+
+        return _pd.DataFrame([metadata])
+
+    _schema["read"] = """
+        type: object
+        description: Read the metadata for a Wrangle model
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Specific model to read
+        """
+
+    def write(df: _pd.DataFrame, model_id: str) -> None:
+        """
+        Update the metadata for a Wrangle model.
+
+        :param df: Single-row DataFrame containing the metadata fields to update
+        :param model_id: Model to update
+        """
+        _logging.info(f": Updating Wrangle metadata :: {model_id}")
+        metadata = df.iloc[0].dropna().to_dict()
+        _data.model_update(model_id, metadata)
+
+    _schema["write"] = """
+        type: object
+        description: Update the metadata for a Wrangle model
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Model to update
+        """
+
+
 class standardize():
     _schema = {}
 
