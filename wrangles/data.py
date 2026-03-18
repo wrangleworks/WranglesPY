@@ -62,7 +62,7 @@ def model_update(id: str, metadata: dict) -> None:
     :param metadata: Dict of metadata fields to update
     """
     response = _utils.request_retries(
-                request_type='PUT',
+                request_type='PATCH',
                 url=f'{_config.api_host}/model/metadata',
                 **{
                     'params': {'id': id},
