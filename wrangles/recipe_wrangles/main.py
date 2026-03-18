@@ -1275,7 +1275,7 @@ def recipe(
 def remove_words(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
-    to_remove: str,
+    to_remove: _Union[str, list] ,
     output: _Union[str, list] = None,
     tokenize_to_remove: bool = True,
     ignore_case: bool = True,
@@ -1283,7 +1283,7 @@ def remove_words(
     ) -> _pd.DataFrame:
     """
     type: object
-    description: Remove all the elements that occur in one list from another.
+    description: Remove all the elements that occur in one list from another. The input and to_remove columns can contain strings and/or lists of strings.
     additionalProperties: false
     required:
       - input
@@ -1295,10 +1295,10 @@ def remove_words(
           - string
           - integer
           - array
-        description: Name of column to remove words from
+        description: The input column can contain strings or lists of strings.
       to_remove:
         type: array
-        description: Column or list of columns with a list of words to be removed
+        description: The to_remove column can contain strings or lists of strings.
       output:
         type: 
           - string

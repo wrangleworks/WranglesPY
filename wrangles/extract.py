@@ -597,7 +597,8 @@ def remove_words(
     """
     Remove all the elements that occur in one list from another.
     
-    :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
+    :param input: The input column can contain strings or lists of strings. Lowered for precision.
+    :param to_remove: The to_remove column can contain strings or lists of strings. Lowered for precision.
     :param output: a string of remaining words
     :param tokenize_to_remove: (Optional, default True) tokenize string to_remove values by
         whitespace before matching. If inputs are already lists, the tokenize step is skipped.
