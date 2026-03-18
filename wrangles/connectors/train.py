@@ -631,16 +631,33 @@ class meta_data():
         return _pd.DataFrame([metadata])
 
     _schema["read"] = """
-        type: object
-        description: Read the metadata for a Wrangle model
-        additionalProperties: false
-        required:
-          - model_id
-        properties:
-          model_id:
-            type: string
-            description: Specific model to read
-        """
+            type: object
+            description: |
+                Read the metadata for a Wrangle model.
+                Returns a DataFrame with the following columns:
+                    - id
+                    - name
+                    - type
+                    - purpose
+                    - status
+                    - path
+                    - batch_size
+                    - tags
+                    - notes
+                    - created_by
+                    - date_created
+                    - modified_by
+                    - date_modified
+                    - variant
+                    - settings
+            additionalProperties: false
+            required:
+                - model_id
+            properties:
+                model_id:
+                    type: string
+                    description: Specific model to read
+            """
 
     def write(df: _pd.DataFrame, model_id: str) -> None:
         """
@@ -652,6 +669,9 @@ class meta_data():
         _logging.info(f": Updating Wrangle metadata :: {model_id}")
         metadata = df.iloc[0].dropna().to_dict()
         _data.model_update(model_id, metadata)
+        # Log summary of updated fields
+        summary = ', '.join([f"{k} was updated to {v}" for k, v in metadata.items()])
+        _logging.info(f"Metadata update summary: {summary}")
 
     _schema["write"] = """
         type: object
