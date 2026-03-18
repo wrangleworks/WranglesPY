@@ -1562,3 +1562,20 @@ def test_meta_data_write_ignores_nan(mocker):
     call_args = m1.call_args[0][1]
     assert "batch_size" not in call_args
     assert call_args["name"] == "My Model"
+
+def test_meta_data_write_logs_summary(caplog, mocker):
+    """
+    Logging summary statement for updated fields in meta_data.write
+    """
+    m1 = mocker.patch("wrangles.data.model_update")
+    wrangles.recipe.run(
+        """
+        write:
+          - train.meta_data:
+              model_id: 41789e35-eada-4239
+        """,
+        dataframe=pd.DataFrame([{"name": "New Name", "batch_size": 500}])
+    )
+    messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+    assert any("name was updated to New Name" in msg for msg in messages), "Log should mention name update"
+    assert any("batch_size was updated to 500" in msg for msg in messages), "Log should mention batch_size update"
