@@ -12,6 +12,10 @@ from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
 
+# Module-level compiled regex patterns for remove_words
+_RE_STRIP_PUNCT = _re.compile(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$')
+_RE_LETTERS_NUMBERS = _re.compile(r'[^a-z0-9]')
+
 
 def address(
     input: _Union[str, list],
@@ -587,44 +591,97 @@ def properties(
 
 
 # SUPER MARIO
-def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
+def remove_words(
+    input: _Union[str, list],
+    to_remove: list,
+    tokenize_to_remove: bool,
+    ignore_case: bool,
+    characters_to_consider: str = 'letters_numbers_only'
+):
     """
     Remove all the elements that occur in one list from another.
-    
+
     :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
     :param output: a string of remaining words
     :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
-    :pram ignore_case: (Optional) ignore the case of input and to_remove
+    :param ignore_case: (Optional) ignore the case of input and to_remove
+    :param characters_to_consider: (Optional) 'letters_numbers_only' (default) or 'all'
     """
-        
+    if characters_to_consider not in ('letters_numbers_only', 'all'):
+        raise ValueError(
+            f"characters_to_consider must be 'letters_numbers_only' or 'all', "
+            f"got {characters_to_consider!r}"
+        )
+
     # Deal with ignore_case
     if ignore_case == True:
         flags = _re.IGNORECASE
     else:
         flags = 0 # this is the default for _re.sub
-    
+
+    # Normalise helper - closes over characters_to_consider and ignore_case
+    def normalise(token):
+        if characters_to_consider == 'letters_numbers_only':
+            return _RE_LETTERS_NUMBERS.sub('', token.lower() if ignore_case else token)
+        else:  # 'all'
+            return token.lower() if ignore_case else token
+
     results = []
-    for _in, _remove in zip(input, to_remove):
-        
-        # Check if the input is a string or a list
-        if isinstance(_in, list):
-            # Make appropriate changes to the input to convert to a string
-            _in = ' '.join(_in)
-        
+    for _in, _remove_raw in zip(input, to_remove):
+
+        # Guard for NaN/None input cells
+        try:
+            if _in is None or _in != _in:  # NaN != NaN is True
+                results.append('')
+                continue
+        except Exception:
+            pass
+
+        # Guard for NaN/None remove cells
+        if _remove_raw is None or (isinstance(_remove_raw, float) and _remove_raw != _remove_raw):
+            _remove_raw = []
+        elif not isinstance(_remove_raw, (list, str)):
+            _remove_raw = [_remove_raw]
+
+        # AC-6: mixed type coercion — list input + string remove_raw
+        if isinstance(_in, list) and isinstance(_remove_raw, str):
+            _remove_raw = _re.split(r'[\s,]+', _remove_raw.strip())
+
         # flatten the _remove lists if necessary
-        _remove = _flatten_lists(_remove)
-        
+        _remove = _flatten_lists(_remove_raw)
+
+        # List mode (AC-3 + AC-5)
+        if isinstance(_in, list):
+            # AC-5: strip leading/trailing punct from remove items
+            stripped_remove = [_RE_STRIP_PUNCT.sub('', str(r)).strip() for r in _remove]
+            # Build normalised remove token set
+            remove_set = set()
+            for remove in stripped_remove:
+                if tokenize_to_remove:
+                    for subtoken in _re.split(r'[\s,]+', remove):
+                        if subtoken:
+                            remove_set.add(normalise(subtoken))
+                else:
+                    if remove:
+                        remove_set.add(normalise(remove))
+            # Filter _in elements
+            result_list = [e for e in _in if normalise(str(e)) not in remove_set]
+            text = ' '.join(str(e) for e in result_list) if result_list else ''
+            results.append(text)
+            continue
+
+        # String mode
         #Custom word boundary that considers a space, the start of the string, or the end of the string as a boundary
         boundary = r'(?:\s|,|^|$)'
-        
+
         text = _in
         for remove in _remove:
             # Convert to string since _re.escape only accepts strings
             remove = str(remove)
-            
+
             # if Tokenize is true
             if tokenize_to_remove == True:
-                # Tokenize                        
+                # Tokenize
                 token_remove = _re.split(r'\s|,', remove)
                 for subtoken in token_remove:
                     subtoken = _re.escape(subtoken)  # escape the special characters just in case
@@ -634,18 +691,22 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 
                     # Use re.sub with the custom pattern, and remove extra spaces
                     text = _re.sub(pattern, ' ', text, flags=flags).strip()
-                
+
+                    # AC-2: collapse double spaces inside the subtoken loop
+                    text = _re.sub(r'\s+', ' ', text)
+
             else:
                 remove = _re.escape(remove) # escape the special characters just in case
-                
+
                 # Use the custom word boundary in the regex pattern
                 pattern = r'{}{}{}'.format(boundary, remove, boundary)
-                
+
                 # Use re.sub with the custom pattern, and remove extra spaces
                 text = _re.sub(pattern, ' ', text, flags=flags).strip()
-                
-            # remove any double spaces
-            text = _re.sub(r'\s+', ' ', text)
+
+                # remove any double spaces
+                text = _re.sub(r'\s+', ' ', text)
+
         results.append(text)
     return results
 
