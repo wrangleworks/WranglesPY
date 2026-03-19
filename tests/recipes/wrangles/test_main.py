@@ -1175,6 +1175,7 @@ class TestRemoveWords:
                 - rem1
                 - rem2
             output: Out
+            tokenize_to_remove: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['Out'].iloc[0] == 'Brand 186 T18 Crown Staples, 333 Pack'
@@ -1200,6 +1201,7 @@ class TestRemoveWords:
                 - rem3
                 - rem4
             output: Out
+            tokenize_to_remove: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['Out'].iloc[0] == 'Brand T18 Crown Staples, Pack'
