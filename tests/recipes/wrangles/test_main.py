@@ -1514,9 +1514,8 @@ class TestRemoveWords:
             output: Out
             characters_to_consider: invalid_value
         """
-        with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
-        assert info.typename == 'ValueError' and 'characters_to_consider' in info.value.args[0]
+        with pytest.raises(ValueError, match='characters_to_consider'):
+            wrangles.recipe.run(recipe, dataframe=data)
 
     def test_list_input_list_remove_no_punct(self):
         """AC-3: list mode removes all elements when input and remove lists match exactly without punctuation"""

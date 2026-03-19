@@ -631,14 +631,21 @@ def remove_words(
 
         # Guard for NaN/None input cells
         try:
-            if _in is None or _in != _in:  # NaN != NaN is True
+            if _pd.isna(_in):
                 results.append('')
                 continue
         except Exception:
             pass
 
         # Guard for NaN/None remove cells
-        if _remove_raw is None or (isinstance(_remove_raw, float) and _remove_raw != _remove_raw):
+        _remove_is_na = False
+        if not isinstance(_remove_raw, (list, dict)):
+            try:
+                _na_check = _pd.isna(_remove_raw)
+                _remove_is_na = bool(_na_check.item()) if hasattr(_na_check, 'item') else bool(_na_check)
+            except (ValueError, TypeError):
+                pass
+        if _remove_is_na:
             _remove_raw = []
         elif not isinstance(_remove_raw, (list, str)):
             _remove_raw = [_remove_raw]
