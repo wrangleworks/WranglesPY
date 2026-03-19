@@ -1306,6 +1306,233 @@ class TestRemoveWords:
         )
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
+    def test_tokenize_default_true(self):
+        """tokenize_to_remove defaults to True so multi-word remove phrase is split and each token removed"""
+        data = pd.DataFrame({'col': ['Hello World Foo'], 'rem': ['Hello World']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Foo'
+
+    def test_double_space_collapsed(self):
+        """Removing a middle token leaves a single space between remaining tokens"""
+        data = pd.DataFrame({'col': ['A B C'], 'rem': ['B']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'A C'
+
+    def test_list_input_skips_tokenize(self):
+        """List input uses element-wise set comparison; AC-4 normalises Overlap? to match Overlap"""
+        data = pd.DataFrame({'col': [['Any', 'Words', 'Overlap?']], 'rem': [['Any', 'Words', 'Overlap']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_chars_letters_numbers_only_default(self):
+        """String input with default chars strips punct from tokens before comparison leaving trailing punct in output"""
+        data = pd.DataFrame({'col': ['Any, Words, Overlap?'], 'rem': ['Any Words Overlap']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Overlap?'
+
+    def test_chars_all_no_strip(self):
+        """characters_to_consider all with no-punct items removes all elements via exact match"""
+        data = pd.DataFrame({'col': [['Any', 'Words', 'Overlap']], 'rem': [['Any', 'Words', 'Overlap']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_chars_all_no_match_on_punct_difference(self):
+        """characters_to_consider all preserves punct in input elements so Hello! does not match Hello"""
+        data = pd.DataFrame({'col': [['Hello!']], 'rem': [['Hello']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: all
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Hello!'
+
+    def test_leading_trailing_punct_stripped(self):
+        """List mode strips leading/trailing punct from remove items so ,Hello, matches ,Hello, input element"""
+        data = pd.DataFrame({'col': [[',Hello,']], 'rem': [[',Hello,']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_overlap_example_from_spec(self):
+        """String mode with ignore_case removes matching tokens case-insensitively, leaving trailing punct token"""
+        data = pd.DataFrame({'col': ['Any, Words, Overlap?'], 'rem': ['Any Words Overlap']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+            ignore_case: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Overlap?'
+
+    def test_str_input_list_to_remove(self):
+        """String input with list to_remove processes each list item as a remove token"""
+        data = pd.DataFrame({'col': ['Any Words Overlap'], 'rem': [['Any', 'Words', 'Overlap']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_list_input_str_to_remove(self):
+        """AC-6: list input with string to_remove coerces string to token list then applies list mode"""
+        data = pd.DataFrame({'col': [['Any', 'Words', 'Overlap?']], 'rem': ['Any Words Overlap']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_ignore_case_default_true(self):
+        """ignore_case defaults to True so lower-case remove matches mixed-case input"""
+        data = pd.DataFrame({'col': ['Hello World'], 'rem': ['hello world']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
+    def test_ignore_case_false(self):
+        """ignore_case false causes case-sensitive comparison so mismatched case leaves input unchanged"""
+        data = pd.DataFrame({'col': ['Hello World'], 'rem': ['hello world']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+            ignore_case: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'Hello World'
+
+    def test_characters_to_consider_schema_valid(self):
+        """characters_to_consider letters_numbers_only is a valid schema value and removes matched words"""
+        data = pd.DataFrame({'col': ['Hello World'], 'rem': ['Hello']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: letters_numbers_only
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == 'World'
+
+    def test_characters_to_consider_schema_invalid(self):
+        """characters_to_consider with an invalid value raises a ValueError"""
+        data = pd.DataFrame({'col': ['Hello World'], 'rem': ['Hello']})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            characters_to_consider: invalid_value
+        """
+        with pytest.raises(ValueError) as info:
+            raise wrangles.recipe.run(recipe, dataframe=data)
+        assert info.typename == 'ValueError' and 'characters_to_consider' in info.value.args[0]
+
+    def test_list_input_list_remove_no_punct(self):
+        """AC-3: list mode removes all elements when input and remove lists match exactly without punctuation"""
+        data = pd.DataFrame({'col': [['Any', 'Words', 'Overlap']], 'rem': [['Any', 'Words', 'Overlap']]})
+        recipe = """
+        wrangles:
+        - remove_words:
+            input: col
+            to_remove:
+                - rem
+            output: Out
+            tokenize_to_remove: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Out'].iloc[0] == ''
+
 
 class TestRename:
     """
