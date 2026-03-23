@@ -2098,6 +2098,160 @@ class TestGroupBy:
         
         assert df.empty and 'group' in df.columns
 
+    def test_group_by_auto_rename_false_no_suffix(self):
+        """
+        auto_rename_columns: false — aggregated column keeps original name, no .list suffix
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Manufacturers" in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+    def test_group_by_auto_rename_false_dict_rename(self):
+        """
+        auto_rename_columns: false with dict rename — output column uses user-supplied name
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Manufacturers: Category Mfrs
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Category Mfrs" in df.columns
+        assert "Manufacturers" not in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+    def test_group_by_auto_rename_false_mixed_list(self):
+        """
+        auto_rename_columns: false — mix of string and dict entries in same aggregation op
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Manufacturers: Category Mfrs
+                  - SKU
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"],
+                "SKU": ["S1", "S2", "S3"]
+            })
+        )
+        assert "Category Mfrs" in df.columns
+        assert "SKU" in df.columns
+        assert "Manufacturers.list" not in df.columns
+        assert "SKU.list" not in df.columns
+
+    def test_group_by_auto_rename_false_multiple_ops(self):
+        """
+        auto_rename_columns: false — two aggregation operations each with dict renames
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                min:
+                  - Value: Min Value
+                max:
+                  - Value: Max Value
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Value": [10, 20, 30]
+            })
+        )
+        assert "Min Value" in df.columns
+        assert "Max Value" in df.columns
+        assert "Value.min" not in df.columns
+        assert "Value.max" not in df.columns
+
+    def test_group_by_auto_rename_false_same_column_in_by(self):
+        """
+        auto_rename_columns: false — column in both by and aggregation;
+        by column retains original name, aggregated column uses dict rename
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Category: Category List
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"]
+            })
+        )
+        assert "Category" in df.columns
+        assert "Category List" in df.columns
+
+    def test_group_by_auto_rename_true_explicit(self):
+        """
+        Explicit auto_rename_columns: true — suffix still present (backwards compat regression guard)
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: true
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Manufacturers.list" in df.columns
+
+    def test_group_by_auto_rename_false_empty_df(self):
+        """
+        auto_rename_columns: false with an empty dataframe — no error, correct column names
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": [],
+                "Manufacturers": []
+            })
+        )
+        assert df.empty
+        assert "Manufacturers" in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+
 class TestSelectElement:
     """
     Test select.element
