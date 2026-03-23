@@ -187,11 +187,11 @@ def score_search_results(
             pass
 
         brand_found = bool(supplier_site_score > 0 or supplier_found)
-        product_url_score = _web.is_product_url(site)
+        product_url_score, product_url_reason = _web.is_product_url(site)
 
         # Build descriptions for score parts...
         supplier_site_reason = "Exact domain match" if supplier_site_score == 2 else "Partial domain match" if supplier_site_score == 1 else "No domain match"
-        product_url_reason = "Strong PDP pattern" if product_url_score >= 2 else "Weak PDP pattern" if product_url_score == 1 else "Negative URL pattern" if product_url_score == -2 else "No PDP pattern"
+        # product_url_reason = "Strong PDP pattern" if product_url_score >= 2 else "Weak PDP pattern" if product_url_score == 1 else "Negative URL pattern" if product_url_score == -2 else "No PDP pattern"
 
         remainder_elements = {
             "product_url": product_url_score,
