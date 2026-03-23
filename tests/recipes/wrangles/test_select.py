@@ -641,6 +641,110 @@ class TestSelectListElement:
         )
         assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
+    
+    def test_list_element_range(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[0:2]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1","2"]
+
+    def test_list_element_range_2(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[::2]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1", "3", "5"]
+
+    def test_list_element_range_3(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[::]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1", "2", "3", "4", "5"]
+
+    def test_list_element_range_4(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[3::]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["4", "5"]
 
 class TestHighestConfidence:
     """
