@@ -167,7 +167,7 @@ def _replace_templated_values(
 
 def _load_recipe(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     functions: _Union[_types.FunctionType, list, dict, str] = []
 ) -> dict:
     """
@@ -179,6 +179,8 @@ def _load_recipe(
 
     :return: YAML Recipe converted to a dictionary
     """
+    if variables is None:
+        variables = {}
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
     
@@ -323,8 +325,8 @@ def _load_recipe(
 
 def _run_actions(
     recipe: _Union[dict, list],
-    functions: dict = {},
-    variables: dict = {},
+    functions: dict = None,
+    variables: dict = None,
     error: Exception = None
 ) -> None:
     """
@@ -335,6 +337,10 @@ def _run_actions(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :param error: (Optional) If the action is triggered by an exception, this contains the error object
     """
+    if functions is None:
+        functions = {}
+    if variables is None:
+        variables = {}
     # Ensure recipe object is a list
     if not isinstance(recipe, list):
         recipe = [recipe]
@@ -378,8 +384,8 @@ def _run_actions(
 
 def _read_data(
     recipe: _Union[dict, list],
-    functions: dict = {},
-    variables: dict = {},
+    functions: dict = None,
+    variables: dict = None,
     input_dataframe: _pandas.DataFrame = None
 ) -> _pandas.DataFrame:
     """
@@ -389,6 +395,10 @@ def _read_data(
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
+    if functions is None:
+        functions = {}
+    if variables is None:
+        variables = {}
     # Ensure recipe is a list
     if not isinstance(recipe, list):
         recipe = [recipe]
@@ -490,7 +500,7 @@ def _read_data(
 def _execute_wrangles(
     df: _pandas.DataFrame,
     wrangles_list: list,
-    functions: dict = {},
+    functions: dict = None,
     variables: dict = None
 ) -> _pandas.DataFrame:
     """
@@ -504,6 +514,8 @@ def _execute_wrangles(
     """
     if variables is None:
         variables = {}
+    if functions is None:
+        functions = {}
 
     # Ensure wrangles are defined as a list
     if not isinstance(wrangles_list, list):
@@ -946,8 +958,8 @@ def _filter_dataframe(
 def _write_data(
     df: _pandas.DataFrame,
     recipe: dict,
-    functions: dict = {},
-    variables: dict = {}
+    functions: dict = None,
+    variables: dict = None
 ) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
@@ -958,6 +970,10 @@ def _write_data(
     :param variables: (Optional) A dictionary of variables passed to the recipe
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
+    if variables is None:
+        variables = {}
+    if functions is None:
+        functions = {}
     # Initialize returned df as df to start
     df_return = df
 
