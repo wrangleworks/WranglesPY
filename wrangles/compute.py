@@ -6,6 +6,13 @@ from . import web as _web
 from . import compare as _compare
 
 def _get_position_weight(position: int) -> float:
+    """
+    Calculates a Google search results position weight score based on a discrete mapping.
+    - Positions 1-2:   Score 2.0
+    - Positions 3-4:   Score 1.5
+    - Position 5:      Score 1.0
+    - Positions 6+:    Score 0.0
+    """
     if position <= 2: return 2.0
     elif position <= 4: return 1.5
     elif position == 5: return 1.0
