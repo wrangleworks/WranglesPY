@@ -92,6 +92,10 @@ def accordion(
     if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
     if not isinstance(propagate, list): propagate = [propagate]
     
+    # Pass through empty DataFrames unchanged (like other wrangles)
+    if df.empty:
+      return df
+    
     if not df.index.is_unique:
         raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
 
