@@ -212,8 +212,9 @@ class TestCaseWhen:
         )
 
     def test_case_when_no_default(self):
-        """  
-        Test case_when without default value (should use None)  
+        """
+        Test case_when without default on a new column - unmatched rows are empty string
+        (the recipe framework converts NaN to '' after each wrangle).
         """
         df = wrangles.recipe.run(
             """  
@@ -233,6 +234,32 @@ class TestCaseWhen:
             df['Result'][0] == '' and
             df['Result'][1] == 'High' and
             df['Result'][2] == ''
+        )
+
+    def test_case_when_no_default_preserves_existing(self):
+        """
+        Test case_when without default on an existing column -
+        unmatched rows keep their original values.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: label
+                  cases:
+                    - condition: value > 5
+                      value: High
+            """,
+            dataframe=pd.DataFrame({
+                'value': [3, 7, 2],
+                'label': ['original_a', 'original_b', 'original_c']
+            })
+        )
+
+        assert (
+            df['label'][0] == 'original_a' and
+            df['label'][1] == 'High' and
+            df['label'][2] == 'original_c'
         )
 
     def test_case_when_order_matters(self):
