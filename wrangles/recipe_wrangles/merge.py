@@ -3,6 +3,7 @@ Functions to merge data from one or more columns into a single column
 """
 from typing import Union as _Union
 import fnmatch as _fnmatch
+import numpy as _np
 import pandas as _pd
 from .. import format as _format
 
@@ -49,7 +50,49 @@ def coalesce(
         if output is None:
             raise ValueError('An output column must be provided if coalescing multiple input columns')
 
-        df[output] = _format.coalesce(df[input].fillna('').values.tolist())
+        if df.empty:
+            df[output] = _pd.Series(dtype=object)
+            return df
+
+        arr = df[input].fillna('').values  # object array (n_rows, n_cols)
+        n_rows = len(arr)
+        m = len(input)
+
+        # Fast C-level check: find first column per row where value != ''
+        # This handles the common case of true empty strings efficiently
+        mask = arr != ''
+        idx = _np.argmax(mask, axis=1)
+        has_any = mask.any(axis=1)
+        result = arr[_np.arange(n_rows), idx].copy()
+        result[~has_any] = ''
+
+        # NOTE: arr != '' treats whitespace-only strings ('  ') as non-empty and
+        # non-string falsy values (0, False) as non-empty. Handle those edge cases.
+        # Strip only the n selected values (not all n*m) to find which need fallback.
+        # Fast path: assume all values are strings (typical case). If non-string
+        # values are present, fall back to a safe per-element strip.
+        try:
+            stripped_result = _np.frompyfunc(str.strip, 1, 1)(result)
+        except (TypeError, AttributeError):
+            def _safe_strip(x):
+                try:
+                    return x.strip()
+                except AttributeError:
+                    return '' if not x else x
+            stripped_result = _np.frompyfunc(_safe_strip, 1, 1)(result)
+        needs_fallback = _np.where(has_any & (stripped_result == ''))[0]
+        for i in needs_fallback:
+            for j in range(int(idx[i]) + 1, m):
+                val = arr[i, j]
+                if isinstance(val, str):
+                    val = val.strip()
+                if val:
+                    result[i] = val
+                    break
+            else:
+                result[i] = ''
+
+        df[output] = result.tolist()
 
     return df
 
