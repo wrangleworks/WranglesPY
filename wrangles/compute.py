@@ -1,6 +1,8 @@
 from urllib.parse import urlsplit
 from typing import List, Tuple, Dict
 
+from attrs import fields
+
 # Import our separated helpers
 from . import web as _web
 from . import compare as _compare
@@ -228,27 +230,28 @@ def score_search_results(
         qi = meta.get("query_index", 1) - 1
         w = round(1.0 * (0.9 ** qi), 2)
 
-        fields = {
-            "Title": _compare.normalize_alphanum(item.get("title", "")),
-            "Snippet": _compare.normalize_alphanum(item.get("snippet", "")),
-            "URL": _compare.normalize_alphanum(item.get("link", ""))
+        # 1. Keep the raw fields so _evaluate_match can see the punctuation!
+        raw_fields = {
+            "Title": str(item.get("title", "")),
+            "Snippet": str(item.get("snippet", "")),
+            "URL": str(item.get("link", ""))
         }
         
-        fields_tokens = {
-            "Title": _get_tokens(item.get("title", "")),
-            "Snippet": _get_tokens(item.get("snippet", "")),
-            "URL": _get_tokens(item.get("link", ""))
-        }
+        # 2. Create the squashed version specifically for the Context Matcher
+        squashed_fields = {k: _compare.normalize_alphanum(v) for k, v in raw_fields.items()}
+
+        # 3. Create the tokenized version for the Part Code Matcher
+        fields_tokens = {k: _get_tokens(v) for k, v in raw_fields.items()}
 
         # Context Math (We will convert this to use _evaluate_match later per your note!)
-        combined_norm_text = fields["Title"] + " " + fields["Snippet"] + " " + fields["URL"]
+        combined_norm_text = squashed_fields["Title"] + " " + squashed_fields["Snippet"] + " " + squashed_fields["URL"]
         item_matches = []
         for norm_t, orig_t in unique_terms.items():
             if norm_t in combined_norm_text:
                 item_matches.append(orig_t)
             else:
                 best_r, best_m_s, best_m_e = 0.0, 0, 0
-                for f_text in [fields["Title"], fields["Snippet"], fields["URL"]]:
+                for f_text in [squashed_fields["Title"], squashed_fields["Snippet"], squashed_fields["URL"]]:
                     r, m_s, m_e = _compare.partial_ratio(norm_t, f_text)
                     if r > best_r:
                         best_r, best_m_s, best_m_e = r, m_s, m_e
@@ -263,7 +266,7 @@ def score_search_results(
         # Entity Scoring (Unpacking 4 elements now!)
         mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, mpn_exact_score, mpn_partial_base, "MPN")
         pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, part_code_exact_score, part_code_partial_base, "Part Code")
-        sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, fields, supplier_exact_score, supplier_partial_base, "Supplier")
+        sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, raw_fields, supplier_exact_score, supplier_partial_base, "Supplier")
 
         if mpn_score >= pc_score:
             best_pc_score, pc_match_reason, best_vis = mpn_score, mpn_reason, mpn_vis
