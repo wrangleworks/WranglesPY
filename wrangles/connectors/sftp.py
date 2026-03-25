@@ -312,7 +312,7 @@ class download_files:
         if password:
             connect_kwargs = {'password': password, **connect_kwargs}
         elif pkey:
-            connect_kwargs = {'pkey': RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+            connect_kwargs = {'pkey': _paramiko.RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
         else:
             raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
@@ -419,7 +419,7 @@ class upload_files:
         if password:
             connect_kwargs = {'password': password, **connect_kwargs}
         elif pkey:
-            connect_kwargs = {'pkey': _RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
+            connect_kwargs = {'pkey': _paramiko.RSAKey(file_obj=_io.StringIO(pkey)), **connect_kwargs}
         else:
             raise ValueError("Either password or pkey must be provided to connect to the SFTP server")
 
