@@ -16,12 +16,10 @@ def score_search_results(
     input: list,
     output: str | list,
     must_match_part_code: bool = True,
-    # --- NEW PARAMETERS ---
     allow_mpn_exact: bool = True,
     allow_mpn_partial: bool = True,
     allow_other_exact: bool = True,
     allow_other_partial: bool = True,
-    # ----------------------
     blacklist_keywords: str = "",
     mpn_exact_score: float = 8.0,
     mpn_partial_base: float = 4.0,
@@ -83,9 +81,8 @@ def score_search_results(
       fuzzy_match_threshold:
         type: number
     """
-    
     if not isinstance(input, list) or len(input) not in [3, 4, 5]:
-        raise ValueError("score_search_results requires 3 to 5 inputs: [results, suppliers, part_codes, mpns(optional), descriptions(optional)]")
+        raise ValueError("score_search_results requires 3 to 5 inputs")
 
     results_col = input[0]
     suppliers_col = input[1]
@@ -98,7 +95,6 @@ def score_search_results(
     else:
         blacklist = blacklist_keywords or []
 
-    # Build the set of allowed enums based on the user's parameters
     allowed_match_types = set()
     if allow_mpn_exact: allowed_match_types.add("mpn_exact")
     if allow_mpn_partial: allowed_match_types.add("mpn_partial")
@@ -112,7 +108,6 @@ def score_search_results(
         payloads = row.get(results_col, [])
         num_queries = len(payloads) if isinstance(payloads, list) else 0
 
-        # Extract and ensure lists
         def _get_list_strings(col_name):
             val = row.get(col_name, [])
             l = val if isinstance(val, list) else ([val] if _pd.notna(val) else [])
@@ -128,14 +123,12 @@ def score_search_results(
             out_series_strings.append([])
             continue
 
-        # Execute Core Scoring Math
         combined_results = _compute.score_search_results(
             payloads=payloads,
             suppliers=suppliers,
             part_codes=part_codes,
             mpns=mpns,
             descriptions=descriptions,
-            # Pass False here so the inner function doesn't pre-filter based on the old boolean logic
             must_match_part_code=False, 
             blacklist=blacklist,
             mpn_exact_score=mpn_exact_score,
@@ -148,43 +141,33 @@ def score_search_results(
             fuzzy_match_threshold=fuzzy_match_threshold
         )
         
-        # --- NEW LOGIC: Apply the dynamic enum filtering ---
         final_results = []
         for res in combined_results:
-            # 1. Extract the enum string returned by the inner function
             match_enum = res["summary"].get("part_code_found", "none")
-            
-            # 2. Evaluate it against the user's allowed parameters
             is_valid_match = match_enum in allowed_match_types
             
-            # 3. Filter if necessary
             if must_match_part_code and not is_valid_match:
                 res["summary"]["filtered"] = True
                 res["summary"]["filtered_reason"] = f"unauthorized match type ({match_enum})"
             
-            # 4. Cast 'part_code_found' back to a boolean to prevent downstream type crashes!
+            # Cast back to boolean for schema health, save enum to new key
             res["summary"]["part_code_found"] = is_valid_match
-            
-            # 5. Store the enum safely in a NEW key for your formatter/diagnostics
             res["summary"]["part_match_type"] = match_enum 
             
             final_results.append(res)
             
-        # Re-sort to ensure newly filtered items drop to the bottom
         filtered_in = sorted([s for s in final_results if not s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
         filtered_out = sorted([s for s in final_results if s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
         final_results = filtered_in + filtered_out
 
-        # Apply Formatter if requested
         row_strings = []
         for idx, res in enumerate(final_results, start=1):
-            res["summary"]["scored_result_index"] = idx # fix the index after the re-sort
+            res["summary"]["scored_result_index"] = idx 
             row_strings.append(_format.search_result_to_text(res, num_queries))
 
         out_series_dicts.append(final_results)
         out_series_strings.append(row_strings)
 
-    # Assign to dataframe
     if isinstance(output, list) and len(output) == 2:
         df[output[0]] = out_series_dicts
         df[output[1]] = out_series_strings
@@ -196,7 +179,8 @@ def score_search_results(
         raise ValueError("output must be a single column name or a list of two column names")
 
     return df
-
+  
+  
 def case_when(
     df: _pd.DataFrame,
     output: str,

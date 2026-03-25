@@ -6,10 +6,6 @@ import numpy as _np
 import textwrap
 
 def search_result_to_text(res: dict, num_queries: int = 1) -> str:
-    """
-    Transforms a single scored dictionary back into a highly readable 
-    string format for analysis/export.
-    """
     summary = res.get("summary", {})
     metadata = res.get("metadata", {})
     pricing = res.get("pricing", {})
@@ -30,7 +26,6 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         }
         
         pc_text = enum_display_map.get(part_match_type, "")
-        
         if not pc_text and summary.get("part_code_found"):
             pc_text = "PC"
 
@@ -81,16 +76,19 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         lines.append(f"Scoring Details: {total_score} pts total")
         
         if "part_match_score" in elems:
-            # Check for the visual representation and format it if it exists
             vis = elems.get("part_match_visual", "")
             vis_str = f" [{vis}]" if vis else ""
             lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')}){vis_str}")
             
         if "brand_score" in elems:
-            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
+            vis = elems.get("brand_match_visual", "")
+            vis_str = f" [**{vis}**]" if vis else ""
+            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')}){vis_str}")
             
-        # Added 'part_match_visual' to skip_keys so it doesn't print as a standalone line
-        skip_keys = {"score", "part_match_score", "part_match_reason", "part_match_visual", "brand_score", "brand_match_reason"}
+        skip_keys = {
+            "score", "part_match_score", "part_match_reason", "part_match_visual", 
+            "brand_score", "brand_match_reason", "brand_match_visual"
+        }
         
         for k in list(elems.keys()):
             if k.endswith("_reason"):
@@ -105,6 +103,7 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
                     lines.append(f"  - {k}: {v}")
 
     return "\n".join(lines)
+
 
 def retrieved_content_to_text(responses: list) -> str:
     """
