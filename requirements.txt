@@ -1,11 +1,22 @@
+# Core dependencies installed with: pip install wrangles
+# For all optional connectors and extras: pip install -r requirements-full.txt
+
+# Core data processing
+pandas>=2.0,<3.0
+numpy
+numexpr
+polars==1.33.0
+
+# Recipe engine & templating
 jinja2
 lorem
-numexpr
-numpy
-pandas>=2.0,<3.0
-polars==1.33.0
 pydantic>=2.12.0
 pyyaml
+
+# API & auth
 requests
 PyJWT
-boto3
+
+# Excel support
+openpyxl>=3.1.0
+xlsxwriter

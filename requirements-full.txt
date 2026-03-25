@@ -1,43 +1,44 @@
-# Full dependencies including all optional connectors and extras.
-# Used for running the complete test suite.
+# Full dependencies including all optional connectors and AI/LLM extras.
+# Used for running the complete test suite and enabling all connectors.
 #
 #   pip install -r requirements-full.txt
 
 # Core requirements (from requirements.txt)
+pandas>=2.0,<3.0
+numpy
+numexpr
+polars==1.33.0
 jinja2
 lorem
-numexpr
-numpy
-pandas>=2.0,<3.0
-polars==1.33.0
 pydantic>=2.12.0
 pyyaml
 requests
 PyJWT
-
-# Excel
 openpyxl>=3.1.0
 xlsxwriter
 
-# Database connectors
+# SQL databases
 sqlalchemy>=2.0,<3.0
 pymssql>=2.3.3
 psycopg2-binary>=2.9.10
 pymysql
 
-# Cloud / storage
+# NoSQL databases
+pymongo[srv]
+
+# Cloud & storage
 boto3
 
-# SSH / SFTP
+# CRM
+simple-salesforce
+
+# Remote access (SFTP / SSH)
 fabric==3.1.0
 
 # Notifications
 apprise
 
-# MongoDB
-pymongo[srv]
-
-# Salesforce
-simple-salesforce
-
-
+# AI / LLM
+openai
+google-generativeai
+serpapi
