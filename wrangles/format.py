@@ -6,12 +6,15 @@ import numpy as _np
 import textwrap
 
 def search_result_to_text(res: dict, num_queries: int = 1) -> str:
+    """
+    Transforms a single scored dictionary back into a highly readable 
+    string format for analysis/export.
+    """
     summary = res.get("summary", {})
     metadata = res.get("metadata", {})
     pricing = res.get("pricing", {})
     
     idx = summary.get("scored_result_index", "?")
-    pos = metadata.get("google_rank", "?")
     
     score_str = ""
     if "score" in summary:
@@ -46,13 +49,12 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
     lines = []
     lines.append(f"## --- Result {idx}{score_str}{filtered_badge}{query_info} --- ##")
     lines.append(f"Source:  {summary.get('source', 'N/A')}")
+    
+    # 3. Moved Link above Title
+    lines.append(f"Link:    {summary.get('link', 'N/A')}")
     lines.append(f"Title:   {summary.get('title', 'N/A')}")
     
-    matches = summary.get("matches", [])
-    if matches:
-        lines.append(f"Matches: {', '.join(matches)}")
-        
-    lines.append(f"Link:    {summary.get('link', 'N/A')}")
+    # 1. Removed 'Matches' block
     
     snippet = summary.get('snippet', '')
     wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
@@ -68,7 +70,7 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         else:
             lines.append(f"Pricing: No price found ({avail}) via {vendor}")
     
-    lines.append(f"Position:{pos}")
+    # 2. Removed 'Position' block
     
     if "scoring_details" in res:
         elems = res["scoring_details"]
@@ -78,12 +80,12 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         if "part_match_score" in elems:
             vis = elems.get("part_match_visual", "")
             vis_str = f" [{vis}]" if vis else ""
-            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')})")
+            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')}){vis_str}")
             
         if "brand_score" in elems:
             vis = elems.get("brand_match_visual", "")
             vis_str = f" [**{vis}**]" if vis else ""
-            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
+            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')}){vis_str}")
             
         skip_keys = {
             "score", "part_match_score", "part_match_reason", "part_match_visual", 
