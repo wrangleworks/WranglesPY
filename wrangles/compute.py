@@ -333,6 +333,7 @@ def score_search_results(
             "score": total_score,
             "part_match_score": best_pc_score,
             "part_match_reason": pc_match_reason,
+            "part_match_visual": best_vis,
             "brand_score": sup_score,
             "brand_match_reason": sup_reason,
         }

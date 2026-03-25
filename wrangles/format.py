@@ -19,13 +19,29 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
     
     score_str = ""
     if "score" in summary:
-        pc_matched = summary.get("part_code_found", False)
+        part_match_type = summary.get("part_match_type", "none")
         brand_matched = summary.get("brand_found", False)
         
-        if pc_matched and brand_matched: match_text = "PC & Brand Match"
-        elif pc_matched: match_text = "PC Match"
-        elif brand_matched: match_text = "Brand Match"
-        else: match_text = "No Match"
+        enum_display_map = {
+            "mpn_exact": "MPN Exact",
+            "mpn_partial": "MPN Partial",
+            "other_code_exact": "PC Exact",
+            "other_code_partial": "PC Partial"
+        }
+        
+        pc_text = enum_display_map.get(part_match_type, "")
+        
+        if not pc_text and summary.get("part_code_found"):
+            pc_text = "PC"
+
+        if pc_text and brand_matched: 
+            match_text = f"{pc_text} & Brand Match"
+        elif pc_text: 
+            match_text = f"{pc_text} Match"
+        elif brand_matched: 
+            match_text = "Brand Match"
+        else: 
+            match_text = "No Match"
             
         score_str = f" | Score: {summary.get('score')} | {match_text}"
         
@@ -65,12 +81,16 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         lines.append(f"Scoring Details: {total_score} pts total")
         
         if "part_match_score" in elems:
-            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')})")
+            # Check for the visual representation and format it if it exists
+            vis = elems.get("part_match_visual", "")
+            vis_str = f" [{vis}]" if vis else ""
+            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')}){vis_str}")
             
         if "brand_score" in elems:
             lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
             
-        skip_keys = {"score", "part_match_score", "part_match_reason", "brand_score", "brand_match_reason"}
+        # Added 'part_match_visual' to skip_keys so it doesn't print as a standalone line
+        skip_keys = {"score", "part_match_score", "part_match_reason", "part_match_visual", "brand_score", "brand_match_reason"}
         
         for k in list(elems.keys()):
             if k.endswith("_reason"):

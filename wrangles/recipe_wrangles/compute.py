@@ -151,13 +151,22 @@ def score_search_results(
         # --- NEW LOGIC: Apply the dynamic enum filtering ---
         final_results = []
         for res in combined_results:
-            # Check the enum string returned from the inner function
+            # 1. Extract the enum string returned by the inner function
             match_enum = res["summary"].get("part_code_found", "none")
             
-            # If they require a match, and the enum state isn't in their allowed set, filter it out
-            if must_match_part_code and match_enum not in allowed_match_types:
+            # 2. Evaluate it against the user's allowed parameters
+            is_valid_match = match_enum in allowed_match_types
+            
+            # 3. Filter if necessary
+            if must_match_part_code and not is_valid_match:
                 res["summary"]["filtered"] = True
                 res["summary"]["filtered_reason"] = f"unauthorized match type ({match_enum})"
+            
+            # 4. Cast 'part_code_found' back to a boolean to prevent downstream type crashes!
+            res["summary"]["part_code_found"] = is_valid_match
+            
+            # 5. Store the enum safely in a NEW key for your formatter/diagnostics
+            res["summary"]["part_match_type"] = match_enum 
             
             final_results.append(res)
             
