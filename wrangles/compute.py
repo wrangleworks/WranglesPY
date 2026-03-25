@@ -274,10 +274,11 @@ def score_search_results(
         context_ratio = len(item_matches) / max(1, len(unique_terms))
         context_score = round(context_ratio * context_match_base, 1)
         
-        # Build the specific reason string!
+        # Build the specific reason string for context score
         if item_matches:
             matched_terms_str = ", ".join([f"'{t}'" for t in item_matches])
-            context_score_reason = f"Matched {len(item_matches)} of {len(unique_terms)} terms ({matched_terms_str})"
+            # --- NEW FORMAT HERE ---
+            context_score_reason = f"Matched {len(item_matches)} terms ({matched_terms_str}) out of {len(unique_terms)} from input query"
         else:
             context_score_reason = "No context terms matched"
 
