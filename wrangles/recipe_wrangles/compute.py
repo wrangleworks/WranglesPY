@@ -16,6 +16,12 @@ def score_search_results(
     input: list,
     output: str | list,
     must_match_part_code: bool = True,
+    # --- NEW PARAMETERS ---
+    allow_mpn_exact: bool = True,
+    allow_mpn_partial: bool = True,
+    allow_other_exact: bool = True,
+    allow_other_partial: bool = True,
+    # ----------------------
     blacklist_keywords: str = "",
     mpn_exact_score: float = 8.0,
     mpn_partial_base: float = 4.0,
@@ -44,7 +50,19 @@ def score_search_results(
         description: Output column for the dictionaries. If a list of 2 is provided, outputs [dicts_column, pretty_strings_column].
       must_match_part_code:
         type: boolean
-        description: If true, filters out results that don't satisfy the fuzzy_match_threshold.
+        description: If true, filters out results that don't satisfy the allowed match types.
+      allow_mpn_exact:
+        type: boolean
+        description: Treat exact MPN matches as valid part code matches.
+      allow_mpn_partial:
+        type: boolean
+        description: Treat partial MPN matches as valid part code matches.
+      allow_other_exact:
+        type: boolean
+        description: Treat exact other part code matches as valid part code matches.
+      allow_other_partial:
+        type: boolean
+        description: Treat partial other part code matches as valid part code matches.
       blacklist_keywords:
         type: string
         description: Comma-separated list of keywords to filter out URLs containing them.
@@ -80,6 +98,13 @@ def score_search_results(
     else:
         blacklist = blacklist_keywords or []
 
+    # Build the set of allowed enums based on the user's parameters
+    allowed_match_types = set()
+    if allow_mpn_exact: allowed_match_types.add("mpn_exact")
+    if allow_mpn_partial: allowed_match_types.add("mpn_partial")
+    if allow_other_exact: allowed_match_types.add("other_code_exact")
+    if allow_other_partial: allowed_match_types.add("other_code_partial")
+
     out_series_dicts = []
     out_series_strings = []
 
@@ -110,7 +135,8 @@ def score_search_results(
             part_codes=part_codes,
             mpns=mpns,
             descriptions=descriptions,
-            must_match_part_code=must_match_part_code,
+            # Pass False here so the inner function doesn't pre-filter based on the old boolean logic
+            must_match_part_code=False, 
             blacklist=blacklist,
             mpn_exact_score=mpn_exact_score,
             mpn_partial_base=mpn_partial_base,
@@ -122,12 +148,31 @@ def score_search_results(
             fuzzy_match_threshold=fuzzy_match_threshold
         )
         
+        # --- NEW LOGIC: Apply the dynamic enum filtering ---
+        final_results = []
+        for res in combined_results:
+            # Check the enum string returned from the inner function
+            match_enum = res["summary"].get("part_code_found", "none")
+            
+            # If they require a match, and the enum state isn't in their allowed set, filter it out
+            if must_match_part_code and match_enum not in allowed_match_types:
+                res["summary"]["filtered"] = True
+                res["summary"]["filtered_reason"] = f"unauthorized match type ({match_enum})"
+            
+            final_results.append(res)
+            
+        # Re-sort to ensure newly filtered items drop to the bottom
+        filtered_in = sorted([s for s in final_results if not s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
+        filtered_out = sorted([s for s in final_results if s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
+        final_results = filtered_in + filtered_out
+
         # Apply Formatter if requested
         row_strings = []
-        for res in combined_results:
+        for idx, res in enumerate(final_results, start=1):
+            res["summary"]["scored_result_index"] = idx # fix the index after the re-sort
             row_strings.append(_format.search_result_to_text(res, num_queries))
 
-        out_series_dicts.append(combined_results)
+        out_series_dicts.append(final_results)
         out_series_strings.append(row_strings)
 
     # Assign to dataframe

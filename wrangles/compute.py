@@ -274,7 +274,21 @@ def score_search_results(
         if best_vis and best_vis not in item_matches:
             item_matches.append(best_vis)
 
-        part_code_found = (mpn_ratio >= fuzzy_match_threshold) or (pc_ratio >= fuzzy_match_threshold)
+        # NEW LOGIC: Determine specific enum state for the match
+        part_code_found_enum = "none"
+        if mpn_score == mpn_exact_score:
+            part_code_found_enum = "mpn_exact"
+        elif mpn_ratio >= fuzzy_match_threshold:
+            part_code_found_enum = "mpn_partial"
+        elif pc_score == part_code_exact_score:
+            part_code_found_enum = "other_code_exact"
+        elif pc_ratio >= fuzzy_match_threshold:
+            part_code_found_enum = "other_code_partial"
+            
+        # temporarily set the boolean flag here so the filter logic still works inside this function.
+        # The outer wrapper will now control the definition of what constitutes a "match".
+        part_code_found = part_code_found_enum != "none"
+            
         supplier_found = sup_ratio >= fuzzy_match_threshold
 
         # 3. Positional and URL Scoring
@@ -338,7 +352,7 @@ def score_search_results(
             "source": item.get("source"),
             "score": total_score,                      
             "link": item.get("link"),
-            "part_code_found": part_code_found,
+            "part_code_found": part_code_found_enum,
             "brand_found": brand_found,
             "matches": item_matches,
             "title": item.get("title"),
