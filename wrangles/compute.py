@@ -276,17 +276,20 @@ def score_search_results(
 
         # NEW LOGIC: Determine specific enum state for the match
         part_code_found_enum = "none"
+        
+        # Check MPNs first (highest priority)
         if mpn_score == mpn_exact_score:
             part_code_found_enum = "mpn_exact"
-        elif mpn_ratio >= fuzzy_match_threshold:
+        elif mpn_score > 0:
             part_code_found_enum = "mpn_partial"
+            
+        # If no MPN, check standard part codes
         elif pc_score == part_code_exact_score:
             part_code_found_enum = "other_code_exact"
-        elif pc_ratio >= fuzzy_match_threshold:
+        elif pc_score > 0:
             part_code_found_enum = "other_code_partial"
             
-        # temporarily set the boolean flag here so the filter logic still works inside this function.
-        # The outer wrapper will now control the definition of what constitutes a "match".
+        # The outer wrapper controls the definition of what constitutes a "match".
         part_code_found = part_code_found_enum != "none"
             
         supplier_found = sup_ratio >= fuzzy_match_threshold
