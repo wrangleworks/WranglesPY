@@ -73,7 +73,7 @@ def _evaluate_part_code_match(
                 
                 # 1. Exact Token Match
                 if norm_cand == token:
-                    return exact_score, f"Exact Match ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
+                    return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
                     
                 # 2. Variant / Substring Match
                 elif not is_short_code and norm_cand in token:
@@ -82,7 +82,7 @@ def _evaluate_part_code_match(
                         score = round(ratio * partial_base, 2)
                         if score > best_score:
                             best_score, best_ratio = score, ratio
-                            best_reason = f"Variant Match ({entity_name}) in {field_name} [{ratio:.2f}]"
+                            best_reason = f"Variant Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
                             best_visual = token.replace(norm_cand, f"**{norm_cand}**")
 
     return best_score, best_reason, best_ratio, best_visual
@@ -119,16 +119,16 @@ def _evaluate_match(
                 
             # 1. EXACT MATCH
             if norm_cand == norm_field:
-                return exact_score, f"Exact Match ({entity_name}) in {field_name}", 1.0, candidate
+                return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, candidate
                 
-            # 2. SUBSTRING BYPASS (Forward: cand inside field)
+            # 2. SUBSTRING BYPASS
             if norm_cand in norm_field:
                 score = round(1.0 * partial_base, 2)
                 if score > best_score:
                     best_score, best_ratio = score, 1.0
-                    best_reason = f"Embedded Match ({entity_name}) in {field_name}"
+                    best_reason = f"Embedded Match '{candidate}' ({entity_name}) in {field_name}"
                     best_match_str = candidate
-                continue 
+                continue
                 
             # 3. TOKENIZED FALLBACKS (Reverse Substring & Fuzzy)
             clean_field = field_text.replace('/', ' ').replace('-', ' ').replace('.', ' ').replace('_', ' ')
@@ -138,22 +138,22 @@ def _evaluate_match(
                 norm_token = _compare.normalize_alphanum(token)
                 if not norm_token: continue
                 
-                # A. Reverse Substring Bypass (e.g. website says "rexnord", our list says "regalrexnord")
+                # A. Reverse Substring Bypass
                 if len(norm_token) >= 5 and norm_token in norm_cand:
-                    score = round(0.95 * partial_base, 2) # Slightly lower ratio than perfect forward
+                    score = round(0.95 * partial_base, 2)
                     if score > best_score:
                         best_score, best_ratio = score, 0.95
-                        best_reason = f"Reverse Embed ({entity_name}) in {field_name}"
+                        best_reason = f"Reverse Embed '{candidate}' ({entity_name}) in {field_name}"
                         best_match_str = candidate
                     continue
 
-                # B. Standard Fuzzy Match for Typos
+                # B. Standard Fuzzy Match
                 ratio, _, _ = _compare.partial_ratio(norm_cand, norm_token)
                 if ratio >= min_ratio:
                     score = round(ratio * partial_base, 2)
                     if score > best_score:
                         best_score, best_ratio = score, ratio
-                        best_reason = f"Fuzzy Match ({entity_name}) in {field_name} [{ratio:.2f}]"
+                        best_reason = f"Fuzzy Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
                         best_match_str = candidate
                         
     return best_score, best_reason, best_ratio, best_match_str
@@ -236,32 +236,50 @@ def score_search_results(
             "Snippet": str(item.get("snippet", "")),
             "URL": str(item.get("link", ""))
         }
-        
-        # 2. Create the squashed version specifically for the Context Matcher
-        squashed_fields = {k: _compare.normalize_alphanum(v) for k, v in raw_fields.items()}
 
-        # 3. Create the tokenized version for the Part Code Matcher
+        # 2. Create the tokenized version for the Part Code Matcher
         fields_tokens = {k: _get_tokens(v) for k, v in raw_fields.items()}
-
-        # Context Math (We will convert this to use _evaluate_match later per your note!)
-        combined_norm_text = squashed_fields["Title"] + " " + squashed_fields["Snippet"] + " " + squashed_fields["URL"]
+        
+        # --- REFACTORED CONTEXT MATH ---
         item_matches = []
+        # Pool all tokens together from title, snippet, and URL
+        all_tokens = fields_tokens["Title"] + fields_tokens["Snippet"] + fields_tokens["URL"]
+        
         for norm_t, orig_t in unique_terms.items():
-            if norm_t in combined_norm_text:
-                item_matches.append(orig_t)
-            else:
-                best_r, best_m_s, best_m_e = 0.0, 0, 0
-                for f_text in [squashed_fields["Title"], squashed_fields["Snippet"], squashed_fields["URL"]]:
-                    r, m_s, m_e = _compare.partial_ratio(norm_t, f_text)
-                    if r > best_r:
-                        best_r, best_m_s, best_m_e = r, m_s, m_e
+            term_matched = False
+            
+            for token in all_tokens:
+                if not token: continue
                 
-                if best_r >= fuzzy_match_threshold:
-                    item_matches.append(_compare.mask_original_term(orig_t, best_m_s, best_m_e))
+                # 1. Exact Token Match
+                if norm_t == token:
+                    term_matched = True
+                    break
+                    
+                # 2. Embedded Match (Only if the term is > 3 chars to prevent false positives)
+                elif len(norm_t) > 3 and norm_t in token:
+                    term_matched = True
+                    break
+                    
+                # 3. Token Fuzzy Match (Typos)
+                else:
+                    ratio, _, _ = _compare.partial_ratio(norm_t, token)
+                    if ratio >= fuzzy_match_threshold:
+                        term_matched = True
+                        break
+                        
+            if term_matched:
+                item_matches.append(orig_t)
 
         context_ratio = len(item_matches) / max(1, len(unique_terms))
         context_score = round(context_ratio * context_match_base, 1)
-        context_score_reason = f"{len(item_matches)} of {len(unique_terms)} terms matched"
+        
+        # Build the specific reason string!
+        if item_matches:
+            matched_terms_str = ", ".join([f"'{t}'" for t in item_matches])
+            context_score_reason = f"Matched {len(item_matches)} of {len(unique_terms)} terms ({matched_terms_str})"
+        else:
+            context_score_reason = "No context terms matched"
 
         # Entity Scoring (Unpacking 4 elements now!)
         mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, mpn_exact_score, mpn_partial_base, "MPN")

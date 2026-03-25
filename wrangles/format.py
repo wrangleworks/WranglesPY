@@ -78,12 +78,12 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
         if "part_match_score" in elems:
             vis = elems.get("part_match_visual", "")
             vis_str = f" [{vis}]" if vis else ""
-            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')}){vis_str}")
+            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')})")
             
         if "brand_score" in elems:
             vis = elems.get("brand_match_visual", "")
             vis_str = f" [**{vis}**]" if vis else ""
-            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')}){vis_str}")
+            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
             
         skip_keys = {
             "score", "part_match_score", "part_match_reason", "part_match_visual", 
