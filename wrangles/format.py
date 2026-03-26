@@ -14,7 +14,10 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
     metadata = res.get("metadata", {})
     pricing = res.get("pricing", {})
     
+    ## Result IDs    
     idx = summary.get("scored_result_index", "?")
+    row_id = summary.get("input_row_id")
+    display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
     
     score_str = ""
     if "score" in summary:
@@ -47,7 +50,7 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
     query_info = f" | from Query #{metadata.get('query_index')}" if num_queries > 1 else ""
     
     lines = []
-    lines.append(f"## --- Result {idx}{score_str}{filtered_badge}{query_info} --- ##")
+    lines.append(f"## --- Result {display_idx}{score_str}{filtered_badge}{query_info} --- ##")
     lines.append(f"Source:  {summary.get('source', 'N/A')}")
     
     # 3. Moved Link above Title

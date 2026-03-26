@@ -159,7 +159,6 @@ def _evaluate_match(
     return best_score, best_reason, best_ratio, best_match_str
 
 ### Main Score Function ###
-from urllib.parse import urlsplit
 
 def score_search_results(
     payloads: list,
@@ -364,6 +363,7 @@ def score_search_results(
 
         summary = {
             "scored_result_index": 0, 
+            "input_row_id": item.get("input_row_id"),
             "source": item.get("source"),
             "score": total_score,                      
             "link": item.get("link"),
