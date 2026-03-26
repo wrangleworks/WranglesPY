@@ -7,7 +7,8 @@ from .. import format as _format
 
 def find_links(
     df: _pd.DataFrame,
-    input: str | list,
+    queries: str | list,
+    id: str,
     output: str | list | None = None,
     client: str = "serpapi",
     api_key: str | None = None,
@@ -20,14 +21,18 @@ def find_links(
     description: Perform web searches to find links. Returns structured search results with titles, links, snippets, and optional pricing.
     additionalProperties: false
     required:
-      - input
+      - queries
+      - id
       - output
     properties:
-      input:
+      queries:
         type:
           - string
           - array
         description: Name or list of input columns containing search queries. Must map 1:1 with output columns.
+      id:
+        type: string
+        description: Name of the column containing the row ID to append to each search result.
       output:
         type:
           - string
@@ -69,7 +74,7 @@ def find_links(
           - mobile
           - tablet
     """
-    if output is None: output = input
+    if output is None: output = queries
 
     client_config = {"api_key": api_key}
             
@@ -79,11 +84,11 @@ def find_links(
     kwargs.setdefault("gl", "us")
     kwargs.setdefault("hl", "en")
 
-    if not isinstance(input, list): input = [input]
+    if not isinstance(queries, list): queries = [queries]
     if not isinstance(output, list): output = [output]
 
-    if len(input) != len(output):
-        raise ValueError("search.find_links must have an equal number of input and output columns.")
+    if len(queries) != len(output):
+        raise ValueError("search.find_links must have an equal number of query and output columns.")
 
     def _to_query_list(v) -> list[str]:
         if v is None: return []
@@ -92,8 +97,11 @@ def find_links(
         s = str(v).strip()
         return [s] if s else []
 
-    for input_column, output_column in zip(input, output):
-        row_query_lists = [_to_query_list(v) for v in df[input_column].tolist()]
+    # Extract row IDs to map them during the results reconstruction
+    row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
+
+    for query_column, output_column in zip(queries, output):
+        row_query_lists = [_to_query_list(v) for v in df[query_column].tolist()]
         flat_queries = [q for qs in row_query_lists for q in qs]
 
         if not flat_queries:
@@ -112,7 +120,8 @@ def find_links(
 
         out_cells, pos, total_queries, total_results = [], 0, 0, 0
 
-        for qs in row_query_lists:
+        # Zip with row_ids so we have the corresponding ID for the current row
+        for qs, current_id in zip(row_query_lists, row_ids):
             k = len(qs)
             total_queries += k
             if k == 0:
@@ -124,10 +133,21 @@ def find_links(
                 if isinstance(resp, dict):
                     if "search_metadata" in resp and isinstance(resp["search_metadata"], dict):
                         resp["search_metadata"]["query_index"] = j
+                    
+                    updated_results = []
                     for r in resp.get("search_results", []):
                         if isinstance(r, dict):
-                            r["query_index"] = j
-                    total_results += len(resp.get("search_results", []))
+                            # Create a new dict to guarantee input_row_id is the first key
+                            new_r = {"input_row_id": current_id}
+                            new_r.update(r)
+                            new_r["query_index"] = j
+                            updated_results.append(new_r)
+                        else:
+                            updated_results.append(r)
+                    
+                    # Replace the old search_results list with our newly ordered dicts
+                    resp["search_results"] = updated_results
+                    total_results += len(updated_results)
 
             out_cells.append(cell)
             pos += k
