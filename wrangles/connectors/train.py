@@ -234,7 +234,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'overwrite') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -246,7 +246,8 @@ class lookup():
         :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
         _logging.info(f": Training Lookup Wrangle")
-
+        if settings is None:
+            settings = {}
         # Error handling for name, model_id and settings
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")

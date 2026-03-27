@@ -28,10 +28,10 @@ _schema = {}
 def run(
     url: str,
     method: str = "GET",
-    headers: dict = {},
+    headers: dict = None,
     params: dict = None,
     json: _Union[dict, list] = None,
-    oauth: dict = {},
+    oauth: dict = None,
     **kwargs
 ) -> None:
     """
@@ -46,7 +46,10 @@ def run(
       to sending the main request
     """
     _logging.info(f": Making http request :: {url}")
-
+    if headers is None:
+        headers = {}
+    if oauth is None:
+      oauth = {}
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
     
@@ -129,11 +132,11 @@ properties:
 def read(
     url: str,
     method: str = "GET",
-    headers: dict = {},
+    headers: dict = None,
     params: dict = None,
     json: _Union[dict, list] = None,
     json_key: str = None,
-    oauth: dict = {},
+    oauth: dict = None,
     orient: str = "records",
     **kwargs
 ) -> _pd.DataFrame:
@@ -152,6 +155,11 @@ def read(
     :return: A pandas DataFrame
     """
     _logging.info(f": Reading data from http :: {url}")
+
+    if headers is None:
+        headers = {}
+    if oauth is None:
+        oauth = {}
 
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
@@ -270,10 +278,10 @@ def write(
     df: _pd.DataFrame,
     url: str,
     method: str = "POST",
-    headers: dict = {},
+    headers: dict = None,
     orient: str = "records",
     batch: bool = True,
-    oauth: dict = {},
+    oauth: dict = None,
     **kwargs
 ) -> None:
     """
@@ -288,7 +296,10 @@ def write(
         If an integer, send the DataFrame in batches of that size.
     """
     _logging.info(f": Writing data to http :: {url}")
-
+    if headers is None:
+        headers = {}
+    if oauth is None:
+        oauth = {}
     if oauth:
         headers["Authorization"] = f"Bearer {_get_oauth_token(**oauth)}"
 
