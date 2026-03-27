@@ -703,7 +703,14 @@ class meta_data():
 
     _schema["write"] = """
         type: object
-        description: Update the metadata for a Wrangle model
+        description: |
+            Update the metadata for a Wrangle model.
+            The following fields can be updated:
+                - name
+                - batch_size
+                - tags
+                - notes
+                - settings
         additionalProperties: false
         required:
           - model_id

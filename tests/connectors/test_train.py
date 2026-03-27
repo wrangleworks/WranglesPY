@@ -1535,7 +1535,11 @@ class TestTrainMetaData:
                   model_id: 41789e35-eada-4239
             """
         )
-        assert all(col in df.columns for col in ["id", "name", "variant", "purpose", "batch_size", "settings"])
+        assert all(col in df.columns for col in [
+            "id", "name", "type", "purpose", "status", "path",
+            "batch_size", "tags", "notes", "created_by", "date_created",
+            "modified_by", "date_modified", "variant", "settings"
+        ])
 
     def test_meta_data_write(self):
         """
