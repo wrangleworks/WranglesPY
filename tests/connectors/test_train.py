@@ -1498,6 +1498,16 @@ class TestTrainMetaData:
     """
     All tests for reading and writing Wrangle metadata
     """
+    def teardown_method(self):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "meta-data-demo-bd0238a3"}])
+        )
+
     def test_meta_data_read(self):
         """
         Read metadata for a model
