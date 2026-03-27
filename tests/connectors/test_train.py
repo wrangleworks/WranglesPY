@@ -1498,7 +1498,7 @@ class TestTrainMetaData:
     """
     All tests for reading and writing Wrangle metadata
     """
-    def teardown_method(self):
+    def setup_method(self):
         wrangles.recipe.run(
             """
             write:
