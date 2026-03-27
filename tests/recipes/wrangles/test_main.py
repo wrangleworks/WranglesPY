@@ -1068,25 +1068,6 @@ class TestRemoveWords:
             "The lists for" in info.value.args[0]
         )
 
-    def test_remove_words_tokenize(self):
-        """
-        Tokenize inputs
-        """
-        data = pd.DataFrame({
-            'col': ['Metal Carbon Water Tank'],
-            'materials': ['Metal Carbon']
-        })
-        recipe = """
-        wrangles:
-        - remove_words:
-            input: col
-            to_remove:
-                - materials
-            output: Out
-            tokenize_to_remove: True
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Out'].iloc[0] == 'Water Tank'
 
     def test_remove_words_case_sensitive(self):
         """
@@ -1304,24 +1285,6 @@ class TestRemoveWords:
         )
         assert df.empty and df.columns.to_list() == ['Random', 'output column']
 
-    def test_remove_words_tokenize_default_true(self):
-        """
-        Test that tokenize_to_remove defaults to True and multiple spaces are reduced to single.
-        """
-        data = pd.DataFrame({
-            'col': ['A   B   C'],
-            'rem': ['B']
-        })
-        recipe = """
-        wrangles:
-        - remove_words:
-            input: col
-            to_remove:
-                - rem
-            output: Out
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Out'].iloc[0] == 'A C'
 
     def test_remove_words_tokenize_multiple_spaces(self):
         """
@@ -1404,24 +1367,6 @@ class TestRemoveWords:
         assert result['output'][0].strip() == ''
         assert result['output'][1].strip() == ''
 
-    def test_remove_words_list_input_str_to_remove(self):
-        """
-        If input is a list and to_remove is a string, to_remove should be tokenized and removal should work in list mode.
-        """
-        data = pd.DataFrame({
-            'col': [['A', 'B', 'C', 'D']],
-            'rem': ['B C']
-        })
-        recipe = """
-        wrangles:
-        - remove_words:
-            input: col
-            to_remove:
-                - rem
-            output: Out
-        """
-        df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Out'].iloc[0] == 'A D'
 
     def test_remove_words_str_input_list_to_remove(self):
         """
@@ -1606,7 +1551,7 @@ class TestRemoveWords:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['Out'].iloc[0] == 'Water Tank'
 
-    def test_remove_words_list_input_str_to_remove(self):
+    def test_remove_words_list_input_str_to_remove_element_match(self):
         """
         When input is a list and to_remove is a string, the string is tokenized and
         matched against each element of the input list.
