@@ -39,7 +39,7 @@ def accordion(
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -84,13 +84,17 @@ def accordion(
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
-
+    if variables is None: variables = {}
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
     if not isinstance(propagate, list): propagate = [propagate]
+    
+    # Pass through empty DataFrames unchanged (like other wrangles)
+    if df.empty:
+      return df
     
     if not df.index.is_unique:
         raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
@@ -100,7 +104,7 @@ def accordion(
 
     # Convert any columns containing JSON arrays to lists
     for col in input:
-        if not isinstance(df_temp[col][0], list):
+        if not df_temp.empty and not isinstance(df_temp[col].iloc[0], list):
             try:
                 df_temp[col] = df_temp[col].apply(_json.loads)
             except:
@@ -170,13 +174,15 @@ def _batch_thread(
     batch_num: int,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {},
+    variables: dict = None,
     timeout: float = None,
     on_error: dict = None
 ):
     """
     Function called by batch
     """
+    if variables is None:
+        variables = {}
     try:
         return _wrangles.recipe.run(
             {"wrangles": wrangles},
@@ -200,7 +206,7 @@ def batch(
     df,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {},
+    variables: dict = None,
     batch_size: int = 1000,
     threads: int = 1,
     on_error: dict = None,
@@ -240,6 +246,8 @@ def batch(
         type: number
         description: The number of seconds to wait for a batch to complete before raising an error
     """
+    if variables is None:
+        variables = {}
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
 
@@ -409,7 +417,7 @@ def concurrent(
     max_concurrency: int = 10,
     use_multiprocessing: bool = False,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -435,6 +443,8 @@ def concurrent(
         description: The maximum number of wrangles to execute in parallel
         minimum: 1
     """
+    if variables is None:
+        variables = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -1992,12 +2002,12 @@ def translate(
 
 
 def Try(
-    df: _pd.DataFrame,
-    wrangles: list,
-    functions: _Union[_types.FunctionType, list, dict] = {},
-    variables: dict = {},
-    retries: int = 0,
-    **kwargs
+  df: _pd.DataFrame,
+  wrangles: list,
+  functions: _Union[_types.FunctionType, list, dict] = None,
+  variables: dict = None,
+  retries: int = 0,
+  **kwargs
 ):
     """
     type: object
@@ -2026,6 +2036,10 @@ def Try(
         description: Number of times to retry the wrangles if an error occurs. Default 0.
         minimum: 0
     """
+    if functions is None:
+      functions = {}
+    if variables is None:
+      variables = {}
     for attempt in range(retries + 1):
         try:
             df = _wrangles.recipe.run(

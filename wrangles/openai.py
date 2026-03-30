@@ -139,7 +139,7 @@ def _embedding_thread(
     model: str,
     url: str,
     retries: int = 0,
-    request_params: dict = {},
+    request_params: dict = None,
     precision: str = "float32"
 ):
     """
@@ -153,6 +153,8 @@ def _embedding_thread(
     :param request_params: Additional request parameters to pass to the backend.
     :param precision: The precision of the embeddings. Default is float32.
     """
+    if request_params is None:
+        request_params = {}
     response = None
     backoff_time = 1
     while (retries + 1):

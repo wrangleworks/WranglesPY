@@ -42,7 +42,7 @@ def read(
     object: str,
     command: str,
     columns: list = None,
-    params: dict = {},
+    params: dict = None,
     domain: str = None
 ) -> _pd.DataFrame:
     """
@@ -63,7 +63,8 @@ def read(
     :return: A Pandas dataframe of the imported data.
     """
     _logging.info(f": Reading data from Salesforce :: {instance} /  {object}")
-
+    if params is None:
+      params = {}
     sf = _salesforce.Salesforce(
         instance=instance,
         username=user,
