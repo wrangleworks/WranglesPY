@@ -967,6 +967,41 @@ class TestLog:
         )
         assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
 
+    def test_log_system_variables(self, caplog):
+        """
+        Test log using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_variables(self, caplog):
+        """
+        Test log using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
 
 class TestRemoveWords:
     """
