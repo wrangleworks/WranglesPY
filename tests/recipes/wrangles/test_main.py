@@ -967,9 +967,9 @@ class TestLog:
         )
         assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
 
-    def test_log_system_variables(self, caplog):
+    def test_log_system_variables_info(self, caplog):
         """
-        Test log using system variables
+        Test log info using system variables
         """
         data = pd.DataFrame({
         'Col1': ['Chicken'],
@@ -979,6 +979,40 @@ class TestLog:
         wrangles:
             - log:
                 info: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_error(self, caplog):
+        """
+        Test log error using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                error: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_warning(self, caplog):
+        """
+        Test log warning using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                warning: |
                   ${row_count} ${column_count} ${columns} ${df}
         """
         wrangles.recipe.run(recipe, dataframe=data)
