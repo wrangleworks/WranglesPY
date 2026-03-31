@@ -18,19 +18,19 @@ def test_classify_list():
 # Invalid input data provided
 def test_classify_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.classify({'ball bearing'}, 'a62c7480-500e-480c')
+        wrangles.classify({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
 def test_classify_error_2():
     with pytest.raises(ValueError) as info:
-        raise wrangles.classify('ball bearing', 'a62c7480-500e-480')
+        wrangles.classify('ball bearing', 'a62c7480-500e-480')
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
 
 # Wrong Model id on wrong function name
 def test_classify_error_3():
     with pytest.raises(ValueError) as info:
-        raise wrangles.classify('ball bearing', 'fce592c9-26f5-4fd7')
+        wrangles.classify('ball bearing', 'fce592c9-26f5-4fd7')
     assert info.typename == 'ValueError' and info.value.args[0] == f'Using extract model_id fce592c9-26f5-4fd7 in a classify function.'
 
 # Data
@@ -100,19 +100,19 @@ def test_properties_list():
 # Invalid input data provided
 def test_extract_error_1():
     with pytest.raises(TypeError) as info:
-        raise wrangles.extract.custom({'ball bearing'}, 'a62c7480-500e-480c')
+        wrangles.extract.custom({'ball bearing'}, 'a62c7480-500e-480c')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 # Incorrect or missing values in model_id. format is XXXXXXXX-XXXX-XXXX'
 def test_extract_error_2():
     with pytest.raises(ValueError) as info:
-        raise wrangles.extract.custom('ball bearing', 'fce592c9-26f5-4fd')
+        wrangles.extract.custom('ball bearing', 'fce592c9-26f5-4fd')
     assert info.typename == 'ValueError' and info.value.args[0] == 'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX'
 
 # Wrong Model id on wrong function name
 def test_extract_error_3():
     with pytest.raises(ValueError) as info:
-        raise wrangles.extract.custom('ball bearing', 'a62c7480-500e-480c')
+        wrangles.extract.custom('ball bearing', 'a62c7480-500e-480c')
     assert info.typename == 'ValueError' and info.value.args[0] == f'Using classify model_id a62c7480-500e-480c in an extract function.'
 
 def test_extract_html_str():
@@ -130,7 +130,7 @@ def test_translate_list():
 # Invalid input type (dict)
 def test_translate_typeError():
     with pytest.raises(TypeError) as info:
-        raise wrangles.translate({'No Funciona'}, 'ES')
+        wrangles.translate({'No Funciona'}, 'ES')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
     
 def test_translate_list_lower_case():
@@ -155,7 +155,7 @@ def test_standardize_1():
 # invalid input
 def test_standardize_2():
     with pytest.raises(TypeError) as info:
-        raise wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
+        wrangles.standardize({'ASAP'}, '6ca4ab44-8c66-40e8')
     assert info.typename == 'TypeError' and info.value.args[0] == 'Invalid input data provided. The input must be either a string or a list of strings.'
 
 # Headers not included ['Find', 'Replace']
@@ -170,7 +170,7 @@ def test_standardize_train_2():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.standardize(**config)
+        train.standardize(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == 'Training_data list must contain'
     
 def test_standardize_train_3():
@@ -181,7 +181,7 @@ def test_standardize_train_3():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.standardize(**config)
+        train.standardize(**config)
     assert info.typename == 'ValueError' and info.value.args[0] == 'A list is expected for training_data'
 
 
@@ -206,7 +206,7 @@ def test_classify_train_1():
         'model_id': '1234567890',
     }
     with pytest.raises(ValueError) as info:
-        raise train.classify(**config)
+        train.classify(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 class temp_extract():
@@ -225,7 +225,7 @@ def test_extract_train_1():
         'name': 'test_extract'
     }
     with pytest.raises(ValueError) as info:
-        raise train.extract(**config)
+        train.extract(**config)
     assert info.typename == 'ValueError' and info.value.args[0][:31] == "Training_data list must contain"
 
 # format

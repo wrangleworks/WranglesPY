@@ -65,7 +65,7 @@ class TestSelectDictionaryElement:
             element: shapes
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
@@ -470,7 +470,7 @@ class TestSelectListElement:
             element: 1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.list_element" in info.value.args[0]
@@ -908,7 +908,7 @@ class TestHighestConfidence:
         a clear error message with invalid input/output
         """
         with pytest.raises(ValueError):
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles: 
                     - select.highest_confidence:
@@ -1165,7 +1165,7 @@ class TestSelectLeft:
                 length: 5
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -1365,7 +1365,7 @@ class TestSelectRight:
                 length: 5
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -1615,7 +1615,7 @@ class TestSelectSubstring:
                 input: Col1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "Either start or length must be provided." in info.value.args[0]
@@ -1640,7 +1640,7 @@ class TestSelectSubstring:
                 length: 4
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -2454,7 +2454,7 @@ class TestSelectElement:
         where the element does not exist
         """
         with pytest.raises(KeyError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - select.element:
@@ -3008,7 +3008,7 @@ class TestSelectColumns:
                 case: upper
         """
         with pytest.raises(KeyError) as info:
-            raise wrangles.recipe.run(recipe=recipe, dataframe=data)
+            wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
         
     def test_select_columns_where(self):
@@ -3257,7 +3257,7 @@ class TestSelectSample:
         an invalid number for rows
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -3277,7 +3277,7 @@ class TestSelectSample:
         an invalid value for rows
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
