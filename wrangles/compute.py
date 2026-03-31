@@ -162,8 +162,8 @@ def _evaluate_match(
 
 def score_search_results(
     payloads: list,
-    suppliers: list,
-    part_codes: list,
+    suppliers: list | None = None,
+    part_codes: list | None = None,
     mpns: list | None = None,
     descriptions: list | None = None,
     must_match_part_code: bool = True,
@@ -178,6 +178,8 @@ def score_search_results(
     fuzzy_match_threshold: float = 0.8
 ) -> list:
     """Core function that scores a single list of search payloads."""
+    suppliers = suppliers or []
+    part_codes = part_codes or []
     mpns = mpns or []
     descriptions = descriptions or []
     blacklist = blacklist or []
