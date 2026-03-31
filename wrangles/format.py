@@ -5,6 +5,58 @@ import numpy as _np
 
 import textwrap
 
+def raw_search_results_to_text(payloads: list) -> str:
+    """
+    Transforms a list of raw search payloads (dicts) into a highly readable 
+    string format for pre-scoring analysis.
+    """
+    if not payloads:
+        return "No results returned."
+
+    lines = []
+    for payload in payloads:
+        meta = payload.get("search_metadata", {})
+        query = meta.get("query", "Unknown Query")
+        query_idx = meta.get("query_index", 1)
+
+        lines.append(f"## ====== Query #{query_idx}: {query} ====== ##")
+
+        results = payload.get("search_results", [])
+        if not results:
+            lines.append("No links found for this query.\n")
+            continue
+
+        for idx, r in enumerate(results, start=1):
+            row_id = r.get("input_row_id")
+            display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
+
+            lines.append(f"## --- Result {display_idx} --- ##")
+            lines.append(f"Source:  {r.get('source', 'N/A')}")
+            lines.append(f"Link:    {r.get('link', 'N/A')}")
+            lines.append(f"Title:   {r.get('title', 'N/A')}")
+
+            snippet = r.get('snippet', '')
+            if snippet:
+                wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
+                lines.append(f"Snippet: {wrapped_snippet}")
+
+            pricing = r.get("pricing", {})
+            if pricing:
+                price = pricing.get("price")
+                curr = pricing.get("currency", "")
+                avail = pricing.get("availability", "Unknown availability")
+                vendor = pricing.get("vendor", r.get("source", "Unknown vendor"))
+                
+                if price is not None:
+                    lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
+                else:
+                    lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+
+            pos = r.get("position") or r.get("google_rank", "?")
+            lines.append(f"Position:{pos}\n")
+
+    return "\n".join(lines).strip()
+
 def search_result_to_text(res: dict, num_queries: int = 1) -> str:
     """
     Transforms a single scored dictionary back into a highly readable 

@@ -29,7 +29,7 @@ def find_links(
         type:
           - string
           - array
-        description: Name or list of input columns containing search queries. Must map 1:1 with output columns.
+        description: Name or list of input columns containing search queries.
       id:
         type: string
         description: Name of the column containing the row ID to append to each search result.
@@ -37,7 +37,7 @@ def find_links(
         type:
           - string
           - array
-        description: Name or list of output columns to write search results to.
+        description: Output column for the dictionaries. If a list of 2 is provided, outputs [dicts_column, pretty_strings_column].
       client:
         type: string
         description: The search provider to use.
@@ -87,8 +87,11 @@ def find_links(
     if not isinstance(queries, list): queries = [queries]
     if not isinstance(output, list): output = [output]
 
-    if len(queries) != len(output):
-        raise ValueError("search.find_links must have an equal number of query and output columns.")
+    # --- NEW: Handle the 1 Query -> 2 Outputs scenario ---
+    is_multi_output = len(queries) == 1 and len(output) == 2
+    
+    if not is_multi_output and len(queries) != len(output):
+        raise ValueError("search.find_links must have an equal number of query and output columns, OR 1 query column and 2 output columns [dicts, strings].")
 
     def _to_query_list(v) -> list[str]:
         if v is None: return []
@@ -97,15 +100,18 @@ def find_links(
         s = str(v).strip()
         return [s] if s else []
 
-    # Extract row IDs to map them during the results reconstruction
     row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
 
-    for query_column, output_column in zip(queries, output):
+    for i, query_column in enumerate(queries):
+        # Target the correct dict output column based on the mode
+        dict_output_column = output[0] if is_multi_output else output[i]
+        
         row_query_lists = [_to_query_list(v) for v in df[query_column].tolist()]
         flat_queries = [q for qs in row_query_lists for q in qs]
 
         if not flat_queries:
-            df[output_column] = [[] for _ in row_query_lists]
+            df[dict_output_column] = [[] for _ in row_query_lists]
+            if is_multi_output: df[output[1]] = ["" for _ in row_query_lists]
             _logging.info(f": Wrangling :: find_links summary :: 0 queries >> 0 results")
             continue
 
@@ -118,14 +124,14 @@ def find_links(
             **kwargs
         )
 
-        out_cells, pos, total_queries, total_results = [], 0, 0, 0
+        out_cells, string_cells, pos, total_queries, total_results = [], [], 0, 0, 0
 
-        # Zip with row_ids so we have the corresponding ID for the current row
         for qs, current_id in zip(row_query_lists, row_ids):
             k = len(qs)
             total_queries += k
             if k == 0:
                 out_cells.append([])
+                string_cells.append("")
                 continue
 
             cell = flat_responses[pos:pos + k]
@@ -137,7 +143,6 @@ def find_links(
                     updated_results = []
                     for r in resp.get("search_results", []):
                         if isinstance(r, dict):
-                            # Create a new dict to guarantee input_row_id is the first key
                             new_r = {"input_row_id": current_id}
                             new_r.update(r)
                             new_r["query_index"] = j
@@ -145,14 +150,22 @@ def find_links(
                         else:
                             updated_results.append(r)
                     
-                    # Replace the old search_results list with our newly ordered dicts
                     resp["search_results"] = updated_results
                     total_results += len(updated_results)
 
             out_cells.append(cell)
+            
+            # Generate the string version if requested
+            if is_multi_output:
+                string_cells.append(_format.raw_search_results_to_text(cell))
+                
             pos += k
 
-        df[output_column] = out_cells
+        # Write to dataframe
+        df[dict_output_column] = out_cells
+        if is_multi_output:
+            df[output[1]] = string_cells
+            
         _logging.info(f": Wrangling :: find_links summary :: {total_queries} queries >> {total_results} results")
 
     return df
