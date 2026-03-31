@@ -19,7 +19,7 @@ def raw_search_results_to_text(payloads: list) -> str:
         query = meta.get("query", "Unknown Query")
         query_idx = meta.get("query_index", 1)
 
-        lines.append(f"## ====== Query #{query_idx}: {query} ====== ##")
+        lines.append(f"##   Query {query_idx}: {query}    ##")
 
         results = payload.get("search_results", [])
         if not results:
@@ -30,7 +30,7 @@ def raw_search_results_to_text(payloads: list) -> str:
             row_id = r.get("input_row_id")
             display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
 
-            lines.append(f"## --- Result {display_idx} --- ##")
+            lines.append(f"# --- Result {display_idx} --- #")
             lines.append(f"Source:  {r.get('source', 'N/A')}")
             lines.append(f"Link:    {r.get('link', 'N/A')}")
             lines.append(f"Title:   {r.get('title', 'N/A')}")
