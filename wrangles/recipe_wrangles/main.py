@@ -829,6 +829,18 @@ def log(
 
     variables = _delayed_variable_interpretation(df, variables)
 
+    def _interpret_variables(input):
+        """
+        Interpret variables in the input string. Variables should be in the format ${variable_name}.
+        """
+        variable_matches = _re.findall('\${(.+?)}', input)
+        for match in variable_matches:
+            if match in variables:
+                input = _re.sub('\$\{' + match + '\}', str(variables.get(match)), input)
+            else:
+                raise ValueError(f'Variable {match} not found.')
+        return input
+
     if columns is not None:
 
         # Get the wildcards
@@ -863,10 +875,13 @@ def log(
         df_tolog = df.head(20)
 
     if error:
+        error = _interpret_variables(error)
         _logging.error(error)
     if warning:
+        warning = _interpret_variables(warning)
         _logging.warning(warning)
     if info:
+        info = _interpret_variables(info)
         _logging.info(info)
 
     if write:
