@@ -5571,9 +5571,124 @@ class TestLookup:
         print(f'by_dataframe: {t_df:.3f}s total ({avg_df:.3f}s per run)')  
         print(f'Speedup: {speedup:.2f}x')  
     
-        # Assertions  
-        assert avg_df < avg_row, f"Expected by_dataframe ({avg_df:.3f}s) faster than by_row ({avg_row:.3f}s)"  
-        assert speedup > 1.0, f"Expected speedup > 1.0x, got {speedup:.2f}x"  
+        # Assertions
+        assert avg_df < avg_row, f"Expected by_dataframe ({avg_df:.3f}s) faster than by_row ({avg_row:.3f}s)"
+        assert speedup > 1.0, f"Expected speedup > 1.0x, got {speedup:.2f}x"
+
+    def test_lookup_semantic_multi_col_by_row(self):
+        """
+        Baseline: semantic lookup with merged multi-column YAML input using by_row.
+        Duplicate inputs (Austin+USA at rows 1 & 3, Berlin+Germany at rows 2 & 4)
+        must produce identical outputs.
+        """
+        df = wrangles.recipe.run(
+            dataframe=pd.DataFrame({
+                'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+                'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany']
+            }),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_row
+            """
+        )
+        print(df['Value'].to_list())
+        assert df['Value'].iloc[1] == df['Value'].iloc[3]
+        assert df['Value'].iloc[2] == df['Value'].iloc[4]
+
+    def test_lookup_semantic_multi_col_by_dataframe(self):
+        """
+        Test that by_dataframe produces identical results to by_row for a semantic
+        lookup with merged multi-column YAML input.
+        """
+        df = pd.DataFrame({
+            'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+            'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany']
+        })
+
+        result_by_row = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_row
+            """
+        )
+
+        result_by_df = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_dataframe
+            """
+        )
+
+        assert result_by_row['Value'].tolist() == result_by_df['Value'].tolist()
+
+    def test_lookup_semantic_multi_col_by_dataframe_in_matrix(self):
+        """
+        Test that by_dataframe inside a matrix wrangle works with a semantic
+        lookup using merged multi-column YAML input.
+        """
+        df = pd.DataFrame({
+            'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+            'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany'],
+            'region': ['north', 'south', 'north', 'south', 'south']
+        })
+
+        result = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - matrix:
+                variables:
+                    region: [north, south]
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output: Value
+                    model_id: 1ac1dddb-fcb5-45f3
+                    lookup_mode: by_dataframe
+                    matrix_variables: [region]
+            """
+        )
+
+        assert result['Value'].iloc[1] == result['Value'].iloc[3]
+        assert result['Value'].iloc[2] == result['Value'].iloc[4]
 
     # def test_lookup(self):
     #     """
