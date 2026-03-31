@@ -90,7 +90,7 @@ def _replace_templated_values(
                     temp_vars,
                     any([ignore_unknown_variables, key in ["matrix"]])
                 )
-                if key not in ["if", "python"]
+                if key not in ["if", "python", "log"]
                 else val
             )
             for key, val in recipe_object.items()
