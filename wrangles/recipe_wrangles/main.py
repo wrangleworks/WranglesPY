@@ -39,7 +39,7 @@ def accordion(
     output: _Union[str, list] = None,
     propagate: _Union[str, list] = None,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -84,13 +84,17 @@ def accordion(
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
-
+    if variables is None: variables = {}
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     if propagate is None: propagate = [item for item in df.columns.tolist() if item not in input]
     if not isinstance(propagate, list): propagate = [propagate]
+    
+    # Pass through empty DataFrames unchanged (like other wrangles)
+    if df.empty:
+      return df
     
     if not df.index.is_unique:
         raise ValueError("The dataframe index must be unique for the accordion wrangle to work.")
@@ -100,7 +104,7 @@ def accordion(
 
     # Convert any columns containing JSON arrays to lists
     for col in input:
-        if not isinstance(df_temp[col][0], list):
+        if not df_temp.empty and not isinstance(df_temp[col].iloc[0], list):
             try:
                 df_temp[col] = df_temp[col].apply(_json.loads)
             except:
@@ -170,13 +174,15 @@ def _batch_thread(
     batch_num: int,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {},
+    variables: dict = None,
     timeout: float = None,
     on_error: dict = None
 ):
     """
     Function called by batch
     """
+    if variables is None:
+        variables = {}
     try:
         return _wrangles.recipe.run(
             {"wrangles": wrangles},
@@ -200,7 +206,7 @@ def batch(
     df,
     wrangles: list,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {},
+    variables: dict = None,
     batch_size: int = 1000,
     threads: int = 1,
     on_error: dict = None,
@@ -240,6 +246,8 @@ def batch(
         type: number
         description: The number of seconds to wait for a batch to complete before raising an error
     """
+    if variables is None:
+        variables = {}
     if not isinstance(df, _pd.DataFrame):
         raise ValueError('Input must be a pandas DataFrame')
 
@@ -409,7 +417,7 @@ def concurrent(
     max_concurrency: int = 10,
     use_multiprocessing: bool = False,
     functions: _Union[_types.FunctionType, list] = [],
-    variables: dict = {}
+    variables: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -435,6 +443,8 @@ def concurrent(
         description: The maximum number of wrangles to execute in parallel
         minimum: 1
     """
+    if variables is None:
+        variables = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -882,6 +892,7 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
+    lookup_mode: str = 'by_row', 
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -904,7 +915,17 @@ def lookup(
           - string
           - array
         description: Name of the output column(s)
-    """
+      lookup_mode:
+        type: string
+        description: How to perform lookups
+                 'by_row': current behavior, lookup each row individually
+                 'by_dataframe': lookup unique values once, copy results to all rows  
+                 'by_matrix': lookup once per matrix permutation
+        enum:
+          - by_row
+          - by_matrix
+          - by_dataframe
+    """ 
     # Ensure input is only 1 value
     if isinstance(input, list):
         if len(input) == 1:
@@ -945,30 +966,153 @@ def lookup(
             list(val.values())[0] if isinstance(val, dict) else val
             for val in output    
         ]
+  
+        # Remove matrix_variables from kwargs if present before passing to _lookup
+        def _clean_kwargs(kwargs):
+          if 'matrix_variables' in kwargs:
+            kwargs = dict(kwargs)  # shallow copy to avoid mutating caller
+            kwargs.pop('matrix_variables')
+          return kwargs
 
-        if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+        # Perform lookup based on lookup_mode
+        if lookup_mode == 'by_row':
+          # Current behavior - process all rows
+          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified all columns from the wrangle
-            # Add respective columns to the dataframe
             data = _lookup(
-                df[input].values.tolist(),
-                model_id,
-                columns=wrangle_output,
-                **kwargs
+              df[input].values.tolist(),
+              model_id,
+              columns=wrangle_output,
+              **_clean_kwargs(kwargs)
             )
             df[output] = data
-        elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified no columns from the wrangle
-            # Add dict of all values to those columns
             data = _lookup(
-                df[input].values.tolist(),
-                model_id,
-                **kwargs
+              df[input].values.tolist(),
+              model_id,
+              **_clean_kwargs(kwargs)
             )
             for out in output:
-                df[out] = data
-        else:
-            # User specified a mixture of unrecognized columns and columns from the wrangle
+              df[out] = data
+          else:
+            # User specified a mixture of unrecognized columns and columns from the wrangle 
             raise ValueError('Lookup may only contain all named or unnamed columns.')
+                  
+        elif lookup_mode == 'by_dataframe':
+          # Optimized - lookup unique values once, then map to all rows  
+          unique_values = df[input].unique()  
+            
+          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
+            # User specified all columns from the wrangle  
+            unique_data = _lookup(  
+              unique_values.tolist(),  
+              model_id,  
+              columns=wrangle_output,  
+              **_clean_kwargs(kwargs)  
+            )  
+                
+            # Create mapping from values to results  
+            value_to_result = dict(zip(unique_values, unique_data))  
+                
+            # Map results back to all rows - extract correct values  
+            if len(output) == 1:  
+              df[output[0]] = df[input].map(  
+                lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
+              )  
+            else:  
+              for i, out_col in enumerate(output):  
+                df[out_col] = df[input].map(  
+                  lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
+                )  
+                        
+          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
+            # User specified no columns from the wrangle  
+            unique_data = _lookup(  
+            unique_values.tolist(),  
+            model_id, 
+            **_clean_kwargs(kwargs)
+            )  
+
+            # Create mapping from values to results (preserve full dict as in by_row)
+            value_to_result = dict(zip(unique_values, unique_data))
+
+            # Map results back to all rows - output is the full dict as in by_row
+            for out in output:
+              df[out] = df[input].map(lambda x: value_to_result.get(x, {}))
+          else:  
+            # User specified a mixture of unrecognized columns and columns from the wrangle  
+            raise ValueError('Lookup may only contain all named or unnamed columns.')
+            
+        elif lookup_mode == 'by_matrix':   
+          # Get matrix variables and permutations  
+          matrix_vars = kwargs.get('matrix_variables', [])  
+          if not matrix_vars:  
+            raise ValueError('matrix_variables required for by_matrix mode')  
+            
+          # Convert list of variable names to proper variables dictionary  
+          variables_dict = {var: f"set({var})" for var in matrix_vars}  
+            
+          permutations = _define_permutations(  
+            variables_dict,  # Proper variables dictionary  
+            "loop",          # Strategy  
+            {},              # Functions  
+            df               # DataFrame  
+          )  
+            
+          # Perform lookup once per permutation  
+          for perm in permutations:  
+            # Create mask for rows matching this permutation  
+            mask = _pd.Series([True] * len(df))  
+            for var, value in perm.items():  
+              mask = mask & (df[var] == value)  
+                
+            if mask.any():  
+              # Get unique values for this permutation  
+              perm_values = df.loc[mask, input].unique()  
+                    
+              if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
+                # User specified all columns from the wrangle  
+                perm_data = _lookup(  
+                  perm_values.tolist(),  
+                  model_id,  
+                  columns=wrangle_output,  
+                  **_clean_kwargs(kwargs)  
+                )  
+                        
+                # Create mapping for this permutation  
+                value_to_result = dict(zip(perm_values, perm_data))  
+                        
+                # Apply results to matching rows - extract correct values  
+                if len(output) == 1:  
+                  df.loc[mask, output[0]] = df.loc[mask, input].map(  
+                    lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
+                  )  
+                else:  
+                  for i, out_col in enumerate(output):  
+                    df.loc[mask, out_col] = df.loc[mask, input].map(  
+                      lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
+                    )  
+                                
+              elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
+                # User specified no columns from the wrangle  
+                perm_data = _lookup(  
+                  perm_values.tolist(),  
+                  model_id,  
+                  **_clean_kwargs(kwargs)  
+                )  
+                        
+                # Create mapping for this permutation  
+                value_to_result = dict(zip(perm_values, perm_data))  
+                        
+                # Apply results to matching rows - extract correct values  
+                for out in output:
+                  df.loc[mask, out] = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
+              else:  
+                # User specified a mixture of unrecognized columns and columns from the wrangle  
+                raise ValueError('Lookup may only contain all named or unnamed columns.')
+        else:
+          raise ValueError(f"Invalid lookup_mode: {lookup_mode}. Must be 'by_row', 'by_dataframe', or 'by_matrix'")
     else:
         raise ValueError('model_id is required for lookup')
     
@@ -1663,15 +1807,18 @@ def similarity(df: _pd.DataFrame, input: list,  output: str, method: str = 'cosi
             for x, y in zip(df[input[0]].values, df[input[1]].values)
         ]
     elif method == 'euclidean':
-        similarity_list = [
-            _math.sqrt(
-                sum(
-                    pow(a -b, 2)
-                    for a, b in zip(x, y)
-                )
+      similarity_list = []
+      for x, y in zip(df[input[0]].values, df[input[1]].values):
+        if len(x) != len(y):
+          raise TypeError('Vectors must be of the same length for euclidean similarity')
+        similarity_list.append(
+          _math.sqrt(
+            sum(
+              pow(a - b, 2)
+              for a, b in zip(x, y)
             )
-            for x, y in zip(df[input[0]].values, df[input[1]].values)
-        ]
+          )
+        )
     else:
         # Ensure method is of a valid type
         raise TypeError('Invalid method, must be "cosine", "adjusted cosine" or "euclidean"')
@@ -1992,12 +2139,12 @@ def translate(
 
 
 def Try(
-    df: _pd.DataFrame,
-    wrangles: list,
-    functions: _Union[_types.FunctionType, list, dict] = {},
-    variables: dict = {},
-    retries: int = 0,
-    **kwargs
+  df: _pd.DataFrame,
+  wrangles: list,
+  functions: _Union[_types.FunctionType, list, dict] = None,
+  variables: dict = None,
+  retries: int = 0,
+  **kwargs
 ):
     """
     type: object
@@ -2026,6 +2173,10 @@ def Try(
         description: Number of times to retry the wrangles if an error occurs. Default 0.
         minimum: 0
     """
+    if functions is None:
+      functions = {}
+    if variables is None:
+      variables = {}
     for attempt in range(retries + 1):
         try:
             df = _wrangles.recipe.run(

@@ -177,10 +177,10 @@ def validate_function_args(
 def add_special_parameters(
     params: dict,
     fn: _types.FunctionType,
-    functions: dict = {},
-    variables: dict = {},
+    functions: dict = None,
+    variables: dict = None,
     error: Exception = None,
-    common_params: dict = {}
+    common_params: dict = None
 ):
     """
     Add special parameters to the params dictionary if they are required by the function
@@ -193,6 +193,12 @@ def add_special_parameters(
     :param common_params: These are parameters that are common to all functions. \
         They will only be passed as a parameter if the function requests them.
     """
+    if functions is None:
+        functions = {}
+    if variables is None:
+        variables = {}
+    if common_params is None:
+        common_params = {}
     # Check args and pass on special parameters if requested
     argspec = _inspect.getfullargspec(fn).args
     if ("functions" not in params and "functions" in argspec):
@@ -390,7 +396,7 @@ def statement_modifier(statement):
     return _re.sub(r'\$\{([A-Za-z0-9_]+)\}', r'\1', str(statement))
 
 
-def evaluate_conditional(statement, variables: dict = {}):
+def evaluate_conditional(statement, variables: dict = None):
     """
     Evaluate a conditional statement using the variables provided
     to determine if the statement is true or false
@@ -400,6 +406,8 @@ def evaluate_conditional(statement, variables: dict = {}):
     :param statement: Python style statement
     :param variables: Dictionary of variables to use in the statement
     """
+    if variables is None:
+        variables = {}
     statement_modified = statement_modifier(statement)
 
     if _re.match(r'\$\{(.+)\}', statement_modified):

@@ -97,7 +97,7 @@ def list_element(input, n: _Union[str, int], default = ""):
             return default
 
     if ":" in str(n):
-        slicer = slice(*map(_int_or_none, str(n).split(":")))
+        slicer = slice(*map(_int_or_none, str(n).replace("[", "").replace("]", "").split(":")))
     else:
         slicer = int(n)
         
