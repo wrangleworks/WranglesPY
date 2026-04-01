@@ -14,7 +14,7 @@ _schema = {}
 def run(
     run: list,
     max_concurrency: int = 10,
-    variables: dict = {},
+    variables: dict = None,
     functions: _Union[_types.FunctionType, list] = [],
     use_multiprocessing: bool = False
 ):
@@ -27,6 +27,8 @@ def run(
     :param functions: Custom functions to pass to any downstream recipes
     :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
     """
+    if variables is None:
+        variables = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -75,7 +77,7 @@ def read(
     max_concurrency: int = 10,
     use_multiprocessing: bool = False,
     functions: _Union[_types.FunctionType, list, dict] = {},
-    variables: dict = {}
+    variables: dict = None
 ):
     """
     Run multiple reads simulatenously.
@@ -86,6 +88,8 @@ def read(
     :param functions: Custom functions to make available downstream.
     :param variables: Variables to make available downstream.
     """
+    if variables is None:
+      variables = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor
@@ -131,7 +135,7 @@ def write(
     df: _pd.DataFrame,
     write: list,
     max_concurrency: int = 10,
-    variables: dict = {},
+    variables: dict = None,
     functions: _Union[_types.FunctionType, list] = [],
     use_multiprocessing: bool = False
 ):
@@ -145,6 +149,8 @@ def write(
     :param functions: Custom functions to pass to any downstream recipes
     :param use_multiprocessing: Use multiprocessing instead of threading. Default is False.
     """
+    if variables is None:
+        variables = {}
     if use_multiprocessing:
         # Not publicly documented. Use at your own risk.
         pool_executor = _futures.ProcessPoolExecutor

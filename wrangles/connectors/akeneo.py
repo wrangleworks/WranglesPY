@@ -23,7 +23,7 @@ def read(
     client_secret: str,
     source: str,
     columns: list = None,
-    parameters: dict = {}
+    parameters: dict = None
 ):
     """
     Read data from an Akeneo PIM
@@ -49,7 +49,8 @@ def read(
     :return: A Pandas dataframe of the returned results
     """
     _logging.info(f": Reading data from Akeneo :: {host} / {source}")
-
+    if parameters is None:
+        parameters = {}
     # Set to max temporarily
     parameters['limit'] = 100
 

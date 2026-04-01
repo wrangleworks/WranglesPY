@@ -234,7 +234,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'overwrite') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -246,7 +246,8 @@ class lookup():
         :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
         _logging.info(f": Training Lookup Wrangle")
-
+        if settings is None:
+            settings = {}
         # Error handling for name, model_id and settings
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
@@ -447,10 +448,23 @@ class lookup():
 
             updated = 0
 
-            if 'Key' in df.columns and 'Key' in existing_df.columns:
-                # Only update records that exist in the model
-                existing_keys = set(existing_df['Key'].tolist())
-                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+            # Determine the effective variant for this model (normalize semantic -> embedding)
+            normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
+
+            # Column alignment check
+            missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
+            if missing_in_existing:
+                raise ValueError(
+                    "Lookup: The following columns are not present in the existing model: "
+                    + ", ".join(missing_in_existing)
+                )
+
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
                 if df_filtered.empty:
                     _logging.info("No matching keys found in existing model. No updates performed.")
@@ -540,6 +554,15 @@ class lookup():
                 columns=existing_content['Columns']  
             )  
             
+            # Column alignment check
+            if not 'MatchingColumns' in settings:
+                missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
+                if missing_in_existing:
+                    raise ValueError(
+                        "Lookup: The following columns are not present in the existing model: "
+                        + ", ".join(missing_in_existing)
+                    )
+
             inserted = 0
             # Only add rows with new keys (skip existing keys)  
             if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
