@@ -1,3 +1,4 @@
+import time
 import wrangles
 import pandas as pd
 import pytest
@@ -251,6 +252,235 @@ class TestConvertCase:
             })
         )
         assert df.empty and df.columns.to_list() == ['column', 'upper column']
+
+    def test_sentence_tabs_after_punctuation(self):
+        """
+        Sentence case with tab characters as whitespace between sentences.
+        The regex handles [ \t]* between punctuation and next word.
+        """
+        data = pd.DataFrame({'Data': ["hello.\tthere! one more sentence."]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "Hello.\tThere! One more sentence."
+
+    def test_sentence_leading_whitespace(self):
+        """
+        Sentence case where the string starts with leading spaces/tabs.
+        The first non-whitespace character should be capitalised.
+        """
+        data = pd.DataFrame({'Data': ["   hello world. next sentence", "\t\thello again"]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "   Hello world. Next sentence"
+        assert df.iloc[1]['out'] == "\t\tHello again"
+
+    def test_sentence_unicode_accented_chars(self):
+        """
+        Sentence case preserves/capitalises Unicode accented characters.
+        """
+        data = pd.DataFrame({'Data': ["héllo wörld. ñoño is here! über cool."]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "Héllo wörld. Ñoño is here! Über cool."
+
+    def test_sentence_starts_with_number(self):
+        """
+        Sentence case when the sentence starts with a digit.
+        The digit 'consumes' the capitalise flag; subsequent lowercase letters stay lower.
+        """
+        data = pd.DataFrame({'Data': ["13 items found. that's all."]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: sentence
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "13 items found. That's all."
+
+    def test_lower_non_string_preserved(self):
+        """
+        Non-string values (int, list, None) in a lower-case column are returned unchanged.
+        The vectorised path must restore originals for non-string rows.
+        """
+        data = pd.DataFrame({'Data': ["HELLO", 99, ["A", "B"], None]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: lower
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "hello"
+        assert df.iloc[1]['out'] == 99
+        assert df.iloc[2]['out'] == ["A", "B"]
+
+    def test_title_non_string_preserved(self):
+        """
+        Non-string values in a title-case column are returned unchanged.
+        """
+        data = pd.DataFrame({'Data': ["hello world", {"key": "val"}]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            output: out
+            case: title
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out'] == "Hello World"
+        assert df.iloc[1]['out'] == {"key": "val"}
+
+    def test_lower_large_dataframe_speed(self):
+        """
+        Vectorised lower case must process 100 000 rows in under 5 seconds.
+        This guards against regression back to the slow row-wise apply.
+        """
+        n = 100_000
+        data = pd.DataFrame({'Data': ['Hello World MIXED Case'] * n})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            case: lower
+        """
+        start = time.time()
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        elapsed = time.time() - start
+        assert elapsed < 5, f"lower case on {n} rows took {elapsed:.2f}s — possible regression to slow apply"
+        assert df.iloc[0]['Data'] == 'hello world mixed case'
+        assert df.iloc[-1]['Data'] == 'hello world mixed case'
+
+    def test_upper_large_dataframe_speed(self):
+        """
+        Vectorised upper case must process 100 000 rows in under 5 seconds.
+        """
+        n = 100_000
+        data = pd.DataFrame({'Data': ['hello world mixed case'] * n})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            case: upper
+        """
+        start = time.time()
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        elapsed = time.time() - start
+        assert elapsed < 5, f"upper case on {n} rows took {elapsed:.2f}s — possible regression to slow apply"
+        assert df.iloc[0]['Data'] == 'HELLO WORLD MIXED CASE'
+
+    def test_title_large_dataframe_speed(self):
+        """
+        Vectorised title case must process 100 000 rows in under 5 seconds.
+        """
+        n = 100_000
+        data = pd.DataFrame({'Data': ['hello world mixed case'] * n})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            case: title
+        """
+        start = time.time()
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        elapsed = time.time() - start
+        assert elapsed < 5, f"title case on {n} rows took {elapsed:.2f}s — possible regression to slow apply"
+        assert df.iloc[0]['Data'] == 'Hello World Mixed Case'
+
+    def test_sentence_large_dataframe_speed(self):
+        """
+        Regex-based sentence case must process 50 000 rows in under 10 seconds.
+        Still uses apply but with a pre-compiled regex — should be noticeably faster.
+        """
+        n = 50_000
+        data = pd.DataFrame({'Data': ['first sentence. second one! third? yes.'] * n})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            case: sentence
+        """
+        start = time.time()
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        elapsed = time.time() - start
+        assert elapsed < 10, f"sentence case on {n} rows took {elapsed:.2f}s — possible regression"
+        assert df.iloc[0]['Data'] == 'First sentence. Second one! Third? Yes.'
+
+    def test_lower_multiple_columns_speed(self):
+        """
+        Vectorised lower case across multiple input/output column pairs
+        must process 50 000 rows per column in under 5 seconds total.
+        """
+        n = 50_000
+        data = pd.DataFrame({
+            'Col1': ['Hello World'] * n,
+            'Col2': ['ANOTHER STRING'] * n,
+            'Col3': ['YET ANOTHER'] * n,
+        })
+        recipe = """
+        wrangles:
+        - convert.case:
+            input:
+              - Col1
+              - Col2
+              - Col3
+            output:
+              - Out1
+              - Out2
+              - Out3
+            case: lower
+        """
+        start = time.time()
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        elapsed = time.time() - start
+        assert elapsed < 5, f"multi-column lower on {n} rows took {elapsed:.2f}s"
+        assert df.iloc[0]['Out1'] == 'hello world'
+        assert df.iloc[0]['Out2'] == 'another string'
+        assert df.iloc[0]['Out3'] == 'yet another'
+
+    def test_mixed_types_warning_logged_once(self, caplog):
+        """
+        When a column contains non-string values, the invalid_data warning fires
+        exactly once regardless of how many non-string rows there are.
+        """
+        import logging
+        data = pd.DataFrame({'Data': ["hello", 1, 2, 3, "world"]})
+        recipe = """
+        wrangles:
+        - convert.case:
+            input: Data
+            case: upper
+        """
+        with caplog.at_level(logging.WARNING):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        warning_messages = [r.message for r in caplog.records if 'invalid' in r.message.lower() or 'non-string' in r.message.lower() or 'not a string' in r.message.lower()]
+        # Warning should fire at most once
+        assert len(warning_messages) <= 1
+        # Strings are correctly transformed
+        assert df.iloc[0]['Data'] == 'HELLO'
+        assert df.iloc[4]['Data'] == 'WORLD'
+        # Non-strings are preserved
+        assert df.iloc[1]['Data'] == 1
 
 
 class TestConvertDataType:
