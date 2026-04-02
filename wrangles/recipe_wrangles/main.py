@@ -832,13 +832,14 @@ def log(
         """
         Interpret variables in the input string. Variables should be in the format ${variable_name}.
         """
-        variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input)
+        input_str = str(input)
+        variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input_str)
         for match in variable_matches:
             if match in variables:
-                input = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input)
+                input_str = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input_str)
             else:
                 raise ValueError(f'Variable {match} not found.')
-        return input
+        return input_str
 
     if columns is not None:
         # Columns handled seperately as a list

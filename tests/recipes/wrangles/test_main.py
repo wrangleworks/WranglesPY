@@ -1004,6 +1004,22 @@ class TestLog:
         )
         assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
 
+    def test_log_int(self, caplog):
+        """
+        Test log info with an integer
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - log:
+                    info: 123456
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert caplog.messages[0] == '123456'
+
     def test_log_system_variables_info(self, caplog):
         """
         Test log info using system variables
