@@ -826,10 +826,9 @@ def log(
         description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
     variables = kwargs.pop('variables', {})
-
     variables = _delayed_variable_interpretation(df, variables)
 
-    def _interpret_variables(input):
+    def _interpret_variables(input, variables):
         """
         Interpret variables in the input string. Variables should be in the format ${variable_name}.
         """
@@ -842,6 +841,8 @@ def log(
         return input
 
     if columns is not None:
+        # Columns handled seperately as a list
+        columns = [_interpret_variables(x, variables) for x in columns]
 
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
@@ -873,18 +874,23 @@ def log(
 
     else:
         df_tolog = df.head(20)
+    
+    # Handle variable interpretation for string parameters
+    error, warning, info = [
+        _interpret_variables(msg, variables) if msg else msg
+        for msg in (error, warning, info)
+    ]
 
     if error:
-        error = _interpret_variables(error)
         _logging.error(error)
     if warning:
-        warning = _interpret_variables(warning)
         _logging.warning(warning)
     if info:
-        info = _interpret_variables(info)
         _logging.info(info)
 
     if write:
+        # Convert to json for variable interpretation then convert back
+        write = _json.loads(_interpret_variables(_json.dumps(write), variables))
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
