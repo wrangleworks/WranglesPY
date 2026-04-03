@@ -508,30 +508,6 @@ def delayed_variable_interpretation(df, variables=None):
     return variables
 
 
-def interpret_variables(input, variables):
-    """
-    Interpret variables in the input string. Variables should be in the format ${variable_name}.
-    """
-    if isinstance(input, str):
-        variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input)
-        for match in variable_matches:
-            if match in variables:
-                input = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input)
-            else:
-                raise ValueError(f'Variable {match} not found.')
-
-    if isinstance(input, list):
-        return [interpret_variables(item, variables) for item in input]
-
-    if isinstance(input, tuple):
-        return tuple(interpret_variables(item, variables) for item in input)
-
-    if isinstance(input, dict):
-        return {key: interpret_variables(value, variables) for key, value in input.items()}
-
-    return input
-
-
 def replace_templated_values(
     recipe_object: _typing.Any,
     variables: dict,
