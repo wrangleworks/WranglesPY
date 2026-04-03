@@ -32,6 +32,7 @@ from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
 from ..utils import interpret_variables as _interpret_variables
+from ..utils import replace_templated_values as _replace_templated_values
 
 
 def accordion(
@@ -841,7 +842,7 @@ def log(
 
     if columns is not None:
         # Columns handled seperately as a list
-        columns = [_interpret_variables(x, variables) for x in columns]
+        columns = _replace_templated_values(columns, variables)
 
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
@@ -889,7 +890,7 @@ def log(
 
     if write:
         # Convert to json for variable interpretation then convert back
-        write = _json.loads(_interpret_variables(_json.dumps(write), variables))
+        write = _replace_templated_values(write, variables)
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
@@ -1324,13 +1325,6 @@ def python(
     command_modified = _statement_modifier(command)
     variables = kwargs.pop('variables', {})
 
-
-    # Jsonify input for variable interpretation, then convert back to handle non-string variables
-    input, output, kwargs = [
-            _json.loads(_interpret_variables(_json.dumps(msg), variables)) if msg else msg
-            for msg in (input, output, kwargs)
-        ]
-
     def _apply_command(variables, **kwargs):
         """
         Apply the command to the inputs and return the result
@@ -1364,6 +1358,8 @@ def python(
             return _apply_command(variables, **kwargs)
 
     variables = _delayed_variable_interpretation(df, variables)
+
+    input, output, kwargs = [_replace_templated_values(msg, variables) for msg in (input, output, kwargs)]
 
     df[output] = df[input].apply(
         lambda x: _exception_handler(variables, **x, **kwargs),
