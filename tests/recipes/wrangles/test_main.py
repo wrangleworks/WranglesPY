@@ -4717,6 +4717,56 @@ class TestPython:
         )
         assert df["result"][0] == "a b"
 
+    def test_python_double_variable(self):
+        """
+        Test a python command using a variable that is a variable itself
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: "'This is ' + ${var}"
+                var: ${string}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'string': 'string'}
+        )
+        assert df["result"][0] == 'This is a string'
+
+    def test_python_delayed_variable(self):
+        """
+        Test all delayed variables are correctly resolved before the command is run
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: A Column
+                value: The Value
+
+            - explode:
+                input: header1
+
+            - python:
+                command: |
+                    {'Columns': ${columns}, 'Row Count': ${row_count},
+                    'Column Count': ${column_count}, 'DF': ${df}}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [['a', 'b'], ['c', 'd'], ['z']],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            })
+        )
+        assert df["result"][0]['Columns'] == ['header1', 'header2', 'numbers', 'A Column']
+        assert df["result"][0]['Row Count'] == 5
+        assert df["result"][0]['Column Count'] == 4
+        assert type(df["result"][0]['DF']) == pd.DataFrame
+
 
 class TestAccordion:
     """
