@@ -4732,7 +4732,7 @@ class TestPython:
             dataframe=pd.DataFrame({
                 'header1': ['a', 'c', 'z']
             }),
-            variables={'string': 'string'}
+            variables={'string': 'a string'}
         )
         assert df["result"][0] == 'This is a string'
 
