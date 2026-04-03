@@ -31,7 +31,6 @@ from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
-from ..utils import interpret_variables as _interpret_variables
 from ..utils import replace_templated_values as _replace_templated_values
 
 
@@ -877,7 +876,7 @@ def log(
     
     # Handle variable interpretation for string parameters
     error, warning, info = [
-        _interpret_variables(msg, variables) if msg else msg
+        _replace_templated_values(msg, variables) if msg else msg
         for msg in (error, warning, info)
     ]
 
