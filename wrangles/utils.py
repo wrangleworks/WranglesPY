@@ -501,6 +501,20 @@ def delayed_variable_interpretation(df, variables=None):
     }
     return variables
 
+
+def interpret_variables(input, variables):
+    """
+    Interpret variables in the input string. Variables should be in the format ${variable_name}.
+    """
+    input_str = str(input)
+    variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input_str)
+    for match in variable_matches:
+        if match in variables:
+            input_str = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input_str)
+        else:
+            raise ValueError(f'Variable {match} not found.')
+    return input_str
+
         
 class LazyLoader:
     """

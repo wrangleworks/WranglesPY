@@ -31,6 +31,7 @@ from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
+from ..utils import interpret_variables as _interpret_variables
 
 
 def accordion(
@@ -838,19 +839,6 @@ def log(
     variables = kwargs.pop('variables', {})
     variables = _delayed_variable_interpretation(df, variables)
 
-    def _interpret_variables(input, variables):
-        """
-        Interpret variables in the input string. Variables should be in the format ${variable_name}.
-        """
-        input_str = str(input)
-        variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input_str)
-        for match in variable_matches:
-            if match in variables:
-                input_str = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input_str)
-            else:
-                raise ValueError(f'Variable {match} not found.')
-        return input_str
-
     if columns is not None:
         # Columns handled seperately as a list
         columns = [_interpret_variables(x, variables) for x in columns]
@@ -1335,6 +1323,13 @@ def python(
     # Clean up variables and replace column variables with the column name
     command_modified = _statement_modifier(command)
     variables = kwargs.pop('variables', {})
+
+
+    # Jsonify input for variable interpretation, then convert back to handle non-string variables
+    input, output, kwargs = [
+            _json.loads(_interpret_variables(_json.dumps(msg), variables)) if msg else msg
+            for msg in (input, output, kwargs)
+        ]
 
     def _apply_command(variables, **kwargs):
         """
