@@ -915,6 +915,43 @@ class TestLog:
         )
         assert len(df) == 5 and df['header'][0] == 'value'
 
+    def test_log_write_multiple_files(self):
+        """
+        Test writing multiple files from a log
+        """
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header: value
+                
+            wrangles:
+              - log:
+                  write:
+                    - file:
+                        name: tests/temp/temp.csv
+                    - file:
+                        name: tests/temp/temp2.csv
+            """
+        )
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp.csv
+            """
+        )
+        df2 = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp2.csv
+            """
+        )
+        assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
+
     def test_log_length(self, caplog):
         """
         Test default log
@@ -968,6 +1005,186 @@ class TestLog:
             })
         )
         assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
+
+    def test_log_int(self, caplog):
+        """
+        Test log info with an integer
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - log:
+                    info: 123456
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert caplog.messages[0] == '123456'
+
+    def test_log_system_variables_info(self, caplog):
+        """
+        Test log info using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_error(self, caplog):
+        """
+        Test log error using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                error: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_warning(self, caplog):
+        """
+        Test log warning using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                warning: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_info_variables(self, caplog):
+        """
+        Test log info using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_warning_variables(self, caplog):
+        """
+        Test log warning using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                warning: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_error_variables(self, caplog):
+        """
+        Test log error using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                error: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_columns_variables(self, caplog):
+        """
+        Test log when specifying columns as variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                columns:
+                  - ${var}
+        """
+        wrangles.recipe.run(recipe, dataframe=data, variables={'var': 'Col1'})
+        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
+
+    def test_log_write_multiple_variable_files(self):
+        """
+        Test writing multiple files using variables
+        """
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header: value
+                
+            wrangles:
+              - log:
+                  write:
+                    - file:
+                        name: ${var1}
+                    - file:
+                        name: ${var2}
+            """,
+            variables = {
+                'var1': 'tests/temp/temp.csv',
+                'var2': 'tests/temp/temp2.csv',
+            }
+        )
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp.csv
+            """
+        )
+        df2 = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp2.csv
+            """
+        )
+        assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
+
 
 
 class TestRemoveWords:

@@ -479,6 +479,28 @@ def safe_str_transform(value, func, warnings={}, **kwargs):
         return value
 
 
+def delayed_variable_interpretation(df, variables=None):
+    """
+    Handles delayed variables interpretation for wrangles that are allowed access to system variables.
+    Currently only being used for log and python wrangles, but could be used for other wrangles in the future.
+
+    :param df: Dataframe to extract variables from
+    :param variables: Current variables dictionary to add to
+    """
+    if variables is None:
+        variables = {}
+
+    variables = {
+        **variables,
+        **{
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "columns": df.columns.tolist(),
+            "df": df
+        }
+    }
+    return variables
+
         
 class LazyLoader:
     """

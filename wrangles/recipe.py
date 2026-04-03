@@ -90,7 +90,7 @@ def _replace_templated_values(
                     temp_vars,
                     any([ignore_unknown_variables, key in ["matrix"]])
                 )
-                if key not in ["if", "python"]
+                if key not in ["if", "python", "log"]
                 else val
             )
             for key, val in recipe_object.items()
@@ -743,7 +743,7 @@ def _execute_wrangles(
                     if wrangle == "rename" and "functions" not in params:
                         params["functions"] = functions
 
-                    if wrangle == "python":
+                    if wrangle in ["python", "log"]:
                         params['variables'] = variables
 
                     if wrangle == "matrix":
