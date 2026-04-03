@@ -4736,6 +4736,25 @@ class TestPython:
         )
         assert df["result"][0] == 'This is a string'
 
+    def test_python_double_variable_int(self):
+        """
+        Test data type is preserved when passing a double variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: 5 + ${var}
+                var: ${int}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'int': 5}
+        )
+        assert df["result"][0] == 10
+
     def test_python_delayed_variable(self):
         """
         Test all delayed variables are correctly resolved before the command is run
