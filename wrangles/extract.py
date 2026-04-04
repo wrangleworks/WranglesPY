@@ -587,16 +587,61 @@ def properties(
 
 
 # SUPER MARIO
-def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: bool, ignore_case: bool):
+def remove_words(
+    input: _Union[str, list],
+    to_remove: list,
+    tokenize_to_remove: bool = True,
+    ignore_case: bool = True,
+    characters_to_consider: str = 'letters_numbers_only'
+):
     """
     Remove all the elements that occur in one list from another.
     
-    :param input: both input and to_remove can be a string or a list or multiple lists. Lowered for precision
+    :param input: The input column can contain strings or lists of strings. Lowered for precision.
+    :param to_remove: The to_remove column can contain strings or lists of strings. Lowered for precision.
     :param output: a string of remaining words
-    :param tokenize_to_remove: (Optional) tokenize all of to_remove columns
-    :pram ignore_case: (Optional) ignore the case of input and to_remove
+    :param tokenize_to_remove: (Optional, default True) tokenize string to_remove values by
+        whitespace before matching. If inputs are already lists, the tokenize step is skipped.
+    :param ignore_case: (Optional, default True) ignore the case of input and to_remove
+    :param characters_to_consider: (Optional, default 'letters_numbers_only') controls which
+        characters are used when comparing tokens. 'letters_numbers_only' strips non-alphanumeric
+        characters from tokens before comparison so that matches occur even when strings have
+        miscellaneous punctuation. 'all' uses the full token for comparison.
+    
     """
+
+    def _strip_boundary_punc(text): 
+        """
+        Strip leading/trailing non-alphanumeric characters and spaces.
+        """
+            
+        if not isinstance(text, str):
+            text = str(text)
+        return _re.sub(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$', '', text.strip())
+
+
+    def _normalize_token(token):
+        """Normalize a token for comparison based on settings."""
+
+        token = _re.sub(r'[^a-zA-Z0-9]', '', token)
+        if ignore_case:
+            token = token.lower()
+        return token
+    
+    def build_letters_numbers_pattern(cleaned_token):
+        """Build regex pattern for letters_numbers_only mode"""
+        pattern_chars = []
+        for i, char in enumerate(cleaned_token):
+            if i > 0:
+                # Allow optional non-alphanumeric between characters
+                pattern_chars.append('[^a-zA-Z0-9]*')
+            pattern_chars.append(_re.escape(char))
         
+        token_pattern = ''.join(pattern_chars)
+        
+        # Match with optional leading/trailing non-alphanumeric up to whitespace boundary
+        return r'(?:^|(\s))([^a-zA-Z0-9]*{0}[^a-zA-Z0-9]*)(?=\s|$)'.format(token_pattern)
+    
     # Deal with ignore_case
     if ignore_case == True:
         flags = _re.IGNORECASE
@@ -607,9 +652,15 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     for _in, _remove in zip(input, to_remove):
         
         # Check if the input is a string or a list
-        if isinstance(_in, list):
+        is_input_list = isinstance(_in, list)
+        if is_input_list:
             # Make appropriate changes to the input to convert to a string
-            _in = ' '.join(_in)
+            _in = ' '.join([str(x) for x in _in])
+        else:
+            _in = str(_in)
+        
+        # Strip leading/trailing punctuation and spaces from input
+        _in = _strip_boundary_punc(_in)
         
         # flatten the _remove lists if necessary
         _remove = _flatten_lists(_remove)
@@ -622,30 +673,68 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
             # Convert to string since _re.escape only accepts strings
             remove = str(remove)
             
+            # Strip leading/trailing punctuation and spaces from remove value
+            remove = _strip_boundary_punc(remove)
+            
+            # Skip empty strings
+            if not remove:
+                continue
+            
             # if Tokenize is true
-            if tokenize_to_remove == True:
-                # Tokenize                        
-                token_remove = _re.split(r'\s|,', remove)
+            if tokenize_to_remove and not is_input_list:
+                # Tokenize
+                token_remove = _re.split(r'\s+', remove)
+                # Filter out empty tokens
+                token_remove = [t for t in token_remove if t]
+                
                 for subtoken in token_remove:
-                    subtoken = _re.escape(subtoken)  # escape the special characters just in case
-
-                    # Use the custom word boundary in the regex pattern
-                    pattern = r'{}{}{}'.format(boundary, subtoken, boundary)
-
-                    # Use re.sub with the custom pattern, and remove extra spaces
-                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
+                    # Strip punctuation from subtoken
+                    subtoken_stripped = _strip_boundary_punc(subtoken)
+                    if not subtoken_stripped:
+                        continue
+                        
+                    if characters_to_consider == "letters_numbers_only":
+                        # Extract only alphanumeric characters
+                        cleaned_token = _normalize_token(subtoken_stripped)
+                        if not cleaned_token:
+                            continue
+                        
+                        # Build pattern and apply replacement
+                        pattern = build_letters_numbers_pattern(cleaned_token)
+                        text = _re.sub(pattern, '', text, flags=flags).strip()
+                    else:
+                        # Use exact match with escape for 'all' mode
+                        subtoken_escaped = _re.escape(subtoken_stripped)
+                        # Use whitespace-based boundaries for exact matching
+                        pattern = r'{}{}{}'.format(boundary, subtoken_escaped, boundary)                  
+                        # Use re.sub with the custom pattern
+                        text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
             else:
-                remove = _re.escape(remove) # escape the special characters just in case
+                if characters_to_consider == "letters_numbers_only":
+                    # Extract only alphanumeric characters
+                    cleaned_token = _normalize_token(remove)
+                    if not cleaned_token:
+                        continue
+                    
+                    # Build pattern and apply replacement
+                    pattern = build_letters_numbers_pattern(cleaned_token)
+                    text = _re.sub(pattern, '', text, flags=flags).strip()
+                else:
+                    # Use exact match for 'all' mode
+                    remove_escaped = _re.escape(remove)
+                    pattern = r'{}{}{}'.format(boundary, remove_escaped, boundary)
+                    
+                    # Use re.sub with the custom pattern
+                    text = _re.sub(pattern, ' ', text, flags=flags).strip()
                 
-                # Use the custom word boundary in the regex pattern
-                pattern = r'{}{}{}'.format(boundary, remove, boundary)
-                
-                # Use re.sub with the custom pattern, and remove extra spaces
-                text = _re.sub(pattern, ' ', text, flags=flags).strip()
-                
-            # remove any double spaces
-            text = _re.sub(r'\s+', ' ', text)
+            # remove any double spaces and strip
+            text = _re.sub(r'\s+', ' ', text).strip()
+        
+        # Final cleanup: if only non-alphanumeric characters remain, return empty string
+        if text and _re.match(r'^[^a-zA-Z0-9]+$', text):
+            text = ''
+        
         results.append(text)
     return results
 
