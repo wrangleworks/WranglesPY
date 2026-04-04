@@ -16,6 +16,13 @@ try:
 except ImportError:
     from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
 
+# Pre-compiled regex for sentence case: matches the first non-space character at
+# the start of the string or immediately after punctuation (. ! ?) + optional spaces.
+# Using ([^ \t]) rather than ([a-zA-Z]) preserves the original char-by-char behaviour
+# where a digit after punctuation "consumes" the capitalize flag (e.g. "13.5mm" stays
+# lowercase because the `5` consumes the flag before `m` is reached).
+_SENTENCE_CASE_RE = _re.compile(r'(^[ \t]*|[.!?][ \t]*)([^ \t])')
+
 
 def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
@@ -75,33 +82,35 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if desired_case != 'sentence':
-            df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
+            # Use vectorized pandas str methods (C-level, much faster than row-wise apply).
+            # Non-string values (lists, ints, etc.) become NaN after str operations;
+            # detect those and restore the originals so behaviour is unchanged.
+            transformed = getattr(df[input_column].str, desired_case)()
+            non_string_mask = df[input_column].notna() & transformed.isna()
+            if non_string_mask.any():
+                if not warnings["invalid_data"]["logged"]:
+                    _logging.warning(warnings['invalid_data']['message'])
+                    warnings["invalid_data"]['logged'] = True
+                transformed = transformed.where(~non_string_mask, df[input_column])
+            df[output_column] = transformed
 
-        elif desired_case == 'sentence':
-            def _getSentenceCase(source: str, warnings={}):
+        else:
+            # Sentence case: lowercase everything with the vectorized str method, then
+            # use a pre-compiled regex to re-capitalise sentence starts.  This avoids
+            # the slow character-by-character Python loop of the previous implementation.
+            def _getSentenceCase(source, warnings=warnings):
                 if isinstance(source, str):
-                    output = []
-                    isFirstWord = True
-
-                    for character in source:
-                        if isFirstWord and not character.isspace():
-                            output.append(character.upper())
-                            isFirstWord = False
-                        elif not isFirstWord and character in ".!?":
-                            isFirstWord = True
-                            output.append(character.upper())
-                        else:
-                            output.append(character.lower())
-
-                    return ''.join(output)
+                    return _SENTENCE_CASE_RE.sub(
+                        lambda m: m.group(1) + m.group(2).upper(),
+                        source.lower()
+                    )
                 else:
-                    # Only show this once to not spam the logs
-                    if not warnings.get("invalid_data", {}).get('logged', False):
+                    if not warnings["invalid_data"]["logged"]:
                         _logging.warning(warnings['invalid_data']['message'])
                         warnings["invalid_data"]['logged'] = True
                     return source
 
-            df[output_column] = df[input_column].apply(lambda x: _getSentenceCase(x, warnings))
+            df[output_column] = df[input_column].apply(_getSentenceCase)
 
     return df
 
