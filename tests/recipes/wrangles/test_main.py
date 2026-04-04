@@ -2493,7 +2493,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2687,7 +2687,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -5891,7 +5891,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE custom\.fail_on_2nd_batch.*"'):  
             wrangles.recipe.run(  
                 """  
                 read:  
