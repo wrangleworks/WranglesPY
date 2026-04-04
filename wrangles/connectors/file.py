@@ -3,6 +3,7 @@ Connector to read & write from the local filesystem
 
 Supports Excel, CSV, JSON and JSONL files.
 """
+from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
@@ -204,7 +205,14 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
             _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
             
         else:
-            df.to_excel(file_object, **kwargs)
+          with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
+            df.to_excel(writer, **kwargs)
+            
+            worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
+            
+            for row in worksheet.iter_rows():
+                for cell in row:
+                  cell.alignment = _Alignment(vertical='top')
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file
