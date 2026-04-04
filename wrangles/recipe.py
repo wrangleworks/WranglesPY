@@ -606,6 +606,8 @@ def _execute_wrangles(
                     if key in params.keys():
                         common_params[key] = params.pop(key)
 
+                _logging.info(f": Wrangling :: {wrangle} :: Starting")
+
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
                     # TODO: disallow any hidden methods
@@ -888,8 +890,8 @@ def _execute_wrangles(
                         if isinstance(input_display, list):  
                             input_display = ', '.join(str(x) for x in input_display)  
                             
-                        output_display = ', '.join(str(col) for col in output_columns)  
-                        _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
+                        output_display = ', '.join(str(col) for col in output_columns)
+                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display}")
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
