@@ -1,20 +1,38 @@
-requests
-pyyaml
-numpy
+# Core dependencies installed with: pip install wrangles
+# For all optional connectors and extras: pip install -r requirements-full.txt
+
+# Core data processing
 pandas>=2.0,<3.0
-openpyxl>=3.1.0
-sqlalchemy>=2.0,<3.0
-pymssql>=2.3.3
-psycopg2-binary>=2.9.10
-pymysql
-fabric==3.1.0
-apprise
-lorem
-pymongo[srv]
-simple-salesforce
+numpy
 numexpr
-boto3
-jinja2
 polars==1.33.0
-xlsxwriter
+
+# Recipe engine & templating
+jinja2
+lorem
 pydantic>=2.12.0
+pyyaml
+
+# API & auth
+requests
+PyJWT
+
+# Excel support
+openpyxl>=3.1.0
+xlsxwriter
+
+# Cloud & storage
+boto3
+
+# CRM
+simple-salesforce
+
+# Remote access (SFTP / SSH)
+fabric==3.1.0
+
+# MySQL
+pymysql
+
+# AI / LLM
+serpapi
+google-generativeai

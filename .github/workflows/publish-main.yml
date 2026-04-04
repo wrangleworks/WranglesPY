@@ -33,8 +33,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest==9.0.2 lorem pytest-mock
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install .
+
           
       - name: Run Tests
         run: pytest
@@ -69,8 +70,9 @@ jobs:
           brew install freetds
           python -m pip install --upgrade pip
           pip install pytest==9.0.2 lorem pytest-mock
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install .
+
         
       - name: Run Tests
         run: pytest
@@ -143,7 +145,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install jsonschema
 
       - name: Generate and Test Schema
