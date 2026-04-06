@@ -200,7 +200,11 @@ def _load_recipe(
     recipe_object = _yaml.safe_load(recipe_string)
 
     # Add variables to variables
-    variables['recipe_variables'] = variables
+    variables['recipe_variables'] = {
+        key: value
+        for key, value in variables.items()
+        if key != 'recipe_variables'
+    }
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
