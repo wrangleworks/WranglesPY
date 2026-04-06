@@ -33,9 +33,9 @@ from .utils import (
     replace_templated_values as _replace_templated_values
 )
 try:
-    from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
+    from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
-    from yaml import SafeLoader as _YamlLoader, SafeDumper as _YAMLDumper
+    from yaml import SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
 

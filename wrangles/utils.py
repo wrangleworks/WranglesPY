@@ -10,9 +10,9 @@ from urllib3.util import Retry as _Retry
 import typing as _typing
 import json as _json
 try:
-    from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
+    from yaml import CSafeLoader as _YamlLoader
 except ImportError:
-    from yaml import SafeLoader as _YamlLoader, SafeDumper as _YAMLDumper
+    from yaml import SafeLoader as _YamlLoader
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:
