@@ -507,7 +507,9 @@ def delayed_variable_interpretation(df, variables=None):
     }
 
     # Overwrite variables with new additions added
-    variables['recipe_variables']= variables
+    variables['recipe_variables'] = {
+        key: value for key, value in variables.items() if key != 'recipe_variables'
+    }
     return variables
 
 
