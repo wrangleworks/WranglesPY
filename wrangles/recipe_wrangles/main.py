@@ -845,10 +845,13 @@ def log(
     else:
         raise ValueError('variables is a reserved variable name and cannot be used as a custom variable')
 
-    if columns is not None:
-        # Columns handled seperately as a list
-        columns = _replace_templated_values(columns, variables)
+    # Handle variable interpretation for all parameters
+    columns, write, error, warning, info = [
+        _replace_templated_values(msg, variables) if msg else msg
+        for msg in (columns, write, error, warning, info)
+    ]
 
+    if columns is not None:
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
 
@@ -879,12 +882,6 @@ def log(
 
     else:
         df_tolog = df.head(20)
-    
-    # Handle variable interpretation for string parameters
-    error, warning, info = [
-        _replace_templated_values(msg, variables) if msg else msg
-        for msg in (error, warning, info)
-    ]
 
     if error:
         _logging.error(error)
@@ -894,8 +891,6 @@ def log(
         _logging.info(info)
 
     if write:
-        # Convert to json for variable interpretation then convert back
-        write = _replace_templated_values(write, variables)
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
