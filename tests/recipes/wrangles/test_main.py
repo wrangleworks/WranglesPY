@@ -4784,7 +4784,7 @@ class TestPython:
         assert df["result"][0]['Columns'] == ['header1', 'header2', 'numbers', 'A Column']
         assert df["result"][0]['Row Count'] == 5
         assert df["result"][0]['Column Count'] == 4
-        assert type(df["result"][0]['DF']) == pd.DataFrame
+        assert isinstance(df["result"][0]['DF'], pd.DataFrame)
 
 
 class TestAccordion:
