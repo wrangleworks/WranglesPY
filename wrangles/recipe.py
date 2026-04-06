@@ -199,11 +199,8 @@ def _load_recipe(
 
     recipe_object = _yaml.safe_load(recipe_string)
 
-    # Check if variables variable exists, if not add it
-    if 'variables' not in variables:
-        variables['variables'] = variables
-    else:
-        raise ValueError('variables is a reserved variable name and cannot be used as a custom variable')
+    # Add variables to variables
+    variables['variables'] = variables
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
