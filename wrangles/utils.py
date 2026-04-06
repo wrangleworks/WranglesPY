@@ -505,6 +505,9 @@ def delayed_variable_interpretation(df, variables=None):
             "df": df
         }
     }
+
+    # Overwrite variables with new additions added
+    variables['variables']= variables
     return variables
 
 
