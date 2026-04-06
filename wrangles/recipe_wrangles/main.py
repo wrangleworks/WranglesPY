@@ -839,12 +839,6 @@ def log(
     variables = kwargs.pop('variables', {})
     variables = _delayed_variable_interpretation(df, variables)
 
-    # Check if variables variable exists, if not add it
-    if 'variables' not in variables:
-        variables['variables'] = variables
-    else:
-        raise ValueError('variables is a reserved variable name and cannot be used as a custom variable')
-
     # Handle variable interpretation for all parameters
     columns, write, error, warning, info = [
         _replace_templated_values(msg, variables) if msg else msg
