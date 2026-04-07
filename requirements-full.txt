@@ -17,5 +17,3 @@ pymongo[srv]
 # Notifications
 apprise
 
-# AI / LLM
-openai
