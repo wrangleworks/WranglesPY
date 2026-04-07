@@ -31,6 +31,7 @@ from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
+from ..utils import replace_templated_values as _replace_templated_values
 
 
 def accordion(
@@ -838,23 +839,13 @@ def log(
     variables = kwargs.pop('variables', {})
     variables = _delayed_variable_interpretation(df, variables)
 
-    def _interpret_variables(input, variables):
-        """
-        Interpret variables in the input string. Variables should be in the format ${variable_name}.
-        """
-        input_str = str(input)
-        variable_matches = _re.findall(r'\$\{([A-Za-z0-9_]+)\}', input_str)
-        for match in variable_matches:
-            if match in variables:
-                input_str = _re.sub(r'\$\{' + match + r'\}', str(variables.get(match)), input_str)
-            else:
-                raise ValueError(f'Variable {match} not found.')
-        return input_str
+    # Handle variable interpretation for all parameters
+    columns, write, error, warning, info = [
+        _replace_templated_values(msg, variables) if msg else msg
+        for msg in (columns, write, error, warning, info)
+    ]
 
     if columns is not None:
-        # Columns handled seperately as a list
-        columns = [_interpret_variables(x, variables) for x in columns]
-
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
 
@@ -885,12 +876,6 @@ def log(
 
     else:
         df_tolog = df.head(20)
-    
-    # Handle variable interpretation for string parameters
-    error, warning, info = [
-        _interpret_variables(msg, variables) if msg else msg
-        for msg in (error, warning, info)
-    ]
 
     if error:
         _logging.error(error)
@@ -900,8 +885,6 @@ def log(
         _logging.info(info)
 
     if write:
-        # Convert to json for variable interpretation then convert back
-        write = _json.loads(_interpret_variables(_json.dumps(write), variables))
         _wrangles.recipe.run(
             {'write': write},
             dataframe=df
@@ -1369,6 +1352,8 @@ def python(
             return _apply_command(variables, **kwargs)
 
     variables = _delayed_variable_interpretation(df, variables)
+
+    input, output, kwargs = [_replace_templated_values(msg, variables) for msg in (input, output, kwargs)]
 
     df[output] = df[input].apply(
         lambda x: _exception_handler(variables, **x, **kwargs),
