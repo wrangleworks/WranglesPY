@@ -505,6 +505,11 @@ def delayed_variable_interpretation(df, variables=None):
             "df": df
         }
     }
+
+    # Overwrite variables with new additions added
+    variables['recipe_variables'] = {
+        key: value for key, value in variables.items() if key != 'recipe_variables'
+    }
     return variables
 
 
@@ -600,11 +605,15 @@ def replace_templated_values(
                     # Replacement wasn't YAML
                     pass
 
-            new_recipe_object = replace_templated_values(
-                replacement_value,
-                variables,
-                ignore_unknown_variables
-            )
+            # If recipe_variables, no need for recursive replacement since these are the base variables
+            if recipe_object == '${recipe_variables}':
+                new_recipe_object = replacement_value
+            else:
+                new_recipe_object = replace_templated_values(
+                    replacement_value,
+                    variables,
+                    ignore_unknown_variables
+                )
 
         # Variable is found within the string e.g. file-${number}.csv
         # Since this is within a string, the type is forced to also be a string
