@@ -212,8 +212,9 @@ class TestCaseWhen:
         )
 
     def test_case_when_no_default(self):
-        """  
-        Test case_when without default value (should use None)  
+        """
+        Test case_when without default on a new column - unmatched rows are empty string
+        (the recipe framework converts NaN to '' after each wrangle).
         """
         df = wrangles.recipe.run(
             """  
@@ -233,6 +234,32 @@ class TestCaseWhen:
             df['Result'][0] == '' and
             df['Result'][1] == 'High' and
             df['Result'][2] == ''
+        )
+
+    def test_case_when_no_default_preserves_existing(self):
+        """
+        Test case_when without default on an existing column -
+        unmatched rows keep their original values.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: label
+                  cases:
+                    - condition: value > 5
+                      value: High
+            """,
+            dataframe=pd.DataFrame({
+                'value': [3, 7, 2],
+                'label': ['original_a', 'original_b', 'original_c']
+            })
+        )
+
+        assert (
+            df['label'][0] == 'original_a' and
+            df['label'][1] == 'High' and
+            df['label'][2] == 'original_c'
         )
 
     def test_case_when_order_matters(self):
@@ -309,3 +336,117 @@ class TestCaseWhen:
         result = wrangles.recipe.run(recipe, dataframe=df)
 
         assert result["Result"].tolist() == ["One", "Two", "Three"]
+
+    def test_case_when_and_two_columns(self):
+        """
+        Test case_when with an 'and' condition across two columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: Result
+                  default: Other
+                  cases:
+                    - condition: score >= 80 and grade == 'A'
+                      value: Top
+                    - condition: score >= 60 and grade == 'B'
+                      value: Good
+            """,
+            dataframe=pd.DataFrame({
+                'score': [90, 65, 90, 50],
+                'grade': ['A', 'B', 'C', 'C'],
+            })
+        )
+        assert df['Result'].tolist() == ['Top', 'Good', 'Other', 'Other']
+
+    def test_case_when_or_two_columns(self):
+        """
+        Test case_when with an 'or' condition across two columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: Flag
+                  default: Normal
+                  cases:
+                    - condition: score > 90 or status == 'vip'
+                      value: Priority
+            """,
+            dataframe=pd.DataFrame({
+                'score': [95, 50, 70],
+                'status': ['regular', 'vip', 'regular'],
+            })
+        )
+        assert df['Flag'].tolist() == ['Priority', 'Priority', 'Normal']
+
+    def test_case_when_and_or_combined(self):
+        """
+        Test case_when with combined 'and'/'or' logic across multiple columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: Label
+                  default: None
+                  cases:
+                    - condition: (age >= 18 and income > 50000) or vip == True
+                      value: Eligible
+                    - condition: age < 18 or income <= 20000
+                      value: Ineligible
+            """,
+            dataframe=pd.DataFrame({
+                'age':    [25, 30, 15, 20],
+                'income': [60000, 30000, 10000, 55000],
+                'vip':    [False, True, False, False],
+            })
+        )
+        assert df['Label'].tolist() == ['Eligible', 'Eligible', 'Ineligible', 'Eligible']
+
+    def test_case_when_boolean_column(self):
+        """
+        Test case_when conditions using boolean columns directly
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: Access
+                  default: Denied
+                  cases:
+                    - condition: is_admin == True
+                      value: Admin
+                    - condition: is_active == True
+                      value: User
+            """,
+            dataframe=pd.DataFrame({
+                'is_admin':  [True, False, False],
+                'is_active': [False, True, False],
+            })
+        )
+        assert df['Access'].tolist() == ['Admin', 'User', 'Denied']
+
+    def test_case_when_boolean_not(self):
+        """
+        Test case_when condition using boolean negation
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - compute.case_when:
+                  output: Status
+                  default: Active
+                  cases:
+                    - condition: is_deleted == True
+                      value: Deleted
+                    - condition: is_deleted == False and is_paused == True
+                      value: Paused
+            """,
+            dataframe=pd.DataFrame({
+                'is_deleted': [False, True, False],
+                'is_paused':  [False, False, True],
+            })
+        )
+        assert df['Status'].tolist() == ['Active', 'Deleted', 'Paused']

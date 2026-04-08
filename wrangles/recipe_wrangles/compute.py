@@ -1,13 +1,13 @@
 import pandas as _pd
-import numpy as _np
-import re as _re
+
+_UNSET = object()
 
 
 def case_when(
     df: _pd.DataFrame,
     output: str,
     cases: list,
-    default=None
+    default=_UNSET
 ):
     """  
     type: object  
@@ -38,18 +38,29 @@ def case_when(
               description: Value to assign if condition is true  
       default:  
         type: [string, number, integer, boolean, "null"]  
-        description: Value to assign if no conditions are met. Default None.  
+        description: >
+          Value to assign where no conditions are met. If omitted, existing
+          column values are preserved (or NaN for new columns).
+
     """
 
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(
         r'[^a-zA-Z0-9_]', '_', regex=True)
 
-    # Evaluate conditions using the renamed columns
-    conditions = [df_temp.eval(case['condition']) for case in cases]
-    choices = [case['value'] for case in cases]
+    caselist = [
+        (df_temp.eval(case['condition'], engine='python'), case['value'])
+        for case in cases
+    ]
 
-    # Use numpy.select to evaluate conditions and assign values
-    df[output] = _np.select(conditions, choices, default=default)
+    # Determine the base series — what unmatched rows will hold
+    if default is not _UNSET:
+        base = _pd.Series(default, index=df.index, dtype=object)
+    elif output in df.columns:
+        base = df[output].copy().astype(object)
+    else:
+        base = _pd.Series(_pd.NA, index=df.index, dtype=object)
+
+    df[output] = base.case_when(caselist)
 
     return df
