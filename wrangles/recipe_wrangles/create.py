@@ -83,7 +83,12 @@ def bins(
     return df
 
 
-def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.DataFrame:
+def column(
+    df: _pd.DataFrame,
+    output: _Union[str, list],
+    value = None,
+    value_if_exists: str = 'existing'
+) -> _pd.DataFrame:
     """
     type: object
     description: Create column(s) with a user defined value. Defaults to None (empty).
@@ -104,12 +109,21 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
           - array
           - boolean
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
+      value_if_exists:
+        type: string
+        description: >-
+          Determines behaviour when the output column already exists.
+          existing (default): leave the column unchanged.
+          coalesce: fill empty/null cells with the new value, keeping non-null cells.
+          new: overwrite the entire column with the new value.
+        enum:
+          - existing
+          - coalesce
+          - new
     """
     # If a string provided, convert to list
     if isinstance(output, str):
-      if output in df.columns:
-        raise ValueError(f'"{output}" column already exists in dataFrame.')
-      output = [output]
+        output = [output]
 
     # gather the columns and values in a dictionary, if not a dict then use value as the value of dictionary
     output_dict = {}
@@ -121,18 +135,30 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
         else:
             output_dict.update({out: value})
 
-    # Check if the list of outputs exist in dataFrame
-    check_list = [x for x in (output_dict.keys()) if x in df.columns]
-    if len(check_list) > 0:
-      raise ValueError(f'{check_list} column(s) already exists in the dataFrame') 
-
     for output_column, values_list in zip(output_dict.keys(), output_dict.values()):
+        column_exists = output_column in df.columns
+
+        if column_exists and value_if_exists == 'existing':
+            continue
+
         # Data to generate
-        data = _pd.DataFrame({
-            output_column: _generate_cell_values(values_list, len(df))
-        }).set_index(df.index)  # use the same index as original to match rows
-        # Merging existing dataframe with values created
-        df = _pd.concat([df, data], axis=1)
+        new_values = _pd.Series(
+            _generate_cell_values(values_list, len(df)),
+            index=df.index
+        )
+
+        if column_exists and value_if_exists == 'coalesce':
+            df[output_column] = df[output_column].where(
+                df[output_column].notna() & (df[output_column] != ''),
+                new_values
+            )
+        else:
+            # new or column doesn't exist — write/overwrite directly
+            if not column_exists:
+                data = _pd.DataFrame({output_column: new_values})
+                df = _pd.concat([df, data], axis=1)
+            else:
+                df[output_column] = new_values
 
     return df
 
