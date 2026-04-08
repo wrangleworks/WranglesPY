@@ -16,6 +16,11 @@ from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 import hashlib as _hashlib
 
+_DEFAULT_EMBEDDING_URLS = {
+    "openai": "https://api.openai.com/v1/embeddings",
+    "jina": "https://api.jina.ai/v1/embeddings",
+}
+
 def bins(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -147,8 +152,9 @@ def embeddings(
     output_type: str = "python list",
     model: str = "text-embedding-3-small",
     retries: int = 0,
-    url: str = "https://api.openai.com/v1/embeddings",
+    url: str = _DEFAULT_EMBEDDING_URLS["openai"],
     precision: str = "float32",
+    provider: str = "openai",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -196,11 +202,19 @@ def embeddings(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      provider:
+        type: string
+        description: >-
+          The embedding provider to use.
+          Determines the default API endpoint when url is not explicitly set.
+        enum:
+          - openai
+          - jina
       url:
         type: string
         description: |-
           Override the default url for the AI endpoint.
-          Must use the OpenAI embeddings API.
+          Defaults to the standard endpoint for the selected provider.
       precision:
         type: string
         description: >-
@@ -211,6 +225,9 @@ def embeddings(
           - float16
           - float32
     """
+    if url == _DEFAULT_EMBEDDING_URLS["openai"] and provider != "openai":
+        url = _DEFAULT_EMBEDDING_URLS.get(provider, url)
+
     if output is None: output = input
 
     if not isinstance(input, list): input = [input]
@@ -232,6 +249,7 @@ def embeddings(
             retries,
             url,
             precision,
+            provider=provider,
             **kwargs
         )
 
