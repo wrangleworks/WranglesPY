@@ -1424,14 +1424,15 @@ def recipe(
 def remove_words(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
-    to_remove: str,
+    to_remove: _Union[str, list] ,
     output: _Union[str, list] = None,
-    tokenize_to_remove: bool = False,
-    ignore_case: bool = True
+    tokenize_to_remove: bool = True,
+    ignore_case: bool = True,
+    characters_to_consider: str = "letters_numbers_only"
     ) -> _pd.DataFrame:
     """
     type: object
-    description: Remove all the elements that occur in one list from another.
+    description: Remove all the elements that occur in one list from another. The input and to_remove columns can contain strings and/or lists of strings.
     additionalProperties: false
     required:
       - input
@@ -1443,10 +1444,10 @@ def remove_words(
           - string
           - integer
           - array
-        description: Name of column to remove words from
+        description: The input column can contain strings or lists of strings.
       to_remove:
         type: array
-        description: Column or list of columns with a list of words to be removed
+        description: The to_remove column can contain strings or lists of strings.
       output:
         type: 
           - string
@@ -1458,6 +1459,13 @@ def remove_words(
       ignore_case:
         type: boolean
         description: Ignore input and to_remove case
+      characters_to_consider:
+        type: string
+        description: (Default letters_numbers_only) Controls which characters are considered for matching. 'letters_numbers_only' removes non-alphanumeric characters from tokens before matching. 'all' considers all characters.
+        enum:
+          - all
+          - letters_numbers_only
+        default: letters_numbers_only
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -1477,7 +1485,7 @@ def remove_words(
     
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case)
+        df[output_column] = _extract.remove_words(df[input_column].values.tolist(), df[to_remove].values.tolist(), tokenize_to_remove, ignore_case, characters_to_consider)
     
     return df
 
