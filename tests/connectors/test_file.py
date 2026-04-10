@@ -5,6 +5,8 @@ import uuid as _uuid
 import wrangles
 import pandas as _pd
 import pytest
+import polars as _pl
+from unittest.mock import patch
 
 
 class TestRead:
@@ -642,6 +644,118 @@ class TestWrite:
         """
         )
         assert df.columns.tolist() == ['col1', 'col2']
+
+    def test_write_excel_vertical_alignment_with_formatting(self):  
+      """  
+      Test that Excel files written with formatting have vertical alignment set to top  
+      including headers  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/vertical_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 3  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+                formatting:  
+                  table_style: Table Style Medium9  
+          """  
+      )  
+        
+      # Verify the file was created and check alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+      
+      # Check data alignment (subsequent rows)  
+      for row in ws.iter_rows(min_row=2):  
+          for cell in row:  
+              assert cell.alignment.vertical == 'top', f"Cell {cell.coordinate} not aligned to top"  
+        
+      wb.close()  
+      Path(filename).unlink()  # cleanup
+
+  
+    def test_write_excel_vertical_alignment_without_formatting(self):  
+      """  
+      Test that Excel files written without formatting use pandas default  
+      (vertical alignment is 'bottom' by default in pandas/openpyxl)  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/no_formatting_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 2  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+          """  
+      )  
+        
+      # Verify the file was created and check default alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+        
+      for row in ws.iter_rows(min_row=1):  
+          for cell in row:  
+              assert cell.alignment.vertical in ('top', None), f"Cell {cell.coordinate} alignment unexpected"  
+        
+      wb.close()
+      Path(filename).unlink()  # cleanup
+
+    def test_write_excel_header_format_valign_overrides_default(self):
+        """
+        Test that a user-supplied valign in header_format overrides the default 'top'
+        """
+        
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        captured = {}
+
+        def mock_write_excel(self, **kwargs):
+            captured.update(kwargs)
+
+        with patch.object(_pl.DataFrame, 'write_excel', mock_write_excel):
+            wrangles.connectors._formatting.file_format(df, workbook='test.xlsx', worksheet='Sheet1',
+                        header_format={'valign': 'bottom', 'bold': True})
+
+        assert captured['header_format']['valign'] == 'bottom'
+        assert captured['header_format']['bold'] == True
+
+    def test_write_excel_column_formats_valign_overrides_default(self):
+        """
+        Test that a user-supplied valign in column_formats overrides the default 'top',
+        while columns without an explicit valign still get the 'top' default.
+        """
+
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        captured = {}
+
+        def mock_write_excel(self, **kwargs):
+            captured.update(kwargs)
+
+        with patch.object(_pl.DataFrame, 'write_excel', mock_write_excel):
+            wrangles.connectors._formatting.file_format(df, workbook='test.xlsx', worksheet='Sheet1',
+                        column_formats={'col1': {'valign': 'vcenter', 'bold': True}})
+
+        # col1: user's vcenter wins over default top
+        assert captured['column_formats']['col1']['valign'] == 'vcenter'
+        assert captured['column_formats']['col1']['bold'] == True
+        # col2: no override, so default top is applied
+        assert captured['column_formats']['col2']['valign'] == 'top'
 
 def test_read_object():
     """
