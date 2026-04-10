@@ -54,6 +54,28 @@ def model(id: str):
         raise RuntimeError(f'Something went wrong trying to access model {id}')
 
 
+def model_update(id: str, metadata: dict) -> None:
+    """
+    Update the metadata for a model
+
+    :param id: Model ID
+    :param metadata: Dict of metadata fields to update
+    """
+    response = _utils.request_retries(
+                request_type='PATCH',
+                url=f'{_config.api_host}/model/metadata',
+                **{
+                    'params': {'id': id},
+                    'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                    'json': metadata
+                }
+            )
+    if response.status_code in [401, 403]:
+        raise RuntimeError(f'Access denied to model {id}')
+    elif not response.ok:
+        raise RuntimeError(f'Something went wrong trying to update model {id}')
+
+
 def model_content(id: str, version_id: str = None) -> list:
     """
     Get the training data for a model
