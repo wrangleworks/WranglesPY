@@ -7950,8 +7950,8 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello']})  
         )  
-        assert ": Wrangling :: convert.case :: Col1 >> Col2" in caplog.messages[-1]  
-      
+        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col2" in caplog.messages[-1]
+
     def test_dynamic_output_logging(self, caplog):  
         """  
         Test logging with dynamic output (new columns created)  
@@ -7966,8 +7966,8 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello world']}),   
         )  
-        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
-      
+        assert ": Wrangling :: split.text :: Completed :: Col1 >> Col1, Col2" in caplog.messages[-1]
+
     def test_skipped_wrangle_logging(self, caplog):  
         """  
         Test logging when wrangle is skipped due to if condition  
@@ -7987,8 +7987,8 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello']})  
         )  
-        assert ": Wrangling :: convert.case skipped due to not passing the if statement." in caplog.messages[-2]  
-        assert ": Wrangling :: convert.case :: Col1 >> Col3" in caplog.messages[-1]   
+        assert any(": Wrangling :: convert.case skipped due to not passing the if statement." in msg for msg in caplog.messages)
+        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col3" in caplog.messages[-1]   
       
     def test_mixed_output_logging(self, caplog):  
         """  
@@ -8005,7 +8005,7 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'col1': ['test']}),  
         )  
-        assert ": Wrangling :: create.column :: None >> col2, col3, col4" in caplog.messages[-1]  
+        assert ": Wrangling :: create.column :: Completed :: None >> col2, col3, col4" in caplog.messages[-1]  
       
     def test_backward_compatibility_logging(self, caplog):  
         """  
@@ -8022,8 +8022,8 @@ class TestWrangleExecutionLogging:
             dataframe=pd.DataFrame({'Col1': ['hello world']})  
         )  
         print(df)
-        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2" in caplog.messages[-1]  
-      
+        assert ": Wrangling :: split.text :: Completed :: Col1 >> Col1, Col2" in caplog.messages[-1]
+
     def test_input_overwrite_logging(self, caplog):  
         """  
         Test logging when input column is overwritten  
@@ -8037,7 +8037,7 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello']}),  
         )  
-        assert ": Wrangling :: convert.case :: Col1 >> Col1" in caplog.messages[-1]
+        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col1" in caplog.messages[-1]
 
     def test_output_wildcard_string_logging(_self, caplog):
         df = wrangles.recipe.run(
@@ -8052,7 +8052,7 @@ class TestWrangleExecutionLogging:
                 'Col': [["Hello", "Wrangles!", "and", "World!"]]
             })
         )
-        assert ": Wrangling :: split.list :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
+        assert ": Wrangling :: split.list :: Completed :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
     
     def test_logging_wildcard_multi_list_no_expansion(self, caplog):  
         """  
@@ -8078,5 +8078,44 @@ class TestWrangleExecutionLogging:
             dataframe=data  
         )  
 
-        # Check that the wildcard is not expanded (appears as literal)  
-        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
+        # Check that the wildcard is not expanded (appears as literal)
+        assert any('Completed :: col1, col2 >> col*, other' in message for message in caplog.messages)
+
+    def test_multiple_wrangles_logging(self, caplog):
+        """
+        Test that Starting and Completed messages are logged for each wrangle
+        in a multi-step recipe, in the correct order.
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.case:
+                input: col1
+                output: col2
+                case: upper
+            - merge.concatenate:
+                input:
+                  - col1
+                  - col2
+                output: col3
+                char: '-'
+            - convert.case:
+                input: col3
+                output: col4
+                case: lower
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello']})
+        )
+
+        wrangle_logs = [msg for msg in caplog.messages if ': Wrangling ::' in msg]
+
+        # Should have Starting + Completed for each of the 3 wrangles = 6 messages
+        assert len(wrangle_logs) == 6
+
+        # Verify order: Starting then Completed for each wrangle
+        assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[0]
+        assert ': Wrangling :: convert.case :: Completed :: col1 >> col2' in wrangle_logs[1]
+        assert ': Wrangling :: merge.concatenate :: Starting' in wrangle_logs[2]
+        assert ': Wrangling :: merge.concatenate :: Completed :: col1, col2 >> col3' in wrangle_logs[3]
+        assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[4]
+        assert ': Wrangling :: convert.case :: Completed :: col3 >> col4' in wrangle_logs[5]
