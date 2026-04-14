@@ -40,23 +40,24 @@ def _get_supplier_site_score(supplier_names: list, netloc: str) -> int:
 
 
 def _evaluate_part_code_match(
-    candidates: List[str],
-    fields_tokens: Dict[str, List[str]], 
+    candidates: list,
+    fields_tokens: dict, 
+    squashed_fields: dict,   # <--- NEW PARAMETER
     exact_score: float,
     partial_base: float,
     entity_name: str,
-    min_length_for_substring: int = 3,
+    min_length_for_substring: int = 4, # Bumped to 4 to protect 3-char codes
     min_partial_ratio: float = 0.50
-) -> Tuple[float, str, float, str]:
+) -> tuple:
     """
-    Specialized evaluator for Part Codes and MPNs using tokenized fields.
+    Specialized evaluator for Part Codes and MPNs.
     Returns: (score, reason, ratio, visual_match_string)
     """
     best_score, best_ratio = 0.0, 0.0
     best_reason = f"No {entity_name} Match"
     best_visual = ""
     
-    if not candidates or not fields_tokens: 
+    if not candidates: 
         return best_score, best_reason, best_ratio, best_visual
         
     for candidate in candidates:
@@ -64,26 +65,35 @@ def _evaluate_part_code_match(
         if not norm_cand: continue
             
         cand_len = len(norm_cand)
-        is_short_code = cand_len <= min_length_for_substring
+        is_short_code = cand_len < min_length_for_substring
         
-        for field_name, tokens in fields_tokens.items():
-            for token in tokens:
-                if not token: continue
-                token_len = len(token)
-                
-                # 1. Exact Token Match
-                if norm_cand == token:
-                    return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
+        # --- THE FIX: The Long-Code Bypass ---
+        # If the code is 4+ chars, it's safe to check the squashed text for a perfect embedded match
+        if not is_short_code and squashed_fields:
+            for field_name, squashed_text in squashed_fields.items():
+                if squashed_text and norm_cand in squashed_text:
+                    return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{candidate}**"
+
+        # --- ORIGINAL LOGIC: Token Check (for short codes and variants) ---
+        if fields_tokens:
+            for field_name, tokens in fields_tokens.items():
+                for token in tokens:
+                    if not token: continue
+                    token_len = len(token)
                     
-                # 2. Variant / Substring Match
-                elif not is_short_code and norm_cand in token:
-                    ratio = cand_len / token_len
-                    if ratio >= min_partial_ratio:
-                        score = round(ratio * partial_base, 2)
-                        if score > best_score:
-                            best_score, best_ratio = score, ratio
-                            best_reason = f"Variant Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
-                            best_visual = token.replace(norm_cand, f"**{norm_cand}**")
+                    # 1. Exact Token Match 
+                    if norm_cand == token:
+                        return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
+                        
+                    # 2. Variant / Substring Match (e.g., '555' inside 'LM555CN')
+                    elif not is_short_code and norm_cand in token:
+                        ratio = cand_len / token_len
+                        if ratio >= min_partial_ratio:
+                            score = round(ratio * partial_base, 2)
+                            if score > best_score:
+                                best_score, best_ratio = score, ratio
+                                best_reason = f"Variant Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
+                                best_visual = token.replace(norm_cand, f"**{norm_cand}**")
 
     return best_score, best_reason, best_ratio, best_visual
 
@@ -237,9 +247,13 @@ def score_search_results(
             "Snippet": str(item.get("snippet", "")),
             "URL": str(item.get("link", ""))
         }
+        
+        # 2. Squashed version for the complex Part Code bypass
+        squashed_fields = {k: _compare.normalize_alphanum(v) for k, v in raw_fields.items()}
 
-        # 2. Create the tokenized version for the Part Code Matcher
+        # 3. Create the tokenized version for the short Part Codes & Context Matchers
         fields_tokens = {k: _get_tokens(v) for k, v in raw_fields.items()}
+
         
         # --- REFACTORED CONTEXT MATH ---
         item_matches = []
@@ -283,9 +297,10 @@ def score_search_results(
         else:
             context_score_reason = "No context terms matched"
 
-        # Entity Scoring (Unpacking 4 elements now!)
-        mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, mpn_exact_score, mpn_partial_base, "MPN")
-        pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, part_code_exact_score, part_code_partial_base, "Part Code")
+        # Entity Scoring
+        mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, squashed_fields, mpn_exact_score, mpn_partial_base, "MPN")
+        pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, squashed_fields, part_code_exact_score, part_code_partial_base, "Part Code")
+        
         sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, raw_fields, supplier_exact_score, supplier_partial_base, "Supplier")
 
         if mpn_score >= pc_score:
