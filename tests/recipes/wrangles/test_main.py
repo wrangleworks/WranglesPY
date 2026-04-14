@@ -8050,3 +8050,25 @@ class TestWrangleExecutionLogging:
         assert ': Wrangling :: merge.concatenate :: Completed :: col1, col2 >> col3' in wrangle_logs[3]
         assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[4]
         assert ': Wrangling :: convert.case :: Completed :: col3 >> col4' in wrangle_logs[5]
+
+    def test_completed_log_includes_duration(self, caplog):
+        """
+        Test that the Completed log message includes an execution duration in seconds.
+        """
+        import re
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.case:
+                input: Col1
+                output: Col2
+                case: upper
+            """,
+            dataframe=pd.DataFrame({'Col1': ['hello']})
+        )
+        completed_msg = next(
+            msg for msg in caplog.messages
+            if ': Wrangling :: convert.case :: Completed ::' in msg
+        )
+        assert re.search(r'::\s*\d+\.\d{3}s$', completed_msg), \
+            f"Expected duration suffix like ':: 0.001s' in: {completed_msg}"

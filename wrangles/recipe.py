@@ -13,6 +13,7 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
+import time as _time
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
@@ -607,6 +608,7 @@ def _execute_wrangles(
                         common_params[key] = params.pop(key)
 
                 _logging.info(f": Wrangling :: {wrangle} :: Starting")
+                _wrangle_start_time = _time.perf_counter()
 
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
@@ -891,7 +893,8 @@ def _execute_wrangles(
                             input_display = ', '.join(str(x) for x in input_display)  
                             
                         output_display = ', '.join(str(col) for col in output_columns)
-                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display}")
+                        _wrangle_elapsed = _time.perf_counter() - _wrangle_start_time
+                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s")
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
