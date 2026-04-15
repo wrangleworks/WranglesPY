@@ -2,6 +2,7 @@ from __future__ import annotations
 import concurrent.futures
 import copy
 import json
+import logging as _logging
 from typing import Any, Dict, List, Literal, Union, Optional, Tuple
 
 import requests
@@ -27,6 +28,7 @@ PropertyDefinition.model_rebuild()
 
 
 def _perform_web_search(query: str) -> str:
+    _logging.debug(f": Performing web search :: query :: {query}")
     if BeautifulSoup is None:
         return "Web search unavailable because beautifulsoup4 is not installed."
 
@@ -70,6 +72,7 @@ def _call_openai(
     retries: int,
     previous_response_id: Optional[str] = None
 ) -> Tuple[dict, Optional[str]]:
+    _logging.debug(": Calling OpenAI API")
     payload_copy = payload.copy()
     if "input" not in payload_copy:
         payload_copy["input"] = str(input_data)
@@ -207,6 +210,7 @@ def ai(
         description: Request summary text to be merged into the output.
     """
 
+    _logging.info(f": Generating data using AI :: model :: {model}, thread_count :: {threads}, record_count :: {1 if not isinstance(input, list) else len(input)}")
     input_was_scalar = not isinstance(input, list)
     input_list = [input] if input_was_scalar else input
 
