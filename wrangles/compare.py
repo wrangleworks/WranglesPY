@@ -4,6 +4,7 @@ Compare subsets of input data
 
 from collections import OrderedDict as _OrderedDict
 from difflib import SequenceMatcher as _SequenceMatcher
+import logging as _logging
 
 
 def _ordered_words(string, char):
@@ -26,6 +27,7 @@ def contrast(input: list, type: str ='difference', char: str = ' ', case_sensiti
     :param char: The character to split the strings on. Default is a space
     :param case_sensitive: Whether the comparison is case sensitive. Default is True
     """
+    _logging.debug(f": Comparing {len(input)} records :: type :: {type}, case_sensitive :: {case_sensitive}")
     results = []
     for row in input:
             
@@ -83,6 +85,7 @@ def overlap(
     Find the matching characters between two strings.
     return: 2D list with the matched elements or the matched elements and the ratio of similarity in a list
     """
+    _logging.debug(f": Computing overlap for {len(input)} record pairs")
     results = []
     for row in input:
 
@@ -157,6 +160,7 @@ def overlap(
     return results
 
 def deduplicate(result, enabled=False, ignore_case=False):
+    _logging.debug(f": Deduplicating {len(result)} items :: ignore_case :: {ignore_case}")
     if not enabled:
         return result
 

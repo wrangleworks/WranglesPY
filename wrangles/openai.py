@@ -4,6 +4,7 @@ import json as _json
 import copy as _copy
 import concurrent.futures as _futures
 from itertools import chain as _chain
+import logging as _logging
 import requests as _requests
 import numpy as _np
 import time as _time
@@ -52,9 +53,12 @@ def chatGPT(
 
     if not isinstance(retries, int) or retries < 0:
         raise ValueError("Retries must be a positive integer")
-    
+
+    _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
+
     response = None
     backoff_time = 1
+    retry_count = 0
     while (retries + 1):
         try:
             response = _requests.post(
@@ -100,7 +104,9 @@ def chatGPT(
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
  
-        retries -=1
+        retries -= 1
+        retry_count += 1
+        _logging.warning(f": Retrying OpenAI request :: attempt :: {retry_count}")
         _time.sleep(backoff_time)
         backoff_time *= 2
 
@@ -117,7 +123,9 @@ def chatGPT(
         error_message = response.json()['error']['message']
     except:
         error_message = "Failed"
-    
+
+    _logging.error(f": OpenAI API error :: {error_message}")
+
     # Return error for each requested column
     return {
         param: error_message
@@ -155,6 +163,9 @@ def _embedding_thread(
     """
     if request_params is None:
         request_params = {}
+
+    _logging.debug(f": Computing embeddings :: model :: {model}, record_count :: {len(input_list)}")
+
     response = None
     backoff_time = 1
     while (retries + 1):
