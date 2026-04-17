@@ -223,6 +223,29 @@ class TestRead:
             and len(df) == 3
         ) 
 
+    def test_read_parquet(self):
+        """
+        Test reading a parquet file
+        """
+        filename = str(_uuid.uuid4())
+        _pd.DataFrame(
+            {"header1": ["value1", "value2", "value3"]}
+        ).to_parquet(f"tests/temp/{filename}.parquet", index=False)
+
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/${filename}.parquet
+            """,
+            variables={"filename": filename}
+        )
+
+        assert (
+            df["header1"][0] == "value1"
+            and len(df) == 3
+        )
+
     def test_read_unsupported_filetype(self):
         """
         Check an appropriate error is given if the user 
@@ -482,6 +505,30 @@ class TestWrite:
             variables={"filename": filename}
         )
         df = _pd.read_pickle(f"tests/temp/{filename}.pkl.gz")
+        assert (
+            df["header1"][0] == "value1"
+            and len(df) == 5
+        )
+
+    def test_write_parquet(self):
+        """
+        Test writing a parquet file
+        """
+        filename = str(_uuid.uuid4())
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+            """,
+            variables={"filename": filename}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
         assert (
             df["header1"][0] == "value1"
             and len(df) == 5
