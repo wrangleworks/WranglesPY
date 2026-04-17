@@ -655,6 +655,7 @@ class LazyLoader:
             except ImportError as e:
                 raise ImportError(
                     f"Optional dependency '{self.module_name}' is required for this feature. "
-                    f"Please install it with: pip install {self.module_name}"
+                    f"Please install it with: pip install {self.module_name} "
+                    f"or install all optional dependencies with: pip install -r requirements-full.txt"
                 ) from e
         return getattr(self._module, item)

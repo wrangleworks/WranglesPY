@@ -1,0 +1,19 @@
+# Full dependencies including all optional connectors and AI/LLM extras.
+# Used for running the complete test suite and enabling all connectors.
+#
+#   pip install -r requirements-full.txt
+
+# Core + light optional requirements
+-r requirements.txt
+
+# SQL databases
+sqlalchemy>=2.0,<3.0
+pymssql>=2.3.3
+psycopg2-binary>=2.9.10
+
+# NoSQL databases
+pymongo[srv]
+
+# Notifications
+apprise
+
