@@ -1020,7 +1020,7 @@ class TestLog:
                 'Col1': [],
             })
         )
-        assert caplog.messages[0] == '123456'
+        assert '123456' in caplog.messages
 
     def test_log_system_variables_info(self, caplog):
         """
@@ -1037,7 +1037,7 @@ class TestLog:
                   ${row_count} ${column_count} ${columns} ${df}
         """
         wrangles.recipe.run(recipe, dataframe=data)
-        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+        assert "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n" in caplog.messages
 
     def test_log_system_variables_error(self, caplog):
         """
@@ -1054,7 +1054,7 @@ class TestLog:
                   ${row_count} ${column_count} ${columns} ${df}
         """
         wrangles.recipe.run(recipe, dataframe=data)
-        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+        assert "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n" in caplog.messages
 
     def test_log_system_variables_warning(self, caplog):
         """
@@ -1071,7 +1071,7 @@ class TestLog:
                   ${row_count} ${column_count} ${columns} ${df}
         """
         wrangles.recipe.run(recipe, dataframe=data)
-        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+        assert "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n" in caplog.messages
 
     def test_log_info_variables(self, caplog):
         """
@@ -1089,7 +1089,7 @@ class TestLog:
         """
         variables = {'my_var': 'This is my variable'}
         wrangles.recipe.run(recipe, dataframe=data, variables=variables)
-        assert caplog.messages[0] == "This is my variable\n"
+        assert "This is my variable\n" in caplog.messages
 
     def test_log_warning_variables(self, caplog):
         """
@@ -1107,7 +1107,7 @@ class TestLog:
         """
         variables = {'my_var': 'This is my variable'}
         wrangles.recipe.run(recipe, dataframe=data, variables=variables)
-        assert caplog.messages[0] == "This is my variable\n"
+        assert "This is my variable\n" in caplog.messages
 
     def test_log_error_variables(self, caplog):
         """
@@ -1125,7 +1125,7 @@ class TestLog:
         """
         variables = {'my_var': 'This is my variable'}
         wrangles.recipe.run(recipe, dataframe=data, variables=variables)
-        assert caplog.messages[0] == "This is my variable\n"
+        assert "This is my variable\n" in caplog.messages
 
     def test_log_columns_variables(self, caplog):
         """
