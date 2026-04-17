@@ -1,7 +1,7 @@
 """
 Connector to read & write from the local filesystem
 
-Supports Excel, CSV, JSON and JSONL files.
+Supports Excel, CSV, JSON, JSONL and Parquet files.
 """
 from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
@@ -32,6 +32,7 @@ def read(
       - CSV (.csv, .txt)
       - JSON (.json), JSONL (.jsonl)
       - Pickle (.pkl, .pickle) files.
+      - Parquet (.parquet) files.
 
     JSON, JSONL, CSV and Pickle files may also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.
 
@@ -86,6 +87,8 @@ def read(
         (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
     ):
         df = _pd.read_pickle(file_object, **kwargs).fillna('')
+    elif name.split('.')[-1] in ['parquet']:
+        df = _pd.read_parquet(file_object, **kwargs).fillna('')
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
@@ -160,7 +163,8 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     - CSV (.csv, .txt)
     - JSON (.json), JSONL (.jsonl)
     - Pickle (.pkl, .pickle)
-    
+    - Parquet (.parquet)
+
     JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
 
     :param df: Dataframe to be written to a file
@@ -239,6 +243,9 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
     ):
         df.to_pickle(file_object, **kwargs)
+    elif name.split('.')[-1] in ['parquet']:
+        if 'index' not in kwargs.keys(): kwargs['index'] = False
+        df.to_parquet(file_object, **kwargs)
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
