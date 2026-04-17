@@ -1519,3 +1519,152 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
+
+
+class TestTrainMetaData:
+    """
+    All tests for reading and writing Wrangle metadata
+    """
+    def setup_method(self):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "meta-data-demo-bd0238a3"}])
+        )
+
+    def test_meta_data_read(self):
+        """
+        Read metadata for a model
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+
+        assert df.iloc[0]["name"] == "meta-data-demo-bd0238a3"
+        assert df.iloc[0]["variant"] == "key"
+        assert df.iloc[0]["purpose"] == "lookup"
+
+    def test_meta_data_read_all_fields(self):
+        """
+        Read metadata returns all fields from the API response as columns
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+        assert all(col in df.columns for col in [
+            "id", "name", "type", "purpose", "status", "path",
+            "batch_size", "tags", "notes", "created_by", "date_created",
+            "modified_by", "date_modified", "variant", "settings"
+        ])
+
+    def test_meta_data_write(self):
+        """
+        Write (update) metadata for a model
+        """
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "Updated Name", "batch_size": 1000}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_ignores_nan(self):
+        """
+        NaN values in the DataFrame are not sent to the API
+        """
+        import numpy as np
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "My Model", "batch_size": np.nan}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_logs_summary(self, caplog):
+        """
+        Logging summary statement for updated fields in meta_data.write
+        """
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "New Name", "batch_size": 500}])
+        )
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("name was updated to New Name" in msg for msg in messages), "Log should mention name update"
+        assert any("batch_size was updated to 500" in msg for msg in messages), "Log should mention batch_size update"
+
+    def test_meta_data_write_invalid_field(self):
+        """
+        Writing a field that is not allowed raises a ValueError
+        """
+        with pytest.raises(ValueError, match="cannot be updated"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"name": "Valid Name", "purpose": "should not be allowed"}])
+            )
+
+    def test_meta_data_write_invalid_type_batch_size(self):
+        """
+        Passing a string for batch_size raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'batch_size' must be of type int"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"batch_size": "one thousand"}])
+            )
+
+    def test_meta_data_write_invalid_type_tags(self):
+        """
+        Passing a string for tags raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'tags' must be of type list or dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"tags": "not-a-list"}])
+            )
+
+    def test_meta_data_write_invalid_type_settings(self):
+        """
+        Passing a string for settings raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'settings' must be of type dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
+            )

@@ -30,6 +30,8 @@ from .convert import to_json as _to_json
 from .convert import from_json as _from_json
 from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
+from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
+from ..utils import replace_templated_values as _replace_templated_values
 
 
 def accordion(
@@ -804,7 +806,8 @@ def log(
     error: str = None,
     warning: str = None,
     info: str = None,
-    log_data: bool = None
+    log_data: bool = None,
+    **kwargs
 ):
     """
     type: object
@@ -833,8 +836,16 @@ def log(
         type: boolean
         description: Whether to log a sample of the contents of the dataframe. Default True if not logging to a write, error, warning or info. Default False otherwise.
     """
-    if columns is not None:
+    variables = kwargs.pop('variables', {})
+    variables = _delayed_variable_interpretation(df, variables)
 
+    # Handle variable interpretation for all parameters
+    columns, write, error, warning, info = [
+        _replace_templated_values(msg, variables) if msg else msg
+        for msg in (columns, write, error, warning, info)
+    ]
+
+    if columns is not None:
         # Get the wildcards
         wildcard_check = [x for x in columns if '*' in x]
 
@@ -1340,15 +1351,9 @@ def python(
         else:
             return _apply_command(variables, **kwargs)
 
-    variables = {
-        **variables,
-        **{
-            "row_count": len(df),
-            "column_count": len(df.columns),
-            "columns": df.columns.tolist(),
-            "df": df
-        }
-    }
+    variables = _delayed_variable_interpretation(df, variables)
+
+    input, output, kwargs = [_replace_templated_values(msg, variables) for msg in (input, output, kwargs)]
 
     df[output] = df[input].apply(
         lambda x: _exception_handler(variables, **x, **kwargs),
