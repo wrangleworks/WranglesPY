@@ -219,6 +219,10 @@ def _load_recipe(
                 f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
         
+        if 'production_version_id' in metadata.keys() and version_id is None:
+            version_id = metadata['production_version_id']
+            _logging.info(f": No version specified, defaulting to production version {version_id}")
+        
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
