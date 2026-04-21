@@ -534,6 +534,155 @@ class TestWrite:
             and len(df) == 5
         )
 
+    def test_write_parquet_chunk_size(self):
+        """
+        Test writing a parquet file with a custom chunk_size smaller than the data.
+        Data should be written correctly across multiple chunks.
+        """
+        filename = str(_uuid.uuid4())
+        rows = 25
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: ${rows}
+                  values:
+                    header1: value1
+                    header2: value2
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 7
+            """,
+            variables={"filename": filename, "rows": rows}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == rows and df["header1"][0] == "value1"
+
+    def test_write_parquet_chunk_size_larger_than_data(self):
+        """
+        Test writing a parquet file with a chunk_size larger than the number of rows.
+        Should behave identically to writing without a chunk_size.
+        """
+        filename = str(_uuid.uuid4())
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 10000
+            """,
+            variables={"filename": filename}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == 5 and df["header1"][0] == "value1"
+
+    def test_write_parquet_chunk_size_equals_one(self):
+        """
+        Test writing a parquet file with chunk_size=1 (extreme case, one row per chunk).
+        All rows should still be present in the output.
+        """
+        filename = str(_uuid.uuid4())
+        rows = 10
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: ${rows}
+                  values:
+                    col: abc
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 1
+            """,
+            variables={"filename": filename, "rows": rows}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == rows and df["col"][0] == "abc"
+
+    def test_write_parquet_chunk_size_data_integrity(self):
+        """
+        Test that chunked parquet write preserves row order and all values exactly.
+        Writes unique values per row to detect any row duplication or reordering.
+        """
+        import os
+        filename = str(_uuid.uuid4())
+        source = _pd.DataFrame({"id": list(range(50)), "val": [f"v{i}" for i in range(50)]})
+        path = f"tests/temp/{filename}.parquet"
+
+        wrangles.connectors.file.write(source, path, chunk_size=12)
+
+        result = _pd.read_parquet(path)
+        os.remove(path)
+
+        assert len(result) == 50
+        assert result["id"].tolist() == list(range(50))
+        assert result["val"].tolist() == [f"v{i}" for i in range(50)]
+
+    def test_write_parquet_auto_chunk_size(self):
+        """
+        Test that writing parquet without specifying chunk_size still produces
+        correct output — the auto-calculated chunk size should be used.
+        """
+        import os
+        rows = 200
+        source = _pd.DataFrame({"id": list(range(rows)), "val": [f"row_{i}" for i in range(rows)]})
+        path = f"tests/temp/{_uuid.uuid4()}.parquet"
+
+        wrangles.connectors.file.write(source, path)
+        result = _pd.read_parquet(path)
+        os.remove(path)
+
+        assert len(result) == rows and result["id"].tolist() == list(range(rows))
+
+    def test_parquet_chunk_size_helper_scales_with_row_width(self):
+        """
+        A wide DataFrame (many heavy columns) should produce a smaller auto chunk
+        size than a narrow DataFrame with the same number of rows.
+        """
+        narrow = _pd.DataFrame({"a": list(range(1000))})
+        wide = _pd.DataFrame({f"col_{i}": [f"long_string_value_{j}" for j in range(1000)] for i in range(50)})
+
+        narrow_chunk = wrangles.connectors.file._parquet_chunk_size(narrow)
+        wide_chunk = wrangles.connectors.file._parquet_chunk_size(wide)
+
+        assert wide_chunk < narrow_chunk
+
+    def test_parquet_chunk_size_helper_empty_df(self):
+        """
+        An empty DataFrame should return 1 (loop never executes, value is irrelevant).
+        """
+        empty = _pd.DataFrame({"a": []})
+        assert wrangles.connectors.file._parquet_chunk_size(empty) == 1
+
+    def test_write_parquet_chunk_vs_no_chunk_identical_output(self):
+        """
+        Test that writing a parquet file with chunk_size produces identical data
+        to writing without specifying chunk_size (default).
+        """
+        import os
+        source = _pd.DataFrame({"a": list(range(100)), "b": [str(i) for i in range(100)]})
+
+        chunked_path = f"tests/temp/{_uuid.uuid4()}.parquet"
+        default_path = f"tests/temp/{_uuid.uuid4()}.parquet"
+
+        wrangles.connectors.file.write(source, chunked_path, chunk_size=30)
+        wrangles.connectors.file.write(source, default_path)
+
+        chunked = _pd.read_parquet(chunked_path)
+        default = _pd.read_parquet(default_path)
+
+        os.remove(chunked_path)
+        os.remove(default_path)
+
+        assert chunked.equals(default)
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats

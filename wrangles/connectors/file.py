@@ -5,6 +5,8 @@ Supports Excel, CSV, JSON, JSONL and Parquet files.
 """
 from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
+import pyarrow as _pa
+import pyarrow.parquet as _pq
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
@@ -154,6 +156,17 @@ properties:
 """
 
 
+def _parquet_chunk_size(df: _pd.DataFrame, target_mb: int = 128) -> int:
+    """
+    Return a row count that keeps each parquet chunk under target_mb of
+    in-memory data.  Falls back to 100 000 if the dataframe is empty.
+    """
+    if len(df) == 0:
+        return 1  # no rows to write; value is irrelevant
+    bytes_per_row = df.memory_usage(deep=True).sum() / len(df)
+    return max(1, int(target_mb * 1024 * 1024 / bytes_per_row))
+
+
 def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
@@ -244,8 +257,19 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     ):
         df.to_pickle(file_object, **kwargs)
     elif name.split('.')[-1] in ['parquet']:
-        if 'index' not in kwargs.keys(): kwargs['index'] = False
-        df.to_parquet(file_object, **kwargs)
+        chunk_size = kwargs.pop('chunk_size', _parquet_chunk_size(df))
+        index = kwargs.pop('index', False)
+        writer = None
+        try:
+            for start in range(0, len(df), chunk_size):
+                chunk = df.iloc[start:start + chunk_size]
+                table = _pa.Table.from_pandas(chunk, preserve_index=index)
+                if writer is None:
+                    writer = _pq.ParquetWriter(file_object, table.schema, **kwargs)
+                writer.write_table(table)
+        finally:
+            if writer:
+                writer.close()
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
@@ -294,4 +318,7 @@ properties:
       - boolean
       - array
     description: Used for CSV files. Whether to write the column headers. Default true. Alternatively, provide a list to overwrite the headings.
+  chunk_size:
+    type: integer
+    description: Used for Parquet files. Number of rows to write per chunk to limit peak memory usage. Defaults to an automatically calculated value that keeps each chunk under 128 MB of in-memory data.
 """
