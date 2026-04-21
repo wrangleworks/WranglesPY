@@ -93,18 +93,22 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
-        
+
         # Using model_id in wrong function
         purpose = metadata['purpose']
         if purpose != 'recipe':
             raise ValueError(
                 f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
-        
+
         if 'production_version_id' in metadata.keys() and version_id is None:
             version_id = metadata['production_version_id']
             _logging.info(f": No version specified, defaulting to production version {version_id}")
-            
+        
+        if version_id == 'latest':
+            version_id = None
+            _logging.info(f": 'latest' version specified, using the most recent version")
+
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})

@@ -135,6 +135,16 @@ def test_recipe_by_production_version():
         list(df.columns) == ["header"]
     )
 
+def test_recipe_by_version_latest():
+    """
+    Test running a recipe using a model ID and latest version
+    """
+    df = wrangles.recipe.run("a6bac9e7-2388-4347:latest")
+    assert (
+        len(df) == 10 and
+        list(df.columns) == ["header"]
+    )
+
 def test_recipe_by_latest_version():
     """
     Test running a recipe using a model ID and latest version
