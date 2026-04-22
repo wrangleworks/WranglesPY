@@ -125,11 +125,14 @@ def coalesce(input_list: list) -> list:
     for row in input_list:
         output_row = ''
         for value in row:
-            if isinstance(value, str): value = value.strip()
-            if value:
+            if isinstance(value, str):
+                value = value.strip()
+                if value:
+                    output_row = value
+                    break
+            elif value is not None:
                 output_row = value
                 break
-
         output_list.append(output_row)
     return output_list
 

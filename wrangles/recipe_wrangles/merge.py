@@ -78,7 +78,7 @@ def coalesce(
                 try:
                     return x.strip()
                 except AttributeError:
-                    return '' if not x else x
+                    return x  # non-strings can't be whitespace-only
             stripped_result = _np.frompyfunc(_safe_strip, 1, 1)(result)
         needs_fallback = _np.where(has_any & (stripped_result == ''))[0]
         for i in needs_fallback:
@@ -86,7 +86,10 @@ def coalesce(
                 val = arr[i, j]
                 if isinstance(val, str):
                     val = val.strip()
-                if val:
+                    if val:
+                        result[i] = val
+                        break
+                else:
                     result[i] = val
                     break
             else:
