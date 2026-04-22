@@ -54,7 +54,7 @@ def coalesce(
             df[output] = _pd.Series(dtype=object)
             return df
 
-        arr = df[input].fillna('').values  # object array (n_rows, n_cols)
+        arr = df[input].fillna('').to_numpy(dtype=object)  # object array (n_rows, n_cols)
         n_rows = len(arr)
         m = len(input)
 

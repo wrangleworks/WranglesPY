@@ -150,6 +150,26 @@ class TestMergeCoalesce:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Output Col']
 
+    def test_all_floats(self):
+        """
+        Test coalescing two columns of all floats preserves the values and dtype
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                    - Col1
+                    - Col2
+                output: Output Col
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [5.56, 3.14, 9.91],
+                'Col2': [4.12, 2.35, 7.76]
+            })
+        )
+        assert df['Output Col'].tolist() == [5.56, 3.14, 9.91]
+
 class TestMergeConcatenate:
     """
     All concatenate tests
