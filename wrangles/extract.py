@@ -5,6 +5,7 @@ import re as _re
 from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
+import logging as _logging
 import pandas as _pd
 from . import config as _config
 from . import data as _data
@@ -33,6 +34,7 @@ def address(
     else:
         json_data = input
 
+    _logging.info(f": Extracting address {dataType} from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/address'
     params = {
         'responseFormat':'array',
@@ -308,6 +310,7 @@ def ai(
         **kwargs
     }
 
+    _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = list(executor.map(
             _openai.chatGPT,
@@ -357,6 +360,7 @@ def attributes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting attributes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {
         'responseFormat':'array',
@@ -403,6 +407,7 @@ def codes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting codes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/codes'
     params = {'responseFormat': 'array', **kwargs}
     batch_size = 10000
@@ -527,6 +532,7 @@ def html(
     else:
         json_data = input
 
+    _logging.info(f": Extracting {dataType} from HTML")
     url = f'{_config.api_host}/wrangles/extract/html'
     params = {
         'responseFormat': 'array',
@@ -566,6 +572,7 @@ def properties(
     else:
         json_data = input
 
+    _logging.info(f": Extracting properties from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/properties'
     params = {'responseFormat':'array', **kwargs}
     if type is not None: params['dataType'] = type
@@ -603,6 +610,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     else:
         flags = 0 # this is the default for _re.sub
     
+    _logging.info(f": Removing words from {len(input)} records")
     results = []
     for _in, _remove in zip(input, to_remove):
         
@@ -663,6 +671,7 @@ def brackets(
     :param include_brackets: Whether to include brackets in the results
     :return: List of extracted values
     """
+    _logging.info(": Extracting text from brackets")
     results = []
     bracket_patterns = {
     'round': r'\(.*?\)',

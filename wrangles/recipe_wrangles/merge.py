@@ -3,6 +3,7 @@ Functions to merge data from one or more columns into a single column
 """
 from typing import Union as _Union
 import fnmatch as _fnmatch
+import logging as _logging
 import numpy as _np
 import pandas as _pd
 from .. import format as _format
@@ -36,6 +37,7 @@ def coalesce(
     # Ensure input is a list
     if not isinstance(input, list): input = [input]
 
+    _logging.debug(f": Coalescing values :: input :: {input}")
     if len(input) == 1:
         if output is None:
             output = input[0]
@@ -136,6 +138,7 @@ def concatenate(
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
+    _logging.debug(f": Concatenating columns :: input :: {input}, char :: {char}")
     if len(input) == 1:
         df[output[0]] = _format.concatenate(df[input[0]].values, char, skip_empty)
     else:
@@ -165,6 +168,7 @@ def dictionaries(df: _pd.DataFrame, input: list, output: str, skip_empty: bool =
         default: false
     """
 
+    _logging.debug(f": Merging dictionary columns :: input :: {input}")
     rows = df[input].values.tolist()  
       
     if skip_empty:  
@@ -208,6 +212,7 @@ def key_value_pairs(df: _pd.DataFrame, input: dict, output: str, skip_empty: boo
         description: Whether to skip empty keys or values when creating the dictionary
         default: false
     """
+    _logging.debug(f": Creating key-value pairs :: input :: {input}")
     pairs = {}
 
     # If user has used wildcards, expand out
@@ -287,6 +292,7 @@ def lists(df: _pd.DataFrame, input: list, output: str, remove_duplicates: bool =
         type: boolean
         description: Whether to include empty values in the created list
     """
+    _logging.debug(f": Merging list columns :: input :: {input}")
     output_list = []
     for row in df[input].values.tolist():
         output_row = []
@@ -334,6 +340,7 @@ def to_dict(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type: boolean
         description: Whether to include empty columns in the created dictionary
     """
+    _logging.debug(f": Converting columns to dict :: output :: {output}")
     index_check = 0
     cols_changed = [] 
     for cols in input:
@@ -386,6 +393,7 @@ def to_list(df: _pd.DataFrame, input: list, output: str, include_empty: bool = F
         type: boolean
         description: Whether to include empty columns in the created list
     """
+    _logging.debug(f": Converting columns to list :: output :: {output}")
     output_list = []
     for row in df[input].values.tolist():
         output_row = []

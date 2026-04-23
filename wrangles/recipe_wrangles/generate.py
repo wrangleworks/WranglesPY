@@ -1,5 +1,6 @@
 
 from typing import Union as _Union, Dict as _Dict, List as _List, Optional as _Optional
+import logging as _logging
 import pandas as _pd
 import wrangles.generate as _generate
 
@@ -79,6 +80,7 @@ def ai(
         type: boolean
         description: Request summary text to be merged into the output.
     """
+    _logging.info(f": Generating AI output :: model :: {model}, thread_count :: {threads}")
     if input is not None:
         if not isinstance(input, list):
             input = [input]
