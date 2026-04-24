@@ -28,7 +28,7 @@ setup(
     version = '1.18.0',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
-    author_email = 'eric@wrangleworks.com',
+    author_email = 'chris@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
     entry_points ={
