@@ -164,7 +164,7 @@ jobs:
 
   deploy-pypi:
     runs-on: ubuntu-latest
-    needs: [deploy-pypi-test]
+    # needs: [deploy-pypi-test]
     permissions:
       contents: read
       id-token: write
