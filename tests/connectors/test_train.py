@@ -1568,10 +1568,11 @@ class TestTrainMetaData:
             "modified_by", "date_modified", "variant", "settings"
         ])
 
-    def test_meta_data_write(self):
+    def test_meta_data_write(self, mocker):
         """
         Write (update) metadata for a model
         """
+        mocker.patch("wrangles.data.model_update")
         df = wrangles.recipe.run(
             """
             write:
@@ -1582,11 +1583,12 @@ class TestTrainMetaData:
         )
         assert len(df) == 1
 
-    def test_meta_data_write_ignores_nan(self):
+    def test_meta_data_write_ignores_nan(self, mocker):
         """
         NaN values in the DataFrame are not sent to the API
         """
         import numpy as np
+        mocker.patch("wrangles.data.model_update")
         df = wrangles.recipe.run(
             """
             write:
@@ -1597,10 +1599,11 @@ class TestTrainMetaData:
         )
         assert len(df) == 1
 
-    def test_meta_data_write_logs_summary(self, caplog):
+    def test_meta_data_write_logs_summary(self, mocker, caplog):
         """
         Logging summary statement for updated fields in meta_data.write
         """
+        mocker.patch("wrangles.data.model_update")
         wrangles.recipe.run(
             """
             write:
