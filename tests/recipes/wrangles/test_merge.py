@@ -150,6 +150,109 @@ class TestMergeCoalesce:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.empty and df.columns.to_list() == ['Col1', 'Col2', 'Col3', 'Output Col']
 
+    def test_all_floats(self):
+        """
+        Test coalescing two columns of all floats preserves the values and dtype
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                    - Col1
+                    - Col2
+                output: Output Col
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [5.56, 3.14, 9.91],
+                'Col2': [4.12, 2.35, 7.76]
+            })
+        )
+        assert df['Output Col'].tolist() == [5.56, 3.14, 9.91]
+
+    def test_float_zero_not_skipped(self):
+        """
+        Test that 0.0 in a column is returned instead of falling back to the next column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                  - Col1
+                  - Col2
+                output: Result
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [0.0,  1.5,  float('nan')],
+                'Col2': [9.9,  9.9,  9.9         ],
+            })
+        )
+        assert df['Result'].tolist() == [0.0, 1.5, 9.9]
+
+    def test_integer_zero_not_skipped(self):
+        """
+        Test that integer 0 in a column is returned instead of falling back to the next column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                  - Col1
+                  - Col2
+                output: Result
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [0,  1,  None],
+                'Col2': [99, 99, 99  ],
+            })
+        )
+        assert df['Result'].tolist() == [0, 1, 99]
+
+    def test_false_not_skipped(self):
+        """
+        Test that boolean False in a column is returned instead of falling back to the next column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                  - Col1
+                  - Col2
+                output: Result
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [False,      True,       None      ],
+                'Col2': ['fallback', 'fallback', 'fallback'],
+            })
+        )
+        assert df['Result'].tolist() == [False, True, 'fallback']
+
+    def test_lists_falsy_values_not_skipped(self):
+        """
+        Test that falsy values (0, 0.0, False) inside a per-cell list are returned
+        as the first valid element rather than being skipped
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input: Col
+            """,
+            dataframe=pd.DataFrame({
+                'Col': [
+                    [0,     1,    2  ],
+                    [0.0,   1.5,  2.5],
+                    [False, True      ],
+                    ['',   'b',  'c' ],
+                ]
+            })
+        )
+        assert df['Col'].tolist() == [0, 0.0, False, 'b']
+
+
 class TestMergeConcatenate:
     """
     All concatenate tests
