@@ -8080,3 +8080,48 @@ class TestWrangleExecutionLogging:
 
         # Check that the wildcard is not expanded (appears as literal)  
         assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
+
+
+class TestWrangleSchema:
+    """
+    Validate that every recipe wrangle has a parseable YAML schema docstring.
+    Regression test for issues like lookup being silently missing from the schema
+    because its docstring couldn't be parsed.
+    """
+
+    def _collect_leaf_methods(self, obj, path=''):
+        """Return (path, method) pairs for all non-hidden leaf methods."""
+        non_hidden = [m for m in dir(obj) if not m.startswith('_')]
+        if non_hidden:
+            results = []
+            for method in non_hidden:
+                if method not in ('main', 'pandas'):
+                    results.extend(
+                        self._collect_leaf_methods(getattr(obj, method), f'{path}.{method}')
+                    )
+            return results
+        return [(path, obj)]
+
+    def test_all_wrangle_docstrings_parse_as_yaml(self):
+        """
+        Any wrangle docstring that begins with 'type:' or 'anyOf:' (i.e. is intended
+        to be a JSON Schema) must parse as valid YAML without errors.
+        This catches regressions like lookup being silently dropped from the schema
+        because its docstring had a YAML syntax error.
+        """
+        import yaml
+
+        failures = []
+        for path, method in self._collect_leaf_methods(wrangles.recipe._recipe_wrangles):
+            doc = getattr(method, '__doc__', None)
+            if doc is None:
+                continue
+            stripped = doc.strip()
+            if not (stripped.startswith('type:') or stripped.startswith('anyOf:')):
+                continue
+            try:
+                yaml.safe_load(doc)
+            except Exception as e:
+                failures.append(f'{path}: YAML parse error — {e}')
+
+        assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
