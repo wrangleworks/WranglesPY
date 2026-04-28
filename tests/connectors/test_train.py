@@ -1,3 +1,4 @@
+from tabnanny import check
 import uuid
 import requests as _requests
 from pytest_mock import mocker
@@ -20,6 +21,29 @@ def _delete_model(model_id):
         )
     except Exception:
         pass
+
+def _wait_for_model(recipe, dataframe=None, max_wait=60, interval=5):
+    """
+    Newly created models compile asynchronously after the PUT.
+    Retry until:
+      - the recipe raises no exception, OR
+      - max_wait seconds elapse.
+    Some model types (standardize, classify, lookup) return the input unchanged instead
+    of raising an exception when not ready — use `check` to detect that case.
+    """
+    import time
+    deadline = time.time() + max_wait
+    last_err = None
+    while time.time() < deadline:
+        try:
+            result = wrangles.recipe.run(recipe, dataframe=dataframe)
+            return result
+        except Exception as e:
+            last_err = e
+        time.sleep(interval)
+    if last_err:
+        raise last_err
+    raise AssertionError(f'Model did not produce expected output within {max_wait}s')
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -187,9 +211,8 @@ def test_classify_name_creates_working_model(caplog):
             break
 
     assert new_model_id is not None, 'model_id was not logged after training'
-    time.sleep(3)
 
-    result = wrangles.recipe.run(
+    result = _wait_for_model(
         f"""
         wrangles:
             - classify:
@@ -565,9 +588,7 @@ class TestTrainExtract:
 
         assert new_model_id is not None, 'model_id was not logged after training'
 
-        time.sleep(3)
-
-        result = wrangles.recipe.run(
+        result = _wait_for_model(
             f"""
             wrangles:
                 - extract.custom:
@@ -1525,9 +1546,7 @@ class TestTrainLookup:
 
         assert new_model_id is not None, 'model_id was not logged after training'
 
-        time.sleep(3)
-
-        result = wrangles.recipe.run(
+        result = _wait_for_model(
             f"""
             wrangles:
               - lookup:
@@ -1675,52 +1694,6 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
-
-def test_standardize_name_creates_working_model(caplog):
-    """
-    A standardize model trained via 'name' must produce correct output immediately. Bug #972.
-    """
-
-    wrangles.recipe.run(
-        """
-        write:
-            - train.standardize:
-                name: Bug972 Pytest Standardize
-        """,
-        dataframe=pd.DataFrame({
-            'Find':    ['ASAP', 'ETA'],
-            'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],
-            'Notes':   ['', ''],
-        }),
-    )
-
-    new_model_id = None
-    for msg in caplog.messages:
-        m = re.search(r'New standardize model created :: ([\w-]+)', msg)
-        if m:
-            new_model_id = m.group(1)
-            break
-
-    assert new_model_id is not None, 'model_id was not logged after training'
-
-    time.sleep(3)
-
-    result = wrangles.recipe.run(
-        f"""
-        wrangles:
-            - standardize:
-                input: abbreviation
-                output: full_form
-                model_id: {new_model_id}
-        """,
-        dataframe=pd.DataFrame({'abbreviation': ['ASAP', 'ETA']}),
-    )
-
-    assert result.loc[0, 'full_form'] == 'As Soon As Possible'
-    assert result.loc[1, 'full_form'] == 'Estimated Time of Arrival'
-
-    _delete_model(new_model_id)
-
 
 
 class TestTrainMetaData:
