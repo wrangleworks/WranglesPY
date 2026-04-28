@@ -3,8 +3,6 @@
 .vscode
 tests/temp/*
 !tests/temp/README.md
-*.xlsx
-*.csv
 
 
 # Byte-compiled / optimized / DLL files
@@ -116,7 +114,6 @@ celerybeat.pid
 env/
 venv/
 ENV/
-temp/
 env.bak/
 venv.bak/
 
