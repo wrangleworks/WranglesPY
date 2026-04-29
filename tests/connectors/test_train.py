@@ -22,7 +22,7 @@ def _delete_model(model_id):
     except Exception:
         pass
 
-def _wait_for_model(recipe, dataframe=None, max_wait=60, interval=5):
+def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
     """
     Newly created models compile asynchronously after the PUT.
     Retry until:
