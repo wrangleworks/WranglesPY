@@ -1,41 +1,8 @@
 import wrangles
 import pandas as pd
 
-# class MockSerpAPIClient:
-#     """Mock SerpAPI Client for testing without actual API calls"""
-    
-#     def __init__(self, api_key=None):
-#         self.api_key = api_key
-    
-#     def search(self, params):
-#         """Mock search method that returns sample data"""
-#         query = params.get("q", "")
-#         num_results = params.get("num", 10)
-        
-#         if "error" in query.lower():
-#             raise Exception("API Error: Invalid request")
-        
-#         if "empty" in query.lower():
-#             return {"organic_results": []}
-        
-#         results = []
-#         for i in range(min(num_results, 10)):
-#             result = {
-#                 "position": i + 1,
-#                 "title": f"Result {i + 1} for {query}",
-#                 "link": f"https://example.com/result{i + 1}",
-#                 "snippet": f"This is a snippet for result {i + 1} about {query}"
-#             }
-            
-#             if "price" in query.lower() or "product" in query.lower():
-#                 result["price"] = f"${(i + 1) * 10}.99"
-            
-#             results.append(result)
-        
-#         return {"organic_results": results}
 
-
-class TestSearchFindLinks:
+class TestFindLinks:
     """
     Test search.find_links functionality
     """
@@ -429,6 +396,39 @@ class TestSearchFindLinks:
         
         assert len(df) == 2
         assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
+
+
+class TestRetrieveLinkContent:
+    """
+    Test the functionality of the retrieve_link_content wrangle
+    """
+    ##### Need api key to set up tests for this #####
+
+    # def test_link_content(self):
+    #     """
+    #     Test with numeric values in input column
+    #     """
+        
+    #     data = pd.DataFrame({
+    #         'query': ['Some sort of search data']
+    #     })
+        
+    #     recipe = """
+    #     wrangles:
+    #           - search.retrieve_link_content:
+    #               input: summary
+    #               output: 
+    #                 - retrieved_data
+    #                 - Retrieved Content
+    #               output_format: json
+    #               api_key: ${GOOGLE_API_KEY}
+    #               threads: 10
+    #     """
+        
+    #     df = wrangles.recipe.run(recipe, dataframe=data)
+        
+    #     assert len(df) == 2
+    #     assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
 
 
 ##### This should be moved to test_wrangles.py #####
