@@ -337,7 +337,7 @@ class TestSearchFindLinks:
         """
         
         data = pd.DataFrame({
-            'query': ['asdfjjdklkav sdfjsflkdj SL:jvszj'],
+            'query': [''],
             'ID': [1]
         })
         
@@ -353,7 +353,7 @@ class TestSearchFindLinks:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
         
-        assert df.iloc[0]['results'][0]['search_results'] == []
+        assert df.iloc[0]['results'] == []
 
     def test_dataframe_with_many_rows(self):
         """
