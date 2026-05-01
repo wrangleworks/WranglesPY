@@ -12,7 +12,6 @@ setup(
     name = 'wrangles',
     packages = [
         'wrangles',
-        'wrangles.clients',
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
