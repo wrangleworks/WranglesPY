@@ -402,33 +402,35 @@ class TestRetrieveLinkContent:
     """
     Test the functionality of the retrieve_link_content wrangle
     """
-    ##### Need api key to set up tests for this #####
+    
+    retrieve_link_data = wrangles.recipe.run("""
+        read:
+          - file:
+              name: tests/temp/retrieve_link_content_test_data.json
+        """).head(3)
 
-    # def test_link_content(self):
-    #     """
-    #     Test with numeric values in input column
-    #     """
+    def test_link_content(self):
+        """
+        Test with numeric values in input column
+        """
         
-    #     data = pd.DataFrame({
-    #         'query': ['Some sort of search data']
-    #     })
+        recipe = """
+        wrangles:
+          - search.retrieve_link_content:
+              input: summary
+              output:
+                - retrieved_data
+                - Retrieved Content
+              output_format: json
+              api_key: ${GEMINI_API_KEY}
+              threads: 10
+        """
         
-    #     recipe = """
-    #     wrangles:
-    #           - search.retrieve_link_content:
-    #               input: summary
-    #               output: 
-    #                 - retrieved_data
-    #                 - Retrieved Content
-    #               output_format: json
-    #               api_key: ${GOOGLE_API_KEY}
-    #               threads: 10
-    #     """
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_link_data.head(1))
         
-    #     df = wrangles.recipe.run(recipe, dataframe=data)
-        
-    #     assert len(df) == 2
-    #     assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
+        assert 'retrieved_data' in df.columns and 'Retrieved Content' in df.columns
+        assert isinstance(df.iloc[0]['retrieved_data'], list) and isinstance(df.iloc[0]['retrieved_data'][0], dict)
+        assert isinstance(df.iloc[0]['Retrieved Content'], str)
 
 
 ##### This should be moved to test_wrangles.py #####
