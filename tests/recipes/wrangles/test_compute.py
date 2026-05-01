@@ -346,7 +346,7 @@ class TestScoreSearchResults:
             """
         df = wrangles.recipe.run(recipe, dataframe=self.score_data)
 
-        assert 'scored_results' and 'Score Summary' in df.columns
+        assert 'scored_results' in df.columns and 'Score Summary' in df.columns
         assert isinstance(df.iloc[0]['scored_results'], list) and isinstance(df.iloc[0]['scored_results'][0], dict)
         assert isinstance(df.iloc[0]['Score Summary'], list) and isinstance(df.iloc[0]['Score Summary'][0], str)
         assert len(df.iloc[0]['scored_results']) == 4 and len(df.iloc[0]['Score Summary']) == 4
