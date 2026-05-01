@@ -18,10 +18,10 @@ read:
           - data science tools
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: search_query
       output: search_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 10
 
 write:
@@ -42,10 +42,10 @@ read:
           - laptop stand
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: product
       output: product_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 5
       include_prices: true
 
@@ -67,10 +67,10 @@ read:
           - local news
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: query
       output: localized_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 5
       gl: uk  
       hl: en 
@@ -99,12 +99,12 @@ read:
           - 2024
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input:
         - topic
         - year
       output: combined_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 3
 
 write:
@@ -128,14 +128,14 @@ read:
           - space exploration news
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input:
         - tech_query
         - science_query
       output:
         - tech_results
         - science_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 5
       threads: 10  # Number of parallel requests
 
@@ -166,10 +166,10 @@ read:
           - high
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: search_term
       output: filtered_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 3
       where: priority = 'high'
 
@@ -191,10 +191,10 @@ read:
           - mobile games 2024
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: mobile_query
       output: mobile_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 5
       device: mobile
 
@@ -216,10 +216,10 @@ read:
 
 wrangles:
   # Perform web search
-  - search.web:
+  - search.find_links:
       input: query
       output: raw_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 10
   
   # Extract just the titles from results
@@ -270,10 +270,10 @@ read:
           - query 20
 
 wrangles:
-  - search.web:
+  - search.find_links:
       input: batch_query
       output: batch_results
-      api_key: ${SERPAPI_KEY}
+      api_key: ${SERPAPI_API_KEY}
       n_results: 3
       threads: 5  # Limit concurrent requests to avoid rate limits
 
