@@ -16,7 +16,7 @@ def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    default: dict = {}
+    default: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -54,6 +54,8 @@ def dictionary(
           Provide a set of default headings and values
           if they are not found within the input
     """ 
+    if default is None:
+        default = {}
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
@@ -270,7 +272,7 @@ def tokenize(
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
     method: str = 'space',
-    functions: dict = {}
+    functions: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -311,6 +313,7 @@ def tokenize(
               or use a custom function with custom.<function>
               or use a regex pattern with regex:<pattern>
     """
+    if functions is None: functions = {}
     if output is None: output = input
     
     # Ensure input and outputs are lists

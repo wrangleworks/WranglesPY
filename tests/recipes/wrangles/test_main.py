@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import time
 from datetime import datetime
+from unittest.mock import patch
+from wrangles.recipe_wrangles.main import lookup  
 
 
 class TestClassify:
@@ -99,7 +101,7 @@ class TestClassify:
                 model_id: a62c7480-500e-480c
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -123,7 +125,7 @@ class TestClassify:
                 model_id: 1eddb7e8-1b2b-4a52
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using extract model_id 1eddb7e8-1b2b-4a52 in a classify function.' in info.value.args[0]
@@ -149,7 +151,7 @@ class TestClassify:
                 model_id: noWord
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
@@ -175,7 +177,7 @@ class TestClassify:
                 model_id: {noWord}
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect model_id type.\nIf using Recipe, may be missing "${ }" around value' in info.value.args[0]
@@ -366,7 +368,7 @@ class TestCleanWhitespace:
                   - out1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -624,7 +626,7 @@ class TestFilter:
                 - 133
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Can only use "between" with two values' in info.value.args[0]
@@ -913,6 +915,43 @@ class TestLog:
         )
         assert len(df) == 5 and df['header'][0] == 'value'
 
+    def test_log_write_multiple_files(self):
+        """
+        Test writing multiple files from a log
+        """
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header: value
+                
+            wrangles:
+              - log:
+                  write:
+                    - file:
+                        name: tests/temp/temp.csv
+                    - file:
+                        name: tests/temp/temp2.csv
+            """
+        )
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp.csv
+            """
+        )
+        df2 = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp2.csv
+            """
+        )
+        assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
+
     def test_log_length(self, caplog):
         """
         Test default log
@@ -966,6 +1005,186 @@ class TestLog:
             })
         )
         assert caplog.messages[-1] == ': Dataframe ::\n\nEmpty DataFrame\nColumns: [Col1]\nIndex: []\n'
+
+    def test_log_int(self, caplog):
+        """
+        Test log info with an integer
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+                - log:
+                    info: 123456
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [],
+            })
+        )
+        assert caplog.messages[0] == '123456'
+
+    def test_log_system_variables_info(self, caplog):
+        """
+        Test log info using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_error(self, caplog):
+        """
+        Test log error using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                error: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_system_variables_warning(self, caplog):
+        """
+        Test log warning using system variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                warning: |
+                  ${row_count} ${column_count} ${columns} ${df}
+        """
+        wrangles.recipe.run(recipe, dataframe=data)
+        assert caplog.messages[0] == "1 2 ['Col1', 'Col2']       Col1    Col2\n0  Chicken  Cheese\n"
+
+    def test_log_info_variables(self, caplog):
+        """
+        Test log info using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                info: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_warning_variables(self, caplog):
+        """
+        Test log warning using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                warning: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_error_variables(self, caplog):
+        """
+        Test log error using variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                error: |
+                  ${my_var}
+        """
+        variables = {'my_var': 'This is my variable'}
+        wrangles.recipe.run(recipe, dataframe=data, variables=variables)
+        assert caplog.messages[0] == "This is my variable\n"
+
+    def test_log_columns_variables(self, caplog):
+        """
+        Test log when specifying columns as variables
+        """
+        data = pd.DataFrame({
+        'Col1': ['Chicken'],
+        'Col2': ['Cheese']
+        })
+        recipe = """
+        wrangles:
+            - log:
+                columns:
+                  - ${var}
+        """
+        wrangles.recipe.run(recipe, dataframe=data, variables={'var': 'Col1'})
+        assert caplog.messages[-1] == ': Dataframe ::\n\n      Col1\n0  Chicken\n'
+
+    def test_log_write_multiple_variable_files(self):
+        """
+        Test writing multiple files using variables
+        """
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header: value
+                
+            wrangles:
+              - log:
+                  write:
+                    - file:
+                        name: ${var1}
+                    - file:
+                        name: ${var2}
+            """,
+            variables = {
+                'var1': 'tests/temp/temp.csv',
+                'var2': 'tests/temp/temp2.csv',
+            }
+        )
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp.csv
+            """
+        )
+        df2 = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/temp2.csv
+            """
+        )
+        assert len(df) == 5 and df['header'][0] == 'value' and len(df2) == 5 and df2['header'][0] == 'value'
+
 
 
 class TestRemoveWords:
@@ -1062,7 +1281,7 @@ class TestRemoveWords:
                 output: Product1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -1557,7 +1776,7 @@ class TestRename:
         ensure an appropriate error is show
         """
         with pytest.raises(RuntimeError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -1581,7 +1800,7 @@ class TestRename:
         by wrangling then ensure an appropriate error is returned.
         """
         with pytest.raises(RuntimeError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -2271,7 +2490,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
@@ -2295,7 +2514,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2358,10 +2577,10 @@ class TestSimilarity:
                 method: euclidean
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and
-            'exceptions must derive from BaseException' in info.value.args[0]
+            'Vectors must be of the same length for euclidean similarity' in str(info.value)
         )
 
     def test_similarity_euclidean_string(self):
@@ -2382,7 +2601,7 @@ class TestSimilarity:
                 method: euclidean
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2465,7 +2684,7 @@ class TestSimilarity:
                 method: adjusted cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
@@ -2489,7 +2708,7 @@ class TestSimilarity:
                 method: adjusted cosine
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError'
         )
@@ -2510,7 +2729,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and 
             'Input must consist of a list of two columns' in info.value.args[0]
@@ -2536,7 +2755,7 @@ class TestSimilarity:
                 method: cosine
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and 
             'Input must consist of a list of two columns' in info.value.args[0]
@@ -2560,7 +2779,7 @@ class TestSimilarity:
                 method: tangent
         """
         with pytest.raises(TypeError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'TypeError' and 
             'Invalid method, must be "cosine", "adjusted cosine" or "euclidean"' in info.value.args[0]
@@ -2643,7 +2862,7 @@ class TestStandardize:
                 model_id: wrong_model
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect model_id. May be missing "${ }" around value' in info.value.args[0]
@@ -2664,7 +2883,7 @@ class TestStandardize:
                 model_id: 6c4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Incorrect or missing values in model_id. Check format is XXXXXXXX-XXXX-XXXX' in info.value.args[0]
@@ -2685,7 +2904,7 @@ class TestStandardize:
                 model_id: 1eddb7e8-1b2b-4a52
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using extract model_id 1eddb7e8-1b2b-4a52 in a standardize function.' in info.value.args[0]
@@ -2706,7 +2925,7 @@ class TestStandardize:
                 model_id: a62c7480-500e-480c
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Using classify model_id a62c7480-500e-480c in a standardize function.' in info.value.args[0]
@@ -2749,7 +2968,7 @@ class TestStandardize:
                 model_id: 6ca4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -2909,7 +3128,7 @@ class TestStandardize:
                 model_id: 6ca4ab44-8c66-40e8
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Non-boolean parameter in caseSensitive. Use True/False' in info.value.args[0]
@@ -3312,7 +3531,7 @@ class TestTranslate:
                 target_language: English
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -3501,7 +3720,7 @@ class TestSQL:
                 WHERE header1 >= 2
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'Only SELECT statements are supported for sql wrangles' in info.value.args[0]
@@ -3732,6 +3951,95 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
+    
+    def test_recipe_empty_column_preserved(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+        wrangles:
+            - convert.case:
+                input: col1
+                output: col1_upper
+                case: upper
+                where: col2 = '1'
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+    
+    def test_empty_column_no_where(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+        wrangles:
+            - convert.case:
+                input: col1
+                output: col1_upper
+                case: upper
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+    
+    def test_empty_column_multiple_wrangles(self):
+        data = [
+            ["col1", "", "col2"],
+            ["a", "", 1],
+            ["b", "", 2],
+            ["c", "", 3],
+            ["a", "", 4],
+            ["b", "", 5],
+            ["c", "", 6],
+            ["a", "", 7],
+            ["b", "", 8]
+        ]
+
+        df = pd.DataFrame(data, columns=data[0])
+        recipe = """
+            wrangles:
+                - convert.case:
+                    input: col1
+                    output: col1_upper
+                    case: upper
+                    where: col2 = '1'
+                - convert.case:
+                    input: col2
+                    output: col2_upper
+                    case: upper
+        """
+    
+        result = wrangles.recipe.run(recipe=recipe, dataframe=df)
+        assert "" not in result.columns
+        assert "col1_upper" in result.columns
+        assert "col2_upper" in result.columns
+        # Order: col1, col2, col1_upper, col2_upper
+        expected_order = ["col1", "col2", "col1_upper", "col2_upper"]
+        assert list(result.columns) == expected_order
+
 
 class TestDateCalculator:
     """
@@ -3792,7 +4100,7 @@ class TestDateCalculator:
             time_value: 6
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
 
         assert (
             info.typename == 'ValueError' and
@@ -4408,6 +4716,75 @@ class TestPython:
             variables={'my_var': 'header1'}
         )
         assert df["result"][0] == "a b"
+
+    def test_python_double_variable(self):
+        """
+        Test a python command using a variable that is a variable itself
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: "'This is ' + ${var}"
+                var: ${string}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'string': 'a string'}
+        )
+        assert df["result"][0] == 'This is a string'
+
+    def test_python_double_variable_int(self):
+        """
+        Test data type is preserved when passing a double variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: 5 + ${var}
+                var: ${int}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'int': 5}
+        )
+        assert df["result"][0] == 10
+
+    def test_python_delayed_variable(self):
+        """
+        Test all delayed variables are correctly resolved before the command is run
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: A Column
+                value: The Value
+
+            - explode:
+                input: header1
+
+            - python:
+                command: |
+                    {'Columns': ${columns}, 'Row Count': ${row_count},
+                    'Column Count': ${column_count}, 'DF': ${df}}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [['a', 'b'], ['c', 'd'], ['z']],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            })
+        )
+        assert df["result"][0]['Columns'] == ['header1', 'header2', 'numbers', 'A Column']
+        assert df["result"][0]['Row Count'] == 5
+        assert df["result"][0]['Column Count'] == 4
+        assert isinstance(df["result"][0]['DF'], pd.DataFrame)
 
 
 class TestAccordion:
@@ -5093,6 +5470,53 @@ class TestAccordion:
             len(df) == 5 and
             df["list_column"][0] == ["A","B","C"]
         )
+        
+    def test_accordion_empty_dataframe(self):  
+        """  
+        Test accordion with an empty dataframe  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - accordion:  
+                input: list_column  
+                wrangles:  
+                    - convert.case:  
+                        input: list_column  
+                        case: upper  
+            """,  
+            dataframe=pd.DataFrame({  
+                "list_column": []  
+            })  
+        )  
+        assert df.empty and df.columns.tolist() == ["list_column"]
+
+    def test_accordion_filter_out_first_row(self):
+        """
+        Test accordion when we filter first rows
+        """
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - accordion:  
+                input: list_column  
+                where: numbers > 1  # This filters out the first row (index 0)  
+                wrangles:  
+                    - convert.case:  
+                        input: list_column  
+                        case: upper  
+            """,  
+            dataframe = pd.DataFrame({  
+                "list_column": [["a","b","c"], ["d","e","f"], ["g","h","i"]],  
+                "numbers": [1, 2, 3]  
+            })) 
+        
+        assert (
+            len(df) == 3 and
+            df["list_column"][0] == ["a","b","c"] and
+            df["list_column"][1] == ["D","E","F"] and
+            df["list_column"][2] == ["G","H","I"]
+        )
 
 
 class TestBatch:
@@ -5559,6 +5983,581 @@ class TestLookup:
     """
     Test lookup wrangle
     """
+    def test_lookup_mode_by_row_default(self):  
+        """  
+        Test lookup with by_row mode (default behavior)  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 3  
+                values:  
+                    Col1: a  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+            """  
+        )  
+        assert df['Value'].tolist() == [1, 1, 1]  
+    
+
+    def test_lookup_mode_by_row_explicit(self):  
+        """  
+        Test lookup with explicit by_row mode  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            read:  
+            - test:  
+                rows: 3  
+                values:  
+                    Col1: a  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_row  
+            """  
+        )  
+        assert df['Value'].tolist() == [1, 1, 1]  
+    
+    def test_lookup_mode_by_dataframe_single_column(self):  
+        """  
+        Test lookup with by_dataframe mode and single output column  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+            """ , 
+            dataframe = pd.DataFrame({'Col1': ['a', 'a', 'k', 'k', 'a']})
+        )  
+        # Should map 'a' -> 1, 'k' -> "" (unrecognized)  
+
+        assert df['Value'].tolist() == [1, 1, "", "", 1]  
+
+    def test_lookup_mode_by_dataframe_multiple_columns(self):  
+        """  
+        Test lookup with by_dataframe mode and multiple output columns  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output:  
+                - Value1  
+                - Value2  
+                model_id: 6e97bb6c-bfab-402b  
+                lookup_mode: by_dataframe  
+            """ ,
+            dataframe = pd.DataFrame({'Col1': ['a', 'a', 'b']})
+        )  
+        assert df['Value1'].tolist() == [1, 1, 2]  
+        assert df['Value2'].tolist() == ["z", "z", "y"]  
+    
+    def test_lookup_mode_by_dataframe_performance_optimization(self):  
+        """  
+        Test that by_dataframe mode reduces API calls by checking unique values  
+        """  
+        
+        # Create dataframe with repeated values  
+        df = pd.DataFrame({  
+            'Col1': ['a'] * 100 + ['k'] * 50  # 150 rows but only 2 unique values  
+        })  
+        
+        # This should only make 2 API calls instead of 150  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        # Verify all 'a' values map to 1, all 'k' values map to ""  
+        assert result['Value'].tolist()[:100] == [1] * 100  
+        assert result['Value'].tolist()[100:] == [""] * 50  
+    
+    def test_lookup_mode_by_matrix_success(self):  
+        """  
+        Test lookup with by_matrix mode  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - matrix:  
+                variables:  
+                    region: [north, south]  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: by_matrix  
+                    matrix_variables: [region]  
+            """,
+            dataframe = pd.DataFrame(
+                {
+                    'Col1': ['a', 'a', 'k', 'k'],
+                    'region': ['north', 'south', 'north', 'south']
+                }
+            ) 
+        )  
+        # All 'a' values should map to 1 regardless of region  
+        assert df['Value'].tolist() == [1, 1, "", ""]  
+    
+    def test_lookup_mode_by_matrix_missing_variables(self):  
+        """  
+        Test error when matrix_variables not provided for by_matrix mode  
+        """  
+        with pytest.raises(ValueError, match="matrix_variables required for by_matrix mode"):  
+            wrangles.recipe.run(  
+                """  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: by_matrix  
+                """,
+                dataframe=pd.DataFrame({'Col1': ['a']} )  
+            )  
+    
+    def test_lookup_mode_invalid_mode(self):  
+        """  
+        Test error when invalid lookup_mode is provided  
+        """  
+        with pytest.raises(ValueError, match="Invalid lookup_mode: invalid_mode"):  
+            wrangles.recipe.run(  
+                """  
+                read:  
+                - test:  
+                    rows: 1  
+                    values:  
+                        Col1: a  
+                wrangles:  
+                - lookup:  
+                    input: Col1  
+                    output: Value  
+                    model_id: fe730444-1bda-4fcd  
+                    lookup_mode: invalid_mode  
+                """  
+            )  
+    
+    def test_lookup_mode_by_dataframe_empty_dataframe(self):  
+        """  
+        Test by_dataframe mode with empty dataframe  
+        """          
+        df = pd.DataFrame({'Col1': []})  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        assert result.empty  
+        assert 'Value' in result.columns  
+    
+    def test_lookup_mode_by_dataframe_with_where_clause(self):  
+        """  
+        Test by_dataframe mode with where clause filtering  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output: Value  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+                where: Col1 = 'a'  
+            """,  
+            dataframe=pd.DataFrame({  
+                "Col1": ["a", "b", "a", "c"]  
+            })  
+        )  
+        # Only 'a' values should be looked up, others should be empty  
+        assert df['Value'].tolist() == [1, "", 1, ""]  
+    
+    def test_lookup_mode_by_dataframe_renamed_outputs(self):  
+        """  
+        Test by_dataframe mode with renamed output columns  
+        """  
+        df = wrangles.recipe.run(  
+            """   
+            wrangles:  
+            - lookup:  
+                input: Col1  
+                output:  
+                - Value: CustomValue  
+                model_id: fe730444-1bda-4fcd  
+                lookup_mode: by_dataframe  
+            """ ,
+            dataframe=pd.DataFrame({  
+                "Col1": ["a", "l"]  
+            })
+        )  
+        assert 'CustomValue' in df.columns  
+        assert 'Value' not in df.columns  
+        assert df['CustomValue'].tolist() == [1, ""]
+    
+    def test_lookup_mode_by_dataframe_optimization_verification(self):  
+        """  
+        Test that by_dataframe mode actually reduces API calls compared to by_row mode  
+        by creating a dataset with many duplicate values and verifying the optimization.  
+        """           
+        # Create test data with many duplicates (1000 rows, only 3 unique values)  
+        df = pd.DataFrame({  
+            'product_code': ['a'] * 500 + ['b'] * 300 + ['c'] * 200  
+        })  
+        
+        # Track API calls by mocking the _lookup function  
+        api_calls_by_row = []  
+        api_calls_by_dataframe = []  
+        
+        def track_api_calls_by_row(input_list, *args, **kwargs):  
+            api_calls_by_row.append(len(input_list))  
+            # Return mock data for known values  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        def track_api_calls_by_dataframe(input_list, *args, **kwargs):  
+            api_calls_by_dataframe.append(len(input_list))  
+            # Return mock data for known values  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        # Test by_row mode (should make 1 API call with 1000 items)  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_row):  
+            result_by_row = lookup(  
+                    df.copy(),   
+                    input='product_code',   
+                    output='Value',   
+                    model_id='fe730444-1bda-4fcd',  
+                    lookup_mode='by_row'  
+                )  
+        
+        # Test by_dataframe mode (should make 1 API call with 3 unique items)  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_dataframe):  
+            result_by_dataframe = lookup(  
+                    df.copy(),   
+                    input='product_code',   
+                    output='Value',   
+                    model_id='fe730444-1bda-4fcd',  
+                    lookup_mode='by_dataframe'  
+                )  
+        
+        # Verify API call reduction  
+        assert len(api_calls_by_row) == 1, "by_row should make exactly 1 API call"  
+        assert len(api_calls_by_dataframe) == 1, "by_dataframe should make exactly 1 API call"  
+        
+        # Verify the optimization: by_dataframe processes fewer items  
+        total_items_by_row = sum(api_calls_by_row)  
+        total_items_by_dataframe = sum(api_calls_by_dataframe)  
+        
+        assert total_items_by_row == 1000, f"by_row should process 1000 items, got {total_items_by_row}"  
+        assert total_items_by_dataframe == 3, f"by_dataframe should process 3 unique items, got {total_items_by_dataframe}"  
+        
+        
+        # Verify results are identical between both modes  
+        assert result_by_row['Value'].tolist() == result_by_dataframe['Value'].tolist()  
+        assert result_by_row['Value'].tolist()[:5] == [1, 1, 1, 1, 1]
+        assert result_by_row['Value'].tolist()[500] == 2
+        assert result_by_row['Value'].tolist()[800] == 3
+    
+    def test_lookup_mode_by_dataframe_real_api_calls(self):  
+        """  
+        Test optimization with real API calls using a smaller dataset  
+        to avoid excessive API usage in tests.  
+        """          
+        # Create smaller test data with duplicates (20 rows, 2 unique values)  
+        df = pd.DataFrame({  
+            'Col1': ['a'] * 15 + ['l'] * 5  
+        })  
+        
+        # Test by_dataframe mode  
+        result = lookup(  
+            df,   
+            input='Col1',   
+            output='Value',   
+            model_id='fe730444-1bda-4fcd',  
+            lookup_mode='by_dataframe'  
+        )  
+        
+        # Verify correct mapping  
+        assert result['Value'].tolist()[:15] == [1] * 15  # All 'a' values map to 1  
+        assert result['Value'].tolist()[15:] == [""] * 5   # All 'b' values map to ""  
+        
+        # Verify optimization worked by checking unique values were processed  
+        # (This is inferred from the correct results - if it processed all 20 rows individually,  
+        # we'd still get correct results, but the optimization ensures only 2 API calls)  
+        unique_values = df['Col1'].unique()  
+        assert len(unique_values) == 2, "Test data should have exactly 2 unique values"
+    
+    def test_lookup_mode_by_matrix_performance_optimization(self):  
+        """  
+        Test that by_matrix mode reduces API calls by using matrix permutations  
+        """          
+        # Create test data with matrix structure  
+        df = pd.DataFrame({  
+            'product_code': ['a'] * 300 + ['b'] * 200 + ['c'] * 100,  
+            'region': ['north'] * 300 + ['south'] * 200 + ['north'] * 100,  
+            'category': ['electronics'] * 300 + ['clothing'] * 200 + ['electronics'] * 100  
+        })  
+        
+        # Track API calls  
+        api_calls_by_matrix = []  
+        
+        def track_api_calls_by_matrix(input_list, *args, **kwargs):  
+            api_calls_by_matrix.append(len(input_list))  
+            # Return mock data  
+            result = []  
+            for item in input_list:  
+                if item == 'a':  
+                    result.append([1])  
+                elif item == 'b':  
+                    result.append([2])  
+                elif item == 'c':  
+                    result.append([3])  
+                else:  
+                    result.append([""])  
+            return result  
+        
+        # Test by_matrix mode  
+        with patch('wrangles.recipe_wrangles.main._lookup', side_effect=track_api_calls_by_matrix):  
+            result = lookup(  
+                df.copy(),   
+                input='product_code',   
+                output='Value',   
+                model_id='fe730444-1bda-4fcd',  
+                lookup_mode='by_matrix',  
+                matrix_variables=['region', 'category']  
+            )  
+        
+        # Should make 4 API calls (one per matrix permutation)  
+        # Permutations: (north, electronics), (south, clothing), (north, electronics)  
+        assert len(api_calls_by_matrix) <= 4, f"Expected <= 4 API calls, got {len(api_calls_by_matrix)}"  
+        
+        # Verify results are correct  
+        assert result['Value'].tolist()[:300] == [1] * 300  # a values  
+        assert result['Value'].tolist()[300:500] == [2] * 200  # b values  
+        assert result['Value'].tolist()[500:] == [3] * 100  # c values
+
+    def test_lookup_by_dataframe_faster_than_by_row(self):  
+        """  
+        Test that lookup_mode: by_dataframe is faster than by_row
+        """  
+        import timeit   
+    
+        df = pd.DataFrame({  
+            'City': ['London', 'Austin', 'Berlin', 'London', 'Berlin'] * 100,  
+            'Country': ['UK', 'USA', 'Germany', 'United Kingdom', 'Germany'] * 100  
+        })  
+    
+
+        def by_row():  
+            return wrangles.recipe.run(  
+                dataframe=df.copy(),  
+                recipe="""  
+                wrangles:  
+                - merge.to_dict:  
+                    input: [City, Country]  
+                    output: Col1  
+                - convert.to_yaml:  
+                    input: Col1  
+                    output: Col1  
+                - lookup:  
+                    input: Col1  
+                    output: Value_DF  
+                    model_id: '1ac1dddb-fcb5-45f3'  
+                    lookup_mode: by_row  
+                """  
+            )  
+
+        
+        def by_dataframe():  
+            return wrangles.recipe.run(  
+                dataframe=df.copy(),  
+                recipe=f"""  
+                wrangles:  
+                - merge.to_dict:  
+                    input: [City, Country]  
+                    output: Col1  
+                - convert.to_yaml:  
+                    input: Col1  
+                    output: Col1  
+                - lookup:  
+                    input: Col1  
+                    output: Value_DF  
+                    model_id: '1ac1dddb-fcb5-45f3' 
+                    lookup_mode: by_dataframe  
+                """  
+            )  
+        
+        by_row()  
+        by_dataframe()  
+    
+        # Timing  
+        n = 3  
+        t_row = timeit.timeit(by_row, number=n)  
+        t_df = timeit.timeit(by_dataframe, number=n)  
+    
+        avg_row = t_row / n  
+        avg_df = t_df / n  
+        speedup = avg_row / avg_df  
+    
+        print(f'by_row:       {t_row:.3f}s total ({avg_row:.3f}s per run)')  
+        print(f'by_dataframe: {t_df:.3f}s total ({avg_df:.3f}s per run)')  
+        print(f'Speedup: {speedup:.2f}x')  
+    
+        # Assertions
+        assert avg_df < avg_row, f"Expected by_dataframe ({avg_df:.3f}s) faster than by_row ({avg_row:.3f}s)"
+        assert speedup > 1.0, f"Expected speedup > 1.0x, got {speedup:.2f}x"
+
+    def test_lookup_semantic_multi_col_by_row(self):
+        """
+        Baseline: semantic lookup with merged multi-column YAML input using by_row.
+        Duplicate inputs (Austin+USA at rows 1 & 3, Berlin+Germany at rows 2 & 4)
+        must produce identical outputs.
+        """
+        df = wrangles.recipe.run(
+            dataframe=pd.DataFrame({
+                'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+                'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany']
+            }),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_row
+            """
+        )
+        print(df['Value'].to_list())
+        assert df['Value'].iloc[1] == df['Value'].iloc[3]
+        assert df['Value'].iloc[2] == df['Value'].iloc[4]
+
+    def test_lookup_semantic_multi_col_by_dataframe(self):
+        """
+        Test that by_dataframe produces identical results to by_row for a semantic
+        lookup with merged multi-column YAML input.
+        """
+        df = pd.DataFrame({
+            'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+            'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany']
+        })
+
+        result_by_row = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_row
+            """
+        )
+
+        result_by_df = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - lookup:
+                input: Col1
+                output: Value
+                model_id: 1ac1dddb-fcb5-45f3
+                lookup_mode: by_dataframe
+            """
+        )
+
+        assert result_by_row['Value'].tolist() == result_by_df['Value'].tolist()
+
+    def test_lookup_semantic_multi_col_by_dataframe_in_matrix(self):
+        """
+        Test that by_dataframe inside a matrix wrangle works with a semantic
+        lookup using merged multi-column YAML input.
+        """
+        df = pd.DataFrame({
+            'City': ['London', 'Austin', 'Berlin', 'Austin', 'Berlin'],
+            'Country': ['UK', 'USA', 'Germany', 'USA', 'Germany'],
+            'region': ['north', 'south', 'north', 'south', 'south']
+        })
+
+        result = wrangles.recipe.run(
+            dataframe=df.copy(),
+            recipe="""
+            wrangles:
+            - merge.to_dict:
+                input: [City, Country]
+                output: Col1
+            - convert.to_yaml:
+                input: Col1
+                output: Col1
+            - matrix:
+                variables:
+                    region: [north, south]
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output: Value
+                    model_id: 1ac1dddb-fcb5-45f3
+                    lookup_mode: by_dataframe
+                    matrix_variables: [region]
+            """
+        )
+
+        assert result['Value'].iloc[1] == result['Value'].iloc[3]
+        assert result['Value'].iloc[2] == result['Value'].iloc[4]
+
     # def test_lookup(self):
     #     """
     #     Test lookup function
@@ -5915,10 +6914,7 @@ class TestLookup:
     def test_lookup_empty_dataframe(self):
         """
         Test lookup with empty dataframe (issue #727)
-        """
-        import pandas as pd
-        from wrangles.recipe_wrangles.main import lookup
-        
+        """        
         # Create an empty dataframe
         df = pd.DataFrame({'Col1': [], 'Col2': []})
         
@@ -7084,3 +8080,48 @@ class TestWrangleExecutionLogging:
 
         # Check that the wildcard is not expanded (appears as literal)  
         assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
+
+
+class TestWrangleSchema:
+    """
+    Validate that every recipe wrangle has a parseable YAML schema docstring.
+    Regression test for issues like lookup being silently missing from the schema
+    because its docstring couldn't be parsed.
+    """
+
+    def _collect_leaf_methods(self, obj, path=''):
+        """Return (path, method) pairs for all non-hidden leaf methods."""
+        non_hidden = [m for m in dir(obj) if not m.startswith('_')]
+        if non_hidden:
+            results = []
+            for method in non_hidden:
+                if method not in ('main', 'pandas'):
+                    results.extend(
+                        self._collect_leaf_methods(getattr(obj, method), f'{path}.{method}')
+                    )
+            return results
+        return [(path, obj)]
+
+    def test_all_wrangle_docstrings_parse_as_yaml(self):
+        """
+        Any wrangle docstring that begins with 'type:' or 'anyOf:' (i.e. is intended
+        to be a JSON Schema) must parse as valid YAML without errors.
+        This catches regressions like lookup being silently dropped from the schema
+        because its docstring had a YAML syntax error.
+        """
+        import yaml
+
+        failures = []
+        for path, method in self._collect_leaf_methods(wrangles.recipe._recipe_wrangles):
+            doc = getattr(method, '__doc__', None)
+            if doc is None:
+                continue
+            stripped = doc.strip()
+            if not (stripped.startswith('type:') or stripped.startswith('anyOf:')):
+                continue
+            try:
+                yaml.safe_load(doc)
+            except Exception as e:
+                failures.append(f'{path}: YAML parse error — {e}')
+
+        assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)

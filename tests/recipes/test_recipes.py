@@ -60,7 +60,7 @@ def test_recipe_from_url_not_found():
     })
     recipe = "https://public.wrangle.works/tests/recipe.wrgl.yaaml"
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe, dataframe=data)
+        wrangles.recipe.run(recipe, dataframe=data)
     assert (
         info.typename == 'ValueError' and
         info.value.args[0] == 'Error getting recipe from url: https://public.wrangle.works/tests/recipe.wrgl.yaaml\nReason: Not Found-404'
@@ -124,6 +124,37 @@ def test_recipe_by_version_tag():
         len(df2) == 20
     )
 
+
+def test_recipe_by_production_version():
+    """
+    Test running a recipe using a model ID and production version
+    """
+    df = wrangles.recipe.run("a6bac9e7-2388-4347")
+    assert (
+        len(df) == 20 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_version_latest():
+    """
+    Test running a recipe using a model ID and latest version
+    """
+    df = wrangles.recipe.run("a6bac9e7-2388-4347:latest")
+    assert (
+        len(df) == 10 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_latest_version():
+    """
+    Test running a recipe using a model ID and latest version
+    """
+    df = wrangles.recipe.run("02fc0c63-1294-415b")
+    assert (
+        len(df) == 15 and
+        list(df.columns) == ["header"]
+    )
+
 def test_recipe_wrong_model():
     """
     Test the error message when a model is incorrect type
@@ -141,7 +172,7 @@ def test_timeout():
         return df
 
     with pytest.raises(TimeoutError) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -171,7 +202,7 @@ def test_timeout_time():
 
     start = time.time()
     with pytest.raises(TimeoutError) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             read:
             - test:
@@ -209,7 +240,7 @@ def test_timeout_failure_actions():
         memory.variables["timeout fail action"] = "got here"
 
     with pytest.raises(TimeoutError) as info:
-        raise wrangles.recipe.run(
+        wrangles.recipe.run(
             """
             run:
               on_failure:
@@ -241,7 +272,7 @@ def test_invalid_recipe_file_extension():
     throws an appropriate error
     """
     with pytest.raises(RuntimeError) as info:
-        raise wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
+        wrangles.recipe.run("tests/samples/recipe_sample.wrgl.yaaml")
     assert (
         info.typename == 'RuntimeError' and
         info.value.args[0].startswith('Error reading recipe')
@@ -519,7 +550,7 @@ class TestColumnWildcards:
         for a missing column
         """
         with pytest.raises(KeyError, match="does not exist"):
-            raise wrangles.recipe._wildcard_expansion(
+            wrangles.recipe._wildcard_expansion(
                 ["col1","col2","col3"],
                 "col4"
             )
@@ -530,7 +561,7 @@ class TestColumnWildcards:
         for a missing column
         """
         with pytest.raises(KeyError, match="does not exist"):
-            raise wrangles.recipe._wildcard_expansion(
+            wrangles.recipe._wildcard_expansion(
                 ["col1","col2","col3"],
                 "col4"
             )
@@ -765,7 +796,7 @@ class TestColumnWildcards:
             'val3': ['blue', 'silver', 'orange']
         })
         with pytest.raises(KeyError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - format.trim:

@@ -1,5 +1,7 @@
 import uuid
 
+from pytest_mock import mocker
+
 import wrangles
 import pandas as pd
 import pytest
@@ -128,6 +130,23 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
+def test_classify_write_logs_new_model_id_integration(caplog):  
+    df = pd.DataFrame({  
+        'Example': ['apple', 'banana'],  
+        'Category': ['fruit', 'fruit'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.classify:  
+              name: Test Classify Model  
+        """,  
+        dataframe=df  
+    )  
+  
+    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
 
 class TestTrainExtract:
     """
@@ -394,6 +413,52 @@ class TestTrainExtract:
                 })
             )
 
+    def test_extract_write_name_no_variant(self):
+        """
+        Tests that variant is set to pattern when training a new model without using variant by
+        checking that the proper error is thrown when the columns for pattern are not provided 
+        """
+        with pytest.raises(ValueError, match="The columns Find, Output, Notes must be provided for train.extract."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Not Find
+                        - Not Output
+                        - Not Notes
+                    name: This will error
+                """,
+                dataframe=pd.DataFrame({
+                    'Not Find': ['Rachel', 'Dolores', 'TARS'],
+                    'Not Output': ['', '', ''],
+                    'Not Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_extract_write_old_version_no_variant(self):
+        """
+        Tests that variant is set to pattern when retraining an old model that
+        did not have a variant set.
+        """
+        with pytest.raises(ValueError, match="The columns Find, Output, Notes must be provided for train.extract."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.extract:
+                    columns:
+                        - Not Find
+                        - Not Output
+                        - Not Notes
+                    model_id: ee5f020e-d88e-4bd5
+                """,
+                dataframe=pd.DataFrame({
+                    'Not Find': ['Rachel', 'Dolores', 'TARS'],
+                    'Not Output': ['', '', ''],
+                    'Not Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
     def test_extract_error(self):
         """
         Not Providing model_id or name in train wrangles
@@ -414,7 +479,6 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
-
 
 class TestTrainLookup:
     """
@@ -750,6 +814,48 @@ class TestTrainLookup:
 
         assert df.columns.to_list() == ['Not Key', 'Not Value']
 
+    def test_semantic_lookup_no_key_no_embeddings_columns(self):
+        """
+        Test error when training a semantic lookup without Key column and without embeddings_columns
+        """
+        with pytest.raises(ValueError, match="Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings."):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.lookup:
+                    model_id: ee320e2b-ccda-47ed
+                    settings:
+                        variant: embedding
+                """,
+                dataframe=pd.DataFrame({
+                    'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                })
+            )
+
+    def test_semantic_lookup_with_embeddings_columns_no_error(self):
+        """
+        Test training a semantic lookup with variant: embedding and embeddings_columns, expecting no error
+        """
+        df = pd.DataFrame({
+                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+                'Description': ['Movie 1', 'Movie 2', 'Movie 3']
+        })
+        result = wrangles.recipe.run(
+                """
+                write:
+                    - train.lookup:
+                            model_id: ee320e2b-ccda-47ed
+                            variant: embedding
+                            settings:
+                                embeddings_columns:
+                                    - Description
+                """,
+                dataframe=df
+        )
+        assert 'Blade Runner' in result.values
+        assert 'Westworld' in result.values
+        assert 'Interstellar' in result.values
+        assert 'Value' in result.columns and 'Description' in result.columns
 
     def test_upsert_mismatched_columns_existing_model(self):
         """
@@ -787,8 +893,527 @@ class TestTrainLookup:
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
-  
+
+    def test_lookup_update_semantic_allows_no_key(self):
+        """
+        Updating a semantic lookup model should not require a 'Key' column.
+        This verifies the `UPDATE` action succeeds for semantic variants.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 89637e77-7214-49a0
+            action: UPDATE
+            variant: semantic
+        """
+        data = pd.DataFrame({
+            'Not Key': ['A', 'B'],
+            'Not Value': ['X', 'Y']
+        })
+        
+        with pytest.raises(ValueError, match="UPDATE requires 'Key' or 'MatchingColumns' for non-key variants"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_update_key_variant_requires_key(self):
+        """
+        Updating a key-based lookup model should require a 'Key' column in both DataFrames.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: UPDATE
+            variant: key
+        """
+        data = pd.DataFrame({
+            'NotKey': ['A', 'B'],
+            'Value': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: NotKey"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises(self):
+        """
+        If MatchingColumns contains column names not present in the input DataFrame,
+        the connector should raise a ValueError before persisting or training.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
+        """
+        Creating a new lookup model with `name` and MatchingColumns that don't exist
+        in the provided DataFrame should raise before training/persisting.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            name: TempLookupModel
+            settings:
+              MatchingColumns:
+                - Not City
+                - Not Country
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="Lookup: The following MatchingColumns are not present in the provided data: Not City, Not Country"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_matchingcolumns_missing_raises_insert_existing_model(self):
+        """
+        INSERT into an existing model should validate MatchingColumns and raise
+        if they are not present.
+        """
+        recipe = """
+        write:
+        - train.lookup:
+            model_id: 3c8f6707-2de4-4be3
+            action: INSERT
+            variant: key
+            settings:
+              MatchingColumns:
+                - Not City
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle'],
+            'Country': ['USA'],
+            'Key': ['K1'],
+            'Value': ['V1']
+        })
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_overwrite_matchingcolumns_missing(self):
+        """
+        OVERWRITE should raise ValueError if MatchingColumns are missing in the data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: OVERWRITE
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match="The following MatchingColumns are not present in the provided data: NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_upsert_new_matchingcolumns_missing(self):
+        """
+        UPSERT (new model) should raise ValueError if MatchingColumns are missing in the new data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    name: 083ed6fe-a073-4b1a
+                    action: UPSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match=r"MatchingColumns are not present in the provided data: NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_upsert_existing_matchingcolumns_missing(self):
+        """
+        UPSERT (existing model, after merge) should raise ValueError if MatchingColumns are missing in the merged data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: UPSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        # Simulate existing model with only City/Country
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match=r".*MatchingColumns missing. In existing: \['NotKey', 'NotValue'\]. In new data: \['NotKey', 'NotValue'\]"):
+                wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_insert_matchingcolumns_missing(self):
+        """
+        INSERT should raise ValueError if MatchingColumns are missing in the merged data
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                    model_id: 083ed6fe-a073-4b1a
+                    action: INSERT
+                    settings:
+                        MatchingColumns:
+                            - NotKey
+                            - NotValue
+        """
+        # Simulate existing model with only City/Country
+        data = pd.DataFrame({
+                'City': ['A', 'B'],
+                'Country': ['X', 'Y']
+        })
+        with pytest.raises(ValueError, match=r".*MatchingColumns missing. In existing: \['NotKey', 'NotValue'\]. In new data: \['NotKey', 'NotValue'\]"):
+                wrangles.recipe.run(recipe, dataframe=data)
     
+    def test_lookup_matchingcolumns_string_not_list(self):
+        """
+        MatchingColumns as a string (not a list) should be accepted and validated.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 3c8f6707-2de4-4be3
+                settings:
+                    MatchingColumns: Not City
+        """
+        data = pd.DataFrame({
+            'City': ['Seattle', 'Portland'],
+            'Country': ['USA', 'USA'],
+        })
+        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_lookup_update_matchingcolumns_string(self, caplog):
+        """
+        Test UPDATE with simple MatchingColumns as a string
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"London"],
+                "Country": [f"UK"],
+                "Code": [f"LON- {suffix}"],
+                "Currency": ['USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: update
+                        variant: semantic
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated (variant specified)"
+
+
+    def test_lookup_update_multiple_matchingcolumns_list(self, caplog):
+        """
+        Test UPDATE with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"Paris"],
+                "Country": [f"France"],
+                "Code": [f"FRA- {suffix}"],
+                "Currency": ['EUR']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: update
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                            - City
+                            - Country
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPDATE: 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows updated (variant specified)"
+
+
+    def test_lookup_insert_matchingcolumns_single(self, caplog):
+        """
+        Test INSERT with multiple MatchingColumns as a string
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "London"],
+                "Country": [f"UK {suffix}", "UK {suffix}"],
+                "Code": [f"LON- {suffix}", f"LON- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: insert
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+
+    def test_lookup_insert_matchingcolumns_list(self, caplog):
+        """
+        Test INSERT with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "Paris"],
+                "Country": [f"UK {suffix}", "France"],
+                "Code": [f"LON- {suffix}", f"FRA- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: insert
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                                - City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup INSERT: 1 rows inserted. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+    def test_lookup_upsert_matchingcolumns_single(self, caplog):
+        """
+        Test UPSERT with single MatchingColumns as a string
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "Portland"],
+                "Country": [f"UK {suffix}", f"USA {suffix}"],
+                "Code": [f"LON- {suffix}", f"PDX- {suffix}"],
+                "Currency": ['USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: upsert
+                        settings:
+                            MatchingColumns: City
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPSERT: 1 rows inserted, 1 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+    def test_lookup_upsert_matchingcolumns_list(self, caplog):
+        """
+        Test UPSERT with multiple MatchingColumns as a list
+        """
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        df = pd.DataFrame({
+                "City": [f"City {suffix}", "London", "Seattle"],
+                "Country": [f"UK {suffix}", "UK", "USA"],
+                "Code": [f"LON- {suffix}", f"LON- {suffix}", f"SEA- {suffix}"],
+                "Currency": ['USD', 'USD', 'USD']
+        })
+        # With variant specified
+        wrangles.recipe.run(
+            '''
+            write:
+                - train.lookup:
+                        model_id: 4202c974-430a-46b9
+                        action: upsert
+                        variant: semantic
+                        settings:
+                            MatchingColumns: 
+                                - City
+                                - Country
+            ''',
+            dataframe=df
+        )
+
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("Lookup UPSERT: 1 rows inserted, 2 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
+
+    def test_insert_key_only(self, caplog):
+        """
+        Test INSERT with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: INSERT
+                variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores'],
+            'City': ['Toronto', 'Canada'],
+        })
+        wrangles.recipe.run(recipe, dataframe=data)
+
+        recipe = """
+        read:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+        """
+        df = wrangles.recipe.run(recipe)
+        assert 'Rachel' in df['Key'].values
+        assert 'Dolores' in df['Key'].values
+        assert 'Toronto' in df['City'].values
+        assert 'Canada' in df['City'].values
+        
+
+    def test_update_key_only(self):
+        """
+        Test UPDATE with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: UPDATE
+        """
+        data = pd.DataFrame({
+            'Key': ['Alice'],
+            'City': ['London Updated'],
+        })
+        wrangles.recipe.run(recipe, dataframe=data)
+
+        recipe = """
+        read:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+        """
+        df = wrangles.recipe.run(recipe)
+
+        assert 'London Updated' in df['City'].values
+
+    def test_upsert_key_only(self):
+        """
+        Test UPSERT with only a Key column and no MatchingColumns/settings.
+        """
+        recipe = """
+        write:
+            - train.lookup:
+                model_id: 12b7ac66-7418-45b5
+                action: UPSERT
+                variant: key
+        """
+        data = pd.DataFrame({
+            'Key': ['Charlie', 'NewKey'],
+            'City': ['Blade Runner Upsert', 'New Value'],
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert 'Blade Runner Upsert' in df['City'].values
+        assert 'New Value' in df['City'].values
+    
+    def test_missing_columns_error_message(self):  
+        """  
+        Verify that INSERT/UPSERT/UPDATE raise the expected error  
+        when incoming columns are not present in the existing model.  
+        """  
+
+        df = pd.DataFrame({  
+            "Key": ["k3"],  
+            "Value": ["v3"],  
+            "ExtraCol": ["x"]  # This column does not exist in the model  
+        })  
+
+    
+        # Test each action that performs the column-alignment check  
+        for action in ("insert", "upsert", "update"):  
+            recipe = f"""
+                write:
+                    - train.lookup:
+                        model_id: bc3ee6a0-e104-4700
+                        action: {action}
+                        variant: key
+
+                """
+            with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
+                wrangles.recipe.run(recipe, dataframe=df)
+    
+            
+def test_lookup_write_logs_new_model_id(caplog):  
+    """  
+    Integration test for lookup model creation logging  
+    """  
+    df = pd.DataFrame({  
+        'Key': ['apple', 'banana'],  
+        'Value': ['fruit', 'fruit']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.lookup:  
+              name: Test Lookup Model Integration  
+              variant: key  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Check that model_id was logged  
+    assert any(  
+        record.message for record in caplog.records   
+        if record.levelname == "INFO" and "New lookup model created" in record.message  
+    )
+
+
 #
 # Standardize
 #
@@ -870,4 +1495,179 @@ def test_standardize_error():
             })
         )
 
+def test_standardize_write_logs_new_model_id(caplog):  
+    """  
+    Integration test for standardize model creation logging  
+    """  
+    df = pd.DataFrame({  
+        'Find': ['ASAP', 'ETA'],  
+        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
+        'Notes': ['', '']  
+    })  
+  
+    wrangles.recipe.run(  
+        """  
+        write:  
+          - train.standardize:  
+              name: Test Standardize Model Integration  
+        """,  
+        dataframe=df  
+    )  
+  
+    # Check that model creation was logged  
+    assert any(  
+        record.message for record in caplog.records   
+        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
+    )
 
+
+class TestTrainMetaData:
+    """
+    All tests for reading and writing Wrangle metadata
+    """
+    def setup_method(self):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "meta-data-demo-bd0238a3"}])
+        )
+
+    def test_meta_data_read(self):
+        """
+        Read metadata for a model
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+
+        assert df.iloc[0]["name"] == "meta-data-demo-bd0238a3"
+        assert df.iloc[0]["variant"] == "key"
+        assert df.iloc[0]["purpose"] == "lookup"
+
+    def test_meta_data_read_all_fields(self):
+        """
+        Read metadata returns all fields from the API response as columns
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+        assert all(col in df.columns for col in [
+            "id", "name", "type", "purpose", "status", "path",
+            "batch_size", "tags", "notes", "created_by", "date_created",
+            "modified_by", "date_modified", "variant", "settings"
+        ])
+
+    def test_meta_data_write(self, mocker):
+        """
+        Write (update) metadata for a model
+        """
+        mocker.patch("wrangles.data.model_update")
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "Updated Name", "batch_size": 1000}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_ignores_nan(self, mocker):
+        """
+        NaN values in the DataFrame are not sent to the API
+        """
+        import numpy as np
+        mocker.patch("wrangles.data.model_update")
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "My Model", "batch_size": np.nan}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_logs_summary(self, mocker, caplog):
+        """
+        Logging summary statement for updated fields in meta_data.write
+        """
+        mocker.patch("wrangles.data.model_update")
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "New Name", "batch_size": 500}])
+        )
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("name was updated to New Name" in msg for msg in messages), "Log should mention name update"
+        assert any("batch_size was updated to 500" in msg for msg in messages), "Log should mention batch_size update"
+
+    def test_meta_data_write_invalid_field(self):
+        """
+        Writing a field that is not allowed raises a ValueError
+        """
+        with pytest.raises(ValueError, match="cannot be updated"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"name": "Valid Name", "purpose": "should not be allowed"}])
+            )
+
+    def test_meta_data_write_invalid_type_batch_size(self):
+        """
+        Passing a string for batch_size raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'batch_size' must be of type int"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"batch_size": "one thousand"}])
+            )
+
+    def test_meta_data_write_invalid_type_tags(self):
+        """
+        Passing a string for tags raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'tags' must be of type list or dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"tags": "not-a-list"}])
+            )
+
+    def test_meta_data_write_invalid_type_settings(self):
+        """
+        Passing a string for settings raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'settings' must be of type dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
+            )

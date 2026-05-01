@@ -17,4 +17,5 @@ boto3
 jinja2
 polars==1.33.0
 xlsxwriter
-pydantic
+pydantic>=2.12.0
+pyarrow
