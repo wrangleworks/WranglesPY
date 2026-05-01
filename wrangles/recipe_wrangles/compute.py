@@ -1,13 +1,9 @@
-import logging
 import pandas as _pd
 import numpy as _np
 
 # Import our core compute and format functions
 from .. import compute as _compute
 from .. import format as _format
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def case_when(
