@@ -1,9 +1,213 @@
-from typing import Union as _Union
 import types as _types
 import re as _re
 import pandas as _pandas
 import numpy as _np
 
+import textwrap
+
+def raw_search_results_to_text(payloads: list) -> str:
+    """
+    Transforms a list of raw search payloads (dicts) into a highly readable 
+    string format for pre-scoring analysis.
+    """
+    if not payloads:
+        return "No results returned."
+
+    lines = []
+    for payload in payloads:
+        meta = payload.get("search_metadata", {})
+        query = meta.get("query", "Unknown Query")
+        query_idx = meta.get("query_index", 1)
+
+        lines.append(f"##   Query {query_idx}: {query}    ##")
+
+        results = payload.get("search_results", [])
+        if not results:
+            lines.append("No links found for this query.\n")
+            continue
+
+        for idx, r in enumerate(results, start=1):
+            row_id = r.get("input_row_id")
+            display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
+
+            lines.append(f"# --- Result {display_idx} --- #")
+            lines.append(f"Source:  {r.get('source', 'N/A')}")
+            lines.append(f"Link:    {r.get('link', 'N/A')}")
+            lines.append(f"Title:   {r.get('title', 'N/A')}")
+
+            snippet = r.get('snippet', '')
+            if snippet:
+                wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
+                lines.append(f"Snippet: {wrapped_snippet}")
+
+            pricing = r.get("pricing", {})
+            if pricing:
+                price = pricing.get("price")
+                curr = pricing.get("currency", "")
+                avail = pricing.get("availability", "Unknown availability")
+                vendor = pricing.get("vendor", r.get("source", "Unknown vendor"))
+                
+                if price is not None:
+                    lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
+                else:
+                    lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+
+            pos = r.get("position") or r.get("google_rank", "?")
+            lines.append(f"Position:{pos}\n")
+
+    return "\n".join(lines).strip()
+
+def search_result_to_text(res: dict, num_queries: int = 1) -> str:
+    """
+    Transforms a single scored dictionary back into a highly readable 
+    string format for analysis/export.
+    """
+    summary = res.get("summary", {})
+    metadata = res.get("metadata", {})
+    pricing = res.get("pricing", {})
+    
+    ## Result IDs    
+    idx = summary.get("scored_result_index", "?")
+    row_id = summary.get("input_row_id")
+    display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
+    
+    score_str = ""
+    if "score" in summary:
+        part_match_type = summary.get("part_match_type", "none")
+        brand_matched = summary.get("brand_found", False)
+        
+        enum_display_map = {
+            "mpn_exact": "MPN Exact",
+            "mpn_partial": "MPN Partial",
+            "other_code_exact": "PC Exact",
+            "other_code_partial": "PC Partial"
+        }
+        
+        pc_text = enum_display_map.get(part_match_type, "")
+        if not pc_text and summary.get("part_code_found"):
+            pc_text = "PC"
+
+        if pc_text and brand_matched: 
+            match_text = f"{pc_text} & Brand Match"
+        elif pc_text: 
+            match_text = f"{pc_text} Match"
+        elif brand_matched: 
+            match_text = "Brand Match"
+        else: 
+            match_text = "No Match"
+            
+        score_str = f" | Score: {summary.get('score')} | {match_text}"
+        
+    filtered_badge = f" [FILTERED OUT: {summary.get('filtered_reason', 'unknown')}]" if summary.get("filtered") else ""
+    query_info = f" | from Query #{metadata.get('query_index')}" if num_queries > 1 else ""
+    
+    lines = []
+    lines.append(f"## --- Result {display_idx}{score_str}{filtered_badge}{query_info} --- ##")
+    lines.append(f"Source:  {summary.get('source', 'N/A')}")
+    
+    # 3. Moved Link above Title
+    lines.append(f"Link:    {summary.get('link', 'N/A')}")
+    lines.append(f"Title:   {summary.get('title', 'N/A')}")
+    
+    # 1. Removed 'Matches' block
+    
+    snippet = summary.get('snippet', '')
+    wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
+    lines.append(f"Snippet: {wrapped_snippet}")
+
+    if pricing:
+        price = pricing.get("price")
+        curr = pricing.get("currency") or ""
+        avail = pricing.get("availability") or "Unknown availability"
+        vendor = pricing.get("vendor") or "Unknown vendor"
+        if price is not None:
+            lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
+        else:
+            lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+    
+    # 2. Removed 'Position' block
+    
+    if "scoring_details" in res:
+        elems = res["scoring_details"]
+        total_score = elems.get("score", summary.get("score", 0))
+        lines.append(f"Scoring Details: {total_score} pts total")
+        
+        if "part_match_score" in elems:
+            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')})")
+            
+        if "brand_score" in elems:
+            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
+            
+        skip_keys = {
+            "score", "part_match_score", "part_match_reason", "part_match_visual", 
+            "brand_score", "brand_match_reason", "brand_match_visual"
+        }
+        
+        for k in list(elems.keys()):
+            if k.endswith("_reason"):
+                skip_keys.add(k)
+                
+        for k, v in elems.items():
+            if k not in skip_keys:
+                reason = elems.get(f"{k}_reason", "")
+                if reason:
+                    lines.append(f"  - {k}: {v} ({reason})")
+                else:
+                    lines.append(f"  - {k}: {v}")
+
+    return "\n".join(lines)
+
+
+def retrieved_content_to_text(responses: list) -> str:
+    """
+    Converts a list of retrieve_link_content dictionaries into a clean, readable string.
+    """
+    if not responses:
+        return ""
+        
+    if not isinstance(responses, list):
+        responses = [responses]
+        
+    blocks = []
+    for i, data in enumerate(responses, 1):
+        if not isinstance(data, dict):
+            blocks.append(f"[{i}] Invalid Data: {data}")
+            continue
+            
+        url = data.get("retrieved_url", "Unknown URL")
+        status = data.get("status", "Unknown Status")
+        error = data.get("error")
+        content = data.get("extracted_content")
+        
+        lines = [f"Content from URL: {url}", f"Status: {status}"]
+        
+        if error:
+            lines.append(f"Error: {error}")
+            
+        if content:
+            lines.append("-" * 40)
+            if isinstance(content, dict):
+                for k, v in content.items():
+                    # Handle nested lists cleanly (e.g., Specs, IDs)
+                    if isinstance(v, list):
+                        lines.append(f"{k}:")
+                        for item in v:
+                            lines.append(f"  - {item}")
+                    # Handle nested dicts cleanly (e.g., Pricing)
+                    elif isinstance(v, dict):
+                        lines.append(f"{k}:")
+                        for sub_k, sub_v in v.items():
+                            lines.append(f"  {sub_k}: {sub_v}")
+                    # Handle standard strings/numbers
+                    else:
+                        lines.append(f"{k}: {v}")
+            else:
+                lines.append(str(content))
+        
+        blocks.append("\n".join(lines))
+        
+    # Separate multiple URLs with a clear divider
+    return "\n\n========================================\n\n".join(blocks)
 
 def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
@@ -27,11 +231,11 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
 
 def split(
     input_list,
-    output_length: int = None,
+    output_length: int | None = None,
     split_char = " ",
     pad=False,
     inclusive=False,
-    element: _Union[int, str] = None,
+    element: int | str | None = None,
     skip_empty: bool = False,
 ):
     """

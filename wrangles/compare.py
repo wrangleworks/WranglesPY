@@ -4,7 +4,119 @@ Compare subsets of input data
 
 from collections import OrderedDict as _OrderedDict
 from difflib import SequenceMatcher as _SequenceMatcher
+import unicodedata
+from typing import Tuple
 
+def normalize_alphanum(text: str) -> str:
+    """
+    Normalizes text using Python's built-in unicodedata library.
+    Maps international characters to base ASCII (e.g., ü -> u).
+    Useful for standardizing strings before a comparison.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+        
+    text = text.lower()
+    text = text.replace('ß', 'ss')
+    text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8')
+    
+    return ''.join(char for char in text if char.isalnum())
+
+
+def partial_ratio(token: str, text: str) -> Tuple[float, int, int]:
+    """
+    Calculates the best difflib SequenceMatcher ratio for a token within a larger text string.
+    Returns: (best_ratio, missing_start_count, missing_end_count)
+    """
+    if not token or not text: return 0.0, 0, 0
+    if token in text: return 1.0, 0, 0
+    
+    token_len = len(token)
+    text_len = len(text)
+    
+    if token_len >= text_len:
+        # Replaced difflib.SequenceMatcher with _SequenceMatcher
+        sm = _SequenceMatcher(None, token, text)
+        ratio = sm.ratio()
+        valid_blocks = [b for b in sm.get_matching_blocks() if b.size > 0]
+        if valid_blocks:
+            longest = max(valid_blocks, key=lambda x: x.size)
+            m_start = longest.a
+            m_end = token_len - (longest.a + longest.size)
+        else:
+            m_start, m_end = 0, token_len
+        return round(ratio, 2), m_start, m_end
+    
+    best_ratio = 0.0
+    best_m_start = 0
+    best_m_end = token_len
+    # Add a tiny margin to the window size to account for a missing/extra character
+    window_size = token_len + 2 
+    
+    for i in range(text_len - token_len + 1):
+        window = text[i:i+window_size]
+        # Replaced difflib.SequenceMatcher with _SequenceMatcher
+        sm = _SequenceMatcher(None, token, window)
+        r = sm.ratio()
+        if r > best_ratio:
+            best_ratio = r
+            valid_blocks = [b for b in sm.get_matching_blocks() if b.size > 0]
+            if valid_blocks:
+                longest = max(valid_blocks, key=lambda x: x.size)
+                best_m_start = longest.a
+                best_m_end = token_len - (longest.a + longest.size)
+            else:
+                best_m_start, best_m_end = 0, token_len
+                
+        if best_ratio == 1.0:
+            break
+            
+    return round(best_ratio, 2), best_m_start, best_m_end
+
+
+def mask_original_term(orig_t: str, missing_start: int, missing_end: int) -> str:
+    """
+    Replaces unmatched characters at the start and end of the original string with asterisks
+    based on the missing counts calculated from the normalized matching blocks.
+    """
+    if missing_start == 0 and missing_end == 0:
+        return orig_t
+    
+    chars = list(orig_t)
+    
+    start_idx = 0
+    if missing_start > 0:
+        alphanum_count = 0
+        for i, c in enumerate(chars):
+            if c.isalnum():
+                alphanum_count += 1
+            if alphanum_count == missing_start:
+                start_idx = i + 1
+                break
+                
+    end_idx = len(chars)
+    if missing_end > 0:
+        alphanum_count = 0
+        for i in range(len(chars)-1, -1, -1):
+            if chars[i].isalnum():
+                alphanum_count += 1
+            if alphanum_count == missing_end:
+                end_idx = i
+                break
+                
+    res = ""
+    if missing_start > 0:
+        res += "*" * missing_start
+    
+    if start_idx >= end_idx:
+        return "*" * (missing_start + missing_end)
+        
+    res += "".join(chars[start_idx:end_idx])
+    
+    if missing_end > 0:
+        res += "*" * missing_end
+        
+    return res
 
 def _ordered_words(string, char):
     """
