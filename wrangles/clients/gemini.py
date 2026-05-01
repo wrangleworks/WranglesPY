@@ -1,6 +1,5 @@
 import os
 from typing import Optional, Dict, Any
-from unittest import result
 
 def _get_genai():
     """Lazy loader for Google GenAI SDK to prevent hard dependencies."""
