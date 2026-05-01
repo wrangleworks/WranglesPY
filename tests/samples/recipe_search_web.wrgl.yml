@@ -19,7 +19,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: search_query
+      queries: search_query
       output: search_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 10
@@ -43,7 +43,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: product
+      queries: product
       output: product_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 5
@@ -68,7 +68,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: query
+      queries: query
       output: localized_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 5
@@ -100,7 +100,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input:
+      queries:
         - topic
         - year
       output: combined_results
@@ -129,7 +129,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input:
+      queries:
         - tech_query
         - science_query
       output:
@@ -167,7 +167,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: search_term
+      queries: search_term
       output: filtered_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 3
@@ -192,7 +192,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: mobile_query
+      queries: mobile_query
       output: mobile_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 5
@@ -217,20 +217,20 @@ read:
 wrangles:
   # Perform web search
   - search.find_links:
-      input: query
+      queries: query
       output: raw_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 10
   
   # Extract just the titles from results
   - create.jinja:
-      input: raw_results
+      queries: raw_results
       output: result_titles
       template: "{{ [item.title for item in value] | join(', ') }}"
   
   # Extract just the links
   - create.jinja:
-      input: raw_results
+      queries: raw_results
       output: result_links
       template: "{{ [item.link for item in value] | join(', ') }}"
 
@@ -271,7 +271,7 @@ read:
 
 wrangles:
   - search.find_links:
-      input: batch_query
+      queries: batch_query
       output: batch_results
       api_key: ${SERPAPI_API_KEY}
       n_results: 3
