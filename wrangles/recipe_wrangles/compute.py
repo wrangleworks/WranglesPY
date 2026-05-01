@@ -113,8 +113,10 @@ def score_search_results(
         type: boolean
         description: Treat partial other part code matches as valid part code matches.
       blacklist_keywords:
-        type: string
-        description: Comma-separated list of keywords to filter out URLs containing them.
+        type:
+          - string
+          - array
+        description: Comma-separated list or array of keywords to filter out URLs containing them.
       mpn_exact_score:
         type: number
       mpn_partial_base:
