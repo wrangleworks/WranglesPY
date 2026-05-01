@@ -1,8 +1,6 @@
 from urllib.parse import urlsplit
 from typing import List, Tuple, Dict
 
-from attrs import fields
-
 # Import our separated helpers
 from . import web as _web
 from . import compare as _compare
