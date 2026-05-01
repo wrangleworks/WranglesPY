@@ -43,7 +43,8 @@ df_in = pd.DataFrame([
 recipe = f"""
 wrangles:
   - search.find_links:
-      input: queries
+      queries: queries
+      id: ID
       output: results
       api_key: {api_key}
       n_results: 3
