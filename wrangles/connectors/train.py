@@ -161,11 +161,12 @@ class extract():
             columns = _wildcard_expansion(df.columns, columns)
             df = df[columns]
 
+        # Older versions do not have a variant, default to pattern
+        if variant is None and name:
+            variant = 'pattern'
         # Lookup the variant if retraining a model
-        if variant == None:
-            variant = _model(model_id)['variant']
-            if variant == None: # Older versions do not have a variant, default to pattern
-                variant = 'pattern'
+        if variant is None and model_id:
+            variant = _model(model_id).get('variant') or 'pattern'
 
         if variant == 'pattern':
             versions = [
@@ -233,7 +234,7 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = {}, variant: str = 'key', action: str = 'overwrite') -> None:
+    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
@@ -245,7 +246,8 @@ class lookup():
         :param action: Action to take when training the lookup wrangle (insert, update, upsert)
         """
         _logging.info(f": Training Lookup Wrangle")
-
+        if settings is None:
+            settings = {}
         # Error handling for name, model_id and settings
         if name and model_id:
             raise ValueError("Lookup: Name and model_id cannot both be provided, please use name to create a new model or model_id to update an existing model.")
@@ -254,6 +256,32 @@ class lookup():
         # Normalize inputs and avoid mutating default args
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
+
+        def _get_columns_from_payload(payload):
+            # payload can be a DataFrame or the 'tight' dict produced by _to_tight
+            if isinstance(payload, dict) and 'Columns' in payload:
+                return payload['Columns']
+            try:
+                return list(payload.columns)
+            except Exception:
+                return []
+
+        def _validate_matching_columns(payload, settings_dict):
+            matching = settings_dict.get('MatchingColumns')
+            if not matching:
+                return
+            # Accept both string and list for MatchingColumns
+            if isinstance(matching, str):
+                matching = [matching]
+            elif not isinstance(matching, list):
+                raise TypeError("MatchingColumns must be a string or a list of strings")
+            cols = _get_columns_from_payload(payload)
+            missing = [c for c in matching if c not in cols]
+            if missing:
+                raise ValueError(
+                    "Lookup: The following MatchingColumns are not present in the provided data: "
+                    + ", ".join(missing)
+                )
 
         def _to_tight(dataframe: _pd.DataFrame) -> dict:
             return {
@@ -286,6 +314,7 @@ class lookup():
 
         elif act == 'OVERWRITE' or name:
             row_count = len(df)
+            _validate_matching_columns(df, settings)
             _train.lookup(
                 _to_tight(df),
                 name,
@@ -349,19 +378,64 @@ class lookup():
                             )
                             inserted += 1
                 else:
-                    # For non-key variants, just append all data
-                    merged_df = _pd.concat([existing_df, df], ignore_index=True)
-                    inserted = len(df)
+                    # For non-key variants (e.g., semantic), use MatchingColumns to avoid duplicates
+                    matching_cols = settings.get('MatchingColumns', [])
+                    if matching_cols:
+                        if isinstance(matching_cols, str):
+                            matching_cols = [matching_cols]
+                        # Validate matching columns exist in both datasets
+                        missing_in_existing = [c for c in matching_cols if c not in existing_df_all.columns]
+                        missing_in_new = [c for c in matching_cols if c not in df.columns]
+                        if missing_in_existing or missing_in_new:
+                            raise ValueError(
+                                f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                            )
+
+                        # Start with current data
+                        merged_df = existing_df_all.copy()
+
+                        # Update matching rows
+                        updated = 0
+                        for _, row in df.iterrows():
+                            mask = _pd.Series([True] * len(merged_df))
+                            for col in matching_cols:
+                                mask &= (merged_df[col] == row[col])
+                            if mask.any():
+                                changed = False
+                                for col in df.columns:
+                                    if col not in matching_cols and col in merged_df.columns:
+                                        before = merged_df.loc[mask, col]
+                                        after = row[col]
+                                        if not (before == after).all():
+                                            merged_df.loc[mask, col] = after
+                                            changed = True
+                                if changed:
+                                    updated += int(mask.sum())
+                            else:
+                                # Insert if no match
+                                merged_df = _pd.concat(
+                                    [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                    ignore_index=True
+                                )
+                                inserted += 1
+                        # Align to requested columns order if provided
+                        merged_df = merged_df[existing_df_all.columns]
+                    else:
+                        # Without MatchingColumns, append all
+                        merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                        inserted = len(df)
 
                 merged_data = {
                     'Columns': merged_df.columns.tolist(),
                     'Data': merged_df.values.tolist()
                 }
+                _validate_matching_columns(merged_data, settings)
                 total_rows = len(merged_df)
                 _train.lookup(merged_data, None, model_id, settings)
                 _logging.info(f"Lookup UPSERT: {inserted} rows inserted, {updated} rows updated. Total rows: {total_rows}.")
             else:
                 inserted = len(df)
+                _validate_matching_columns(new_data, settings)
                 _train.lookup(new_data, name, None, settings)
                 _logging.info(f"Lookup UPSERT (new): {inserted} rows inserted. Total rows: {inserted}.")
 
@@ -374,10 +448,23 @@ class lookup():
 
             updated = 0
 
-            if 'Key' in df.columns and 'Key' in existing_df.columns:
-                # Only update records that exist in the model
-                existing_keys = set(existing_df['Key'].tolist())
-                df_filtered = df[df['Key'].isin(existing_keys)].copy()
+            # Determine the effective variant for this model (normalize semantic -> embedding)
+            normalized_variant = _normalize_variant(model_id, metadata.get('variant', 'key'))
+
+            # Column alignment check
+            missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
+            if missing_in_existing:
+                raise ValueError(
+                    "Lookup: The following columns are not present in the existing model: "
+                    + ", ".join(missing_in_existing)
+                )
+
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
                 if df_filtered.empty:
                     _logging.info("No matching keys found in existing model. No updates performed.")
@@ -388,20 +475,66 @@ class lookup():
                 for idx, row in df_filtered.iterrows():
                     key = row['Key']
                     mask = merged_df['Key'] == key
+                    changed = False
                     for col in df_filtered.columns:
                         if col != 'Key':
-                            merged_df.loc[mask, col] = row[col]
-                    updated += 1
+                            before = merged_df.loc[mask, col]
+                            after = row[col]
+                            if not (before == after).all():
+                                merged_df.loc[mask, col] = after
+                                changed = True
+                    if changed:
+                        updated += int(mask.sum())
 
-                df = merged_df
+                df_out = merged_df
             else:
-                raise ValueError("Both DataFrames must contain 'Key' column")
+                # Non-key variant: use MatchingColumns for updates
+                matching_cols = settings.get('MatchingColumns', [])
+                if not matching_cols:
+                    raise ValueError("Lookup: UPDATE requires 'Key' or 'MatchingColumns' for non-key variants")
+                if isinstance(matching_cols, str):
+                    matching_cols = [matching_cols]
+                missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                missing_in_new = [c for c in matching_cols if c not in df.columns]
+                if missing_in_existing or missing_in_new:
+                    raise ValueError(
+                        f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                    )
 
-            settings['variant'] = _normalize_variant(model_id, metadata.get('variant', 'key'))
+                merged_df = existing_df.copy()
+                any_updated = False
+                for _, row in df.iterrows():
+                    mask = _pd.Series([True] * len(merged_df))
+                    for col in matching_cols:
+                        mask &= (merged_df[col] == row[col])
+                    if mask.any():
+                        changed = False
+                        for col in df.columns:
+                            if col not in matching_cols and col in merged_df.columns:
+                                before = merged_df.loc[mask, col]
+                                after = row[col]
+                                if not (before == after).all():
+                                    merged_df.loc[mask, col] = after
+                                    changed = True
+                        if changed:
+                            updated += int(mask.sum())
+                            any_updated = True
+                if not any_updated:
+                    _logging.info("No matching records found based on MatchingColumns. No updates performed.")
+                    return
+                df_out = merged_df
+            normalized_variant = settings.get('variant', variant)
+            if normalized_variant == 'key':
+                # Key-based model: require 'Key' in both DataFrames and perform merge/update
+                if 'Key' in df.columns and 'Key' in existing_df.columns:
+                    # Only update records that exist in the model
+                    existing_keys = set(existing_df['Key'].tolist())
+                    df_filtered = df[df['Key'].isin(existing_keys)].copy()
 
-            total_rows = len(df)
+            total_rows = len(df_out)
+            _validate_matching_columns(df_out, settings)
             _train.lookup(
-                _to_tight(df),
+                _to_tight(df_out),
                 None,
                 model_id,
                 settings
@@ -421,6 +554,15 @@ class lookup():
                 columns=existing_content['Columns']  
             )  
             
+            # Column alignment check
+            if not 'MatchingColumns' in settings:
+                missing_in_existing = [c for c in df.columns if c not in existing_df.columns]
+                if missing_in_existing:
+                    raise ValueError(
+                        "Lookup: The following columns are not present in the existing model: "
+                        + ", ".join(missing_in_existing)
+                    )
+
             inserted = 0
             # Only add rows with new keys (skip existing keys)  
             if variant == 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:  
@@ -431,14 +573,36 @@ class lookup():
                 inserted = len(new_rows)
                 merged_df = _pd.concat([existing_df, new_rows], ignore_index=True)  
             else:  
-                # For non-key variants, just append all data  
-                inserted = len(df)
-                merged_df = _pd.concat([existing_df, df], ignore_index=True)  
+                # For non-key variants, use MatchingColumns to avoid duplicates
+                matching_cols = settings.get('MatchingColumns', [])
+                if matching_cols:
+                    if isinstance(matching_cols, str):
+                        matching_cols = [matching_cols]
+                    missing_in_existing = [c for c in matching_cols if c not in existing_df.columns]
+                    missing_in_new = [c for c in matching_cols if c not in df.columns]
+                    if missing_in_existing or missing_in_new:
+                        raise ValueError(
+                            f"Lookup: MatchingColumns missing. In existing: {missing_in_existing}. In new data: {missing_in_new}."
+                        )
+
+                    # Identify new rows where composite key not present
+                    merged_df = existing_df.copy()
+                    # Build a MultiIndex for faster membership checks
+                    existing_idx = _pd.MultiIndex.from_frame(existing_df[matching_cols])
+                    new_idx = _pd.MultiIndex.from_frame(df[matching_cols])
+                    is_new = ~new_idx.isin(existing_idx)
+                    new_rows = df[is_new].copy()
+                    inserted = len(new_rows)
+                    merged_df = _pd.concat([merged_df, new_rows], ignore_index=True)
+                else:
+                    inserted = len(df)
+                    merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
             merged_data = {  
                 'Columns': merged_df.columns.tolist(),  
                 'Data': merged_df.values.tolist()  
             }  
+            _validate_matching_columns(merged_data, settings)
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)
             _logging.info(f"Lookup INSERT: {inserted} rows inserted. Total rows: {total_rows}.")
@@ -472,6 +636,113 @@ class lookup():
               - upsert
               - overwrite
         """
+
+
+class meta_data():
+    _schema = {}
+
+    def read(model_id: str) -> _pd.DataFrame:
+        """
+        Read the metadata for a Wrangle model.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's metadata as a single row
+        """
+        _logging.info(f": Reading Wrangle metadata :: {model_id}")
+        metadata = _data.model(model_id)
+
+        return _pd.DataFrame([metadata])
+
+    _schema["read"] = """
+            type: object
+            description: |
+                Read the metadata for a Wrangle model.
+                Returns a DataFrame with the following columns:
+                    - id
+                    - name
+                    - type
+                    - purpose
+                    - status
+                    - path
+                    - batch_size
+                    - tags
+                    - notes
+                    - created_by
+                    - date_created
+                    - modified_by
+                    - date_modified
+                    - variant
+                    - settings
+            additionalProperties: false
+            required:
+                - model_id
+            properties:
+                model_id:
+                    type: string
+                    description: Specific model to read
+            """
+
+    def write(df: _pd.DataFrame, model_id: str) -> None:
+        """
+        Update the metadata for a Wrangle model.
+
+        :param df: Single-row DataFrame containing the metadata fields to update
+        :param model_id: Model to update
+        """
+        _logging.info(f": Updating Wrangle metadata :: {model_id}")
+        metadata = df.iloc[0].dropna().to_dict()
+
+        _allowed_fields = {'name', 'batch_size', 'tags', 'notes', 'settings'}
+        invalid_fields = set(metadata.keys()) - _allowed_fields
+        if invalid_fields:
+            raise ValueError(
+                f"The following fields cannot be updated: {', '.join(sorted(invalid_fields))}. "
+                f"Only {', '.join(sorted(_allowed_fields))} are allowed."
+            )
+
+        _field_types = {
+            'name': str,
+            'batch_size': int,
+            'tags': (list, dict),
+            'notes': str,
+            'settings': dict,
+        }
+        for field, value in metadata.items():
+            expected = _field_types[field]
+            if not isinstance(value, expected):
+                type_names = (
+                    " or ".join(t.__name__ for t in expected)
+                    if isinstance(expected, tuple)
+                    else expected.__name__
+                )
+                raise TypeError(
+                    f"'{field}' must be of type {type_names}, got {type(value).__name__}."
+                )
+
+        _data.model_update(model_id, metadata)
+        # Log summary of updated fields
+        summary = ', '.join([f"{k} was updated to {v}" for k, v in metadata.items()])
+        _logging.info(f"Metadata update summary: {summary}")
+
+    _schema["write"] = """
+        type: object
+        description: |
+            Update the metadata for a Wrangle model.
+            The following fields can be updated:
+                - name
+                - batch_size
+                - tags
+                - notes
+                - settings
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Model to update
+        """
+
 
 class standardize():
     _schema = {}

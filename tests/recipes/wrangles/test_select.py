@@ -65,7 +65,7 @@ class TestSelectDictionaryElement:
             element: shapes
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.dictionary_element" in info.value.args[0]
@@ -470,7 +470,7 @@ class TestSelectListElement:
             element: 1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The list of inputs and outputs must be the same length for select.list_element" in info.value.args[0]
@@ -641,6 +641,110 @@ class TestSelectListElement:
         )
         assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
+    
+    def test_list_element_range(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[0:2]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1","2"]
+
+    def test_list_element_range_2(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[::2]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1", "3", "5"]
+
+    def test_list_element_range_3(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[::]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["1", "2", "3", "4", "5"]
+
+    def test_list_element_range_4(self):
+        """
+        Test that select.list_element gives the correct
+        answer for selecting a range from a list.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.text: 
+                input: Desc
+                skip_empty: false
+                output: my_list
+                char: " "
+
+            - select.list_element:
+                input: my_list
+                element: '[3::]'
+                output: second_list
+            """,
+            dataframe=pd.DataFrame({
+                "Desc": ['1 2 3 4 5', '6 7 8 9 10', '11 12 13 14 15', '16 17 18 19 20']
+            })
+        )
+
+        assert df["second_list"][0] == ["4", "5"]
 
 class TestHighestConfidence:
     """
@@ -804,7 +908,7 @@ class TestHighestConfidence:
         a clear error message with invalid input/output
         """
         with pytest.raises(ValueError):
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles: 
                     - select.highest_confidence:
@@ -1061,7 +1165,7 @@ class TestSelectLeft:
                 length: 5
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -1261,7 +1365,7 @@ class TestSelectRight:
                 length: 5
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -1511,7 +1615,7 @@ class TestSelectSubstring:
                 input: Col1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "Either start or length must be provided." in info.value.args[0]
@@ -1536,7 +1640,7 @@ class TestSelectSubstring:
                 length: 4
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for input and output must be the same length." in info.value.args[0]
@@ -2098,6 +2202,160 @@ class TestGroupBy:
         
         assert df.empty and 'group' in df.columns
 
+    def test_group_by_auto_rename_false_no_suffix(self):
+        """
+        auto_rename_columns: false — aggregated column keeps original name, no .list suffix
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Manufacturers" in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+    def test_group_by_auto_rename_false_dict_rename(self):
+        """
+        auto_rename_columns: false with dict rename — output column uses user-supplied name
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Manufacturers: Category Mfrs
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Category Mfrs" in df.columns
+        assert "Manufacturers" not in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+    def test_group_by_auto_rename_false_mixed_list(self):
+        """
+        auto_rename_columns: false — mix of string and dict entries in same aggregation op
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Manufacturers: Category Mfrs
+                  - SKU
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"],
+                "SKU": ["S1", "S2", "S3"]
+            })
+        )
+        assert "Category Mfrs" in df.columns
+        assert "SKU" in df.columns
+        assert "Manufacturers.list" not in df.columns
+        assert "SKU.list" not in df.columns
+
+    def test_group_by_auto_rename_false_multiple_ops(self):
+        """
+        auto_rename_columns: false — two aggregation operations each with dict renames
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                min:
+                  - Value: Min Value
+                max:
+                  - Value: Max Value
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Value": [10, 20, 30]
+            })
+        )
+        assert "Min Value" in df.columns
+        assert "Max Value" in df.columns
+        assert "Value.min" not in df.columns
+        assert "Value.max" not in df.columns
+
+    def test_group_by_auto_rename_false_same_column_in_by(self):
+        """
+        auto_rename_columns: false — column in both by and aggregation;
+        by column retains original name, aggregated column uses dict rename
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list:
+                  - Category: Category List
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"]
+            })
+        )
+        assert "Category" in df.columns
+        assert "Category List" in df.columns
+
+    def test_group_by_auto_rename_true_explicit(self):
+        """
+        Explicit auto_rename_columns: true — suffix still present (backwards compat regression guard)
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: true
+            """,
+            dataframe=pd.DataFrame({
+                "Category": ["A", "A", "B"],
+                "Manufacturers": ["M1", "M2", "M3"]
+            })
+        )
+        assert "Manufacturers.list" in df.columns
+
+    def test_group_by_auto_rename_false_empty_df(self):
+        """
+        auto_rename_columns: false with an empty dataframe — no error, correct column names
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.group_by:
+                by: Category
+                list: Manufacturers
+                auto_rename_columns: false
+            """,
+            dataframe=pd.DataFrame({
+                "Category": [],
+                "Manufacturers": []
+            })
+        )
+        assert df.empty
+        assert "Manufacturers" in df.columns
+        assert "Manufacturers.list" not in df.columns
+
+
 class TestSelectElement:
     """
     Test select.element
@@ -2196,7 +2454,7 @@ class TestSelectElement:
         where the element does not exist
         """
         with pytest.raises(KeyError) as info:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 wrangles:
                 - select.element:
@@ -2750,7 +3008,7 @@ class TestSelectColumns:
                 case: upper
         """
         with pytest.raises(KeyError) as info:
-            raise wrangles.recipe.run(recipe=recipe, dataframe=data)
+            wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert info.typename == 'KeyError' and "YOLO" in info.value.args[0]
         
     def test_select_columns_where(self):
@@ -2999,7 +3257,7 @@ class TestSelectSample:
         an invalid number for rows
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:
@@ -3019,7 +3277,7 @@ class TestSelectSample:
         an invalid value for rows
         """
         with pytest.raises(ValueError) as error:
-            raise wrangles.recipe.run(
+            wrangles.recipe.run(
                 """
                 read:
                 - test:

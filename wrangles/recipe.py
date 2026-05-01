@@ -29,12 +29,13 @@ from .utils import (
     validate_function_args as _validate_function_args,
     add_special_parameters as _add_special_parameters,
     wildcard_expansion as _wildcard_expansion,
-    wildcard_expansion_dict as _wildcard_expansion_dict
+    wildcard_expansion_dict as _wildcard_expansion_dict,
+    replace_templated_values as _replace_templated_values
 )
 try:
-    from yaml import CSafeLoader as _YamlLoader, CSafeDumper as _YAMLDumper
+    from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
-    from yaml import SafeLoader as _YamlLoader, SafeDumper as _YAMLDumper
+    from yaml import SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
 
@@ -46,128 +47,9 @@ _logging.getLogger().setLevel(_logging.INFO)
 _warnings.simplefilter(action='ignore', category=_pandas.errors.PerformanceWarning)
 
 
-def _replace_templated_values(
-    recipe_object: _typing.Any,
-    variables: dict,
-    ignore_unknown_variables: bool = False
-) -> _typing.Any:
-    """
-    Replace templated values of the format ${} within a recipe.
-    This function can be called recursively to iterate through an arbitrary number of levels within the main object
-    
-    :param recipe_object: Recipe object that may contain values to replace
-    :param variables: List of variables that contain any templated values to update
-    :param ignore_unknown_variables: Do not raise an error for unrecognized variables from this point \
-        down the stack. e.g. for matrix which uses runtime variables.
-    :return: Updated Recipe object with variables replaced by their corresponding values
-    """
-    if isinstance(recipe_object, list):
-        # Iterate over all of the elements in a list recursively
-        new_recipe_object = [
-            _replace_templated_values(element, variables, ignore_unknown_variables)
-            for element in recipe_object
-        ]
-            
-    elif isinstance(recipe_object, dict):
-        # Use a temporary copy of variables to allow for nested variable definitions
-        temp_vars = variables.copy()
-        if 'variables' in recipe_object and isinstance(recipe_object['variables'], dict):
-            for key in recipe_object['variables'].keys():
-                if key in temp_vars and key != recipe_object['variables'][key][2:-1]:
-                    temp_vars[key] = recipe_object['variables'][key]
-        
-        # Iterate over all of the keys and value in a dictionary recursively
-        new_recipe_object = {
-            _replace_templated_values(
-                key,
-                temp_vars,
-                any([ignore_unknown_variables, key in ["matrix"]])
-            )
-            :
-            (
-                _replace_templated_values(
-                    val,
-                    temp_vars,
-                    any([ignore_unknown_variables, key in ["matrix"]])
-                )
-                if key not in ["if", "python"]
-                else val
-            )
-            for key, val in recipe_object.items()
-        }
-
-    elif isinstance(recipe_object, str):
-        # Search string for one or more variables to replace
-        new_recipe_object = recipe_object
-
-        # Pattern matching ${<something here>}
-        variable_pattern = _re.compile(r"\$\{[^\}]+\}")
-
-        # Whole string is a variable
-        if variable_pattern.fullmatch(new_recipe_object):
-            try:
-                replacement_value = variables[new_recipe_object[2:-1]]
-            except:
-                if ignore_unknown_variables:
-                    return new_recipe_object
-                else:
-                    raise ValueError(f"Variable {new_recipe_object} was not found.")
-
-            # Test if replacement is JSON
-            if (
-                isinstance(replacement_value, str)
-                and len(replacement_value) > 0
-                and replacement_value[0] in ['{', '[']
-                and replacement_value[-1] in ['}', ']']
-            ):
-                try:
-                    replacement_value = _json.loads(replacement_value)
-                except:
-                    # Replacement wasn't JSON
-                    pass
-
-            # Test if replacement is YAML
-            if (
-                isinstance(replacement_value, str) 
-                and ':' in replacement_value 
-                and '\n' in replacement_value
-            ):
-                try:
-                    replacement_value = _yaml.load(replacement_value, Loader=_YamlLoader)
-                except:
-                    # Replacement wasn't YAML
-                    pass
-
-            new_recipe_object = _replace_templated_values(
-                replacement_value,
-                variables,
-                ignore_unknown_variables
-            )
-
-        # Variable is found within the string e.g. file-${number}.csv
-        # Since this is within a string, the type is forced to also be a string
-        elif variable_pattern.search(new_recipe_object):
-            for var in variable_pattern.findall(new_recipe_object):
-                try:
-                    replacement_value = variables[var[2:-1]]
-                except:
-                    if ignore_unknown_variables:
-                        replacement_value = var
-                    else:
-                        raise ValueError(f"Variable {var} was not found.")
-
-                new_recipe_object = new_recipe_object.replace(var, str(replacement_value))
-
-    # Otherwise, just return unchanged    
-    else:
-        new_recipe_object = recipe_object
-
-    return new_recipe_object
-
-
 def _load_recipe(
     recipe: str,
-    variables: dict = {},
+    variables: dict = None,
     functions: _Union[_types.FunctionType, list, dict, str] = []
 ) -> dict:
     """
@@ -179,6 +61,8 @@ def _load_recipe(
 
     :return: YAML Recipe converted to a dictionary
     """
+    if variables is None:
+        variables = {}
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
     
@@ -209,14 +93,22 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
-        
+
         # Using model_id in wrong function
         purpose = metadata['purpose']
         if purpose != 'recipe':
             raise ValueError(
                 f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
+
+        if 'production_version_id' in metadata.keys() and version_id is None:
+            version_id = metadata['production_version_id']
+            _logging.info(f": No version specified, defaulting to production version {version_id}")
         
+        if version_id == 'latest':
+            version_id = None
+            _logging.info(f": 'latest' version specified, using the most recent version")
+
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
@@ -315,6 +207,13 @@ def _load_recipe(
 
     recipe_object = _yaml.safe_load(recipe_string)
 
+    # Add variables to variables
+    variables['recipe_variables'] = {
+        key: value
+        for key, value in variables.items()
+        if key != 'recipe_variables'
+    }
+
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
 
@@ -323,8 +222,8 @@ def _load_recipe(
 
 def _run_actions(
     recipe: _Union[dict, list],
-    functions: dict = {},
-    variables: dict = {},
+    functions: dict = None,
+    variables: dict = None,
     error: Exception = None
 ) -> None:
     """
@@ -335,6 +234,10 @@ def _run_actions(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :param error: (Optional) If the action is triggered by an exception, this contains the error object
     """
+    if functions is None:
+        functions = {}
+    if variables is None:
+        variables = {}
     # Ensure recipe object is a list
     if not isinstance(recipe, list):
         recipe = [recipe]
@@ -378,8 +281,8 @@ def _run_actions(
 
 def _read_data(
     recipe: _Union[dict, list],
-    functions: dict = {},
-    variables: dict = {},
+    functions: dict = None,
+    variables: dict = None,
     input_dataframe: _pandas.DataFrame = None
 ) -> _pandas.DataFrame:
     """
@@ -389,6 +292,10 @@ def _read_data(
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :return: Dataframe of imported data
     """
+    if functions is None:
+        functions = {}
+    if variables is None:
+        variables = {}
     # Ensure recipe is a list
     if not isinstance(recipe, list):
         recipe = [recipe]
@@ -490,7 +397,7 @@ def _read_data(
 def _execute_wrangles(
     df: _pandas.DataFrame,
     wrangles_list: list,
-    functions: dict = {},
+    functions: dict = None,
     variables: dict = None
 ) -> _pandas.DataFrame:
     """
@@ -502,8 +409,14 @@ def _execute_wrangles(
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :return: Pandas Dataframe of the Wrangled data
     """
+    # remove empty-named columns before executing wrangles - these can cause issues with some wrangles and are unlikely to be intentional
+    if any(col == "" for col in df.columns):
+        df = df.loc[:, df.columns != ""]
+
     if variables is None:
         variables = {}
+    if functions is None:
+        functions = {}
 
     # Ensure wrangles are defined as a list
     if not isinstance(wrangles_list, list):
@@ -727,7 +640,7 @@ def _execute_wrangles(
                     if wrangle == "rename" and "functions" not in params:
                         params["functions"] = functions
 
-                    if wrangle == "python":
+                    if wrangle in ["python", "log"]:
                         params['variables'] = variables
 
                     if wrangle == "matrix":
@@ -904,6 +817,7 @@ def _filter_dataframe(
     :param order_by: SQL order by criteria to sort based on
     :param preserve_index: Whether the maintain the index after filtering or reset to the default order
     """
+
     if where or order_by:
         sql = (
             f"""
@@ -946,8 +860,8 @@ def _filter_dataframe(
 def _write_data(
     df: _pandas.DataFrame,
     recipe: dict,
-    functions: dict = {},
-    variables: dict = {}
+    functions: dict = None,
+    variables: dict = None
 ) -> _pandas.DataFrame:
     """
     Export data to the requested targets as defined by the recipe
@@ -958,6 +872,10 @@ def _write_data(
     :param variables: (Optional) A dictionary of variables passed to the recipe
     :return: Dataframe, a subset if the 'dataframe' write type is set with specific columns
     """
+    if variables is None:
+        variables = {}
+    if functions is None:
+        functions = {}
     # Initialize returned df as df to start
     df_return = df
 

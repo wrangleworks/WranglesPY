@@ -169,7 +169,7 @@ def test_missing_error():
           name: ${missing}
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
+        wrangles.recipe.run(recipe)
     assert (
         info.typename == 'ValueError' 
         and info.value.args[0] == 'Variable ${missing} was not found.'
@@ -187,7 +187,7 @@ def test_missing_within_string_error():
           name: file-${missing}.xlsx
     """
     with pytest.raises(ValueError) as info:
-        raise wrangles.recipe.run(recipe)
+        wrangles.recipe.run(recipe)
     assert (
         info.typename == 'ValueError' 
         and info.value.args[0] == 'Variable ${missing} was not found.'
@@ -334,3 +334,34 @@ def test_false_value():
         variables={'empty': False}
     )
     assert df['header'][0] == False
+
+def test_variables_variable():
+    """
+    Test that the variables variable is working
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                vars: ${recipe_variables}
+        """
+    )
+    assert isinstance(df['vars'][0], dict)
+
+def test_variables_variable_overwrite():
+    """
+    Test that a recipe_variables variable is overwritten
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                vars: ${recipe_variables}
+        """,
+        variables={'recipe_variables': 'This is a string'}
+    )
+    assert isinstance(df['vars'][0], dict)
