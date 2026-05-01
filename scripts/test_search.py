@@ -3,8 +3,9 @@ import pandas as pd
 import wrangles
 import textwrap
 
-from dotenv import load_dotenv
-load_dotenv()
+# Not sure what this is doing, but leaving it commented out for now
+# from dotenv import load_dotenv
+# load_dotenv()
 
 api_key = os.getenv("SERPAPI_API_KEY")
 google_api_key = os.getenv("GEMINI_API_KEY")
