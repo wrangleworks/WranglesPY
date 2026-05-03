@@ -188,17 +188,20 @@ def retrieved_content_to_text(responses: list) -> str:
             lines.append("-" * 40)
             if isinstance(content, dict):
                 for k, v in content.items():
-                    # Handle nested lists cleanly (e.g., Specs, IDs)
+                    # Handle nested lists cleanly (e.g., IDs, Features)
                     if isinstance(v, list):
                         lines.append(f"{k}:")
                         for item in v:
                             lines.append(f"  - {item}")
-                    # Handle nested dicts cleanly (e.g., Pricing)
+                            
+                    # Handle nested dicts cleanly (e.g., Specifications, Pricing, Metadata)
                     elif isinstance(v, dict):
                         lines.append(f"{k}:")
                         for sub_k, sub_v in v.items():
-                            lines.append(f"  {sub_k}: {sub_v}")
-                    # Handle standard strings/numbers
+                            # Added a dash here for cleaner visual separation of spec key-value pairs
+                            lines.append(f"  - {sub_k}: {sub_v}")
+                            
+                    # Handle standard strings/numbers (e.g., Product, Brand, Category, Description)
                     else:
                         lines.append(f"{k}: {v}")
             else:
@@ -208,6 +211,7 @@ def retrieved_content_to_text(responses: list) -> str:
         
     # Separate multiple URLs with a clear divider
     return "\n\n========================================\n\n".join(blocks)
+
 
 def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
