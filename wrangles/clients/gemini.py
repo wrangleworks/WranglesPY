@@ -22,6 +22,7 @@ class GeminiURLContextClient:
     Output Rules:
     - If info is missing, write "Not Found".
     - Generate a unique summary for Description (do not recite).
+    - Format Specifications strictly as a dictionary of key-value pairs.
 
     Required Sections:
     ## Product: the official product name / title.
@@ -29,9 +30,10 @@ class GeminiURLContextClient:
     ## IDs: list of Part Numbers, SKUs, UPC, MPN, etc.
     ## Category: the product category breadcrumb.
     ## Description: summary text describing key features.
-    ## Specs: list of specifications and features.
+    ## Specifications: dictionary of specifications, attributes, and properties.
+    ## Features: list of features and benefits of the product in application.
     ## Pricing: pricing information including currency.
-    ## Metadata: list of page title, description, and keywords.
+    ## Metadata: list of page title, schema, and keywords.
     """
 
     def __init__(self, api_key: Optional[str] = None):
