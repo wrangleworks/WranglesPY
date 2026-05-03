@@ -161,6 +161,7 @@ def search_result_to_text(res: dict, num_queries: int = 1) -> str:
 def retrieved_content_to_text(responses: list) -> str:
     """
     Converts a list of retrieve_link_content dictionaries into a clean, readable string.
+    Dynamically handles nested lists (Features) and nested dictionaries (Specs, Pricing, IDs, Metadata).
     """
     if not responses:
         return ""
@@ -188,20 +189,23 @@ def retrieved_content_to_text(responses: list) -> str:
             lines.append("-" * 40)
             if isinstance(content, dict):
                 for k, v in content.items():
-                    # Handle nested lists cleanly (e.g., IDs, Features)
+                    # Handle Features (List of strings)
                     if isinstance(v, list):
                         lines.append(f"{k}:")
+                        if not v:
+                            lines.append("  - None/Empty")
                         for item in v:
                             lines.append(f"  - {item}")
                             
-                    # Handle nested dicts cleanly (e.g., Specifications, Pricing, Metadata)
+                    # Handle Specifications, Pricing, IDs, Metadata (Dictionaries)
                     elif isinstance(v, dict):
                         lines.append(f"{k}:")
+                        if not v:
+                            lines.append("  - None/Empty")
                         for sub_k, sub_v in v.items():
-                            # Added a dash here for cleaner visual separation of spec key-value pairs
                             lines.append(f"  - {sub_k}: {sub_v}")
                             
-                    # Handle standard strings/numbers (e.g., Product, Brand, Category, Description)
+                    # Handle Product, Brand, Category, Description (Strings)
                     else:
                         lines.append(f"{k}: {v}")
             else:
@@ -211,7 +215,7 @@ def retrieved_content_to_text(responses: list) -> str:
         
     # Separate multiple URLs with a clear divider
     return "\n\n========================================\n\n".join(blocks)
-
+    
 
 def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
