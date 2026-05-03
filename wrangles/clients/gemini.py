@@ -34,7 +34,7 @@ class GeminiURLContextClient:
     - Features: list of strings (features and benefits of the product in application).
     - Specifications: dictionary of strings (dynamic keys for specifications, attributes, and properties).
     - Pricing: strict dictionary with EXACTLY these keys: "Price", "Currency", "Availability", "Packaging", "Raw Text".
-    - Metadata: dictionary of strings (dynamic keys like "title", "description", "keywords").
+    - Metadata: dictionary of all available schema properties (meta/og, schema.org) such as title, description,  sku/mpn, brand, manufacturer, images, offers, and keywords.
     """
 
     def __init__(self, api_key: Optional[str] = None):
