@@ -57,11 +57,11 @@ def find_links(
         default: 10
       country:
         type: string
-        description: Country code for search results (default 'us'). Alias: gl.
+        description: "Country code for search results (default 'us'). Alias: gl."
         default: us
       language:
         type: string
-        description: Language code for search results (default 'en'). Alias: hl.
+        description: "Language code for search results (default 'en'). Alias: hl."
         default: en
       location:
         type: string
