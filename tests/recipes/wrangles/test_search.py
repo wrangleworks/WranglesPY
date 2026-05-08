@@ -1,14 +1,11 @@
 import wrangles
 import pandas as pd
-import os as _os
 
 
 class TestFindLinks:
     """
     Test search.find_links functionality
     """
-
-    SERPAPI_API_KEY = _os.environ.get("SERPAPI_API_KEY")
 
     def test_search_single_query(self):
         """
@@ -30,7 +27,7 @@ class TestFindLinks:
                 n_results: 5
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert 'results' in df.columns
         assert len(df.iloc[0]['results'][0]['search_results']) == 5
@@ -58,7 +55,7 @@ class TestFindLinks:
                 n_results: 3
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df['results'][0][0]['search_results']) == 3 # This check should be updated once results for each query are returned. Possibly add more checks too
     
@@ -82,7 +79,7 @@ class TestFindLinks:
                 n_results: 7
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df['results'][0][0]['search_results']) == 7
     
@@ -141,7 +138,7 @@ class TestFindLinks:
                 n_results: 3
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert 'results1' in df.columns and 'results2' in df.columns
         assert len(df['results1'][0][0]['search_results']) == 3
@@ -169,7 +166,7 @@ class TestFindLinks:
                 where: priority > 2
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert df.iloc[0]['results'] == ""  # priority = 1, not processed
         assert len(df.iloc[1]['results'][0]['search_results']) == 2  # priority = 5, processed
@@ -195,7 +192,7 @@ class TestFindLinks:
                 n_results: 3
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         ##### This is the current output which will soon be updated to output empty dicts #####
         # Empty and None queries should return empty results
@@ -225,7 +222,7 @@ class TestFindLinks:
                 include_prices: true
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert 'pricing' in df.iloc[0]['results'][0]['search_results'][0]
 
@@ -250,7 +247,7 @@ class TestFindLinks:
                 country: uk
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df.iloc[0]['results'][0]['search_results']) == 3
 
@@ -275,7 +272,7 @@ class TestFindLinks:
                 language: es
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df.iloc[0]['results'][0]['search_results']) == 3
     
@@ -321,7 +318,7 @@ class TestFindLinks:
                 n_results: 5
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert df.iloc[0]['results'] == []
 
@@ -346,7 +343,7 @@ class TestFindLinks:
                 threads: 5
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df) == 50
         assert all(len(row['results'][0]['search_results']) == 2 for _, row in df.iterrows())
@@ -371,7 +368,7 @@ class TestFindLinks:
                 n_results: 2
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df) == 3
         assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
@@ -395,7 +392,7 @@ class TestFindLinks:
                 n_results: 2
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=data, variables={"SERPAPI_API_KEY": self.SERPAPI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=data)
         
         assert len(df) == 2
         assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
@@ -411,8 +408,6 @@ class TestRetrieveLinkContent:
           - file:
               name: tests/temp/retrieve_link_content_test_data.json
         """).head(3)
-
-    GEMINI_API_KEY = _os.environ.get("GEMINI_API_KEY")
 
     def test_link_content(self):
         """
@@ -431,7 +426,7 @@ class TestRetrieveLinkContent:
               threads: 10
         """
         
-        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_link_data.head(1), variables={"GEMINI_API_KEY": self.GEMINI_API_KEY})
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_link_data.head(1))
         
         assert 'retrieved_data' in df.columns and 'Retrieved Content' in df.columns
         assert isinstance(df.iloc[0]['retrieved_data'], list) and isinstance(df.iloc[0]['retrieved_data'][0], dict)
