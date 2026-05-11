@@ -4,6 +4,7 @@ import re as _re
 import pandas as _pandas
 import numpy as _np
 
+import textwrap
 
 def flatten_lists(lst):
     return [item for sublist in lst for item in (flatten_lists(sublist) if isinstance(sublist, list) else [sublist])]
@@ -166,6 +167,59 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
     return df_output
 
 
+def raw_search_results_to_text(payloads: list) -> str:
+    """
+    Transforms a list of raw search payloads (dicts) into a highly readable 
+    string format for pre-scoring analysis.
+    """
+    if not payloads:
+        return "No results returned."
+
+    lines = []
+    for payload in payloads:
+        meta = payload.get("search_metadata", {})
+        query = meta.get("query", "Unknown Query")
+        query_idx = meta.get("query_index", 1)
+
+        lines.append(f"##   Query {query_idx}: {query}    ##")
+
+        results = payload.get("search_results", [])
+        if not results:
+            lines.append("No links found for this query.\n")
+            continue
+
+        for idx, r in enumerate(results, start=1):
+            row_id = r.get("input_row_id")
+            display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
+
+            lines.append(f"# --- Result {display_idx} --- #")
+            lines.append(f"Source:  {r.get('source', 'N/A')}")
+            lines.append(f"Link:    {r.get('link', 'N/A')}")
+            lines.append(f"Title:   {r.get('title', 'N/A')}")
+
+            snippet = r.get('snippet', '')
+            if snippet:
+                wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
+                lines.append(f"Snippet: {wrapped_snippet}")
+
+            pricing = r.get("pricing", {})
+            if pricing:
+                price = pricing.get("price")
+                curr = pricing.get("currency", "")
+                avail = pricing.get("availability", "Unknown availability")
+                vendor = pricing.get("vendor", r.get("source", "Unknown vendor"))
+                
+                if price is not None:
+                    lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
+                else:
+                    lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+
+            pos = r.get("position") or r.get("google_rank", "?")
+            lines.append(f"Position:{pos}\n")
+
+    return "\n".join(lines).strip()
+
+
 def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
     """
     Remove duplicates from a list. Preserves input order.
@@ -203,6 +257,59 @@ def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
             results.append(row) # pragma: no cover 
     
     return results
+
+
+def retrieved_content_to_text(responses: list) -> str:
+    """
+    Converts a list of retrieve_link_content dictionaries into a clean, readable string.
+    """
+    if not responses:
+        return ""
+        
+    if not isinstance(responses, list):
+        responses = [responses]
+        
+    blocks = []
+    for i, data in enumerate(responses, 1):
+        if not isinstance(data, dict):
+            blocks.append(f"[{i}] Invalid Data: {data}")
+            continue
+            
+        url = data.get("retrieved_url", "Unknown URL")
+        status = data.get("status", "Unknown Status")
+        error = data.get("error")
+        content = data.get("extracted_content")
+        
+        lines = [f"Content from URL: {url}", f"Status: {status}"]
+        
+        if error:
+            lines.append(f"Error: {error}")
+            
+        if content:
+            lines.append("-" * 40)
+            if isinstance(content, dict):
+                for k, v in content.items():
+                    # Handle nested lists cleanly (e.g., Specs, IDs)
+                    if isinstance(v, list):
+                        lines.append(f"{k}:")
+                        for item in v:
+                            lines.append(f"  - {item}")
+                    # Handle nested dicts cleanly (e.g., Pricing)
+                    elif isinstance(v, dict):
+                        lines.append(f"{k}:")
+                        for sub_k, sub_v in v.items():
+                            lines.append(f"  {sub_k}: {sub_v}")
+                    # Handle standard strings/numbers
+                    else:
+                        lines.append(f"{k}: {v}")
+            else:
+                lines.append(str(content))
+        
+        blocks.append("\n".join(lines))
+        
+    # Separate multiple URLs with a clear divider
+    return "\n\n========================================\n\n".join(blocks)
+
 
 def significant_figures(input_list: list, sig_figs: int = 3) -> list:
     """
