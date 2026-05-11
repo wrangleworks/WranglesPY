@@ -1,17 +1,20 @@
 import os
 from typing import Optional, Dict, Any
+from ..utils import LazyLoader as _LazyLoader
+
+# Lazy-loaded Google GenAI modules
+genai = _LazyLoader("google.genai")
+types = _LazyLoader("google.genai.types")
+errors = _LazyLoader("google.genai.errors")
 
 def _get_genai():
-    """Lazy loader for Google GenAI SDK to prevent hard dependencies."""
-    try:
-        from google import genai
-        from google.genai import types, errors
-        return genai, types, errors
-    except ImportError:
-        raise ImportError(
-            "The google-genai package is required for URL context retrieval. "
-            "Install it with: pip install google-genai"
-        )
+    """
+    Lazy loader for Google GenAI SDK to prevent hard dependencies.
+
+    The actual imports will not occur until one of the returned
+    modules is first accessed.
+    """
+    return genai, types, errors
 
 class GeminiURLContextClient:
     DEFAULT_SYSTEM_PROMPT = """
