@@ -311,6 +311,108 @@ def retrieved_content_to_text(responses: list) -> str:
     return "\n\n========================================\n\n".join(blocks)
 
 
+
+def search_result_to_text(res: dict, num_queries: int = 1) -> str:
+    """
+    Transforms a single scored dictionary back into a highly readable 
+    string format for analysis/export.
+    """
+    summary = res.get("summary", {})
+    metadata = res.get("metadata", {})
+    pricing = res.get("pricing", {})
+    
+    ## Result IDs    
+    idx = summary.get("scored_result_index", "?")
+    row_id = summary.get("input_row_id")
+    display_idx = f"{row_id}.{idx}" if row_id is not None else str(idx)
+    
+    score_str = ""
+    if "score" in summary:
+        part_match_type = summary.get("part_match_type", "none")
+        brand_matched = summary.get("brand_found", False)
+        
+        enum_display_map = {
+            "mpn_exact": "MPN Exact",
+            "mpn_partial": "MPN Partial",
+            "other_code_exact": "PC Exact",
+            "other_code_partial": "PC Partial"
+        }
+        
+        pc_text = enum_display_map.get(part_match_type, "")
+        if not pc_text and summary.get("part_code_found"):
+            pc_text = "PC"
+
+        if pc_text and brand_matched: 
+            match_text = f"{pc_text} & Brand Match"
+        elif pc_text: 
+            match_text = f"{pc_text} Match"
+        elif brand_matched: 
+            match_text = "Brand Match"
+        else: 
+            match_text = "No Match"
+            
+        score_str = f" | Score: {summary.get('score')} | {match_text}"
+        
+    filtered_badge = f" [FILTERED OUT: {summary.get('filtered_reason', 'unknown')}]" if summary.get("filtered") else ""
+    query_info = f" | from Query #{metadata.get('query_index')}" if num_queries > 1 else ""
+    
+    lines = []
+    lines.append(f"## --- Result {display_idx}{score_str}{filtered_badge}{query_info} --- ##")
+    lines.append(f"Source:  {summary.get('source', 'N/A')}")
+    
+    # 3. Moved Link above Title
+    lines.append(f"Link:    {summary.get('link', 'N/A')}")
+    lines.append(f"Title:   {summary.get('title', 'N/A')}")
+    
+    # 1. Removed 'Matches' block
+    
+    snippet = summary.get('snippet', '')
+    wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
+    lines.append(f"Snippet: {wrapped_snippet}")
+
+    if pricing:
+        price = pricing.get("price")
+        curr = pricing.get("currency") or ""
+        avail = pricing.get("availability") or "Unknown availability"
+        vendor = pricing.get("vendor") or "Unknown vendor"
+        if price is not None:
+            lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
+        else:
+            lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+    
+    # 2. Removed 'Position' block
+    
+    if "scoring_details" in res:
+        elems = res["scoring_details"]
+        total_score = elems.get("score", summary.get("score", 0))
+        lines.append(f"Scoring Details: {total_score} pts total")
+        
+        if "part_match_score" in elems:
+            lines.append(f"  - part_match_score: {elems.get('part_match_score')} ({elems.get('part_match_reason', '')})")
+            
+        if "brand_score" in elems:
+            lines.append(f"  - brand_score: {elems.get('brand_score')} ({elems.get('brand_match_reason', '')})")
+            
+        skip_keys = {
+            "score", "part_match_score", "part_match_reason", "part_match_visual", 
+            "brand_score", "brand_match_reason", "brand_match_visual"
+        }
+        
+        for k in list(elems.keys()):
+            if k.endswith("_reason"):
+                skip_keys.add(k)
+                
+        for k, v in elems.items():
+            if k not in skip_keys:
+                reason = elems.get(f"{k}_reason", "")
+                if reason:
+                    lines.append(f"  - {k}: {v} ({reason})")
+                else:
+                    lines.append(f"  - {k}: {v}")
+
+    return "\n".join(lines)
+
+
 def significant_figures(input_list: list, sig_figs: int = 3) -> list:
     """
     Format digits in text or standalone to the selected significant figures
