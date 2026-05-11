@@ -33,7 +33,7 @@ def retrieve_link_content(
     client_config: dict | None = None,
     prompt: str | None = None,
     model_id: str = "models/gemini-3-flash-preview",
-    output_format: str = "markdown",
+    output_format: str = "json",
     threads: int = 10
 ) -> dict | list:
     """
