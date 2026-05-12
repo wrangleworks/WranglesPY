@@ -1,9 +1,12 @@
 """
 Connector to read & write from the local filesystem
 
-Supports Excel, CSV, JSON and JSONL files.
+Supports Excel, CSV, JSON, JSONL and Parquet files.
 """
+from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
+import pyarrow as _pa
+import pyarrow.parquet as _pq
 import logging as _logging
 from typing import Union as _Union
 from io import BytesIO as _BytesIO
@@ -31,6 +34,7 @@ def read(
       - CSV (.csv, .txt)
       - JSON (.json), JSONL (.jsonl)
       - Pickle (.pkl, .pickle) files.
+      - Parquet (.parquet) files.
 
     JSON, JSONL, CSV and Pickle files may also be gzipped (e.g. .csv.gz, .json.gz) and will be decompressed.
 
@@ -85,6 +89,8 @@ def read(
         (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
     ):
         df = _pd.read_pickle(file_object, **kwargs).fillna('')
+    elif name.split('.')[-1] in ['parquet']:
+        df = _pd.read_parquet(file_object, **kwargs).fillna('')
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
@@ -150,6 +156,17 @@ properties:
 """
 
 
+def _parquet_chunk_size(df: _pd.DataFrame, target_mb: int = 128) -> int:
+    """
+    Return a row count that keeps each parquet chunk under target_mb of
+    in-memory data.  Falls back to 100 000 if the dataframe is empty.
+    """
+    if len(df) == 0:
+        return 1  # no rows to write; value is irrelevant
+    bytes_per_row = df.memory_usage(deep=True).sum() / len(df)
+    return max(1, int(target_mb * 1024 * 1024 / bytes_per_row))
+
+
 def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_object: _BytesIO  = None, formatting: dict = None, **kwargs) -> None:
     """
     Output a file to the local file system as defined by the parameters.
@@ -159,7 +176,8 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     - CSV (.csv, .txt)
     - JSON (.json), JSONL (.jsonl)
     - Pickle (.pkl, .pickle)
-    
+    - Parquet (.parquet)
+
     JSON, JSONL, CSV and pickle may also be gzipped (e.g. .csv.gz, .json.gz) and will be compressed.
 
     :param df: Dataframe to be written to a file
@@ -204,7 +222,14 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
             _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
             
         else:
-            df.to_excel(file_object, **kwargs)
+          with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
+            df.to_excel(writer, **kwargs)
+            
+            worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
+            
+            for row in worksheet.iter_rows():
+                for cell in row:
+                  cell.alignment = _Alignment(vertical='top')
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file
@@ -231,6 +256,20 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
         (len(name.split('.')) >= 3 and name.split('.')[-2] in ['pkl', "pickle"])
     ):
         df.to_pickle(file_object, **kwargs)
+    elif name.split('.')[-1] in ['parquet']:
+        chunk_size = kwargs.pop('chunk_size', _parquet_chunk_size(df))
+        index = kwargs.pop('index', False)
+        writer = None
+        try:
+            for start in range(0, len(df), chunk_size):
+                chunk = df.iloc[start:start + chunk_size]
+                table = _pa.Table.from_pandas(chunk, preserve_index=index)
+                if writer is None:
+                    writer = _pq.ParquetWriter(file_object, table.schema, **kwargs)
+                writer.write_table(table)
+        finally:
+            if writer:
+                writer.close()
     else:
       # If file type is not recognised
       raise ValueError(f"File type '{name.split('.')[-1]}' is not supported by the file connector.")
@@ -279,4 +318,7 @@ properties:
       - boolean
       - array
     description: Used for CSV files. Whether to write the column headers. Default true. Alternatively, provide a list to overwrite the headings.
+  chunk_size:
+    type: integer
+    description: Used for Parquet files. Number of rows to write per chunk to limit peak memory usage. Defaults to an automatically calculated value that keeps each chunk under 128 MB of in-memory data.
 """

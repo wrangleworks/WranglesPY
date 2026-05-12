@@ -309,3 +309,44 @@ class TestCaseWhen:
         result = wrangles.recipe.run(recipe, dataframe=df)
 
         assert result["Result"].tolist() == ["One", "Two", "Three"]
+
+
+class TestScoreSearchResults:
+    """
+    Test the search_score_results wrangle
+    """
+
+    score_data = wrangles.recipe.run("""
+        read:
+          - file:
+              name: tests/temp/pra_score_test_data.json
+        """)
+
+    def test_search_score(self):
+        """
+        Test score_search_results
+        """
+        recipe = """
+        wrangles:
+          - compute.score_search_results:
+              input:
+                - results          
+                - suppliers       
+                - part_codes
+                - MPN
+                - Description      
+              output: 
+                - scored_results
+                - Score Summary
+              blacklist_keywords: 
+                - ebay
+              must_match_part_code: false
+              mpn_exact_score: 8.0
+              part_code_exact_score: 6.0
+            """
+        df = wrangles.recipe.run(recipe, dataframe=self.score_data)
+
+        assert 'scored_results' in df.columns and 'Score Summary' in df.columns
+        assert isinstance(df.iloc[0]['scored_results'], list) and isinstance(df.iloc[0]['scored_results'][0], dict)
+        assert isinstance(df.iloc[0]['Score Summary'], list) and isinstance(df.iloc[0]['Score Summary'][0], str)
+        assert len(df.iloc[0]['scored_results']) == 4 and len(df.iloc[0]['Score Summary']) == 4

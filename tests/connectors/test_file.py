@@ -5,6 +5,8 @@ import uuid as _uuid
 import wrangles
 import pandas as _pd
 import pytest
+import polars as _pl
+from unittest.mock import patch
 
 
 class TestRead:
@@ -220,6 +222,29 @@ class TestRead:
             df["header1"][0] == "value1"
             and len(df) == 3
         ) 
+
+    def test_read_parquet(self):
+        """
+        Test reading a parquet file
+        """
+        filename = str(_uuid.uuid4())
+        _pd.DataFrame(
+            {"header1": ["value1", "value2", "value3"]}
+        ).to_parquet(f"tests/temp/{filename}.parquet", index=False)
+
+        df = wrangles.recipe.run(
+            """
+            read:
+              - file:
+                  name: tests/temp/${filename}.parquet
+            """,
+            variables={"filename": filename}
+        )
+
+        assert (
+            df["header1"][0] == "value1"
+            and len(df) == 3
+        )
 
     def test_read_unsupported_filetype(self):
         """
@@ -485,6 +510,179 @@ class TestWrite:
             and len(df) == 5
         )
 
+    def test_write_parquet(self):
+        """
+        Test writing a parquet file
+        """
+        filename = str(_uuid.uuid4())
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+            """,
+            variables={"filename": filename}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert (
+            df["header1"][0] == "value1"
+            and len(df) == 5
+        )
+
+    def test_write_parquet_chunk_size(self):
+        """
+        Test writing a parquet file with a custom chunk_size smaller than the data.
+        Data should be written correctly across multiple chunks.
+        """
+        filename = str(_uuid.uuid4())
+        rows = 25
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: ${rows}
+                  values:
+                    header1: value1
+                    header2: value2
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 7
+            """,
+            variables={"filename": filename, "rows": rows}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == rows and df["header1"][0] == "value1"
+
+    def test_write_parquet_chunk_size_larger_than_data(self):
+        """
+        Test writing a parquet file with a chunk_size larger than the number of rows.
+        Should behave identically to writing without a chunk_size.
+        """
+        filename = str(_uuid.uuid4())
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 5
+                  values:
+                    header1: value1
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 10000
+            """,
+            variables={"filename": filename}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == 5 and df["header1"][0] == "value1"
+
+    def test_write_parquet_chunk_size_equals_one(self):
+        """
+        Test writing a parquet file with chunk_size=1 (extreme case, one row per chunk).
+        All rows should still be present in the output.
+        """
+        filename = str(_uuid.uuid4())
+        rows = 10
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: ${rows}
+                  values:
+                    col: abc
+            write:
+              - file:
+                  name: tests/temp/${filename}.parquet
+                  chunk_size: 1
+            """,
+            variables={"filename": filename, "rows": rows}
+        )
+        df = _pd.read_parquet(f"tests/temp/{filename}.parquet")
+        assert len(df) == rows and df["col"][0] == "abc"
+
+    def test_write_parquet_chunk_size_data_integrity(self):
+        """
+        Test that chunked parquet write preserves row order and all values exactly.
+        Writes unique values per row to detect any row duplication or reordering.
+        """
+        import os
+        filename = str(_uuid.uuid4())
+        source = _pd.DataFrame({"id": list(range(50)), "val": [f"v{i}" for i in range(50)]})
+        path = f"tests/temp/{filename}.parquet"
+
+        wrangles.connectors.file.write(source, path, chunk_size=12)
+
+        result = _pd.read_parquet(path)
+        os.remove(path)
+
+        assert len(result) == 50
+        assert result["id"].tolist() == list(range(50))
+        assert result["val"].tolist() == [f"v{i}" for i in range(50)]
+
+    def test_write_parquet_auto_chunk_size(self):
+        """
+        Test that writing parquet without specifying chunk_size still produces
+        correct output — the auto-calculated chunk size should be used.
+        """
+        import os
+        rows = 200
+        source = _pd.DataFrame({"id": list(range(rows)), "val": [f"row_{i}" for i in range(rows)]})
+        path = f"tests/temp/{_uuid.uuid4()}.parquet"
+
+        wrangles.connectors.file.write(source, path)
+        result = _pd.read_parquet(path)
+        os.remove(path)
+
+        assert len(result) == rows and result["id"].tolist() == list(range(rows))
+
+    def test_parquet_chunk_size_helper_scales_with_row_width(self):
+        """
+        A wide DataFrame (many heavy columns) should produce a smaller auto chunk
+        size than a narrow DataFrame with the same number of rows.
+        """
+        narrow = _pd.DataFrame({"a": list(range(1000))})
+        wide = _pd.DataFrame({f"col_{i}": [f"long_string_value_{j}" for j in range(1000)] for i in range(50)})
+
+        narrow_chunk = wrangles.connectors.file._parquet_chunk_size(narrow)
+        wide_chunk = wrangles.connectors.file._parquet_chunk_size(wide)
+
+        assert wide_chunk < narrow_chunk
+
+    def test_parquet_chunk_size_helper_empty_df(self):
+        """
+        An empty DataFrame should return 1 (loop never executes, value is irrelevant).
+        """
+        empty = _pd.DataFrame({"a": []})
+        assert wrangles.connectors.file._parquet_chunk_size(empty) == 1
+
+    def test_write_parquet_chunk_vs_no_chunk_identical_output(self):
+        """
+        Test that writing a parquet file with chunk_size produces identical data
+        to writing without specifying chunk_size (default).
+        """
+        import os
+        source = _pd.DataFrame({"a": list(range(100)), "b": [str(i) for i in range(100)]})
+
+        chunked_path = f"tests/temp/{_uuid.uuid4()}.parquet"
+        default_path = f"tests/temp/{_uuid.uuid4()}.parquet"
+
+        wrangles.connectors.file.write(source, chunked_path, chunk_size=30)
+        wrangles.connectors.file.write(source, default_path)
+
+        chunked = _pd.read_parquet(chunked_path)
+        default = _pd.read_parquet(default_path)
+
+        os.remove(chunked_path)
+        os.remove(default_path)
+
+        assert chunked.equals(default)
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
@@ -642,6 +840,118 @@ class TestWrite:
         """
         )
         assert df.columns.tolist() == ['col1', 'col2']
+
+    def test_write_excel_vertical_alignment_with_formatting(self):  
+      """  
+      Test that Excel files written with formatting have vertical alignment set to top  
+      including headers  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/vertical_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 3  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+                formatting:  
+                  table_style: Table Style Medium9  
+          """  
+      )  
+        
+      # Verify the file was created and check alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+      
+      # Check data alignment (subsequent rows)  
+      for row in ws.iter_rows(min_row=2):  
+          for cell in row:  
+              assert cell.alignment.vertical == 'top', f"Cell {cell.coordinate} not aligned to top"  
+        
+      wb.close()  
+      Path(filename).unlink()  # cleanup
+
+  
+    def test_write_excel_vertical_alignment_without_formatting(self):  
+      """  
+      Test that Excel files written without formatting use pandas default  
+      (vertical alignment is 'bottom' by default in pandas/openpyxl)  
+      """  
+      import openpyxl  
+      from pathlib import Path  
+        
+      filename = "tests/temp/no_formatting_alignment_test.xlsx"  
+      wrangles.recipe.run(  
+          """  
+          read:  
+            - test:  
+                rows: 2  
+                values:  
+                  col1: value1  
+                  col2: value2  
+          write:  
+            - file:  
+                name: """ + filename + """  
+          """  
+      )  
+        
+      # Verify the file was created and check default alignment  
+      wb = openpyxl.load_workbook(filename)  
+      ws = wb.active  
+        
+      for row in ws.iter_rows(min_row=1):  
+          for cell in row:  
+              assert cell.alignment.vertical in ('top', None), f"Cell {cell.coordinate} alignment unexpected"  
+        
+      wb.close()
+      Path(filename).unlink()  # cleanup
+
+    def test_write_excel_header_format_valign_overrides_default(self):
+        """
+        Test that a user-supplied valign in header_format overrides the default 'top'
+        """
+        
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        captured = {}
+
+        def mock_write_excel(self, **kwargs):
+            captured.update(kwargs)
+
+        with patch.object(_pl.DataFrame, 'write_excel', mock_write_excel):
+            wrangles.connectors._formatting.file_format(df, workbook='test.xlsx', worksheet='Sheet1',
+                        header_format={'valign': 'bottom', 'bold': True})
+
+        assert captured['header_format']['valign'] == 'bottom'
+        assert captured['header_format']['bold'] == True
+
+    def test_write_excel_column_formats_valign_overrides_default(self):
+        """
+        Test that a user-supplied valign in column_formats overrides the default 'top',
+        while columns without an explicit valign still get the 'top' default.
+        """
+
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        captured = {}
+
+        def mock_write_excel(self, **kwargs):
+            captured.update(kwargs)
+
+        with patch.object(_pl.DataFrame, 'write_excel', mock_write_excel):
+            wrangles.connectors._formatting.file_format(df, workbook='test.xlsx', worksheet='Sheet1',
+                        column_formats={'col1': {'valign': 'vcenter', 'bold': True}})
+
+        # col1: user's vcenter wins over default top
+        assert captured['column_formats']['col1']['valign'] == 'vcenter'
+        assert captured['column_formats']['col1']['bold'] == True
+        # col2: no override, so default top is applied
+        assert captured['column_formats']['col2']['valign'] == 'top'
 
 def test_read_object():
     """

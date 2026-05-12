@@ -4717,6 +4717,75 @@ class TestPython:
         )
         assert df["result"][0] == "a b"
 
+    def test_python_double_variable(self):
+        """
+        Test a python command using a variable that is a variable itself
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: "'This is ' + ${var}"
+                var: ${string}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'string': 'a string'}
+        )
+        assert df["result"][0] == 'This is a string'
+
+    def test_python_double_variable_int(self):
+        """
+        Test data type is preserved when passing a double variable
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - python:
+                command: 5 + ${var}
+                var: ${int}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': ['a', 'c', 'z']
+            }),
+            variables={'int': 5}
+        )
+        assert df["result"][0] == 10
+
+    def test_python_delayed_variable(self):
+        """
+        Test all delayed variables are correctly resolved before the command is run
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: A Column
+                value: The Value
+
+            - explode:
+                input: header1
+
+            - python:
+                command: |
+                    {'Columns': ${columns}, 'Row Count': ${row_count},
+                    'Column Count': ${column_count}, 'DF': ${df}}
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                'header1': [['a', 'b'], ['c', 'd'], ['z']],
+                'header2': ['b', 'd', 'p'],
+                'numbers': [1, 2, 6]
+            })
+        )
+        assert df["result"][0]['Columns'] == ['header1', 'header2', 'numbers', 'A Column']
+        assert df["result"][0]['Row Count'] == 5
+        assert df["result"][0]['Column Count'] == 4
+        assert isinstance(df["result"][0]['DF'], pd.DataFrame)
+
 
 class TestAccordion:
     """
@@ -8072,3 +8141,50 @@ class TestWrangleExecutionLogging:
         )
         assert re.search(r'::\s*\d+\.\d{3}s$', completed_msg), \
             f"Expected duration suffix like ':: 0.001s' in: {completed_msg}"
+        # Check that the wildcard is not expanded (appears as literal)  
+        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
+
+
+class TestWrangleSchema:
+    """
+    Validate that every recipe wrangle has a parseable YAML schema docstring.
+    Regression test for issues like lookup being silently missing from the schema
+    because its docstring couldn't be parsed.
+    """
+
+    def _collect_leaf_methods(self, obj, path=''):
+        """Return (path, method) pairs for all non-hidden leaf methods."""
+        non_hidden = [m for m in dir(obj) if not m.startswith('_')]
+        if non_hidden:
+            results = []
+            for method in non_hidden:
+                if method not in ('main', 'pandas'):
+                    results.extend(
+                        self._collect_leaf_methods(getattr(obj, method), f'{path}.{method}')
+                    )
+            return results
+        return [(path, obj)]
+
+    def test_all_wrangle_docstrings_parse_as_yaml(self):
+        """
+        Any wrangle docstring that begins with 'type:' or 'anyOf:' (i.e. is intended
+        to be a JSON Schema) must parse as valid YAML without errors.
+        This catches regressions like lookup being silently dropped from the schema
+        because its docstring had a YAML syntax error.
+        """
+        import yaml
+
+        failures = []
+        for path, method in self._collect_leaf_methods(wrangles.recipe._recipe_wrangles):
+            doc = getattr(method, '__doc__', None)
+            if doc is None:
+                continue
+            stripped = doc.strip()
+            if not (stripped.startswith('type:') or stripped.startswith('anyOf:')):
+                continue
+            try:
+                yaml.safe_load(doc)
+            except Exception as e:
+                failures.append(f'{path}: YAML parse error — {e}')
+
+        assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)

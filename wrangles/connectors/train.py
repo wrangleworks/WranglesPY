@@ -637,6 +637,113 @@ class lookup():
               - overwrite
         """
 
+
+class meta_data():
+    _schema = {}
+
+    def read(model_id: str) -> _pd.DataFrame:
+        """
+        Read the metadata for a Wrangle model.
+
+        :param model_id: Specific model to read.
+        :returns: DataFrame containing the model's metadata as a single row
+        """
+        _logging.info(f": Reading Wrangle metadata :: {model_id}")
+        metadata = _data.model(model_id)
+
+        return _pd.DataFrame([metadata])
+
+    _schema["read"] = """
+            type: object
+            description: |
+                Read the metadata for a Wrangle model.
+                Returns a DataFrame with the following columns:
+                    - id
+                    - name
+                    - type
+                    - purpose
+                    - status
+                    - path
+                    - batch_size
+                    - tags
+                    - notes
+                    - created_by
+                    - date_created
+                    - modified_by
+                    - date_modified
+                    - variant
+                    - settings
+            additionalProperties: false
+            required:
+                - model_id
+            properties:
+                model_id:
+                    type: string
+                    description: Specific model to read
+            """
+
+    def write(df: _pd.DataFrame, model_id: str) -> None:
+        """
+        Update the metadata for a Wrangle model.
+
+        :param df: Single-row DataFrame containing the metadata fields to update
+        :param model_id: Model to update
+        """
+        _logging.info(f": Updating Wrangle metadata :: {model_id}")
+        metadata = df.iloc[0].dropna().to_dict()
+
+        _allowed_fields = {'name', 'batch_size', 'tags', 'notes', 'settings'}
+        invalid_fields = set(metadata.keys()) - _allowed_fields
+        if invalid_fields:
+            raise ValueError(
+                f"The following fields cannot be updated: {', '.join(sorted(invalid_fields))}. "
+                f"Only {', '.join(sorted(_allowed_fields))} are allowed."
+            )
+
+        _field_types = {
+            'name': str,
+            'batch_size': int,
+            'tags': (list, dict),
+            'notes': str,
+            'settings': dict,
+        }
+        for field, value in metadata.items():
+            expected = _field_types[field]
+            if not isinstance(value, expected):
+                type_names = (
+                    " or ".join(t.__name__ for t in expected)
+                    if isinstance(expected, tuple)
+                    else expected.__name__
+                )
+                raise TypeError(
+                    f"'{field}' must be of type {type_names}, got {type(value).__name__}."
+                )
+
+        _data.model_update(model_id, metadata)
+        # Log summary of updated fields
+        summary = ', '.join([f"{k} was updated to {v}" for k, v in metadata.items()])
+        _logging.info(f"Metadata update summary: {summary}")
+
+    _schema["write"] = """
+        type: object
+        description: |
+            Update the metadata for a Wrangle model.
+            The following fields can be updated:
+                - name
+                - batch_size
+                - tags
+                - notes
+                - settings
+        additionalProperties: false
+        required:
+          - model_id
+        properties:
+          model_id:
+            type: string
+            description: Model to update
+        """
+
+
 class standardize():
     _schema = {}
 

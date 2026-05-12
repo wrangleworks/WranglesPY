@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 📚 Documentation
+    url: https://docs.wrangles.io
+    about: Check our documentation
+  - name: 💬 Support
+    url: https://wrangleworks.com/support
+    about: Contact support team
