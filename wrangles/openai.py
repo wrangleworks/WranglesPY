@@ -1,4 +1,5 @@
 import base64 as _base64
+import re as _re
 import yaml as _yaml
 import json as _json
 import copy as _copy
@@ -11,6 +12,126 @@ try:
     from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
     from yaml import SafeDumper as _YAMLDumper
+
+
+# OpenAI o-series reasoning models that don't support temperature / top_p etc.
+_REASONING_MODELS = frozenset({
+    "o1", "o1-mini", "o1-preview",
+    "o3", "o3-mini",
+    "o4-mini", "o4-mini-high",
+})
+
+# Parameters silently rejected by reasoning models
+_REASONING_UNSUPPORTED_PARAMS = frozenset({
+    "temperature", "top_p", "presence_penalty", "frequency_penalty",
+})
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Return True for OpenAI o-series reasoning models (by name or pattern)."""
+    return model in _REASONING_MODELS or bool(_re.match(r"^o\d", model))
+
+
+def build_extract_messages(
+    instructions=None,
+    examples=None,
+    taxonomy=None,
+    messages=None,
+) -> list:
+    """
+    Build the messages list for extract.ai prompt construction.
+
+    :param instructions: System-level instructions string or list of strings to guide the AI.
+    :param examples: Few-shot examples as a list of {"input": ..., "output": ...} dicts.
+    :param taxonomy: Controlled vocabulary for outputs as a dict or list.
+    :param messages: Additional user-level messages (string or list) for backward compatibility.
+    :return: Formatted messages list ready to pass to chatGPT settings.
+    """
+    result = [
+        {
+            "role": "system",
+            "content": " ".join([
+                "You are an expert data analyst.",
+                "Your job is to extract and standardize information as provided by the user.",
+                "The data may be provided as a single value or as YAML syntax with keys and values."
+            ])
+        },
+        {
+            "role": "system",
+            "content": " ".join([
+                "Use the function parse_output to return the data to be submitted.",
+                "Only use the functions you have been provided with.",
+            ])
+        },
+    ]
+
+    if instructions:
+        if isinstance(instructions, str):
+            instructions = [instructions]
+        for instruction in instructions:
+            result.append({"role": "system", "content": str(instruction)})
+
+    if taxonomy is not None:
+        if isinstance(taxonomy, (dict, list)):
+            taxonomy_text = _yaml.dump(
+                taxonomy,
+                indent=2,
+                sort_keys=False,
+                allow_unicode=True,
+                Dumper=_YAMLDumper,
+                width=1000
+            )
+        else:
+            taxonomy_text = str(taxonomy)
+        result.append({
+            "role": "system",
+            "content": f"Use only values from the following taxonomy:\n{taxonomy_text}"
+        })
+
+    if examples:
+        for i, ex in enumerate(examples):
+            call_id = f"example_{i}"
+            input_val = ex.get("input", "")
+            if isinstance(input_val, (dict, list)):
+                input_content = _yaml.dump(
+                    input_val,
+                    indent=2,
+                    sort_keys=False,
+                    allow_unicode=True,
+                    Dumper=_YAMLDumper,
+                    width=1000
+                )
+            else:
+                input_content = str(input_val)
+            result.append({
+                "role": "user",
+                "content": f"\n---Data:\n---\n{input_content}"
+            })
+            result.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": call_id,
+                    "type": "function",
+                    "function": {
+                        "name": "parse_output",
+                        "arguments": _json.dumps(ex.get("output", {}))
+                    }
+                }]
+            })
+            result.append({
+                "role": "tool",
+                "content": "Success",
+                "tool_call_id": call_id
+            })
+
+    if messages:
+        if not isinstance(messages, list):
+            messages = [str(messages)]
+        for message in messages:
+            result.append({"role": "user", "content": message})
+
+    return result
 
 
 def chatGPT(
@@ -99,9 +220,17 @@ def chatGPT(
                     raise ValueError("The schema submitted for output is not valid.")
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
- 
-        retries -=1
-        _time.sleep(backoff_time)
+
+        retries -= 1
+        # For 429 rate-limit responses, honour the Retry-After header
+        # so we wait exactly as long as OpenAI requests instead of guessing.
+        sleep_time = backoff_time
+        if response is not None and response.status_code == 429:
+            try:
+                sleep_time = float(response.headers.get("retry-after", backoff_time))
+            except (TypeError, ValueError):
+                pass
+        _time.sleep(sleep_time)
         backoff_time *= 2
 
     if response and response.ok:

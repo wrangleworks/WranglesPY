@@ -78,6 +78,10 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
+    instructions: _Union[str, list] = None,
+    examples: list = None,
+    taxonomy: _Union[dict, list] = None,
+    max_completion_tokens: int = None,
     **kwargs
 ):
     """
@@ -170,6 +174,42 @@ def ai(
           Enable strict mode. Default False.
           If True, the function will be required to match the schema,
           but may be more limited in the schema it can return.
+      instructions:
+        type:
+          - string
+          - array
+        description: >-
+          System-level instructions to guide the AI across all rows.
+          Accepts a single string or a list of strings.
+          Added before any row data is processed.
+      examples:
+        type: array
+        description: >-
+          Few-shot examples to show the AI the expected extraction
+          behaviour before processing real data. Each item must be
+          a dict with an "input" key and an "output" key.
+        items:
+          type: object
+          properties:
+            input:
+              description: The example input value or object.
+            output:
+              type: object
+              description: The expected extracted output for the example input.
+      taxonomy:
+        type:
+          - object
+          - array
+        description: >-
+          Controlled vocabulary for outputs. The AI is instructed to
+          use only values from this taxonomy. Accepts a dict or list.
+      max_completion_tokens:
+        type: integer
+        description: >-
+          Maximum number of tokens the model may generate per row.
+          Preferred over the deprecated max_tokens for all current
+          OpenAI models. Useful for controlling cost and preventing
+          unexpectedly long responses.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
@@ -236,6 +276,10 @@ def ai(
         api_key=api_key,
         output=output,
         model_id=model_id,
+        instructions=instructions,
+        examples=examples,
+        taxonomy=taxonomy,
+        max_completion_tokens=max_completion_tokens,
         **kwargs
     )
 

@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+from unittest.mock import patch
 
 
 class TestExtractAddress:
@@ -4046,3 +4047,558 @@ class TestExtractAI:
             })
         )
         assert df['numbers'][0] >= 7
+
+    def test_ai_instructions(self):
+        """
+        Test extract.ai with system-level instructions that modify output format
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                instructions: Always return length values in uppercase letters.
+                output:
+                  length:
+                    type: string
+                    description: Any lengths found in the data such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        matches = sum([
+            df['length'][0].upper() == df['length'][0],
+            df['length'][1].upper() == df['length'][1],
+        ])
+        assert matches >= 1
+
+    def test_ai_taxonomy(self):
+        """
+        Test extract.ai with a taxonomy list to constrain output values
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                taxonomy:
+                  - positive
+                  - negative
+                  - neutral
+                output:
+                  sentiment:
+                    type: string
+                    description: The sentiment of the text
+            """,
+            dataframe=pd.DataFrame({
+                "data": [
+                    "I absolutely loved it!",
+                    "Terrible experience.",
+                ],
+            })
+        )
+        assert (
+            df['sentiment'][0] in ['positive', 'negative', 'neutral'] and
+            df['sentiment'][1] in ['positive', 'negative', 'neutral']
+        )
+
+    def test_ai_examples(self):
+        """
+        Test extract.ai with few-shot examples guiding the extraction
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4o-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                timeout: 60
+                retries: 2
+                examples:
+                  - input: bolt 10mm
+                    output:
+                      length: 10mm
+                  - input: cable 2m
+                    output:
+                      length: 2m
+                output:
+                  length:
+                    type: string
+                    description: Any lengths found in the data such as cm, m, ft, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm"],
+            })
+        )
+        assert df['length'][0] is not None and df['length'][0] != ''
+
+
+class TestExtractAIPromptConstruction:
+    """
+    Unit tests for extract.ai prompt construction using mocked chatGPT calls.
+    These verify message structure without hitting the real OpenAI API.
+    """
+
+    def test_instructions_string_added_as_system_message(self):
+        """
+        A single instructions string becomes a system-role message.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                instructions="Always return values in millimetres.",
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert any("Always return values in millimetres." in m['content'] for m in system_msgs)
+
+    def test_instructions_list_each_become_system_messages(self):
+        """
+        A list of instructions strings each become a separate system-role message.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                instructions=["Instruction one.", "Instruction two."],
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert (
+                any("Instruction one." in m['content'] for m in system_msgs) and
+                any("Instruction two." in m['content'] for m in system_msgs)
+            )
+
+    def test_taxonomy_dict_added_as_system_message(self):
+        """
+        A taxonomy dict is serialised into a system-role message.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"color": "red"}
+            wrangles.extract.ai(
+                "red hat",
+                api_key="test_key",
+                output={"color": {"type": "string", "description": "color"}},
+                taxonomy={"colors": ["red", "green", "blue"]},
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert any("taxonomy" in m['content'].lower() for m in system_msgs)
+
+    def test_taxonomy_list_added_as_system_message(self):
+        """
+        A taxonomy list is serialised into a system-role message.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"material": "steel"}
+            wrangles.extract.ai(
+                "steel bolt",
+                api_key="test_key",
+                output={"material": {"type": "string", "description": "material"}},
+                taxonomy=["steel", "aluminium", "plastic"],
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert any("taxonomy" in m['content'].lower() for m in system_msgs)
+
+    def test_examples_inserted_as_tool_call_few_shot_messages(self):
+        """
+        Examples are inserted as user / assistant(tool_calls) / tool message triples.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                examples=[
+                    {"input": "bolt 10mm", "output": {"length": "10mm"}},
+                    {"input": "cable 2m", "output": {"length": "2m"}},
+                ],
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            msgs = settings['messages']
+            tool_msgs = [m for m in msgs if m['role'] == 'tool']
+            assistant_tool_call_msgs = [m for m in msgs if m.get('tool_calls')]
+            assert (
+                len(tool_msgs) == 2 and
+                len(assistant_tool_call_msgs) == 2 and
+                assistant_tool_call_msgs[0]['tool_calls'][0]['function']['name'] == 'parse_output'
+            )
+
+    def test_examples_output_serialised_as_json_arguments(self):
+        """
+        The output dict of each example is JSON-serialised in the function arguments.
+        """
+        import json
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "10mm"}
+            wrangles.extract.ai(
+                "bolt 10mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                examples=[{"input": "bolt 10mm", "output": {"length": "10mm"}}],
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assistant_msgs = [m for m in settings['messages'] if m.get('tool_calls')]
+            args = json.loads(assistant_msgs[0]['tool_calls'][0]['function']['arguments'])
+            assert args == {"length": "10mm"}
+
+    def test_legacy_messages_still_added_as_user_messages(self):
+        """
+        The existing messages parameter still appends user-role messages.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25MM"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                messages="Return all values in uppercase.",
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            user_msgs = [m for m in settings['messages'] if m['role'] == 'user']
+            assert any("Return all values in uppercase." in m['content'] for m in user_msgs)
+
+    def test_instructions_and_taxonomy_combined(self):
+        """
+        instructions and taxonomy can be used together in the same call.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"material": "steel"}
+            wrangles.extract.ai(
+                "steel bolt",
+                api_key="test_key",
+                output={"material": {"type": "string", "description": "material"}},
+                instructions="Be concise.",
+                taxonomy=["steel", "aluminium", "plastic"],
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert (
+                any("Be concise." in m['content'] for m in system_msgs) and
+                any("taxonomy" in m['content'].lower() for m in system_msgs)
+            )
+
+    def test_no_optional_params_baseline_messages(self):
+        """
+        When no optional prompt params are given, only the two baseline
+        system messages are produced (data analyst + parse_output instruction).
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            system_msgs = [m for m in settings['messages'] if m['role'] == 'system']
+            assert len(system_msgs) == 2
+
+
+class TestExtractAIReasoningModelGuard:
+    """
+    Unit tests for the reasoning-model guard in extract.ai.
+    Verifies that parameters unsupported by o-series models are stripped
+    before the request is sent.
+    """
+
+    def test_temperature_stripped_for_o3_mini(self):
+        """
+        temperature passed via kwargs must be removed for o3-mini.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                model="o3-mini",
+                temperature=0.8,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert "temperature" not in settings
+
+    def test_top_p_stripped_for_o3_mini(self):
+        """
+        top_p passed via kwargs must be removed for o3-mini.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                model="o3-mini",
+                top_p=0.9,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert "top_p" not in settings
+
+    def test_multiple_unsupported_params_stripped_for_o1(self):
+        """
+        All unsupported params are stripped in a single call for o1.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                model="o1",
+                temperature=0.5,
+                top_p=0.9,
+                presence_penalty=0.1,
+                frequency_penalty=0.2,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert not any(
+                p in settings
+                for p in ("temperature", "top_p", "presence_penalty", "frequency_penalty")
+            )
+
+    def test_temperature_preserved_for_gpt4o(self):
+        """
+        temperature must NOT be stripped for standard gpt-4o models.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                model="gpt-4o",
+                temperature=0.5,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert settings.get("temperature") == 0.5
+
+    def test_unknown_o_series_pattern_stripped(self):
+        """
+        A future model named 'o5-mini' (matching ^o\\d) is also guarded.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                model="o5-mini",
+                temperature=0.7,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert "temperature" not in settings
+
+
+class TestExtractAIMaxCompletionTokens:
+    """
+    Unit tests for the max_completion_tokens parameter.
+    """
+
+    def test_max_completion_tokens_added_to_settings(self):
+        """
+        max_completion_tokens appears in the settings sent to chatGPT.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                max_completion_tokens=100,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert settings.get("max_completion_tokens") == 100
+
+    def test_max_tokens_evicted_when_max_completion_tokens_set(self):
+        """
+        If a caller passes max_tokens via kwargs alongside max_completion_tokens,
+        max_tokens is removed to avoid an API conflict.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+                max_completion_tokens=200,
+                max_tokens=500,
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert settings.get("max_completion_tokens") == 200
+            assert "max_tokens" not in settings
+
+    def test_no_max_completion_tokens_by_default(self):
+        """
+        When omitted, neither max_completion_tokens nor max_tokens
+        appears in settings.
+        """
+        with patch('wrangles.openai.chatGPT') as mock_chatgpt:
+            mock_chatgpt.return_value = {"length": "25mm"}
+            wrangles.extract.ai(
+                "wrench 25mm",
+                api_key="test_key",
+                output={"length": {"type": "string", "description": "length"}},
+            )
+            settings = mock_chatgpt.call_args[0][2]
+            assert "max_completion_tokens" not in settings
+            assert "max_tokens" not in settings
+
+
+class TestRateLimitAwareBackoff:
+    """
+    Unit tests for the Retry-After-aware backoff in chatGPT.
+    """
+
+    def _make_response(self, status_code, headers=None, body=None):
+        """Build a minimal mock requests.Response."""
+        from unittest.mock import MagicMock
+        resp = MagicMock()
+        resp.ok = status_code < 400
+        resp.status_code = status_code
+        resp.headers = headers or {}
+        resp.json.return_value = body or {}
+        return resp
+
+    def test_retry_after_header_used_on_429(self):
+        """
+        When OpenAI returns 429 with Retry-After: 3, sleep is called
+        with 3 seconds (not the default 1-second backoff).
+        """
+        import wrangles.openai as oai
+
+        ok_response = self._make_response(200)
+        ok_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {"arguments": '{"length": "25mm"}'}
+                    }]
+                }
+            }]
+        }
+        rate_limit_response = self._make_response(
+            429,
+            headers={"retry-after": "3"},
+            body={"error": {"message": "Rate limit exceeded"}}
+        )
+
+        with patch('wrangles.openai._requests.post', side_effect=[rate_limit_response, ok_response]), \
+             patch('wrangles.openai._time.sleep') as mock_sleep:
+            oai.chatGPT(
+                "test data",
+                api_key="test_key",
+                settings={
+                    "model": "gpt-4o-mini",
+                    "messages": [],
+                    "tools": [{
+                        "type": "function",
+                        "function": {
+                            "name": "parse_output",
+                            "parameters": {"required": ["length"]}
+                        }
+                    }]
+                },
+                retries=1,
+            )
+        mock_sleep.assert_called_once_with(3.0)
+
+    def test_exponential_backoff_used_when_no_retry_after(self):
+        """
+        When a non-429 error has no Retry-After header, the default
+        exponential backoff value (1 second on first retry) is used.
+        """
+        import wrangles.openai as oai
+
+        ok_response = self._make_response(200)
+        ok_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {"arguments": '{"length": "25mm"}'}
+                    }]
+                }
+            }]
+        }
+        error_response = self._make_response(
+            500,
+            body={"error": {"message": "Internal server error"}}
+        )
+
+        with patch('wrangles.openai._requests.post', side_effect=[error_response, ok_response]), \
+             patch('wrangles.openai._time.sleep') as mock_sleep:
+            oai.chatGPT(
+                "test data",
+                api_key="test_key",
+                settings={
+                    "model": "gpt-4o-mini",
+                    "messages": [],
+                    "tools": [{
+                        "type": "function",
+                        "function": {
+                            "name": "parse_output",
+                            "parameters": {"required": ["length"]}
+                        }
+                    }]
+                },
+                retries=1,
+            )
+        mock_sleep.assert_called_once_with(1)
+
+    def test_retry_after_float_parsed_correctly(self):
+        """
+        Retry-After values with decimals (e.g. '1.5') are parsed as float.
+        """
+        import wrangles.openai as oai
+
+        ok_response = self._make_response(200)
+        ok_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {"arguments": '{"length": "25mm"}'}
+                    }]
+                }
+            }]
+        }
+        rate_limit_response = self._make_response(
+            429,
+            headers={"retry-after": "1.5"},
+            body={"error": {"message": "Rate limit exceeded"}}
+        )
+
+        with patch('wrangles.openai._requests.post', side_effect=[rate_limit_response, ok_response]), \
+             patch('wrangles.openai._time.sleep') as mock_sleep:
+            oai.chatGPT(
+                "test data",
+                api_key="test_key",
+                settings={
+                    "model": "gpt-4o-mini",
+                    "messages": [],
+                    "tools": [{
+                        "type": "function",
+                        "function": {
+                            "name": "parse_output",
+                            "parameters": {"required": ["length"]}
+                        }
+                    }]
+                },
+                retries=1,
+            )
+        mock_sleep.assert_called_once_with(1.5)

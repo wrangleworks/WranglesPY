@@ -60,6 +60,10 @@ def ai(
     messages: list = [],
     url: str = "https://api.openai.com/v1/chat/completions",
     strict: bool = False,
+    instructions: _Union[str, list] = None,
+    examples: list = None,
+    taxonomy: _Union[dict, list] = None,
+    max_completion_tokens: int = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -78,15 +82,23 @@ def ai(
     :param output: (Optional) This can be a string prompting the output, a JSON schema definition \
         of the output requested or a dict of JSON schema definitions.
     :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
-        If both are provided, output that precedence over the definition from the model_id.
+        If both are provided, output takes precedence over the definition from the model_id.
     :param model: (Optional) The model to use for the extraction.
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
-    :param messages: (Optional) Overall prompts to pass additional instructions.
+    :param messages: (Optional) Additional user-level messages to append. Prefer instructions for system-level guidance.
     :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
     :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
         but may be more limited in the schema it can return.
+    :param instructions: (Optional) System-level instructions as a string or list of strings to guide the AI \
+        across all rows. Added before any row data is processed.
+    :param examples: (Optional) Few-shot examples as a list of {"input": ..., "output": ...} dicts. \
+        Each example shows the AI the expected extraction behaviour before processing real data.
+    :param taxonomy: (Optional) Controlled vocabulary for outputs as a dict or list. \
+        The AI is instructed to use only values from this taxonomy.
+    :param max_completion_tokens: (Optional) Maximum number of tokens the model may generate. \
+        Preferred over the deprecated max_tokens for all current OpenAI models.
 
     :return: A scalar or list of extracted information.
     """
@@ -248,33 +260,12 @@ def ai(
         for k, v in output.items()
     }
 
-    # Format any user submitted header messages
-    if messages and not isinstance(messages, list):
-        messages = [str(messages)]
-
-    messages = [
-        {
-            "role": "system",
-            "content": " ".join([
-                "You are an expert data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
-            ])
-        },
-        {
-            "role": "system",
-            "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
-            ])
-        },
-    ] + [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
-    ]
+    messages = _openai.build_extract_messages(
+        instructions=instructions,
+        examples=examples,
+        taxonomy=taxonomy,
+        messages=messages or None,
+    )
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
@@ -286,6 +277,12 @@ def ai(
         **default_settings.get(model, {}),
         **kwargs
     }
+
+    # Reasoning-model guard: o-series models reject temperature/top_p etc.
+    # Strip them silently so callers don't need to know the model family.
+    if _openai._is_reasoning_model(model):
+        for param in _openai._REASONING_UNSUPPORTED_PARAMS:
+            kwargs.pop(param, None)
 
     settings = {
         "model": model,
@@ -307,6 +304,10 @@ def ai(
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
         **kwargs
     }
+
+    if max_completion_tokens is not None:
+        settings["max_completion_tokens"] = max_completion_tokens
+        settings.pop("max_tokens", None)  # avoid conflict with the deprecated param
 
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = list(executor.map(
