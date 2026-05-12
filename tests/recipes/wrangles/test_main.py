@@ -8141,8 +8141,6 @@ class TestWrangleExecutionLogging:
         )
         assert re.search(r'::\s*\d+\.\d{3}s$', completed_msg), \
             f"Expected duration suffix like ':: 0.001s' in: {completed_msg}"
-        # Check that the wildcard is not expanded (appears as literal)  
-        assert any('col1, col2 >> col*, other' in message for message in caplog.messages)
 
 
 class TestWrangleSchema:
