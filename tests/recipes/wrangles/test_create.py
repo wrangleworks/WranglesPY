@@ -4,7 +4,9 @@ import pytest
 import numpy as np
 import uuid
 import random
+import os
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
 
 class TestCreateColumn:
@@ -1438,6 +1440,141 @@ class TestCreateEmbeddings:
             dataframe=pd.DataFrame({'text': []})
         )
         assert df.empty and list(df.columns) == ['text', 'embedding']
+
+    @pytest.mark.skipif(not os.getenv("JINA_API_KEY"), reason="JINA_API_KEY not set")
+    def test_create_embeddings_jina(self):
+        """
+        Live integration test for create.embeddings with Jina provider.
+        Skipped when JINA_API_KEY environment variable is not set.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - create.embeddings:
+                input: text
+                output: embedding
+                api_key: ${JINA_API_KEY}
+                provider: jina
+                model: jina-embeddings-v3
+                dimensions: 1024
+                retries: 1
+            """,
+            dataframe=pd.DataFrame({'text': ['Hello world']})
+        )
+        assert isinstance(df['embedding'][0], np.ndarray)
+        assert len(df['embedding'][0]) == 1024
+
+    def test_create_embeddings_jina_no_encoding_format(self):
+        """
+        Test that encoding_format is NOT sent in the request body when using the
+        Jina provider (Jina does not support that parameter).
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            wrangles.openai.embeddings(
+                ["test text"],
+                api_key="fake-key",
+                provider="jina",
+                model="jina-embeddings-v3",
+            )
+            call_kwargs = mock_post.call_args.kwargs if mock_post.call_args.kwargs else {}
+            if not call_kwargs:
+                # fall back to positional + keyword mix
+                call_kwargs = mock_post.call_args[1] if len(mock_post.call_args) > 1 else {}
+            assert "encoding_format" not in call_kwargs.get("json", {})
+
+    def test_create_embeddings_invalid_provider(self):
+        """
+        Test that passing an unsupported provider raises a ValueError.
+        """
+        with pytest.raises(ValueError, match="Provider must be one of"):
+            wrangles.openai.embeddings(
+                ["test"],
+                api_key="fake-key",
+                provider="unsupported-provider",
+            )
+
+    def test_create_embeddings_jina_auto_url(self):
+        """
+        Test that when provider=jina is used without an explicit url, the request
+        is sent to the Jina API endpoint automatically.
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - create.embeddings:
+                    input: text
+                    output: embedding
+                    api_key: fake-key
+                    provider: jina
+                """,
+                dataframe=pd.DataFrame({'text': ['hello']})
+            )
+            actual_url = mock_post.call_args.kwargs.get(
+                "url",
+                mock_post.call_args.args[0] if mock_post.call_args.args else None,
+            )
+            assert actual_url == "https://api.jina.ai/v1/embeddings"
+
+    def test_create_embeddings_openai_unaffected_by_provider_param(self):
+        """
+        Regression test: passing provider=openai should still use base64 encoding_format
+        just like the default OpenAI path, confirming OpenAI behaviour is unchanged.
+        """
+        import base64
+
+        arr = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        encoded = base64.b64encode(arr.tobytes()).decode("utf-8")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": encoded, "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            wrangles.openai.embeddings(
+                ["test"],
+                api_key="fake-key",
+                provider="openai",
+                model="text-embedding-3-small",
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert call_body.get("encoding_format") == "base64"
+
+    def test_create_embeddings_jina_return_value(self):
+        """
+        Test that the Python API returns a list of numpy arrays when using the
+        Jina provider (AC-2: return type contract is preserved).
+        """
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response):
+            result = wrangles.openai.embeddings(
+                ["hello"],
+                api_key="fake-key",
+                provider="jina",
+            )
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) == 3
+
 
 class TestCreateHash:
     def test_create_md5_hash(self):

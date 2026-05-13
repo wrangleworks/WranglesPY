@@ -12,6 +12,8 @@ try:
 except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
+SUPPORTED_PROVIDERS = ["openai", "jina"]
+
 
 def chatGPT(
     data: any,
@@ -140,10 +142,11 @@ def _embedding_thread(
     url: str,
     retries: int = 0,
     request_params: dict = None,
-    precision: str = "float32"
+    precision: str = "float32",
+    provider: str = "openai"
 ):
     """
-    Get embeddings 
+    Get embeddings
 
     :param input_list: List of strings to generate embeddings for
     :param api_key: API key for the provider
@@ -152,9 +155,27 @@ def _embedding_thread(
     :param retries: Number of times to retry. This will exponentially backoff.
     :param request_params: Additional request parameters to pass to the backend.
     :param precision: The precision of the embeddings. Default is float32.
+    :param provider: The embedding provider to use. Default is openai.
     """
     if request_params is None:
         request_params = {}
+
+    input_values = [str(val) if val != "" else " " for val in input_list]
+
+    if provider == "jina":
+        request_body = {
+            "model": model,
+            "input": input_values,
+            **request_params
+        }
+    else:
+        request_body = {
+            "model": model,
+            "encoding_format": "base64",
+            "input": input_values,
+            **request_params
+        }
+
     response = None
     backoff_time = 1
     while (retries + 1):
@@ -164,47 +185,53 @@ def _embedding_thread(
                 headers={
                     "Authorization": f"Bearer {api_key}"
                 },
-                json={
-                    "model": model,
-                    "encoding_format": "base64",
-                    "input": [
-                        str(val) if val != "" else " " 
-                        for val in input_list
-                    ],
-                    **request_params
-                }
+                json=request_body,
+                timeout=30
             )
-        except:
+        except Exception:
             pass
 
         if response and response.ok:
             break
         else:
+            if response is not None and response.status_code == 401:
+                raise ValueError("API Key provided is missing or invalid.")
             try:
                 error_message = response.json().get('error').get('message')
-            except:
+            except Exception:
                 error_message = ""
             # Raise errors for fatal errors rather than continuing
             if error_message:
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
 
-        retries -=1
+        retries -= 1
         _time.sleep(backoff_time)
         backoff_time *= 2
 
     if response and response.ok:
-        return [
-            _np.frombuffer(
-                _base64.b64decode(row['embedding']),
-                dtype=_np.float32
-            ).astype(getattr(_np, precision), copy=False)
-            for row in response.json()['data']
-        ]
+        if provider == "jina":
+            try:
+                return [
+                    _np.array(row['embedding'], dtype=_np.float32).astype(
+                        getattr(_np, precision), copy=False
+                    )
+                    for row in response.json()['data']
+                ]
+            except (KeyError, TypeError) as e:
+                raise RuntimeError(f"Unexpected Jina response schema: {e}")
+        else:
+            return [
+                _np.frombuffer(
+                    _base64.b64decode(row['embedding']),
+                    dtype=_np.float32
+                ).astype(getattr(_np, precision), copy=False)
+                for row in response.json()['data']
+            ]
     else:
         try:
             error_msg = response.json().get('error').get('message')
-        except:
+        except Exception:
             error_msg = 'Unknown error'
         raise RuntimeError(
             f"Failed to get embeddings: {error_msg}. Consider raising the number of retries."
@@ -219,6 +246,7 @@ def embeddings(
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
     precision: str = "float32",
+    provider: str = "openai",
     **kwargs
 ) -> list:
     """
@@ -228,9 +256,9 @@ def embeddings(
     >>>  ["sentence 1", "sentence 2"],
     >>>  api_key="...",
     >>> )
-    
+
     :param input_list: A list of strings to generate embeddings for.
-    :param api_key: OpenAI API Key.
+    :param api_key: API Key for the provider.
     :param model: (Optional) The model to use for generating embeddings.
     :param batch_size: (Optional, default 100) The number of rows to submit per individual request.
     :param threads: (Optional, default 10) The number of requests to submit in parallel. \
@@ -239,8 +267,20 @@ def embeddings(
           backoff to assist with rate limiting
     :param url: Set the URL. Must implement the OpenAI embeddings API.
     :param precision: The precision of the embeddings. Default is float32.
+    :param provider: The embedding provider to use. Must be one of SUPPORTED_PROVIDERS. \
+          Default is openai.
     :return: A list of embeddings corresponding to the input
     """
+    if provider not in SUPPORTED_PROVIDERS:
+        raise ValueError(f"Provider must be one of {SUPPORTED_PROVIDERS}. Got '{provider}'")
+
+    _DEFAULT_EMBEDDING_URLS = {
+        "openai": "https://api.openai.com/v1/embeddings",
+        "jina":   "https://api.jina.ai/v1/embeddings",
+    }
+    if url == _DEFAULT_EMBEDDING_URLS["openai"] and provider != "openai":
+        url = _DEFAULT_EMBEDDING_URLS.get(provider, url)
+
     if precision not in ["float32", "float16"]:
         raise ValueError(f"Precision must be either float32 or float16. Got {precision}")
 
@@ -262,7 +302,8 @@ def embeddings(
             [url] * len(batches),
             [retries] * len(batches),
             [kwargs] * len(batches),
-            [precision] * len(batches)
+            [precision] * len(batches),
+            [provider] * len(batches)
         ))
 
     results = list(_chain.from_iterable(results))
