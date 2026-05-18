@@ -11,12 +11,8 @@ import time
 
 def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
     """
-    Newly created models compile asynchronously after the PUT.
-    Retry until:
-      - the recipe raises no exception, OR
-      - max_wait seconds elapse.
-    Some model types (standardize, classify, lookup) return the input unchanged instead
-    of raising an exception when not ready — use `check` to detect that case.
+    Newly created models may still be initializing after the PUT returns.
+    Retries running the recipe until it raises no exception or max_wait seconds elapse.
     """
     import time
     deadline = time.time() + max_wait
