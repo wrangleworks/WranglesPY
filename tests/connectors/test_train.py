@@ -1,5 +1,5 @@
 import uuid
-
+import requests as _requests
 from pytest_mock import mocker
 
 import wrangles
@@ -7,6 +7,26 @@ import pandas as pd
 import pytest
 import logging
 import re
+import time
+
+def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
+    """
+    Newly created models may still be initializing after the PUT returns.
+    Retries running the recipe until it raises no exception or max_wait seconds elapse.
+    """
+    import time
+    deadline = time.time() + max_wait
+    last_err = None
+    while time.time() < deadline:
+        try:
+            result = wrangles.recipe.run(recipe, dataframe=dataframe)
+            return result
+        except Exception as e:
+            last_err = e
+        time.sleep(interval)
+    if last_err:
+        raise last_err
+    raise AssertionError(f'Model did not produce expected output within {max_wait}s')
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -20,133 +40,183 @@ class LogCapture(logging.Handler):
 #
 # Classify
 #
-def test_classify_read():
-    """
-    Testing reading classify wrangle data (using Food data)
-    """
-    recipe = """
-    read:
-      - train.classify:
-          model_id: 94674750-f9e1-44af
-    """
-    df = wrangles.recipe.run(recipe)
-    assert df.iloc[0]['Category'] == 'Grains'
+class TestTrainClassify:
+    """All tests for train.classify"""
 
-def test_classify_write():
-    """
-    Writing data to a Wrangle (re-training)
-    """
-    recipe = """
-    write:
-      - train.classify:
-          columns:
-            - Example
-            - Category
-            - Notes
-          model_id: 94674750-f9e1-44af
-    """
-    data = pd.DataFrame({
-        'Example': ['rice', 'milk', 'beef'],
-        'Category': ['Grains', 'Dairy', 'Meat'],
-        'Notes': ['Notes here', 'and here', 'and also here']
-    })
-    df = wrangles.recipe.run(recipe, dataframe=data)
-    assert len(df) == 3
-
-def test_classify_write_2():
-    """
-    Train with incorrect columns
-    """
-    with pytest.raises(ValueError, match="must be provided for train.classify"):
-        wrangles.recipe.run(
-            """
-            write:
-            - train.classify:
-                columns:
-                    - Example2
-                    - Category2
-                    - Notes2
-                model_id: 94674750-f9e1-44af
-            """,
-            dataframe=pd.DataFrame({
-                'Example2': ['rice', 'milk', 'beef'],
-                'Category2': ['Grains', 'Dairy', 'Meat'],
-                'Notes2': ['Notes here', 'and here', 'and also here']
-            })
-        )
-
-def test_classify_error():
-    """
-    Not Providing model_id or name in train wrangles
-    """
-    with pytest.raises(ValueError, match="name or a model id must be provided"):
-        wrangles.recipe.run(
-            """
-            write:
-            - train.classify:
-                columns:
-                    - Example
-                    - Category
-                    - Notes
-            """,
-            dataframe=pd.DataFrame({
-                'Example': ['rice', 'milk', 'beef'],
-                'Category': ['Grains', 'Dairy', 'Meat'],
-                'Notes': ['Notes here', 'and here', 'and also here']
-            })
-        )
-
-def test_classify_read_two_cols_wrgl(mocker):
-    """
-    Wrangle that contains only two columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
-    }
-    df = wrangles.recipe.run(
+    def test_classify_read(self):
         """
+        Testing reading classify wrangle data (using Food data)
+        """
+        recipe = """
         read:
-        - train.classify:
-            model_id: 94674750-f9e1-44af
+          - train.classify:
+              model_id: 94674750-f9e1-44af
         """
-    )
-    assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
+        df = wrangles.recipe.run(recipe)
+        assert df.iloc[0]['Category'] == 'Grains'
 
-def test_classify_read_four_cols_error(mocker):
-    """
-    Wrangles that does not contain 3 columns
-    """
-    m1 = mocker.patch("wrangles.data.model_content")
-    m1.return_value = {
-        "Data": [['Hello']]
-    }
-    with pytest.raises(ValueError, match="contain three columns"):
-        wrangles.recipe.run(
+    def test_classify_write(self):
+        """
+        Writing data to a Wrangle (re-training)
+        """
+        recipe = """
+        write:
+          - train.classify:
+              columns:
+                - Example
+                - Category
+                - Notes
+              model_id: 94674750-f9e1-44af
+        """
+        data = pd.DataFrame({
+            'Example': ['rice', 'milk', 'beef'],
+            'Category': ['Grains', 'Dairy', 'Meat'],
+            'Notes': ['Notes here', 'and here', 'and also here']
+        })
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert len(df) == 3
+
+    def test_classify_write_2(self):
+        """
+        Train with incorrect columns
+        """
+        with pytest.raises(ValueError, match="must be provided for train.classify"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.classify:
+                    columns:
+                        - Example2
+                        - Category2
+                        - Notes2
+                    model_id: 94674750-f9e1-44af
+                """,
+                dataframe=pd.DataFrame({
+                    'Example2': ['rice', 'milk', 'beef'],
+                    'Category2': ['Grains', 'Dairy', 'Meat'],
+                    'Notes2': ['Notes here', 'and here', 'and also here']
+                })
+            )
+
+    def test_classify_error(self):
+        """
+        Not Providing model_id or name in train wrangles
+        """
+        with pytest.raises(ValueError, match="name or a model id must be provided"):
+            wrangles.recipe.run(
+                """
+                write:
+                - train.classify:
+                    columns:
+                        - Example
+                        - Category
+                        - Notes
+                """,
+                dataframe=pd.DataFrame({
+                    'Example': ['rice', 'milk', 'beef'],
+                    'Category': ['Grains', 'Dairy', 'Meat'],
+                    'Notes': ['Notes here', 'and here', 'and also here']
+                })
+            )
+
+    def test_classify_read_two_cols_wrgl(self, mocker):
+        """
+        Wrangle that contains only two columns
+        """
+        m1 = mocker.patch("wrangles.data.model_content")
+        m1.return_value = {
+            "Data": [['Hello', 'Wrangles'], ['Hello', 'Python']]
+        }
+        df = wrangles.recipe.run(
             """
             read:
             - train.classify:
                 model_id: 94674750-f9e1-44af
             """
         )
+        assert df.iloc[0].tolist() == ['Hello', 'Wrangles', '']
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
-    df = pd.DataFrame({  
-        'Example': ['apple', 'banana'],  
-        'Category': ['fruit', 'fruit'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.classify:  
-              name: Test Classify Model  
-        """,  
-        dataframe=df  
-    )  
-  
-    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+    def test_classify_read_four_cols_error(self, mocker):
+        """
+        Wrangles that does not contain 3 columns
+        """
+        m1 = mocker.patch("wrangles.data.model_content")
+        m1.return_value = {
+            "Data": [['Hello']]
+        }
+        with pytest.raises(ValueError, match="contain three columns"):
+            wrangles.recipe.run(
+                """
+                read:
+                - train.classify:
+                    model_id: 94674750-f9e1-44af
+                """
+            )
+
+    def test_classify_write_logs_new_model_id_integration(self, caplog):
+        df = pd.DataFrame({
+            'Example': ['apple', 'banana'],
+            'Category': ['fruit', 'fruit'],
+            'Notes': ['', '']
+        })
+
+        wrangles.recipe.run(
+            """
+            write:
+              - train.classify:
+                  name: Test Classify Model
+            """,
+            dataframe=df
+        )
+
+        assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+
+    def test_classify_name_creates_working_model(self, caplog):
+        """
+        A classify model trained via 'name' must respond to inference without error. Bug #972.
+        """
+        model_name = f'Bug972 Pytest Classify {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.classify:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Example':  ['rice', 'wheat', 'milk', 'cheese', 'beef', 'chicken'],
+                'Category': ['Grain', 'Grain', 'Dairy', 'Dairy', 'Meat', 'Meat'],
+                'Notes':    ['', '', '', '', '', ''],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New classify model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+                - classify:
+                    input: item
+                    output: category
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'item': ['rice']}),
+        )
+
+        assert 'category' in result.columns
+        assert isinstance(result.loc[0, 'category'], str) and len(result.loc[0, 'category']) > 0
+
+        try:
+            wrangles.delete(new_model_id, 'classify')
+        except Exception:
+            pass
 
 class TestTrainExtract:
     """
@@ -479,6 +549,60 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
+    
+    def test_extract_name_creates_working_model(self, caplog):
+        """
+        A model trained via 'name' must work immediately for inference. Bug #972:
+        before the fix, extract.custom returned a 500 error on newly-created models.
+        """
+        model_name = f'Bug972 Pytest Extract {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.extract:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Find':   ['Rachel', 'Dolores', 'TARS'],
+                'Output': ['Rachel', 'Dolores', 'TARS'],
+                'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New extract model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+                - extract.custom:
+                    input: description
+                    output: characters
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'description': [
+                'Rachel is a replicant from Blade Runner',
+                'Dolores woke up in Westworld',
+                'No character mentioned here',
+            ]}),
+        )
+
+        assert result.loc[0, 'characters'] == ['Rachel']
+        assert result.loc[1, 'characters'] == ['Dolores']
+        assert result.loc[2, 'characters'] == []
+
+        try:
+            wrangles.delete(new_model_id, 'extract')
+        except Exception:
+            pass
+
 
 class TestTrainLookup:
     """
@@ -1386,6 +1510,54 @@ class TestTrainLookup:
                 """
             with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
                 wrangles.recipe.run(recipe, dataframe=df)
+    
+    def test_lookup_name_creates_working_model(self, caplog):
+        """
+        A lookup model trained via 'name' must return correct values immediately. Bug #972.
+        """
+
+        model_name = f'Bug972 Pytest Lookup {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  name: {model_name}
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':   ['Rachel', 'Dolores', 'TARS'],
+                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New lookup model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+              - lookup:
+                  input: character
+                  output: movie
+                  model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'character': ['Rachel', 'TARS']}),
+        )
+
+        assert result.loc[0, 'movie']['Value'] == 'Blade Runner'
+        assert result.loc[1, 'movie']['Value'] == 'Interstellar'
+
+        try:
+            wrangles.delete(new_model_id, 'lookup')
+        except Exception:
+            pass
     
             
 def test_lookup_write_logs_new_model_id(caplog):  
