@@ -11,6 +11,7 @@ from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
+from . import openai_responses as _responses
 
 
 def address(
@@ -53,13 +54,14 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-5.5",
     threads: int = 20,
     timeout: int = 25,
     retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
-    strict: bool = False,
+    messages: list = None,
+    url: str = "https://api.openai.com/v1/responses",
+    strict: bool = True,
+    reasoning: dict = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -84,9 +86,9 @@ def ai(
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
-    :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
-        but may be more limited in the schema it can return.
+    :param url: (Optional) Override the endpoint. Defaults to the OpenAI Responses API. Legacy chat/completions URLs are still supported.
+    :param strict: (Optional) Enable strict Structured Outputs validation. Default True.
+    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} for GPT-5 models.
 
     :return: A scalar or list of extracted information.
     """
@@ -248,24 +250,37 @@ def ai(
         for k, v in output.items()
     }
 
+    final_schema = _responses.sanitize_schema({
+        "type": "object",
+        "properties": output,
+        "required": list(output.keys()),
+        "additionalProperties": False,
+    })
+    response_model = _responses.build_response_model("ExtractAIResponse", output)
+    required_fields = list(output.keys())
+
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
         messages = [str(messages)]
+    messages = messages or []
 
-    messages = [
+    system_messages = [
         {
             "role": "system",
             "content": " ".join([
-                "You are an expert data analyst.",
-                "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
+                "You are an expert data extraction assistant.",
+                "Extract and standardize only the requested fields from the supplied DATA.",
+                "Use the field names, descriptions, enums, and examples in the schema as the source of truth.",
+                "Do not infer values that are not supported by the DATA.",
+                "When a requested value is unavailable, return the closest schema-compatible empty value.",
+                "Return only data that satisfies the supplied structured-output schema."
             ])
         },
         {
             "role": "system",
             "content": " ".join([
-                "Use the function parse_output to return the data to be submitted.",
-                "Only use the functions you have been provided with.",
+                "Submit the final answer by calling parse_output exactly once.",
+                "Do not include explanations, extra fields, or values unsupported by the data.",
             ])
         },
     ] + [
@@ -275,6 +290,11 @@ def ai(
         }
         for message in messages
     ]
+
+    instructions = "\n\n".join(
+        message["content"]
+        for message in system_messages
+    )
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
@@ -287,37 +307,66 @@ def ai(
         **kwargs
     }
 
-    settings = {
-        "model": model,
-        "messages": messages,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "parse_output",
-                "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys()),
-                    "additionalProperties": False,
-                },
-                "strict": strict
-            }
-        }],
-        "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
-        **kwargs
-    }
+    if "/chat/completions" in url:
+        settings = {
+            "model": model,
+            "messages": system_messages,
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "parse_output",
+                    "description": "Submit the output corresponding to the extracted data in the form the user requires.",
+                    "parameters": final_schema,
+                    "strict": strict
+                }
+            }],
+            "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
+            **kwargs
+        }
 
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            input, 
-            [api_key] * len(input),
-            [settings] * len(input),
-            [url] * len(input),
-            [timeout] * len(input),
-            [retries] * len(input),
-        ))
+        with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            results = list(executor.map(
+                _openai.chatGPT,
+                input,
+                [api_key] * len(input),
+                [settings] * len(input),
+                [url] * len(input),
+                [timeout] * len(input),
+                [retries] * len(input),
+            ))
+    else:
+        response_kwargs = _responses.sanitize_request_params(kwargs)
+        payload = {
+            "model": model,
+            "instructions": instructions,
+            "prompt_cache_key": _responses.prompt_cache_key("extract_ai", model, final_schema),
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "extract_ai_response",
+                    "schema": final_schema,
+                    "strict": strict
+                }
+            },
+            **response_kwargs
+        }
+        if reasoning is not None:
+            payload["reasoning"] = reasoning
+        elif model.startswith("gpt-5"):
+            payload["reasoning"] = {"effort": "none"}
+
+        with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            results = list(executor.map(
+                _responses.call_structured,
+                input,
+                [api_key] * len(input),
+                [payload] * len(input),
+                [url] * len(input),
+                [timeout] * len(input),
+                [retries] * len(input),
+                [response_model] * len(input),
+                [required_fields] * len(input),
+            ))
 
     if input_was_scalar:
         if output_generic_key:

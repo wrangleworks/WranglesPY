@@ -420,6 +420,164 @@ def test_extract_ai_properties_list():
     )
     assert isinstance(result, list) and 'unit' in result[0]
 
+
+
+def test_extract_ai_responses_string_output_real_api():
+    result = wrangles.extract.ai(
+        "Paint swatch label: Signal Red RAL 3001.",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output="Return only the color name mentioned in the data.",
+        messages="Use title case and do not include color standards or codes.",
+        threads=1,
+        timeout=60,
+    )
+
+    assert result == "Signal Red"
+
+
+def test_extract_ai_responses_single_schema_output_real_api():
+    result = wrangles.extract.ai(
+        "Shipment: 8 boxes arrived at Dock 4.",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "type": "integer",
+            "description": "The number of boxes in the shipment.",
+        },
+        threads=1,
+        timeout=60,
+    )
+
+    assert result == 8
+
+
+def test_extract_ai_responses_list_input_real_api():
+    result = wrangles.extract.ai(
+        [
+            "Badge A belongs to Priya Shah in Finance.",
+            "Badge B belongs to Marco Diaz in Legal.",
+        ],
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "name": {
+                "type": "string",
+                "description": "The person's full name.",
+            },
+            "department": {
+                "type": "string",
+                "description": "The department name.",
+            },
+        },
+        threads=2,
+        timeout=60,
+    )
+
+    assert result == [
+        {"name": "Priya Shah", "department": "Finance"},
+        {"name": "Marco Diaz", "department": "Legal"},
+    ]
+
+
+def test_extract_ai_responses_nested_array_enum_and_boolean_real_api():
+    result = wrangles.extract.ai(
+        {
+            "ticket": "SUP-418",
+            "summary": "Customer reports login failure after password reset.",
+            "priority": "high",
+            "tags": ["login", "password-reset", "customer-impact"],
+            "escalated": True,
+        },
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "ticket": {
+                "type": "string",
+                "description": "The support ticket identifier.",
+            },
+            "priority": {
+                "type": "string",
+                "description": "Priority exactly as low, medium, or high.",
+                "enum": ["low", "medium", "high"],
+            },
+            "tags": {
+                "type": "array",
+                "description": "The exact tags from the data.",
+                "items": {"type": "string"},
+            },
+            "escalated": {
+                "type": "boolean",
+                "description": "Whether the ticket is escalated.",
+            },
+            "customer": {
+                "type": "object",
+                "description": "Customer details if present.",
+                "properties": "name, account_id",
+            },
+        },
+        threads=1,
+        timeout=60,
+    )
+
+    assert result["ticket"] == "SUP-418"
+    assert result["priority"] == "high"
+    assert result["tags"] == ["login", "password-reset", "customer-impact"]
+    assert result["escalated"] is True
+    assert result["customer"] == {"name": "", "account_id": ""}
+
+
+def test_extract_ai_responses_messages_real_api():
+    result = wrangles.extract.ai(
+        "The supplier wrote the length as 2.5 cm.",
+        api_key=os.environ['OPENAI_API_KEY'],
+        output={
+            "length_mm": {
+                "type": "number",
+                "description": "The length converted to millimeters.",
+            }
+        },
+        messages=[
+            "Convert centimeters to millimeters before returning the value.",
+            "Return only the numeric millimeter value.",
+        ],
+        threads=1,
+        timeout=60,
+    )
+
+    assert result["length_mm"] == pytest.approx(25.0)
+
+
+def test_extract_ai_legacy_chat_completions_real_api():
+    result = wrangles.extract.ai(
+        "Catalog row: blue nitrile gloves, pack of 100.",
+        api_key=os.environ['OPENAI_API_KEY'],
+        model = 'gpt-4.1-mini',
+        output={
+            "product": {
+                "type": "string",
+                "description": "The product name without color or pack size.",
+            },
+            "color": {
+                "type": "string",
+                "description": "The color of the product.",
+            },
+            "pack_size": {
+                "type": "integer",
+                "description": "The number of items in the pack.",
+            },
+        },
+        url="https://api.openai.com/v1/chat/completions",
+        seed=1,
+        threads=1,
+        timeout=60,
+    )
+
+    assert result == {
+        "product": "nitrile gloves",
+        "color": "blue",
+        "pack_size": 100,
+    }
+
+
+
+
 ### Format Split Tests  
 def test_format_split_skip_empty_true():  
     """  

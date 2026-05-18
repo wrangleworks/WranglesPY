@@ -155,21 +155,22 @@ def ai(
         type: string
         description: |-
           Override the default url for the AI endpoint.
-          Must use the OpenAI chat completions API.
+          Defaults to the OpenAI Responses API. Legacy chat completions URLs are still supported.
       messages:
         type:
           - string
           - array
         description: Optional. Provide additional overall instructions for the AI.
+      reasoning:
+        type: object
+        description: Optional Responses API reasoning options forwarded verbatim.
       model_id:
         type: string
         description: Use a saved definition from an extract ai wrangle.
       strict:
         type: boolean
         description: >-
-          Enable strict mode. Default False.
-          If True, the function will be required to match the schema,
-          but may be more limited in the schema it can return.
+          Enable strict Structured Outputs validation. Default True.
     """
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
