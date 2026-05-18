@@ -884,6 +884,57 @@ class TestConvertFromJSON:
         )
         assert df.empty and df.columns.to_list() == ['header1', 'output column']
 
+    def test_default_list_single_column(self):
+        """
+        Test that a list of one default applies correctly when input is a list of one column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                default:
+                  - {}
+                output:
+                  - out1
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]']
+            })
+        )
+        assert df["out1"][0] == {} and df["out1"][1] == [1, 2, 3]
+
+    def test_default_list_multiple_columns(self):
+        """
+        Test that a list of defaults applies one default per column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - {}
+                  - []
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]'],
+                "header2": ["", '[4,5,6]']
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == [1, 2, 3] and
+            df["out2"][0] == [] and
+            df["out2"][1] == [4, 5, 6]
+        )
+
 
 class TestConvertFromYAML:
     """
@@ -1016,6 +1067,57 @@ class TestConvertFromYAML:
             })
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
+
+    def test_default_list_single_column(self):
+        """
+        Test that a list of one default applies correctly when input is a list of one column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - column
+                default:
+                  - {}
+                output:
+                  - out1
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "key: val\n"]
+            })
+        )
+        assert df["out1"][0] == {} and df["out1"][1] == {"key": "val"}
+
+    def test_default_list_multiple_columns(self):
+        """
+        Test that a list of defaults applies one default per column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - {}
+                  - []
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "key: val\n"],
+                "col2": ["", "- item1\n"]
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"key": "val"} and
+            df["out2"][0] == [] and
+            df["out2"][1] == ["item1"]
+        )
 
 
 class TestConvertToJSON:
