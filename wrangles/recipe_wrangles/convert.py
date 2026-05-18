@@ -351,43 +351,46 @@ def from_json(
         description: Name of the output column. If omitted, the input column will be overwritten
       default:
         type: ["string","array","object","number","boolean","null"]
-        description: Value to return if the row is empty or fails to be parsed as JSON
+        description: >-
+            Value to return if the row is empty or fails to be parsed as JSON.
+            If input is a list, default may also be a list of values (one per column).
     """
-    def _load_with_fallback(value):
-        """
-        Attempt to load JSON.
-        If fails and user has provided a default, return that.
-        If no default, raise an error.
-        """
-        try:
-            return _json.loads(value, **kwargs)
-        except:
-            if default != None:
-                return default
-            else:
-                raise ValueError(
-                    "Unable to load all rows as JSON. " +
-                    "Set a default to set a value if the row is empty or fails to parse."
-                )
-
     # Set output column as input if not provided
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-    
+
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-        
+
+    # Normalize default to a per-column list
+    if isinstance(default, list) and len(default) == len(input):
+        defaults = default
+    else:
+        defaults = [default] * len(input)
+
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
+    for input_column, output_column, col_default in zip(input, output, defaults):
+        def _load_with_fallback(value, _col_default=col_default):
+            try:
+                return _json.loads(value, **kwargs)
+            except:
+                if _col_default is not None:
+                    return _col_default
+                else:
+                    raise ValueError(
+                        "Unable to load all rows as JSON. " +
+                        "Set a default to set a value if the row is empty or fails to parse."
+                    )
+
         df[output_column] = [
             _load_with_fallback(x)
             for x in df[input_column]
         ]
-    
+
     return df
 
 
@@ -507,43 +510,46 @@ def from_yaml(
           If omitted, the input column will be overwritten
       default:
         type: ["string","array","object","number","boolean","null"]
-        description: Value to return if the row is empty or fails to be parsed as JSON
+        description: >-
+          Value to return if the row is empty or fails to be parsed as YAML.
+          If input is a list, default may also be a list of values (one per column).
     """
-    def _load_with_fallback(value):
-        """
-        Attempt to load JSON.
-        If fails and user has provided a default, return that.
-        If no default, raise an error.
-        """
-        try:
-            return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or default
-        except:
-            if default != None:
-                return default
-            else:
-                raise ValueError(
-                    "Unable to load all rows as YAML. " +
-                    "Set a default to set a value if the row is empty or fails to parse."
-                )
-
     # Set output column as input if not provided
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-    
+
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-        
+
+    # Normalize default to a per-column list
+    if isinstance(default, list) and len(default) == len(input):
+        defaults = default
+    else:
+        defaults = [default] * len(input)
+
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
+    for input_column, output_column, col_default in zip(input, output, defaults):
+        def _load_with_fallback(value, _col_default=col_default):
+            try:
+                return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or _col_default
+            except:
+                if _col_default is not None:
+                    return _col_default
+                else:
+                    raise ValueError(
+                        "Unable to load all rows as YAML. " +
+                        "Set a default to set a value if the row is empty or fails to parse."
+                    )
+
         df[output_column] = [
             _load_with_fallback(x)
             for x in df[input_column]
         ]
-    
+
     return df
 
 
