@@ -124,6 +124,37 @@ def test_recipe_by_version_tag():
         len(df2) == 20
     )
 
+
+def test_recipe_by_production_version():
+    """
+    Test running a recipe using a model ID and production version
+    """
+    df = wrangles.recipe.run("a6bac9e7-2388-4347")
+    assert (
+        len(df) == 20 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_version_latest():
+    """
+    Test running a recipe using a model ID and latest version
+    """
+    df = wrangles.recipe.run("a6bac9e7-2388-4347:latest")
+    assert (
+        len(df) == 10 and
+        list(df.columns) == ["header"]
+    )
+
+def test_recipe_by_latest_version():
+    """
+    Test running a recipe using a model ID and latest version
+    """
+    df = wrangles.recipe.run("02fc0c63-1294-415b")
+    assert (
+        len(df) == 15 and
+        list(df.columns) == ["header"]
+    )
+
 def test_recipe_wrong_model():
     """
     Test the error message when a model is incorrect type

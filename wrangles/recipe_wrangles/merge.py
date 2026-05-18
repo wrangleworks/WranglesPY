@@ -3,7 +3,6 @@ Functions to merge data from one or more columns into a single column
 """
 from typing import Union as _Union
 import fnmatch as _fnmatch
-import numpy as _np
 import pandas as _pd
 from .. import format as _format
 

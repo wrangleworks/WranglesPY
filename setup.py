@@ -12,6 +12,7 @@ setup(
     name = 'wrangles',
     packages = [
         'wrangles',
+        'wrangles.clients',
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
@@ -25,7 +26,7 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent'
     ],
-    version = '1.17.0',
+    version = '1.19.0',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
     author_email = 'chris@wrangleworks.com',

@@ -928,15 +928,16 @@ def lookup(
         description: Name of the output column(s)
       lookup_mode:
         type: string
-        description: How to perform lookups
-                 'by_row': current behavior, lookup each row individually
-                 'by_dataframe': lookup unique values once, copy results to all rows  
-                 'by_matrix': lookup once per matrix permutation
+        description: >-
+          How to perform lookups.
+          'by_row' (default): lookup each row individually.
+          'by_dataframe': lookup unique values once, copy results to all rows.
+          'by_matrix': lookup once per matrix permutation.
         enum:
           - by_row
           - by_matrix
           - by_dataframe
-    """ 
+    """
     # Ensure input is only 1 value
     if isinstance(input, list):
         if len(input) == 1:

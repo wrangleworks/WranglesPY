@@ -13,6 +13,7 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
+import time as _time
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
@@ -93,14 +94,22 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
-        
+
         # Using model_id in wrong function
         purpose = metadata['purpose']
         if purpose != 'recipe':
             raise ValueError(
                 f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
+
+        if 'production_version_id' in metadata.keys() and version_id is None:
+            version_id = metadata['production_version_id']
+            _logging.info(f": No version specified, defaulting to production version {version_id}")
         
+        if version_id == 'latest':
+            version_id = None
+            _logging.info(f": 'latest' version specified, using the most recent version")
+
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
         model_functions = model_contents.get('functions', {})
@@ -495,6 +504,9 @@ def _execute_wrangles(
                     if key in params.keys():
                         common_params[key] = params.pop(key)
 
+                _logging.info(f": Wrangling :: {wrangle} :: Starting")
+                _wrangle_start_time = _time.perf_counter()
+
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
                     # TODO: disallow any hidden methods
@@ -777,8 +789,9 @@ def _execute_wrangles(
                         if isinstance(input_display, list):  
                             input_display = ', '.join(str(x) for x in input_display)  
                             
-                        output_display = ', '.join(str(col) for col in output_columns)  
-                        _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
+                        output_display = ', '.join(str(col) for col in output_columns)
+                        _wrangle_elapsed = _time.perf_counter() - _wrangle_start_time
+                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s")
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
