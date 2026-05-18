@@ -34,11 +34,15 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
+            # Two-step flow: POST creates the model and returns a model_id, then
+            # PUT sends training data with retries to handle transient errors while
+            # the model initializes, ensuring it's ready for inference on return.
             _logging.info(f": Creating new classify model :: {name}")
+            access_token = _auth.get_access_token()
             create_response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'classify', 'name': name},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        headers={'Authorization': f'Bearer {access_token}'},
                         json=training_data,
                     )
             if not create_response.ok:
@@ -61,7 +65,7 @@ class train():
                             url=f'{_config.api_host}/model/content',
                             **{
                                 'params': {'type':'classify', 'model_id': new_model_id},
-                                'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                                'headers': {'Authorization': f'Bearer {access_token}'},
                                 'json': training_data
                             }
                         )
@@ -117,11 +121,19 @@ class train():
                 training_data = [['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']] + training_data
         
         if name:
+            # Two-step flow: POST creates the model (with variant so it's initialized
+            # correctly), then PUT sends training data with retries to handle transient
+            # errors while the model initializes, ensuring it's ready for inference on return.
             _logging.info(f": Creating new extract model :: {name}")
+            access_token = _auth.get_access_token()
             create_response = _requests.post(
                         f'{_config.api_host}/model/content',
-                        params={'type':'extract', 'name': name},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        params={
+                            'type': 'extract',
+                            'name': name,
+                            **({'variant': variant} if variant else {}),
+                        },
+                        headers={'Authorization': f'Bearer {access_token}'},
                         json=training_data,
                     )
             if not create_response.ok:
@@ -143,8 +155,12 @@ class train():
                             request_type='PUT',
                             url=f'{_config.api_host}/model/content',
                             **{
-                                'params': {'type':'extract', 'model_id': new_model_id},
-                                'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                                'params': {
+                                    'type': 'extract',
+                                    'model_id': new_model_id,
+                                    **({'variant': variant} if variant else {}),
+                                },
+                                'headers': {'Authorization': f'Bearer {access_token}'},
                                 'json': training_data
                             }
                         )
@@ -244,15 +260,19 @@ class train():
             elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings.")
         if name:
+            # Two-step flow: POST creates the model and returns a model_id, then
+            # PUT sends training data with retries to handle transient errors while
+            # the model initializes, ensuring it's ready for inference on return.
             _logging.info(f": Creating new lookup model :: {name}")
+            access_token = _auth.get_access_token()
             create_response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'lookup', 'name': name, **settings},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        headers={'Authorization': f'Bearer {access_token}'},
                         json=data,
                     )
             if not create_response.ok:
-                return create_response
+                raise RuntimeError(f"Training Lookup Failed. {create_response.status_code} : {create_response.text}")
             try:
                 _json = create_response.json()
                 new_model_id = (
@@ -262,6 +282,8 @@ class train():
                     _logging.info(f": New lookup model created :: {new_model_id}")
                 else:
                     _logging.info(f": Lookup model created. Response: {create_response.text}")
+            except RuntimeError:
+                raise
             except Exception:
                 _logging.info(": Lookup model created (could not parse model id from response)")
                 new_model_id = None
@@ -271,7 +293,7 @@ class train():
                             url=f'{_config.api_host}/model/content',
                             **{
                                 'params': {'type':'lookup', 'model_id': new_model_id, **settings},
-                                'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                                'headers': {'Authorization': f'Bearer {access_token}'},
                                 'json': data
                             }
                         )
@@ -320,11 +342,15 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
+            # Two-step flow: POST creates the model and returns a model_id, then
+            # PUT sends training data with retries to handle transient errors while
+            # the model initializes, ensuring it's ready for inference on return.
             _logging.info(f": Creating new standardize model :: {name}")
+            access_token = _auth.get_access_token()
             create_response = _requests.post(
                         f'{_config.api_host}/model/content',
                         params={'type':'standardize', 'name': name},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+                        headers={'Authorization': f'Bearer {access_token}'},
                         json=training_data,
                     )
             if not create_response.ok:
@@ -347,7 +373,7 @@ class train():
                             url=f'{_config.api_host}/model/content',
                             **{
                                 'params': {'type':'standardize', 'model_id': new_model_id},
-                                'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'},
+                                'headers': {'Authorization': f'Bearer {access_token}'},
                                 'json': training_data
                             }
                         )

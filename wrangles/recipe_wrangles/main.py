@@ -32,6 +32,8 @@ from ..connectors.matrix import _define_permutations
 from ..utils import statement_modifier as _statement_modifier
 from ..utils import delayed_variable_interpretation as _delayed_variable_interpretation
 from ..utils import replace_templated_values as _replace_templated_values
+from .. import config as _config
+from .. import auth as _auth
 
 
 def accordion(
@@ -2215,3 +2217,21 @@ def Try(
                         raise ValueError('except must be a dictionary of column names and values or a list of wrangles')
     
     return df
+
+
+def delete(model_id: str, model_type: str = None):
+    """
+    Delete a model.
+    Requires WrangleWorks Account.
+
+    :param model_id: The ID of the model to delete.
+    :param model_type: The type of the model (classify, extract, lookup, standardize).
+    """
+    params = {'model_id': model_id}
+    if model_type:
+        params['type'] = model_type
+    return _requests.delete(
+        f'{_config.api_host}/model/content',
+        params=params,
+        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+    )
