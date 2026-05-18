@@ -54,8 +54,7 @@ def read(
     # Set to max temporarily
     parameters['limit'] = 100
 
-    # TODO: deal with errors appropriately
-    token = _requests.post(
+    auth_response = _requests.post(
         f"{host}/api/oauth/v1/token",
         auth = (client_id, client_secret),
         json = {
@@ -63,18 +62,30 @@ def read(
             "password" : password,
             "grant_type" : "password"
         }
-    ).json()['access_token']
-    
-    # TODO: Needs to deal with pagination
-    data = _requests.get(
-        f"{host}/api/rest/v1/{source}",
-        params=parameters,
-        headers={
-            'Accept': 'application/json',
-            'Authorization': f"Bearer {token}"
-        }
-    ).json()['_embedded']['items']
-    
+    )
+    if not auth_response.ok:
+        raise ValueError(f"Akeneo authentication failed: {auth_response.json().get('message', auth_response.text)}")
+
+    token = auth_response.json()['access_token']
+    headers={
+        'Accept': 'application/json',
+        'Authorization': f"Bearer {token}"
+    }
+
+    data = []
+    url = f"{host}/api/rest/v1/{source}"
+    params = parameters
+
+    while url:
+        response = _requests.get(url, params=params, headers=headers)
+        if not response.ok:
+            json_response = response.json()
+            raise ValueError(f"Status Code: {json_response.get('code', response.status_code)} Message: {json_response.get('message', response.text)}")
+        response_json = response.json()
+        data.extend(response_json['_embedded']['items'])
+        url = response_json.get('_links', {}).get('next', {}).get('href')
+        params = None
+
     df = _pd.json_normalize(data, max_level=0)
 
     if columns:
@@ -180,16 +191,19 @@ def write(
     """
     _logging.info(f": Writing data to Akeneo :: {host} / {source}")
 
-    # TODO: handle errors appropriately
-    token = _requests.post(
+    auth_response = _requests.post(
         f"{host}/api/oauth/v1/token",
-        auth = (client_id, client_secret),
+        auth=(client_id, client_secret),
         json={
-            "username" : user,
-            "password" : password,
-            "grant_type" : "password"
+            "username": user,
+            "password": password,
+            "grant_type": "password"
         }
-    ).json()['access_token']
+    )
+    if not auth_response.ok:
+        raise ValueError(f"Akeneo authentication failed: {auth_response.json().get('message', auth_response.text)}")
+
+    token = auth_response.json()['access_token']
     
     # TODO: batch this if required??
     # Create payload for Akeneo
