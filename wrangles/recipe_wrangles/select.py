@@ -256,6 +256,7 @@ def group_by(
     df,
     by = [],
     functions: _Union[_types.FunctionType, list] = [],
+    auto_rename_columns: bool = True,
     **kwargs
 ):
     """
@@ -345,6 +346,12 @@ def group_by(
           - array
         description: >-
           Placeholder for custom functions. Replace 'placeholder' with the name of the function.
+      auto_rename_columns:
+        type: boolean
+        description: >-
+          If true (default), aggregated column names include the operation as a
+          suffix (e.g. Value.sum). If false, column names are left as-is; use a
+          dictionary entry to supply a custom output name (e.g. - Value: Total).
     """
     def percentile(n):
         def percentile_(x):
@@ -359,6 +366,19 @@ def group_by(
 
     # Ensure by is a list
     if not isinstance(by, list): by = [by]
+
+    # Pre-pass: collect user-supplied output names from dict column specs keyed by
+    # (orig_col, op_str) so two different operations on the same column are distinct.
+    # e.g. min: [{Value: Min Value}], max: [{Value: Max Value}]
+    #   → _user_renames = {("Value","min"): "Min Value", ("Value","max"): "Max Value"}
+    _user_renames = {}
+    for _op_str, _cols in kwargs.items():
+        if not isinstance(_cols, list):
+            _cols = [_cols]
+        for _item in _cols:
+            if isinstance(_item, dict):
+                for _orig, _renamed in _item.items():
+                    _user_renames[(_orig, _op_str)] = _renamed
 
     # Invert kwargs to put column names as keys
     inverted_dict = {}
@@ -377,6 +397,9 @@ def group_by(
 
         if not isinstance(columns, list): columns = [columns]
         for column in columns:
+            # Unwrap dict entry {orig: renamed} → use orig as the column name
+            if isinstance(column, dict):
+                column = next(iter(column))
             if column in inverted_dict:
                 inverted_dict[column].append(operation)
             else:
@@ -415,13 +438,35 @@ def group_by(
     if 'absjdkbatgg' in df.columns:  
         df = df.drop('absjdkbatgg', axis=1, level=0)  
   
-    # Flatting multilevel headings back to one  
-    df.columns = [  
-        '.'.join(col).strip('.')  
-        if isinstance(col, tuple)  
-        else col  
-        for col in df.columns  
-    ]  
+    # Flatting multilevel headings back to one
+    if auto_rename_columns:
+        df.columns = [
+            '.'.join(col).strip('.')
+            if isinstance(col, tuple)
+            else col
+            for col in df.columns
+        ]
+    else:
+        # Build reverse mapping so temp-renamed by-columns can be resolved to
+        # their original names when looking up user-supplied renames.
+        _temp_to_orig = dict(zip(temp_by_columns, original_by_columns))
+        new_cols = []
+        for col in df.columns:
+            if not isinstance(col, tuple):
+                new_cols.append(col)
+            elif str(col[1]) == '':
+                # by-column placeholder: keep the (possibly temp) name as-is;
+                # the existing temp-restoration block below will rename it.
+                new_cols.append(str(col[0]))
+            else:
+                # agg-column: resolve back through any temp rename, then apply
+                # user-supplied output name or fall back to the original name.
+                src = str(col[0])
+                orig_src = _temp_to_orig.get(src, src)
+                op_str = str(col[1])
+                new_cols.append(_user_renames.get((orig_src, op_str), orig_src))
+        df.columns = new_cols
+
   
     # Only rename groupby columns back to original names  
     # Preserve aggregation suffixes like .first, .last, etc.  
@@ -435,8 +480,20 @@ def group_by(
                     new_col = col.replace(temp_col, orig_col, 1)  
                     rename_mapping[col] = new_col  
           
-        df = df.rename(columns=rename_mapping)  
-  
+        df = df.rename(columns=rename_mapping)
+
+    # Detect duplicate output column names that would result from auto_rename_columns=False
+    # when the same source column is aggregated with two or more operations.
+    if not auto_rename_columns:
+        seen = set()
+        dupes = [c for c in df.columns if c in seen or seen.add(c)]
+        if dupes:
+            raise ValueError(
+                f"select.group_by: duplicate output column(s) {dupes} would result from "
+                "auto_rename_columns=false. Use a dictionary entry to supply unique output "
+                "names, e.g.  sum: [{{Value: Total}}]."
+            )
+
     return df
 
 def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:

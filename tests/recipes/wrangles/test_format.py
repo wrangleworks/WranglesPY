@@ -76,7 +76,7 @@ class TestFormatRemoveDuplicates:
         """
 
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -224,7 +224,7 @@ class TestFormatTrim:
                 - Trim1
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]
@@ -362,7 +362,7 @@ class TestFormatPrefix:
             value: extra-
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -611,7 +611,7 @@ class TestFormatSuffix:
             value: -cy
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             "The lists for" in info.value.args[0]
@@ -866,7 +866,7 @@ class TestFormatPad:
                 char: 0
         """
         with pytest.raises(ValueError) as info:
-            raise wrangles.recipe.run(recipe, dataframe=data)
+            wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
             'The lists for input and output must be the same length.' in info.value.args[0]

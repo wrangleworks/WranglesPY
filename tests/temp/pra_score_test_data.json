@@ -1,0 +1,288 @@
+[
+    {
+        "ID": 1,
+        "Category": "Bearing, Radial Ball",
+        "Mfr": "SKF",
+        "MPN": "6202-2RS",
+        "Description": "RADIAL BALL BEARING: 6202, DBL SEALED, CONTACT SEAL, 15 BORE, 35 OD, 11 WD",
+        "queries": [
+            "SKF 6202-2RS"
+        ],
+        "suppliers": [
+            "SKF"
+        ],
+        "part_codes": [
+            "6202-2RS"
+        ],
+        "Long Desc": "These radial ball bearings are intended for general purpose applications that operate at high speeds with low loads. They have a single row of ball rollers for radial loads, but can support some axial movemen",
+        "results": [
+            {
+                "search_metadata": {
+                    "query_index": 1,
+                    "query": "SKF 6202-2RS",
+                    "search_id": "69f4b71e7a3b05e6fcc42e10",
+                    "status": "Success",
+                    "search_date": "2026-05-01 14:22:22 UTC",
+                    "response_time": 2.41,
+                    "json_endpoint": "https:\/\/serpapi.com\/searches\/Moyouu0USWZjS_7i2AdtDA\/69f4b71e7a3b05e6fcc42e10.json",
+                    "google_url": "www.google.com\/search?q=SKF+6202-2RS&oq=SKF+6202-2RS&uule=w+CAIQICIaQXVzdGluLFRleGFzLFVuaXRlZCBTdGF0ZXM&hl=en&gl=us&sourceid=chrome&ie=UTF-8",
+                    "language": "en",
+                    "country": "us",
+                    "location": "Austin,Texas,United States"
+                },
+                "search_results": [
+                    {
+                        "input_row_id": 1,
+                        "google_rank": 1,
+                        "title": "W 6202-2RS1 - Deep groove ball bearings",
+                        "link": "www.skf.com\/us\/products\/rolling-bearings\/ball-bearings\/deep-groove-ball-bearings\/productid-W%206202-2RS1",
+                        "source": "SKF",
+                        "snippet": "Stainless steel single row deep groove ball bearing with seals or shields on both sides, provide greater chemical and corrosion resistance.",
+                        "highlighted_words": [],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 1,
+                        "google_rank": 2,
+                        "title": "6202-2RS C3, SKF Brand 15X35X11mm Double Sealed ...",
+                        "link": "intechbearing.com\/products\/6202-2rs-skf-sealed-radial-ball-bearing",
+                        "source": "Intech Bearing Inc.",
+                        "snippet": "$ 7.80 ... Provisioned with synthetic rubber seals on both sides to reject contaminates, these bearings are pre-lubricated for maximum life. Item: Radial Ball",
+                        "highlighted_words": [],
+                        "missing_words": [],
+                        "pricing": {
+                            "price": 7.8,
+                            "currency": "$",
+                            "availability": "in stock"
+                        },
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 1,
+                        "google_rank": 3,
+                        "title": "SKF 6202-2RS Single Row Deep Groove Radial Ball ...",
+                        "link": "www.eis-inc.com\/product\/deep-groove-radial-ball-bearing-6202-2rs04",
+                        "source": "Engineered & Industrial Solutions | EIS",
+                        "snippet": "Overview \u00b7 Comes with improved dimensions \u00b7 Generates 50% less noise \u00b7 Operational cost and maintenance are low \u00b7 Clearance: C3 \u00b7 Speed Rating: 13000 rpm",
+                        "highlighted_words": [],
+                        "missing_words": [],
+                        "pricing": {
+                            "price": 14.76,
+                            "currency": "$",
+                            "availability": "in stock"
+                        },
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 1,
+                        "google_rank": 4,
+                        "title": "S.K.F. Ball bearing 6202 2RS1-C3 [W1-04608-C3]",
+                        "link": "www.amazon.com\/S-K-F-Ball-bearing-2RS1-C3-W1-04608-C3\/dp\/B00652L6CI",
+                        "source": "Amazon.com",
+                        "snippet": "2PACK TIMKEN 6202-2RS Double Rubber Seal Bearings 15x35x11mm, Pre-Lubricated and Stable Performance and Cost Effective, Deep Groove Ball Bearings.",
+                        "highlighted_words": [
+                            "6202",
+                            "2RS"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "ID": 2,
+        "Category": "Angle Grinder",
+        "Mfr": "MAKITA",
+        "MPN": "XAG20Z",
+        "Description": "18V LXT\u00ae LITHIUM\u2011ION BRUSHLESS CORDLESS 4\u20111\/2\u201d \/ 5\" PADDLE SWITCH CUT\u2011OFF\/ANGLE GRINDER, WITH ELECTRIC BRAKE, TOOL ONLY",
+        "queries": [
+            "Makita XAG20Z"
+        ],
+        "suppliers": [
+            "MAKITA"
+        ],
+        "part_codes": [
+            "XAG20Z"
+        ],
+        "Long Desc": "These cordless angle grinders run on Makita batteries of a compatible platform and matching voltage. The batteries can also power other Makita tools.",
+        "results": [
+            {
+                "search_metadata": {
+                    "query_index": 1,
+                    "query": "Makita XAG20Z",
+                    "search_id": "69f4b71e0676dce85303b6e6",
+                    "status": "Success",
+                    "search_date": "2026-05-01 14:22:22 UTC",
+                    "response_time": 2.51,
+                    "json_endpoint": "https:\/\/serpapi.com\/searches\/dkdy0ioGAA-f0hBnQY0O7A\/69f4b71e0676dce85303b6e6.json",
+                    "google_url": "www.google.com\/search?q=Makita+XAG20Z&oq=Makita+XAG20Z&uule=w+CAIQICIaQXVzdGluLFRleGFzLFVuaXRlZCBTdGF0ZXM&hl=en&gl=us&sourceid=chrome&ie=UTF-8",
+                    "language": "en",
+                    "country": "us",
+                    "location": "Austin,Texas,United States"
+                },
+                "search_results": [
+                    {
+                        "input_row_id": 2,
+                        "google_rank": 1,
+                        "title": "Makita USA - Product Details -XAG20Z",
+                        "link": "makitatools.com\/products\/details\/XAG20Z",
+                        "source": "Makita USA",
+                        "snippet": "Makita delivers corded grinding performance without the cord with the 18V LXT\u00ae Lithium-Ion Brushless 4-1\/2\" \/ 5\u201d Paddle Switch Cut-Off\/Angle Grinder with",
+                        "highlighted_words": [
+                            "18V LXT\u00ae Lithium-Ion Brushless 4-1\/2\" \/ 5\u201d Paddle Switch Cut-Off\/Angle Grinder"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 2,
+                        "google_rank": 2,
+                        "title": "Makita - 18V Brushless 4-1\/2 in. \/ 5 in. Cordless Paddle ...",
+                        "link": "www.homedepot.com\/p\/Makita-18V-Brushless-4-1-2-in-5-in-Cordless-Paddle-Switch-Cut-Off-Angle-Grinder-with-Electric-Brake-Tool-Only-XAG20Z\/304303552",
+                        "source": "The Home Depot",
+                        "snippet": "This tool needs a Makita 18V LXT battery and charger. Grab some 4-1\/2 in. or 5 in. grinding\/cut-off wheels and safety glasses to get started.",
+                        "highlighted_words": [
+                            "Makita"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 2,
+                        "google_rank": 3,
+                        "title": "Xag20z",
+                        "link": "www.ebay.com\/shop\/xag20z?_nkw=xag20z",
+                        "source": "eBay",
+                        "snippet": "Makita XAG20Z 18V LXT Brushless 4-1\/2\" \/ 5\" Cut-Off\/Angle Grinder. Open Box. $259.95. or Best Offer. +$12.95",
+                        "highlighted_words": [
+                            "Makita XAG20Z 18V LXT Brushless 4-1\/2\" \/ 5\" Cut-Off\/Angle Grinder"
+                        ],
+                        "missing_words": [],
+                        "pricing": {
+                            "price": 259.95,
+                            "currency": "$",
+                            "availability": null
+                        },
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 2,
+                        "google_rank": 4,
+                        "title": "XAG20Z 18V LXT 4.5\" Paddle Switch Angle Grinder (Tool ...",
+                        "link": "swcollins.com\/p\/xag20z-18v-lxt-45-paddle-switch-angle-grinder-tool-only\/XAG20Z",
+                        "source": "SW Collins Co. |",
+                        "snippet": "18V LXT Brushless 4-1\/2\" \/ 5\" Paddle Switch Angle Grinder (XAG20Z) features Automatic Speed Change to optimize performance for grinding and cutting.",
+                        "highlighted_words": [
+                            "XAG20Z"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "ID": 3,
+        "Category": "Tape, Duct",
+        "Mfr": "3M",
+        "MPN": 2979,
+        "Description": "DUCT TAPE: LIGHT DUTY, GRAY, 2 IN WD, 60 YD LG, 7.4 MIL THICK, POLYETHYLENE COATED CLOTH",
+        "queries": [
+            "3M 2979"
+        ],
+        "suppliers": [
+            "3M"
+        ],
+        "part_codes": [
+            "2979"
+        ],
+        "Long Desc": "General purpose duct tape is a durable, cloth-backed tape that conforms and adheres to surfaces using applied pressure. It is used for general, temporary repair and patching, as well as labeling, marking, and wire pulling.",
+        "results": [
+            {
+                "search_metadata": {
+                    "query_index": 1,
+                    "query": "3M 2979",
+                    "search_id": "69f4b71e28b27b6b8c719d2d",
+                    "status": "Success",
+                    "search_date": "2026-05-01 14:22:22 UTC",
+                    "response_time": 9.51,
+                    "json_endpoint": "https:\/\/serpapi.com\/searches\/KuBbWbF91BxX3hDppKcmTQ\/69f4b71e28b27b6b8c719d2d.json",
+                    "google_url": "www.google.com\/search?q=3M+2979&oq=3M+2979&uule=w+CAIQICIaQXVzdGluLFRleGFzLFVuaXRlZCBTdGF0ZXM&hl=en&gl=us&sourceid=chrome&ie=UTF-8",
+                    "language": "en",
+                    "country": "us",
+                    "location": "Austin,Texas,United States"
+                },
+                "search_results": [
+                    {
+                        "input_row_id": 3,
+                        "google_rank": 1,
+                        "title": "3M\u2122 Contractor Grade Multi-Use Duct Tape 2979, Silver ...",
+                        "link": "www.3m.com\/3M\/en_US\/p\/d\/v000297087\/",
+                        "source": "3M",
+                        "snippet": "Constructed of polyethylene film laminated to cloth with a rubber adhesive, this economical tape resists curling and tears off the roll cleanly.",
+                        "highlighted_words": [],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 3,
+                        "google_rank": 2,
+                        "title": "Duct Tape \u2022 3M Contractor Grade, Multi-Use 2979",
+                        "link": "www.panthereast.com\/3m-contractor-duct-tape-2979-silver.html",
+                        "source": "Panther East + Black Cat Fasteners",
+                        "snippet": "Silver, Contractor Grade, Multi-Use Duct Tape 2979 \u2022 1.88inch x 60yards \u00b7 Width 1.88\" \u00b7 Length 60 yd. \u00b7 Thickness 7.00 mil \u00b7 Grade: Utility \u00b7 Tape Color Silver\/",
+                        "highlighted_words": [
+                            "Silver, Contractor Grade, Multi-Use Duct Tape 2979"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 3,
+                        "google_rank": 3,
+                        "title": "3M\u2122 Contractor Grade Multi-Use Duct Tape 2979, Silver ...",
+                        "link": "www.hisco.com\/Product\/7010335692-31180",
+                        "source": "Hisco",
+                        "snippet": "Due to its unique design, 3M\u2122 Contractor Grade Multi-Use Duct Tape 2979 is a good choice for light indoor, everyday jobs where moisture resistance is a factor.",
+                        "highlighted_words": [
+                            "3M",
+                            "2979"
+                        ],
+                        "missing_words": [],
+                        "pricing": {
+                            "price": 8.67,
+                            "currency": "$",
+                            "availability": "in stock"
+                        },
+                        "query_index": 1
+                    },
+                    {
+                        "input_row_id": 3,
+                        "google_rank": 4,
+                        "title": "Contractor Grade Duct Tape - 2979",
+                        "link": "multimedia.3m.com\/mws\/media\/1035248O\/3m-contractor-grade-duct-tape-2979-data-page.pdf",
+                        "source": "3M",
+                        "snippet": "This Industrial Adhesives and Tapes Division product was manufactured under a quality system registered to ISO 9001 standards. Industrial Adhesives and Tapes",
+                        "highlighted_words": [
+                            "Industrial Adhesives and Tapes"
+                        ],
+                        "missing_words": [],
+                        "pricing": {},
+                        "query_index": 1
+                    }
+                ]
+            }
+        ]
+    }
+]

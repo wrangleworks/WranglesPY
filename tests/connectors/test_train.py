@@ -929,7 +929,7 @@ class TestTrainLookup:
             'NotKey': ['A', 'B'],
             'Value': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match=r"UPDATE requires 'Key' or 'MatchingColumns' for non-key variants"):
+        with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: NotKey"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises(self):
@@ -950,7 +950,7 @@ class TestTrainLookup:
             'City': ['Seattle', 'Portland'],
             'Country': ['USA', 'USA'],
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City, Not Country"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises_new_model_name(self):
@@ -971,7 +971,7 @@ class TestTrainLookup:
             'City': ['Seattle', 'Portland'],
             'Country': ['USA', 'USA'],
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*Not City, Not Country"):
+        with pytest.raises(ValueError, match="Lookup: The following MatchingColumns are not present in the provided data: Not City, Not Country"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_lookup_matchingcolumns_missing_raises_insert_existing_model(self):
@@ -995,7 +995,7 @@ class TestTrainLookup:
             'Key': ['K1'],
             'Value': ['V1']
         })
-        with pytest.raises(ValueError, match="MatchingColumns.*Not City"):
+        with pytest.raises(ValueError, match=r"The following MatchingColumns are not present in the provided data: Not City"):
             wrangles.recipe.run(recipe, dataframe=data)
 
     def test_overwrite_matchingcolumns_missing(self):
@@ -1016,8 +1016,8 @@ class TestTrainLookup:
                 'City': ['A', 'B'],
                 'Country': ['X', 'Y']
         })
-        with pytest.raises(ValueError, match=r"MatchingColumns are not present in the provided data: NotKey, NotValue"):
-            wrangles.recipe.run(recipe, dataframe=data)
+        with pytest.raises(ValueError, match="The following MatchingColumns are not present in the provided data: NotKey, NotValue"):
+                wrangles.recipe.run(recipe, dataframe=data)
 
     def test_upsert_new_matchingcolumns_missing(self):
         """
@@ -1360,6 +1360,33 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
+    
+    def test_missing_columns_error_message(self):  
+        """  
+        Verify that INSERT/UPSERT/UPDATE raise the expected error  
+        when incoming columns are not present in the existing model.  
+        """  
+
+        df = pd.DataFrame({  
+            "Key": ["k3"],  
+            "Value": ["v3"],  
+            "ExtraCol": ["x"]  # This column does not exist in the model  
+        })  
+
+    
+        # Test each action that performs the column-alignment check  
+        for action in ("insert", "upsert", "update"):  
+            recipe = f"""
+                write:
+                    - train.lookup:
+                        model_id: bc3ee6a0-e104-4700
+                        action: {action}
+                        variant: key
+
+                """
+            with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
+                wrangles.recipe.run(recipe, dataframe=df)
+    
             
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
@@ -1492,3 +1519,155 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
+
+
+class TestTrainMetaData:
+    """
+    All tests for reading and writing Wrangle metadata
+    """
+    def setup_method(self):
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "meta-data-demo-bd0238a3"}])
+        )
+
+    def test_meta_data_read(self):
+        """
+        Read metadata for a model
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+
+        assert df.iloc[0]["name"] == "meta-data-demo-bd0238a3"
+        assert df.iloc[0]["variant"] == "key"
+        assert df.iloc[0]["purpose"] == "lookup"
+
+    def test_meta_data_read_all_fields(self):
+        """
+        Read metadata returns all fields from the API response as columns
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """
+        )
+        assert all(col in df.columns for col in [
+            "id", "name", "type", "purpose", "status", "path",
+            "batch_size", "tags", "notes", "created_by", "date_created",
+            "modified_by", "date_modified", "variant", "settings"
+        ])
+
+    def test_meta_data_write(self, mocker):
+        """
+        Write (update) metadata for a model
+        """
+        mocker.patch("wrangles.data.model_update")
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "Updated Name", "batch_size": 1000}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_ignores_nan(self, mocker):
+        """
+        NaN values in the DataFrame are not sent to the API
+        """
+        import numpy as np
+        mocker.patch("wrangles.data.model_update")
+        df = wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "My Model", "batch_size": np.nan}])
+        )
+        assert len(df) == 1
+
+    def test_meta_data_write_logs_summary(self, mocker, caplog):
+        """
+        Logging summary statement for updated fields in meta_data.write
+        """
+        mocker.patch("wrangles.data.model_update")
+        wrangles.recipe.run(
+            """
+            write:
+              - train.meta_data:
+                  model_id: 41789e35-eada-4239
+            """,
+            dataframe=pd.DataFrame([{"name": "New Name", "batch_size": 500}])
+        )
+        messages = [record.message for record in caplog.records if record.levelname == "INFO"]
+        assert any("name was updated to New Name" in msg for msg in messages), "Log should mention name update"
+        assert any("batch_size was updated to 500" in msg for msg in messages), "Log should mention batch_size update"
+
+    def test_meta_data_write_invalid_field(self):
+        """
+        Writing a field that is not allowed raises a ValueError
+        """
+        with pytest.raises(ValueError, match="cannot be updated"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"name": "Valid Name", "purpose": "should not be allowed"}])
+            )
+
+    def test_meta_data_write_invalid_type_batch_size(self):
+        """
+        Passing a string for batch_size raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'batch_size' must be of type int"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"batch_size": "one thousand"}])
+            )
+
+    def test_meta_data_write_invalid_type_tags(self):
+        """
+        Passing a string for tags raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'tags' must be of type list or dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"tags": "not-a-list"}])
+            )
+
+    def test_meta_data_write_invalid_type_settings(self):
+        """
+        Passing a string for settings raises a TypeError
+        """
+        with pytest.raises(TypeError, match="'settings' must be of type dict"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.meta_data:
+                      model_id: 41789e35-eada-4239
+                """,
+                dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
+            )
