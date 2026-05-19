@@ -45,7 +45,7 @@ def case_when(
         type: [string, number, integer, boolean, "null"]  
         description: >
           Value to assign where no conditions are met. If omitted, existing
-          column values are preserved (or NaN for new columns).
+          column values are preserved (or pd.NA for new columns).
 
     """
 
@@ -60,13 +60,22 @@ def case_when(
 
     # Determine the base series — what unmatched rows will hold
     if default is not _UNSET:
-        base = _pd.Series(default, index=df.index, dtype=object)
+        base = _pd.Series(default, index=df.index)
     elif output in df.columns:
-        base = df[output].copy().astype(object)
+        base = df[output].copy()
     else:
-        base = _pd.Series(_pd.NA, index=df.index, dtype=object)
+        base = _pd.Series(_pd.NA, index=df.index)
 
-    df[output] = base.case_when(caselist)
+    if hasattr(_pd.Series, 'case_when'):
+        df[output] = base.case_when(caselist)
+    else:
+        # Fallback for pandas < 2.2
+        conditions = [cond for cond, _ in caselist]
+        choices = [val for _, val in caselist]
+        df[output] = _pd.Series(
+            _np.select(conditions, choices, default=base),
+            index=df.index
+        )
 
     return df
 

@@ -390,7 +390,7 @@ class TestCaseWhen:
             wrangles:
               - compute.case_when:
                   output: Label
-                  default: None
+                  default: null
                   cases:
                     - condition: (age >= 18 and income > 50000) or vip == True
                       value: Eligible
