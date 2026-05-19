@@ -1,6 +1,7 @@
 """
 Test the file connector for reading and writing files to the local file system.
 """
+import pathlib
 import uuid as _uuid
 import wrangles
 import pandas as _pd
@@ -993,3 +994,42 @@ def test_read_object_json():
       }
     )
     assert len(df) == 3 and df['Col1'][0] == 'a'
+
+
+class TestPathObjects:
+    """
+    Test that read and write accept pathlib.Path objects (issue #986)
+    """
+    def test_read_csv_path_object(self):
+        """
+        Test that file.read accepts a pathlib.Path for a CSV file
+        """
+        df = wrangles.connectors.file.read(pathlib.Path('tests/samples/data.csv'))
+        assert list(df.columns) == ['Find', 'Replace']
+
+    def test_read_excel_path_object(self):
+        """
+        Test that file.read accepts a pathlib.Path for an Excel file
+        """
+        df = wrangles.connectors.file.read(pathlib.Path('tests/samples/data.xlsx'))
+        assert list(df.columns) == ['Find', 'Replace']
+
+    def test_write_csv_path_object(self, tmp_path):
+        """
+        Test that file.write accepts a pathlib.Path for a CSV file
+        """
+        dest = tmp_path / 'out.csv'
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        wrangles.connectors.file.write(df, dest)
+        result = wrangles.connectors.file.read(dest)
+        assert result['col1'][0] == 'a'
+
+    def test_write_excel_path_object(self, tmp_path):
+        """
+        Test that file.write accepts a pathlib.Path for an Excel file
+        """
+        dest = tmp_path / 'out.xlsx'
+        df = _pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        wrangles.connectors.file.write(df, dest)
+        result = wrangles.connectors.file.read(dest)
+        assert result['col1'][0] == 'a'

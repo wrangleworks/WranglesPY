@@ -64,6 +64,11 @@ def _load_recipe(
     """
     if variables is None:
         variables = {}
+
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(recipe, _os.PathLike):
+        recipe = str(recipe)
+
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
     

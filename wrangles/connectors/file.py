@@ -46,6 +46,10 @@ def read(
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(name, _os.PathLike):
+        name = str(name)
+
     if (
         isinstance(name, dict) and
         all(x in name for x in ['name', 'data', 'mimeType'])
@@ -187,6 +191,10 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param formatting: (Optional) A dictionary of formatting options to apply to Excel files.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(name, _os.PathLike):
+        name = str(name)
+
     _logging.info(f": Writing data to file :: {name}")
 
     # Select only specific columns if user requests them

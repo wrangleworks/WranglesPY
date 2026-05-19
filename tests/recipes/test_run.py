@@ -5,6 +5,7 @@ Tests specific to an individual connector should go
 in a test file for the respective connectors
 e.g. tests/connectors/test_notifications.py
 """
+import pathlib
 import pandas as pd
 import wrangles
 import pytest
@@ -166,3 +167,19 @@ def test_overwrite_run():
     )
 
     assert check_var.get("value") is True
+
+
+def test_run_path_object():
+    """
+    Test that recipe.run accepts a pathlib.Path to a YAML file (issue #986)
+    """
+    df = wrangles.recipe.run(pathlib.Path('tests/samples/recipe-basic.wrgl.yml'))
+    assert list(df.columns) == ['header1', 'header2']
+
+
+def test_run_pure_posix_path():
+    """
+    Test that recipe.run accepts a pathlib.PurePosixPath (issue #986)
+    """
+    df = wrangles.recipe.run(pathlib.PurePosixPath('tests/samples/recipe-basic.wrgl.yml'))
+    assert list(df.columns) == ['header1', 'header2']
