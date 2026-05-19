@@ -935,6 +935,61 @@ class TestConvertFromJSON:
             df["out2"][1] == [4, 5, 6]
         )
 
+    def test_default_list_one_applied_to_all_columns(self):
+        """
+        Test that a list of one default is unwrapped and applied to all columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - {}
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]'],
+                "header2": ["", '[4,5,6]']
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == [1, 2, 3] and
+            df["out2"][0] == {} and
+            df["out2"][1] == [4, 5, 6]
+        )
+
+    def test_default_list_length_mismatch_raises(self):
+        """
+        Test that a default list whose length doesn't match input raises an error
+        """
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.from_json:
+                    input:
+                      - header1
+                      - header2
+                    default:
+                      - {}
+                      - []
+                      - null
+                    output:
+                      - out1
+                      - out2
+                """,
+                dataframe=pd.DataFrame({
+                    "header1": [""],
+                    "header2": [""]
+                })
+            )
+
 
 class TestConvertFromYAML:
     """
@@ -1118,6 +1173,61 @@ class TestConvertFromYAML:
             df["out2"][0] == [] and
             df["out2"][1] == ["item1"]
         )
+
+    def test_default_list_one_applied_to_all_columns(self):
+        """
+        Test that a list of one default is unwrapped and applied to all columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - {}
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "key: val\n"],
+                "col2": ["", "- item1\n"]
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"key": "val"} and
+            df["out2"][0] == {} and
+            df["out2"][1] == ["item1"]
+        )
+
+    def test_default_list_length_mismatch_raises(self):
+        """
+        Test that a default list whose length doesn't match input raises an error
+        """
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.from_yaml:
+                    input:
+                      - col1
+                      - col2
+                    default:
+                      - {}
+                      - []
+                      - null
+                    output:
+                      - out1
+                      - out2
+                """,
+                dataframe=pd.DataFrame({
+                    "col1": [""],
+                    "col2": [""]
+                })
+            )
 
 
 class TestConvertToJSON:

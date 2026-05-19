@@ -366,9 +366,16 @@ def from_json(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
-    # Normalize default to a per-column list
-    if isinstance(default, list) and len(default) == len(input):
-        defaults = default
+    # Normalize default to a per-column list.
+    # Only treat default as a per-column list when it is a non-empty list
+    # (an empty list like `default: []` is always the default value itself).
+    if isinstance(default, list) and len(default) > 0:
+        if len(default) == 1:
+            defaults = [default[0]] * len(input)
+        elif len(default) != len(input):
+            raise ValueError('The list of default values must be the same length as input/output for convert.from_json')
+        else:
+            defaults = default
     else:
         defaults = [default] * len(input)
 
@@ -525,9 +532,16 @@ def from_yaml(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
-    # Normalize default to a per-column list
-    if isinstance(default, list) and len(default) == len(input):
-        defaults = default
+    # Normalize default to a per-column list.
+    # Only treat default as a per-column list when it is a non-empty list
+    # (an empty list like `default: []` is always the default value itself).
+    if isinstance(default, list) and len(default) > 0:
+        if len(default) == 1:
+            defaults = [default[0]] * len(input)
+        elif len(default) != len(input):
+            raise ValueError('The list of default values must be the same length as input/output for convert.from_yaml')
+        else:
+            defaults = default
     else:
         defaults = [default] * len(input)
 
