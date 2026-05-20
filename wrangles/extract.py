@@ -54,7 +54,7 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-5.5",
+    model: str = "gpt-4.1-mini",
     threads: int = 20,
     timeout: int = 25,
     retries: int = 0,
