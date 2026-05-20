@@ -269,9 +269,10 @@ def ai(
             "role": "system",
             "content": " ".join([
                 "You are an expert data extraction assistant.",
-                "Extract and standardize only the requested fields from the supplied DATA.",
-                "Use the field names, descriptions, enums, and examples in the schema as the source of truth.",
-                "Do not infer values that are not supported by the DATA.",
+                "Extract only the requested fields from the supplied DATA.",
+                "Use the field names, descriptions, enums, and examples in the schema as guidance.",
+                "Preserve extracted values exactly as they appear in the DATA; do not paraphrase, simplify, or substitute alternate forms.",
+                "Do not infer values that are not present in the DATA.",
                 "When a requested value is unavailable, return the closest schema-compatible empty value.",
                 "Return only data that satisfies the supplied structured-output schema."
             ])
@@ -298,7 +299,9 @@ def ai(
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
-        "gpt-4o": {"temperature": 0.2}
+        "gpt-4o": {"temperature": 0.2},
+        "gpt-4.1-mini": {"temperature": 0.2},
+        "gpt-4.1": {"temperature": 0.2},
     }
 
     # Blend default settings into kwargs
