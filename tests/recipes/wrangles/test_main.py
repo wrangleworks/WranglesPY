@@ -6132,6 +6132,44 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Col1': ['a']} )  
             )  
     
+    def test_lookup_output_key_only(self):
+        """
+        Specifying output: Key should return the looked-up key string, not a dict.
+        Issue #992: 'Key' was not in metadata["settings"]["columns"] so the unnamed-
+        columns path was hit and the full dict was returned instead.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output: Key
+                  model_id: f6896dae-3b48-4bbe
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+
+    def test_lookup_output_key_and_value_column(self):
+        """
+        Specifying output: [Key, Schema] must work without error.
+        Issue #992: mixing 'Key' with a real model column raised ValueError.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output:
+                    - Key
+                    - Schema
+                  model_id: f6896dae-3b48-4bbe
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+        assert df['Schema'].tolist() == ['fruit', 'fruit', 'fruit']
+
     def test_lookup_mode_invalid_mode(self):  
         """  
         Test error when invalid lookup_mode is provided  
