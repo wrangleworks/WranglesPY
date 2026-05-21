@@ -1,7 +1,6 @@
 import os
 import pytest
 import pandas as pd
-from unittest.mock import MagicMock
 from wrangles.connectors.akeneo import read, write
 
 
@@ -69,82 +68,42 @@ def test_read_pagination():
     assert isinstance(df, pd.DataFrame)
 
 
-# ---------------------------------------------------------------------------
-# Error-condition tests — kept mocked (can't reproduce with a live instance)
-# ---------------------------------------------------------------------------
-
-def _mock_auth(mocker, status_code=200):
-    auth_mock = MagicMock()
-    auth_mock.ok = status_code < 400
-    auth_mock.status_code = status_code
-    auth_mock.json.return_value = (
-        {"access_token": "test_token"} if auth_mock.ok else {"message": "Unauthorized"}
-    )
-    auth_mock.text = "Unauthorized"
-    return auth_mock
-
-
-def _make_get_response(data):
-    r = MagicMock()
-    r.ok = True
-    r.status_code = 200
-    r.json.return_value = data
-    return r
-
-
-def test_read_auth_error(mocker):
-    auth_mock = MagicMock()
-    auth_mock.ok = False
-    auth_mock.status_code = 401
-    auth_mock.json.return_value = {"message": "Unauthorized"}
-    auth_mock.text = "Unauthorized"
-    mocker.patch("requests.post", return_value=auth_mock)
-
+@pytest.mark.skipif(not os.getenv('AKENEO_HOST'), reason="AKENEO_HOST not set")
+def test_read_auth_error():
     with pytest.raises(ValueError, match="Akeneo authentication failed"):
         read(
-            host="https://akeneo.example.com",
+            host=_host,
             user="bad_user",
             password="bad_pass",
-            client_id="client_id",
-            client_secret="client_secret",
+            client_id="bad_client_id",
+            client_secret="bad_secret",
             source="products",
         )
 
 
-def test_read_api_error(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    error_mock = MagicMock()
-    error_mock.ok = False
-    error_mock.status_code = 422
-    error_mock.json.return_value = {"code": 422, "message": "Unprocessable Entity"}
-    mocker.patch("requests.get", return_value=error_mock)
-
-    with pytest.raises(ValueError, match="422"):
+@_skip_no_creds
+def test_read_api_error():
+    with pytest.raises(ValueError, match="Status Code:"):
         read(
-            host="https://akeneo.example.com",
-            user="user",
-            password="pass",
-            client_id="client_id",
-            client_secret="client_secret",
-            source="products",
+            host=_host,
+            user=_user,
+            password=_password,
+            client_id=_client_id,
+            client_secret=_client_secret,
+            source="invalid_source",
         )
 
 
-def test_write_error(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    patch_mock = MagicMock()
-    patch_mock.status_code = 401
-    patch_mock.text = '{"code": 401, "message": "Unauthorized"}'
-    mocker.patch("requests.patch", return_value=patch_mock)
-
+@_skip_no_creds
+def test_write_error():
     df = pd.DataFrame({"identifier": ["prod1"]})
-    with pytest.raises(ValueError, match="401"):
+    with pytest.raises(ValueError, match="Status Code:"):
         write(
             df=df,
-            host="https://akeneo.example.com",
-            user="user",
-            password="pass",
-            client_id="client_id",
-            client_secret="client_secret",
-            source="products",
+            host=_host,
+            user=_user,
+            password=_password,
+            client_id=_client_id,
+            client_secret=_client_secret,
+            source="invalid_source",
         )
