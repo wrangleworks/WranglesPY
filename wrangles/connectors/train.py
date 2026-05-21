@@ -234,11 +234,12 @@ class lookup():
             description: Specific model to read
         """
 
-    def write(df: _pd.DataFrame, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key', action: str = 'overwrite') -> None:
+    def write(df: _pd.DataFrame, columns: list = None, name: str = None, model_id: str = None, settings: dict = None, variant: str = 'key', action: str = 'overwrite') -> None:
         """
         Train a new or existing lookup wrangle
 
         :param df: DataFrame to be written to a file
+        :param columns: Columns to include. Required for INSERT, UPDATE and UPSERT — only the listed columns will be added or updated.
         :param name: Name to give to a new Wrangle that will be created
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
@@ -256,6 +257,18 @@ class lookup():
         # Normalize inputs and avoid mutating default args
         act = (action or 'overwrite').upper()
         settings = dict(settings or {})
+
+        # columns is required for partial-update actions
+        if columns is None and act in ('INSERT', 'UPDATE', 'UPSERT'):
+            raise ValueError(
+                f"Lookup: 'columns' is required for action '{action}'. "
+                "Specify the columns to add or update so that unrelated columns are not modified."
+            )
+
+        # Filter the DataFrame to only the requested columns
+        if columns is not None:
+            columns = _wildcard_expansion(df.columns, columns)
+            df = df[columns]
 
         def _get_columns_from_payload(payload):
             # payload can be a DataFrame or the 'tight' dict produced by _to_tight
@@ -616,21 +629,28 @@ class lookup():
             description: Model to be updated. Either this or a name must be provided
           columns:
             type: array
-            description: Columns to submit
+            description: >-
+              Columns to include from the DataFrame.
+              Required for INSERT, UPDATE and UPSERT — only the listed columns
+              will be added or updated; all other columns in the model are left
+              unchanged.
+            items:
+              type: string
+          action:
+            type: string
+            description: Action to take when training the lookup wrangle
+            default: overwrite
+            enum:
+              - insert
+              - update
+              - upsert
+              - overwrite
           variant:
             type: string
             description: Variant of the Lookup Wrangle that will be created
             enum:
               - key
               - semantic
-        action:
-            type: string
-            description: Action to take when training the lookup wrangle
-            enum:
-              - insert
-              - update
-              - upsert
-              - overwrite
         """
 
 

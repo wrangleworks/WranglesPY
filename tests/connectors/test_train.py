@@ -644,6 +644,9 @@ class TestTrainLookup:
               model_id: 3c8f6707-2de4-4be3 
               action: INSERT
               variant: key
+              columns:
+                - Key
+                - Value
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Dolores', 'TARS'],
@@ -666,30 +669,36 @@ class TestTrainLookup:
                 model_id: 3c8f6707-2de4-4be3 
                 action: INSERT
                 variant: key
+                columns:
+                  - Key
+                  - Value
             """ 
         with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
             wrangles.recipe.run(recipe, dataframe=df)
         
     
-    def test_update_model_not_found(self):  
-        """  
-        Test update fails when model doesn't exist   
-        """  
-        df = pd.DataFrame({  
-            'Key': ['Rachel', 'Dolores'],  
-            'Value': ['Blade Runner 2049', 'Westworld Updated']  
-        })  
-          
-        recipe = """  
-        write:  
-          - train.lookup:  
-              model_id: test-model-id  
-              action: UPDATE  
-        """  
-          
-        # This would test with an actual existing model  
-        # For testing purposes, we'll catch the expected error  
-        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
+    def test_update_model_not_found(self):
+        """
+        Test update fails when model doesn't exist
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores'],
+            'Value': ['Blade Runner 2049', 'Westworld Updated']
+        })
+
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: test-model-id
+              action: UPDATE
+              columns:
+                - Key
+                - Value
+        """
+
+        # This would test with an actual existing model
+        # For testing purposes, we'll catch the expected error
+        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):
             wrangles.recipe.run(recipe, dataframe=df)  
   
     def test_action_parameter_validation_recipe(self):  
@@ -725,7 +734,10 @@ class TestTrainLookup:
           - train.lookup:  
               model_id: 3c8f6707-2de4-4be3
               action: UPDATE  
-        """  
+              columns:
+                - Key
+                - Value
+        """
         
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
@@ -743,9 +755,12 @@ class TestTrainLookup:
         recipe = f"""  
         write:  
         - train.lookup:  
-            name: {model_name} 
+            name: {model_name}  
             action: UPSERT  
             variant: key  
+            columns:
+              - Key
+              - Value
         """  
         
         result = wrangles.recipe.run(recipe, dataframe=df)  
@@ -769,6 +784,9 @@ class TestTrainLookup:
             model_id: b2cd1a8a-4d99-4be1
             action: UPSERT  
             variant: key  
+            columns:
+              - Key
+              - Value
         """  
         result = wrangles.recipe.run(recipe, dataframe=df)  
         assert len(result) == 1
@@ -888,6 +906,10 @@ class TestTrainLookup:
                   model_id: {MODEL}
                   action: upsert
                   variant: key
+                  columns:
+                    - Key
+                    - Value
+                    - Weight
             """,
             dataframe=pd.DataFrame({
                 'Key':    ['apple'],
@@ -918,6 +940,8 @@ class TestTrainLookup:
               model_id: b2cd1a8a-4d99-4be1
               action: UPSERT
               variant: key
+              columns:
+                - Value
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
@@ -933,6 +957,9 @@ class TestTrainLookup:
             model_id: 89637e77-7214-49a0
             action: UPDATE
             variant: semantic
+            columns:
+              - Not Key
+              - Not Value
         """
         data = pd.DataFrame({
             'Not Key': ['A', 'B'],
@@ -952,6 +979,9 @@ class TestTrainLookup:
             model_id: 3c8f6707-2de4-4be3
             action: UPDATE
             variant: key
+            columns:
+              - NotKey
+              - Value
         """
         data = pd.DataFrame({
             'NotKey': ['A', 'B'],
@@ -1013,6 +1043,11 @@ class TestTrainLookup:
             model_id: 3c8f6707-2de4-4be3
             action: INSERT
             variant: key
+            columns:
+              - City
+              - Country
+              - Key
+              - Value
             settings:
               MatchingColumns:
                 - Not City
@@ -1056,6 +1091,9 @@ class TestTrainLookup:
             - train.lookup:
                     name: 083ed6fe-a073-4b1a
                     action: UPSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1077,6 +1115,9 @@ class TestTrainLookup:
             - train.lookup:
                     model_id: 083ed6fe-a073-4b1a
                     action: UPSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1099,6 +1140,9 @@ class TestTrainLookup:
             - train.lookup:
                     model_id: 083ed6fe-a073-4b1a
                     action: INSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1151,6 +1195,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: update
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1182,6 +1231,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: update
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                             - City
@@ -1214,6 +1268,11 @@ class TestTrainLookup:
                 - train.lookup:
                         model_id: 4202c974-430a-46b9
                         action: insert
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1245,6 +1304,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: insert
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                                 - City
@@ -1275,6 +1339,11 @@ class TestTrainLookup:
                 - train.lookup:
                         model_id: 4202c974-430a-46b9
                         action: upsert
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1305,6 +1374,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: upsert
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                                 - City
@@ -1326,6 +1400,9 @@ class TestTrainLookup:
                 model_id: 12b7ac66-7418-45b5
                 action: INSERT
                 variant: key
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Dolores'],
@@ -1354,6 +1431,9 @@ class TestTrainLookup:
             - train.lookup:
                 model_id: 12b7ac66-7418-45b5
                 action: UPDATE
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Alice'],
@@ -1402,6 +1482,9 @@ class TestTrainLookup:
                   model_id: {MODEL}
                   action: upsert
                   variant: key
+                  columns:
+                    - Key
+                    - Mapping
             """,
             dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
         )
@@ -1444,6 +1527,9 @@ class TestTrainLookup:
                   model_id: {MODEL}
                   action: insert
                   variant: key
+                  columns:
+                    - Key
+                    - Mapping
             """,
             dataframe=pd.DataFrame({'Key': ['cherry'], 'Mapping': ['red']}),
         )
@@ -1488,6 +1574,9 @@ class TestTrainLookup:
                   model_id: {MODEL}
                   action: update
                   variant: key
+                  columns:
+                    - Key
+                    - Mapping
             """,
             dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
         )
@@ -1512,6 +1601,9 @@ class TestTrainLookup:
                 model_id: 12b7ac66-7418-45b5
                 action: UPSERT
                 variant: key
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Charlie', 'NewKey'],
@@ -1541,11 +1633,36 @@ class TestTrainLookup:
                         model_id: bc3ee6a0-e104-4700
                         action: {action}
                         variant: key
+                        columns:
+                          - Key
+                          - Value
+                          - ExtraCol
                 """
             with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
                 wrangles.recipe.run(recipe, dataframe=df)
-    
-            
+
+    def test_columns_required_for_partial_update_actions(self):
+        """
+        INSERT, UPDATE, and UPSERT must raise ValueError when 'columns' is not specified.
+        OVERWRITE does not require it.
+        """
+        df = pd.DataFrame({'Key': ['apple'], 'Value': ['red']})
+        for action in ('insert', 'update', 'upsert'):
+            with pytest.raises(
+                ValueError,
+                match=f"Lookup: 'columns' is required for action '{action}'"
+            ):
+                wrangles.recipe.run(
+                    f"""
+                    write:
+                      - train.lookup:
+                          model_id: 3c8f6707-2de4-4be3
+                          action: {action}
+                    """,
+                    dataframe=df,
+                )
+
+
 def test_lookup_write_logs_new_model_id(caplog):  
     """  
     Integration test for lookup model creation logging  
