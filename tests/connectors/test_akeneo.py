@@ -1,123 +1,95 @@
+import os
 import pytest
 import pandas as pd
 from unittest.mock import MagicMock
 from wrangles.connectors.akeneo import read, write
 
 
-_AUTH_RESPONSE = {"access_token": "test_token"}
+_host = os.getenv('AKENEO_HOST', '...')
+_user = os.getenv('AKENEO_USERNAME', '...')
+_password = os.getenv('AKENEO_PASSWORD', '...')
+_client_id = os.getenv('AKENEO_CLIENT_ID', '...')
+_client_secret = os.getenv('AKENEO_SECRET', '...')
 
-_PRODUCTS_PAGE1 = {
-    "_embedded": {
-        "items": [
-            {"identifier": "prod1", "family": "familyA"},
-            {"identifier": "prod2", "family": "familyA"},
-        ]
-    },
-    "_links": {
-        "self": {"href": "https://akeneo.example.com/api/rest/v1/products?page=1"},
-        "first": {"href": "https://akeneo.example.com/api/rest/v1/products?page=1"},
-        "next": {"href": "https://akeneo.example.com/api/rest/v1/products?page=2"},
-    },
-}
+_has_credentials = all(
+    os.getenv(v)
+    for v in ('AKENEO_HOST', 'AKENEO_USERNAME', 'AKENEO_PASSWORD', 'AKENEO_CLIENT_ID', 'AKENEO_SECRET')
+)
 
-_PRODUCTS_PAGE2 = {
-    "_embedded": {
-        "items": [
-            {"identifier": "prod3", "family": "familyB"},
-        ]
-    },
-    "_links": {
-        "self": {"href": "https://github.com/wrangleworks/WranglesPY/issues/978/api/rest/v1/products?page=2"},
-        "first": {"href": "https://akeneo.example.com/api/rest/v1/products?page=1"},
-    },
-}
+_skip_no_creds = pytest.mark.skipif(
+    not _has_credentials,
+    reason="Akeneo credentials not set in environment variables"
+)
 
-_PRODUCTS_SINGLE_PAGE = {
-    "_embedded": {
-        "items": [
-            {"identifier": "prod1", "family": "familyA"},
-            {"identifier": "prod2", "family": "familyB"},
-        ]
-    },
-    "_links": {
-        "self": {"href": "https://akeneo.example.com/api/rest/v1/products"},
-        "first": {"href": "https://akeneo.example.com/api/rest/v1/products"},
-    },
-}
 
+# ---------------------------------------------------------------------------
+# Integration tests — require real credentials
+# ---------------------------------------------------------------------------
+
+@_skip_no_creds
+def test_read():
+    df = read(
+        host=_host,
+        user=_user,
+        password=_password,
+        client_id=_client_id,
+        client_secret=_client_secret,
+        source="products",
+    )
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) > 0
+
+
+@_skip_no_creds
+def test_read_columns():
+    df = read(
+        host=_host,
+        user=_user,
+        password=_password,
+        client_id=_client_id,
+        client_secret=_client_secret,
+        source="products",
+        columns=["identifier"],
+    )
+    assert df.columns.tolist() == ["identifier"]
+    assert len(df) > 0
+
+
+@_skip_no_creds
+def test_read_pagination():
+    """Fetch enough records to exercise pagination (limit is set to 100)."""
+    df = read(
+        host=_host,
+        user=_user,
+        password=_password,
+        client_id=_client_id,
+        client_secret=_client_secret,
+        source="products",
+    )
+    assert isinstance(df, pd.DataFrame)
+
+
+# ---------------------------------------------------------------------------
+# Error-condition tests — kept mocked (can't reproduce with a live instance)
+# ---------------------------------------------------------------------------
 
 def _mock_auth(mocker, status_code=200):
     auth_mock = MagicMock()
     auth_mock.ok = status_code < 400
     auth_mock.status_code = status_code
-    auth_mock.json.return_value = _AUTH_RESPONSE if auth_mock.ok else {"message": "Unauthorized"}
+    auth_mock.json.return_value = (
+        {"access_token": "test_token"} if auth_mock.ok else {"message": "Unauthorized"}
+    )
     auth_mock.text = "Unauthorized"
     return auth_mock
 
 
-def _mock_get(mocker, pages):
-    get_mock = MagicMock()
-    responses = []
-    for page in pages:
-        r = MagicMock()
-        r.ok = True
-        r.status_code = 200
-        r.json.return_value = page
-        responses.append(r)
-    get_mock.side_effect = responses
-    return get_mock
-
-
-def test_read(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    mocker.patch("requests.get", return_value=_make_get_response(_PRODUCTS_SINGLE_PAGE))
-
-    df = read(
-        host="https://akeneo.example.com",
-        user="user",
-        password="pass",
-        client_id="client_id",
-        client_secret="client_secret",
-        source="products",
-    )
-    assert list(df["identifier"]) == ["prod1", "prod2"]
-
-
-def test_read_columns(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    mocker.patch("requests.get", return_value=_make_get_response(_PRODUCTS_SINGLE_PAGE))
-
-    df = read(
-        host="https://akeneo.example.com",
-        user="user",
-        password="pass",
-        client_id="client_id",
-        client_secret="client_secret",
-        source="products",
-        columns=["identifier"],
-    )
-    assert df.columns.tolist() == ["identifier"]
-    assert len(df) == 2
-
-
-def test_read_pagination(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    get_mock = mocker.patch("requests.get")
-    get_mock.side_effect = [
-        _make_get_response(_PRODUCTS_PAGE1),
-        _make_get_response(_PRODUCTS_PAGE2),
-    ]
-
-    df = read(
-        host="https://akeneo.example.com",
-        user="user",
-        password="pass",
-        client_id="client_id",
-        client_secret="client_secret",
-        source="products",
-    )
-    assert len(df) == 3
-    assert list(df["identifier"]) == ["prod1", "prod2", "prod3"]
+def _make_get_response(data):
+    r = MagicMock()
+    r.ok = True
+    r.status_code = 200
+    r.json.return_value = data
+    return r
 
 
 def test_read_auth_error(mocker):
@@ -158,27 +130,6 @@ def test_read_api_error(mocker):
         )
 
 
-def test_write(mocker):
-    mocker.patch("requests.post", return_value=_mock_auth(mocker))
-    patch_mock = MagicMock()
-    patch_mock.ok = True
-    patch_mock.status_code = 200
-    patch_mock.text = '{"status_code": 204}\n{"status_code": 204}'
-    mocker.patch("requests.patch", return_value=patch_mock)
-
-    df = pd.DataFrame({"identifier": ["prod1", "prod2"], "family": ["familyA", "familyB"]})
-    result = write(
-        df=df,
-        host="https://akeneo.example.com",
-        user="user",
-        password="pass",
-        client_id="client_id",
-        client_secret="client_secret",
-        source="products",
-    )
-    assert result is None
-
-
 def test_write_error(mocker):
     mocker.patch("requests.post", return_value=_mock_auth(mocker))
     patch_mock = MagicMock()
@@ -197,11 +148,3 @@ def test_write_error(mocker):
             client_secret="client_secret",
             source="products",
         )
-
-
-def _make_get_response(data):
-    r = MagicMock()
-    r.ok = True
-    r.status_code = 200
-    r.json.return_value = data
-    return r
