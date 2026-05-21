@@ -49,10 +49,7 @@ def read(
     :return: A Pandas dataframe of the returned results
     """
     _logging.info(f": Reading data from Akeneo :: {host} / {source}")
-    if parameters is None:
-        parameters = {}
-    # Set to max temporarily
-    parameters['limit'] = 100
+    parameters = {**(parameters or {}), 'limit': 100}
 
     auth_response = _requests.post(
         f"{host}/api/oauth/v1/token",
@@ -64,7 +61,11 @@ def read(
         }
     )
     if not auth_response.ok:
-        raise ValueError(f"Akeneo authentication failed: {auth_response.json().get('message', auth_response.text)}")
+        try:
+            message = auth_response.json().get('message', auth_response.text)
+        except Exception:
+            message = auth_response.text
+        raise ValueError(f"Akeneo authentication failed: {message}")
 
     token = auth_response.json()['access_token']
     headers={
@@ -201,7 +202,11 @@ def write(
         }
     )
     if not auth_response.ok:
-        raise ValueError(f"Akeneo authentication failed: {auth_response.json().get('message', auth_response.text)}")
+        try:
+            message = auth_response.json().get('message', auth_response.text)
+        except Exception:
+            message = auth_response.text
+        raise ValueError(f"Akeneo authentication failed: {message}")
 
     token = auth_response.json()['access_token']
     

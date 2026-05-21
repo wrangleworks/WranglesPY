@@ -21,10 +21,6 @@ _skip_no_creds = pytest.mark.skipif(
 )
 
 
-# ---------------------------------------------------------------------------
-# Integration tests — require real credentials
-# ---------------------------------------------------------------------------
-
 @_skip_no_creds
 def test_read():
     df = read(
@@ -56,7 +52,6 @@ def test_read_columns():
 
 @_skip_no_creds
 def test_read_pagination():
-    """Fetch enough records to exercise pagination (limit is set to 100)."""
     df = read(
         host=_host,
         user=_user,
@@ -68,7 +63,7 @@ def test_read_pagination():
     assert isinstance(df, pd.DataFrame)
 
 
-@pytest.mark.skipif(not os.getenv('AKENEO_HOST'), reason="AKENEO_HOST not set")
+@_skip_no_creds
 def test_read_auth_error():
     with pytest.raises(ValueError, match="Akeneo authentication failed"):
         read(
