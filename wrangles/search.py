@@ -82,7 +82,7 @@ def _clean_headers(
     :return: A JSON string of the cleaned headers.
     """
 
-    if drop_info==None: drop_info=[
+    if drop_info=='': drop_info=[
                             "x-*",              # Drops X-Frame-Options, X-Cache, X-Amz, etc.
                             "cf-*",             # Drops CF-RAY, cf-cache-status, etc.
                             "content-security-policy",
@@ -144,7 +144,7 @@ def _clean_html_head(
     :param drop_info: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
     :return: The cleaned HTML string.
     """
-    if drop_info==None: drop_info=[
+    if drop_info=='': drop_info=[
                             "script",   # Removes all JavaScript functions and external script links
                             "style",    # Removes all inline CSS blocks
                             "noscript", # Removes fallback tracking pixels
@@ -176,7 +176,7 @@ def retrieve_metadata(
     url: str,
     headers_to_drop: str | list=None,
     tags_to_drop: str | list=None
-    ):
+) -> tuple:
     """
     Connects to a URL using browser spoofing, extracts metadata, and streams the 
     HTML <head> block. Implements strict timeouts to prevent latency bloat. 
@@ -187,9 +187,16 @@ def retrieve_metadata(
     :param tags_to_drop: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
-    # 1. Input Validation & Cleaning
+    # Input Validation & Cleaning
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
+    
+    # Check that headers_to_drop is a string
+    if not isinstance(headers_to_drop, (str, list)):
+        raise TypeError(f"headers_to_drop must be a string or list, got {type(headers_to_drop)} instead.")
+    # Check to ensure tags_to_drop is a list or sting, convert to list
+    if not isinstance(tags_to_drop, (str, list)):
+        raise TypeError(f"tags_to_drop must be string or list, got {type(tags_to_drop)} instead.")
 
     url = url.strip()
     if not url.startswith(('http://', 'https://')):
