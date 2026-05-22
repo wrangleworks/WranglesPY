@@ -99,7 +99,10 @@ TAGS = [
 # HELPER FUNCTIONS
 # ==============================================================================
 
-def clean_headers(raw_headers_json, drop_info):
+def _clean_headers(
+    raw_headers_json: str,
+    drop_info: str | list = HEADERS
+    ):
     """
     Parses JSON headers and removes specified keys based on the drop_info list.
     Supports exact matches and wildcard prefixes (e.g., 'x-*').
@@ -112,9 +115,14 @@ def clean_headers(raw_headers_json, drop_info):
         str: A JSON string of the cleaned headers.
     """
 
-    # Check to ensure drop_info is a list
+    # Check that raw_headers_json is a string
+    if not isinstance(raw_headers_json, str):
+        raise TypeError(f"raw_headers_json must be a string, got {type(raw_headers_json)} instead.")
+    # Check to ensure drop_info is a list or sting, convert to list
+    if not isinstance(drop_info, (str, list)):
+        raise TypeError(f"drop_info must be string or list, got {type(drop_info)} instead.")
     if isinstance(drop_info, str): drop_info=[drop_info]
-    
+
     try:
         headers_dict = json.loads(raw_headers_json)
     except (json.JSONDecodeError, TypeError):
@@ -145,7 +153,10 @@ def clean_headers(raw_headers_json, drop_info):
     return json.dumps(cleaned_dict, indent=2)
 
 
-def clean_html_head(raw_html, drop_info):
+def _clean_html_head(
+    raw_html: str,
+    drop_info: str | list=TAGS
+    ):
     """
     Parses an HTML string and structurally removes entire specified tags 
     (and their contents) using BeautifulSoup.
@@ -158,6 +169,12 @@ def clean_html_head(raw_html, drop_info):
         str: The cleaned HTML string.
     """
 
+    # Check that raw_html is a string
+    if not isinstance(raw_html, str):
+        raise TypeError(f"raw_html must be a string, got {type(raw_html)} instead.")
+    # Check to ensure drop_info is a list or sting, convert to list
+    if not isinstance(drop_info, (str, list)):
+        raise TypeError(f"drop_info must be string or list, got {type(drop_info)} instead.")
     # Check to ensure that drop_info is a list
     if isinstance(drop_info, str): drop_info=[drop_info]
 
@@ -177,7 +194,11 @@ def clean_html_head(raw_html, drop_info):
 # MAIN EXECUTABLE FUNCTION
 # ==============================================================================
 
-def retrieve_metadata(url, headers_to_drop, tags_to_drop):
+def retrieve_metadata(
+    url: str,
+    headers_to_drop: str | list=None,
+    tags_to_drop: str | list=None
+    ):
     """
     Connects to a URL using browser spoofing, extracts metadata, and streams the 
     HTML <head> block. Implements strict timeouts to prevent latency bloat. 
@@ -210,7 +231,7 @@ def retrieve_metadata(url, headers_to_drop, tags_to_drop):
         if response.status_code != 200:
             error_msg = f"Blocked: HTTP {response.status_code}"
             raw_headers = json.dumps(dict(response.headers), indent=2)
-            cleaned_headers = clean_headers(raw_headers, headers_to_drop)
+            cleaned_headers = _clean_headers(raw_headers, headers_to_drop)
             response.close()
             return error_msg, cleaned_headers, ""
             
@@ -249,8 +270,8 @@ def retrieve_metadata(url, headers_to_drop, tags_to_drop):
         response.close()
         
         # 5. Cleaning Phase
-        final_headers = clean_headers(raw_headers, headers_to_drop)
-        final_html = clean_html_head(html_content, tags_to_drop)
+        final_headers = _clean_headers(raw_headers, headers_to_drop)
+        final_html = _clean_html_head(html_content, tags_to_drop)
         
         # End State: Return the fully optimized, scraped, and sanitized data tuple
         return size_out, final_headers, final_html
