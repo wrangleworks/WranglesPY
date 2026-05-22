@@ -1,3 +1,4 @@
+import pytest
 import wrangles
 import pandas as _pd
 
@@ -535,3 +536,192 @@ class TestRetrieveLinkContent:
 #         assert isinstance(results, list)
 #         assert len(results) > 0
 #         assert 'error' in results[0]
+
+
+class TestRetrieveMetadata:
+    """
+    Test the functionality of the retrieve_metadata wrangle
+    """
+
+    retrieve_metadata_data = _pd.DataFrame(
+        {
+            'MFR': [
+                'Makita',
+                'Timken',
+                'GE'
+                ],
+            'Website': [
+                'https://makitatools.com/products/details/XAG20Z',
+                'https://www.grainger.com/product/44Z807?gucid=N:N:PS:Paid:GGL:CSM-2296:DFAVIZ:20940226:APZ_1&gclsrc=aw.ds&gad_source=1&gad_campaignid=23543672130&gclid=Cj0KCQjw_b_QBhCSARIsAP6hR4fBJWQwhZqB_SvmzNkyJwyQr6ZL6IiGu3S2GDrc5l0Hw-oL23wZv2caAjaCEALw_wcB',
+                'https://www.homedepot.com/p/GE-Q-Line-20-Amp-1-2-in-1-Pole-Circuit-Breaker-THQP120-THQP120/100174218'
+                ]
+        }
+    )
+    
+    def test_retrieve_metadata_default_headers_tags(self):
+        """
+        Test retrieve.metadata is working with the default
+        list of headers and tags
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Page Size
+              raw_headers: Raw Headers
+              html_head: HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Page Size'][0], int) or 'Error' in df['Page Size'][0]
+        assert isinstance(df['Raw Headers'][1], str) and 'Set-Cookie' not in df['Raw Headers'][1]
+        assert isinstance(df['HTML Head'][1], str) and 'style' not in df['HTML Head'][1]
+    
+    def test_retrieve_metadata_default_output(self):
+        """
+        Test retrieve.metadata is working with the default output columns
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Page Size', 'Raw Headers', 'HTML Head'])
+    
+    def test_retrieve_metadata_default_output_overwrite(self):
+        """
+        Test retrieve.metadata default output columns can be overwritten 
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Not Page Size
+              raw_headers: Not Raw Headers
+              html_head: Not HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Not Page Size', 'Not Raw Headers', 'Not HTML Head'])
+
+    def test_retrieve_metadata_string_headers(self):
+        """
+        Test retrieve.metadata when passing a string header
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers: Set-Cookie
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Raw Headers'][1], str) 
+        assert 'Set-Cookie' not in df['Raw Headers'][1]
+        assert 'Content-Security-Policy' in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_string_tags(self):
+        """
+        Test retrieve.metadata when passing a single tag as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags: title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Raw Headers'][1], str) 
+        assert 'title' not in df['Raw Headers'][1]
+        assert 'style' in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_list_input(self):
+        """
+        Test retrieve.metadata works when passing a 
+        list of length 1 as the input
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: 
+                - Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Not Page Size', 'Not Raw Headers', 'Not HTML Head'])
+
+    def test_retrieve_metadata_list_input_error(self):
+        """
+        Test retrieve.metadata error when passing a 
+        list of length >1 as the input
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: 
+                - Website
+                - MFR
+        """
+        
+        with pytest.raises(TypeError) as info:
+            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert (
+            info.typename == 'TypeError' and
+            "Invalid type for 'input'. The only allowed value is a string" in info.value.args[0]
+        )
+
+    def test_retrieve_metadata_invalid_headers_error(self):
+        """
+        Test retrieve.metadata error when passing the wrong
+        data type as headers
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers: 8
+        """
+        
+        with pytest.raises(TypeError) as info:
+            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert (
+            info.typename == 'TypeError' and
+            "headers must be a string or list, got <class 'int'> instead." in info.value.args[0]
+        )
+
+    def test_retrieve_metadata_invalid_tags_error(self):
+        """
+        Test retrieve.metadata error when passing the wrong
+        data type as tags
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags: 4
+        """
+        
+        with pytest.raises(TypeError) as info:
+            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert (
+            info.typename == 'TypeError' and
+            "tags must be string or list, got <class 'int'> instead." in info.value.args[0]
+        )
