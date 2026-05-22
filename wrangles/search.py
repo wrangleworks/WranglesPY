@@ -111,6 +111,10 @@ def clean_headers(raw_headers_json, drop_info):
     Returns:
         str: A JSON string of the cleaned headers.
     """
+
+    # Check to ensure drop_info is a list
+    if isinstance(drop_info, str): drop_info=[drop_info]
+    
     try:
         headers_dict = json.loads(raw_headers_json)
     except (json.JSONDecodeError, TypeError):
@@ -153,6 +157,10 @@ def clean_html_head(raw_html, drop_info):
     Returns:
         str: The cleaned HTML string.
     """
+
+    # Check to ensure that drop_info is a list
+    if isinstance(drop_info, str): drop_info=[drop_info]
+
     if not raw_html:
         return ""
         
@@ -181,8 +189,6 @@ def retrieve_metadata(url, headers_to_drop, tags_to_drop):
     Returns:
         tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
-    print(type(url))
-    print(url)
     # 1. Input Validation & Cleaning
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
