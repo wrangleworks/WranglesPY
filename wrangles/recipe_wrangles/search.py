@@ -319,8 +319,8 @@ def retrieve_metadata(
     page_size: str = "Page Size",
     raw_headers: str = "Raw Headers",
     html_head: str = "HTML Head",
-    headers: str | list = None,
-    tags: str | list = None
+    headers: str | list = '',
+    tags: str | list = ''
     ) -> _pd.DataFrame:
     # Will need to add some handling for things like output
     # Input data types, ie is input a string?
@@ -333,6 +333,12 @@ def retrieve_metadata(
         input=input[0]
     elif not isinstance(input, str):
         raise TypeError(f"Invalid type for 'input'. The only allowed value is a string, got {type(input).__name__} instead.")
+    # Check that headers is a string
+    if not isinstance(headers, (str, list)):
+        raise TypeError(f"headers must be a string or list, got {type(headers)} instead.")
+    # Check to ensure tags is a list or sting, convert to list
+    if not isinstance(tags, (str, list)):
+        raise TypeError(f"tags must be string or list, got {type(tags)} instead.")
         
     df[[page_size, raw_headers, html_head]] = df[input].apply(lambda x: _search_core.retrieve_metadata(url=x, headers_to_drop=headers, tags_to_drop=tags)).to_list()
 
