@@ -311,3 +311,29 @@ def retrieve_link_content(
         _logging.info(f": Wrangling :: retrieve_link_content summary :: processed {total_urls} URLs")
 
     return df
+
+
+def retrieve_metadata(
+    df: _pd.DataFrame,
+    input: str,
+    page_size: str = "Page Size",
+    raw_headers: str = "Raw Headers",
+    html_head: str = "HTML Head",
+    headers: str | list = None,
+    tags: str | list = None
+    ) -> _pd.DataFrame:
+    # Will need to add some handling for things like output
+    # Input data types, ie is input a string?
+    # Make sure that the function works with tags and headers as strings
+    # Is there a better way to pass tags and headers?
+    # Is there any other standard wrangling stuff that should be added?
+
+    # Wildcard expansion causes input strings to become lists
+    if isinstance(input, list) and len(input)==1:
+        input=input[0]
+    elif not isinstance(input, str):
+        raise TypeError(f"Invalid type for 'input'. The only allowed value is a string, got {type(input).__name__} instead.")
+        
+    df[[page_size, raw_headers, html_head]] = df[input].apply(lambda x: _search_core.retrieve_metadata(url=x, headers_to_drop=headers, tags_to_drop=tags)).to_list()
+
+    return df

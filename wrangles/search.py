@@ -1,4 +1,8 @@
 import concurrent.futures as _futures
+import requests
+import json
+import time
+from bs4 import BeautifulSoup
 
 # Import our client factory
 from .clients import get_client as _get_client
@@ -63,3 +67,189 @@ def retrieve_link_content(
         return results[0]
 
     return results
+
+
+# ==============================================================================
+# CONFIGURATION VARIABLES
+# ==============================================================================
+
+# Use exact names or end with an asterisk (*) for wildcard prefix matching
+HEADERS = [
+    "x-*",                       # Drops X-Frame-Options, X-Cache, X-Amz, etc.
+    "cf-*",                      # Drops CF-RAY, cf-cache-status, etc.
+    "content-security-policy",
+    "strict-transport-security",
+    "server-timing",
+    "set-cookie",                # Crucial to drop to save space
+    "report-to",
+    "nel",
+    "alt-svc"
+]
+
+# HTML tags to completely annihilate from the document head
+TAGS = [
+    "script",   # Removes all JavaScript functions and external script links
+    "style",    # Removes all inline CSS blocks
+    "noscript", # Removes fallback tracking pixels
+    "svg"       # Removes massive embedded vector graphics
+]
+
+
+# ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+
+def clean_headers(raw_headers_json, drop_info):
+    """
+    Parses JSON headers and removes specified keys based on the drop_info list.
+    Supports exact matches and wildcard prefixes (e.g., 'x-*').
+    
+    Args:
+        raw_headers_json (str): The HTTP headers formatted as a JSON string.
+        drop_info (list): A list of strings representing header keys to remove.
+        
+    Returns:
+        str: A JSON string of the cleaned headers.
+    """
+    try:
+        headers_dict = json.loads(raw_headers_json)
+    except (json.JSONDecodeError, TypeError):
+        return raw_headers_json # Return as-is if it fails to parse
+        
+    cleaned_dict = {}
+    drop_info_lower = [k.lower() for k in drop_info]
+    
+    for key, value in headers_dict.items():
+        key_lower = key.lower()
+        should_drop = False
+        
+        for drop_item in drop_info_lower:
+            # Handle wildcards (e.g., 'x-*')
+            if drop_item.endswith('*'):
+                prefix = drop_item[:-1]
+                if key_lower.startswith(prefix):
+                    should_drop = True
+                    break
+            # Handle exact matches
+            elif key_lower == drop_item:
+                should_drop = True
+                break
+                
+        if not should_drop:
+            cleaned_dict[key] = value
+            
+    return json.dumps(cleaned_dict, indent=2)
+
+
+def clean_html_head(raw_html, drop_info):
+    """
+    Parses an HTML string and structurally removes entire specified tags 
+    (and their contents) using BeautifulSoup.
+    
+    Args:
+        raw_html (str): The raw HTML string to clean.
+        drop_info (list): A list of HTML tag names to remove (e.g., ['script', 'style']).
+        
+    Returns:
+        str: The cleaned HTML string.
+    """
+    if not raw_html:
+        return ""
+        
+    soup = BeautifulSoup(raw_html, 'html.parser')
+    
+    for tag_name in drop_info:
+        for tag in soup.find_all(tag_name):
+            tag.decompose() # Destroys the tag and everything inside it
+            
+    return str(soup)
+
+
+# ==============================================================================
+# MAIN EXECUTABLE FUNCTION
+# ==============================================================================
+
+def retrieve_metadata(url, headers_to_drop, tags_to_drop):
+    """
+    Connects to a URL using browser spoofing, extracts metadata, and streams the 
+    HTML <head> block. Implements strict timeouts to prevent latency bloat. 
+    Applies subtractive cleaning to both the headers and the HTML.
+    
+    Args:
+        url (str): The target webpage URL.
+        
+    Returns:
+        tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
+    """
+    print(type(url))
+    print(url)
+    # 1. Input Validation & Cleaning
+    if not url or not isinstance(url, str):
+        return "Invalid Data", "{}", ""
+
+    url = url.strip()
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+
+    # Disguise as a standard Chrome browser to bypass basic bot-blocking
+    request_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+    }
+
+    try:
+        # 2. Connection Phase (Max 3s to connect, max 5s for first byte)
+        response = requests.get(url, headers=request_headers, stream=True, timeout=(3, 5))
+        
+        if response.status_code != 200:
+            error_msg = f"Blocked: HTTP {response.status_code}"
+            raw_headers = json.dumps(dict(response.headers), indent=2)
+            cleaned_headers = clean_headers(raw_headers, headers_to_drop)
+            response.close()
+            return error_msg, cleaned_headers, ""
+            
+        # 3. Metadata Extraction
+        size = response.headers.get('Content-Length')
+        size_out = int(size) if size is not None else 0
+        raw_headers = json.dumps(dict(response.headers), indent=2)
+        
+        # 4. Streaming Phase
+        html_content = ""
+        max_bytes = 50000 # Absolute payload limit just in case a </head> tag is missing
+        bytes_read = 0
+        
+        start_time = time.time()
+        max_duration = 3.0 # Absolute execution stopwatch limit (seconds)
+        
+        for chunk in response.iter_content(chunk_size=512):
+            # Enforce the strict stopwatch
+            if time.time() - start_time > max_duration:
+                break 
+                
+            if chunk:
+                html_content += chunk.decode('utf-8', errors='ignore')
+                bytes_read += len(chunk)
+                
+                # Snip the stream the millisecond we find the closing head tag
+                if '</head>' in html_content.lower():
+                    split_point = html_content.lower().find('</head>') + 7
+                    html_content = html_content[:split_point]
+                    break
+                    
+                # Enforce the byte limit
+                if bytes_read >= max_bytes:
+                    break
+                    
+        response.close()
+        
+        # 5. Cleaning Phase
+        final_headers = clean_headers(raw_headers, headers_to_drop)
+        final_html = clean_html_head(html_content, tags_to_drop)
+        
+        # End State: Return the fully optimized, scraped, and sanitized data tuple
+        return size_out, final_headers, final_html
+            
+    except requests.exceptions.Timeout:
+        return "Error: Connection Timed Out", "{}", ""
+    except Exception as e:
+        return f"Error: {str(e)}", "{}", ""
