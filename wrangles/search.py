@@ -77,12 +77,9 @@ def _clean_headers(
     Parses JSON headers and removes specified keys based on the drop_info list.
     Supports exact matches and wildcard prefixes (e.g., 'x-*').
     
-    Args:
-        raw_headers_json (str): The HTTP headers formatted as a JSON string.
-        drop_info (list): A list of strings representing header keys to remove.
-        
-    Returns:
-        str: A JSON string of the cleaned headers.
+    :param raw_headers_json: The HTTP headers formatted as a JSON string.
+    :param drop_info: A string or list of strings representing header keys to remove.
+    :return: A JSON string of the cleaned headers.
     """
 
     if drop_info==None: drop_info=[
@@ -143,12 +140,9 @@ def _clean_html_head(
     Parses an HTML string and structurally removes entire specified tags 
     (and their contents) using BeautifulSoup.
     
-    Args:
-        raw_html (str): The raw HTML string to clean.
-        drop_info (list): A list of HTML tag names to remove (e.g., ['script', 'style']).
-        
-    Returns:
-        str: The cleaned HTML string.
+    :param raw_html: The raw HTML string to clean.
+    :param drop_info: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
+    :return: The cleaned HTML string.
     """
     if drop_info==None: drop_info=[
                             "script",   # Removes all JavaScript functions and external script links
@@ -188,11 +182,10 @@ def retrieve_metadata(
     HTML <head> block. Implements strict timeouts to prevent latency bloat. 
     Applies subtractive cleaning to both the headers and the HTML.
     
-    Args:
-        url (str): The target webpage URL.
-        
-    Returns:
-        tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
+    :param url: The target webpage URL.
+    :param headers_to_drop: A string or list of strings representing header keys to remove.
+    :param tags_to_drop: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
+    :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
     # 1. Input Validation & Cleaning
     if not url or not isinstance(url, str):
