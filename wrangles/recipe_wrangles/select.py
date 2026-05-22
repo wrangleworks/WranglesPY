@@ -58,7 +58,9 @@ def dictionary_element(
           - array
         description: >-
           Name of the output column.
-          If omitted, the input column will be replaced.
+          If omitted and element is a simple string key, the element name is used
+          as the output column name. For list or wildcard elements, the input
+          column is overwritten.
       element:
         type:
           - string
@@ -80,8 +82,24 @@ def dictionary_element(
           Set the default value to return if the specified element doesn't exist.
           If selecting multiple elements, a dict of defaults can be set.
     """
-    if output is None: output = input
-    
+    if output is None:
+        # For a simple string element on a single input column, use the element
+        # name as the output column so the input dict is not silently overwritten.
+        # Wildcards and regex patterns are excluded since their resolved names
+        # depend on the data and cannot be determined statically.
+        # Note: the recipe framework may convert a single-string input into a
+        # 1-element list via wildcard expansion before reaching here.
+        single_input = isinstance(input, str) or (isinstance(input, list) and len(input) == 1)
+        if (
+            single_input and
+            isinstance(element, str) and
+            '*' not in element and
+            not element.lower().lstrip().startswith('regex:')
+        ):
+            output = element
+        else:
+            output = input
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
