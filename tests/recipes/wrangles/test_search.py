@@ -1,5 +1,5 @@
 import wrangles
-import pandas as pd
+import pandas as _pd
 
 
 class TestFindLinks:
@@ -12,7 +12,7 @@ class TestFindLinks:
         Test basic single query search
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -40,7 +40,7 @@ class TestFindLinks:
         Test search with a list of queries
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [['wireless headphones', 'phone charger', 'bluetooth speaker']],
             'ID': [1]
         })
@@ -64,7 +64,7 @@ class TestFindLinks:
         Test search with different n_results values
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -90,7 +90,7 @@ class TestFindLinks:
     #     Test search with multiple input columns (concatenated)
     #     """
         
-    #     data = pd.DataFrame({
+    #     data = _pd.DataFrame({
     #         'col1': ['wireless headphones'],
     #         'col2': ['phone charger'],
     #         'ID': [1]
@@ -118,7 +118,7 @@ class TestFindLinks:
         """
         Test search with multiple input/output columns
         """
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'col1': ['wireless headphones'],
             'col2': ['phone charger'],
             'ID': [1]
@@ -149,7 +149,7 @@ class TestFindLinks:
         Test search.find_links using where clause
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones', 'phone charger', 'bluetooth speaker'],
             'priority': [1, 5, 3],
             'ID': [1, 2, 3]
@@ -177,7 +177,7 @@ class TestFindLinks:
         Test search with empty input
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['', 'wireless headphones', None],
             'ID': [1, 2, 3]
         })
@@ -206,7 +206,7 @@ class TestFindLinks:
         Test search with include_prices parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -231,7 +231,7 @@ class TestFindLinks:
         Test search with country parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -256,7 +256,7 @@ class TestFindLinks:
         Test search with language parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -281,7 +281,7 @@ class TestFindLinks:
     #     """
     #     Test that missing API key raises error
     #     """
-    #     data = pd.DataFrame({
+    #     data = _pd.DataFrame({
     #         'query': ['wireless headphones'],
     #         'ID': [1]
     #     })
@@ -303,7 +303,7 @@ class TestFindLinks:
         Test handling of queries that return no results
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [''],
             'ID': [1]
         })
@@ -327,7 +327,7 @@ class TestFindLinks:
         Test with DataFrame containing many rows (tests threading)
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [f'wireless headphones' for i in range(50)],
             'ID': [i for i in range(50)]
         })
@@ -353,7 +353,7 @@ class TestFindLinks:
         Test queries with special characters
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['test & query', 'query with "quotes"', 'query+with+plus'],
             'ID': [1, 2, 3]
         })
@@ -378,7 +378,7 @@ class TestFindLinks:
         Test with numeric values in input column
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [12345, 67890]
         })
         
