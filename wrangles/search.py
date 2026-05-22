@@ -69,39 +69,9 @@ def retrieve_link_content(
     return results
 
 
-# ==============================================================================
-# CONFIGURATION VARIABLES
-# ==============================================================================
-
-# Use exact names or end with an asterisk (*) for wildcard prefix matching
-HEADERS = [
-    "x-*",                       # Drops X-Frame-Options, X-Cache, X-Amz, etc.
-    "cf-*",                      # Drops CF-RAY, cf-cache-status, etc.
-    "content-security-policy",
-    "strict-transport-security",
-    "server-timing",
-    "set-cookie",                # Crucial to drop to save space
-    "report-to",
-    "nel",
-    "alt-svc"
-]
-
-# HTML tags to completely annihilate from the document head
-TAGS = [
-    "script",   # Removes all JavaScript functions and external script links
-    "style",    # Removes all inline CSS blocks
-    "noscript", # Removes fallback tracking pixels
-    "svg"       # Removes massive embedded vector graphics
-]
-
-
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
-
 def _clean_headers(
     raw_headers_json: str,
-    drop_info: str | list = HEADERS
+    drop_info: str | list = None
     ):
     """
     Parses JSON headers and removes specified keys based on the drop_info list.
@@ -114,6 +84,18 @@ def _clean_headers(
     Returns:
         str: A JSON string of the cleaned headers.
     """
+
+    if drop_info==None: drop_info=[
+                            "x-*",              # Drops X-Frame-Options, X-Cache, X-Amz, etc.
+                            "cf-*",             # Drops CF-RAY, cf-cache-status, etc.
+                            "content-security-policy",
+                            "strict-transport-security",
+                            "server-timing",
+                            "set-cookie",       # Crucial to drop to save space
+                            "report-to",
+                            "nel",
+                            "alt-svc"
+                        ]
 
     # Check that raw_headers_json is a string
     if not isinstance(raw_headers_json, str):
@@ -155,7 +137,7 @@ def _clean_headers(
 
 def _clean_html_head(
     raw_html: str,
-    drop_info: str | list=TAGS
+    drop_info: str | list=None
     ):
     """
     Parses an HTML string and structurally removes entire specified tags 
@@ -168,6 +150,12 @@ def _clean_html_head(
     Returns:
         str: The cleaned HTML string.
     """
+    if drop_info==None: drop_info=[
+                            "script",   # Removes all JavaScript functions and external script links
+                            "style",    # Removes all inline CSS blocks
+                            "noscript", # Removes fallback tracking pixels
+                            "svg"       # Removes massive embedded vector graphics
+                        ]
 
     # Check that raw_html is a string
     if not isinstance(raw_html, str):
@@ -189,10 +177,6 @@ def _clean_html_head(
             
     return str(soup)
 
-
-# ==============================================================================
-# MAIN EXECUTABLE FUNCTION
-# ==============================================================================
 
 def retrieve_metadata(
     url: str,
