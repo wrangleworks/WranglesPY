@@ -11,6 +11,7 @@ from . import data as _data
 from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
+from . import openai_responses as _openai_responses
 
 
 def address(
@@ -55,11 +56,13 @@ def ai(
     model_id: str = None,
     model: str = "gpt-4.1-mini",
     threads: int = 20,
-    timeout: int = 25,
+    timeout: int = 90,
     retries: int = 0,
-    messages: list = [],
-    url: str = "https://api.openai.com/v1/chat/completions",
-    strict: bool = False,
+    messages: list = None,
+    url: str = "https://api.openai.com/v1/responses",
+    strict: bool = True,
+    reasoning: dict = None,
+    verbosity: str = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -84,12 +87,19 @@ def ai(
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param url: (Optional) Override the endpoint. Must implement the OpenAI chat completions API schema with function calling.
-    :param strict: (Optional) Enable strict mode. Default False. If True, the function will be required to match the schema, \
-        but may be more limited in the schema it can return.
+    :param url: (Optional) Override the endpoint. Must implement the OpenAI Responses API schema by default. \
+        Chat Completions-compatible URLs are still supported for backwards compatibility.
+    :param strict: (Optional) Enable structured output strict mode. Default True.
+    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "low"} \
+        for models that support reasoning.
+    :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
+        for models that support low verbosity.
 
     :return: A scalar or list of extracted information.
     """
+    if messages is None:
+        messages = []
+
     # Ensure input is a list
     input_was_scalar = False
     if not isinstance(input, list):
@@ -273,6 +283,97 @@ def ai(
 
     messages = [
         {
+            "role": "user",
+            "content": message
+        }
+        for message in messages
+    ]
+
+    root_schema = {
+        "type": "object",
+        "properties": output,
+        "required": list(output.keys()),
+        "additionalProperties": False,
+    }
+
+    if "/chat/completions" not in url:
+        field_guidance = []
+        for field, schema_node in output.items():
+            examples = schema_node.get("examples")
+            if examples:
+                field_guidance.append(
+                    f"- {field}: examples are {_json.dumps(examples, default=str)}"
+                )
+
+        schema = _openai_responses.sanitize_schema(root_schema)
+        instructions = "\n".join([
+            "You are an expert data extraction assistant.",
+            "Extract and standardize only the requested fields from the provided data.",
+            "Use only the provided DATA. Do not invent missing values.",
+            "For literal extracted strings, preserve concise source text and units unless the field asks for conversion.",
+            "Return data that satisfies the supplied JSON schema exactly.",
+        ])
+        if field_guidance:
+            instructions += "\n\nUse these field examples as style guidance, not values to copy:\n"
+            instructions += "\n".join(field_guidance)
+        if messages:
+            instructions += "\n\nAdditional instructions:\n" + "\n".join(
+                str(message.get("content", ""))
+                for message in messages
+            )
+
+        payload = {
+            "model": model,
+            "instructions": instructions,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "extract_ai_response",
+                    "schema": schema,
+                    "strict": strict,
+                },
+            },
+            "prompt_cache_key": _openai_responses.prompt_cache_key(
+                "extract.ai",
+                model,
+                schema,
+            ),
+            **_openai_responses.sanitize_request_params(kwargs),
+        }
+        if reasoning is not None:
+            payload["reasoning"] = reasoning
+        elif _openai_responses.supports_reasoning(model):
+            payload["reasoning"] = {"effort": "low"}
+        if verbosity is not None:
+            payload["text"]["verbosity"] = verbosity
+        elif _openai_responses.supports_low_verbosity(model):
+            payload["text"]["verbosity"] = "low"
+
+        with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
+            results = list(executor.map(
+                _openai_responses.call_structured,
+                input,
+                [api_key] * len(input),
+                [payload] * len(input),
+                [url] * len(input),
+                [timeout] * len(input),
+                [retries] * len(input),
+                [list(output.keys())] * len(input),
+            ))
+
+        if input_was_scalar:
+            if output_generic_key:
+                return results[0].get('output', 'Failed')
+            else:
+                return results[0]
+        else:
+            if output_generic_key:
+                return [x.get('output', 'Failed') for x in results]
+            else:
+                return results
+
+    messages = [
+        {
             "role": "system",
             "content": " ".join([
                 "You are an expert data analyst.",
@@ -287,13 +388,7 @@ def ai(
                 "Only use the functions you have been provided with.",
             ])
         },
-    ] + [
-        {
-            "role": "user",
-            "content": message
-        }
-        for message in messages
-    ]
+    ] + messages
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
@@ -314,12 +409,7 @@ def ai(
             "function": {
                 "name": "parse_output",
                 "description": "Submit the output corresponding to the extracted data in the form the user requires.",
-                "parameters": {
-                    "type": "object",
-                    "properties": output,
-                    "required": list(output.keys()),
-                    "additionalProperties": False,
-                },
+                "parameters": root_schema,
                 "strict": strict
             }
         }],
