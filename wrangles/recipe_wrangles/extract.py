@@ -372,7 +372,8 @@ def ai(
         type: string
         description: |-
           Override the default url for the AI endpoint.
-          Must use the OpenAI chat completions API.
+          Must use the OpenAI Responses API by default.
+          Chat Completions-compatible URLs are still supported for backwards compatibility.
       messages:
         type:
           - string
@@ -384,9 +385,7 @@ def ai(
       strict:
         type: boolean
         description: >-
-          Enable strict mode. Default False.
-          If True, the function will be required to match the schema,
-          but may be more limited in the schema it can return.
+          Enable structured output strict mode. Default True.
       output_format:
         type: string
         description: Format of the extract output
@@ -397,6 +396,16 @@ def ai(
       char:
         type: string
         description: Character to use when output_format is concatenate
+      reasoning:
+        type: object
+        description: Responses API reasoning options. Defaults to effort low for models that support reasoning.
+      verbosity:
+        type: string
+        description: Responses API output verbosity. Defaults to low for models that support low verbosity.
+        enum:
+          - low
+          - medium
+          - high
     """
     output_format_normalized = _normalize_output_format(output_format, "columns")
 
@@ -1583,4 +1592,3 @@ def regex(
             _write_regex(input_column, [output_column])
 
     return df
-
