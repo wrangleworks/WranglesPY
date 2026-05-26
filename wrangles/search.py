@@ -198,7 +198,9 @@ def _clean_html_head(
 def retrieve_metadata(
     url: str,
     headers_to_drop: str | list=None,
-    tags_to_drop: str | list=None
+    headers_to_keep: str | list=None,
+    tags_to_drop: str | list=None,
+    tags_to_keep: str | list=None
 ) -> tuple:
     """
     Connects to a URL using browser spoofing, extracts metadata, and streams the 
@@ -207,7 +209,9 @@ def retrieve_metadata(
     
     :param url: The target webpage URL.
     :param headers_to_drop: A string or list of strings representing header keys to remove.
+    :param headers_to_keep: A string or list of strings representing header keys to keep. Overrides headers_to_drop.
     :param tags_to_drop: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
+    :param tags_to_keep: A single or list of HTML tag names to keep (e.g., ['script', 'style']). Overrides tags_to_drop.
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
     # Add log stating keep will override drop
@@ -232,8 +236,10 @@ def retrieve_metadata(
         if response.status_code != 200:
             error_msg = f"Blocked: HTTP {response.status_code}"
             raw_headers = json.dumps(dict(response.headers), indent=2)
+            ######## Not sure why headers are being cleaned. Might need to clean keeps as well ########
             cleaned_headers = _clean_headers(raw_headers, headers_to_drop)
             response.close()
+            ####### Try to find a url to test this with, maybe Makita? #######
             return error_msg, cleaned_headers, ""
             
         # 3. Metadata Extraction
@@ -271,8 +277,8 @@ def retrieve_metadata(
         response.close()
         
         # 5. Cleaning Phase
-        final_headers = _clean_headers(raw_headers, headers_to_drop)
-        final_html = _clean_html_head(html_content, tags_to_drop)
+        final_headers = _clean_headers(raw_headers, headers_to_drop, headers_to_keep)
+        final_html = _clean_html_head(html_content, tags_to_drop, tags_to_keep)
         
         # End State: Return the fully optimized, scraped, and sanitized data tuple
         return size_out, final_headers, final_html
