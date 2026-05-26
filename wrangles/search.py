@@ -72,7 +72,8 @@ def retrieve_link_content(
 
 def _clean_headers(
     raw_headers_json: str,
-    drop_info: str | list = None
+    drop_info: str | list = None,
+    keep_info: str | list = None
     ):
     """
     Parses JSON headers and removes specified keys based on the drop_info list.
@@ -80,6 +81,7 @@ def _clean_headers(
     
     :param raw_headers_json: The HTTP headers formatted as a JSON string.
     :param drop_info: A string or list of strings representing header keys to remove.
+    :param keep_info: A string or list of strings representing header keys to keep.
     :return: A JSON string of the cleaned headers.
     """
 
@@ -98,10 +100,8 @@ def _clean_headers(
     # Check that raw_headers_json is a string
     if not isinstance(raw_headers_json, str):
         raise TypeError(f"raw_headers_json must be a string, got {type(raw_headers_json)} instead.")
-    # Check to ensure drop_info is a list or sting, convert to list
-    if not isinstance(drop_info, (str, list)):
-        raise TypeError(f"drop_info must be string or list, got {type(drop_info)} instead.")
     if isinstance(drop_info, str): drop_info=[drop_info]
+    if isinstance(keep_info, str): keep_info=[keep_info]
 
     try:
         headers_dict = json.loads(raw_headers_json)
@@ -110,22 +110,37 @@ def _clean_headers(
         
     cleaned_dict = {}
     drop_info_lower = [k.lower() for k in drop_info]
+    keep_info_lower = [k.lower() for k in keep_info]
     
     for key, value in headers_dict.items():
         key_lower = key.lower()
         should_drop = False
         
-        for drop_item in drop_info_lower:
-            # Handle wildcards (e.g., 'x-*')
-            if drop_item.endswith('*'):
-                prefix = drop_item[:-1]
-                if key_lower.startswith(prefix):
+        # Only drop headers when keep_info is not passed
+        if not keep_info:
+            for drop_item in drop_info_lower:
+                # Handle wildcards (e.g., 'x-*')
+                if drop_item.endswith('*'):
+                    prefix = drop_item[:-1]
+                    if key_lower.startswith(prefix):
+                        should_drop = True
+                        break
+                # Handle exact matches
+                elif key_lower == drop_item:
                     should_drop = True
                     break
-            # Handle exact matches
-            elif key_lower == drop_item:
-                should_drop = True
-                break
+        else:
+            for keep_item in keep_info_lower:
+                # Handle wildcards (e.g., 'x-*')
+                if drop_item.endswith('*'):
+                    prefix = keep_item[:-1]
+                    if key_lower.startswith(prefix):
+                        should_drop = False
+                        break
+                # Handle exact matches
+                elif key_lower == keep_item:
+                    should_drop = False
+                    break
                 
         if not should_drop:
             cleaned_dict[key] = value
@@ -144,6 +159,7 @@ def _clean_html_head(
     
     :param raw_html: The raw HTML string to clean.
     :param drop_info: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
+    :param keep_info: A single or list of HTML tag names to keep (e.g., ['script', 'style']).
     :return: The cleaned HTML string.
     """
     if drop_info=='': drop_info=[
@@ -166,6 +182,7 @@ def _clean_html_head(
         
     soup = BeautifulSoup(raw_html, 'html.parser')
     
+    # Only drop tags when keep_info is not passed
     if not keep_info:
         for tag_name in drop_info:
             for tag in soup.find_all(tag_name):
