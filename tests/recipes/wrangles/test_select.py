@@ -256,8 +256,7 @@ class TestSelectDictionaryElement:
     def test_dictionary_element_json_element_single(self):
         """
         Test the select.dictionary_element works even
-        if it's a json string for element as a single value.
-        Without output, a new column named after the element is created.
+        if it's a json string for element as a single value
         """
         df = wrangles.recipe.run(
             """
@@ -270,7 +269,7 @@ class TestSelectDictionaryElement:
                 'column': ['{"a": 1, "b": 2, "c": 3}']
             })
         )
-        assert df['a'][0] == 1 and df['column'][0] == '{"a": 1, "b": 2, "c": 3}'
+        assert df['column'][0] == 1
 
     def test_dictionary_element_string_wildcard(self):
         """
@@ -345,8 +344,7 @@ class TestSelectDictionaryElement:
     def test_dictionary_element_empty_dict(self):
         """
         Test the select.dictionary_element works even
-        if the input is an empty dictionary.
-        Without output, a new column named after the element is created.
+        if the input is an empty dictionary
         """
         df = wrangles.recipe.run(
             """
@@ -359,7 +357,7 @@ class TestSelectDictionaryElement:
                 'column': [{}]
             })
         )
-        assert df['a'][0] == '' and isinstance(df['column'][0], dict)
+        assert df['column'][0] == ''
 
     def test_dictionary_element_empty(self):
         """
@@ -378,80 +376,6 @@ class TestSelectDictionaryElement:
             })
         )
         assert list(df.columns) == ['column', 'output column'] and len(df) == 0
-
-    def test_dictionary_element_no_output_preserves_input(self):
-        """
-        Without output, a single string element writes to a new column
-        named after the element and leaves the input column intact.
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - select.dictionary_element:
-                input: data
-                element: colour
-            """,
-            dataframe=pd.DataFrame({
-                'data': [{'colour': 'red', 'shape': 'circle'}]
-            })
-        )
-        assert df['colour'][0] == 'red' and isinstance(df['data'][0], dict)
-
-    def test_dictionary_element_no_output_wildcard_overwrites(self):
-        """
-        Without output, a wildcard element falls back to overwriting
-        the input column (column name cannot be determined statically).
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - select.dictionary_element:
-                input: Col1
-                element: A*
-            """,
-            dataframe=pd.DataFrame({
-                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
-            })
-        )
-        assert df['Col1'][0] == {'A1': '1', 'A2': '3'}
-
-    def test_dictionary_element_no_output_regex_overwrites(self):
-        """
-        Without output, a regex element falls back to overwriting the input
-        column (column name cannot be determined statically).
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - select.dictionary_element:
-                input: Col1
-                element: 'regex: B.*'
-            """,
-            dataframe=pd.DataFrame({
-                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
-            })
-        )
-        assert df['Col1'][0] == {'B1': '2'}
-
-    def test_dictionary_element_no_output_list_element_overwrites(self):
-        """
-        Without output, a list element falls back to overwriting the input
-        column with the resulting dict.
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - select.dictionary_element:
-                input: Col1
-                element:
-                - A
-                - B
-            """,
-            dataframe=pd.DataFrame({
-                'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
-            })
-        )
-        assert df['Col1'][0] == {'A': '1', 'B': '2'}
 
     def test_dictionary_element_no_output_multi_input_overwrites(self):
         """
@@ -473,6 +397,116 @@ class TestSelectDictionaryElement:
             })
         )
         assert df['Col1'][0] == 1 and df['Col2'][0] == 10
+
+
+class TestSelectDictElement:
+    """
+    Test select.dict_element (always splits into separate columns, no output parameter)
+    """
+    def test_dict_element_simple_key(self):
+        """
+        A simple key creates a new column named after the element; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: data
+                element: colour
+            """,
+            dataframe=pd.DataFrame({
+                'data': [{'colour': 'red', 'shape': 'circle'}]
+            })
+        )
+        assert df['colour'][0] == 'red' and isinstance(df['data'][0], dict)
+
+    def test_dict_element_wildcard(self):
+        """
+        A wildcard element expands into separate columns; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: Col1
+                element: A*
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['A1'][0] == '1' and df['A2'][0] == '3' and isinstance(df['Col1'][0], dict)
+
+    def test_dict_element_regex(self):
+        """
+        A regex element expands into separate columns; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: Col1
+                element: 'regex: B.*'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['B1'][0] == '2' and isinstance(df['Col1'][0], dict)
+
+    def test_dict_element_list_element(self):
+        """
+        A list of keys each become their own column; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: Col1
+                element:
+                - A
+                - B
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['A'][0] == '1' and df['B'][0] == '2' and isinstance(df['Col1'][0], dict)
+
+    def test_dict_element_json_string(self):
+        """
+        Works with JSON string input; new column named after element, input preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: column
+                element: a
+            """,
+            dataframe=pd.DataFrame({
+                'column': ['{"a": 1, "b": 2, "c": 3}']
+            })
+        )
+        assert df['a'][0] == 1 and df['column'][0] == '{"a": 1, "b": 2, "c": 3}'
+
+    def test_dict_element_default(self):
+        """
+        Default value is used when the key is missing.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dict_element:
+                input: Col1
+                element: z
+                default: 'missing'
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A': '1', 'B': '2'}],
+            })
+        )
+        assert df['z'][0] == 'missing'
 
 
 class TestSelectListElement:
