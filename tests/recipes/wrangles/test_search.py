@@ -611,6 +611,43 @@ class TestRetrieveMetadata:
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
         
         assert all(col in df.columns for col in ['Not Page Size', 'Not Raw Headers', 'Not HTML Head'])
+    
+    def test_retrieve_metadata_mix_default_output(self):
+        """
+        Test retrieve.metadata output with defaults and overwrites 
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Not Page Size
+              html_head: Not HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Not Page Size', 'Raw Headers', 'Not HTML Head'])
+
+    def test_retrieve_metadata_headers_list(self):
+        """
+        Test retrieve.metadata when passing a lis of headers
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers: 
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Raw Headers'][1], str) 
+        assert 'Set-Cookie' not in df['Raw Headers'][1] and 'Server' not in df['Raw Headers'][1]
+        assert 'Content-Security-Policy' in df['Raw Headers'][1]
 
     def test_retrieve_metadata_string_headers(self):
         """
@@ -630,6 +667,26 @@ class TestRetrieveMetadata:
         assert 'Set-Cookie' not in df['Raw Headers'][1]
         assert 'Content-Security-Policy' in df['Raw Headers'][1]
 
+    def test_retrieve_metadata_tags_list(self):
+        """
+        Test retrieve.metadata when passing list of tags
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags:
+                - title
+                - script
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1] and 'script' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
     def test_retrieve_metadata_string_tags(self):
         """
         Test retrieve.metadata when passing a single tag as a string
@@ -644,9 +701,9 @@ class TestRetrieveMetadata:
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
         
-        assert isinstance(df['Raw Headers'][1], str) 
-        assert 'title' not in df['Raw Headers'][1]
-        assert 'style' in df['Raw Headers'][1]
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
 
     def test_retrieve_metadata_list_input(self):
         """
@@ -663,7 +720,7 @@ class TestRetrieveMetadata:
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
         
-        assert all(col in df.columns for col in ['Not Page Size', 'Not Raw Headers', 'Not HTML Head'])
+        assert all(col in df.columns for col in ['Page Size', 'Raw Headers', 'HTML Head'])
 
     def test_retrieve_metadata_list_input_error(self):
         """
@@ -725,3 +782,23 @@ class TestRetrieveMetadata:
             info.typename == 'TypeError' and
             "tags must be string or list, got <class 'int'> instead." in info.value.args[0]
         )
+
+    def test_retrieve_metadata_invalid_input_error(self):
+        """
+        Test retrieve.metadata error when passing an integer input
+        """
+
+        data = _pd.DataFrame({
+            'Not Site': [1, 2, 3, 4]
+        })
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Not Site
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Page Size'][0] == 'Invalid Data'
+        assert df['Raw Headers'][0] == '{}'
+        assert df['HTML Head'][0] == ''
