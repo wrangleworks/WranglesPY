@@ -321,19 +321,45 @@ def retrieve_metadata(
     html_head: str = "HTML Head",
     headers: str | list = '',
     tags: str | list = ''
-    ) -> _pd.DataFrame:
-    # Will need to add some handling for things like output
-    # Input data types, ie is input a string?
-    # Make sure that the function works with tags and headers as strings
-    # Is there a better way to pass tags and headers?
-    # Is there any other standard wrangling stuff that should be added?
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Retrieve webiste metadata without cost.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      page_size:
+        type: string
+        description: The name of the output column containing page size.
+      raw_headers:
+        type: string
+        description: The name of the output column containing the raw headers.
+      html_head:
+        type: string
+        description: The name of the output column containing the html head.
+      headers:
+        type:
+          - string
+          - list
+        description: The headers to be dropped, if passed defaults are overwritten. Defaults to 
+        ['x-*', 'cf-*', 'content-security-policy', 'strict-transport-security', 'server-timing', 'set-cookie', 'report-to', 'nel', 'alt-svc'].
+      tags:
+        type:
+          - string
+          - list
+        description: The tags to be dropped, if passed defaults are overwritten. Defaults to ['script', 'style', 'noscript', 'svg' ]
+    """
 
     # Wildcard expansion causes input strings to become lists
     if isinstance(input, list) and len(input)==1:
         input=input[0]
-    elif not isinstance(input, str):
-        raise TypeError(f"Invalid type for 'input'. The only allowed value is a string, got {type(input).__name__} instead.")
-    # Check that headers is a string
+    # Check that headers is a string or a list
     if not isinstance(headers, (str, list)):
         raise TypeError(f"headers must be a string or list, got {type(headers)} instead.")
     # Check to ensure tags is a list or sting, convert to list
