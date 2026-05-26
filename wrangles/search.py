@@ -215,13 +215,6 @@ def retrieve_metadata(
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
     
-    # Check that headers_to_drop is a string
-    if not isinstance(headers_to_drop, (str, list)):
-        raise TypeError(f"headers_to_drop must be a string or list, got {type(headers_to_drop)} instead.")
-    # Check to ensure tags_to_drop is a list or sting, convert to list
-    if not isinstance(tags_to_drop, (str, list)):
-        raise TypeError(f"tags_to_drop must be string or list, got {type(tags_to_drop)} instead.")
-
     url = url.strip()
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
