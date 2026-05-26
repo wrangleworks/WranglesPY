@@ -2235,3 +2235,36 @@ class TestTrainMetaData:
                 """,
                 dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
             )
+
+
+#
+# Delete
+#
+class TestTrainDelete:
+    """
+    Tests for wrangles.train.delete
+    """
+
+    def test_create_and_delete_model(self):
+        """
+        Train a new classify model then delete it by the returned model_id.
+        Verifies the model is gone by attempting to read it after deletion.
+        """
+        training_data = [
+            ['apple', 'fruit', ''],
+            ['banana', 'fruit', ''],
+            ['carrot', 'vegetable', ''],
+        ]
+        response = wrangles.train.classify(training_data, name="Test Delete Integration Model")
+        assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
+
+        body = response.json()
+        model_id = body.get('model_id') or body.get('id') or body.get('modelId') or body.get('model')
+        assert model_id, f"No model_id in creation response: {body}"
+
+        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+
+        wrangles.train.delete(model_id)
+
+        with pytest.raises(RuntimeError):
+            wrangles.data.model(model_id)
