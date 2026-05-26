@@ -2,6 +2,7 @@ import concurrent.futures as _futures
 import requests
 import json
 import time
+import logging
 from bs4 import BeautifulSoup
 
 # Import our client factory
@@ -134,7 +135,8 @@ def _clean_headers(
 
 def _clean_html_head(
     raw_html: str,
-    drop_info: str | list=None
+    drop_info: str | list=None,
+    keep_info: str | list=None
     ):
     """
     Parses an HTML string and structurally removes entire specified tags 
@@ -150,25 +152,29 @@ def _clean_html_head(
                             "noscript", # Removes fallback tracking pixels
                             "svg"       # Removes massive embedded vector graphics
                         ]
-
+        
     # Check that raw_html is a string
     if not isinstance(raw_html, str):
         raise TypeError(f"raw_html must be a string, got {type(raw_html)} instead.")
-    # Check to ensure drop_info is a list or sting, convert to list
-    if not isinstance(drop_info, (str, list)):
-        raise TypeError(f"drop_info must be string or list, got {type(drop_info)} instead.")
     # Check to ensure that drop_info is a list
-    if isinstance(drop_info, str): drop_info=[drop_info]
+    if not isinstance(drop_info, list): drop_info=[drop_info]
+    # Check to ensure that keep_info is a list
+    if not isinstance(keep_info, list): drop_info=[keep_info]
 
     if not raw_html:
         return ""
         
     soup = BeautifulSoup(raw_html, 'html.parser')
     
-    for tag_name in drop_info:
+    if not keep_info:
+        for tag_name in drop_info:
+            for tag in soup.find_all(tag_name):
+                tag.decompose() # Destroys the tag and everything inside it
+    else:
         for tag in soup.find_all(tag_name):
-            tag.decompose() # Destroys the tag and everything inside it
-            
+            if tag not in keep_info:
+                tag.decompose() # Destroys the tag and everything inside it
+
     return str(soup)
 
 
@@ -187,6 +193,7 @@ def retrieve_metadata(
     :param tags_to_drop: A single or list of HTML tag names to remove (e.g., ['script', 'style']).
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
+    # Add log stating keep will override drop
     # Input Validation & Cleaning
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
