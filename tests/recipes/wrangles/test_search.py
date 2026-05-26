@@ -740,7 +740,7 @@ class TestRetrieveMetadata:
             wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
         assert (
             info.typename == 'TypeError' and
-            "Invalid type for 'input'. The only allowed value is a string" in info.value.args[0]
+            "input must be a string or list of length 1, got 2 instead" in info.value.args[0]
         )
 
     def test_retrieve_metadata_invalid_headers_error(self):

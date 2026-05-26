@@ -359,6 +359,8 @@ def retrieve_metadata(
     # Wildcard expansion causes input strings to become lists
     if isinstance(input, list) and len(input)==1:
         input=input[0]
+    if isinstance(input, list) and len(input)>1:
+        raise TypeError(f"input must be a string or list of length 1, got {len(input)} instead.")
     # Check that headers is a string or a list
     if not isinstance(headers, (str, list)):
         raise TypeError(f"headers must be a string or list, got {type(headers)} instead.")
