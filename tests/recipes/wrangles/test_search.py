@@ -638,7 +638,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              headers: 
+              drop_headers: 
                 - Set-Cookie
                 - Server
         """
@@ -658,7 +658,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              headers: Set-Cookie
+              drop_headers: Set-Cookie
         """
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
@@ -676,7 +676,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              tags:
+              drop_tags:
                 - title
                 - script
         """
@@ -696,7 +696,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              tags: title
+              drop_tags: title
         """
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
@@ -753,7 +753,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              headers: 8
+              drop_headers: 8
         """
         
         with pytest.raises(TypeError) as info:
@@ -773,7 +773,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              tags: 4
+              drop_tags: 4
         """
         
         with pytest.raises(TypeError) as info:

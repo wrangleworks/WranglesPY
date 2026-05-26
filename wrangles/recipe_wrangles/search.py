@@ -319,8 +319,10 @@ def retrieve_metadata(
     page_size: str = "Page Size",
     raw_headers: str = "Raw Headers",
     html_head: str = "HTML Head",
-    headers: str | list = '',
-    tags: str | list = ''
+    drop_headers: str | list = '',
+    keep_headers: str | list = '',
+    drop_tags: str | list = '',
+    keep_tags: str | list = ''
 ) -> _pd.DataFrame:
     """
     type: object
@@ -362,12 +364,12 @@ def retrieve_metadata(
     if isinstance(input, list) and len(input)>1:
         raise TypeError(f"input must be a string or list of length 1, got {len(input)} instead.")
     # Check that headers is a string or a list
-    if not isinstance(headers, (str, list)):
-        raise TypeError(f"headers must be a string or list, got {type(headers)} instead.")
+    if not isinstance(drop_headers, (str, list)):
+        raise TypeError(f"headers must be a string or list, got {type(drop_headers)} instead.")
     # Check to ensure tags is a list or sting, convert to list
-    if not isinstance(tags, (str, list)):
-        raise TypeError(f"tags must be string or list, got {type(tags)} instead.")
+    if not isinstance(drop_tags, (str, list)):
+        raise TypeError(f"tags must be string or list, got {type(drop_tags)} instead.")
         
-    df[[page_size, raw_headers, html_head]] = df[input].apply(lambda x: _search_core.retrieve_metadata(url=x, headers_to_drop=headers, tags_to_drop=tags)).to_list()
+    df[[page_size, raw_headers, html_head]] = df[input].apply(lambda x: _search_core.retrieve_metadata(url=x, headers_to_drop=drop_headers, tags_to_drop=drop_tags)).to_list()
 
     return df
