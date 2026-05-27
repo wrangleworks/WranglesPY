@@ -538,6 +538,7 @@ class TestRetrieveLinkContent:
 #         assert 'error' in results[0]
 
 
+@pytest.mark.usefixtures("caplog")
 class TestRetrieveMetadata:
     """
     Test the functionality of the retrieve_metadata wrangle
@@ -900,3 +901,42 @@ class TestRetrieveMetadata:
         assert 'Set-Cookie' in df['Raw Headers'][1]
         assert 'Server' in df['Raw Headers'][1]
         assert 'Content-Type' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_response_error(self):
+        """
+        Test what happens when the response status is not 200
+        """
+
+        data = _pd.DataFrame({
+            'Website': ['https://httpbin.org/status/404']
+        })
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df['Page Size'][0] == "Error: 'NoneType' object is not iterable"
+
+    def test_retrieve_metadata_override_log(self, caplog):
+        """
+        Test headers_to_drop is overridden by headers_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop:
+                - Set-Cookie
+                - Server
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert caplog.messages[1] == 'headers_to_keep overriding headers_to_drop'
