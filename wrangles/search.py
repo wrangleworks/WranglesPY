@@ -101,7 +101,8 @@ def _clean_headers(
     if not isinstance(raw_headers_json, str):
         raise TypeError(f"raw_headers_json must be a string, got {type(raw_headers_json)} instead.")
     if isinstance(drop_info, str): drop_info=[drop_info]
-    if isinstance(keep_info, str): keep_info=[keep_info]
+    # Only transform keep_info into a list if it exists
+    if isinstance(keep_info, str) and keep_info: keep_info=[keep_info]
 
     try:
         headers_dict = json.loads(raw_headers_json)
@@ -175,7 +176,7 @@ def _clean_html_head(
     # Check to ensure that drop_info is a list
     if not isinstance(drop_info, list): drop_info=[drop_info]
     # Check to ensure that keep_info is a list
-    if not isinstance(keep_info, list): drop_info=[keep_info]
+    if not isinstance(keep_info, list): keep_info=[keep_info]
 
     if not raw_html:
         return ""
