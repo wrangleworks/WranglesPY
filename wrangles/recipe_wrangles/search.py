@@ -319,10 +319,10 @@ def retrieve_metadata(
     page_size: str = "Page Size",
     raw_headers: str = "Raw Headers",
     html_head: str = "HTML Head",
-    drop_headers: str | list = '',
-    keep_headers: str | list = '',
-    drop_tags: str | list = '',
-    keep_tags: str | list = ''
+    headers_to_drop: str | list = '',
+    headers_to_keep: str | list = '',
+    tags_to_drop: str | list = '',
+    tags_to_keep: str | list = ''
 ) -> _pd.DataFrame:
     """
     type: object
@@ -345,17 +345,27 @@ def retrieve_metadata(
       html_head:
         type: string
         description: The name of the output column containing the html head.
-      headers:
+      headers_to_drop:
         type:
           - string
           - list
         description: The headers to be dropped, if passed defaults are overwritten. Defaults to 
         ['x-*', 'cf-*', 'content-security-policy', 'strict-transport-security', 'server-timing', 'set-cookie', 'report-to', 'nel', 'alt-svc'].
-      tags:
+      headers_to_keep:
+        type:
+          - string
+          - list
+        description: The headers to keep, overrides headers_to_drop.
+      tags_to_drop:
         type:
           - string
           - list
         description: The tags to be dropped, if passed defaults are overwritten. Defaults to ['script', 'style', 'noscript', 'svg' ]
+      tags_to_keep:
+        type:
+          - string
+          - list
+        description: The tags to keep, overrides tags_to_keep.
     """
 
     # Wildcard expansion causes input strings to become lists
@@ -363,13 +373,15 @@ def retrieve_metadata(
         input=input[0]
     if isinstance(input, list) and len(input)>1:
         raise TypeError(f"input must be a string or list of length 1, got {len(input)} instead.")
-    # Check that headers is a string or a list
-    if not isinstance(drop_headers, (str, list)):
-        raise TypeError(f"headers must be a string or list, got {type(drop_headers)} instead.")
-    # Check to ensure tags is a list or sting, convert to list
-    if not isinstance(drop_tags, (str, list)):
-        raise TypeError(f"tags must be string or list, got {type(drop_tags)} instead.")
         
-    df[[page_size, raw_headers, html_head]] = df[input].apply(lambda x: _search_core.retrieve_metadata(url=x, headers_to_drop=drop_headers, tags_to_drop=drop_tags)).to_list()
+    df[[page_size, raw_headers, html_head]] = df[input].apply(
+        lambda x: _search_core.retrieve_metadata(
+            url=x,
+            headers_to_drop=headers_to_drop,
+            headers_to_keep=headers_to_keep,
+            tags_to_drop=tags_to_drop,
+            tags_to_keep=tags_to_keep
+            )
+        ).to_list()
 
     return df
