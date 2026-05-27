@@ -248,6 +248,25 @@ def ai(
         for k, v in output.items()
     }
 
+    # Sanitize output keys: replace any character outside [a-zA-Z0-9_] with
+    # an underscore before sending to the model. Property names with special
+    # characters (e.g. parentheses, spaces) are sometimes altered by the model,
+    # producing key mismatches that cause silent empty columns. We remap the
+    # sanitized names back to the originals after receiving results.
+    _key_to_original = {}
+    _sanitized_output = {}
+    for _k, _v in output.items():
+        _sk = _re.sub(r'[^a-zA-Z0-9_]', '_', _k)
+        _base, _n = _sk, 2
+        while _sk in _key_to_original:
+            _sk = f"{_base}_{_n}"
+            _n += 1
+        _key_to_original[_sk] = _k
+        _sanitized_output[_sk] = _v
+    _needs_remap = any(sk != ok for sk, ok in _key_to_original.items())
+    if _needs_remap:
+        output = _sanitized_output
+
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
         messages = [str(messages)]
@@ -318,6 +337,13 @@ def ai(
             [timeout] * len(input),
             [retries] * len(input),
         ))
+
+    if _needs_remap:
+        results = [
+            {_key_to_original.get(k, k): v for k, v in row.items()}
+            if isinstance(row, dict) else row
+            for row in results
+        ]
 
     if input_was_scalar:
         if output_generic_key:
