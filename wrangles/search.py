@@ -2,7 +2,7 @@ import concurrent.futures as _futures
 import requests
 import json
 import time
-import logging
+import logging as _logging
 import random
 from bs4 import BeautifulSoup
 
@@ -240,7 +240,11 @@ def retrieve_metadata(
     :param tags_to_keep: A single or list of HTML tag names to keep (e.g., ['script', 'style']). Overrides tags_to_drop.
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
-    ######## Add log stating keep will override drop ########
+    if headers_to_drop and headers_to_keep:
+        _logging.info(f"headers_to_keep overriding headers_to_drop")
+    if tags_to_drop and tags_to_keep:
+        _logging.info(f"tags_to_keep overriding tags_to_drop")
+
     # Input Validation & Cleaning
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
@@ -249,7 +253,7 @@ def retrieve_metadata(
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
-    USER_AGENTS = [
+    user_agents = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", # Chrome Windows
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15", # Safari Mac
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0", # Edge Windows
@@ -258,7 +262,7 @@ def retrieve_metadata(
 
     # Disguise as a random, fully-featured browser coming from a search engine
     request_headers = {
-        "User-Agent": random.choice(USER_AGENTS),
+        "User-Agent": random.choice(user_agents),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": "https://www.google.com"
