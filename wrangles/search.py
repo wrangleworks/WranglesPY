@@ -3,6 +3,7 @@ import requests
 import json
 import time
 import logging
+import random
 from bs4 import BeautifulSoup
 
 # Import our client factory
@@ -239,7 +240,7 @@ def retrieve_metadata(
     :param tags_to_keep: A single or list of HTML tag names to keep (e.g., ['script', 'style']). Overrides tags_to_drop.
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
-    # Add log stating keep will override drop
+    ######## Add log stating keep will override drop ########
     # Input Validation & Cleaning
     if not url or not isinstance(url, str):
         return "Invalid Data", "{}", ""
@@ -248,10 +249,19 @@ def retrieve_metadata(
     if not url.startswith(('http://', 'https://')):
         url = 'https://' + url
 
-    # Disguise as a standard Chrome browser to bypass basic bot-blocking
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", # Chrome Windows
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15", # Safari Mac
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0", # Edge Windows
+        "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0" # Firefox Linux
+    ]
+
+    # Disguise as a random, fully-featured browser coming from a search engine
     request_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com"
     }
 
     try:
@@ -261,10 +271,8 @@ def retrieve_metadata(
         if response.status_code != 200:
             error_msg = f"Blocked: HTTP {response.status_code}"
             raw_headers = json.dumps(dict(response.headers), indent=2)
-            ######## Not sure why headers are being cleaned. Might need to clean keeps as well ########
             cleaned_headers = _clean_headers(raw_headers, headers_to_drop)
             response.close()
-            ####### Try to find a url to test this with, maybe Makita? #######
             return error_msg, cleaned_headers, ""
             
         # 3. Metadata Extraction
