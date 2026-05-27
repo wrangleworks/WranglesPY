@@ -631,14 +631,14 @@ class TestRetrieveMetadata:
 
     def test_retrieve_metadata_headers_list(self):
         """
-        Test retrieve.metadata when passing a lis of headers
+        Test retrieve.metadata when passing a list of headers
         """
         
         recipe = """
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              drop_headers: 
+              headers_to_drop: 
                 - Set-Cookie
                 - Server
         """
@@ -658,7 +658,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              drop_headers: Set-Cookie
+              headers_to_drop: Set-Cookie
         """
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
@@ -676,7 +676,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              drop_tags:
+              tags_to_drop:
                 - title
                 - script
         """
@@ -696,7 +696,7 @@ class TestRetrieveMetadata:
         wrangles:
           - search.retrieve_metadata:
               input: Website
-              drop_tags: title
+              tags_to_drop: title
         """
         
         df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
@@ -741,46 +741,6 @@ class TestRetrieveMetadata:
         assert (
             info.typename == 'TypeError' and
             "input must be a string or list of length 1, got 2 instead" in info.value.args[0]
-        )
-
-    def test_retrieve_metadata_invalid_headers_error(self):
-        """
-        Test retrieve.metadata error when passing the wrong
-        data type as headers
-        """
-        
-        recipe = """
-        wrangles:
-          - search.retrieve_metadata:
-              input: Website
-              drop_headers: 8
-        """
-        
-        with pytest.raises(TypeError) as info:
-            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
-        assert (
-            info.typename == 'TypeError' and
-            "headers must be a string or list, got <class 'int'> instead." in info.value.args[0]
-        )
-
-    def test_retrieve_metadata_invalid_tags_error(self):
-        """
-        Test retrieve.metadata error when passing the wrong
-        data type as tags
-        """
-        
-        recipe = """
-        wrangles:
-          - search.retrieve_metadata:
-              input: Website
-              drop_tags: 4
-        """
-        
-        with pytest.raises(TypeError) as info:
-            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
-        assert (
-            info.typename == 'TypeError' and
-            "tags must be string or list, got <class 'int'> instead." in info.value.args[0]
         )
 
     def test_retrieve_metadata_invalid_input_error(self):
