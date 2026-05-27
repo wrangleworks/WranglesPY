@@ -133,7 +133,7 @@ def _clean_headers(
         else:
             for keep_item in keep_info_lower:
                 # Handle wildcards (e.g., 'x-*')
-                if drop_item.endswith('*'):
+                if keep_item.endswith('*'):
                     prefix = keep_item[:-1]
                     if key_lower.startswith(prefix):
                         should_drop = False
@@ -142,6 +142,8 @@ def _clean_headers(
                 elif key_lower == keep_item:
                     should_drop = False
                     break
+                else:
+                    should_drop = True
                 
         if not should_drop:
             cleaned_dict[key] = value
@@ -176,7 +178,11 @@ def _clean_html_head(
     # Check to ensure that drop_info is a list
     if not isinstance(drop_info, list): drop_info=[drop_info]
     # Check to ensure that keep_info is a list
-    if not isinstance(keep_info, list): keep_info=[keep_info]
+    if not isinstance(keep_info, list) and keep_info: keep_info=[keep_info]
+
+    # Lowercase tags for matching
+    drop_info_lower = [k.lower() for k in drop_info]
+    keep_info_lower = [k.lower() for k in keep_info]
 
     if not raw_html:
         return ""
@@ -185,13 +191,31 @@ def _clean_html_head(
     
     # Only drop tags when keep_info is not passed
     if not keep_info:
-        for tag_name in drop_info:
+        for tag_name in drop_info_lower:
             for tag in soup.find_all(tag_name):
                 tag.decompose() # Destroys the tag and everything inside it
     else:
-        for tag in soup.find_all(tag_name):
-            if tag not in keep_info:
-                tag.decompose() # Destroys the tag and everything inside it
+        for tag in reversed(soup.find_all()):
+            if tag.name.lower() not in keep_info_lower:
+                # tag.decompose() # Destroys the tag and everything inside it
+                tag.unwrap()  # removes tag, keeps contents
+
+        # Remove stray text/newlines outside allowed tags
+        for text in list(soup.find_all(string=True)):
+            parent = text.parent
+
+            # Remove whitespace-only nodes outside allowed tags
+            if (
+                parent.name.lower() not in keep_info_lower
+                and text.strip() == ""
+            ):
+                text.extract()
+
+            # Remove non-whitespace text outside allowed tags
+            elif (
+                parent.name.lower() not in keep_info_lower
+            ):
+                text.extract()
 
     return str(soup)
 
