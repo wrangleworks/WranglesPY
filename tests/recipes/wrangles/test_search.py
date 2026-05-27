@@ -762,3 +762,141 @@ class TestRetrieveMetadata:
         assert df['Page Size'][0] == 'Invalid Data'
         assert df['Raw Headers'][0] == '{}'
         assert df['HTML Head'][0] == ''
+
+    def test_retrieve_metadata_headers_to_keep_string(self):
+        """
+        Test retrieve.metadata using headers_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: Set-Cookie
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_headers_to_keep_string_case(self):
+        """
+        Test case does not affect results
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: sEt-CoOkIe
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_headers_to_keep_list(self):
+        """
+        Test retrieve.metadata using headers_to_keep as a list
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' in df['Raw Headers'][1]
+        assert 'Content-Type' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_tags_to_keep_string(self):
+        """
+        Test retrieve.metadata when passing a single tag_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_keep: Style
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_tags_to_keep_list(self):
+        """
+        Test retrieve.metadata when passing a single tag_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_keep: 
+                - Style
+                - Title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert '<head>' not in df['HTML Head'][1]
+        assert 'title' in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_tags_to_keep_override_drop(self):
+        """
+        Test tags_to_drop is overridden by tags_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_drop: 
+                - Style
+                - Title
+              tags_to_keep: 
+                - Style
+                - Title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert '<head>' not in df['HTML Head'][1]
+        assert 'title' in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_headers_to_keep_override_drop(self):
+        """
+        Test headers_to_drop is overridden by headers_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop:
+                - Set-Cookie
+                - Server
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' in df['Raw Headers'][1]
+        assert 'Content-Type' not in df['Raw Headers'][1]
