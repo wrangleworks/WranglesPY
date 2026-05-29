@@ -9,17 +9,6 @@ import random
 from .clients import get_client as _get_client
 
 
-def import_soup():
-    # Attempt to import BeautifulSoup
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        def BeautifulSoup(*args, **kwargs):
-            raise ImportError(
-                "beautifulsoup4 is required to parse HTML content in "
-                "wrangles.search. Install `beautifulsoup4` to use this functionality."
-            )
-
 def find_links(
     queries: str | list,
     client: str = "serpapi",
@@ -308,6 +297,7 @@ def retrieve_metadata(
             raw_headers = json.dumps(dict(response.headers), indent=2)
             cleaned_headers = _clean_headers(raw_headers, headers_to_drop, headers_to_keep)
             response.close()
+            _logging.info(f"status: {response.status_code}, error: {error_msg}")
             return error_msg, cleaned_headers, ""
             
         # 3. Metadata Extraction
