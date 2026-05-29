@@ -254,10 +254,10 @@ def _clean_html_head(
 
 def retrieve_metadata(
     url: str,
-    headers_to_drop: str | list=None,
-    headers_to_keep: str | list=None,
-    tags_to_drop: str | list=None,
-    tags_to_keep: str | list=None
+    headers_to_drop: str | list="",
+    headers_to_keep: str | list="",
+    tags_to_drop: str | list="",
+    tags_to_keep: str | list=""
 ) -> tuple:
     """
     Connects to a URL using browser spoofing, extracts metadata, and streams the 
