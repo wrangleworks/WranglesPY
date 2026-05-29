@@ -283,7 +283,7 @@ def retrieve_metadata(
         if response.status_code != 200:
             error_msg = f"Blocked: HTTP {response.status_code}"
             raw_headers = json.dumps(dict(response.headers), indent=2)
-            cleaned_headers = _clean_headers(raw_headers, headers_to_drop)
+            cleaned_headers = _clean_headers(raw_headers, headers_to_drop, headers_to_keep)
             response.close()
             return error_msg, cleaned_headers, ""
             
