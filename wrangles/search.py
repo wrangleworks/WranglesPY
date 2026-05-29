@@ -9,6 +9,17 @@ import random
 from .clients import get_client as _get_client
 
 
+def import_soup():
+    # Attempt to import BeautifulSoup
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        def BeautifulSoup(*args, **kwargs):
+            raise ImportError(
+                "beautifulsoup4 is required to parse HTML content in "
+                "wrangles.search. Install `beautifulsoup4` to use this functionality."
+            )
+
 def find_links(
     queries: str | list,
     client: str = "serpapi",
@@ -84,6 +95,15 @@ def _clean_headers(
     :param keep_info: A string or list of strings representing header keys to keep.
     :return: A JSON string of the cleaned headers.
     """
+    # Attempt to import BeautifulSoup
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        def BeautifulSoup(*args, **kwargs):
+            raise ImportError(
+                "beautifulsoup4 is required to parse HTML content in "
+                "wrangles.search. Install `beautifulsoup4` to use this functionality."
+            )
 
     if drop_info=='': drop_info=[
                             "x-*",              # Drops X-Frame-Options, X-Cache, X-Amz, etc.
@@ -138,6 +158,8 @@ def _clean_headers(
                     if key_lower.startswith(prefix):
                         should_drop = False
                         break
+                    else:
+                        should_drop = True
                 # Handle exact matches
                 elif key_lower == keep_item:
                     should_drop = False
@@ -165,6 +187,16 @@ def _clean_html_head(
     :param keep_info: A single or list of HTML tag names to keep (e.g., ['script', 'style']).
     :return: The cleaned HTML string.
     """
+    # Attempt to import BeautifulSoup
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        def BeautifulSoup(*args, **kwargs):
+            raise ImportError(
+                "beautifulsoup4 is required to parse HTML content in "
+                "wrangles.search. Install `beautifulsoup4` to use this functionality."
+            )
+    
     if drop_info=='': drop_info=[
                             "script",   # Removes all JavaScript functions and external script links
                             "style",    # Removes all inline CSS blocks
@@ -239,15 +271,6 @@ def retrieve_metadata(
     :param tags_to_keep: A single or list of HTML tag names to keep (e.g., ['script', 'style']). Overrides tags_to_drop.
     :return: tuple: (size_in_bytes (int), cleaned_headers (str), cleaned_html (str))
     """
-    # Attempt to import BeautifulSoup
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        def BeautifulSoup(*args, **kwargs):
-            raise ImportError(
-                "beautifulsoup4 is required to parse HTML content in "
-                "wrangles.search. Install `beautifulsoup4` to use this functionality."
-            )
     if headers_to_drop and headers_to_keep:
         _logging.info(f"headers_to_keep overriding headers_to_drop")
     if tags_to_drop and tags_to_keep:
