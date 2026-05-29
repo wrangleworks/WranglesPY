@@ -348,23 +348,23 @@ def retrieve_metadata(
       headers_to_drop:
         type:
           - string
-          - list
+          - array
         description: The headers to be dropped, if passed defaults are overwritten. Defaults to 
         ['x-*', 'cf-*', 'content-security-policy', 'strict-transport-security', 'server-timing', 'set-cookie', 'report-to', 'nel', 'alt-svc'].
       headers_to_keep:
         type:
           - string
-          - list
+          - array
         description: The headers to keep, overrides headers_to_drop.
       tags_to_drop:
         type:
           - string
-          - list
+          - array
         description: The tags to be dropped, if passed defaults are overwritten. Defaults to ['script', 'style', 'noscript', 'svg' ]
       tags_to_keep:
         type:
           - string
-          - list
+          - array
         description: The tags to keep, overrides tags_to_keep.
     """
 
