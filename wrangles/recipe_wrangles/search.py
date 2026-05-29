@@ -326,7 +326,7 @@ def retrieve_metadata(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Retrieve webiste metadata without cost.
+    description: Retrieve website metadata without cost.
     required:
       - input
     properties:
