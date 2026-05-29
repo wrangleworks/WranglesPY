@@ -349,8 +349,11 @@ def retrieve_metadata(
         type:
           - string
           - array
-        description: The headers to be dropped, if passed defaults are overwritten. Defaults to 
-        ['x-*', 'cf-*', 'content-security-policy', 'strict-transport-security', 'server-timing', 'set-cookie', 'report-to', 'nel', 'alt-svc'].
+        description: >
+          The headers to be dropped, if passed defaults are overwritten.
+          Defaults to ['x-*', 'cf-*', 'content-security-policy',
+          'strict-transport-security', 'server-timing', 'set-cookie',
+          'report-to', 'nel', 'alt-svc'].
       headers_to_keep:
         type:
           - string
@@ -360,7 +363,9 @@ def retrieve_metadata(
         type:
           - string
           - array
-        description: The tags to be dropped, if passed defaults are overwritten. Defaults to ['script', 'style', 'noscript', 'svg' ]
+        description: >
+          The tags to be dropped, if passed defaults are overwritten.
+          Defaults to ['script', 'style', 'noscript', 'svg' ]
       tags_to_keep:
         type:
           - string
