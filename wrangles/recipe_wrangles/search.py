@@ -365,7 +365,7 @@ def retrieve_metadata(
         type:
           - string
           - array
-        description: The tags to keep, overrides tags_to_keep.
+        description: The tags to keep, overrides tags_to_drop.
     """
 
     # Wildcard expansion causes input strings to become lists
