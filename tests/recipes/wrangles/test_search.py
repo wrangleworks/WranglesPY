@@ -818,6 +818,23 @@ class TestRetrieveMetadata:
         assert 'Server' in df['Raw Headers'][1]
         assert 'Content-Type' not in df['Raw Headers'][1]
 
+    def test_retrieve_metadata_headers_to_keep_wildcard(self):
+        """
+        Test retrieve.metadata using headers_to_keep wildcard
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: x-*
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'x-' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
     def test_retrieve_metadata_tags_to_keep_string(self):
         """
         Test retrieve.metadata when passing a single tag_to_keep as a string
