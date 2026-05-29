@@ -936,7 +936,7 @@ class TestRetrieveMetadata:
         
         df = wrangles.recipe.run(recipe, dataframe=data)
 
-        assert df['Page Size'][0] == "Error: 'NoneType' object is not iterable"
+        assert df['Page Size'][0] == 'Blocked: HTTP 404'
 
     def test_retrieve_metadata_override_log(self, caplog):
         """
