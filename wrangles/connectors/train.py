@@ -333,18 +333,8 @@ class lookup():
                     columns=existing_content['Columns']
                 )
 
-                # Validate column compatibility with existing model
-                requested_cols = new_data['Columns']
-                missing_in_existing = [c for c in requested_cols if c not in existing_df_all.columns]
-                if missing_in_existing:
-                    raise ValueError(
-                        "Lookup: The following columns are not present in the existing model: "
-                        + ", ".join(missing_in_existing)
-                    )
-
-                existing_df = existing_df_all[requested_cols]  # Ensure same column order
-
                 # For key variant, ensure new data contains Key column
+                requested_cols = new_data['Columns']
                 normalized_variant = settings.get('variant', variant)
                 if normalized_variant == 'key' and 'Key' not in df.columns:
                     raise ValueError("Lookup: 'Key' column must be provided for 'key' variant")
@@ -353,13 +343,17 @@ class lookup():
                 updated = 0
 
                 # Merge data - avoid duplicates based on Key column
-                if variant== 'key' and 'Key' in existing_df.columns and 'Key' in df.columns:
+                if variant == 'key' and 'Key' in existing_df_all.columns and 'Key' in df.columns:
                     if df['Key'].duplicated().any():
                         raise ValueError("Lookup: All Keys must be unique")
-                    existing_keys = set(existing_df['Key'].tolist())
+                    existing_keys = set(existing_df_all['Key'].tolist())
 
-                    # Start with current data
-                    merged_df = existing_df.copy()
+                    # Use ALL existing columns as the base so unspecified columns are preserved.
+                    # New columns introduced by this upsert are added with '' for existing rows.
+                    merged_df = existing_df_all.copy()
+                    new_cols = [c for c in requested_cols if c not in merged_df.columns]
+                    for col in new_cols:
+                        merged_df[col] = ''
 
                     # Apply updates for matching keys
                     for _, row in df.iterrows():
@@ -367,13 +361,14 @@ class lookup():
                         if key in existing_keys:
                             mask = merged_df['Key'] == key
                             for col in df.columns:
-                                if col != 'Key' and col in merged_df.columns:
+                                if col != 'Key':
                                     merged_df.loc[mask, col] = row[col]
                             updated += 1
                         else:
-                            # Insert new rows for non-existing keys
+                            # New key: fill columns absent from the incoming row with empty string
+                            new_row = {col: (row[col] if col in df.columns else '') for col in merged_df.columns}
                             merged_df = _pd.concat(
-                                [merged_df, _pd.DataFrame([row[merged_df.columns].tolist()], columns=merged_df.columns)],
+                                [merged_df, _pd.DataFrame([new_row])],
                                 ignore_index=True
                             )
                             inserted += 1
@@ -422,7 +417,7 @@ class lookup():
                         merged_df = merged_df[existing_df_all.columns]
                     else:
                         # Without MatchingColumns, append all
-                        merged_df = _pd.concat([existing_df, df], ignore_index=True)
+                        merged_df = _pd.concat([existing_df_all, df], ignore_index=True)
                         inserted = len(df)
 
                 merged_data = {
@@ -598,10 +593,11 @@ class lookup():
                     inserted = len(df)
                     merged_df = _pd.concat([existing_df, df], ignore_index=True)  
             
-            merged_data = {  
-                'Columns': merged_df.columns.tolist(),  
-                'Data': merged_df.values.tolist()  
-            }  
+            merged_df = merged_df.fillna('')
+            merged_data = {
+                'Columns': merged_df.columns.tolist(),
+                'Data': merged_df.values.tolist()
+            }
             _validate_matching_columns(merged_data, settings)
             total_rows = len(merged_df)
             _train.lookup(merged_data, None, model_id, settings)

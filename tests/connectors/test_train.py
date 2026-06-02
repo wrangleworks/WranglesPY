@@ -857,24 +857,52 @@ class TestTrainLookup:
         assert 'Interstellar' in result.values
         assert 'Value' in result.columns and 'Description' in result.columns
 
-    def test_upsert_mismatched_columns_existing_model(self):
+    def test_upsert_adds_new_column(self):
         """
-        UPSERT should fail when new data includes columns not present
-        in the existing model schema.
+        UPSERT with a column that doesn't exist in the model yet must add
+        that column; existing rows receive '' for the new column.
+        
         """
-        df = pd.DataFrame({
-            'Key': ['Rachel'],
-            'Other': ['Blade Runner']
-        })
-        recipe = """
-        write:
-          - train.lookup:
-              model_id: b2cd1a8a-4d99-4be1
-              action: UPSERT
-              variant: key
-        """
-        with pytest.raises(ValueError, match="The following columns are not present in the existing model: Other"):
-            wrangles.recipe.run(recipe, dataframe=df)
+        import time
+        MODEL = 'f6896dae-3b48-4bbe'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':   ['apple', 'banana'],
+                'Value': ['red',   'yellow'],
+            }),
+        )
+        time.sleep(2)
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: upsert
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':    ['apple'],
+                'Value':  ['green'],
+                'Weight': ['1.0'],
+            }),
+        )
+        time.sleep(2)
+
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        assert 'Weight' in result.columns, "New column must be present after upsert"
+        apple  = result[result['Key'] == 'apple'].iloc[0]
+        banana = result[result['Key'] == 'banana'].iloc[0]
+        assert apple['Weight']  == '1.0', "Updated row must carry the new column value"
+        assert banana['Weight'] == '',    "Unaffected rows get '' for the new column"
 
     def test_upsert_missing_key_for_key_variant(self):
         """
@@ -1342,6 +1370,138 @@ class TestTrainLookup:
 
         assert 'London Updated' in df['City'].values
 
+    def test_upsert_preserves_unspecified_columns(self):
+        """
+        UPSERT with a partial set of columns must not delete columns that are
+        present in the model but absent from the incoming DataFrame.
+        Issue #992: unspecified columns were silently dropped.
+        """
+        import time
+        MODEL = 'f6896dae-3b48-4bbe'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana', 'cherry'],
+                'Schema':  ['fruit', 'fruit',  'fruit'],
+                'Mapping': ['red',   'yellow', 'red'],
+            }),
+        )
+        time.sleep(2)
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: upsert
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
+        )
+        time.sleep(2)
+
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        assert 'Schema' in result.columns, "Schema must be preserved after partial upsert"
+        apple = result[result['Key'] == 'apple'].iloc[0]
+        assert apple['Mapping'] == 'green', "Updated column must reflect new value"
+        assert apple['Schema']  == 'fruit', "Unspecified column must retain original value"
+
+    def test_insert_preserves_unspecified_columns(self):
+        """
+        INSERT must not drop columns that exist in the model but are absent
+        from the incoming DataFrame.  New rows get '' for unspecified columns.
+        """
+        import time
+        MODEL = 'f6896dae-3b48-4bbe'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana'],
+                'Schema':  ['fruit', 'fruit'],
+                'Mapping': ['red',   'yellow'],
+            }),
+        )
+        time.sleep(2)
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: insert
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({'Key': ['cherry'], 'Mapping': ['red']}),
+        )
+        time.sleep(2)
+
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        assert 'Schema' in result.columns, "Schema column must be preserved after insert"
+        assert len(result) == 3, "New row must be added"
+        cherry = result[result['Key'] == 'cherry'].iloc[0]
+        assert cherry['Mapping'] == 'red'
+        assert cherry['Schema']  == '', "Unspecified column for new row must be empty string"
+
+    def test_update_preserves_unspecified_columns(self):
+        """
+        UPDATE must only modify the columns present in the incoming DataFrame;
+        all other columns — on both the updated and untouched rows — must be
+        preserved exactly.
+        """
+        import time
+        MODEL = 'f6896dae-3b48-4bbe'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana', 'cherry'],
+                'Schema':  ['fruit', 'fruit',  'fruit'],
+                'Mapping': ['red',   'yellow', 'red'],
+            }),
+        )
+        time.sleep(2)
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: update
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
+        )
+        time.sleep(2)
+
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        assert 'Schema' in result.columns, "Schema must be preserved after update"
+        apple  = result[result['Key'] == 'apple'].iloc[0]
+        banana = result[result['Key'] == 'banana'].iloc[0]
+        assert apple['Mapping']  == 'green',  "Updated Mapping must reflect new value"
+        assert apple['Schema']   == 'fruit',  "Unspecified Schema on updated row must be preserved"
+        assert banana['Mapping'] == 'yellow', "Untouched row must be unchanged"
+        assert banana['Schema']  == 'fruit',  "Untouched row Schema must be unchanged"
+
     def test_upsert_key_only(self):
         """
         Test UPSERT with only a Key column and no MatchingColumns/settings.
@@ -1361,28 +1521,26 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self):  
-        """  
-        Verify that INSERT/UPSERT/UPDATE raise the expected error  
-        when incoming columns are not present in the existing model.  
-        """  
+    def test_missing_columns_error_message(self):
+        """
+        INSERT and UPDATE raise an error when incoming columns are not present
+        in the existing model schema.  UPSERT is intentionally excluded: it
+        allows new columns (adds them to the model schema, filling existing
+        rows with '').
+        """
+        df = pd.DataFrame({
+            "Key": ["k3"],
+            "Value": ["v3"],
+            "ExtraCol": ["x"]  # does not exist in the model
+        })
 
-        df = pd.DataFrame({  
-            "Key": ["k3"],  
-            "Value": ["v3"],  
-            "ExtraCol": ["x"]  # This column does not exist in the model  
-        })  
-
-    
-        # Test each action that performs the column-alignment check  
-        for action in ("insert", "upsert", "update"):  
+        for action in ("insert", "update"):
             recipe = f"""
                 write:
                     - train.lookup:
                         model_id: bc3ee6a0-e104-4700
                         action: {action}
                         variant: key
-
                 """
             with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
                 wrangles.recipe.run(recipe, dataframe=df)
