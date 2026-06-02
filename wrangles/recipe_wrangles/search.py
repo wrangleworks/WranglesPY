@@ -1,5 +1,6 @@
 import logging as _logging
 import pandas as _pd
+from concurrent.futures import ThreadPoolExecutor
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -378,15 +379,20 @@ def retrieve_metadata(
         input=input[0]
     if isinstance(input, list) and len(input)>1:
         raise TypeError(f"input must be a string or list of length 1, got {len(input)} instead.")
-        
-    df[[page_size, raw_headers, html_head]] = df[input].apply(
-        lambda x: _search_core.retrieve_metadata(
-            url=x,
+
+    # Helper function to pass to the thread pool
+    def fetch_metadata(url):
+        return _search_core.retrieve_metadata(
+            url=url,
             headers_to_drop=headers_to_drop,
             headers_to_keep=headers_to_keep,
             tags_to_drop=tags_to_drop,
             tags_to_keep=tags_to_keep
-            )
-        ).to_list()
+        )
+
+    urls = df[input].tolist()
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        df[[page_size, raw_headers, html_head]] =  list(executor.map(fetch_metadata, urls))
 
     return df
