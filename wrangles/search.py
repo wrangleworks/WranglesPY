@@ -297,9 +297,10 @@ def retrieve_metadata(
             raw_headers = json.dumps(dict(response.headers), indent=2)
             cleaned_headers = _clean_headers(raw_headers, headers_to_drop, headers_to_keep)
             response.close()
-            _logging.info(f"status: {response.status_code}, error: {error_msg}")
+            _logging.info(f"url: {url}, status: {response.status_code}, error: {error_msg}")
             return error_msg, cleaned_headers, ""
             
+        _logging.info(f"url: {url}, status: {response.status_code}")
         # 3. Metadata Extraction
         size = response.headers.get('Content-Length')
         size_out = int(size) if size is not None else 0
@@ -344,4 +345,5 @@ def retrieve_metadata(
     except requests.exceptions.Timeout:
         return "Error: Connection Timed Out", "{}", ""
     except Exception as e:
+        _logging.info(f"Hit the exception url: {url}, error: {e}")
         return f"Error: {str(e)}", "{}", ""
