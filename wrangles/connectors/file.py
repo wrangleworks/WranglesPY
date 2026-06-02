@@ -20,6 +20,25 @@ from ._formatting import file_format as _file_format
 _schema = {}
 
 
+_ILLEGAL_CHARACTERS_RE = _re.compile(
+    '[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]'
+)
+
+
+def _clean_cell_value(value):
+    if isinstance(value, str):
+        return _ILLEGAL_CHARACTERS_RE.sub('', value)
+    elif isinstance(value, list):
+        return [_clean_cell_value(v) for v in value]
+    elif isinstance(value, dict):
+        return {k: _clean_cell_value(v) for k, v in value.items()}
+    return value
+
+
+def _remove_illegal_characters(df: _pd.DataFrame) -> _pd.DataFrame:
+    return df.map(_clean_cell_value)
+
+
 def read(
     name: str,
     columns: _Union[str, list] = None,
@@ -223,7 +242,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
             
         else:
           with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
-            df.to_excel(writer, **kwargs)
+            _remove_illegal_characters(df).to_excel(writer, **kwargs)
             
             worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
             
