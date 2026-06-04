@@ -322,6 +322,54 @@ class TestRunUpload:
                 """
             )
 
+    def test_run_upload_error_invalid_bucket_file_only(self):
+        """
+        Gen 4 (and Gen 1): file only (no key/save_as) with an invalid bucket —
+        error comes from S3, confirming the param was accepted and auto-key
+        derivation ran before the upload attempt.
+        """
+        with pytest.raises(RuntimeError, match="Failed to write"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.upload_files:
+                        bucket: wrwx-does-not-exist
+                        file: tests/samples/data.csv
+                """
+            )
+
+    def test_upload_error_missing_file(self):
+        """
+        Gen 4: omitting file raises ValueError before reaching S3.
+        """
+        with pytest.raises(ValueError, match="file must be provided"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.upload_files:
+                        bucket: wrwx-public
+                        save_as: s3/key.csv
+                """
+            )
+
+    def test_upload_error_missing_file_key_only(self):
+        """
+        Gen 1 deprecated key kwarg: providing key alone (no file) raises
+        ValueError before reaching S3.
+        """
+        with pytest.raises(ValueError, match="file must be provided"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - s3.upload_files:
+                        bucket: wrwx-public
+                        key: s3/key.csv
+                """
+            )
+
     def test_file_upload_and_download_1(self):
         """
         Upload file to s3 key and file not included
@@ -416,6 +464,41 @@ class TestRunUpload:
         """
         
         df = wrangles.recipe.run(recipe2)
+        assert df.iloc[0]['Find'] == 'BRG'
+
+    def test_upload_bc_gen1_key_kwarg_upload_and_download(self):
+        """
+        Gen 1 deprecated key kwarg: full upload + download cycle confirms
+        key is routed to save_as and the correct S3 object is written.
+        """
+        wrangles.recipe.run(
+            f"""
+            run:
+              on_start:
+                - s3.upload_files:
+                    bucket: wrwx-public
+                    file: tests/samples/data.csv
+                    key: Test_BC_gen1_key.csv
+                    aws_access_key_id: {s3_key}
+                    aws_secret_access_key: {s3_secret}
+            """
+        )
+        time.sleep(3)
+        df = wrangles.recipe.run(
+            f"""
+            run:
+              on_start:
+                - s3.download_files:
+                    bucket: wrwx-public
+                    file_key: Test_BC_gen1_key.csv
+                    save_as: tests/temp/test_bc_gen1_key.csv
+                    aws_access_key_id: {s3_key}
+                    aws_secret_access_key: {s3_secret}
+            read:
+            - file:
+                name: tests/temp/test_bc_gen1_key.csv
+            """
+        )
         assert df.iloc[0]['Find'] == 'BRG'
 
 class TestRunDownload:
