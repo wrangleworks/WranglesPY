@@ -267,16 +267,16 @@ class upload_files:
                 bucket:
                     type: string
                     description: S3 Bucket
-                file_key:
-                    type:
-                      - string
-                      - array
-                    description: S3 file key or list of keys to upload as.
                 save_as:
                     type:
                       - string
                       - array
-                    description: File or list of files to upload (replaces 'file').
+                    description: S3 file key or list of keys to upload as.
+                file:
+                    type:
+                      - string
+                      - array
+                    description: File or list of files to upload.
                 endpoint_url:
                     type: string
                     description: Override the S3 host for alternative S3 storage providers.
@@ -289,46 +289,46 @@ class upload_files:
         """
     }
 
-    def run(bucket: str, save_as: _Union[str, list] = None, file_key: _Union[str, list] = None, **kwargs):
+    def run(bucket: str, file: _Union[str, list] = None, save_as: _Union[str, list] = None, **kwargs):
         """
         Upload file(s) to S3 from the local file system.
 
         :param bucket: S3 Bucket
-        :param save_as: File or list of files to upload.
-        :param file_key: S3 file key or list of keys to upload as.
+        :param file: File or list of files to upload.
+        :param save_as: S3 file key or list of keys to upload as.
         :param endpoint_url: Override the S3 host for alternative S3 storage providers.
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
         """
         # Backwards compatibility: accept deprecated 'key' via kwargs
         compat_key = kwargs.pop('key', None)
-        if file_key is None and compat_key is not None:
-            file_key = compat_key
+        if save_as is None and compat_key is not None:
+            save_as = compat_key
         # Backwards compatibility: accept deprecated 'file' via kwargs
         compat_file = kwargs.pop('file', None)
-        if save_as is None and compat_file is not None:
-            save_as = compat_file
-        if save_as is None:
-            raise ValueError("save_as must be provided")
+        if file is None and compat_file is not None:
+            file = compat_file
+        if file is None:
+            raise ValueError("file must be provided")
         
-        _logging.info(f": Uploading files to S3 :: {bucket} / {file_key}")
+        _logging.info(f": Uploading files to S3 :: {bucket} / {save_as}")
 
         s3 = _boto3.client('s3', **kwargs)
 
-        if isinstance(save_as, str): save_as = [save_as]
+        if isinstance(file, str): file = [file]
 
         # If a list of filename isn't provided, then save
         # in the current directory as the file_key's filename
-        if not file_key:
-            file_key = [k.split('/')[-1] for k in save_as]
+        if not save_as:
+            save_as = [k.split('/')[-1] for k in file]
 
-        if isinstance(file_key, str):
-            file_key = [file_key]
+        if isinstance(save_as, str):
+            save_as = [save_as]
 
-        if len(save_as) != len(file_key):
+        if len(file) != len(save_as):
             raise ValueError('s3.upload_files: An equal number of files and keys must be provided')
 
-        for f, k in zip(save_as, file_key):
+        for f, k in zip(file, save_as):
             try:  
                 s3.upload_file(f, bucket, k)  
             except s3.exceptions.ClientError as e:  
