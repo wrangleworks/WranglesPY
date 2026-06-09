@@ -1,11 +1,15 @@
+import json
+import logging
+
 import wrangles.extract as extract
 
 
 class _Response:
-    ok = True
-
-    def __init__(self, body):
+    def __init__(self, body, ok=True, status_code=200, headers=None):
         self._body = body
+        self.ok = ok
+        self.status_code = status_code
+        self.headers = headers or {}
 
     def json(self):
         return self._body
@@ -195,3 +199,163 @@ def test_extract_ai_validates_responses_output_with_pydantic(monkeypatch):
     )
 
     assert "Invalid structured response" in result["count"]
+
+
+def test_extract_ai_reports_rate_limit_diagnostics(monkeypatch):
+    body = {
+        "error": {
+            "message": "Rate limit reached for requests per min.",
+            "type": "requests",
+            "code": "rate_limit_exceeded",
+        }
+    }
+    headers = {
+        "x-request-id": "req_123",
+        "x-ratelimit-limit-requests": "500",
+        "x-ratelimit-remaining-requests": "0",
+        "x-ratelimit-reset-requests": "1s",
+        "retry-after": "2",
+    }
+
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: _Response(body, ok=False, status_code=429, headers=headers),
+    )
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string", "description": "Any length"}},
+        threads=1,
+        retries=0,
+    )
+
+    assert "status=429" in result["length"]
+    assert "limit=requests_per_minute" in result["length"]
+    assert "request_id=req_123" in result["length"]
+    assert "retry_after=2s" in result["length"]
+
+
+def test_extract_ai_respects_retry_after_on_rate_limit(monkeypatch):
+    calls = []
+    sleeps = []
+    rate_limit_body = {
+        "error": {
+            "message": "Rate limit reached for requests per min.",
+            "type": "requests",
+        }
+    }
+    success_body = {
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": '{"length":"25mm"}',
+                    }
+                ],
+            }
+        ]
+    }
+    responses = [
+        _Response(
+            rate_limit_body,
+            ok=False,
+            status_code=429,
+            headers={
+                "x-ratelimit-remaining-requests": "0",
+                "retry-after": "3",
+            },
+        ),
+        _Response(success_body),
+    ]
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        return responses.pop(0)
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(
+        extract._openai_responses._time,
+        "sleep",
+        lambda delay: sleeps.append(delay),
+    )
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string", "description": "Any length"}},
+        threads=1,
+        retries=1,
+    )
+
+    assert result == {"length": "25mm"}
+    assert len(calls) == 2
+    assert sleeps == [3.0]
+
+
+def test_extract_ai_logs_success_rate_limit_header_summary(monkeypatch, caplog):
+    extract._openai_responses._SUCCESS_STATS.clear()
+    body = {
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": '{"length":"25mm"}',
+                    }
+                ],
+            }
+        ]
+    }
+    responses = [
+        _Response(
+            body,
+            headers={
+                "x-request-id": "req_1",
+                "x-ratelimit-remaining-requests": "10",
+                "x-ratelimit-remaining-tokens": "100",
+                "x-ratelimit-reset-requests": "1s",
+                "x-ratelimit-reset-tokens": "1s",
+            },
+        ),
+        _Response(
+            body,
+            headers={
+                "x-request-id": "req_2",
+                "x-ratelimit-remaining-requests": "8",
+                "x-ratelimit-remaining-tokens": "90",
+                "x-ratelimit-reset-requests": "2s",
+                "x-ratelimit-reset-tokens": "2s",
+            },
+        ),
+    ]
+
+    monkeypatch.setenv("WRANGLES_OPENAI_LOG_RATE_LIMITS", "true")
+    monkeypatch.setenv("WRANGLES_OPENAI_LOG_EVERY", "2")
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: responses.pop(0),
+    )
+
+    with caplog.at_level(logging.INFO, logger="wrangles.openai_responses"):
+        result = extract.ai(
+            ["wrench 25mm", "bolt 25mm"],
+            "key",
+            output={"length": {"type": "string", "description": "Any length"}},
+            threads=1,
+        )
+
+    summary = json.loads(
+        next(record.message for record in caplog.records if "openai_rate_limit_summary" in record.message)
+    )
+
+    assert result == [{"length": "25mm"}, {"length": "25mm"}]
+    assert summary["responses"] == 2
+    assert summary["min_remaining_requests"] == 8
+    assert summary["min_remaining_tokens"] == 90
+    assert summary["latest_request_id"] == "req_2"
