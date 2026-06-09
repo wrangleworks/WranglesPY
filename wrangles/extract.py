@@ -361,6 +361,13 @@ def ai(
                 [list(output.keys())] * len(input),
             ))
 
+        if _needs_remap:
+            results = [
+                {_key_to_original.get(k, k): v for k, v in row.items()}
+                if isinstance(row, dict) else row
+                for row in results
+            ]
+
         if input_was_scalar:
             if output_generic_key:
                 return results[0].get('output', 'Failed')

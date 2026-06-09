@@ -4060,7 +4060,7 @@ class TestExtractAI:
             {"Size__Diameter_": '1-7/8"', "Size": '1-7/8x2-3/8"'},
             {"Size__Diameter_": '2-3/8"', "Size": ""},
         ]
-        with patch("wrangles.openai.chatGPT", side_effect=mock_responses):
+        with patch("wrangles.openai_responses.call_structured", side_effect=mock_responses):
             df = wrangles.recipe.run(
                 """
                 wrangles:
