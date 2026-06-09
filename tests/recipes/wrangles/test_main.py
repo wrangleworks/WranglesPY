@@ -3951,7 +3951,32 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
-    
+
+    def test_recipe_where_empty_dataframe(self):
+        """
+        Test that when where filters out all rows, the recipe wrangle is
+        skipped entirely and does not fail due to missing columns. Issue #1005.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - recipe:
+                  where: successful_search == True
+                  wrangles:
+                    - split.dictionary:
+                        input: scored_results
+                    - split.dictionary:
+                        input: summary
+            """,
+            dataframe=pd.DataFrame({
+                'scored_results': [{}],
+                'successful_search': [False]
+            })
+        )
+        assert df['scored_results'].tolist() == [{}]
+        assert df['successful_search'].tolist() == [False]
+        assert 'summary' not in df.columns
+
     def test_recipe_empty_column_preserved(self):
         data = [
             ["col1", "", "col2"],

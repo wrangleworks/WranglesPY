@@ -480,6 +480,11 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
+                    # If where filters out all rows, skip the wrangle entirely
+                    if len(df) == 0:
+                        df = df_original
+                        continue
+
                 # If the action is conditional, check if it should be run
                 if (
                     "if" in params and
