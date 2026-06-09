@@ -4,6 +4,11 @@ Shared helpers for OpenAI Responses API calls.
 import copy as _copy
 import hashlib as _hashlib
 import json as _json
+import logging as _logging
+import os as _os
+import random as _random
+import re as _re
+import threading as _threading
 import time as _time
 from typing import Any as _Any
 from typing import Dict as _Dict
@@ -17,6 +22,9 @@ from pydantic import ValidationError as _ValidationError
 from pydantic import create_model as _create_model
 
 
+_LOG = _logging.getLogger(__name__)
+_LOCK = _threading.Lock()
+_SUCCESS_STATS = {}
 _JSON_TYPE_MAP = {
     "string": str,
     "number": float,
@@ -51,6 +59,238 @@ _OPENAI_SCHEMA_KEYS = {
 _UNSUPPORTED_RESPONSES_PARAMS = {
     "seed",
 }
+
+_RATE_LIMIT_HEADERS = (
+    "x-ratelimit-limit-requests",
+    "x-ratelimit-limit-tokens",
+    "x-ratelimit-remaining-requests",
+    "x-ratelimit-remaining-tokens",
+    "x-ratelimit-reset-requests",
+    "x-ratelimit-reset-tokens",
+    "retry-after",
+    "x-request-id",
+)
+
+
+def _truthy(value) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _response_json(response):
+    try:
+        return response.json()
+    except Exception:
+        return {}
+
+
+def _header(headers, name):
+    if not headers:
+        return None
+    return headers.get(name) or headers.get(name.upper()) or headers.get(name.lower())
+
+
+def _int_header(headers, name):
+    try:
+        return int(headers.get(name))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_delay(value) -> float:
+    if value in (None, ""):
+        return None
+    text = str(value).strip().lower()
+    try:
+        return max(float(text), 0)
+    except ValueError:
+        pass
+
+    total = 0.0
+    matched = False
+    for amount, unit in _re.findall(r"(\d+(?:\.\d+)?)(ms|s|m|h)", text):
+        matched = True
+        amount = float(amount)
+        if unit == "ms":
+            total += amount / 1000
+        elif unit == "s":
+            total += amount
+        elif unit == "m":
+            total += amount * 60
+        elif unit == "h":
+            total += amount * 3600
+    return total if matched else None
+
+
+def _rate_limit_headers(response) -> dict:
+    headers = getattr(response, "headers", {}) or {}
+    return {
+        name: _header(headers, name)
+        for name in _RATE_LIMIT_HEADERS
+        if _header(headers, name) is not None
+    }
+
+
+def _response_context(response, endpoint: str, model: str = None, attempt: int = None, elapsed_seconds: float = None) -> dict:
+    body = _response_json(response)
+    error = body.get("error", {}) if isinstance(body, dict) else {}
+    headers = _rate_limit_headers(response)
+    status_code = getattr(response, "status_code", None)
+    message = error.get("message", "") if isinstance(error, dict) else ""
+
+    remaining_requests = headers.get("x-ratelimit-remaining-requests")
+    remaining_tokens = headers.get("x-ratelimit-remaining-tokens")
+    limit_family = None
+    if status_code == 429 or "rate limit" in message.lower() or remaining_requests == "0" or remaining_tokens == "0":
+        if remaining_requests == "0":
+            limit_family = "requests_per_minute"
+        elif remaining_tokens == "0":
+            limit_family = "tokens_per_minute"
+        elif "tokens per min" in message.lower():
+            limit_family = "tokens_per_minute"
+        elif "requests per min" in message.lower() or "requests per minute" in message.lower():
+            limit_family = "requests_per_minute"
+        else:
+            limit_family = "rate_limit"
+
+    return {
+        "status_code": status_code,
+        "endpoint": endpoint,
+        "model": model,
+        "attempt": attempt,
+        "elapsed_seconds": round(elapsed_seconds, 3) if elapsed_seconds is not None else None,
+        "message": message,
+        "type": error.get("type") if isinstance(error, dict) else None,
+        "code": error.get("code") if isinstance(error, dict) else None,
+        "param": error.get("param") if isinstance(error, dict) else None,
+        "request_id": headers.get("x-request-id"),
+        "limit_family": limit_family,
+        "retry_after": _parse_delay(headers.get("retry-after")),
+        "rate_limit_headers": {
+            key: value
+            for key, value in headers.items()
+            if key != "retry-after"
+        },
+    }
+
+
+def _should_retry(context: dict) -> bool:
+    status_code = context.get("status_code")
+    return status_code == 429 or status_code in (408, 409, 500, 502, 503, 504)
+
+
+def _error_message(context: dict) -> str:
+    parts = ["OpenAI API error"]
+    if context.get("status_code"):
+        parts.append(f"status={context['status_code']}")
+    if context.get("limit_family"):
+        parts.append(f"limit={context['limit_family']}")
+    if context.get("model"):
+        parts.append(f"model={context['model']}")
+    if context.get("request_id"):
+        parts.append(f"request_id={context['request_id']}")
+    if context.get("retry_after") is not None:
+        parts.append(f"retry_after={context['retry_after']:.3g}s")
+    if context.get("message"):
+        parts.append(f"message={context['message']}")
+    return " | ".join(parts)
+
+
+def _log_api_error(context: dict, final: bool = False) -> None:
+    log_context = {
+        key: value
+        for key, value in context.items()
+        if value not in (None, "", {})
+    }
+    _LOG.log(
+        _logging.ERROR if final else _logging.WARNING,
+        "%s: %s",
+        "Final OpenAI API error" if final else "Retrying OpenAI API error",
+        _json.dumps(log_context, sort_keys=True),
+    )
+
+
+def _sleep_for_retry(context: dict, backoff_time: float) -> float:
+    if context.get("retry_after") is not None:
+        delay = min(context["retry_after"], 60)
+    else:
+        delay = min(backoff_time + _random.uniform(0, min(backoff_time, 1)), 60)
+    _time.sleep(delay)
+    return delay
+
+
+def _success_log_every() -> int:
+    try:
+        return max(int(_os.getenv("WRANGLES_OPENAI_LOG_EVERY", "100")), 1)
+    except ValueError:
+        return 100
+
+
+def _record_success(context: dict) -> None:
+    if not _truthy(_os.getenv("WRANGLES_OPENAI_LOG_RATE_LIMITS", "")):
+        return
+    headers = context.get("rate_limit_headers", {})
+    if not headers:
+        return
+
+    key = (context.get("endpoint") or "unknown", context.get("model") or "unknown")
+    remaining_requests = _int_header(headers, "x-ratelimit-remaining-requests")
+    remaining_tokens = _int_header(headers, "x-ratelimit-remaining-tokens")
+
+    with _LOCK:
+        stats = _SUCCESS_STATS.setdefault(
+            key,
+            {
+                "event": "openai_rate_limit_summary",
+                "endpoint": context.get("endpoint"),
+                "model": context.get("model"),
+                "responses": 0,
+                "min_remaining_requests": None,
+                "min_remaining_tokens": None,
+                "max_elapsed_seconds": 0,
+                "latest_reset_requests": None,
+                "latest_reset_tokens": None,
+                "latest_request_id": None,
+            },
+        )
+        stats["responses"] += 1
+        if remaining_requests is not None:
+            stats["min_remaining_requests"] = (
+                remaining_requests
+                if stats["min_remaining_requests"] is None
+                else min(stats["min_remaining_requests"], remaining_requests)
+            )
+        if remaining_tokens is not None:
+            stats["min_remaining_tokens"] = (
+                remaining_tokens
+                if stats["min_remaining_tokens"] is None
+                else min(stats["min_remaining_tokens"], remaining_tokens)
+            )
+        if context.get("elapsed_seconds") is not None:
+            stats["max_elapsed_seconds"] = max(stats["max_elapsed_seconds"], context["elapsed_seconds"])
+        stats["latest_reset_requests"] = headers.get("x-ratelimit-reset-requests")
+        stats["latest_reset_tokens"] = headers.get("x-ratelimit-reset-tokens")
+        stats["latest_request_id"] = context.get("request_id")
+
+        if stats["responses"] % _success_log_every() != 0:
+            return
+
+        log_stats = {
+            stat_key: value
+            for stat_key, value in stats.items()
+            if value not in (None, "", {})
+        }
+    _LOG.info("%s", _json.dumps(log_stats, sort_keys=True))
+
+
+def _handle_success(response, endpoint: str, model: str = None, elapsed_seconds: float = None) -> dict:
+    context = _response_context(
+        response,
+        endpoint=endpoint,
+        model=model,
+        elapsed_seconds=elapsed_seconds,
+    )
+    _record_success(context)
+    return context
 
 
 def supports_reasoning(model: str) -> bool:
@@ -253,12 +493,14 @@ def call_structured(
     backoff_time = 1
     for attempt in range(retries + 1):
         try:
+            started = _time.time()
             response = _requests.post(
                 url=url,
                 headers=headers,
                 json=request_payload,
                 timeout=timeout,
             )
+            elapsed_seconds = _time.time() - started
         except _requests.exceptions.ReadTimeout:
             if attempt >= retries:
                 return error_result(required_fields, "Timed Out")
@@ -273,25 +515,39 @@ def call_structured(
                 if not isinstance(parsed, dict):
                     raise ValueError("Structured response was not a JSON object.")
                 schema = request_payload.get("text", {}).get("format", {}).get("schema", {})
+                _handle_success(
+                    response,
+                    endpoint="responses",
+                    model=request_payload.get("model"),
+                    elapsed_seconds=elapsed_seconds,
+                )
                 return validate_structured_output(parsed, schema)
             except (_json.JSONDecodeError, _ValidationError, ValueError) as e:
                 if attempt >= retries:
                     return error_result(required_fields, f"Invalid structured response: {e}")
         else:
-            try:
-                error_message = response.json().get("error", {}).get("message", "")
-            except Exception:
-                error_message = ""
+            context = _response_context(
+                response,
+                endpoint="responses",
+                model=request_payload.get("model"),
+                attempt=attempt + 1,
+            )
+            error_message = context.get("message", "")
 
             if error_message:
                 if "Invalid schema" in error_message:
                     raise ValueError("The schema submitted for output is not valid.")
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
-                if attempt >= retries:
-                    return error_result(required_fields, error_message)
+            if attempt >= retries or not _should_retry(context):
+                _log_api_error(context, final=True)
+                return error_result(required_fields, _error_message(context))
+            _log_api_error(context, final=False)
 
-        _time.sleep(backoff_time)
+        if response and not response.ok:
+            _sleep_for_retry(context, backoff_time)
+        else:
+            _time.sleep(backoff_time)
         backoff_time *= 2
 
     return error_result(required_fields, "Failed")
