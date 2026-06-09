@@ -81,7 +81,7 @@ def dictionary_element(
           If selecting multiple elements, a dict of defaults can be set.
     """
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
@@ -92,7 +92,77 @@ def dictionary_element(
 
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
-    
+
+    return df
+
+
+def dict_element(
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
+    element: str,
+    default: any = ''
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: >-
+      Select one or more elements of a dictionary.
+      Results are always written to separate new columns: a simple key creates
+      a column named after the key; a list, wildcard, or regex element expands
+      into one column per matched key. The input column is never overwritten.
+    additionalProperties: false
+    required:
+      - input
+      - element
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name of the input column
+      element:
+        type:
+          - string
+          - array
+        description: |-
+          The key or keys from the dictionary to select.
+          If a single key is provided, the value will be returned.
+          If a list of keys is selected, each key becomes its own column.
+      default:
+        type:
+          - string
+          - number
+          - array
+          - object
+          - boolean
+          - 'null'
+        description: |-
+          Set the default value to return if the specified element doesn't exist.
+          If selecting multiple elements, a dict of defaults can be set.
+    """
+    single_input = isinstance(input, (str, int)) or (isinstance(input, list) and len(input) == 1)
+
+    if single_input:
+        in_col = input[0] if isinstance(input, list) else input
+        is_simple_key = (
+            isinstance(element, str) and
+            '*' not in element and
+            not element.lower().lstrip().startswith('regex:')
+        )
+        if is_simple_key:
+            df[element] = _select.dict_element(df[in_col].tolist(), element, default=default)
+        else:
+            results = _select.dict_element(df[in_col].tolist(), element, default=default)
+            if results and isinstance(results[0], dict):
+                expanded = _pd.DataFrame(results, index=df.index)
+                for col in expanded.columns:
+                    df[col] = expanded[col]
+        return df
+
+    # Multiple inputs: overwrite each input column
+    if not isinstance(input, list): input = [input]
+    for in_col in input:
+        df[in_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     return df
 
 
