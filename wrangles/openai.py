@@ -7,6 +7,7 @@ from itertools import chain as _chain
 import requests as _requests
 import numpy as _np
 import time as _time
+from . import openai_responses as _openai_responses
 try:
     from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
@@ -89,32 +90,54 @@ def chatGPT(
         if response and response.ok:
             break
         else:
+            error_message = ""
             try:
                 error_message = response.json().get('error').get('message')
             except:
-                error_message = ""
+                pass
             # Raise errors for fatal errors rather than continuing
             if error_message:
                 if "Invalid schema" in error_message:
                     raise ValueError("The schema submitted for output is not valid.")
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
+            context = _openai_responses._response_context(
+                response,
+                endpoint="chat_completions",
+                model=settings_local.get("model"),
+            ) if response else {}
+            if retries == 0 or not _openai_responses._should_retry(context):
+                if response:
+                    _openai_responses._log_api_error(context, final=True)
+                break
+            if response:
+                _openai_responses._log_api_error(context, final=False)
  
         retries -=1
-        _time.sleep(backoff_time)
+        if response and not response.ok:
+            _openai_responses._sleep_for_retry(context, backoff_time)
+        else:
+            _time.sleep(backoff_time)
         backoff_time *= 2
 
     if response and response.ok:
         try:
-            return _json.loads(
+            result = _json.loads(
                 response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
             )
+            return result
         except:
             pass
 
     # Attempt to get a useful error message
     try:
-        error_message = response.json()['error']['message']
+        error_message = _openai_responses._error_message(
+            _openai_responses._response_context(
+                response,
+                endpoint="chat_completions",
+                model=settings_local.get("model"),
+            )
+        )
     except:
         error_message = "Failed"
     
@@ -180,30 +203,52 @@ def _embedding_thread(
         if response and response.ok:
             break
         else:
+            error_message = ""
             try:
                 error_message = response.json().get('error').get('message')
             except:
-                error_message = ""
+                pass
             # Raise errors for fatal errors rather than continuing
             if error_message:
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
+            context = _openai_responses._response_context(
+                response,
+                endpoint="embeddings",
+                model=model,
+            ) if response else {}
+            if retries == 0 or not _openai_responses._should_retry(context):
+                if response:
+                    _openai_responses._log_api_error(context, final=True)
+                break
+            if response:
+                _openai_responses._log_api_error(context, final=False)
 
         retries -=1
-        _time.sleep(backoff_time)
+        if response and not response.ok:
+            _openai_responses._sleep_for_retry(context, backoff_time)
+        else:
+            _time.sleep(backoff_time)
         backoff_time *= 2
 
     if response and response.ok:
-        return [
+        result = [
             _np.frombuffer(
                 _base64.b64decode(row['embedding']),
                 dtype=_np.float32
             ).astype(getattr(_np, precision), copy=False)
             for row in response.json()['data']
         ]
+        return result
     else:
         try:
-            error_msg = response.json().get('error').get('message')
+            error_msg = _openai_responses._error_message(
+                _openai_responses._response_context(
+                    response,
+                    endpoint="embeddings",
+                    model=model,
+                )
+            )
         except:
             error_msg = 'Unknown error'
         raise RuntimeError(
