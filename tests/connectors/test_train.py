@@ -1,10 +1,12 @@
 import uuid
+import time
 
 import wrangles
 import pandas as pd
 import pytest
 import logging
 import re
+import requests as _requests
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -27,6 +29,40 @@ def _delete_model_from_log(caplog, log_marker):
 
     model_id = matching_records[-1].message.split("::")[-1].strip()
     wrangles.train.delete(model_id)
+
+def _delete_model(model_id, model_type=None):
+    """Delete a model by id. Best-effort - silently ignores failures."""
+    from wrangles import config as _config, auth as _auth
+    try:
+        params = {'model_id': model_id}
+        if model_type:
+            params['type'] = model_type
+        _requests.delete(
+            f'{_config.api_host}/model/content',
+            params=params,
+            headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+        )
+    except Exception:
+        pass
+
+def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
+    """
+    Newly created models may still be initializing after the PUT returns.
+    Retries running the recipe until it raises no exception or max_wait seconds elapse.
+    """
+    deadline = time.time() + max_wait
+    last_err = None
+    while time.time() < deadline:
+        try:
+            return wrangles.recipe.run(recipe, dataframe=dataframe)
+        except (ValueError, TypeError, AttributeError, KeyError):
+            raise
+        except Exception as e:
+            last_err = e
+        time.sleep(interval)
+    if last_err:
+        raise last_err
+    raise AssertionError(f'Model did not produce expected output within {max_wait}s')
 
 #
 # Classify
@@ -161,6 +197,50 @@ def test_classify_write_logs_new_model_id_integration(caplog):
         assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
     finally:
         _delete_model_from_log(caplog, "New classify model created")
+
+def test_classify_name_creates_working_model(caplog):
+    """
+    A classify model trained via 'name' must respond to inference without error. Bug #972.
+    """
+    model_name = f'Bug972 Pytest Classify {uuid.uuid4().hex[:8]}'
+
+    wrangles.recipe.run(
+        f"""
+        write:
+            - train.classify:
+                name: {model_name}
+        """,
+        dataframe=pd.DataFrame({
+            'Example':  ['rice', 'wheat', 'milk', 'cheese', 'beef', 'chicken'],
+            'Category': ['Grain', 'Grain', 'Dairy', 'Dairy', 'Meat', 'Meat'],
+            'Notes':    ['', '', '', '', '', ''],
+        }),
+    )
+
+    new_model_id = None
+    for msg in caplog.messages:
+        m = re.search(r'New classify model created :: ([\w-]+)', msg)
+        if m:
+            new_model_id = m.group(1)
+            break
+
+    assert new_model_id is not None, 'model_id was not logged after training'
+
+    result = _wait_for_model(
+        f"""
+        wrangles:
+            - classify:
+                input: item
+                output: category
+                model_id: {new_model_id}
+        """,
+        dataframe=pd.DataFrame({'item': ['rice']}),
+    )
+
+    assert 'category' in result.columns
+    assert isinstance(result.loc[0, 'category'], str) and len(result.loc[0, 'category']) > 0
+
+    _delete_model(new_model_id, 'classify')
 
 class TestTrainExtract:
     """
@@ -493,6 +573,56 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
+
+    def test_extract_name_creates_working_model(self, caplog):
+        """
+        A model trained via 'name' must work immediately for inference. Bug #972:
+        before the fix, extract.custom returned a 500 error on newly-created models.
+        """
+        model_name = f'Bug972 Pytest Extract {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.extract:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Find':   ['Rachel', 'Dolores', 'TARS'],
+                'Output': ['Rachel', 'Dolores', 'TARS'],
+                'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New extract model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+                - extract.custom:
+                    input: description
+                    output: characters
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'description': [
+                'Rachel is a replicant from Blade Runner',
+                'Dolores woke up in Westworld',
+                'No character mentioned here',
+            ]}),
+        )
+
+        assert result.loc[0, 'characters'] == ['Rachel']
+        assert result.loc[1, 'characters'] == ['Dolores']
+        assert result.loc[2, 'characters'] == []
+
+        _delete_model(new_model_id, 'extract')
 
 class TestTrainLookup:
     """
@@ -1381,7 +1511,51 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
-    
+
+    def test_lookup_name_creates_working_model(self, caplog):
+        """
+        A lookup model trained via 'name' must return correct values immediately. Bug #972.
+        """
+        model_name = f'Bug972 Pytest Lookup {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  name: {model_name}
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':   ['Rachel', 'Dolores', 'TARS'],
+                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New lookup model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+              - lookup:
+                  input: character
+                  output: movie
+                  model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'character': ['Rachel', 'TARS']}),
+        )
+
+        assert result.loc[0, 'movie']['Value'] == 'Blade Runner'
+        assert result.loc[1, 'movie']['Value'] == 'Interstellar'
+
+        _delete_model(new_model_id, 'lookup')
+
     def test_missing_columns_error_message(self, mocker):
         """
         Verify that INSERT/UPSERT/UPDATE raise the expected error
