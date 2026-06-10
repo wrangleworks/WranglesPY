@@ -10,6 +10,64 @@ import logging as _logging
 import requests as _requests
 
 
+def _create_then_train_model(
+    model_type: str,
+    name: str,
+    training_data,
+    extra_params: dict = None,
+    raise_on_fail: bool = False,
+):
+    """
+    Two-step flow for new model creation: POST creates the model and returns a model_id,
+    then PUT sends training data with retries to ensure the model is ready for inference.
+
+    :param model_type: API model type string (classify, extract, lookup, standardize).
+    :param name: Name for the new model.
+    :param training_data: Payload sent as JSON in both POST and PUT.
+    :param extra_params: Additional query params included in both POST and PUT (e.g. variant, settings).
+    :param raise_on_fail: If True, raises RuntimeError on a failed POST; otherwise returns the response.
+    """
+    extra_params = extra_params or {}
+    access_token = _auth.get_access_token()
+
+    _logging.info(f": Creating new {model_type} model :: {name}")
+    create_response = _requests.post(
+        f'{_config.api_host}/model/content',
+        params={'type': model_type, 'name': name, **extra_params},
+        headers={'Authorization': f'Bearer {access_token}'},
+        json=training_data,
+    )
+    if not create_response.ok:
+        if raise_on_fail:
+            raise RuntimeError(f"Training {model_type.capitalize()} Failed. {create_response.status_code} : {create_response.text}")
+        return create_response
+
+    try:
+        _json = create_response.json()
+        new_model_id = (
+            _json.get('model_id') or _json.get('id') or _json.get('modelId') or _json.get('model')
+        )
+        if new_model_id:
+            _logging.info(f": New {model_type} model created :: {new_model_id}")
+        else:
+            _logging.info(f": {model_type.capitalize()} model created. Response: {create_response.text}")
+    except Exception:
+        _logging.info(f": {model_type.capitalize()} model created (could not parse model id from response)")
+        new_model_id = None
+
+    if new_model_id:
+        return _utils.request_retries(
+            request_type='PUT',
+            url=f'{_config.api_host}/model/content',
+            **{
+                'params': {'type': model_type, 'model_id': new_model_id, **extra_params},
+                'headers': {'Authorization': f'Bearer {access_token}'},
+                'json': training_data,
+            }
+        )
+    return create_response
+
+
 class train():
     """
     Train new models
@@ -34,13 +92,7 @@ class train():
                 training_data = [['Example', 'Category', 'Notes']] + training_data
         
         if name:
-            _logging.info(f": Creating new classify model :: {name}")
-            response = _requests.post(
-                        f'{_config.api_host}/model/content',
-                        params={'type':'classify', 'name': name},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                        json=training_data
-                    )
+            response = _create_then_train_model('classify', name, training_data)
         elif model_id:
             # Only use retries when retraining an existing model
             _logging.info(f": Updating classify model :: {model_id}")
@@ -55,20 +107,6 @@ class train():
                     )
         else:
             raise ValueError('Either a name or a model id must be provided')
-
-        # If we created a new model, try to log the new model id for users
-        try:
-            if name and response is not None and response.ok:
-                _json = response.json()
-                modelid = (
-                    _json.get('model_id') or _json.get('id') or _json.get('modelId') or _json.get('model')
-                )
-                if modelid:
-                    _logging.info(f": New classify model created :: {modelid}")
-                else:
-                    _logging.info(f": Classify model created. Response: {response.text}")
-        except Exception:
-            _logging.info(": Classify model created (could not parse model id from response)")
 
         return response
 
@@ -105,13 +143,9 @@ class train():
                 training_data = [['Find', 'Description', 'Type', 'Default', 'Examples', 'Enum', 'Notes']] + training_data
         
         if name:
-            _logging.info(f": Creating new extract model :: {name}")
-            response = _requests.post(
-                        f'{_config.api_host}/model/content',
-                        params={'type':'extract', 'name': name, 'variant': variant},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                        json=training_data
-                    )
+            # variant must be passed so the model is initialized with the correct type
+            extra = {'variant': variant} if variant else {}
+            response = _create_then_train_model('extract', name, training_data, extra_params=extra)
         elif model_id:
             _logging.info(f": Updating extract model :: {model_id}")
             # Only use retries when retraining an existing model
@@ -126,20 +160,6 @@ class train():
                     )
         else:
             raise ValueError('Either a name or a model id must be provided')
-
-        # Log model id when a new extract model is created
-        try:
-            if name and response is not None and response.ok:
-                _json = response.json()
-                modelid = (
-                    _json.get('model_id') or _json.get('id') or _json.get('modelId') or _json.get('model')
-                )
-                if modelid:
-                    _logging.info(f": New extract model created :: {modelid}")
-                else:
-                    _logging.info(f": Extract model created. Response: {response.text}")
-        except Exception:
-            _logging.info(": Extract model created (could not parse model id from response)")
 
         return response
 
@@ -220,13 +240,7 @@ class train():
             elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings.")
         if name:
-            _logging.info(f": Creating new lookup model :: {name}")
-            response = _requests.post(
-                        f'{_config.api_host}/model/content',
-                        params={'type':'lookup', 'name': name, **settings},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                        json=data
-                    )
+            response = _create_then_train_model('lookup', name, data, extra_params=settings, raise_on_fail=True)
         elif model_id:
             # Only use retries when retraining an existing model
             _logging.info(f": Updating lookup model :: {model_id}")
@@ -241,20 +255,6 @@ class train():
                     )
         else:
             raise ValueError('Either a name or a model id must be provided')
-
-        # If we created a new lookup model, log the model id
-        try:
-            if name and response is not None and response.ok:
-                _json = response.json()
-                modelid = (
-                    _json.get('model_id') or _json.get('id') or _json.get('modelId') or _json.get('model')
-                )
-                if modelid:
-                    _logging.info(f": New lookup model created :: {modelid}")
-                else:
-                    _logging.info(f": Lookup model created. Response: {response.text}")
-        except Exception:
-            _logging.info(": Lookup model created (could not parse model id from response)")
 
         if not response.ok:
             raise RuntimeError(f"Training Lookup Failed. {response.status_code} : {response.text}")
@@ -284,13 +284,7 @@ class train():
             raise ValueError('A list is expected for training_data')
         
         if name:
-            _logging.info(f": Creating new standardize model :: {name}")
-            response = _requests.post(
-                        f'{_config.api_host}/model/content',
-                        params={'type':'standardize', 'name': name},
-                        headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-                        json=training_data
-                    )
+            response = _create_then_train_model('standardize', name, training_data)
         elif model_id:
             # Only use retries when retraining an existing model
             _logging.info(f": Updating standardize model :: {model_id}")
@@ -305,19 +299,5 @@ class train():
                     )
         else:
             raise ValueError('Either a name or a model id must be provided')
-
-        # If a new standardize model was created, try to log its model id
-        try:
-            if name and response is not None and response.ok:
-                _json = response.json()
-                modelid = (
-                    _json.get('model_id') or _json.get('id') or _json.get('modelId') or _json.get('model')
-                )
-                if modelid:
-                    _logging.info(f": New standardize model created :: {modelid}")
-                else:
-                    _logging.info(f": Standardize model created. Response: {response.text}")
-        except Exception:
-            _logging.info(": Standardize model created (could not parse model id from response)")
 
         return response
