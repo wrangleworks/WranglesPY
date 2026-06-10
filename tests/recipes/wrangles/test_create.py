@@ -2,9 +2,11 @@ import wrangles
 import pandas as pd
 import pytest
 import numpy as np
+import os
 import uuid
 import random
 from datetime import datetime
+from unittest.mock import patch, MagicMock
 
 
 class TestCreateColumn:
@@ -1438,6 +1440,326 @@ class TestCreateEmbeddings:
             dataframe=pd.DataFrame({'text': []})
         )
         assert df.empty and list(df.columns) == ['text', 'embedding']
+
+    def test_create_embeddings_jina(self):
+        """
+        Test create.embeddings with Jina provider returns the correct shape.
+        Uses a mock when JINAAI_API_KEY is not set; hits the real API otherwise
+        and skips if the key is invalid or rate-limited.
+        """
+        key = os.getenv("JINAAI_API_KEY")
+        if key:
+            try:
+                df = wrangles.recipe.run(
+                    """
+                    wrangles:
+                    - create.embeddings:
+                        input: text
+                        output: embedding
+                        api_key: ${JINAAI_API_KEY}
+                        provider: jina
+                        model: jina-embeddings-v3
+                        dimensions: 1024
+                        output_type: numpy array
+                        retries: 1
+                    """,
+                    dataframe=pd.DataFrame({'text': ['Hello world']})
+                )
+            except ValueError as e:
+                pytest.skip(f"Jina API key invalid or rate-limited: {e}")
+        else:
+            mock_response = MagicMock()
+            mock_response.ok = True
+            mock_response.json.return_value = {
+                "data": [{"embedding": [0.1] * 1024, "index": 0}]
+            }
+            with patch("wrangles.openai._requests.post", return_value=mock_response):
+                df = wrangles.recipe.run(
+                    """
+                    wrangles:
+                    - create.embeddings:
+                        input: text
+                        output: embedding
+                        api_key: fake-key
+                        provider: jina
+                        model: jina-embeddings-v3
+                        dimensions: 1024
+                        output_type: numpy array
+                        retries: 1
+                    """,
+                    dataframe=pd.DataFrame({'text': ['Hello world']})
+                )
+        assert isinstance(df['embedding'][0], np.ndarray)
+        assert len(df['embedding'][0]) == 1024
+
+    def test_create_embeddings_jina_no_encoding_format(self):
+        """
+        Verify that Jina requests do not include encoding_format in the request body.
+        """
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            result = wrangles.openai.embeddings(
+                ["test text"],
+                api_key="fake-key",
+                provider="jina",
+                model="jina-embeddings-v3",
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert "encoding_format" not in call_body
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) > 0
+
+    def test_create_embeddings_invalid_provider(self):
+        """
+        Test that passing an unsupported provider raises a ValueError.
+        """
+        with pytest.raises(ValueError, match="Provider must be one of"):
+            wrangles.openai.embeddings(
+                ["test"],
+                api_key="fake-key",
+                provider="unsupported-provider",
+            )
+
+    def test_create_embeddings_jina_infer_provider_from_url(self):
+        """
+        Test that when the Jina URL is provided without an explicit provider,
+        the response is parsed as raw floats (Jina format).
+        Uses a mock when JINAAI_API_KEY is not set; hits the real API otherwise
+        and skips if the key is invalid or rate-limited.
+        """
+        key = os.getenv("JINAAI_API_KEY")
+        if key:
+            try:
+                result = wrangles.openai.embeddings(
+                    ["test text"],
+                    api_key=key,
+                    url="https://api.jina.ai/v1/embeddings",
+                    model="jina-embeddings-v3",
+                )
+            except ValueError as e:
+                pytest.skip(f"Jina API key invalid or rate-limited: {e}")
+        else:
+            mock_response = MagicMock()
+            mock_response.ok = True
+            mock_response.json.return_value = {
+                "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+            }
+            with patch("wrangles.openai._requests.post", return_value=mock_response):
+                result = wrangles.openai.embeddings(
+                    ["test text"],
+                    api_key="fake-key",
+                    url="https://api.jina.ai/v1/embeddings",
+                    model="jina-embeddings-v3",
+                )
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) > 0
+
+    def test_create_embeddings_jina_auto_url(self):
+        """
+        Test that when provider=jina is used without an explicit url, the request
+        is sent to the Jina API endpoint.
+        """
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                - create.embeddings:
+                    input: text
+                    output: embedding
+                    api_key: fake-key
+                    provider: jina
+                    model: jina-embeddings-v3
+                    output_type: numpy array
+                    retries: 1
+                """,
+                dataframe=pd.DataFrame({'text': ['hello']})
+            )
+            called_url = mock_post.call_args.kwargs.get("url", "")
+            assert "jina.ai" in called_url
+        assert isinstance(df['embedding'][0], np.ndarray)
+        assert len(df['embedding'][0]) > 0
+
+    def test_create_embeddings_openai_unaffected_by_provider_param(self):
+        """
+        Regression test: passing provider=openai should still use base64 encoding_format
+        just like the default OpenAI path, confirming OpenAI behaviour is unchanged.
+        """
+        import base64
+
+        arr = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        encoded = base64.b64encode(arr.tobytes()).decode("utf-8")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": encoded, "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            wrangles.openai.embeddings(
+                ["test"],
+                api_key="fake-key",
+                provider="openai",
+                model="text-embedding-3-small",
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert call_body.get("encoding_format") == "base64"
+
+    def test_create_embeddings_jina_task_parameter(self):
+        """
+        Test that the task parameter is included in the Jina API request body.
+        """
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            result = wrangles.openai.embeddings(
+                ["test text"],
+                api_key="fake-key",
+                provider="jina",
+                model="jina-embeddings-v3",
+                task="retrieval.query",
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert call_body.get("task") == "retrieval.query"
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) > 0
+
+    def test_create_embeddings_jina_task_recipe(self):
+        """
+        Test that the task parameter is passed through the recipe YAML interface to the request.
+        """
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                - create.embeddings:
+                    input: text
+                    output: embedding
+                    api_key: fake-key
+                    provider: jina
+                    model: jina-embeddings-v3
+                    task: text-matching
+                    output_type: numpy array
+                    retries: 1
+                """,
+                dataframe=pd.DataFrame({'text': ['hello']})
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert call_body.get("task") == "text-matching"
+        assert isinstance(df['embedding'][0], np.ndarray)
+        assert len(df['embedding'][0]) > 0
+
+    def test_create_embeddings_jina_no_task_by_default(self):
+        """
+        Test that when no task is specified, the task key is absent from the request body.
+        """
+        mock_response = MagicMock()
+        mock_response.ok = True
+        mock_response.json.return_value = {
+            "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+        }
+        with patch("wrangles.openai._requests.post", return_value=mock_response) as mock_post:
+            result = wrangles.openai.embeddings(
+                ["test text"],
+                api_key="fake-key",
+                provider="jina",
+                model="jina-embeddings-v3",
+            )
+            call_body = mock_post.call_args.kwargs.get("json", {})
+            assert "task" not in call_body
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) > 0
+
+    def test_create_embeddings_jina_invalid_task(self):
+        """
+        Test that an invalid task value raises a ValueError.
+        """
+        with pytest.raises(ValueError, match="task must be one of"):
+            wrangles.openai.embeddings(
+                ["test text"],
+                api_key="fake-key",
+                provider="jina",
+                task="invalid-task",
+            )
+
+    def test_create_embeddings_task_warns_for_non_jina(self):
+        """
+        Test that providing task with a non-Jina provider issues a UserWarning.
+        """
+        import base64
+        arr = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        encoded = base64.b64encode(arr.tobytes()).decode("utf-8")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"embedding": encoded, "index": 0}]
+        }
+
+        with patch("wrangles.openai._requests.post", return_value=mock_response):
+            with pytest.warns(UserWarning, match="task parameter is only supported for the Jina provider"):
+                wrangles.openai.embeddings(
+                    ["test text"],
+                    api_key="fake-key",
+                    provider="openai",
+                    task="retrieval.query",
+                )
+
+    def test_create_embeddings_jina_return_value(self):
+        """
+        Test that the Python API returns a list of numpy arrays when using the Jina provider.
+        Uses a mock when JINAAI_API_KEY is not set; hits the real API otherwise
+        and skips if the key is invalid or rate-limited.
+        """
+        key = os.getenv("JINAAI_API_KEY")
+        if key:
+            try:
+                result = wrangles.openai.embeddings(
+                    ["hello"],
+                    api_key=key,
+                    provider="jina",
+                    model="jina-embeddings-v3",
+                    retries=1,
+                )
+            except ValueError as e:
+                pytest.skip(f"Jina API key invalid or rate-limited: {e}")
+        else:
+            mock_response = MagicMock()
+            mock_response.ok = True
+            mock_response.json.return_value = {
+                "data": [{"embedding": [0.1, 0.2, 0.3], "index": 0}]
+            }
+            with patch("wrangles.openai._requests.post", return_value=mock_response):
+                result = wrangles.openai.embeddings(
+                    ["hello"],
+                    api_key="fake-key",
+                    provider="jina",
+                    model="jina-embeddings-v3",
+                )
+        assert isinstance(result, list)
+        assert isinstance(result[0], np.ndarray)
+        assert len(result[0]) > 0
+
 
 class TestCreateHash:
     def test_create_md5_hash(self):

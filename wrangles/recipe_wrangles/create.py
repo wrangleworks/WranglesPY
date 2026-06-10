@@ -16,6 +16,7 @@ from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
 import hashlib as _hashlib
 
+
 def bins(
     df: _pd.DataFrame,
     input: _Union[str, int, list],
@@ -147,8 +148,10 @@ def embeddings(
     output_type: str = "python list",
     model: str = "text-embedding-3-small",
     retries: int = 0,
-    url: str = "https://api.openai.com/v1/embeddings",
+    url: str = _openai.DEFAULT_EMBEDDING_URLS["openai"],
     precision: str = "float32",
+    provider: str = None,
+    task: str = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -196,11 +199,25 @@ def embeddings(
         description: >-
           The number of times to retry if the request fails.
           This will apply exponential backoff to help with rate limiting.
+      provider:
+        type: string
+        description: >-
+          Controls the request/response format for the embedding API.
+          When omitted, inferred from url (jina.ai → jina, otherwise openai).
+          Setting provider also sets the default url for that provider,
+          so you only need one of provider or url for standard endpoints.
+          Use both together only when pointing to a custom endpoint that uses
+          a non-default provider's API format (e.g. a Jina-compatible proxy).
+        enum:
+          - openai
+          - jina
       url:
         type: string
-        description: |-
-          Override the default url for the AI endpoint.
-          Must use the OpenAI embeddings API.
+        description: >-
+          The endpoint to send embedding requests to.
+          Defaults to the standard endpoint for the resolved provider.
+          Setting a Jina URL without an explicit provider will automatically
+          use Jina's request/response format.
       precision:
         type: string
         description: >-
@@ -210,6 +227,17 @@ def embeddings(
         enum:
           - float16
           - float32
+      task:
+        type: string
+        description: >-
+          The task type for the embedding model. Only applicable for the Jina provider.
+          Selects the appropriate task-specific adapter.
+        enum:
+          - retrieval.query
+          - retrieval.passage
+          - text-matching
+          - classification
+          - separation
     """
     if output is None: output = input
 
@@ -232,6 +260,8 @@ def embeddings(
             retries,
             url,
             precision,
+            provider=provider,
+            task=task,
             **kwargs
         )
 
