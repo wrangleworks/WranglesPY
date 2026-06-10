@@ -27,3 +27,4 @@ from . import train
 from . import jinja
 from . import _formatting
 from . import input
+from . import google_sheets

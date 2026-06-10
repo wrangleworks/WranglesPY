@@ -20,3 +20,6 @@ xlsxwriter
 serpapi==1.0.2
 pydantic>=2.12.0
 pyarrow
+google-auth
+gspread
+gspread-dataframe
