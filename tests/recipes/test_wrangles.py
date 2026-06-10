@@ -565,6 +565,59 @@ class TestIf:
         assert df['should_be_logged'][0] == 'VALUE'  
         assert 'should_not_be_logged' not in df.columns
 
+    def test_if_false_with_missing_input_column(self):
+        """
+        Test that a wrangle with a false if condition does not
+        raise a KeyError when its input column doesn't exist.
+        Column validation must not run before the if check.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - merge.coalesce:
+                if: '"New_Column" in columns'
+                input:
+                  - New_Column
+                  - header
+                output: My Output
+            """
+        )
+        assert "My Output" not in df.columns
+
+    def test_if_columns_check_then_conditional_wrangle(self):
+        """
+        Test the full pattern from issue #765: first wrangle creates a
+        column conditionally, second wrangle uses that column only if it
+        was created — both guarded by if conditions checking 'columns'.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 1
+                values:
+                    header: value
+            wrangles:
+            - create.column:
+                if: '"NOT THERE" in columns'
+                output: New_Column
+                value: This column is new
+
+            - merge.coalesce:
+                if: '"New_Column" in columns'
+                input:
+                  - New_Column
+                  - header
+                output: My Output
+            """
+        )
+        assert "My Output" not in df.columns
+
 class TestPositionInput:
     """
     Test using column indexes rather than names for input
