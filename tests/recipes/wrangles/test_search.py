@@ -1,5 +1,6 @@
+import pytest
 import wrangles
-import pandas as pd
+import pandas as _pd
 
 
 class TestFindLinks:
@@ -12,7 +13,7 @@ class TestFindLinks:
         Test basic single query search
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -40,7 +41,7 @@ class TestFindLinks:
         Test search with a list of queries
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [['wireless headphones', 'phone charger', 'bluetooth speaker']],
             'ID': [1]
         })
@@ -64,7 +65,7 @@ class TestFindLinks:
         Test search with different n_results values
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -90,7 +91,7 @@ class TestFindLinks:
     #     Test search with multiple input columns (concatenated)
     #     """
         
-    #     data = pd.DataFrame({
+    #     data = _pd.DataFrame({
     #         'col1': ['wireless headphones'],
     #         'col2': ['phone charger'],
     #         'ID': [1]
@@ -118,7 +119,7 @@ class TestFindLinks:
         """
         Test search with multiple input/output columns
         """
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'col1': ['wireless headphones'],
             'col2': ['phone charger'],
             'ID': [1]
@@ -149,7 +150,7 @@ class TestFindLinks:
         Test search.find_links using where clause
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones', 'phone charger', 'bluetooth speaker'],
             'priority': [1, 5, 3],
             'ID': [1, 2, 3]
@@ -177,7 +178,7 @@ class TestFindLinks:
         Test search with empty input
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['', 'wireless headphones', None],
             'ID': [1, 2, 3]
         })
@@ -206,7 +207,7 @@ class TestFindLinks:
         Test search with include_prices parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -231,7 +232,7 @@ class TestFindLinks:
         Test search with country parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -256,7 +257,7 @@ class TestFindLinks:
         Test search with language parameter
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['wireless headphones'],
             'ID': [1]
         })
@@ -281,7 +282,7 @@ class TestFindLinks:
     #     """
     #     Test that missing API key raises error
     #     """
-    #     data = pd.DataFrame({
+    #     data = _pd.DataFrame({
     #         'query': ['wireless headphones'],
     #         'ID': [1]
     #     })
@@ -303,7 +304,7 @@ class TestFindLinks:
         Test handling of queries that return no results
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [''],
             'ID': [1]
         })
@@ -327,7 +328,7 @@ class TestFindLinks:
         Test with DataFrame containing many rows (tests threading)
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [f'wireless headphones' for i in range(50)],
             'ID': [i for i in range(50)]
         })
@@ -353,7 +354,7 @@ class TestFindLinks:
         Test queries with special characters
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': ['test & query', 'query with "quotes"', 'query+with+plus'],
             'ID': [1, 2, 3]
         })
@@ -378,7 +379,7 @@ class TestFindLinks:
         Test with numeric values in input column
         """
         
-        data = pd.DataFrame({
+        data = _pd.DataFrame({
             'query': [12345, 67890]
         })
         
@@ -535,3 +536,424 @@ class TestRetrieveLinkContent:
 #         assert isinstance(results, list)
 #         assert len(results) > 0
 #         assert 'error' in results[0]
+
+
+@pytest.mark.usefixtures("caplog")
+class TestRetrieveMetadata:
+    """
+    Test the functionality of the retrieve_metadata wrangle
+    """
+
+    retrieve_metadata_data = _pd.DataFrame(
+        {
+            'MFR': [
+                'Makita',
+                'Timken',
+                'GE'
+                ],
+            'Website': [
+                'https://makitatools.com/products/details/XAG20Z',
+                'https://www.grainger.com/product/44Z807?gucid=N:N:PS:Paid:GGL:CSM-2296:DFAVIZ:20940226:APZ_1&gclsrc=aw.ds&gad_source=1&gad_campaignid=23543672130&gclid=Cj0KCQjw_b_QBhCSARIsAP6hR4fBJWQwhZqB_SvmzNkyJwyQr6ZL6IiGu3S2GDrc5l0Hw-oL23wZv2caAjaCEALw_wcB',
+                'https://www.homedepot.com/p/GE-Q-Line-20-Amp-1-2-in-1-Pole-Circuit-Breaker-THQP120-THQP120/100174218'
+                ]
+        }
+    )
+    
+    def test_retrieve_metadata_default_headers_tags(self):
+        """
+        Test retrieve.metadata is working with the default
+        list of headers and tags
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Page Size
+              raw_headers: Raw Headers
+              html_head: HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Page Size'][0], int) or 'Error' in df['Page Size'][0]
+        assert isinstance(df['Raw Headers'][1], str) and 'Set-Cookie' not in df['Raw Headers'][1]
+        assert isinstance(df['HTML Head'][1], str) and 'style' not in df['HTML Head'][1]
+    
+    def test_retrieve_metadata_default_output(self):
+        """
+        Test retrieve.metadata is working with the default output columns
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Page Size', 'Raw Headers', 'HTML Head'])
+    
+    def test_retrieve_metadata_default_output_overwrite(self):
+        """
+        Test retrieve.metadata default output columns can be overwritten 
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Not Page Size
+              raw_headers: Not Raw Headers
+              html_head: Not HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Not Page Size', 'Not Raw Headers', 'Not HTML Head'])
+    
+    def test_retrieve_metadata_mix_default_output(self):
+        """
+        Test retrieve.metadata output with defaults and overwrites 
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              page_size: Not Page Size
+              html_head: Not HTML Head
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Not Page Size', 'Raw Headers', 'Not HTML Head'])
+
+    def test_retrieve_metadata_headers_list(self):
+        """
+        Test retrieve.metadata when passing a list of headers
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop: 
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Raw Headers'][1], str) 
+        assert 'Set-Cookie' not in df['Raw Headers'][1] and 'Server' not in df['Raw Headers'][1]
+        assert 'Content-Security-Policy' in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_string_headers(self):
+        """
+        Test retrieve.metadata when passing a string header
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop: Set-Cookie
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['Raw Headers'][1], str) 
+        assert 'Set-Cookie' not in df['Raw Headers'][1]
+        assert 'Content-Security-Policy' in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_tags_list(self):
+        """
+        Test retrieve.metadata when passing list of tags
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_drop:
+                - title
+                - script
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1] and 'script' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_string_tags(self):
+        """
+        Test retrieve.metadata when passing a single tag as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_drop: title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_list_input(self):
+        """
+        Test retrieve.metadata works when passing a 
+        list of length 1 as the input
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: 
+                - Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert all(col in df.columns for col in ['Page Size', 'Raw Headers', 'HTML Head'])
+
+    def test_retrieve_metadata_list_input_error(self):
+        """
+        Test retrieve.metadata error when passing a 
+        list of length >1 as the input
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: 
+                - Website
+                - MFR
+        """
+        
+        with pytest.raises(TypeError) as info:
+            wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert (
+            info.typename == 'TypeError' and
+            "input must be a string or list of length 1, got 2 instead" in info.value.args[0]
+        )
+
+    def test_retrieve_metadata_invalid_input_error(self):
+        """
+        Test retrieve.metadata error when passing an integer input
+        """
+
+        data = _pd.DataFrame({
+            'Not Site': [1, 2, 3, 4]
+        })
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Not Site
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['Page Size'][0] == 'Invalid Data'
+        assert df['Raw Headers'][0] == '{}'
+        assert df['HTML Head'][0] == ''
+
+    def test_retrieve_metadata_headers_to_keep_string(self):
+        """
+        Test retrieve.metadata using headers_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: Set-Cookie
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_headers_to_keep_string_case(self):
+        """
+        Test case does not affect results
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: sEt-CoOkIe
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_headers_to_keep_list(self):
+        """
+        Test retrieve.metadata using headers_to_keep as a list
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' in df['Raw Headers'][1]
+        assert 'Content-Type' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_headers_to_keep_wildcard(self):
+        """
+        Test retrieve.metadata using headers_to_keep wildcard
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_keep: x-*
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'x-' in df['Raw Headers'][1]
+        assert 'Server' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_tags_to_keep_string(self):
+        """
+        Test retrieve.metadata when passing a single tag_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_keep: Style
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert isinstance(df['HTML Head'][1], str) 
+        assert 'title' not in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_tags_to_keep_list(self):
+        """
+        Test retrieve.metadata when passing a single tag_to_keep as a string
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_keep: 
+                - Style
+                - Title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert '<head>' not in df['HTML Head'][1]
+        assert 'title' in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_tags_to_keep_override_drop(self):
+        """
+        Test tags_to_drop is overridden by tags_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              tags_to_drop: 
+                - Style
+                - Title
+              tags_to_keep: 
+                - Style
+                - Title
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        
+        assert '<head>' not in df['HTML Head'][1]
+        assert 'title' in df['HTML Head'][1]
+        assert 'style' in df['HTML Head'][1]
+
+    def test_retrieve_metadata_headers_to_keep_override_drop(self):
+        """
+        Test headers_to_drop is overridden by headers_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop:
+                - Set-Cookie
+                - Server
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+
+        assert 'Set-Cookie' in df['Raw Headers'][1]
+        assert 'Server' in df['Raw Headers'][1]
+        assert 'Content-Type' not in df['Raw Headers'][1]
+
+    def test_retrieve_metadata_response_error(self):
+        """
+        Test what happens when the response status is not 200
+        """
+
+        data = _pd.DataFrame({
+            'Website': ['https://httpbin.org/status/404']
+        })
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df['Page Size'][0] == 'Blocked: HTTP 404'
+
+    def test_retrieve_metadata_override_log(self, caplog):
+        """
+        Test headers_to_drop is overridden by headers_to_keep
+        """
+        
+        recipe = """
+        wrangles:
+          - search.retrieve_metadata:
+              input: Website
+              headers_to_drop:
+                - Set-Cookie
+                - Server
+              headers_to_keep:
+                - Set-Cookie
+                - Server
+        """
+        
+        df = wrangles.recipe.run(recipe, dataframe=self.retrieve_metadata_data)
+        assert caplog.messages[1] == 'headers_to_keep overriding headers_to_drop'
