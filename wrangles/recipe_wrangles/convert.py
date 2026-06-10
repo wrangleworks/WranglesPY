@@ -325,9 +325,30 @@ def fraction_to_decimal(
     return df
 
 
+def _normalize_default_list(default, input: list, func_name: str) -> list:
+    """
+    Normalize a default value/list into a per-column list of defaults.
+
+    A scalar (or a single-element list) is broadcast to all columns.
+    A list with the same length as input is used as-is, one default per column.
+    An empty list (`[]`) is treated as the default value itself, not a per-column list.
+    """
+    if isinstance(default, list) and len(default) > 0:
+        if len(default) == 1:
+            return [default[0]] * len(input)
+        elif len(default) != len(input):
+            raise ValueError(
+                f'The list of default values must be a single value or the same length as input/output for {func_name}'
+            )
+        else:
+            return default
+    else:
+        return [default] * len(input)
+
+
 def from_json(
-    df: _pd.DataFrame, 
-    input: _Union[str, int, list], 
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     default = None,
     **kwargs
@@ -353,7 +374,8 @@ def from_json(
         type: ["string","array","object","number","boolean","null"]
         description: >-
             Value to return if the row is empty or fails to be parsed as JSON.
-            If input is a list, default may also be a list of values (one per column).
+            If input is a list, default may also be a list - either a single
+            value to apply to all columns, or one value per input column.
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -366,18 +388,7 @@ def from_json(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
-    # Normalize default to a per-column list.
-    # Only treat default as a per-column list when it is a non-empty list
-    # (an empty list like `default: []` is always the default value itself).
-    if isinstance(default, list) and len(default) > 0:
-        if len(default) == 1:
-            defaults = [default[0]] * len(input)
-        elif len(default) != len(input):
-            raise ValueError('The list of default values must be the same length as input/output for convert.from_json')
-        else:
-            defaults = default
-    else:
-        defaults = [default] * len(input)
+    defaults = _normalize_default_list(default, input, 'convert.from_json')
 
     # Loop through and apply for all columns
     for input_column, output_column, col_default in zip(input, output, defaults):
@@ -519,7 +530,8 @@ def from_yaml(
         type: ["string","array","object","number","boolean","null"]
         description: >-
           Value to return if the row is empty or fails to be parsed as YAML.
-          If input is a list, default may also be a list of values (one per column).
+          If input is a list, default may also be a list - either a single
+          value to apply to all columns, or one value per input column.
     """
     # Set output column as input if not provided
     if output is None: output = input
@@ -532,18 +544,7 @@ def from_yaml(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
-    # Normalize default to a per-column list.
-    # Only treat default as a per-column list when it is a non-empty list
-    # (an empty list like `default: []` is always the default value itself).
-    if isinstance(default, list) and len(default) > 0:
-        if len(default) == 1:
-            defaults = [default[0]] * len(input)
-        elif len(default) != len(input):
-            raise ValueError('The list of default values must be the same length as input/output for convert.from_yaml')
-        else:
-            defaults = default
-    else:
-        defaults = [default] * len(input)
+    defaults = _normalize_default_list(default, input, 'convert.from_yaml')
 
     # Loop through and apply for all columns
     for input_column, output_column, col_default in zip(input, output, defaults):

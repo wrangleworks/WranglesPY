@@ -990,6 +990,36 @@ class TestConvertFromJSON:
                 })
             )
 
+    def test_default_list_complex_values_no_output(self):
+        """
+        Test a list of complex defaults (dict and list) with no output specified,
+        overwriting the input columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - my_output:
+                      key1: Val1
+                      key2: Val2
+                  - [this, is, a, list]
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '{"a": 1}'],
+                "header2": ["", '[1,2,3]']
+            })
+        )
+        assert (
+            df["header1"][0] == {"my_output": {"key1": "Val1", "key2": "Val2"}} and
+            df["header1"][1] == {"a": 1} and
+            df["header2"][0] == ["this", "is", "a", "list"] and
+            df["header2"][1] == [1, 2, 3]
+        )
+
 
 class TestConvertFromYAML:
     """
@@ -1228,6 +1258,36 @@ class TestConvertFromYAML:
                     "col2": [""]
                 })
             )
+
+    def test_default_list_complex_values_no_output(self):
+        """
+        Test a list of complex defaults (dict and list) with no output specified,
+        overwriting the input columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - my_output:
+                      key1: Val1
+                      key2: Val2
+                  - [this, is, a, list]
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "a: 1\n"],
+                "col2": ["", "- 1\n- 2\n- 3\n"]
+            })
+        )
+        assert (
+            df["col1"][0] == {"my_output": {"key1": "Val1", "key2": "Val2"}} and
+            df["col1"][1] == {"a": 1} and
+            df["col2"][0] == ["this", "is", "a", "list"] and
+            df["col2"][1] == [1, 2, 3]
+        )
 
 
 class TestConvertToJSON:
