@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest==9.0.2 lorem pytest-mock
           pip install google-genai
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install .
           
       - name: Run Tests
@@ -73,7 +73,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest==9.0.2 lorem pytest-mock
           pip install google-genai
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install .
         
       - name: Run Tests
@@ -149,7 +149,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements-full.txt
           pip install jsonschema
 
       - name: Generate and Test Schema

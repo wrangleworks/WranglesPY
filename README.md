@@ -23,6 +23,28 @@ The python package can be installed using [pip](https://pip.pypa.io/en/stable/ge
 pip install wrangles
 ```
 
+This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel and CSV file I/O, HTTP connectors, and SQLite.
+
+### Optional dependencies
+
+Connectors for databases, cloud storage, and external services require additional packages. Install only the ones you need:
+
+| Capability | Install |
+|---|---|
+| Microsoft SQL Server | `pip install pymssql sqlalchemy` |
+| PostgreSQL | `pip install psycopg2-binary sqlalchemy` |
+| MySQL | `pip install pymysql sqlalchemy` |
+| MongoDB | `pip install pymongo[srv]` |
+| AWS S3 | `pip install boto3` |
+| Salesforce | `pip install simple-salesforce` |
+| SFTP / SSH | `pip install fabric` |
+| Notifications | `pip install apprise` |
+| OpenAI SDK | `pip install openai` |
+| Google Gemini | `pip install google-generativeai` |
+| SerpAPI (web search) | `pip install serpapi` |
+
+> If a connector is used without its required package installed, Wrangles will raise a clear `ImportError` with the exact `pip install` command needed.
+
 Once installed, import the package into your code.
 ```python
 import wrangles
