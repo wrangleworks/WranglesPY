@@ -17,7 +17,8 @@ def lookup(
     :param input: A value or list of values to be looked up.
     :param model_id: The model to be used.
     :param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict.
-    :param n: (Optional) Number of matches to return per input. When > 1, returns a list of n matches per input.
+    :param n: (Optional) Number of matches to return per input. When > 1, returns a list of n
+            dicts per input - each match is always a dict, even if a single column is requested.
             """
     # Check if user has entered a single input or multiple inputs
     single_input = False
@@ -74,11 +75,10 @@ def lookup(
 
     if n and n > 1:
         # API returns 1 row per input; row[0] is a list of n match dicts.
-        if single_columns:
-            col_name = columns[0]
-            results = [[d[col_name] for d in row[0]] for row in results["data"]]
-        else:
-            results = [row[0] for row in results["data"]]
+        # When n > 1, every match is always returned as a dict, even if a
+        # single column was requested - naming an output column after a
+        # lookup column does not collapse the dict to that column's value.
+        results = [row[0] for row in results["data"]]
     else:
         if columns is None:
             # If no columns specified, return as [{"col1": "val1", ...}, ...]
