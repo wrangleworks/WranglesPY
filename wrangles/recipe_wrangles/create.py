@@ -89,7 +89,8 @@ def column(
     df: _pd.DataFrame,
     output: _Union[str, list],
     value = None,
-    value_if_exists: str = 'existing'
+    value_if_exists: str = 'existing',
+    coalesce_value: str = 'existing'
 ) -> _pd.DataFrame:
     """
     type: object
@@ -122,8 +123,31 @@ def column(
           - existing
           - coalesce
           - new
+      coalesce_value:
+        type: string
+        description: >-
+          Only used when value_if_exists is coalesce. Determines which side
+          is preferred when both the existing and new values are non-empty.
+          existing (default): keep the existing value, only fill empty/null cells with the new value.
+          new: keep the new value, only fall back to the existing value where the new value is empty/null.
+        enum:
+          - existing
+          - new
     """
     _logging.debug(f": Creating column(s) :: output :: {output}")
+
+    valid_value_if_exists = ('existing', 'coalesce', 'new')
+    if value_if_exists not in valid_value_if_exists:
+        raise ValueError(
+            f'value_if_exists must be one of {valid_value_if_exists}, got "{value_if_exists}"'
+        )
+
+    valid_coalesce_value = ('existing', 'new')
+    if coalesce_value not in valid_coalesce_value:
+        raise ValueError(
+            f'coalesce_value must be one of {valid_coalesce_value}, got "{coalesce_value}"'
+        )
+
     # If a string provided, convert to list
     if isinstance(output, str):
         output = [output]
@@ -151,10 +175,16 @@ def column(
         )
 
         if column_exists and value_if_exists == 'coalesce':
-            df[output_column] = df[output_column].where(
-                df[output_column].notna() & (df[output_column] != ''),
-                new_values
-            )
+            if coalesce_value == 'existing':
+                primary, fallback = df[output_column], new_values
+            else:
+                primary, fallback = new_values, df[output_column]
+
+            is_empty = primary.isna()
+            if primary.dtype == object:
+                is_empty = is_empty | (primary == '')
+
+            df[output_column] = primary.where(~is_empty, fallback)
         else:
             # new or column doesn't exist — write/overwrite directly
             if not column_exists:
