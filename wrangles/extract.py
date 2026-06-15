@@ -2,6 +2,7 @@
 Functions to extract information from unstructured text.
 """
 import re as _re
+import logging as _logging
 from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
@@ -12,6 +13,8 @@ from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
 from . import openai_responses as _openai_responses
+
+_LOG = _logging.getLogger(__name__)
 
 
 def address(
@@ -54,7 +57,7 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-5.4-mini",
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,
@@ -341,11 +344,23 @@ def ai(
             **_openai_responses.sanitize_request_params(kwargs),
         }
         if reasoning is not None:
-            payload["reasoning"] = reasoning
+            if _openai_responses.supports_reasoning(model):
+                payload["reasoning"] = reasoning
+            else:
+                _LOG.warning(
+                    "Ignoring 'reasoning' parameter: not supported by model '%s'",
+                    model,
+                )
         elif _openai_responses.supports_reasoning(model):
             payload["reasoning"] = {"effort": "low"}
         if verbosity is not None:
-            payload["text"]["verbosity"] = verbosity
+            if _openai_responses.supports_low_verbosity(model):
+                payload["text"]["verbosity"] = verbosity
+            else:
+                _LOG.warning(
+                    "Ignoring 'verbosity' parameter: not supported by model '%s'",
+                    model,
+                )
         elif _openai_responses.supports_low_verbosity(model):
             payload["text"]["verbosity"] = "low"
 
