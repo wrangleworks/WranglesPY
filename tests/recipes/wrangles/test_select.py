@@ -377,6 +377,184 @@ class TestSelectDictionaryElement:
         )
         assert list(df.columns) == ['column', 'output column'] and len(df) == 0
 
+    def test_dictionary_element_no_output_multi_input_overwrites(self):
+        """
+        Without output, multiple input columns fall back to overwriting
+        each input column individually.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input:
+                - Col1
+                - Col2
+                element: x
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'x': 1, 'y': 2}],
+                'Col2': [{'x': 10, 'y': 20}],
+            })
+        )
+        assert df['Col1'][0] == 1 and df['Col2'][0] == 10
+
+
+class TestSelectDictionaryElementSplit:
+    """
+    Test select.dictionary_element with split: true
+    (splits selected elements into new columns, preserving the input)
+    """
+    def test_split_simple_key(self):
+        """
+        A simple key creates a new column named after the element; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: data
+                element: colour
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'data': [{'colour': 'red', 'shape': 'circle'}]
+            })
+        )
+        assert df['colour'][0] == 'red' and isinstance(df['data'][0], dict)
+
+    def test_split_wildcard(self):
+        """
+        A wildcard element expands into separate columns; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element: A*
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['A1'][0] == '1' and df['A2'][0] == '3' and isinstance(df['Col1'][0], dict)
+
+    def test_split_regex(self):
+        """
+        A regex element expands into separate columns; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element: 'regex: B.*'
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A1': '1', 'B1': '2', 'A2': '3'}],
+            })
+        )
+        assert df['B1'][0] == '2' and isinstance(df['Col1'][0], dict)
+
+    def test_split_list_element(self):
+        """
+        A list of keys each become their own column; input is preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element:
+                - A
+                - B
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A': '1', 'B': '2', 'C': '3'}],
+            })
+        )
+        assert df['A'][0] == '1' and df['B'][0] == '2' and isinstance(df['Col1'][0], dict)
+
+    def test_split_json_string(self):
+        """
+        Works with JSON string input; new column named after element, input preserved.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: column
+                element: a
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'column': ['{"a": 1, "b": 2, "c": 3}']
+            })
+        )
+        assert df['a'][0] == 1 and df['column'][0] == '{"a": 1, "b": 2, "c": 3}'
+
+    def test_split_default(self):
+        """
+        Default value is used when the key is missing.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: Col1
+                element: z
+                default: 'missing'
+                split: true
+            """,
+            dataframe=pd.DataFrame({
+                'Col1': [{'A': '1', 'B': '2'}],
+            })
+        )
+        assert df['z'][0] == 'missing'
+
+    def test_split_with_output_raises(self):
+        """
+        split cannot be combined with output.
+        """
+        with pytest.raises(ValueError, match='output cannot be set when split is true'):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - select.dictionary_element:
+                    input: Col1
+                    output: out
+                    element: A
+                    split: true
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [{'A': '1', 'B': '2'}],
+                })
+            )
+
+    def test_split_multiple_inputs_raises(self):
+        """
+        split can only be used with a single input column.
+        """
+        with pytest.raises(ValueError, match='split can only be used with a single input column'):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - select.dictionary_element:
+                    input:
+                    - Col1
+                    - Col2
+                    element: A
+                    split: true
+                """,
+                dataframe=pd.DataFrame({
+                    'Col1': [{'A': '1', 'B': '2'}],
+                    'Col2': [{'A': '10', 'B': '20'}],
+                })
+            )
+
 
 class TestSelectListElement:
     """
