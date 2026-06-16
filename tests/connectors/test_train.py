@@ -602,6 +602,7 @@ class TestTrainExtract:
                 'Dolores woke up in Westworld',
                 'No character mentioned here',
             ]}),
+            max_wait=300,
         )
 
         assert result.loc[0, 'characters'] == ['Rachel']
