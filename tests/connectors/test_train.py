@@ -1,8 +1,6 @@
 import uuid
 import time
 
-from pytest_mock import mocker
-
 import wrangles
 import pandas as pd
 import pytest
@@ -1419,7 +1417,7 @@ class TestTrainLookup:
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
         assert any("Lookup UPSERT: 1 rows inserted, 2 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
 
-    def test_insert_key_only(self, caplog):
+    def test_insert_key_only(self):
         """
         Test INSERT with only a Key column and no MatchingColumns/settings.
         """
