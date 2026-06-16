@@ -3487,7 +3487,7 @@ class TestTranslate:
                 target_language: EN-GB
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello World!'
+        assert df.iloc[0]['English'] == 'Hello, world!'
 
     def test_translate_2(self):
         """
@@ -3505,7 +3505,7 @@ class TestTranslate:
                 target_language: English
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello World!'
+        assert df.iloc[0]['English'] == 'Hello, world!'
 
     def test_translate_3(self):
         """

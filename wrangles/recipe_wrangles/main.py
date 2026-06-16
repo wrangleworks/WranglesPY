@@ -1014,9 +1014,10 @@ def lookup(
             df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
 
         # Perform lookup based on lookup_mode
+        model_columns = metadata.get("settings", {}).get("columns", [])
         if lookup_mode == 'by_row':
           # Current behavior - process all rows
-          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
+          if all([col in model_columns for col in wrangle_output]):
             # User specified all columns from the wrangle
             data = _lookup(
               df[input].values.tolist(),
@@ -1035,7 +1036,7 @@ def lookup(
               )
             else:
               df[output] = data
-          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
+          elif not any([col in model_columns for col in wrangle_output]):
             # User specified no columns from the wrangle
             data = _lookup(
               df[input].values.tolist(),
@@ -1057,35 +1058,35 @@ def lookup(
           else:
             # User specified a mixture of unrecognized columns and columns from the wrangle
             raise ValueError('Lookup may only contain all named or unnamed columns.')
-                  
+
         elif lookup_mode == 'by_dataframe':
-          # Optimized - lookup unique values once, then map to all rows  
-          unique_values = df[input].unique()  
-            
-          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-            # User specified all columns from the wrangle  
-            unique_data = _lookup(  
-              unique_values.tolist(),  
-              model_id,  
-              columns=wrangle_output,  
-              **_clean_kwargs(kwargs)  
-            )  
-                
-            # Create mapping from values to results  
-            value_to_result = dict(zip(unique_values, unique_data))  
-                
-            # Map results back to all rows - extract correct values  
-            if len(output) == 1:  
-              df[output[0]] = df[input].map(  
-                lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
-              )  
-            else:  
-              for i, out_col in enumerate(output):  
-                df[out_col] = df[input].map(  
-                  lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
-                )  
-                        
-          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
+          # Optimized - lookup unique values once, then map to all rows
+          unique_values = df[input].unique()
+
+          if all([col in model_columns for col in wrangle_output]):
+            # User specified all columns from the wrangle
+            unique_data = _lookup(
+              unique_values.tolist(),
+              model_id,
+              columns=wrangle_output,
+              **_clean_kwargs(kwargs)
+            )
+
+            # Create mapping from values to results
+            value_to_result = dict(zip(unique_values, unique_data))
+
+            # Map results back to all rows - extract correct values
+            if len(output) == 1:
+              df[output[0]] = df[input].map(
+                lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""
+              )
+            else:
+              for i, out_col in enumerate(output):
+                df[out_col] = df[input].map(
+                  lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""
+                )
+
+          elif not any([col in model_columns for col in wrangle_output]):
             # User specified no columns from the wrangle  
             unique_data = _lookup(  
             unique_values.tolist(),  
@@ -1130,14 +1131,14 @@ def lookup(
               # Get unique values for this permutation  
               perm_values = df.loc[mask, input].unique()  
                     
-              if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-                # User specified all columns from the wrangle  
-                perm_data = _lookup(  
-                  perm_values.tolist(),  
-                  model_id,  
-                  columns=wrangle_output,  
-                  **_clean_kwargs(kwargs)  
-                )  
+              if all([col in model_columns for col in wrangle_output]):
+                # User specified all columns from the wrangle
+                perm_data = _lookup(
+                  perm_values.tolist(),
+                  model_id,
+                  columns=wrangle_output,
+                  **_clean_kwargs(kwargs)
+                )
                         
                 # Create mapping for this permutation  
                 value_to_result = dict(zip(perm_values, perm_data))  
@@ -1153,9 +1154,9 @@ def lookup(
                       lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
                     )  
                                 
-              elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-                # User specified no columns from the wrangle  
-                perm_data = _lookup(  
+              elif not any([col in model_columns for col in wrangle_output]):
+                # User specified no columns from the wrangle
+                perm_data = _lookup(
                   perm_values.tolist(),  
                   model_id,  
                   **_clean_kwargs(kwargs)  
