@@ -244,7 +244,7 @@ class lookup():
         :param model_id: Model to be updated. Either this or name must be provided
         :param settings: Specific settings to apply to the wrangle
         :param variant: Variant of the Lookup Wrangle that will be created (key or semantic)
-        :param action: Action to take when training the lookup wrangle (insert, update, upsert)
+        :param action: Action to take when training the lookup wrangle (overwrite, insert, update, upsert)
         """
         _logging.info(f": Training Lookup Wrangle")
         if settings is None:
@@ -620,6 +620,8 @@ class lookup():
         type: object
         description: Train a new or existing Lookup Wrangle
         additionalProperties: false
+        required:
+          - action
         properties:
           name:
             type: string
