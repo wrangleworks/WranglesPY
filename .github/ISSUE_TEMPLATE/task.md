@@ -1,26 +1,17 @@
 ---
 name: Task
 about: A specific piece of work
-title: '[TASK] '
-labels: task
+title: ''
+labels: 'P1'
 assignees: ''
+type: Task
 ---
 
-**Task description**
+**Description**
 What needs to be done?
 
-**Context**
-Why is this needed?
+**Desired Behavior**
+What does done look like?
 
-**Steps**
-- [ ] 
-- [ ] 
-- [ ] 
-
-**Related to**
-Links to related issues or PRs
-
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Example current / desired**
+Context, related issues, or examples that illustrate the expected outcome

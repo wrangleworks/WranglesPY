@@ -1,29 +1,17 @@
 ---
 name: Deliverable
 about: Deliverable for Projects & PoCs
-title: '[DELIVERABLE] '
-labels: deliverable
+title: ''
+labels: 'P1'
 assignees: ''
+type: Task
 ---
 
-**Deliverable name**
-
-
-**Project/PoC**
-Which project is this for?
-
 **Description**
-What needs to be delivered?
+What needs to be delivered and for which project?
 
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Desired Behavior**
+What does a completed deliverable look like?
 
-**Due date**
-
-
-**Dependencies**
-What's needed before this can be completed?
-
-
+**Example current / desired**
+Acceptance criteria, mockups, or examples illustrating the expected output
