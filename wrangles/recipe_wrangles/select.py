@@ -36,7 +36,8 @@ def dictionary_element(
     input: _Union[str, int, list],
     element: str,
     output: _Union[str, list] = None,
-    default: any = ''
+    default: any = '',
+    split: bool = False
 ) -> _pd.DataFrame:
     """
     type: object
@@ -47,7 +48,7 @@ def dictionary_element(
       - element
     properties:
       input:
-        type: 
+        type:
           - string
           - integer
           - array
@@ -63,13 +64,13 @@ def dictionary_element(
         type:
           - string
           - array
-        description: |- 
+        description: |-
           The key or keys from the dictionary to select.
           If a single key is provided, the value will be returned
           If a lists of keys are selected,
           the result will be a new dictionary.
       default:
-        type: 
+        type:
           - string
           - number
           - array
@@ -79,9 +80,39 @@ def dictionary_element(
         description: |-
           Set the default value to return if the specified element doesn't exist.
           If selecting multiple elements, a dict of defaults can be set.
+      split:
+        type: boolean
+        description: >-
+          If true, the selected element(s) are written to new column(s)
+          named after the key(s) instead of overwriting the input column.
+          A single key creates one column named after that key; a list,
+          wildcard, or regex element creates one column per matched key.
+          The input column is preserved. Cannot be combined with output.
     """
+    if split:
+        if output is not None:
+            raise ValueError('output cannot be set when split is true for select.dictionary_element')
+        if isinstance(input, list) and len(input) > 1:
+            raise ValueError('split can only be used with a single input column for select.dictionary_element')
+
+        in_col = input[0] if isinstance(input, list) else input
+        is_simple_key = (
+            isinstance(element, str) and
+            '*' not in element and
+            not element.lower().lstrip().startswith('regex:')
+        )
+        if is_simple_key:
+            df[element] = _select.dict_element(df[in_col].tolist(), element, default=default)
+        else:
+            results = _select.dict_element(df[in_col].tolist(), element, default=default)
+            if results and isinstance(results[0], dict):
+                expanded = _pd.DataFrame(results, index=df.index)
+                for col in expanded.columns:
+                    df[col] = expanded[col]
+        return df
+
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
@@ -92,7 +123,7 @@ def dictionary_element(
 
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
-    
+
     return df
 
 
