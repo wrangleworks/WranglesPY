@@ -1,35 +1,17 @@
 ---
 name: Housekeeping
 about: Bumping versions, packages, configs etc.
-title: '[HOUSEKEEPING] '
-labels: housekeeping
+title: ''
+labels: 'P1'
 assignees: ''
+type: Task
 ---
 
-**Type**
-- [ ] Dependency update
-- [ ] Version bump
-- [ ] Config update
-- [ ] Cleanup
-- [ ] Other
+**Description**
+What needs updating and why?
 
-**What needs updating**
+**Desired Behavior**
+What should the updated state look like?
 
-
-**Current version → New version**
-
-
-**Reason**
-Why is this needed?
-
-**Impact**
-- [ ] No breaking changes
-- [ ] Breaking changes (describe below)
-
-**Testing needed**
-
-
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Example current / desired**
+Current version / config → new version / config

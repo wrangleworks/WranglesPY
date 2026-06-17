@@ -1,29 +1,17 @@
 ---
 name: Roadmap Item
-about: Large roadmap Deliverable
-title: '[ROADMAP] '
-labels: roadmap
+about: Large roadmap deliverable
+title: ''
+labels: 'P1'
 assignees: ''
+type: Enhancement
 ---
 
-**Initiative name**
-
-
-**Strategic goal**
-What business objective does this support?
-
 **Description**
-High-level overview
+What is the initiative and which strategic goal does it support?
 
-**Key deliverables**
-- [ ] 
-- [ ] 
-- [ ] 
+**Desired Behavior**
+What does success look like (key deliverables, target date, success metrics)?
 
-**Target quarter/date**
-
-
-**Success metrics**
-How will we measure success?
-
-**Dependencies & risks**
+**Example current / desired**
+Current state vs. target state, or dependencies and risks to highlight
