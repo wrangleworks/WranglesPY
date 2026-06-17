@@ -924,13 +924,13 @@ class TestConvertFromJSON:
                   - out2
             """,
             dataframe=pd.DataFrame({
-                "header1": ["", '[1,2,3]'],
+                "header1": ["", '{"a": 1}'],
                 "header2": ["", '[4,5,6]']
             })
         )
         assert (
             df["out1"][0] == {} and
-            df["out1"][1] == [1, 2, 3] and
+            df["out1"][1] == {"a": 1} and
             df["out2"][0] == [] and
             df["out2"][1] == [4, 5, 6]
         )
@@ -953,15 +953,15 @@ class TestConvertFromJSON:
                   - out2
             """,
             dataframe=pd.DataFrame({
-                "header1": ["", '[1,2,3]'],
-                "header2": ["", '[4,5,6]']
+                "header1": ["", '{"a": 1}'],
+                "header2": ["", '{"b": 2}']
             })
         )
         assert (
             df["out1"][0] == {} and
-            df["out1"][1] == [1, 2, 3] and
+            df["out1"][1] == {"a": 1} and
             df["out2"][0] == {} and
-            df["out2"][1] == [4, 5, 6]
+            df["out2"][1] == {"b": 2}
         )
 
     def test_default_list_length_mismatch_raises(self):
@@ -1223,14 +1223,14 @@ class TestConvertFromYAML:
             """,
             dataframe=pd.DataFrame({
                 "col1": ["", "key: val\n"],
-                "col2": ["", "- item1\n"]
+                "col2": ["", "key2: val2\n"]
             })
         )
         assert (
             df["out1"][0] == {} and
             df["out1"][1] == {"key": "val"} and
             df["out2"][0] == {} and
-            df["out2"][1] == ["item1"]
+            df["out2"][1] == {"key2": "val2"}
         )
 
     def test_default_list_length_mismatch_raises(self):
