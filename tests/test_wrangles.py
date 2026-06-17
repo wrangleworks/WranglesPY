@@ -3,6 +3,7 @@ import wrangles
 import pandas as pd
 from wrangles.train import train
 import os
+import logging
 
 
 # Classify
@@ -420,7 +421,61 @@ def test_extract_ai_properties_list():
     )
     assert isinstance(result, list) and 'unit' in result[0]
 
-### Format Split Tests  
+def test_extract_ai_pre_gpt5_model():
+    """
+    Test using python api for extract.ai
+    with a model older than gpt-5 (no reasoning/verbosity support)
+    """
+    result = wrangles.extract.ai(
+        "yellow square",
+        api_key=os.environ['OPENAI_API_KEY'],
+        model="gpt-4o-mini",
+        output={
+            "Colors": {
+                "type": "string",
+                "description": "Any colors found in the input"
+            }
+        },
+        retries=2
+    )
+
+    assert (
+        'Colors' in result and
+        isinstance(result['Colors'], str)
+    )
+
+def test_extract_ai_pre_gpt5_model_explicit_reasoning_and_verbosity(caplog):
+    """
+    Test using python api for extract.ai
+    with a model older than gpt-5, explicitly passing
+    reasoning and verbosity parameters that are only
+    supported by gpt-5+ models.
+
+    These parameters are unsupported by the OpenAI API for
+    older models, so they should be skipped (with a warning
+    logged) rather than causing the request to fail.
+    """
+    with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
+        result = wrangles.extract.ai(
+            "yellow square",
+            api_key=os.environ['OPENAI_API_KEY'],
+            model="gpt-4o-mini",
+            reasoning={"effort": "low"},
+            verbosity="low",
+            output={
+                "Colors": {
+                    "type": "string",
+                    "description": "Any colors found in the input"
+                }
+            },
+            retries=2
+        )
+
+    assert result == {'Colors': 'yellow'}
+    assert "Ignoring 'reasoning' parameter" in caplog.text
+    assert "Ignoring 'verbosity' parameter" in caplog.text
+
+### Format Split Tests
 def test_format_split_skip_empty_true():  
     """  
     Test format.split with skip_empty=True  

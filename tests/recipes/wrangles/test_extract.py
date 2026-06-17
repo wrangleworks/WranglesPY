@@ -1,3 +1,4 @@
+import logging
 import pytest
 import wrangles
 import pandas as pd
@@ -3866,6 +3867,136 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
+    def test_ai_gpt5_reasoning_and_verbosity(self):
+        """
+        Test extract.ai with a gpt-5 model, setting
+        reasoning.effort and verbosity explicitly in the recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-5-mini
+                api_key: ${OPENAI_API_KEY}
+                timeout: 60
+                retries: 2
+                reasoning:
+                  effort: low
+                verbosity: low
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any length measurement found in the text,
+                      e.g. 25mm
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
+
+    def test_ai_pre_gpt5_reasoning_and_verbosity_ignored(self, caplog):
+        """
+        Test extract.ai with a pre-gpt5 model that does not support
+        reasoning/verbosity. The recipe should still complete
+        successfully, ignoring those settings with a warning
+        rather than failing the request.
+        """
+        with caplog.at_level(logging.WARNING, logger="wrangles.extract"):
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.ai:
+                    model: gpt-4o-mini
+                    api_key: ${OPENAI_API_KEY}
+                    seed: 1
+                    timeout: 60
+                    retries: 2
+                    reasoning:
+                      effort: low
+                    verbosity: low
+                    output:
+                      length:
+                        type: string
+                        description: >-
+                          Any length measurement found in the text,
+                          e.g. 25mm
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm", "6m cable"],
+                })
+            )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
+        assert "Ignoring 'reasoning' parameter" in caplog.text
+        assert "Ignoring 'verbosity' parameter" in caplog.text
+
+    def test_ai_invalid_model_per_row_error(self):
+        """
+        Test that a non-existent model returns a descriptive
+        error string per row rather than raising and failing
+        the whole recipe
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-totally-fake-model
+                api_key: ${OPENAI_API_KEY}
+                retries: 0
+                output:
+                  length:
+                    type: string
+                    description: Any length measurement found in the text
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        assert all(
+            "OpenAI API error" in value and "status=400" in value
+            for value in df['length']
+        )
+
+    def test_ai_legacy_chat_completions_endpoint(self):
+        """
+        Test extract.ai using the legacy Chat Completions endpoint
+        via the `url` override, instead of the default Responses API
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.ai:
+                model: gpt-4.1-mini
+                api_key: ${OPENAI_API_KEY}
+                seed: 1
+                retries: 2
+                url: https://api.openai.com/v1/chat/completions
+                output:
+                  length:
+                    type: string
+                    description: >-
+                      Any length measurement found in the text,
+                      such as cm, m, ft, mm, etc.
+            """,
+            dataframe=pd.DataFrame({
+                "data": ["wrench 25mm", "6m cable"],
+            })
+        )
+        matches = sum([
+            df['length'][0] == '25mm',
+            df['length'][1] == '6m',
+        ])
+        assert matches >= 1
+
     def test_model_id(self):
         """
         Test using extract.ai with a saved model
@@ -4060,7 +4191,7 @@ class TestExtractAI:
             {"Size__Diameter_": '1-7/8"', "Size": '1-7/8x2-3/8"'},
             {"Size__Diameter_": '2-3/8"', "Size": ""},
         ]
-        with patch("wrangles.openai.chatGPT", side_effect=mock_responses):
+        with patch("wrangles.openai_responses.call_structured", side_effect=mock_responses):
             df = wrangles.recipe.run(
                 """
                 wrangles:
@@ -4082,3 +4213,79 @@ class TestExtractAI:
             )
         assert list(df.columns) == ["Product", "Size (Diameter)", "Size"]
         assert df["Size (Diameter)"].tolist() == ['1-7/8"', '2-3/8"']
+
+    complex_data = pd.DataFrame({
+        "data": [
+            (
+                "6 inch 150# ANSI raised face weld neck flange, "
+                "carbon steel ASTM A105, schedule 40, ASME B16.5, "
+                "manufactured by Acme Flange Co., part number AFC-6150-WN-A105"
+            ),
+        ],
+    })
+
+    complex_output = """\
+                  Size:
+                    type: string
+                    description: The nominal pipe size of the flange
+                  PressureClass:
+                    type: string
+                    description: The ANSI/ASME pressure class rating
+                  Material:
+                    type: string
+                    description: The material specification of the flange
+                  FlangeType:
+                    type: string
+                    description: The type of flange, e.g. weld neck, slip on, blind
+                  Manufacturer:
+                    type: string
+                    description: The company that manufactures the part
+                  PartNumber:
+                    type: string
+                    description: The manufacturer's part number for the item"""
+
+    def _run_complex_recipe(self, extra_settings: str):
+        recipe = f"""
+            wrangles:
+            - extract.ai:
+                model: gpt-5-mini
+                api_key: ${{OPENAI_API_KEY}}
+                timeout: 90
+                retries: 2
+{extra_settings}
+                output:
+{self.complex_output}
+        """
+        return wrangles.recipe.run(recipe, dataframe=self.complex_data.copy())
+
+    def test_ai_reasoning_low_vs_high_complex_data(self):
+        """
+        Test extract.ai on complex, multi-attribute data
+        comparing reasoning effort low vs high.
+        Both should correctly extract the same key attributes.
+        """
+        df_low = self._run_complex_recipe("                reasoning:\n                  effort: low")
+        df_high = self._run_complex_recipe("                reasoning:\n                  effort: high")
+
+        for df in (df_low, df_high):
+            assert "6" in df["Size"][0]
+            assert "150" in df["PressureClass"][0]
+            assert "weld neck" in df["FlangeType"][0].lower()
+            assert "Acme" in df["Manufacturer"][0]
+            assert "AFC-6150-WN-A105" in df["PartNumber"][0]
+
+    def test_ai_verbosity_low_vs_high_complex_data(self):
+        """
+        Test extract.ai on complex, multi-attribute data
+        comparing text verbosity low vs high.
+        Both should correctly extract the same key attributes.
+        """
+        df_low = self._run_complex_recipe("                verbosity: low")
+        df_high = self._run_complex_recipe("                verbosity: high")
+
+        for df in (df_low, df_high):
+            assert "6" in df["Size"][0]
+            assert "150" in df["PressureClass"][0]
+            assert "weld neck" in df["FlangeType"][0].lower()
+            assert "Acme" in df["Manufacturer"][0]
+            assert "AFC-6150-WN-A105" in df["PartNumber"][0]
