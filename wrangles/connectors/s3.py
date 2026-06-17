@@ -2,6 +2,7 @@ import logging as _logging
 from io import BytesIO as _BytesIO
 from typing import Union as _Union
 import pandas as _pd
+import pathlib as _pathlib
 from . import file as _file
 from ..utils import LazyLoader as _LazyLoader
 import os as _os
@@ -271,12 +272,12 @@ class upload_files:
                     type:
                       - string
                       - array
-                    description: S3 file key or list of keys to upload as.
+                    description: S3 file key(s) to upload as. Include directory in this path.
                 file:
                     type:
                       - string
                       - array
-                    description: File or list of files to upload.
+                    description: File or list of files to upload. Accepts strings or pathlib.Path objects.
                 endpoint_url:
                     type: string
                     description: Override the S3 host for alternative S3 storage providers.
@@ -294,8 +295,8 @@ class upload_files:
         Upload file(s) to S3 from the local file system.
 
         :param bucket: S3 Bucket
-        :param file: File or list of files to upload.
-        :param save_as: S3 file key or list of keys to upload as.
+        :param file: File or list of files to upload. Accepts strings or pathlib.Path objects.
+        :param save_as: S3 file key(s) to upload as. Include directory in this path.
         :param endpoint_url: Override the S3 host for alternative S3 storage providers.
         :param aws_access_key_id: Set the access key. Can also be set as an environment variable
         :param aws_secret_access_key: Set the access secret. Can also be set as an environment variable
@@ -310,7 +311,13 @@ class upload_files:
             file = compat_file
         if file is None:
             raise ValueError("file must be provided")
-        
+
+        # Normalize Path objects to strings
+        if isinstance(file, _pathlib.Path):
+            file = str(file)
+        elif isinstance(file, list):
+            file = [str(f) if isinstance(f, _pathlib.Path) else f for f in file]
+
         _logging.info(f": Uploading files to S3 :: {bucket} / {save_as}")
 
         s3 = _boto3.client('s3', **kwargs)

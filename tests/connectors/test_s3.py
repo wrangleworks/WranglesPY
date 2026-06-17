@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import pathlib
 import wrangles
 import pytest
 import time
@@ -465,6 +466,27 @@ class TestRunUpload:
         
         df = wrangles.recipe.run(recipe2)
         assert df.iloc[0]['Find'] == 'BRG'
+
+    def test_upload_pathlib_path_file(self):
+        """
+        file param accepts a pathlib.Path object — RuntimeError from invalid
+        bucket confirms the Path was normalised and upload was attempted.
+        """
+        with pytest.raises(RuntimeError, match="Failed to write"):
+            wrangles.connectors.s3.upload_files.run(
+                bucket='wrwx-does-not-exist',
+                file=pathlib.Path('tests/samples/data.csv'),
+            )
+
+    def test_upload_pathlib_path_file_list(self):
+        """
+        file param accepts a list of pathlib.Path objects.
+        """
+        with pytest.raises(RuntimeError, match="Failed to write"):
+            wrangles.connectors.s3.upload_files.run(
+                bucket='wrwx-does-not-exist',
+                file=[pathlib.Path('tests/samples/data.csv')],
+            )
 
     def test_upload_bc_gen1_key_kwarg_upload_and_download(self):
         """
