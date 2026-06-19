@@ -49,8 +49,8 @@ def test_generate_ai_recipe_without_web_search_real_call():
                           primary_value: 55
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
-                    
-                 """   ,
+
+                 """.replace("gpt-5-nano", wrangles.config.models.testing.generate_ai),
         dataframe=data
     )
 
@@ -102,7 +102,7 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                           primary_value: 55
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
-        """,
+        """.replace("gpt-5-nano", wrangles.config.models.testing.generate_ai),
         dataframe=data
     )
 
