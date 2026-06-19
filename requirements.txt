@@ -37,3 +37,4 @@ pymysql
 # AI / LLM
 openai
 google-generativeai
+google-genai
