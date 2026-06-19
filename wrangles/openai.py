@@ -9,6 +9,7 @@ import requests as _requests
 import numpy as _np
 import time as _time
 import warnings as _warnings
+from . import config as _config
 from . import openai_responses as _openai_responses
 try:
     from yaml import CSafeDumper as _YAMLDumper
@@ -333,7 +334,7 @@ def _embedding_thread(
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-3-small",
+    model: str = _config.models.embeddings,
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,
