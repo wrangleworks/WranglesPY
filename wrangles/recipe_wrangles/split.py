@@ -16,7 +16,8 @@ def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    default: dict = None
+    default: dict = None,
+    mode: str = "to_columns"
 ) -> _pd.DataFrame:
     """
     type: object
@@ -42,18 +43,32 @@ def dictionary(
           - string
           - array
         description: |-
-          (Optional) Subset of keys to extract from the dictionary.
-          If not provided, all keys will be returned.
+          In to_columns mode, this is an optional subset of keys to extract
+          from the dictionary. If not provided, all keys will be returned.
           Columns can be renamed with the following syntax:
           output:
             - key1: new_column_name1
             - key2: new_column_name2
+          In to_lists mode, this must be two output columns for the keys
+          and values lists. If not provided, Keys and Values will be used.
       default:
         type: object
         description: >-
           Provide a set of default headings and values
           if they are not found within the input
+      mode:
+        type: string
+        enum:
+          - to_columns
+          - to_lists
+        description: |-
+          How to split the dictionary.
+          to_columns creates one output column for each dictionary key.
+          to_lists creates two output columns containing lists of keys and values.
     """ 
+    if mode not in ["to_columns", "to_lists"]:
+        raise ValueError("mode must be one of: to_columns, to_lists")
+
     if default is None:
         default = {}
     # Ensure input is passed as a list
@@ -71,11 +86,28 @@ def dictionary(
         raise ValueError(f'{val} is not a valid Dictionary') from None
         
 
-    # Generate new columns for each key in the dictionary
-    df_temp = _pd.DataFrame([
+    # Merge each row's dictionaries so duplicate keys follow existing behavior:
+    # later input columns overwrite earlier input columns.
+    dicts = [
         dict(_itertools.chain.from_iterable(_parse_dict_or_json(d) for d in ([default] + row.tolist())))
         for row in df[input].values
-    ])
+    ]
+
+    if mode == "to_lists":
+        if output is None:
+            output = ["Keys", "Values"]
+        elif not isinstance(output, _list):
+            output = [output]
+
+        if len(output) != 2:
+            raise ValueError("split.dictionary with mode to_lists requires exactly two output columns")
+
+        df[output[0]] = [[key for key in item.keys()] for item in dicts]
+        df[output[1]] = [[value for value in item.values()] for item in dicts]
+        return df
+
+    # Generate new columns for each key in the dictionary
+    df_temp = _pd.DataFrame(dicts)
 
     # If user has defined how they'd like the output columns
     if output is not None:
