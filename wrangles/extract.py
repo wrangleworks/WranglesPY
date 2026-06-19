@@ -53,7 +53,7 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-4.1-mini",
+    model: str = _config.models.extract_ai,
     threads: int = 20,
     timeout: int = 25,
     retries: int = 0,

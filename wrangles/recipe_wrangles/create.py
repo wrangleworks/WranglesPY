@@ -14,6 +14,7 @@ from jinja2 import (
 )
 from ..connectors.test import _generate_cell_values
 from .. import openai as _openai
+from .. import config as _config
 import hashlib as _hashlib
 
 def bins(
@@ -145,7 +146,7 @@ def embeddings(
     batch_size: int = 100,
     threads: int = 10,
     output_type: str = "python list",
-    model: str = "text-embedding-3-small",
+    model: str = _config.models.embeddings,
     retries: int = 0,
     url: str = "https://api.openai.com/v1/embeddings",
     precision: str = "float32",

@@ -1312,7 +1312,7 @@ class TestCreateEmbeddings:
                 retries: 1
                 model: text-embedding-3-small
                 dimensions: 256
-            """
+            """.replace("text-embedding-3-small", wrangles.config.models.testing.embeddings)
         )
         assert (
             isinstance(df["embedding"][0], list) and

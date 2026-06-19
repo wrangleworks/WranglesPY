@@ -5,6 +5,7 @@ import json
 from typing import Any, Dict, List, Literal, Union, Optional, Tuple
 
 import requests
+from . import config
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -136,7 +137,7 @@ def ai(
     input: Union[Any, List[Any]],
     api_key: str,
     output: Dict[str, Any],
-    model: str = "gpt-5-mini",
+    model: str = config.models.generate_ai,
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,

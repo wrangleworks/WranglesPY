@@ -295,7 +295,7 @@ def test_embedding_single():
     result = wrangles.openai.embeddings(
         "test string",
         api_key=os.environ["OPENAI_API_KEY"],
-        model="text-embedding-3-small"
+        model=wrangles.config.models.testing.embeddings
     )
     assert len(result) == 1536
     assert [round(float(x), 3) for x in result[:3]] == [0.007, -0.045, 0.025]
@@ -307,7 +307,7 @@ def test_embedding_list():
     result = wrangles.openai.embeddings(
         ["test string", "test string 2"],
         api_key=os.environ["OPENAI_API_KEY"],
-        model="text-embedding-3-small"
+        model=wrangles.config.models.testing.embeddings
     )
     assert len(result) == 2
     assert len(result[0]) == 1536
