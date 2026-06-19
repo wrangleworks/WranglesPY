@@ -3604,7 +3604,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3615,7 +3615,7 @@ class TestExtractAI:
                     description: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3641,7 +3641,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3650,7 +3650,7 @@ class TestExtractAI:
                   length: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3676,7 +3676,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3685,7 +3685,7 @@ class TestExtractAI:
                   - length: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3711,7 +3711,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 temperature: 0.2
@@ -3719,7 +3719,7 @@ class TestExtractAI:
                 retries: 2
                 output:
                   - length (mm)
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3746,13 +3746,13 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
                 retries: 2
                 output: length (mm)
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3778,7 +3778,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3794,7 +3794,7 @@ class TestExtractAI:
                     description: >-
                       The type of item in the data
                       such as spanner, cellphone, etc.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3823,7 +3823,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3835,7 +3835,7 @@ class TestExtractAI:
                       Concatenate the type and
                       length to form a single output text
                       e.g. bolt 5mm
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "type": [
                     "wrench",
@@ -3866,7 +3866,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3879,7 +3879,7 @@ class TestExtractAI:
                     enum:
                       - positive
                       - negative
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "The best movie I've ever seen!",
@@ -3936,7 +3936,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 cache: false
                 seed: 1
@@ -3953,7 +3953,7 @@ class TestExtractAI:
                     description: >-
                       The type of item in the data
                       such as spanner, cellphone, etc.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -3979,7 +3979,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3991,7 +3991,7 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as CM, M, FT, etc.
                 messages: All response text should be in upper case.
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -4019,7 +4019,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 2
                 temperature: 0.2
@@ -4031,7 +4031,7 @@ class TestExtractAI:
                     description: >-
                       Return the names of any fruits
                       that are yellow
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
             })
@@ -4050,7 +4050,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4062,7 +4062,7 @@ class TestExtractAI:
                       type: integer
                     description: >-
                       Get all numbers from the input
-            """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
             })
@@ -4163,7 +4163,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4175,7 +4175,7 @@ class TestExtractAI:
                         Any lengths found in the data
                         such as cm, m, ft, etc.
                     examples: 22mm
-            """.replace("gpt-4o", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
@@ -4201,7 +4201,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4212,7 +4212,7 @@ class TestExtractAI:
                     description: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("gpt-4o", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [],
             })
@@ -4546,7 +4546,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
+                model: MODEL_PLACEHOLDER
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4557,7 +4557,7 @@ class TestExtractAI:
                     type: integer
                     description: How many numbers are in the data
                     minimum: 7
-            """.replace("gpt-4o", wrangles.config.models.testing.extract_ai),
+            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
             dataframe=pd.DataFrame({
                 "data": [
                     "1,2,3,4",
@@ -4584,7 +4584,7 @@ class TestExtractAI:
                 wrangles:
                 - extract.ai:
                     input: Product
-                    model: gpt-4o-mini
+                    model: MODEL_PLACEHOLDER
                     api_key: dummy
                     output:
                       Size (Diameter):
@@ -4593,7 +4593,7 @@ class TestExtractAI:
                       Size:
                         type: string
                         description: The overall size specification
-                """.replace("gpt-4o-mini", wrangles.config.models.testing.extract_ai),
+                """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
                 dataframe=pd.DataFrame({
                     "Product": ['1-7/8" cap', '2-3/8" cap'],
                 }),

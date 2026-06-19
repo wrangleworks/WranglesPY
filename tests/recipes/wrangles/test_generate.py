@@ -27,7 +27,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
+                model: MODEL_PLACEHOLDER
                 reasoning:
                     effort: low
                 threads: 1
@@ -50,7 +50,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
 
-                 """.replace("gpt-5-nano", wrangles.config.models.testing.generate_ai),
+                 """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.generate_ai),
         dataframe=data
     )
 
@@ -81,7 +81,7 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
+                model: MODEL_PLACEHOLDER
                 reasoning:
                     effort: low
                 threads: 1
@@ -102,7 +102,7 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                           primary_value: 55
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
-        """.replace("gpt-5-nano", wrangles.config.models.testing.generate_ai),
+        """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.generate_ai),
         dataframe=data
     )
 
