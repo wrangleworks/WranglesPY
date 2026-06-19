@@ -2,6 +2,7 @@
 from typing import Union as _Union, Dict as _Dict, List as _List, Optional as _Optional
 import pandas as _pd
 import wrangles.generate as _generate
+from .. import config as _config
 
 
 
@@ -10,7 +11,7 @@ def ai(
     api_key: str,
     output: _Union[_Dict, str, _List],
     input: _Union[str, _List] = None,
-    model: str = "gpt-5",
+    model: str = _config.models.generate_ai,
     threads: int = 20,
     timeout: int = 90,
     retries: int = 0,
