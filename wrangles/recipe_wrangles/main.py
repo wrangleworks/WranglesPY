@@ -1344,10 +1344,14 @@ def python(
         If an exception value is provided by the user, catch and return
         else raise an error in the normal way otherwise
         """
-        if exception:
+        if exception is not None:
             try:
                 return _apply_command(variables, **kwargs)
             except Exception as e:
+                _logging.warning(
+                    f"Python wrangle command failed ({type(e).__name__}: {e}). "
+                    "Returning value from `except`."
+                )
                 return exception
         else:
             return _apply_command(variables, **kwargs)

@@ -4526,6 +4526,31 @@ class TestPython:
         )
         assert df["result1"][0] == "error1" and df["result2"][0] == "error2"
 
+    def test_python_except_object(self):
+        """
+        Test that an object can be returned by except
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    attributes_json: '[{"key":"k1","value":"v1"}]'
+            wrangles:
+              - convert.from_json:
+                  input: attributes_json
+              - python:
+                  input: attributes_json
+                  output: attributes_dict
+                  command: this should error
+                  except: {}
+              - convert.to_json:
+                  input: attributes_dict
+            """
+        )
+        assert df["attributes_dict"][0] == "{}"
+
     def test_python_where(self):
         """
         Test a simple python command with where
