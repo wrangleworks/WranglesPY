@@ -229,10 +229,16 @@ def raw_search_results_to_text(payloads: list) -> str:
         meta = payload.get("search_metadata", {})
         query = meta.get("query", "Unknown Query")
         query_idx = meta.get("query_index", 1)
+        search_type = meta.get("search_type", "classic")
 
-        lines.append(f"##   Query {query_idx}: {query}    ##")
+        lines.append(f"##   Query {query_idx} ({search_type}): {query}    ##")
 
         results = payload.get("search_results", [])
+        is_ai_payload = False
+        if not results and payload.get("content_like_results"):
+            results = payload.get("content_like_results", [])
+            is_ai_payload = True
+
         if not results:
             lines.append("No links found for this query.\n")
             continue
@@ -244,14 +250,14 @@ def raw_search_results_to_text(payloads: list) -> str:
             lines.append(f"# --- Result {display_idx} --- #")
             lines.append(f"Source:  {r.get('source', 'N/A')}")
             lines.append(f"Link:    {r.get('link', 'N/A')}")
-            lines.append(f"Title:   {r.get('title', 'N/A')}")
+            lines.append(f"Title:   {r.get('title', r.get('name', 'N/A'))}")
 
-            snippet = r.get('snippet', '')
+            snippet = r.get('snippet', '') or r.get('description', '')
             if snippet:
                 wrapped_snippet = textwrap.fill(snippet, width=99, subsequent_indent="         ")
                 lines.append(f"Snippet: {wrapped_snippet}")
 
-            pricing = r.get("pricing", {})
+            pricing = r.get("pricing", {}) if not is_ai_payload else {}
             if pricing:
                 price = pricing.get("price")
                 curr = pricing.get("currency", "")
@@ -262,6 +268,12 @@ def raw_search_results_to_text(payloads: list) -> str:
                     lines.append(f"Pricing: {curr}{price} ({avail}) via {vendor}")
                 else:
                     lines.append(f"Pricing: No price found ({avail}) via {vendor}")
+
+            if is_ai_payload:
+                ai_price = r.get("price") or r.get("pricing_price")
+                ai_currency = r.get("currency") or r.get("pricing_currency", "")
+                if ai_price is not None:
+                    lines.append(f"Pricing: {ai_currency}{ai_price}")
 
             pos = r.get("position") or r.get("google_rank", "?")
             lines.append(f"Position:{pos}\n")

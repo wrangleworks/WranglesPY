@@ -5,6 +5,27 @@ import pandas as _pd
 from .. import search as _search_core
 from .. import format as _format
 
+
+def _normalize_search_kwargs(kwargs: dict) -> dict:
+  params = dict(kwargs or {})
+
+  if "country" in params and "gl" not in params:
+    params["gl"] = params.pop("country")
+  if "language" in params and "hl" not in params:
+    params["hl"] = params.pop("language")
+
+  if "google_domain" in params and ("gl" in params or "hl" in params):
+    raise ValueError(
+      "google_domain cannot be combined with country/language (or gl/hl). "
+      "Use google_domain alone, or use country/language without google_domain."
+    )
+
+  # Keep existing defaults for classic locale controls unless google_domain is explicitly provided.
+  if "google_domain" not in params:
+    params.setdefault("gl", "us")
+    params.setdefault("hl", "en")
+  return params
+
 def find_links(
     df: _pd.DataFrame,
     queries: str | list,
@@ -63,6 +84,9 @@ def find_links(
         type: string
         description: "Language code for search results (default 'en'). Alias: hl."
         default: en
+      google_domain:
+        type: string
+        description: Google domain for search results (e.g., google.com, google.co.uk).
       location:
         type: string
         description: Location for search results (e.g., 'Austin, Texas').
@@ -77,12 +101,7 @@ def find_links(
     if output is None: output = queries
 
     client_config = {"api_key": api_key}
-            
-    if "country" in kwargs and "gl" not in kwargs: kwargs["gl"] = kwargs.pop("country")
-    if "language" in kwargs and "hl" not in kwargs: kwargs["hl"] = kwargs.pop("language")
-
-    kwargs.setdefault("gl", "us")
-    kwargs.setdefault("hl", "en")
+    kwargs = _normalize_search_kwargs(kwargs)
 
     if not isinstance(queries, list): queries = [queries]
     if not isinstance(output, list): output = [output]
@@ -167,6 +186,169 @@ def find_links(
             df[output[1]] = string_cells
             
         _logging.info(f": Wrangling :: find_links summary :: {total_queries} queries >> {total_results} results")
+
+    return df
+
+
+def ai_mode(
+    df: _pd.DataFrame,
+    queries: str | list,
+    id: str,
+    output: str | list | None = None,
+    client: str = "serpapi",
+    api_key: str | None = None,
+    n_results: int = 10,
+    threads: int = 10,
+    **kwargs
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Perform Google AI Mode searches and return normalized JSON with product details, pricing, content-like results, and raw response payload.
+    additionalProperties: false
+    required:
+      - queries
+      - id
+      - output
+    properties:
+      queries:
+        type:
+          - string
+          - array
+        description: Name or list of input columns containing AI mode search queries.
+      id:
+        type: string
+        description: Name of the column containing the row ID to append to each result record.
+      output:
+        type:
+          - string
+          - array
+        description: Output column for dictionaries. If a list of 2 is provided, outputs [dicts_column, pretty_strings_column].
+      client:
+        type: string
+        description: The search provider to use.
+        enum:
+          - serpapi
+        default: serpapi
+      api_key:
+        type: string
+        description: API key for the search client. Can also be set as an environment variable (e.g., SERPAPI_API_KEY).
+      n_results:
+        type: integer
+        description: Number of content-like result blocks to retain per query (default 10, max 100).
+        default: 10
+      threads:
+        type: integer
+        description: Number of concurrent threads for parallel processing (default 10).
+        default: 10
+      country:
+        type: string
+        description: "Country code for search results (default 'us'). Alias: gl."
+        default: us
+      language:
+        type: string
+        description: "Language code for search results (default 'en'). Alias: hl."
+        default: en
+      google_domain:
+        type: string
+        description: Google domain for search results (e.g., google.com, google.co.uk).
+      location:
+        type: string
+        description: Location for search results (e.g., 'Austin, Texas').
+      device:
+        type: string
+        description: Device type for search results.
+        enum:
+          - desktop
+          - mobile
+          - tablet
+    """
+    if output is None:
+        output = queries
+
+    client_config = {"api_key": api_key}
+    kwargs = _normalize_search_kwargs(kwargs)
+
+    if not isinstance(queries, list):
+        queries = [queries]
+    if not isinstance(output, list):
+        output = [output]
+
+    is_multi_output = len(queries) == 1 and len(output) == 2
+
+    if not is_multi_output and len(queries) != len(output):
+        raise ValueError("search.ai_mode must have an equal number of query and output columns, OR 1 query column and 2 output columns [dicts, strings].")
+
+    def _to_query_list(v) -> list[str]:
+        if v is None:
+            return []
+        if isinstance(v, (list, tuple)):
+            return [str(x).strip() for x in v if x is not None and str(x).strip()]
+        s = str(v).strip()
+        return [s] if s else []
+
+    row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
+
+    for i, query_column in enumerate(queries):
+        dict_output_column = output[0] if is_multi_output else output[i]
+
+        row_query_lists = [_to_query_list(v) for v in df[query_column].tolist()]
+        flat_queries = [q for qs in row_query_lists for q in qs]
+
+        if not flat_queries:
+            df[dict_output_column] = [[] for _ in row_query_lists]
+            if is_multi_output:
+                df[output[1]] = ["" for _ in row_query_lists]
+            _logging.info(": Wrangling :: ai_mode summary :: 0 queries >> 0 results")
+            continue
+
+        flat_responses = _search_core.ai_mode(
+            queries=flat_queries,
+            client=client,
+            client_config=client_config,
+            n_results=n_results,
+            threads=threads,
+            **kwargs
+        )
+
+        out_cells, string_cells, pos, total_queries = [], [], 0, 0
+
+        for qs, current_id in zip(row_query_lists, row_ids):
+            k = len(qs)
+            total_queries += k
+            if k == 0:
+                out_cells.append([])
+                string_cells.append("")
+                continue
+
+            cell = flat_responses[pos:pos + k]
+            for j, resp in enumerate(cell, start=1):
+                if isinstance(resp, dict):
+                    meta = resp.get("search_metadata")
+                    if isinstance(meta, dict):
+                        meta["query_index"] = j
+
+                    content_like = []
+                    for item in resp.get("content_like_results", []):
+                        if isinstance(item, dict):
+                            new_item = {"input_row_id": current_id}
+                            new_item.update(item)
+                            new_item["query_index"] = j
+                            content_like.append(new_item)
+                        else:
+                            content_like.append(item)
+                    resp["content_like_results"] = content_like
+
+            out_cells.append(cell)
+            if is_multi_output:
+                string_cells.append(_format.raw_search_results_to_text(cell))
+
+            pos += k
+
+        df[dict_output_column] = out_cells
+        if is_multi_output:
+            df[output[1]] = string_cells
+
+        _logging.info(f": Wrangling :: ai_mode summary :: {total_queries} queries processed")
 
     return df
 

@@ -27,6 +27,31 @@ def find_links(
     )
 
 
+def ai_mode(
+    queries: str | list,
+    client: str = "serpapi",
+    client_config: dict | None = None,
+    n_results: int = 10,
+    threads: int = 10,
+    **kwargs
+) -> dict | list:
+    """
+    Perform Google AI Mode searches using a specified client (default: SerpAPI).
+    """
+    if client_config is None:
+        client_config = {}
+
+    search_client = _get_client(client, client_config)
+
+    return search_client.search_batch(
+        queries,
+        n_results=n_results,
+        threads=threads,
+        search_mode="ai",
+        **kwargs
+    )
+
+
 def retrieve_link_content(
     urls: str | list,
     client: str = "google_url_context",
