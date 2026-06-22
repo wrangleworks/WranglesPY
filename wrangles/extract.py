@@ -423,6 +423,21 @@ def codes(
 
     e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'
 
+    :param input: A string or list of strings to search for codes.
+    :param first_element: Get the first element from results.
+    :param min_length: Minimum length of allowed results.
+    :param max_length: Maximum length of allowed results.
+    :param strategy: How aggressive to be at removing false positives such as
+        measurements. One of 'lenient', 'balanced' or 'strict'. Default is
+        'balanced'. Note that 'balanced' and 'strict' currently apply the
+        same filtering on the backend; only 'lenient' differs by not
+        applying it.
+    :param sort_order: Default is as found in the input. Also allows 'longest' or 'shortest'.
+    :param disallowed_patterns: A pattern or JSON array of regex patterns to not include in the found codes.
+    :param include_multi_part_tokens: Whether to include multi-part tokens that have a space. Default True.
+    :param extract_raw: Whether to return tokens with their adjacent non-whitespace characters
+        included, rather than the cleaned token. Default False.
+    :return: A list of codes found.
     """
     if isinstance(input, str): 
         json_data = [input]
