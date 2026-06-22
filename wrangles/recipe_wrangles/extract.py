@@ -500,6 +500,7 @@ def codes(
         type: string
         description: Default is as found in the input. Also allows longest or shortest.
         enum:
+          - input
           - longest
           - shortest
       disallowed_patterns:
@@ -508,6 +509,9 @@ def codes(
       include_multi_part_tokens:
         type: boolean
         description: Whether to include multi-part tokens that have a space. Default True.
+      extract_raw:
+        type: boolean
+        description: Whether to return tokens with their adjacent non-whitespace characters. Default False.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
