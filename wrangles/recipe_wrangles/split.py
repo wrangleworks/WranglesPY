@@ -49,7 +49,7 @@ def dictionary(
           output:
             - key1: new_column_name1
             - key2: new_column_name2
-          In two_lists output_format, this must be two output columns for the keys
+          In to_lists output_format, this must be two output columns for the keys
           and values lists. If not provided, Keys and Values will be used.
       default:
         type: object
@@ -60,14 +60,14 @@ def dictionary(
         type: string
         enum:
           - columns
-          - two_lists
+          - to_lists
         description: |-
           How to split the dictionary.
           columns creates one output column for each dictionary key.
-          two_lists creates two output columns containing lists of keys and values.
+          to_lists creates two output columns containing lists of keys and values.
     """
-    if output_format not in ["columns", "two_lists"]:
-        raise ValueError("output_format must be one of: columns, two_lists")
+    if output_format not in ["columns", "to_lists"]:
+        raise ValueError("output_format must be one of: columns, to_lists")
 
     if default is None:
         default = {}
@@ -93,14 +93,14 @@ def dictionary(
         for row in df[input].values
     ]
 
-    if output_format == "two_lists":
+    if output_format == "to_lists":
         if output is None:
             output = ["Keys", "Values"]
         elif not isinstance(output, _list):
             output = [output]
 
         if len(output) != 2:
-            raise ValueError("split.dictionary with output_format two_lists requires exactly two output columns")
+            raise ValueError("split.dictionary with output_format to_lists requires exactly two output columns")
 
         df[output[0]] = [[key for key in item.keys()] for item in dicts]
         df[output[1]] = [[value for value in item.values()] for item in dicts]
