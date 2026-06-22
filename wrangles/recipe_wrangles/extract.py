@@ -856,7 +856,7 @@ def codes(
         description: Maximum length of allowed results
       strategy:
         type: string
-        description: How aggressive to be at removing false positives such as measurements.
+        description: How aggressive to be at removing false positives such as measurements. Default is balanced. Note that balanced and strict currently apply the same filtering on the backend; only lenient differs by not applying it.
         enum:
           - lenient
           - balanced
@@ -876,7 +876,7 @@ def codes(
         description: Whether to include multi-part tokens that have a space. Default True.
       extract_raw:
         type: boolean
-        description: Whether to return tokens with their adjacent non-whitespace characters. Default False.
+        description: Whether to return tokens with their adjacent non-whitespace characters included, rather than the cleaned token. Default False.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
