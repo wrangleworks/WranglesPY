@@ -3550,6 +3550,10 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
+    variables = {
+    'EXTRACT_AI_MODEL':  wrangles.config.models.testing.extract_ai
+    }
+
     def test_ai_output_format_dictionary(self):
         df = pd.DataFrame({
             "data": ["wrench 25mm"]
@@ -3604,7 +3608,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3615,14 +3619,15 @@ class TestExtractAI:
                     description: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3641,7 +3646,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3650,14 +3655,15 @@ class TestExtractAI:
                   length: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3676,7 +3682,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3685,14 +3691,15 @@ class TestExtractAI:
                   - length: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3711,7 +3718,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 temperature: 0.2
@@ -3719,14 +3726,15 @@ class TestExtractAI:
                 retries: 2
                 output:
                   - length (mm)
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3746,20 +3754,21 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
                 retries: 2
                 output: length (mm)
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 1/3 as good enough for test to pass
@@ -3778,7 +3787,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3794,14 +3803,15 @@ class TestExtractAI:
                     description: >-
                       The type of item in the data
                       such as spanner, cellphone, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 4/6 as good enough for test to pass
@@ -3823,7 +3833,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3835,7 +3845,7 @@ class TestExtractAI:
                       Concatenate the type and
                       length to form a single output text
                       e.g. bolt 5mm
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "type": [
                     "wrench",
@@ -3847,7 +3857,8 @@ class TestExtractAI:
                     "6m",
                     "3mm"
                 ]
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3866,7 +3877,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3879,14 +3890,15 @@ class TestExtractAI:
                     enum:
                       - positive
                       - negative
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "The best movie I've ever seen!",
                     "I almost threw up. I wouldn't go again.",
                     "I had a smile on my face all day."
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3936,7 +3948,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 cache: false
                 seed: 1
@@ -3953,14 +3965,15 @@ class TestExtractAI:
                     description: >-
                       The type of item in the data
                       such as spanner, cellphone, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         assert (
             df['length'][0] == 'Timed Out' and
@@ -3979,7 +3992,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -3991,14 +4004,15 @@ class TestExtractAI:
                       Any lengths found in the data
                       such as CM, M, FT, etc.
                 messages: All response text should be in upper case.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
 
         # This is temperamental, and sometimes GPT returns lowercase
@@ -4019,7 +4033,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 2
                 temperature: 0.2
@@ -4031,10 +4045,11 @@ class TestExtractAI:
                     description: >-
                       Return the names of any fruits
                       that are yellow
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            }),
+            variables=self.variables
         )
         assert (
             ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
@@ -4050,7 +4065,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4062,10 +4077,11 @@ class TestExtractAI:
                       type: integer
                     description: >-
                       Get all numbers from the input
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            }),
+            variables=self.variables
         )
         assert df['count'][0] == [3,5,2]
 
@@ -4163,7 +4179,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4175,14 +4191,15 @@ class TestExtractAI:
                         Any lengths found in the data
                         such as cm, m, ft, etc.
                     examples: 22mm
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "wrench 25mm",
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -4201,7 +4218,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4212,10 +4229,11 @@ class TestExtractAI:
                     description: >-
                       Any lengths found in the data
                       such as cm, m, ft, etc.
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [],
-            })
+            }),
+            variables=self.variables
         )
         assert df.empty and df.columns.to_list() == ['data', 'length']
 
@@ -4546,7 +4564,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: MODEL_PLACEHOLDER
+                model: ${EXTRACT_AI_MODEL}
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 timeout: 60
@@ -4557,12 +4575,13 @@ class TestExtractAI:
                     type: integer
                     description: How many numbers are in the data
                     minimum: 7
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+            """,
             dataframe=pd.DataFrame({
                 "data": [
                     "1,2,3,4",
                 ],
-            })
+            }),
+            variables=self.variables
         )
         assert df['numbers'][0] >= 7
 
@@ -4584,7 +4603,7 @@ class TestExtractAI:
                 wrangles:
                 - extract.ai:
                     input: Product
-                    model: MODEL_PLACEHOLDER
+                    model: ${EXTRACT_AI_MODEL}
                     api_key: dummy
                     output:
                       Size (Diameter):
@@ -4593,10 +4612,11 @@ class TestExtractAI:
                       Size:
                         type: string
                         description: The overall size specification
-                """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.extract_ai),
+                """,
                 dataframe=pd.DataFrame({
                     "Product": ['1-7/8" cap', '2-3/8" cap'],
                 }),
+                variables=self.variables
             )
         assert list(df.columns) == ["Product", "Size (Diameter)", "Size"]
         assert df["Size (Diameter)"].tolist() == ['1-7/8"', '2-3/8"']
