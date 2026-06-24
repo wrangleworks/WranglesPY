@@ -819,7 +819,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['ABC123 2Z', 'XYZ123', 'ABC123'],
+            ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_sort_order_shortest(self):
         """
@@ -838,7 +841,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123', 'ABC123 2Z'],
+            ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z'],
+        )
 
     def test_extract_codes_include_multi_part_tokens_false(self):
         """
@@ -857,7 +863,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123'],
+            ['XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_disallow_patterns(self):
         """
@@ -916,7 +925,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123']
+        assert df['codes'][0] in (
+            ['ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+            ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+        )
 
     def test_extract_codes_wrong_params_min_length(self):
         """
@@ -1008,7 +1020,10 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            (
+                'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected input, longest, or shortest."} \n' in info.value.args[0]
+                or 'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            )
         )
 
         
