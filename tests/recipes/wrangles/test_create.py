@@ -1202,6 +1202,10 @@ class TestCreateEmbeddings:
     """
     Test create.embeddings
     """
+    variables = {
+    'EMBEDDING_MODEL': 'text-embedding-3-small'
+    }
+
     def test_create_embeddings(self):
         """
         Test generating openai embeddings
@@ -1433,9 +1437,10 @@ class TestCreateEmbeddings:
                 output: embedding
                 api_key: ${OPENAI_API_KEY}
                 retries: 1
-                model: MODEL_PLACEHOLDER
+                model: ${EMBEDDING_MODEL}
                 dimensions: 256
-            """.replace("MODEL_PLACEHOLDER", wrangles.config.models.testing.embeddings)
+            """,
+            variables=self.variables
         )
         assert (
             isinstance(df["embedding"][0], list) and

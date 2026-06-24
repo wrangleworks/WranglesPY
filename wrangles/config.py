@@ -33,7 +33,7 @@ class models():
     (e.g. when a model is deprecated) and so usage/cost can
     be tracked per function via distinct model strings.
     """
-    extract_ai = 'gpt-4.1-mini'
+    extract_ai = 'gpt-5.4-mini'
     generate_ai = 'gpt-5-mini'
     embeddings = 'text-embedding-3-small'
 
@@ -43,8 +43,8 @@ class models():
         production defaults above so test runs can be tracked
         separately in OpenAI usage/cost data.
         """
-        extract_ai = 'gpt-4o-mini'
-        generate_ai = 'gpt-5-nano'
+        extract_ai = 'gpt-5.4-mini'
+        generate_ai = 'gpt-5-mini'
         embeddings = 'text-embedding-3-small'
 
 
