@@ -8186,3 +8186,29 @@ class TestWrangleSchema:
                 failures.append(f'{path}: YAML parse error — {e}')
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
+
+    def test_extract_codes_schema_matches_microservice_params(self):
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.extract.codes.__doc__)
+        properties = schema['properties']
+
+        for param in (
+            'min_length',
+            'max_length',
+            'sort_order',
+            'disallowed_patterns',
+            'include_multi_part_tokens',
+            'extract_raw'
+        ):
+            assert param in properties
+
+        for param in (
+            'minLength',
+            'maxLength',
+            'sortOrder',
+            'disallowedPatterns',
+            'includeMultiPartTokens',
+            'extractRaw'
+        ):
+            assert param not in properties
