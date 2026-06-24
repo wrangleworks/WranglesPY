@@ -25,8 +25,14 @@ xlsxwriter
 # Cloud & storage
 boto3
 
+# NoSQL
+pymongo[srv]
+
 # CRM
 simple-salesforce
+
+# Notifications
+apprise
 
 # Remote access (SFTP / SSH)
 fabric==3.1.0
