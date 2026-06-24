@@ -498,7 +498,7 @@ def codes(
           - strict
       sort_order:
         type: string
-        description: Default is as found in the input. Also allows longest or shortest.
+        description: Default is input order. Also allows longest or shortest.
         enum:
           - input
           - longest
