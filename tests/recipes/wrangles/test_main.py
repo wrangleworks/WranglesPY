@@ -8,6 +8,24 @@ from unittest.mock import patch
 from wrangles.recipe_wrangles.main import lookup  
 
 
+def assert_lookup_equal(a, b, score_tol=0.01):
+    """Compare lookup results, tolerating small Score (embedding) jitter."""
+    if isinstance(a, list):
+        assert len(a) == len(b)
+        for x, y in zip(a, b):
+            assert_lookup_equal(x, y, score_tol)
+        return
+    if isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for k in a:
+            if k == "Score":
+                assert a[k] == pytest.approx(b[k], abs=score_tol)
+            else:
+                assert_lookup_equal(a[k], b[k], score_tol)
+        return
+    assert a == b
+
+
 class TestClassify:
     """
     Test classify
@@ -6470,8 +6488,8 @@ class TestLookup:
             """
         )
         print(df['Value'].to_list())
-        assert df['Value'].iloc[1] == df['Value'].iloc[3]
-        assert df['Value'].iloc[2] == df['Value'].iloc[4]
+        assert_lookup_equal(df['Value'].iloc[1], df['Value'].iloc[3])
+        assert_lookup_equal(df['Value'].iloc[2], df['Value'].iloc[4])
 
     def test_lookup_semantic_multi_col_by_dataframe(self):
         """
@@ -6519,7 +6537,7 @@ class TestLookup:
             """
         )
 
-        assert result_by_row['Value'].tolist() == result_by_df['Value'].tolist()
+        assert_lookup_equal(result_by_row['Value'].tolist(), result_by_df['Value'].tolist())
 
     def test_lookup_semantic_multi_col_by_dataframe_in_matrix(self):
         """
@@ -6555,8 +6573,8 @@ class TestLookup:
             """
         )
 
-        assert result['Value'].iloc[1] == result['Value'].iloc[3]
-        assert result['Value'].iloc[2] == result['Value'].iloc[4]
+        assert_lookup_equal(result['Value'].iloc[1], result['Value'].iloc[3])
+        assert_lookup_equal(result['Value'].iloc[2], result['Value'].iloc[4])
 
     # def test_lookup(self):
     #     """
