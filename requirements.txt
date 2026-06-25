@@ -43,3 +43,6 @@ pymysql
 # AI / LLM
 openai
 google-generativeai
+
+# Search
+serpapi==1.0.2
