@@ -28,7 +28,7 @@ def test_read_sql(tmp_path):
         pd.DataFrame(
             {
                 'Col1': ['Data1', 'Data2'],
-                'Col2': [1, 2]
+                'Col2': pd.array([1, 2], dtype='int32')
             }
         )
     )
