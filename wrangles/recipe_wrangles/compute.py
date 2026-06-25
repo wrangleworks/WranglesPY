@@ -1,6 +1,9 @@
 import pandas as _pd
 import numpy as _np
 
+import re as _re
+import logging as _logging
+
 # Import our core compute and format functions
 from .. import compute as _compute
 from .. import format as _format
@@ -44,6 +47,7 @@ def case_when(
         description: Value to assign if no conditions are met. Default None.  
     """
 
+    _logging.debug(f": Evaluating case_when :: condition_count :: {len(cases)}, output :: {output}")
     df_temp = df.copy()
     df_temp.columns = df_temp.columns.str.replace(
         r'[^a-zA-Z0-9_]', '_', regex=True)

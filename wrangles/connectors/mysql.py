@@ -4,8 +4,14 @@ Connector to read/write from a MySQL Database.
 import pandas as _pd
 from typing import Union as _Union
 import logging as _logging
-from ..utils import wildcard_expansion as _wildcard_expansion
+from ..utils import (
+  wildcard_expansion as _wildcard_expansion,
+  LazyLoader as _LazyLoader
+)
 
+# Lazy load optional dependencies
+_pymysql = _LazyLoader('pymysql')
+_sqlalchemy = _LazyLoader('sqlalchemy')
 
 _schema = {}
 

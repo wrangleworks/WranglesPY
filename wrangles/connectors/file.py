@@ -20,6 +20,25 @@ from ._formatting import file_format as _file_format
 _schema = {}
 
 
+_ILLEGAL_CHARACTERS_RE = _re.compile(
+    '[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]'
+)
+
+
+def _clean_cell_value(value):
+    if isinstance(value, str):
+        return _ILLEGAL_CHARACTERS_RE.sub('', value)
+    elif isinstance(value, list):
+        return [_clean_cell_value(v) for v in value]
+    elif isinstance(value, dict):
+        return {k: _clean_cell_value(v) for k, v in value.items()}
+    return value
+
+
+def _remove_illegal_characters(df: _pd.DataFrame) -> _pd.DataFrame:
+    return df.map(_clean_cell_value)
+
+
 def read(
     name: str,
     columns: _Union[str, list] = None,
@@ -46,6 +65,10 @@ def read(
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     :return: A Pandas dataframe of the imported data.
     """
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(name, _os.PathLike):
+        name = str(name)
+
     if (
         isinstance(name, dict) and
         all(x in name for x in ['name', 'data', 'mimeType'])
@@ -114,7 +137,7 @@ required:
 properties:
   name:
     type: string
-    description: The name of the file to import
+    description: The name or path of the file to import. Accepts a string or a Path object (pathlib.Path / os.PathLike).
   columns:
     type: array
     description: Columns to select
@@ -187,6 +210,10 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     :param formatting: (Optional) A dictionary of formatting options to apply to Excel files.
     :param kwargs: (Optional) Named arguments to pass to respective pandas function.
     """
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(name, _os.PathLike):
+        name = str(name)
+
     _logging.info(f": Writing data to file :: {name}")
 
     # Select only specific columns if user requests them
@@ -223,7 +250,7 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
             
         else:
           with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
-            df.to_excel(writer, **kwargs)
+            _remove_illegal_characters(df).to_excel(writer, **kwargs)
             
             worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
             
@@ -282,7 +309,7 @@ required:
 properties:
   name:
     type: string
-    description: The name of the file to write.
+    description: The name or path of the file to write. Accepts a string or a Path object (pathlib.Path / os.PathLike).
   columns:
     type: array
     description: A list of the columns to write. If omitted, all columns will be written.

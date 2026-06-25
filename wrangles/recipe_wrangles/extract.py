@@ -3,6 +3,7 @@ Functions to run extraction wrangles
 """
 from typing import Union as _Union
 import re as _re
+import logging as _logging
 import pandas as _pd
 from .. import extract as _extract
 from .. import format as _format
@@ -54,6 +55,7 @@ def address(
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    _logging.info(f": Extracting address {dataType} :: input :: {input}")
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.address(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
@@ -171,6 +173,7 @@ def ai(
           If True, the function will be required to match the schema,
           but may be more limited in the schema it can return.
     """
+    _logging.info(f": Extracting using AI :: model_id :: {model_id}, input :: {input}")
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
     if input is not None:
@@ -357,7 +360,8 @@ def attributes(
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+
+    _logging.info(f": Extracting attributes :: input :: {input}")
     if len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
         df[output[0]] = _extract.attributes(
@@ -431,6 +435,7 @@ def brackets(
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    _logging.debug(f": Extracting from brackets :: input :: {input}")
     # Ensure find is a list
     if not isinstance(find, list): find = [find]
 
@@ -520,6 +525,7 @@ def codes(
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    _logging.info(f": Extracting codes :: input :: {input}")
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.codes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
@@ -706,7 +712,8 @@ def date_properties(df: _pd.DataFrame, input: _pd.Timestamp, property: str, outp
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+
+    _logging.debug(f": Extracting date property :: {property} from {input}")
     if len(output) == 1 and len(input) > 1:
         output = [output[0] for i in range(len(input))]
         # df_temp = df[input].apply(_pd.to_datetime)
@@ -804,6 +811,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
           - seconds
           - milliseconds
     """
+    _logging.debug(f": Generating date range :: output :: {output}")
     range_object = {
         'business days': 'B',
         'days': 'D',
@@ -891,7 +899,8 @@ def html(
     # Ensure input and output lengths are compatible
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+
+    _logging.debug(f": Extracting from HTML :: input :: {input}")
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] = _extract.html(
@@ -959,6 +968,7 @@ def properties(
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    _logging.info(f": Extracting properties :: input :: {input}")
     if len(output) == 1 and len(input) > 1:
         df[output[0]] = _extract.properties(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
@@ -1035,8 +1045,9 @@ def regex(
     if len(input) != len(output) and len(output) > 1:
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
     
+    _logging.debug(f": Extracting regex patterns :: input :: {input}")
     find_pattern = _re.compile(find)
-        
+
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if output_pattern is None and first_element:
