@@ -9,7 +9,6 @@ from .. import compute as _compute
 from .. import format as _format
 
 
-
 def case_when(
     df: _pd.DataFrame,
     output: str,
