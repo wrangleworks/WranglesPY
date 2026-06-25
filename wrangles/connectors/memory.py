@@ -25,6 +25,7 @@ def clear():
     Clear and reset any existing data
     stored in the connector
     """
+    _logging.info(": Clearing memory connector")
     global dataframes, variables, queue
     dataframes = {}
     variables = {}
