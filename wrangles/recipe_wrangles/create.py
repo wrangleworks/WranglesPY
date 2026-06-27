@@ -4,6 +4,7 @@ Functions to create new columns
 import uuid as _uuid
 from typing import Union as _Union
 import math as _math
+import logging as _logging
 import pandas as _pd
 import numpy as _np
 import re as _re
@@ -62,6 +63,7 @@ def bins(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    _logging.debug(f": Creating bins :: output :: {output}")
     for in_col, out_col in zip(input, output):
       # Dealing with positive infinity. At end of bins list
       if isinstance(bins, list):
@@ -105,6 +107,7 @@ def column(df: _pd.DataFrame, output: _Union[str, list], value = None) -> _pd.Da
           - boolean
         description: (Optional) Value(s) to add in the new column(s). If using a dictionary in output, value can only be a string.
     """
+    _logging.debug(f": Creating column(s) :: output :: {output}")
     # If a string provided, convert to list
     if isinstance(output, str):
       if output in df.columns:
@@ -219,6 +222,7 @@ def embeddings(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    _logging.info(f": Generating embeddings :: input_count :: {len(df)}, model :: {model}")
     if output_type not in ["python list", "numpy array"]:
         raise ValueError('Output_type must be of value "numpy array" or "python list"')
 
@@ -258,6 +262,7 @@ def guid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
           - array
         description: Name or list of names of new columns
     """
+    _logging.debug(f": Creating GUIDs :: output :: {output}")
     return uuid(df, output)
 
 
@@ -296,6 +301,7 @@ def index(
     if by != None and not isinstance(by, list):
         by = [by]
 
+    _logging.debug(f": Creating index column :: output :: {output}, start :: {start}")
     # If a string provided, convert to list
     if isinstance(output, str): output = [output]
 
@@ -358,6 +364,7 @@ def jinja(df: _pd.DataFrame, template: dict, output: list, input: str = None) ->
             type: string
             description: A string which is used as the jinja template
     """
+    _logging.debug(": Rendering Jinja template")
     if isinstance(output, list):
         output = output[0]
     
@@ -417,6 +424,7 @@ def uuid(df: _pd.DataFrame, output: _Union[str, list]) -> _pd.DataFrame:
           - array
         description: Name or list of names of new columns
     """
+    _logging.debug(f": Generating UUIDs :: output :: {output}")
     # If a string provided, convert to list
     if isinstance(output, str): output = [output]
 
@@ -461,7 +469,8 @@ def hash(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
 
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-    
+
+    _logging.debug(f": Hashing values :: method :: {method}")
     if method not in ['md5', 'sha1', 'sha256', 'sha512']:
         raise ValueError('Method must be one of: md5, sha1, sha256, sha512')
 
