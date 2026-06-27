@@ -2,6 +2,7 @@
 Functions to compare data from within columns
 """
 
+import logging as _logging
 import pandas as _pd
 from .. import compare as _compare
 
@@ -43,6 +44,7 @@ def lists(
         description: Ignore case when comparing string items
     """
 
+    _logging.debug(f": Comparing lists :: method :: {method}")
     if method not in ["intersection", "difference", "union"]:
         raise ValueError(
             "Method must be one of 'intersection', 'difference', 'union'"
@@ -198,6 +200,7 @@ def text(
               description: "(Optional) Whether the comparison is case sensitive. Default is True"
 
     """
+    _logging.debug(f": Comparing text strings :: input :: {input}")
     if method not in ["difference", "intersection", "overlap"]:
         raise ValueError(
             "Method must be one of 'overlap', 'difference' or 'intersection'"

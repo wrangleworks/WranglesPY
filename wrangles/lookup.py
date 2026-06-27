@@ -1,4 +1,5 @@
 from typing import Union as _Union
+import logging as _logging
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -56,6 +57,7 @@ def lookup(
             f'Using {purpose} model_id {model_id} in a lookup wrangle.'
         )
 
+    _logging.info(f": Looking up {len(input)} values :: model_id :: {model_id}")
     results = _batching.batch_api_calls(
         f'{_config.api_host}/wrangles/lookup',
         {

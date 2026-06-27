@@ -5,6 +5,7 @@ from typing import Union as _Union
 import json as _json
 import itertools as _itertools
 import fnmatch as _fnmatch
+import logging as _logging
 from .utils import wildcard_expansion_dict as _wildcard_expansion_dict
 from .utils import wildcard_expansion as _wildcard_expansion
 
@@ -12,6 +13,7 @@ def highest_confidence(data_list):
     """
     Select the option with the highest confidence from multiple columns
     """
+    _logging.debug(f": Selecting highest confidence from {len(data_list)} records")
     results = []
     for row in data_list:
         highest_confidence = 0
@@ -53,6 +55,7 @@ def confidence_threshold(list_1, list_2, threshold):
     """
     Select the first option if it exceeds a given threshold, else the second option.
     """
+    _logging.debug(f": Applying confidence threshold :: {threshold}")
     results = []
     
     for cell_1, cell_2 in zip(list_1, list_2):
@@ -78,6 +81,7 @@ def list_element(input, n: _Union[str, int], default = ""):
     """
     Select a numbered element of a list (zero indexed).
     """
+    _logging.debug(f": Extracting element {n} from {len(input)} lists")
     def _int_or_none(val):
         try:
             return int(val)
@@ -111,6 +115,7 @@ def dict_element(input: _Union[list, dict], key: _Union[str, list], default: any
     """
     Select an element or elements of a dictionary
     """
+    _logging.debug(f": Extracting dict element :: {key} from {len(input) if isinstance(input, list) else 1} records")
     # Ensure input is a list
     single_input = False
     if not isinstance(input, list):
