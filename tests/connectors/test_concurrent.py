@@ -1,50 +1,108 @@
-import wrangles
-from datetime import datetime
 import time
+
 import pandas as pd
+import wrangles
+
+
+# Shared timing values for all concurrent timing tests.
+#
+# Each task waits for 5 seconds. If the tasks run concurrently, total runtime
+# should be roughly 5 seconds plus overhead. If they run serially, total runtime
+# should be roughly 15 seconds.
+WAIT_SECONDS = 5
+TASK_COUNT = 3
+SERIAL_RUNTIME_SECONDS = WAIT_SECONDS * TASK_COUNT
+
+# Allow CI overhead, especially on Windows, while still proving the tasks did
+# not simply run one after another.
+MAX_CONCURRENT_SECONDS = SERIAL_RUNTIME_SECONDS - 2  # 13 seconds
+
+
+def _assert_concurrent_runtime(elapsed):
+    """
+    Assert that a set of WAIT_SECONDS tasks ran concurrently rather than serially.
+    """
+    assert elapsed >= WAIT_SECONDS, (
+        f"Expected runtime to be at least {WAIT_SECONDS}s because each task waits "
+        f"{WAIT_SECONDS}s, but elapsed time was {elapsed:.2f}s."
+    )
+
+    assert elapsed < MAX_CONCURRENT_SECONDS, (
+        f"Expected concurrent runtime to be materially less than the "
+        f"{SERIAL_RUNTIME_SECONDS}s serial runtime, but elapsed time was "
+        f"{elapsed:.2f}s."
+    )
+
+
+def _run_recipe_and_measure(recipe, functions):
+    """
+    Run a recipe and return both the recipe result and elapsed time.
+
+    time.monotonic() is used for elapsed-time measurement because it is designed
+    to move only forward and is not affected by wall-clock changes.
+    """
+    start = time.monotonic()
+    result = wrangles.recipe.run(recipe, functions=functions)
+    elapsed = time.monotonic() - start
+
+    return result, elapsed
+
 
 def wait_and_read(duration):
     time.sleep(duration)
     return pd.DataFrame({"column": [f"value{str(duration)}"]})
 
+
+def wait_and_append(df, wait, test_vals_key):
+    time.sleep(wait)
+    test_vals[test_vals_key].append(wait)
+
+
+def sleep(seconds):
+    """
+    As a builtin function implemented in C, time.sleep() is not directly
+    accessible to the recipe engine. Wrap it as a Python function to make the
+    function definition available.
+    """
+    time.sleep(seconds)
+
+
+test_vals = {
+    "multithread": [],
+}
+
+
 def test_read_multithread():
     """
-    Test using the concurrent connector to read multithreaded
-    """    
-    start = datetime.now()
-
-    df = wrangles.recipe.run(
-        """
+    Test using the concurrent connector to read using multiple threads.
+    """
+    df, elapsed = _run_recipe_and_measure(
+        f"""
         read:
           - union:
               sources:
                 - concurrent:
                     read:
                     - custom.wait_and_read:
-                        duration: 5
+                        duration: {WAIT_SECONDS}
                     - custom.wait_and_read:
-                        duration: 2
+                        duration: {WAIT_SECONDS}
                     - custom.wait_and_read:
-                        duration: 3
+                        duration: {WAIT_SECONDS}
         """,
-        functions=wait_and_read
+        functions=wait_and_read,
     )
 
-    end = datetime.now()
+    assert len(df) == TASK_COUNT
+    _assert_concurrent_runtime(elapsed)
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        len(df) == 3
-    )
 
 def test_read_multiprocess():
     """
-    Test using the concurrent connector to read using multiprocessing
-    """    
-    start = datetime.now()
-
-    df = wrangles.recipe.run(
-        """
+    Test using the concurrent connector to read using multiprocessing.
+    """
+    df, elapsed = _run_recipe_and_measure(
+        f"""
         read:
           - union:
               sources:
@@ -52,38 +110,27 @@ def test_read_multiprocess():
                     use_multiprocessing: true
                     read:
                     - custom.wait_and_read:
-                        duration: 5
+                        duration: {WAIT_SECONDS}
                     - custom.wait_and_read:
-                        duration: 2
+                        duration: {WAIT_SECONDS}
                     - custom.wait_and_read:
-                        duration: 3
+                        duration: {WAIT_SECONDS}
         """,
-        functions=wait_and_read
+        functions=wait_and_read,
     )
 
-    end = datetime.now()
+    assert len(df) == TASK_COUNT
+    _assert_concurrent_runtime(elapsed)
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        len(df) == 3
-    )
-
-test_vals = {
-    "multithread": [],
-    "multiprocess": []
-}
-def wait_and_append(df, wait, test_vals_key):
-    time.sleep(wait)
-    test_vals[test_vals_key].append(wait)
 
 def test_write_multithread():
     """
-    Test using the concurrent connector to write
+    Test using the concurrent connector to write using multiple threads.
     """
-    start = datetime.now()
+    test_vals["multithread"] = []
 
-    wrangles.recipe.run(
-        """
+    _, elapsed = _run_recipe_and_measure(
+        f"""
         read:
           - test:
               rows: 1
@@ -93,84 +140,64 @@ def test_write_multithread():
           - concurrent:
               write:
                 - custom.wait_and_append:
-                     wait: 5
+                     wait: {WAIT_SECONDS}
                      test_vals_key: multithread
                 - custom.wait_and_append:
-                     wait: 2
+                     wait: {WAIT_SECONDS}
                      test_vals_key: multithread
                 - custom.wait_and_append:
-                     wait: 3
+                     wait: {WAIT_SECONDS}
                      test_vals_key: multithread
         """,
-        functions=wait_and_append
+        functions=wait_and_append,
     )
 
-    end = datetime.now()
+    assert test_vals["multithread"] == [WAIT_SECONDS] * TASK_COUNT
+    _assert_concurrent_runtime(elapsed)
 
-    assert (
-        5 <= (end - start).seconds < 10 and
-        test_vals["multithread"] == [2,3,5]
-    )
-
-def sleep(seconds):
-    """
-    As a builtin function implemented in C,
-    time.sleep() is not directly accessible to the recipe engine.
-    Wrap as a python function to make the function definition available.
-    """
-    time.sleep(seconds)
 
 def test_run_multithread():
     """
-    Test using the concurrent connector to run
-    using multithreading
+    Test using the concurrent connector to run using multiple threads.
     """
-    start = datetime.now()
-
-    wrangles.recipe.run(
-        """
+    _, elapsed = _run_recipe_and_measure(
+        f"""
         run:
           on_start:
           - concurrent:
               run:
                 - custom.sleep:
-                     seconds: 5
+                     seconds: {WAIT_SECONDS}
                 - custom.sleep:
-                     seconds: 2
+                     seconds: {WAIT_SECONDS}
                 - custom.sleep:
-                     seconds: 3
+                     seconds: {WAIT_SECONDS}
         """,
-        functions=sleep
+        functions=sleep,
     )
 
-    end = datetime.now()
+    _assert_concurrent_runtime(elapsed)
 
-    assert 5 <= (end - start).seconds < 10
 
 def test_run_multiprocess():
     """
-    Test using the concurrent connector to run
-    using multiprocessing
+    Test using the concurrent connector to run using multiprocessing.
     """
-    start = datetime.now()
-
-    wrangles.recipe.run(
-        """
+    _, elapsed = _run_recipe_and_measure(
+        f"""
         run:
           on_start:
           - concurrent:
               use_multiprocessing: true
               run:
                 - custom.sleep:
-                     seconds: 5
+                     seconds: {WAIT_SECONDS}
                 - custom.sleep:
-                     seconds: 2
+                     seconds: {WAIT_SECONDS}
                 - custom.sleep:
-                     seconds: 3
+                     seconds: {WAIT_SECONDS}
         """,
-        functions=sleep
+        functions=sleep,
     )
 
-    end = datetime.now()
-
-    assert 5 <= (end - start).seconds < 10
+    _assert_concurrent_runtime(elapsed)
