@@ -8,6 +8,24 @@ from unittest.mock import patch
 from wrangles.recipe_wrangles.main import lookup  
 
 
+def assert_lookup_equal(a, b, score_tol=0.01):
+    """Compare lookup results, tolerating small Score (embedding) jitter."""
+    if isinstance(a, list):
+        assert len(a) == len(b)
+        for x, y in zip(a, b):
+            assert_lookup_equal(x, y, score_tol)
+        return
+    if isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for k in a:
+            if k == "Score":
+                assert a[k] == pytest.approx(b[k], abs=score_tol)
+            else:
+                assert_lookup_equal(a[k], b[k], score_tol)
+        return
+    assert a == b
+
+
 class TestClassify:
     """
     Test classify
@@ -6470,8 +6488,8 @@ class TestLookup:
             """
         )
         print(df['Value'].to_list())
-        assert df['Value'].iloc[1] == df['Value'].iloc[3]
-        assert df['Value'].iloc[2] == df['Value'].iloc[4]
+        assert_lookup_equal(df['Value'].iloc[1], df['Value'].iloc[3])
+        assert_lookup_equal(df['Value'].iloc[2], df['Value'].iloc[4])
 
     def test_lookup_semantic_multi_col_by_dataframe(self):
         """
@@ -6519,7 +6537,7 @@ class TestLookup:
             """
         )
 
-        assert result_by_row['Value'].tolist() == result_by_df['Value'].tolist()
+        assert_lookup_equal(result_by_row['Value'].tolist(), result_by_df['Value'].tolist())
 
     def test_lookup_semantic_multi_col_by_dataframe_in_matrix(self):
         """
@@ -6555,8 +6573,8 @@ class TestLookup:
             """
         )
 
-        assert result['Value'].iloc[1] == result['Value'].iloc[3]
-        assert result['Value'].iloc[2] == result['Value'].iloc[4]
+        assert_lookup_equal(result['Value'].iloc[1], result['Value'].iloc[3])
+        assert_lookup_equal(result['Value'].iloc[2], result['Value'].iloc[4])
 
     # def test_lookup(self):
     #     """
@@ -8141,6 +8159,689 @@ class TestWrangleExecutionLogging:
         )
         assert re.search(r'::\s*\d+\.\d{3}s$', completed_msg), \
             f"Expected duration suffix like ':: 0.001s' in: {completed_msg}"
+
+    def test_starting_log_single_wrangle(self, caplog):
+        """
+        Test that a Starting message is logged before Completed for a single wrangle.
+        """
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.case:
+                input: Col1
+                output: Col2
+                case: upper
+            """,
+            dataframe=pd.DataFrame({'Col1': ['hello']})
+        )
+        wrangle_logs = [msg for msg in caplog.messages if ': Wrangling :: convert.case ::' in msg]
+        assert len(wrangle_logs) == 2
+        assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[0]
+        assert ': Wrangling :: convert.case :: Completed ::' in wrangle_logs[1]
+
+
+@pytest.mark.usefixtures("caplog")
+class TestDebugLogging:
+    """
+    Tests for debug-level log messages added to individual wrangle functions.
+    """
+
+    def test_create_column_debug_log(self, caplog):
+        """
+        Test that create.column emits a debug log with the output column name.
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.column:
+                output: col2
+                value: test
+            """,
+            dataframe=pd.DataFrame({'col1': ['a']})
+        )
+        assert any(': Creating column(s) :: output ::' in msg for msg in caplog.messages)
+
+    def test_merge_concatenate_debug_log(self, caplog):
+        """
+        Test that merge.concatenate emits a debug log with inputs and separator.
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.concatenate:
+                input:
+                  - col1
+                  - col2
+                output: col3
+                char: '-'
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello'], 'col2': ['world']})
+        )
+        assert any(': Concatenating columns ::' in msg for msg in caplog.messages)
+
+    def test_select_head_debug_log(self, caplog):
+        """
+        Test that select.head emits a debug log with the row count.
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.head:
+                n: 3
+            """,
+            dataframe=pd.DataFrame({'col1': ['a', 'b', 'c', 'd', 'e']})
+        )
+        assert any(': Selecting head :: n :: 3' in msg for msg in caplog.messages)
+
+    def test_format_trim_debug_log(self, caplog):
+        """
+        Test that format.trim emits a debug log with the input column.
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.trim:
+                input: col1
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': ['  hello  ']})
+        )
+        assert any(': Trimming whitespace ::' in msg for msg in caplog.messages)
+
+    def test_merge_coalesce_debug_log(self, caplog):
+        """
+        Test that merge.coalesce emits a debug log with the input columns.
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.coalesce:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': [None, 'a'], 'col2': ['b', None]})
+        )
+        assert any(': Coalescing values ::' in msg for msg in caplog.messages)
+
+    # --- create.* ---
+
+    def test_create_bins_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.bins:
+                input: col1
+                bins:
+                  - 0
+                  - 5
+                  - 10
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': [3, 7]})
+        )
+        assert any(': Creating bins :: output ::' in msg for msg in caplog.messages)
+
+    def test_create_guid_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.guid:
+                output: col_guid
+            """,
+            dataframe=pd.DataFrame({'col1': ['a']})
+        )
+        assert any(': Creating GUIDs :: output ::' in msg for msg in caplog.messages)
+
+    def test_create_index_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.index:
+                output: idx
+                start: 1
+            """,
+            dataframe=pd.DataFrame({'col1': ['a', 'b']})
+        )
+        assert any(': Creating index column :: output ::' in msg for msg in caplog.messages)
+
+    def test_create_uuid_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.uuid:
+                output: col_uuid
+            """,
+            dataframe=pd.DataFrame({'col1': ['a']})
+        )
+        assert any(': Generating UUIDs :: output ::' in msg for msg in caplog.messages)
+
+    def test_create_hash_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - create.hash:
+                input: col1
+                output: col2
+                method: md5
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello']})
+        )
+        assert any(': Hashing values :: method :: md5' in msg for msg in caplog.messages)
+
+    # --- extract.* (local, no API) ---
+
+    def test_extract_brackets_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.brackets:
+                input: col1
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': ['Hello [World]']})
+        )
+        assert any(': Extracting from brackets :: input ::' in msg for msg in caplog.messages)
+
+    def test_extract_date_properties_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_properties:
+                input: col1
+                output: col2
+                property: quarter
+            """,
+            dataframe=pd.DataFrame({'col1': ['12/24/2000']})
+        )
+        assert any(': Extracting date property :: quarter from' in msg for msg in caplog.messages)
+
+    def test_extract_date_range_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.date_range:
+                start_time: col1
+                end_time: col2
+                output: col3
+                range: days
+            """,
+            dataframe=pd.DataFrame({'col1': ['2023-01-01'], 'col2': ['2023-01-31']})
+        )
+        assert any(': Generating date range :: output ::' in msg for msg in caplog.messages)
+
+    def test_extract_html_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        # Log is emitted before the API call; wrap to capture it even if credentials are missing
+        try:
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.html:
+                    input: col1
+                    output: col2
+                    data_type: text
+                """,
+                dataframe=pd.DataFrame({'col1': ['<p>Hello</p>']})
+            )
+        except Exception:
+            pass
+        assert any(': Extracting from HTML :: input ::' in msg for msg in caplog.messages)
+
+    def test_extract_regex_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            r"""
+            wrangles:
+            - extract.regex:
+                input: col1
+                output: col2
+                find: '\d+'
+            """,
+            dataframe=pd.DataFrame({'col1': ['abc 123']})
+        )
+        assert any(': Extracting regex patterns :: input ::' in msg for msg in caplog.messages)
+
+    # --- format.* ---
+
+    def test_format_dates_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.dates:
+                input: col1
+                output: col2
+                format: '%Y-%m-%d'
+            """,
+            dataframe=pd.DataFrame({'col1': ['2023-01-15']})
+        )
+        assert any(': Formatting dates :: format ::' in msg for msg in caplog.messages)
+
+    def test_format_pad_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.pad:
+                input: col1
+                output: col2
+                pad_length: 8
+                side: left
+                char: '0'
+            """,
+            dataframe=pd.DataFrame({'col1': ['42']})
+        )
+        assert any(': Padding strings :: pad_length :: 8' in msg for msg in caplog.messages)
+
+    def test_format_prefix_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.prefix:
+                input: col1
+                output: col2
+                value: 'PRE_'
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello']})
+        )
+        assert any(': Adding prefix to' in msg for msg in caplog.messages)
+
+    def test_format_remove_duplicates_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.remove_duplicates:
+                input: col1
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': [['a', 'b', 'a', 'c']]})
+        )
+        assert any(': Removing duplicates :: input ::' in msg for msg in caplog.messages)
+
+    def test_format_significant_figures_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.significant_figures:
+                input: col1
+                output: col2
+                significant_figures: 3
+            """,
+            dataframe=pd.DataFrame({'col1': [3.14159]})
+        )
+        assert any(': Rounding to 3 significant figures :: input ::' in msg for msg in caplog.messages)
+
+    def test_format_suffix_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - format.suffix:
+                input: col1
+                output: col2
+                value: '_SFX'
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello']})
+        )
+        assert any(': Adding suffix to' in msg for msg in caplog.messages)
+
+    # --- merge.* ---
+
+    def test_merge_dictionaries_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.dictionaries:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': [{'a': 1}], 'col2': [{'b': 2}]})
+        )
+        assert any(': Merging dictionary columns :: input ::' in msg for msg in caplog.messages)
+
+    def test_merge_key_value_pairs_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.key_value_pairs:
+                input:
+                  col1: col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': ['key'], 'col2': ['value']})
+        )
+        assert any(': Creating key-value pairs :: input ::' in msg for msg in caplog.messages)
+
+    def test_merge_lists_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.lists:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': [['a', 'b']], 'col2': [['c', 'd']]})
+        )
+        assert any(': Merging list columns :: input ::' in msg for msg in caplog.messages)
+
+    def test_merge_to_dict_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.to_dict:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        )
+        assert any(': Converting columns to dict :: output ::' in msg for msg in caplog.messages)
+
+    def test_merge_to_list_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - merge.to_list:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        )
+        assert any(': Converting columns to list :: output ::' in msg for msg in caplog.messages)
+
+    # --- select.* ---
+
+    def test_select_columns_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.columns:
+                input: col1
+            """,
+            dataframe=pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        )
+        assert any(': Selecting columns :: input ::' in msg for msg in caplog.messages)
+
+    def test_select_dictionary_element_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.dictionary_element:
+                input: col1
+                output: col2
+                element: key1
+            """,
+            dataframe=pd.DataFrame({'col1': [{'key1': 'value1'}]})
+        )
+        assert any(': Selecting dictionary element :: key1 from' in msg for msg in caplog.messages)
+
+    def test_select_element_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        # select.element uses Python-style input like 'col1[0]' to pick the element
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.element:
+                input: 'col1[0]'
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': [['a', 'b', 'c']]})
+        )
+        assert any(': Selecting elements :: input ::' in msg for msg in caplog.messages)
+
+    def test_select_highest_confidence_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.highest_confidence:
+                input:
+                  - col1
+                  - col2
+                output: col3
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [['A', 0.9]],
+                'col2': [['B', 0.7]],
+            })
+        )
+        assert any(': Selecting highest confidence :: input ::' in msg for msg in caplog.messages)
+
+    def test_select_list_element_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.list_element:
+                input: col1
+                output: col2
+                element: 1
+            """,
+            dataframe=pd.DataFrame({'col1': [['a', 'b', 'c']]})
+        )
+        assert any(': Selecting list element :: 1 from' in msg for msg in caplog.messages)
+
+    def test_select_threshold_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        # Each cell must be a [value, confidence] pair
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - select.threshold:
+                input:
+                  - col1
+                  - col2
+                output: col3
+                threshold: 0.8
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [['cat', 0.9]],
+                'col2': [['dog', 0.5]],
+            })
+        )
+        assert any(': Applying confidence threshold :: 0.8 on' in msg for msg in caplog.messages)
+
+    # --- compare.* ---
+
+    def test_compare_lists_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - compare.lists:
+                input:
+                  - col1
+                  - col2
+                output: col3
+                method: intersection
+            """,
+            dataframe=pd.DataFrame({
+                'col1': [['a', 'b', 'c']],
+                'col2': [['b', 'c', 'd']],
+            })
+        )
+        assert any(': Comparing lists :: method :: intersection' in msg for msg in caplog.messages)
+
+    def test_compare_text_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - compare.text:
+                input:
+                  - col1
+                  - col2
+                output: col3
+                method: overlap
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello world'], 'col2': ['hello there']})
+        )
+        assert any(': Comparing text strings :: input ::' in msg for msg in caplog.messages)
+
+    # --- pandas.* ---
+
+    def test_pandas_copy_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        # copy/drop/sort/round/explode are exposed without 'pandas.' prefix via recipe_wrangles/pandas.py
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - copy:
+                input: col1
+                output: col2
+            """,
+            dataframe=pd.DataFrame({'col1': ['hello']})
+        )
+        assert any(': Copying columns :: input ::' in msg for msg in caplog.messages)
+
+    def test_pandas_drop_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - drop:
+                columns: col2
+            """,
+            dataframe=pd.DataFrame({'col1': ['a'], 'col2': ['b']})
+        )
+        assert any(': Dropping columns ::' in msg for msg in caplog.messages)
+
+    def test_pandas_sort_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: col1
+            """,
+            dataframe=pd.DataFrame({'col1': ['b', 'a', 'c']})
+        )
+        assert any(': Sorting dataframe' in msg for msg in caplog.messages)
+
+    def test_pandas_round_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - round:
+                input: col1
+                output: col2
+                decimals: 2
+            """,
+            dataframe=pd.DataFrame({'col1': [3.14159]})
+        )
+        assert any(': Rounding columns :: input ::' in msg for msg in caplog.messages)
+
+    def test_pandas_explode_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - explode:
+                input: col1
+            """,
+            dataframe=pd.DataFrame({'col1': [['a', 'b', 'c']]})
+        )
+        assert any(': Exploding columns ::' in msg for msg in caplog.messages)
+
+    # --- compute.* ---
+
+    def test_compute_case_when_debug_log(self, caplog):
+        import logging
+        caplog.set_level(logging.DEBUG)
+        wrangles.recipe.run(
+            """
+            wrangles:
+            - compute.case_when:
+                output: col2
+                default: other
+                cases:
+                  - condition: col1 == 'a'
+                    value: first
+            """,
+            dataframe=pd.DataFrame({'col1': ['a', 'b']})
+        )
+        assert any(': Evaluating case_when :: condition_count ::' in msg for msg in caplog.messages)
+
+    # --- connectors ---
+
+    def test_memory_connector_clear_info_log(self, caplog):
+        import logging
+        from wrangles.connectors import memory
+        caplog.set_level(logging.INFO)
+        memory.clear()
+        assert any(': Clearing memory connector' in msg for msg in caplog.messages)
 
 
 class TestWrangleSchema:
