@@ -23,10 +23,10 @@ jobs:
     outputs:
       rc_version: ${{ steps.compute.outputs.rc_version }}
     steps:
-      - name: Guard – dev branch only
-        if: github.ref != 'refs/heads/dev'
+      - name: Guard – dev or main branch only
+        if: github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main'
         run: |
-          echo "::error::This workflow may only be triggered from the 'dev' branch. Current ref: ${{ github.ref }}"
+          echo "::error::This workflow may only be triggered from the 'dev' or 'main' branch. Current ref: ${{ github.ref }}"
           exit 1
 
       - name: Validate version input format
@@ -105,8 +105,8 @@ jobs:
 
   # ── 2. Pip-install smoke test ─────────────────────────────────────────────
   # NOTE: The full pytest suite is intentionally NOT run here. This workflow is
-  # guarded to the 'dev' branch, and every commit on 'dev' is already tested by
-  # publish-dev.yml 
+  # guarded to the 'dev' and 'main' branches, and every commit on those branches
+  # is already tested by publish-dev.yml / publish-main.yml respectively.
   test-pip-install:
     name: Smoke Test – pip install
     runs-on: ubuntu-latest
