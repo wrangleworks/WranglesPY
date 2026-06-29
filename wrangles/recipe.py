@@ -339,6 +339,11 @@ def _read_data(
 
                 # Reference the recipe execution input dataframe
                 if read_type == "input":
+                    if input_dataframe is None:
+                        # No dataframe was passed in to the recipe.
+                        # Treat as if this source returned nothing,
+                        # consistent with a false if condition above.
+                        return None
                     df = input_dataframe
                 # Allow blended imports
                 elif read_type in ['join', 'concatenate', 'union']:
