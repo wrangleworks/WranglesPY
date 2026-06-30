@@ -1679,9 +1679,15 @@ class TestTrainDelete:
     Tests for wrangles.train.delete
     """
 
-    def test_create_and_delete_model(self):
+    def _get_model_id(self, response):
+        body = response.json()
+        model_id = body.get('model_id') or body.get('id') or body.get('modelId') or body.get('model')
+        assert model_id, f"No model_id in creation response: {body}"
+        return model_id
+
+    def test_create_and_delete_classify(self):
         """
-        Train a new classify model then delete it by the returned model_id.
+        Train a new classify model then delete it.
         Verifies the model is gone by attempting to read it after deletion.
         """
         training_data = [
@@ -1689,16 +1695,83 @@ class TestTrainDelete:
             ['banana', 'fruit', ''],
             ['carrot', 'vegetable', ''],
         ]
-        response = wrangles.train.classify(training_data, name="Test Delete Integration Model")
+        response = wrangles.train.classify(training_data, name="Test Delete Classify Model")
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
-        body = response.json()
-        model_id = body.get('model_id') or body.get('id') or body.get('modelId') or body.get('model')
-        assert model_id, f"No model_id in creation response: {body}"
-
+        model_id = self._get_model_id(response)
         assert wrangles.data.model(model_id), "Model should be readable before deletion"
 
         wrangles.train.delete(model_id)
 
         with pytest.raises(RuntimeError):
             wrangles.data.model(model_id)
+
+    def test_create_and_delete_extract(self):
+        """
+        Train a new extract model then delete it.
+        Verifies the model is gone by attempting to read it after deletion.
+        """
+        training_data = [
+            ['Television', 'TV', ''],
+            ['Refrigerator', 'Fridge', ''],
+            ['Automobile', 'Car', ''],
+        ]
+        response = wrangles.train.extract(training_data, name="Test Delete Extract Model")
+        assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
+
+        model_id = self._get_model_id(response)
+        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+
+        wrangles.train.delete(model_id)
+
+        with pytest.raises(RuntimeError):
+            wrangles.data.model(model_id)
+
+    def test_create_and_delete_lookup(self):
+        """
+        Train a new lookup model then delete it.
+        Verifies the model is gone by attempting to read it after deletion.
+        """
+        data = [
+            ['Key', 'Value'],
+            ['apple', 'fruit'],
+            ['carrot', 'vegetable'],
+        ]
+        response = wrangles.train.lookup(data, name="Test Delete Lookup Model", settings={'variant': 'key'})
+        assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
+
+        model_id = self._get_model_id(response)
+        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+
+        wrangles.train.delete(model_id)
+
+        with pytest.raises(RuntimeError):
+            wrangles.data.model(model_id)
+
+    def test_create_and_delete_standardize(self):
+        """
+        Train a new standardize model then delete it.
+        Verifies the model is gone by attempting to read it after deletion.
+        """
+        training_data = [
+            ['ASAP', 'As Soon As Possible', ''],
+            ['ETA', 'Estimated Time of Arrival', ''],
+            ['USA', 'United States of America', ''],
+        ]
+        response = wrangles.train.standardize(training_data, name="Test Delete Standardize Model")
+        assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
+
+        model_id = self._get_model_id(response)
+        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+
+        wrangles.train.delete(model_id)
+
+        with pytest.raises(RuntimeError):
+            wrangles.data.model(model_id)
+
+    def test_delete_invalid_model_id(self):
+        """
+        Deleting a non-existent model_id should raise RuntimeError.
+        """
+        with pytest.raises(RuntimeError):
+            wrangles.train.delete("00000000-0000-0000")
