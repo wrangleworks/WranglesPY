@@ -2,6 +2,7 @@
 Send notifications to a varity of services
 """
 from typing import Union as _Union
+import logging as _logging
 from ..utils import LazyLoader as _LazyLoader
 
 # Lazy load external dependency
@@ -24,6 +25,7 @@ def run(
     :param body: The body of the notification
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     """
+    _logging.info(f": Sending notification :: title :: {title}")
     app_object = _apprise.Apprise()
     app_object.add(url)
     app_object.notify(
@@ -121,6 +123,7 @@ class telegram():
     :param attachment: A file path & name to attach to the message. Supports a single file or a list of files. Must be supported by the specific notification type.
     :param format: The format of the message. One of 'text', 'markdown' or 'html'. Default is 'text'
     """
+    _logging.info(f": Sending Telegram message :: chat_id :: {chat_id}")
     url = f"tgram://{bot_token}/{chat_id}/?format={format}"
     run(url, title, body, attachment)
 
