@@ -240,9 +240,17 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
     try:
         pattern = _re.compile(r"^\s*-\s*" + _re.escape(item_name) + r"\s*:", _re.MULTILINE)
         matches = list(pattern.finditer(_CURRENT_RECIPE_STRING))
-        if len(matches) < occurrence_index or occurrence_index < 1:
+        if not matches:
             return None
-        m = matches[occurrence_index - 1]
+        if len(matches) == 1:
+            # Only one occurrence in the recipe - use it regardless of the
+            # requested index, since the index may not align with a global count
+            m = matches[0]
+        elif occurrence_index < 1 or occurrence_index > len(matches):
+            # Requested occurrence is out of range - fall back to the last match
+            m = matches[-1]
+        else:
+            m = matches[occurrence_index - 1]
         # line numbers are 1-based
         return _CURRENT_RECIPE_STRING[:m.start()].count('\n') + 1
     except Exception:
