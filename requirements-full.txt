@@ -8,5 +8,7 @@
 
 # SQL databases
 sqlalchemy>=2.0,<3.0
+duckdb>=1.0.0
+pyodbc>=5.0.0
 pymssql>=2.3.3
 psycopg2-binary>=2.9.10
