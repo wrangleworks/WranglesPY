@@ -3328,7 +3328,7 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
-    def test_ai_output_format_json_dictionary(self):
+    def test_ai_output_format_dictionary(self):
         df = pd.DataFrame({
             "data": ["wrench 25mm"]
         })
@@ -3343,7 +3343,7 @@ class TestExtractAI:
               type:
                 type: string
                 description: Type of item
-            output_format: JSON Dictionary
+            output_format: Dictionary
             output_column_name: result
         """
         with patch(

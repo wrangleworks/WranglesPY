@@ -42,7 +42,7 @@ def _normalize_output_format(output_format, default):
 
     if output_format not in ("json_list", "json_dictionary", "columns", "string"):
         raise ValueError(
-            "output_format must be one of JSON List, JSON Dictionary, Columns, or String"
+            "output_format must be one of List, Dictionary, Columns, or String"
         )
 
     return output_format
@@ -76,7 +76,7 @@ def _write_list_output(
     output_format = _normalize_output_format(output_format, default_format)
 
     if output_format == "json_dictionary":
-        raise ValueError("output_format JSON Dictionary is only valid for dictionary-producing extracts")
+        raise ValueError("output_format Dictionary is only valid for dictionary-producing extracts")
 
     if output_format == "string":
         df[output[0]] = [_stringify_list(row, delimiter) for row in results]
@@ -115,7 +115,7 @@ def _write_dict_output(df, output, results, output_format, default_format="json_
     output_format = _normalize_output_format(output_format, default_format)
 
     if output_format in ("json_list", "string"):
-        raise ValueError("output_format JSON List or String is only valid for list-producing extracts")
+        raise ValueError("output_format List or String is only valid for list-producing extracts")
 
     if output_format == "columns":
         output_columns = output if len(output) > 1 else (_dict_keys(results) or output)
@@ -213,7 +213,7 @@ def address(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
+          - List
           - Columns
           - String
       delimiter:
@@ -366,12 +366,12 @@ def ai(
         type: string
         description: Format of the extract output
         enum:
-          - JSON Dictionary
+          - Dictionary
           - Columns
           - String
       output_column_name:
         type: string
-        description: Column name to use when output_format is JSON Dictionary
+        description: Column name to use when output_format is Dictionary
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
@@ -581,8 +581,8 @@ def attributes(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
-          - JSON Dictionary
+          - List
+          - Dictionary
           - Columns
           - String
       delimiter:
@@ -709,7 +709,7 @@ def brackets(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
+          - List
           - Columns
           - String
       delimiter:
@@ -832,7 +832,7 @@ def codes(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
+          - List
           - Columns
           - String
       delimiter:
@@ -979,8 +979,8 @@ def custom(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
-          - JSON Dictionary
+          - List
+          - Dictionary
           - Columns
           - String
       delimiter:
@@ -1299,7 +1299,7 @@ def html(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
+          - List
           - Columns
           - String
       delimiter:
@@ -1391,8 +1391,8 @@ def properties(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
-          - JSON Dictionary
+          - List
+          - Dictionary
           - Columns
           - String
       delimiter:
@@ -1519,7 +1519,7 @@ def regex(
         type: string
         description: Format of the extract output
         enum:
-          - JSON List
+          - List
           - Columns
           - String
       delimiter:
