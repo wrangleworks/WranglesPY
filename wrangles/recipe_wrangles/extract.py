@@ -1320,6 +1320,8 @@ def html(
     if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
+    _logging.debug(f": Extracting from HTML :: input :: {input}")
+
     if len(input) == 1 and _is_columns_format(output_format):
         results = _extract.html(
             df[input[0]].astype(str).tolist(),
