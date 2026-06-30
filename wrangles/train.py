@@ -270,7 +270,7 @@ class train():
         """
         _logging.info(f": Deleting model :: {model_id}")
         response = _requests.delete(
-            f'{_config.api_host}/model/delete',
+            f'{_config.api_host}/model/content',
             params={'model_id': model_id},
             headers={'Authorization': f'Bearer {_auth.get_access_token()}'}
         )

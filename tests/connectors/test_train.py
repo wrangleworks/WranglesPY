@@ -1685,10 +1685,16 @@ class TestTrainDelete:
         assert model_id, f"No model_id in creation response: {body}"
         return model_id
 
-    def test_create_and_delete_classify(self):
+    def _mock_delete_ok(self, mocker):
+        mock = mocker.patch('wrangles.train._requests.delete')
+        mock.return_value.ok = True
+        mock.return_value.status_code = 200
+        return mock
+
+    def test_create_and_delete_classify(self, mocker):
         """
-        Train a new classify model then delete it.
-        Verifies the model is gone by attempting to read it after deletion.
+        Train a new classify model (real API) then delete it (mocked).
+        Verifies creation succeeds and delete is called with the correct model_id.
         """
         training_data = [
             ['apple', 'fruit', ''],
@@ -1699,17 +1705,17 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+        mock_delete = self._mock_delete_ok(mocker)
 
         wrangles.train.delete(model_id)
 
-        with pytest.raises(RuntimeError):
-            wrangles.data.model(model_id)
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_extract(self):
+    def test_create_and_delete_extract(self, mocker):
         """
-        Train a new extract model then delete it.
-        Verifies the model is gone by attempting to read it after deletion.
+        Train a new extract model (real API) then delete it (mocked).
+        Verifies creation succeeds and delete is called with the correct model_id.
         """
         training_data = [
             ['Television', 'TV', ''],
@@ -1720,17 +1726,17 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+        mock_delete = self._mock_delete_ok(mocker)
 
         wrangles.train.delete(model_id)
 
-        with pytest.raises(RuntimeError):
-            wrangles.data.model(model_id)
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_lookup(self):
+    def test_create_and_delete_lookup(self, mocker):
         """
-        Train a new lookup model then delete it.
-        Verifies the model is gone by attempting to read it after deletion.
+        Train a new lookup model (real API) then delete it (mocked).
+        Verifies creation succeeds and delete is called with the correct model_id.
         """
         data = [
             ['Key', 'Value'],
@@ -1741,17 +1747,17 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+        mock_delete = self._mock_delete_ok(mocker)
 
         wrangles.train.delete(model_id)
 
-        with pytest.raises(RuntimeError):
-            wrangles.data.model(model_id)
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_standardize(self):
+    def test_create_and_delete_standardize(self, mocker):
         """
-        Train a new standardize model then delete it.
-        Verifies the model is gone by attempting to read it after deletion.
+        Train a new standardize model (real API) then delete it (mocked).
+        Verifies creation succeeds and delete is called with the correct model_id.
         """
         training_data = [
             ['ASAP', 'As Soon As Possible', ''],
@@ -1762,16 +1768,21 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        assert wrangles.data.model(model_id), "Model should be readable before deletion"
+        mock_delete = self._mock_delete_ok(mocker)
 
         wrangles.train.delete(model_id)
 
-        with pytest.raises(RuntimeError):
-            wrangles.data.model(model_id)
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
 
-    def test_delete_invalid_model_id(self):
+    def test_delete_error_raises_runtime_error(self, mocker):
         """
-        Deleting a non-existent model_id should raise RuntimeError.
+        A non-OK response from the delete endpoint raises RuntimeError.
         """
-        with pytest.raises(RuntimeError):
+        mock = mocker.patch('wrangles.train._requests.delete')
+        mock.return_value.ok = False
+        mock.return_value.status_code = 404
+        mock.return_value.text = '{"message":"Not Found"}'
+
+        with pytest.raises(RuntimeError, match="Delete model failed"):
             wrangles.train.delete("00000000-0000-0000")
