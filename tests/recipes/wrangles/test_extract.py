@@ -681,6 +681,57 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['code'] == 'Z1ON0101'
 
+    def test_extract_codes_output_format_string_with_delimiter(self):
+        data = pd.DataFrame({
+            'col1': ['codes here']
+        })
+        recipe = """
+        wrangles:
+        - extract.codes:
+            input: col1
+            output: code
+            output_format: String
+            delimiter: " | "
+        """
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['code'] == 'ABC123 | XYZ789'
+
+    def test_extract_codes_output_format_columns(self):
+        data = pd.DataFrame({
+            'col1': ['codes here']
+        })
+        recipe = """
+        wrangles:
+        - extract.codes:
+            input: col1
+            output:
+              - Code 1
+              - Code 2
+            output_format: Columns
+        """
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Code 1'] == 'ABC123'
+        assert df.iloc[0]['Code 2'] == 'XYZ789'
+
+    def test_extract_codes_output_format_columns_with_output_column_name(self):
+        data = pd.DataFrame({
+            'col1': ['codes here']
+        })
+        recipe = """
+        wrangles:
+        - extract.codes:
+            input: col1
+            output: ignored_base
+            output_format: Columns
+            output_column_name: code
+        """
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['code 1'] == 'ABC123'
+        assert df.iloc[0]['code 2'] == 'XYZ789'
+
     def test_extract_codes_where(self):
         """
         Test extract.codes with a where
@@ -1203,6 +1254,35 @@ class TestExtractCustom:
             'Charizard' in df['Fact Output'][0] and
             'Pikachu' in df['Fact Output'][0]
         )
+
+    def test_extract_custom_use_labels_output_format_columns_multi_input(self):
+        data = pd.DataFrame({
+            'col1': ['blue shirt', 'red hat'],
+            'col2': ['small shirt', 'large red hat']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+              - col1
+              - col2
+            output: attributes
+            model_id: 829c1a73-1bfd-4ac0
+            use_labels: true
+            output_format: Columns
+        """
+        with patch(
+            "wrangles.extract.custom",
+            side_effect=[
+                [{'colour': ['blue']}, {'colour': ['red']}],
+                [{'size': ['small']}, {'colour': ['red'], 'size': ['large']}],
+            ]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['colour'] == ['blue']
+        assert df.iloc[0]['size'] == ['small']
+        assert df.iloc[1]['colour'] == ['red']
+        assert df.iloc[1]['size'] == ['large']
 
     def test_extract_custom_mulit_input_output(self):
         """
@@ -2407,6 +2487,45 @@ class TestExtractProperties:
             info.typename == 'TypeError' and
             'first_element must be used with a specified property_type' in info.value.args[0]
         )
+
+    def test_extract_properties_output_format_columns(self):
+        data = pd.DataFrame({
+            'col': ['green cotton square']
+        })
+        recipe = """
+        wrangles:
+        - extract.properties:
+            input: col
+            output: properties
+            output_format: Columns
+        """
+        with patch(
+            "wrangles.extract.properties",
+            return_value=[{'Colours': ['green'], 'Materials': ['cotton']}]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Colours'] == ['green']
+        assert df.iloc[0]['Materials'] == ['cotton']
+
+    def test_extract_properties_output_format_string_with_delimiter(self):
+        data = pd.DataFrame({
+            'col': ['green blue']
+        })
+        recipe = """
+        wrangles:
+        - extract.properties:
+            input: col
+            output: colours
+            property_type: Colours
+            output_format: String
+            delimiter: "; "
+        """
+        with patch(
+            "wrangles.extract.properties",
+            return_value=[['green', 'blue']]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['colours'] == 'green; blue'
         
     def test_extract_materials(self):
         recipe = """
@@ -3209,6 +3328,53 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
+    def test_ai_output_format_dictionary(self):
+        df = pd.DataFrame({
+            "data": ["wrench 25mm"]
+        })
+        recipe = """
+        wrangles:
+        - extract.ai:
+            api_key: dummy
+            output:
+              length:
+                type: string
+                description: Any lengths found in the data
+              type:
+                type: string
+                description: Type of item
+            output_format: Dictionary
+            output_column_name: result
+        """
+        with patch(
+            "wrangles.extract.ai",
+            return_value=[{"length": "25mm", "type": "wrench"}]
+        ):
+            result = wrangles.recipe.run(recipe, dataframe=df)
+        assert result.iloc[0]["result"] == {"length": "25mm", "type": "wrench"}
+
+    def test_ai_output_format_string_with_delimiter(self):
+        df = pd.DataFrame({
+            "data": ["wrench 25mm"]
+        })
+        recipe = """
+        wrangles:
+        - extract.ai:
+            api_key: dummy
+            output:
+              tags:
+                type: array
+                description: Tags found in the data
+            output_format: String
+            delimiter: " | "
+        """
+        with patch(
+            "wrangles.extract.ai",
+            return_value=[{"tags": ["wrench", "25mm"]}]
+        ):
+            result = wrangles.recipe.run(recipe, dataframe=df)
+        assert result.iloc[0]["tags"] == "wrench | 25mm"
+
     def test_ai(self):
         """
         Test openai extract with a single input and output
