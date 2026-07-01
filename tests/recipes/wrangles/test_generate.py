@@ -4,6 +4,9 @@ import pytest
 import wrangles
 import wrangles.generate
 
+variables = {
+    'GENERATE_AI_MODEL': wrangles.config.models.testing.generate_ai
+}
 @pytest.mark.skipif("OPENAI_API_KEY" not in os.environ,
                     reason="needs live OpenAI access")
 def test_generate_ai_recipe_without_web_search_real_call():
@@ -27,7 +30,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
+                model: ${GENERATE_AI_MODEL}
                 reasoning:
                     effort: low
                 threads: 1
@@ -49,9 +52,10 @@ def test_generate_ai_recipe_without_web_search_real_call():
                           primary_value: 55
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
-                    
-                 """   ,
-        dataframe=data
+
+                 """,
+        dataframe=data,
+        variables=variables
     )
 
     assert df.at[0, "short_description"]  # non-empty
@@ -81,7 +85,7 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                         type: string
                         description: use any word of the input as category name.
                 api_key: ${OPENAI_API_KEY}
-                model: gpt-5-nano
+                model: ${GENERATE_AI_MODEL}
                 reasoning:
                     effort: low
                 threads: 1
@@ -103,7 +107,8 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                           unit: inch   
                       notes: "primary values should be integers if possible and the unit is inch"
         """,
-        dataframe=data
+        dataframe=data,
+        variables=variables
     )
 
     assert df.at[0, "short_description"]  # non-empty
