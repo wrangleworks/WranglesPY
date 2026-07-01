@@ -5997,6 +5997,35 @@ class TestBatch:
   
 
 
+def _seed_lookup_model(model_id, dataframe, timeout=15, interval=0.5):
+    """
+    Overwrite a live train.lookup model and poll until the write is visible.
+
+    model_id f6896dae-3b48-4bbe is a shared live fixture also mutated by
+    tests/connectors/test_train.py, so tests relying on its contents must
+    re-seed known state themselves rather than assume it, and must wait
+    for the eventually-consistent write to land before reading it back.
+    """
+    wrangles.recipe.run(
+        f"""
+        write:
+          - train.lookup:
+              model_id: {model_id}
+              action: overwrite
+              variant: key
+        """,
+        dataframe=dataframe,
+    )
+    expected_keys = set(dataframe['Key'])
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {model_id}")
+        if set(result.columns) == set(dataframe.columns) and set(result['Key']) == expected_keys:
+            return
+        time.sleep(interval)
+    raise AssertionError(f"Lookup model {model_id} did not reach seeded state within {timeout}s")
+
+
 class TestLookup:
     """
     Test lookup wrangle
@@ -6156,6 +6185,13 @@ class TestLookup:
         Issue #992: 'Key' was not in metadata["settings"]["columns"] so the unnamed-
         columns path was hit and the full dict was returned instead.
         """
+        _seed_lookup_model(
+            'f6896dae-3b48-4bbe',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
         df = wrangles.recipe.run(
             """
             wrangles:
@@ -6173,6 +6209,13 @@ class TestLookup:
         Specifying output: [Key, Schema] must work without error.
         Issue #992: mixing 'Key' with a real model column raised ValueError.
         """
+        _seed_lookup_model(
+            'f6896dae-3b48-4bbe',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
         df = wrangles.recipe.run(
             """
             wrangles:

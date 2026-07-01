@@ -1,3 +1,4 @@
+import time
 import uuid
 
 from pytest_mock import mocker
@@ -7,6 +8,28 @@ import pandas as pd
 import pytest
 import logging
 import re
+
+
+def _wait_for_lookup(model_id, predicate, timeout=15, interval=0.5):
+    """
+    Poll a live train.lookup model until predicate(df) is true.
+
+    The lookup API is eventually consistent, so a fixed sleep after a write
+    can race with a subsequent read. Polling on the actual expected state
+    avoids that race instead of guessing a delay.
+    """
+    deadline = time.time() + timeout
+    result = None
+    while time.time() < deadline:
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {model_id}")
+        if predicate(result):
+            return result
+        time.sleep(interval)
+    raise AssertionError(
+        f"Lookup model {model_id} did not reach expected state within {timeout}s; "
+        f"last seen columns: {list(result.columns) if result is not None else None}"
+    )
+
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -881,7 +904,6 @@ class TestTrainLookup:
         that column; existing rows receive '' for the new column.
         
         """
-        import time
         MODEL = 'f6896dae-3b48-4bbe'
 
         wrangles.recipe.run(
@@ -897,7 +919,10 @@ class TestTrainLookup:
                 'Value': ['red',   'yellow'],
             }),
         )
-        time.sleep(2)
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Value'} and set(df['Key']) == {'apple', 'banana'},
+        )
 
         wrangles.recipe.run(
             f"""
@@ -917,9 +942,12 @@ class TestTrainLookup:
                 'Weight': ['1.0'],
             }),
         )
-        time.sleep(2)
 
-        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Weight' in df.columns
+            and (df.loc[df['Key'] == 'apple', 'Value'] == 'green').all(),
+        )
         assert 'Weight' in result.columns, "New column must be present after upsert"
         apple  = result[result['Key'] == 'apple'].iloc[0]
         banana = result[result['Key'] == 'banana'].iloc[0]
@@ -1456,7 +1484,6 @@ class TestTrainLookup:
         present in the model but absent from the incoming DataFrame.
         Issue #992: unspecified columns were silently dropped.
         """
-        import time
         MODEL = 'f6896dae-3b48-4bbe'
 
         wrangles.recipe.run(
@@ -1473,7 +1500,11 @@ class TestTrainLookup:
                 'Mapping': ['red',   'yellow', 'red'],
             }),
         )
-        time.sleep(2)
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
+            and set(df['Key']) == {'apple', 'banana', 'cherry'},
+        )
 
         wrangles.recipe.run(
             f"""
@@ -1488,9 +1519,12 @@ class TestTrainLookup:
             """,
             dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
         )
-        time.sleep(2)
 
-        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Schema' in df.columns
+            and (df.loc[df['Key'] == 'apple', 'Mapping'] == 'green').all(),
+        )
         assert 'Schema' in result.columns, "Schema must be preserved after partial upsert"
         apple = result[result['Key'] == 'apple'].iloc[0]
         assert apple['Mapping'] == 'green', "Updated column must reflect new value"
@@ -1501,7 +1535,6 @@ class TestTrainLookup:
         INSERT must not drop columns that exist in the model but are absent
         from the incoming DataFrame.  New rows get '' for unspecified columns.
         """
-        import time
         MODEL = 'f6896dae-3b48-4bbe'
 
         wrangles.recipe.run(
@@ -1518,7 +1551,11 @@ class TestTrainLookup:
                 'Mapping': ['red',   'yellow'],
             }),
         )
-        time.sleep(2)
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
+            and set(df['Key']) == {'apple', 'banana'},
+        )
 
         wrangles.recipe.run(
             f"""
@@ -1533,9 +1570,11 @@ class TestTrainLookup:
             """,
             dataframe=pd.DataFrame({'Key': ['cherry'], 'Mapping': ['red']}),
         )
-        time.sleep(2)
 
-        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Schema' in df.columns and len(df) == 3,
+        )
         assert 'Schema' in result.columns, "Schema column must be preserved after insert"
         assert len(result) == 3, "New row must be added"
         cherry = result[result['Key'] == 'cherry'].iloc[0]
@@ -1548,7 +1587,6 @@ class TestTrainLookup:
         all other columns — on both the updated and untouched rows — must be
         preserved exactly.
         """
-        import time
         MODEL = 'f6896dae-3b48-4bbe'
 
         wrangles.recipe.run(
@@ -1565,7 +1603,11 @@ class TestTrainLookup:
                 'Mapping': ['red',   'yellow', 'red'],
             }),
         )
-        time.sleep(2)
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
+            and set(df['Key']) == {'apple', 'banana', 'cherry'},
+        )
 
         wrangles.recipe.run(
             f"""
@@ -1580,9 +1622,12 @@ class TestTrainLookup:
             """,
             dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
         )
-        time.sleep(2)
 
-        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Schema' in df.columns
+            and (df.loc[df['Key'] == 'apple', 'Mapping'] == 'green').all(),
+        )
         assert 'Schema' in result.columns, "Schema must be preserved after update"
         apple  = result[result['Key'] == 'apple'].iloc[0]
         banana = result[result['Key'] == 'banana'].iloc[0]
