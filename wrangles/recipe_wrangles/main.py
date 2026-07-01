@@ -987,7 +987,14 @@ def lookup(
             list(val.values())[0] if isinstance(val, dict) else val
             for val in output    
         ]
-  
+
+        # 'Key' is valid as output — it echoes the input key value, not a model value column.
+        # Strip it before routing so the named/unnamed check is not confused by it.
+        _key_indices = {i for i, col in enumerate(wrangle_output) if col == 'Key'}
+        _key_out_cols = [output[i] for i in sorted(_key_indices)]
+        _wrangle_cols = [col for i, col in enumerate(wrangle_output) if i not in _key_indices]
+        _out_cols = [col for i, col in enumerate(output) if i not in _key_indices]
+
         # Remove matrix_variables from kwargs if present before passing to _lookup
         def _clean_kwargs(kwargs):
           if 'matrix_variables' in kwargs:
@@ -1003,93 +1010,58 @@ def lookup(
 
         # Perform lookup based on lookup_mode
         if lookup_mode == 'by_row':
-          # Current behavior - process all rows
-          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):
-            # User specified all columns from the wrangle
-            data = _lookup(
-              df[input].values.tolist(),
-              model_id,
-              columns=wrangle_output,
-              n=n,
-              **_clean_kwargs(kwargs)
-            )
-            if n and n > 1 and len(output) == n:
-              # Distribute: each output column gets the nth match
-              _distribute_n_matches(data)
-            elif n and n > 1 and len(output) > 1:
-              raise ValueError(
-                f'When n > 1 and multiple output columns are provided, the number '
-                f'of output columns ({len(output)}) must equal n ({n}).'
+          if _wrangle_cols:
+            if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+              data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                columns=_wrangle_cols,
+                **_clean_kwargs(kwargs)
               )
-            else:
-              df[output] = data
-          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
-            # User specified no columns from the wrangle
-            data = _lookup(
-              df[input].values.tolist(),
-              model_id,
-              n=n,
-              **_clean_kwargs(kwargs)
-            )
-            if n and n > 1 and len(output) == n:
-              # Distribute: each output column gets the nth match
-              _distribute_n_matches(data)
-            elif n and n > 1 and len(output) > 1:
-              raise ValueError(
-                f'When n > 1 and multiple output columns are provided, the number '
-                f'of output columns ({len(output)}) must equal n ({n}).'
+              df[_out_cols] = data
+            elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+              data = _lookup(
+                df[input].values.tolist(),
+                model_id,
+                **_clean_kwargs(kwargs)
               )
-            else:
-              for out in output:
+              for out in _out_cols:
                 df[out] = data
-          else:
-            # User specified a mixture of unrecognized columns and columns from the wrangle
-            raise ValueError('Lookup may only contain all named or unnamed columns.')
+            else:
+              raise ValueError('Lookup may only contain all named or unnamed columns.')
                   
         elif lookup_mode == 'by_dataframe':
-          # Optimized - lookup unique values once, then map to all rows  
-          unique_values = df[input].unique()  
-            
-          if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-            # User specified all columns from the wrangle  
-            unique_data = _lookup(  
-              unique_values.tolist(),  
-              model_id,  
-              columns=wrangle_output,  
-              **_clean_kwargs(kwargs)  
-            )  
-                
-            # Create mapping from values to results  
-            value_to_result = dict(zip(unique_values, unique_data))  
-                
-            # Map results back to all rows - extract correct values  
-            if len(output) == 1:  
-              df[output[0]] = df[input].map(  
-                lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
-              )  
+          unique_values = df[input].unique()
+          if _wrangle_cols:
+            if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+              unique_data = _lookup(
+                unique_values.tolist(),
+                model_id,
+                columns=_wrangle_cols,
+                **_clean_kwargs(kwargs)
+              )
+              value_to_result = dict(zip(unique_values, unique_data))
+              if len(_out_cols) == 1:
+                df[_out_cols[0]] = df[input].map(
+                  lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""
+                )
+              else:
+                for i, out_col in enumerate(_out_cols):
+                  df[out_col] = df[input].map(
+                    lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""
+                  )
+            elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+              unique_data = _lookup(
+                unique_values.tolist(),
+                model_id,
+                **_clean_kwargs(kwargs)
+              )
+              value_to_result = dict(zip(unique_values, unique_data))
+              for out in _out_cols:
+                df[out] = df[input].map(lambda x: value_to_result.get(x, {}))
             else:  
-              for i, out_col in enumerate(output):  
-                df[out_col] = df[input].map(  
-                  lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
-                )  
-                        
-          elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-            # User specified no columns from the wrangle  
-            unique_data = _lookup(  
-            unique_values.tolist(),  
-            model_id, 
-            **_clean_kwargs(kwargs)
-            )  
-
-            # Create mapping from values to results (preserve full dict as in by_row)
-            value_to_result = dict(zip(unique_values, unique_data))
-
-            # Map results back to all rows - output is the full dict as in by_row
-            for out in output:
-              df[out] = df[input].map(lambda x: value_to_result.get(x, {}))
-          else:  
-            # User specified a mixture of unrecognized columns and columns from the wrangle  
-            raise ValueError('Lookup may only contain all named or unnamed columns.')
+              # User specified a mixture of unrecognized columns and columns from the wrangle
+              raise ValueError('Lookup may only contain all named or unnamed columns.')
             
         elif lookup_mode == 'by_matrix':   
           # Get matrix variables and permutations  
@@ -1118,48 +1090,40 @@ def lookup(
               # Get unique values for this permutation  
               perm_values = df.loc[mask, input].unique()  
                     
-              if all([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-                # User specified all columns from the wrangle  
-                perm_data = _lookup(  
-                  perm_values.tolist(),  
-                  model_id,  
-                  columns=wrangle_output,  
-                  **_clean_kwargs(kwargs)  
-                )  
-                        
-                # Create mapping for this permutation  
-                value_to_result = dict(zip(perm_values, perm_data))  
-                        
-                # Apply results to matching rows - extract correct values  
-                if len(output) == 1:  
-                  df.loc[mask, output[0]] = df.loc[mask, input].map(  
-                    lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""  
-                  )  
-                else:  
-                  for i, out_col in enumerate(output):  
-                    df.loc[mask, out_col] = df.loc[mask, input].map(  
-                      lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""  
-                    )  
-                                
-              elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):  
-                # User specified no columns from the wrangle  
-                perm_data = _lookup(  
-                  perm_values.tolist(),  
-                  model_id,  
-                  **_clean_kwargs(kwargs)  
-                )  
-                        
-                # Create mapping for this permutation  
-                value_to_result = dict(zip(perm_values, perm_data))  
-                        
-                # Apply results to matching rows - extract correct values  
-                for out in output:
-                  df.loc[mask, out] = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
-              else:  
-                # User specified a mixture of unrecognized columns and columns from the wrangle  
-                raise ValueError('Lookup may only contain all named or unnamed columns.')
+              if _wrangle_cols:
+                if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+                  perm_data = _lookup(
+                    perm_values.tolist(),
+                    model_id,
+                    columns=_wrangle_cols,
+                    **_clean_kwargs(kwargs)
+                  )
+                  value_to_result = dict(zip(perm_values, perm_data))
+                  if len(_out_cols) == 1:
+                    df.loc[mask, _out_cols[0]] = df.loc[mask, input].map(
+                      lambda x: value_to_result.get(x, [])[0] if x in value_to_result and value_to_result[x] else ""
+                    )
+                  else:
+                    for i, out_col in enumerate(_out_cols):
+                      df.loc[mask, out_col] = df.loc[mask, input].map(
+                        lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""
+                      )
+                elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+                  perm_data = _lookup(
+                    perm_values.tolist(),
+                    model_id,
+                    **_clean_kwargs(kwargs)
+                  )
+                  value_to_result = dict(zip(perm_values, perm_data))
+                  for out in _out_cols:
+                    df.loc[mask, out] = df.loc[mask, input].map(lambda x: value_to_result.get(x, {}))
+                else:
+                  raise ValueError('Lookup may only contain all named or unnamed columns.')
         else:
           raise ValueError(f"Invalid lookup_mode: {lookup_mode}. Must be 'by_row', 'by_dataframe', or 'by_matrix'")
+
+        for _key_col in _key_out_cols:
+          df[_key_col] = df[input].values
     else:
         raise ValueError('model_id is required for lookup')
     
