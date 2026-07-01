@@ -62,7 +62,7 @@ def lookup(
         f'{_config.api_host}/wrangles/lookup',
         {
             "model_id": model_id,
-            "columns": _json.dumps(columns or metadata["settings"]["columns"]),
+            "columns": _json.dumps(columns if columns is not None else metadata.get("settings", {}).get("columns", [])),
             **kwargs
         },
         input,
