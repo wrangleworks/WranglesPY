@@ -903,7 +903,8 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    lookup_mode: str = 'by_row', 
+    lookup_mode: str = 'by_row',
+    n: int = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -925,7 +926,15 @@ def lookup(
         type:
           - string
           - array
-        description: Name of the output column(s)
+        description: >-
+          Name of the output column(s). When n is provided and the output list
+          length equals n, each output column receives the corresponding match.
+      n:
+        type: integer
+        description: >-
+          Number of matches to return per input value. When the output list
+          length equals n, each output column receives the corresponding match.
+          Otherwise all n matches are stored as a list in each output column.
       lookup_mode:
         type: string
         description: >-
@@ -992,6 +1001,12 @@ def lookup(
             kwargs = dict(kwargs)  # shallow copy to avoid mutating caller
             kwargs.pop('matrix_variables')
           return kwargs
+
+        # Distribute the n matches for each row across the output columns,
+        # ranked match i goes to output column i
+        def _distribute_n_matches(data):
+          for i, out in enumerate(output):
+            df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
 
         # Perform lookup based on lookup_mode
         if lookup_mode == 'by_row':
