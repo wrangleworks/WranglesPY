@@ -32,6 +32,8 @@ Connectors for databases, cloud storage, and external services require additiona
 | Capability | Install |
 |---|---|
 | Microsoft SQL Server | `pip install pymssql sqlalchemy` |
+| Microsoft Access | `pip install pyodbc` |
+| DuckDB | `pip install duckdb` |
 | PostgreSQL | `pip install psycopg2-binary sqlalchemy` |
 | MySQL | `pip install pymysql sqlalchemy` |
 | MongoDB | `pip install pymongo[srv]` |
