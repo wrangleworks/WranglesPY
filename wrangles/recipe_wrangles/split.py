@@ -3,6 +3,7 @@ Split a single column to multiple columns
 """
 # Rename List to _list to be able to use function name list without clashing
 from typing import Union as _Union, List as _list
+import logging as _logging
 import pandas as _pd
 from .. import format as _format
 import json as _json
@@ -56,6 +57,7 @@ def dictionary(
     """ 
     if default is None:
         default = {}
+    _logging.debug(f": Splitting dictionaries :: input :: {input}")
     # Ensure input is passed as a list
     if not isinstance(input, _list):
         input = [input]
@@ -130,6 +132,7 @@ def list(df: _pd.DataFrame, input: _Union[str, int], output: _Union[str, _list])
           If providing a single column, use a wildcard (*)
           to indicate a incrementing integer
     """
+    _logging.debug(f": Splitting lists :: input :: {input}")
     # Ensure rows are lists even if they are JSON strings
     results = [
         row if isinstance(row, _list) else _json.loads(row)
@@ -218,6 +221,7 @@ def text(
         description: Whether to skip empty values
         default: false
     """
+    _logging.debug(f": Splitting text :: char :: {char}, input :: {input}")
     # Ensure only a single input column is specified
     if isinstance(input, _list):
         if len(input) != 1:
@@ -323,6 +327,8 @@ def tokenize(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for split.tokenize')
+
+    _logging.debug(f": Tokenizing :: input :: {input}")
     
     func = None
     pattern = None

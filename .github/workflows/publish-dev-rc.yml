@@ -1,0 +1,204 @@
+name: Publish Dev Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Base version e.g. 1.20.0  (rcN suffix is appended automatically)"
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: wrangleworks/wrangles
+
+jobs:
+  # ── 1. Validate branch + input, compute the next rcN version ─────────────
+  compute-version:
+    name: Compute RC Version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for OIDC to query CodeArtifact
+    outputs:
+      rc_version: ${{ steps.compute.outputs.rc_version }}
+    steps:
+      - name: Guard – dev or main branch only
+        if: github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::This workflow may only be triggered from the 'dev' or 'main' branch. Current ref: ${{ github.ref }}"
+          exit 1
+
+      - name: Validate version input format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version input '${{ inputs.version }}' is invalid. Expected format: MAJOR.MINOR.PATCH (e.g. 1.20.0)"
+            exit 1
+          fi
+
+      - name: Validate required GitHub Variables
+        env:
+          AWS_PUBLISH_ROLE_ARN: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          CODEARTIFACT_DOMAIN: ${{ vars.CODEARTIFACT_DOMAIN }}
+          CODEARTIFACT_DOMAIN_OWNER: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
+          CODEARTIFACT_REPOSITORY: ${{ vars.CODEARTIFACT_REPOSITORY }}
+        run: |
+          MISSING=()
+          [[ -z "$AWS_PUBLISH_ROLE_ARN"      ]] && MISSING+=(AWS_PUBLISH_ROLE_ARN)
+          [[ -z "$AWS_REGION"                ]] && MISSING+=(AWS_REGION)
+          [[ -z "$CODEARTIFACT_DOMAIN"       ]] && MISSING+=(CODEARTIFACT_DOMAIN)
+          [[ -z "$CODEARTIFACT_DOMAIN_OWNER" ]] && MISSING+=(CODEARTIFACT_DOMAIN_OWNER)
+          [[ -z "$CODEARTIFACT_REPOSITORY"   ]] && MISSING+=(CODEARTIFACT_REPOSITORY)
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo "::error::The following GitHub Actions Variables are not set: ${MISSING[*]}"
+            echo "::error::See docs/aws-config.md (Step 4) for setup instructions."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Compute next RC version from CodeArtifact
+        id: compute
+        env:
+          BASE: ${{ inputs.version }}
+          CODEARTIFACT_DOMAIN: ${{ vars.CODEARTIFACT_DOMAIN }}
+          CODEARTIFACT_DOMAIN_OWNER: ${{ vars.CODEARTIFACT_DOMAIN_OWNER }}
+          CODEARTIFACT_REPOSITORY: ${{ vars.CODEARTIFACT_REPOSITORY }}
+        run: |
+          # Existing RC versions live in CodeArtifact (RCs are no longer published to PyPI).
+          # ResourceNotFoundException means the package has never been published -> treat as rc1.
+          # Any other error (auth, permissions, config) is a hard failure.
+          CA_STDERR=$(mktemp)
+          EXISTING_VERSIONS=$(aws codeartifact list-package-versions \
+            --domain "$CODEARTIFACT_DOMAIN" \
+            --domain-owner "$CODEARTIFACT_DOMAIN_OWNER" \
+            --repository "$CODEARTIFACT_REPOSITORY" \
+            --format pypi --package wrangles \
+            --query 'versions[].version' --output text 2>"$CA_STDERR") || {
+            if grep -q "ResourceNotFoundException" "$CA_STDERR"; then
+              echo "Package not yet in CodeArtifact – will start at rc1."
+              EXISTING_VERSIONS=""
+            else
+              echo "::error::CodeArtifact query failed:"
+              cat "$CA_STDERR" >&2
+              exit 1
+            fi
+          }
+          rm -f "$CA_STDERR"
+
+          RC_VERSION=$(BASE="$BASE" EXISTING_VERSIONS="$EXISTING_VERSIONS" python3 - <<'PYEOF'
+          import os, re
+          base = os.environ["BASE"]
+          versions = os.environ.get("EXISTING_VERSIONS", "").split()
+          pat = re.compile(rf"^{re.escape(base)}rc(\d+)$")
+          nums = [int(m.group(1)) for v in versions if (m := pat.match(v))]
+          print(f"{base}rc{max(nums) + 1 if nums else 1}")
+          PYEOF
+          )
+          echo "rc_version=${RC_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved RC version: ${RC_VERSION}"
+
+  # ── 2. Pip-install smoke test ─────────────────────────────────────────────
+  # NOTE: The full pytest suite is intentionally NOT run here. This workflow is
+  # guarded to the 'dev' and 'main' branches, and every commit on those branches
+  # is already tested by publish-dev.yml / publish-main.yml respectively.
+  test-pip-install:
+    name: smoke test
+    runs-on: ubuntu-latest
+    needs: [compute-version]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Test pip install
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          wrangles.recipe tests/samples/generate-data.wrgl.yml
+
+  # ── 3. Publish Python package to CodeArtifact ────────────────────────────
+  publish-codeartifact:
+    name: Publish RC Package
+    runs-on: ubuntu-latest
+    needs: [compute-version, test-pip-install]
+    permissions:
+      contents: read
+      id-token: write   # required for OIDC AssumeRoleWithWebIdentity
+    env:
+      RC_VERSION: ${{ needs.compute-version.outputs.rc_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Patch version in setup.py
+        run: |
+          sed -i "s/^\(\s*version\s*=\s*\).*/\1'${RC_VERSION}',/" setup.py
+          echo "setup.py version line after patch:"
+          grep "version" setup.py
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_PUBLISH_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Install build tooling
+        run: python -m pip install build twine --user
+
+      - name: Patch setup.py to use requirements-full.txt
+        run: |
+          sed -i "s/requirements\.txt/requirements-full.txt/" setup.py
+          echo "setup.py requirements line after patch:"
+          grep "requirements" setup.py
+
+      - name: Build sdist and wheel
+        run: python -m build --sdist --wheel --outdir dist/ .
+
+      - name: Log in to CodeArtifact (twine)
+        run: |
+          aws codeartifact login --tool twine \
+            --domain ${{ vars.CODEARTIFACT_DOMAIN }} \
+            --domain-owner ${{ vars.CODEARTIFACT_DOMAIN_OWNER }} \
+            --repository ${{ vars.CODEARTIFACT_REPOSITORY }}
+
+      - name: Publish to CodeArtifact
+        run: twine upload --repository codeartifact dist/*
+
+  # ── 4. Trigger QA deployment in Lambda-Recipes ───────────────────────────
+  # CROSS_REPO_PAT: a GitHub PAT with Actions read/write on Lambda-Recipes,
+  # stored as a repository or org secret. Required to dispatch workflows across repositories.
+  trigger-deploy-qa:
+    name: Trigger QA Deploy
+    runs-on: ubuntu-latest
+    needs: [compute-version, publish-codeartifact]
+    steps:
+      - name: Deploy QA
+        uses: convictional/trigger-workflow-and-wait@v1.6.5
+        with:
+          owner: wrangleworks
+          repo: Lambda-Recipes
+          workflow_file_name: deploy-qa.yml
+          github_token: ${{ secrets.CROSS_REPO_PAT }}
+          ref: main
+          wait_interval: 15
+          client_payload: '{"wrangles_version": "${{ needs.compute-version.outputs.rc_version }}"}'
+          propagate_failure: true
+          trigger_workflow: true
+          wait_workflow: true
