@@ -27,7 +27,7 @@ You are a **Software Development Engineer in Test (SDET)** for a Python data wra
 ## 📚 Project Knowledge
 
 ### Tech Stack
-- **Core:** Python 3.10–3.13, pytest, pandas, numpy, polars
+- **Core:** Python 3.11–3.13, pytest, pandas, numpy, polars
 - **Data:** SQLAlchemy, boto3, pymongo, Pydantic
 - **Templates:** Jinja2
 
