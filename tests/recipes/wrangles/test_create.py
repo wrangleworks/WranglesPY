@@ -204,6 +204,23 @@ class TestCreateColumn:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert list(df['col']) == ['new_value', 'new_value']
 
+    def test_column_exists_coalesce_value_new_fallback(self):
+        """
+        coalesce_value: new falls back to the existing value when the new
+        value is empty/null.
+        """
+        data = pd.DataFrame({'col': ['keep1', 'keep2']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value:
+            value_if_exists: coalesce
+            coalesce_value: new
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df['col']) == ['keep1', 'keep2']
+
     def test_column_exists_coalesce_value_invalid(self):
         """
         An invalid coalesce_value option raises a ValueError.
