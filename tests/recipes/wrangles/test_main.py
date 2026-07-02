@@ -3969,7 +3969,32 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
-    
+
+    def test_recipe_where_empty_dataframe(self):
+        """
+        Test that when where filters out all rows, the recipe wrangle is
+        skipped entirely and does not fail due to missing columns. Issue #1005.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - recipe:
+                  where: successful_search == True
+                  wrangles:
+                    - split.dictionary:
+                        input: scored_results
+                    - split.dictionary:
+                        input: summary
+            """,
+            dataframe=pd.DataFrame({
+                'scored_results': [{}],
+                'successful_search': [False]
+            })
+        )
+        assert df['scored_results'].tolist() == [{}]
+        assert df['successful_search'].tolist() == [False]
+        assert 'summary' not in df.columns
+
     def test_recipe_empty_column_preserved(self):
         data = [
             ["col1", "", "col2"],
@@ -5921,6 +5946,34 @@ class TestBatch:
             })
         )     
         assert df['output col'].to_list() == ["A","","C"]
+
+    def test_batch_size_one_where_no_column_shift(self):
+        """
+        Test batch_size: 1 combined with a wrangle-level where.
+        Regression test - when a batch's single row does not match
+        the where clause, the output column must still be created
+        (as an empty value) rather than omitted entirely, otherwise
+        results become misaligned between batches.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - convert.case:
+                        input: Desc
+                        output: output_column_name
+                        case: upper
+                        where: WC = "A"
+            """,
+            dataframe=pd.DataFrame({
+                "WC": ["A", "A", "B"],
+                "Desc": ["first A", "second A", "first B"]
+            })
+        )
+        assert df.columns.tolist() == ["WC", "Desc", "output_column_name"]
+        assert df["output_column_name"].to_list() == ["FIRST A", "SECOND A", ""]
 
     def test_batch_variables(self):
         """
