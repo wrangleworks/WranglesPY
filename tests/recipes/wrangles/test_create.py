@@ -92,44 +92,148 @@ class TestCreateColumn:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['column3'] in [True, False]
         
-    def test_column_exists(self):
+    def test_column_exists_no_error(self):
         """
-        Check error if trying to create a column that already exists
+        Default behaviour: creating a column that already exists should not raise
+        an error — the existing column is left unchanged.
         """
-        data = pd.DataFrame({
-        'col': ['data1']
-        })
+        data = pd.DataFrame({'col': ['data1']})
         recipe = """
         wrangles:
         - create.column:
             output: col
+            value: new_value
         """
-        with pytest.raises(ValueError) as info:
-            wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            info.typename == 'ValueError' and
-            '"col" column already exists in dataFrame.' in info.value.args[0]
-        )
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['col'][0] == 'data1'
 
-    def test_column_exists_list(self):
+    def test_column_exists_list_no_error(self):
         """
-        Check error if trying to create a list of columns where one already exists
+        Default behaviour: creating a list of columns where one already exists
+        should not raise an error — the existing column is left unchanged.
         """
-        data = pd.DataFrame({
-        'col': ['data1']
-        })
+        data = pd.DataFrame({'col': ['data1']})
         recipe = """
         wrangles:
         - create.column:
             output:
                 - col
+                - col2
+            value: new_value
         """
-        with pytest.raises(ValueError) as info:
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['col'][0] == 'data1' and df['col2'][0] == 'new_value'
+
+    def test_column_exists_value_if_exists_existing(self):
+        """
+        Explicit value_if_exists: existing leaves the column unchanged.
+        """
+        data = pd.DataFrame({'col': ['data1']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: new_value
+            value_if_exists: existing
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df['col'][0] == 'data1'
+
+    def test_column_exists_value_if_exists_new(self):
+        """
+        value_if_exists: new overwrites the entire existing column.
+        """
+        data = pd.DataFrame({'col': ['data1', 'data2']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: replaced
+            value_if_exists: new
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df['col']) == ['replaced', 'replaced']
+
+    def test_column_exists_value_if_exists_coalesce(self):
+        """
+        value_if_exists: coalesce fills only null/empty cells, leaving non-null
+        cells intact.
+        """
+        data = pd.DataFrame({'col': ['keep', None, '']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: filled
+            value_if_exists: coalesce
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df['col']) == ['keep', 'filled', 'filled']
+
+    def test_column_exists_value_if_exists_coalesce_numeric(self):
+        """
+        value_if_exists: coalesce on a numeric column only fills NaN cells,
+        without comparing values to an empty string.
+        """
+        data = pd.DataFrame({'col': [1, None, 3]})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: 99
+            value_if_exists: coalesce
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df['col']) == [1, 99, 3]
+
+    def test_column_exists_coalesce_value_new(self):
+        """
+        coalesce_value: new prefers the new value over a non-empty existing
+        value, only falling back to the existing value where the new value
+        is empty/null.
+        """
+        data = pd.DataFrame({'col': ['keep1', 'keep2']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: new_value
+            value_if_exists: coalesce
+            coalesce_value: new
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert list(df['col']) == ['new_value', 'new_value']
+
+    def test_column_exists_coalesce_value_invalid(self):
+        """
+        An invalid coalesce_value option raises a ValueError.
+        """
+        data = pd.DataFrame({'col': ['data1']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: new_value
+            value_if_exists: coalesce
+            coalesce_value: not_a_real_option
+        """
+        with pytest.raises(ValueError, match="coalesce_value"):
             wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            info.typename == 'ValueError' and
-            "['col'] column(s)" in info.value.args[0]
-        )
+
+    def test_column_exists_value_if_exists_invalid(self):
+        """
+        An invalid value_if_exists option raises a ValueError.
+        """
+        data = pd.DataFrame({'col': ['data1']})
+        recipe = """
+        wrangles:
+        - create.column:
+            output: col
+            value: new_value
+            value_if_exists: existng
+        """
+        with pytest.raises(ValueError, match="value_if_exists"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
     def test_create_column_value_number(self):
         """
