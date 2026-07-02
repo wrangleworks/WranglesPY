@@ -125,6 +125,7 @@ jobs:
       - name: Test pip install
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements-full.txt
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
@@ -161,12 +162,6 @@ jobs:
 
       - name: Install build tooling
         run: python -m pip install build twine --user
-
-      - name: Patch setup.py to use requirements-full.txt
-        run: |
-          sed -i "s/requirements\.txt/requirements-full.txt/" setup.py
-          echo "setup.py requirements line after patch:"
-          grep "requirements" setup.py
 
       - name: Build sdist and wheel
         run: python -m build --sdist --wheel --outdir dist/ .

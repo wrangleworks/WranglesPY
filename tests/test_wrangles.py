@@ -291,6 +291,35 @@ def test_lookup_list_value_list_column():
     result = wrangles.lookup(["a"], "fe730444-1bda-4fcd", ["Value"])
     assert result == [[1]]
 
+def test_lookup_n_single_input():
+    """
+    Test n returns a list of n matches for a single input
+    """
+    result = wrangles.lookup("Rachel", "e8658a6f-c694-45d0", n=2)
+    assert isinstance(result, list)
+    assert len(result) == 2
+
+def test_lookup_n_list_input():
+    """
+    Test n returns a list of n-lists for a list of inputs
+    """
+    result = wrangles.lookup(["Rachel", "Dolores"], "e8658a6f-c694-45d0", n=2)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], list) and len(result[0]) == 2
+    assert isinstance(result[1], list) and len(result[1]) == 2
+
+def test_lookup_n_with_column():
+    """
+    Test n with a specific column still returns a list of n dicts -
+    requesting a single column does not collapse the dict to that
+    column's value when n > 1
+    """
+    result = wrangles.lookup("Rachel", "e8658a6f-c694-45d0", "Value", n=2)
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert all(isinstance(match, dict) and "Value" in match for match in result)
+
 def test_embedding_single():
     """
     Test generating an embedding from a single value
