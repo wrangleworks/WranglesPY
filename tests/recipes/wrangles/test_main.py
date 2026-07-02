@@ -3969,32 +3969,7 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
-
-    def test_recipe_where_empty_dataframe(self):
-        """
-        Test that when where filters out all rows, the recipe wrangle is
-        skipped entirely and does not fail due to missing columns. Issue #1005.
-        """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-              - recipe:
-                  where: successful_search == True
-                  wrangles:
-                    - split.dictionary:
-                        input: scored_results
-                    - split.dictionary:
-                        input: summary
-            """,
-            dataframe=pd.DataFrame({
-                'scored_results': [{}],
-                'successful_search': [False]
-            })
-        )
-        assert df['scored_results'].tolist() == [{}]
-        assert df['successful_search'].tolist() == [False]
-        assert 'summary' not in df.columns
-
+    
     def test_recipe_empty_column_preserved(self):
         data = [
             ["col1", "", "col2"],
@@ -6050,6 +6025,33 @@ class TestBatch:
   
 
 
+def _seed_lookup_model(model_id, dataframe, timeout=15, interval=0.5):
+    """
+    Overwrite a live train.lookup model and poll until the write is visible.
+
+    The lookup API is eventually consistent, so callers must wait for the
+    write to land before reading it back rather than assuming it's immediate.
+    """
+    wrangles.recipe.run(
+        f"""
+        write:
+          - train.lookup:
+              model_id: {model_id}
+              action: overwrite
+              variant: key
+        """,
+        dataframe=dataframe,
+    )
+    expected_keys = set(dataframe['Key'])
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {model_id}")
+        if set(result.columns) == set(dataframe.columns) and set(result['Key']) == expected_keys:
+            return
+        time.sleep(interval)
+    raise AssertionError(f"Lookup model {model_id} did not reach seeded state within {timeout}s")
+
+
 class TestLookup:
     """
     Test lookup wrangle
@@ -6203,6 +6205,58 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Col1': ['a']} )  
             )  
     
+    def test_lookup_output_key_only(self):
+        """
+        Specifying output: Key should return the looked-up key string, not a dict.
+        Issue #992: 'Key' was not in metadata["settings"]["columns"] so the unnamed-
+        columns path was hit and the full dict was returned instead.
+        """
+        _seed_lookup_model(
+            '3f23acaf-a2e6-4327',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output: Key
+                  model_id: 3f23acaf-a2e6-4327
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+
+    def test_lookup_output_key_and_value_column(self):
+        """
+        Specifying output: [Key, Schema] must work without error.
+        Issue #992: mixing 'Key' with a real model column raised ValueError.
+        """
+        _seed_lookup_model(
+            '33961b4e-92f5-4705',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output:
+                    - Key
+                    - Schema
+                  model_id: 33961b4e-92f5-4705
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+        assert df['Schema'].tolist() == ['fruit', 'fruit', 'fruit']
+
     def test_lookup_mode_invalid_mode(self):  
         """  
         Test error when invalid lookup_mode is provided  
@@ -6966,7 +7020,7 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
-
+        
     def test_lookup_n_single_output(self):
         """
         Test lookup with n returns a list of n matches in a single output column

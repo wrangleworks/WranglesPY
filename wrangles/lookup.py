@@ -19,8 +19,8 @@ def lookup(
     :param model_id: The model to be used.
     :param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict.
     :param n: (Optional) Number of matches to return per input. When > 1, returns a list of n
-            dicts per input - each match is always a dict, even if a single column is requested.
-            """
+        dicts per input - each match is always a dict, even if a single column is requested.
+    """
     # Check if user has entered a single input or multiple inputs
     single_input = False
     if not isinstance(input, list):
@@ -61,10 +61,8 @@ def lookup(
         )
 
     _logging.info(f": Looking up {len(input)} values :: model_id :: {model_id}")
-
     if n:
         kwargs['n'] = n
-
     results = _batching.batch_api_calls(
         f'{_config.api_host}/wrangles/lookup',
         {
