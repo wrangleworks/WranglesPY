@@ -17,8 +17,7 @@ def dictionary(
     df: _pd.DataFrame,
     input: _Union[str, int, _list],
     output: _Union[str, _list] = None,
-    default: dict = None,
-    output_format: str = "columns"
+    default: dict = None
 ) -> _pd.DataFrame:
     """
     type: object
@@ -31,7 +30,7 @@ def dictionary(
       - input
     properties:
       input:
-        type:
+        type: 
           - string
           - integer
           - array
@@ -40,36 +39,22 @@ def dictionary(
           If providing multiple dictionaries and the dictionaries
           contain overlapping values, the last value will be returned.
       output:
-        type:
+        type: 
           - string
           - array
         description: |-
-          In columns output_format, this is an optional subset of keys to extract
-          from the dictionary. If not provided, all keys will be returned.
+          (Optional) Subset of keys to extract from the dictionary.
+          If not provided, all keys will be returned.
           Columns can be renamed with the following syntax:
           output:
             - key1: new_column_name1
             - key2: new_column_name2
-          In to_lists output_format, this must be two output columns for the keys
-          and values lists. If not provided, Keys and Values will be used.
       default:
         type: object
         description: >-
           Provide a set of default headings and values
           if they are not found within the input
-      output_format:
-        type: string
-        enum:
-          - columns
-          - to_lists
-        description: |-
-          How to split the dictionary.
-          columns creates one output column for each dictionary key.
-          to_lists creates two output columns containing lists of keys and values.
-    """
-    if output_format not in ["columns", "to_lists"]:
-        raise ValueError("output_format must be one of: columns, to_lists")
-
+    """ 
     if default is None:
         default = {}
     _logging.debug(f": Splitting dictionaries :: input :: {input}")
@@ -88,28 +73,11 @@ def dictionary(
         raise ValueError(f'{val} is not a valid Dictionary') from None
         
 
-    # Merge each row's dictionaries so duplicate keys follow existing behavior:
-    # later input columns overwrite earlier input columns.
-    dicts = [
+    # Generate new columns for each key in the dictionary
+    df_temp = _pd.DataFrame([
         dict(_itertools.chain.from_iterable(_parse_dict_or_json(d) for d in ([default] + row.tolist())))
         for row in df[input].values
-    ]
-
-    if output_format == "to_lists":
-        if output is None:
-            output = ["Keys", "Values"]
-        elif not isinstance(output, _list):
-            output = [output]
-
-        if len(output) != 2:
-            raise ValueError("split.dictionary with output_format to_lists requires exactly two output columns")
-
-        df[output[0]] = [[key for key in item.keys()] for item in dicts]
-        df[output[1]] = [[value for value in item.values()] for item in dicts]
-        return df
-
-    # Generate new columns for each key in the dictionary
-    df_temp = _pd.DataFrame(dicts)
+    ])
 
     # If user has defined how they'd like the output columns
     if output is not None:

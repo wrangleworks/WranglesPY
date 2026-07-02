@@ -903,8 +903,7 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    lookup_mode: str = 'by_row',
-    n: int = None,
+    lookup_mode: str = 'by_row', 
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -926,15 +925,7 @@ def lookup(
         type:
           - string
           - array
-        description: >-
-          Name of the output column(s). When n is provided and the output list
-          length equals n, each output column receives the corresponding match.
-      n:
-        type: integer
-        description: >-
-          Number of matches to return per input value. When the output list
-          length equals n, each output column receives the corresponding match.
-          Otherwise all n matches are stored as a list in each output column.
+        description: Name of the output column(s)
       lookup_mode:
         type: string
         description: >-
@@ -995,12 +986,6 @@ def lookup(
             kwargs.pop('matrix_variables')
           return kwargs
 
-        # Distribute the n matches for each row across the output columns,
-        # ranked match i goes to output column i
-        def _distribute_n_matches(data):
-          for i, out in enumerate(output):
-            df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
-
         # Perform lookup based on lookup_mode
         if lookup_mode == 'by_row':
           # Current behavior - process all rows
@@ -1010,40 +995,20 @@ def lookup(
               df[input].values.tolist(),
               model_id,
               columns=wrangle_output,
-              n=n,
               **_clean_kwargs(kwargs)
             )
-            if n and n > 1 and len(output) == n:
-              # Distribute: each output column gets the nth match
-              _distribute_n_matches(data)
-            elif n and n > 1 and len(output) > 1:
-              raise ValueError(
-                f'When n > 1 and multiple output columns are provided, the number '
-                f'of output columns ({len(output)}) must equal n ({n}).'
-              )
-            else:
-              df[output] = data
+            df[output] = data
           elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified no columns from the wrangle
             data = _lookup(
               df[input].values.tolist(),
               model_id,
-              n=n,
               **_clean_kwargs(kwargs)
             )
-            if n and n > 1 and len(output) == n:
-              # Distribute: each output column gets the nth match
-              _distribute_n_matches(data)
-            elif n and n > 1 and len(output) > 1:
-              raise ValueError(
-                f'When n > 1 and multiple output columns are provided, the number '
-                f'of output columns ({len(output)}) must equal n ({n}).'
-              )
-            else:
-              for out in output:
-                df[out] = data
+            for out in output:
+              df[out] = data
           else:
-            # User specified a mixture of unrecognized columns and columns from the wrangle
+            # User specified a mixture of unrecognized columns and columns from the wrangle 
             raise ValueError('Lookup may only contain all named or unnamed columns.')
                   
         elif lookup_mode == 'by_dataframe':
