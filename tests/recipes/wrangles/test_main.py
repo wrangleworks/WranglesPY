@@ -6967,6 +6967,150 @@ class TestLookup:
         )
         assert df['Value'][0] == ""
 
+    def test_lookup_n_single_output(self):
+        """
+        Test lookup with n returns a list of n matches in a single output column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output: Matches
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert isinstance(df['Matches'].iloc[0], list)
+        assert len(df['Matches'].iloc[0]) == 2
+
+    def test_lookup_n_output_distribution(self):
+        """
+        Test lookup with n where output list length equals n distributes matches across columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+
+    def test_lookup_n_output_wildcard_expansion(self):
+        """
+        Test lookup with n where a single wildcard output name is expanded
+        into one column per match
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Top *
+                model_id: e8658a6f-c694-45d0
+                n: 3
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Top 1' in df.columns
+        assert 'Top 2' in df.columns
+        assert 'Top 3' in df.columns
+        assert df['Top 1'].iloc[0] != df['Top 2'].iloc[0] != df['Top 3'].iloc[0]
+
+    def test_lookup_n_output_distribution_multiple_rows(self):
+        """
+        Test lookup with n distributes matches correctly across multiple rows
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel', 'Dolores']})
+        )
+        assert len(df) == 2
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+        assert df['Match1'].iloc[0] != df['Match2'].iloc[0]
+
+    def test_lookup_n_named_output_columns_distribution(self):
+        """
+        Test lookup with n where the output columns match the model's
+        column names, distributing matches across those columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Value
+                  - Score
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Value' in df.columns
+        assert 'Score' in df.columns
+        assert df['Value'].iloc[0] != df['Score'].iloc[0]
+
+    def test_lookup_n_output_mismatch_named_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Value
+                      - Score
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
+
+    def test_lookup_n_output_mismatch_unnamed_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that don't correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Match1
+                      - Match2
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
+
     def test_lookup_wrong_model_id_type(self):
         """
         Test the error message when passing through a model_id for a different wrangle type
