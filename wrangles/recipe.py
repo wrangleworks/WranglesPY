@@ -506,8 +506,39 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
-                    # If where filters out all rows, skip the wrangle entirely
+                    # If where filters out all rows, skip actually executing the
+                    # wrangle (some wrangles error when given no rows), but if it
+                    # explicitly declares output columns, still add them (empty)
+                    # so the dataframe structure stays consistent with runs where
+                    # at least one row matches - otherwise batching with where can
+                    # produce inconsistent columns between batches
                     if len(df) == 0:
+                        if 'output' in params:
+                            if isinstance(params['output'], list):
+                                output_columns = [
+                                    list(col.values()) if isinstance(col, dict) else [col]
+                                    for col in params['output']
+                                ]
+                                output_columns = [
+                                    item
+                                    for sublist in output_columns
+                                    for item in sublist
+                                ]
+                            elif isinstance(params['output'], dict):
+                                output_columns = list(params['output'].keys())
+                            else:
+                                output_columns = [params['output']]
+
+                            for col in output_columns:
+                                # Wildcard outputs (e.g. 'Col*') are expanded into
+                                # concrete column names based on the actual data,
+                                # which can't be determined with no rows to work
+                                # with - skip adding those, only add named columns
+                                if '*' in str(col):
+                                    continue
+                                if col not in df_original.columns:
+                                    df_original[col] = ''
+
                         df = df_original
                         continue
 
