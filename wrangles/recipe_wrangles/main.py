@@ -929,6 +929,8 @@ def lookup(
         description: >-
           Name of the output column(s). When n is provided and the output list
           length equals n, each output column receives the corresponding match.
+          A single output containing a wildcard (*) is expanded into n columns,
+          e.g. "Top *" with n: 3 becomes "Top 1", "Top 2", "Top 3".
       n:
         type: integer
         description: >-
@@ -958,6 +960,16 @@ def lookup(
 
     # Ensure output is a list
     if not isinstance(output, list): output = [output]
+
+    # Expand a single wildcard output name into one column per match
+    # e.g. output: "Top *" with n=3 -> ["Top 1", "Top 2", "Top 3"]
+    if (
+        n and n > 1 and
+        len(output) == 1 and
+        isinstance(output[0], str) and
+        '*' in output[0]
+    ):
+        output = [output[0].replace('*', str(i)) for i in range(1, n + 1)]
 
     # Return early on empty df
     if df.empty: 

@@ -6952,6 +6952,28 @@ class TestLookup:
         assert 'Match1' in df.columns
         assert 'Match2' in df.columns
 
+    def test_lookup_n_output_wildcard_expansion(self):
+        """
+        Test lookup with n where a single wildcard output name is expanded
+        into one column per match
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Top *
+                model_id: e8658a6f-c694-45d0
+                n: 3
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Top 1' in df.columns
+        assert 'Top 2' in df.columns
+        assert 'Top 3' in df.columns
+        assert df['Top 1'].iloc[0] != df['Top 2'].iloc[0] != df['Top 3'].iloc[0]
+
     def test_lookup_n_output_distribution_multiple_rows(self):
         """
         Test lookup with n distributes matches correctly across multiple rows
