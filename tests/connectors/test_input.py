@@ -79,3 +79,42 @@ def test_read_union():
         df["header1"].values.tolist() == ["a", "b", "c", "d"] and
         len(df) == 4
     )
+
+def test_read_no_dataframe():
+    """
+    Test that reading input without a dataframe being
+    passed in returns an empty dataframe instead of erroring
+    https://github.com/wrangleworks/WranglesPY/issues/943
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - input
+        """
+    )
+    assert df.empty
+
+def test_read_union_no_dataframe():
+    """
+    Test that a union with input as a source falls back to
+    the other source(s) when no dataframe is passed in
+    https://github.com/wrangleworks/WranglesPY/issues/943
+    """
+    df = wrangles.recipe.run(
+        """
+        read:
+          - union:
+              sources:
+                - test:
+                    rows: 1
+                    values:
+                      idx: 0
+                      header1: a
+                - input
+        """
+    )
+    assert (
+        df.columns.tolist() == ["idx", "header1"] and
+        df["header1"].values.tolist() == ["a"] and
+        len(df) == 1
+    )
