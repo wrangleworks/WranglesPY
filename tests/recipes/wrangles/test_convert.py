@@ -1289,6 +1289,89 @@ class TestConvertFromYAML:
             df["col2"][1] == [1, 2, 3]
         )
 
+    def test_from_yaml_to_yaml_roundtrip_reported_data(self):
+        """
+        Regression test for a reported round-trip bug (PR #987 review):
+        convert.from_yaml -> convert.to_yaml on multiple wildcard-matched
+        columns with per-column defaults should be idempotent - running
+        from_yaml again on the round-tripped output must reproduce the
+        same parsed values, for every row, including a row with a
+        malformed/empty cell that must fall back to its column's default.
+        """
+        df = pd.DataFrame({
+            "Top 1": [
+                "Score: 0.295\nValue: Blade Runner",
+                "Score: 0.234\nValue: Interstellar",
+                "Score: 0.291\nValue: Interstellar",
+            ],
+            "Top 2": [
+                "[]",
+                "Score: 0.22\nValue: Westworld",
+                "Score: 0.248\nValue: Blade Runner",
+            ],
+            "Top 3": [
+                "Score: 0.174\nValue: Westworld",
+                "'",
+                "Score: 0.195\nValue: Westworld",
+            ],
+        })
+        recipe = """
+        wrangles:
+          - convert.from_yaml:
+              input:
+                - Top *
+              default:
+                - {}
+                - []
+                - ''
+        """
+        parsed = wrangles.recipe.run(recipe, dataframe=df.copy())
+
+        assert parsed.to_dict(orient="records") == [
+            {
+                "Top 1": {"Score": 0.295, "Value": "Blade Runner"},
+                "Top 2": [],
+                "Top 3": {"Score": 0.174, "Value": "Westworld"},
+            },
+            {
+                "Top 1": {"Score": 0.234, "Value": "Interstellar"},
+                "Top 2": {"Score": 0.22, "Value": "Westworld"},
+                # Malformed cell ("'") fails to parse and falls back to the default
+                "Top 3": "",
+            },
+            {
+                "Top 1": {"Score": 0.291, "Value": "Interstellar"},
+                "Top 2": {"Score": 0.248, "Value": "Blade Runner"},
+                "Top 3": {"Score": 0.195, "Value": "Westworld"},
+            },
+        ]
+
+        roundtripped = wrangles.recipe.run(
+            """
+            wrangles:
+              - convert.from_yaml:
+                  input:
+                    - Top *
+                  default:
+                    - {}
+                    - []
+                    - ''
+              - convert.to_yaml:
+                  input:
+                    - Top *
+              - convert.from_yaml:
+                  input:
+                    - Top *
+                  default:
+                    - {}
+                    - []
+                    - ''
+            """,
+            dataframe=df.copy()
+        )
+
+        assert parsed.to_dict(orient="records") == roundtripped.to_dict(orient="records")
+
 
 class TestConvertToJSON:
     """

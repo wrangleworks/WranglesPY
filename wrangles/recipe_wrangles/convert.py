@@ -550,7 +550,11 @@ def from_yaml(
     for input_column, output_column, col_default in zip(input, output, defaults):
         def _load_with_fallback(value, _col_default=col_default):
             try:
-                return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or _col_default
+                result = _yaml.load(value, Loader=_YAMLLoader, **kwargs)
+                # Only fall back to the default if the row was empty (parses to None).
+                # A falsy-but-valid result (e.g. [], {}, '', False, 0) must be preserved
+                # as-is rather than being overwritten by the default.
+                return _col_default if result is None else result
             except:
                 if _col_default is not None:
                     return _col_default
