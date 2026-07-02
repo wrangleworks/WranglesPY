@@ -902,9 +902,9 @@ class TestTrainLookup:
         """
         UPSERT with a column that doesn't exist in the model yet must add
         that column; existing rows receive '' for the new column.
-        
+
         """
-        MODEL = 'f6896dae-3b48-4bbe'
+        MODEL = 'c060a706-db4a-4564'
 
         wrangles.recipe.run(
             f"""
@@ -1484,7 +1484,7 @@ class TestTrainLookup:
         present in the model but absent from the incoming DataFrame.
         Issue #992: unspecified columns were silently dropped.
         """
-        MODEL = 'f6896dae-3b48-4bbe'
+        MODEL = 'be1fcb1c-08ea-43bc'
 
         wrangles.recipe.run(
             f"""
@@ -1535,7 +1535,7 @@ class TestTrainLookup:
         INSERT must not drop columns that exist in the model but are absent
         from the incoming DataFrame.  New rows get '' for unspecified columns.
         """
-        MODEL = 'f6896dae-3b48-4bbe'
+        MODEL = '29a87d05-0617-4283'
 
         wrangles.recipe.run(
             f"""
@@ -1587,7 +1587,7 @@ class TestTrainLookup:
         all other columns — on both the updated and untouched rows — must be
         preserved exactly.
         """
-        MODEL = 'f6896dae-3b48-4bbe'
+        MODEL = 'dcac58c3-7da0-403f'
 
         wrangles.recipe.run(
             f"""

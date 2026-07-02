@@ -6001,10 +6001,8 @@ def _seed_lookup_model(model_id, dataframe, timeout=15, interval=0.5):
     """
     Overwrite a live train.lookup model and poll until the write is visible.
 
-    model_id f6896dae-3b48-4bbe is a shared live fixture also mutated by
-    tests/connectors/test_train.py, so tests relying on its contents must
-    re-seed known state themselves rather than assume it, and must wait
-    for the eventually-consistent write to land before reading it back.
+    The lookup API is eventually consistent, so callers must wait for the
+    write to land before reading it back rather than assuming it's immediate.
     """
     wrangles.recipe.run(
         f"""
@@ -6186,7 +6184,7 @@ class TestLookup:
         columns path was hit and the full dict was returned instead.
         """
         _seed_lookup_model(
-            'f6896dae-3b48-4bbe',
+            '3f23acaf-a2e6-4327',
             pd.DataFrame({
                 'Key':    ['apple', 'banana', 'cherry'],
                 'Schema': ['fruit', 'fruit',  'fruit'],
@@ -6198,7 +6196,7 @@ class TestLookup:
               - lookup:
                   input: fruit
                   output: Key
-                  model_id: f6896dae-3b48-4bbe
+                  model_id: 3f23acaf-a2e6-4327
             """,
             dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
         )
@@ -6210,7 +6208,7 @@ class TestLookup:
         Issue #992: mixing 'Key' with a real model column raised ValueError.
         """
         _seed_lookup_model(
-            'f6896dae-3b48-4bbe',
+            '33961b4e-92f5-4705',
             pd.DataFrame({
                 'Key':    ['apple', 'banana', 'cherry'],
                 'Schema': ['fruit', 'fruit',  'fruit'],
@@ -6224,7 +6222,7 @@ class TestLookup:
                   output:
                     - Key
                     - Schema
-                  model_id: f6896dae-3b48-4bbe
+                  model_id: 33961b4e-92f5-4705
             """,
             dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
         )
