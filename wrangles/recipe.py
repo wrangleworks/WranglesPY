@@ -530,6 +530,12 @@ def _execute_wrangles(
                                 output_columns = [params['output']]
 
                             for col in output_columns:
+                                # Wildcard outputs (e.g. 'Col*') are expanded into
+                                # concrete column names based on the actual data,
+                                # which can't be determined with no rows to work
+                                # with - skip adding those, only add named columns
+                                if '*' in str(col):
+                                    continue
                                 if col not in df_original.columns:
                                     df_original[col] = ''
 
