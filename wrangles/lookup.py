@@ -9,7 +9,6 @@ def lookup(
     input: _Union[str, list],
     model_id: str,
     columns: _Union[str, list] = None,
-    n: int = None,
     **kwargs
 ) -> _Union[str, list]:
     """
@@ -18,9 +17,7 @@ def lookup(
     :param input: A value or list of values to be looked up.
     :param model_id: The model to be used.
     :param columns: (Optional) The columns to be returned. If not provided, all columns will be returned as a dict.
-    :param n: (Optional) Number of matches to return per input. When > 1, returns a list of n
-            dicts per input - each match is always a dict, even if a single column is requested.
-            """
+    """
     # Check if user has entered a single input or multiple inputs
     single_input = False
     if not isinstance(input, list):
@@ -61,10 +58,6 @@ def lookup(
         )
 
     _logging.info(f": Looking up {len(input)} values :: model_id :: {model_id}")
-
-    if n:
-        kwargs['n'] = n
-
     results = _batching.batch_api_calls(
         f'{_config.api_host}/wrangles/lookup',
         {
@@ -76,27 +69,20 @@ def lookup(
         batch_size
     )
 
-    if n and n > 1:
-        # API returns 1 row per input; row[0] is a list of n match dicts.
-        # When n > 1, every match is always returned as a dict, even if a
-        # single column was requested - naming an output column after a
-        # lookup column does not collapse the dict to that column's value.
-        results = [row[0] for row in results["data"]]
+    if columns is None:
+        # If no columns specified, return as [{"col1": "val1", ...}, ...]
+        results = [
+            {col: val for col, val in zip(results["columns"], row)}
+            for row in results["data"]
+        ]
+    elif single_columns:
+        # If single column specified, return as 1D array [val1, ...]
+        results = [r[0] for r in results["data"]]
     else:
-        if columns is None:
-            # If no columns specified, return as [{"col1": "val1", ...}, ...]
-            results = [
-                {col: val for col, val in zip(results["columns"], row)}
-                for row in results["data"]
-            ]
-        elif single_columns:
-            # If single column specified, return as 1D array [val1, ...]
-            results = [r[0] for r in results["data"]]
-        else:
-            # If multiple columns specified, return as 2D array [[val1, ...], ...]
-            results = results["data"]
+        # If multiple columns specified, return as 2D array [[val1, ...], ...]
+        results = results["data"]
 
-    # If input was a single value, return a single value (or list of n matches)
+    # If input was a single value, return a single value
     if single_input:
         results = results[0]
 

@@ -506,11 +506,6 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
-                    # If where filters out all rows, skip the wrangle entirely
-                    if len(df) == 0:
-                        df = df_original
-                        continue
-
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
                     if key in params.keys():
