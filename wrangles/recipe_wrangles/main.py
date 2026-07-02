@@ -903,7 +903,8 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    lookup_mode: str = 'by_row', 
+    lookup_mode: str = 'by_row',
+    n: int = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -925,7 +926,17 @@ def lookup(
         type:
           - string
           - array
-        description: Name of the output column(s)
+        description: >-
+          Name of the output column(s). When n is provided and the output list
+          length equals n, each output column receives the corresponding match.
+          A single output containing a wildcard (*) is expanded into n columns,
+          e.g. "Top *" with n: 3 becomes "Top 1", "Top 2", "Top 3".
+      n:
+        type: integer
+        description: >-
+          Number of matches to return per input value. When the output list
+          length equals n, each output column receives the corresponding match.
+          Otherwise all n matches are stored as a list in each output column.
       lookup_mode:
         type: string
         description: >-
@@ -944,11 +955,21 @@ def lookup(
             input = input[0]
         else:
             raise ValueError('Input only allows one column.')
-    
+
     if output is None: output = input
 
     # Ensure output is a list
     if not isinstance(output, list): output = [output]
+
+    # Expand a single wildcard output name into one column per match
+    # e.g. output: "Top *" with n=3 -> ["Top 1", "Top 2", "Top 3"]
+    if (
+        n and n > 1 and
+        len(output) == 1 and
+        isinstance(output[0], str) and
+        '*' in output[0]
+    ):
+        output = [output[0].replace('*', str(i)) for i in range(1, n + 1)]
 
     # Return early on empty df
     if df.empty: 
@@ -993,6 +1014,12 @@ def lookup(
             kwargs.pop('matrix_variables')
           return kwargs
 
+        # Distribute the n matches for each row across the output columns,
+        # ranked match i goes to output column i
+        def _distribute_n_matches(data):
+          for i, out in enumerate(_out_cols):
+            df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
+
         # Perform lookup based on lookup_mode
         if lookup_mode == 'by_row':
           if _wrangle_cols:
@@ -1001,17 +1028,37 @@ def lookup(
                 df[input].values.tolist(),
                 model_id,
                 columns=_wrangle_cols,
+                n=n,
                 **_clean_kwargs(kwargs)
               )
-              df[_out_cols] = data
+              if n and n > 1 and len(_out_cols) == n:
+                # Distribute: each output column gets the nth match
+                _distribute_n_matches(data)
+              elif n and n > 1 and len(_out_cols) > 1:
+                raise ValueError(
+                  f'When n > 1 and multiple output columns are provided, the number '
+                  f'of output columns ({len(_out_cols)}) must equal n ({n}).'
+                )
+              else:
+                df[_out_cols] = data
             elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
               data = _lookup(
                 df[input].values.tolist(),
                 model_id,
+                n=n,
                 **_clean_kwargs(kwargs)
               )
-              for out in _out_cols:
-                df[out] = data
+              if n and n > 1 and len(_out_cols) == n:
+                # Distribute: each output column gets the nth match
+                _distribute_n_matches(data)
+              elif n and n > 1 and len(_out_cols) > 1:
+                raise ValueError(
+                  f'When n > 1 and multiple output columns are provided, the number '
+                  f'of output columns ({len(_out_cols)}) must equal n ({n}).'
+                )
+              else:
+                for out in _out_cols:
+                  df[out] = data
             else:
               raise ValueError('Lookup may only contain all named or unnamed columns.')
                   
