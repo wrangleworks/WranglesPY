@@ -969,7 +969,7 @@ def lookup(
         isinstance(output[0], str) and
         '*' in output[0]
     ):
-      output = [output[0].replace('*', str(i)) for i in range(1, n + 1)]
+        output = [output[0].replace('*', str(i)) for i in range(1, n + 1)]
 
     # Return early on empty df
     if df.empty: 
@@ -1017,7 +1017,7 @@ def lookup(
         # Distribute the n matches for each row across the output columns,
         # ranked match i goes to output column i
         def _distribute_n_matches(data):
-          for i, out in enumerate(output):
+          for i, out in enumerate(_out_cols):
             df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
 
         # Perform lookup based on lookup_mode
@@ -1031,13 +1031,13 @@ def lookup(
                 n=n,
                 **_clean_kwargs(kwargs)
               )
-              if n and n > 1 and len(output) == n:
+              if n and n > 1 and len(_out_cols) == n:
                 # Distribute: each output column gets the nth match
                 _distribute_n_matches(data)
-              elif n and n > 1 and len(output) > 1:
+              elif n and n > 1 and len(_out_cols) > 1:
                 raise ValueError(
                   f'When n > 1 and multiple output columns are provided, the number '
-                  f'of output columns ({len(output)}) must equal n ({n}).'
+                  f'of output columns ({len(_out_cols)}) must equal n ({n}).'
                 )
               else:
                 df[_out_cols] = data
@@ -1049,13 +1049,13 @@ def lookup(
                 n=n,
                 **_clean_kwargs(kwargs)
               )
-              if n and n > 1 and len(output) == n:
+              if n and n > 1 and len(_out_cols) == n:
                 # Distribute: each output column gets the nth match
                 _distribute_n_matches(data)
-              elif n and n > 1 and len(output) > 1:
+              elif n and n > 1 and len(_out_cols) > 1:
                 raise ValueError(
                   f'When n > 1 and multiple output columns are provided, the number '
-                  f'of output columns ({len(output)}) must equal n ({n}).'
+                  f'of output columns ({len(_out_cols)}) must equal n ({n}).'
                 )
               else:
                 for out in _out_cols:
