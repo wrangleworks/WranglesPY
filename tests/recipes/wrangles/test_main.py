@@ -5947,6 +5947,34 @@ class TestBatch:
         )     
         assert df['output col'].to_list() == ["A","","C"]
 
+    def test_batch_size_one_where_no_column_shift(self):
+        """
+        Test batch_size: 1 combined with a wrangle-level where.
+        Regression test - when a batch's single row does not match
+        the where clause, the output column must still be created
+        (as an empty value) rather than omitted entirely, otherwise
+        results become misaligned between batches.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - convert.case:
+                        input: Desc
+                        output: output_column_name
+                        case: upper
+                        where: WC = "A"
+            """,
+            dataframe=pd.DataFrame({
+                "WC": ["A", "A", "B"],
+                "Desc": ["first A", "second A", "first B"]
+            })
+        )
+        assert df.columns.tolist() == ["WC", "Desc", "output_column_name"]
+        assert df["output_column_name"].to_list() == ["FIRST A", "SECOND A", ""]
+
     def test_batch_variables(self):
         """
         Test batch wrangle with a variable passed through
