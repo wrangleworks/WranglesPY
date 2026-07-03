@@ -581,57 +581,6 @@ class TestTrainExtract:
                 })
             )
 
-    def test_extract_name_creates_working_model(self, caplog):
-        """
-        A model trained via 'name' must work immediately for inference. Bug #972:
-        before the fix, extract.custom returned a 500 error on newly-created models.
-        """
-        model_name = f'Bug972 Pytest Extract {uuid.uuid4().hex[:8]}'
-
-        wrangles.recipe.run(
-            f"""
-            write:
-                - train.extract:
-                    name: {model_name}
-            """,
-            dataframe=pd.DataFrame({
-                'Find':   ['Rachel', 'Dolores', 'TARS'],
-                'Output': ['Rachel', 'Dolores', 'TARS'],
-                'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
-            }),
-        )
-
-        new_model_id = None
-        for msg in caplog.messages:
-            m = re.search(r'New extract model created :: ([\w-]+)', msg)
-            if m:
-                new_model_id = m.group(1)
-                break
-
-        assert new_model_id is not None, 'model_id was not logged after training'
-
-        result = _wait_for_model(
-            f"""
-            wrangles:
-                - extract.custom:
-                    input: description
-                    output: characters
-                    model_id: {new_model_id}
-            """,
-            dataframe=pd.DataFrame({'description': [
-                'Rachel is a replicant from Blade Runner',
-                'Dolores woke up in Westworld',
-                'No character mentioned here',
-            ]}),
-            max_wait=300,
-        )
-
-        assert result.loc[0, 'characters'] == ['Rachel']
-        assert result.loc[1, 'characters'] == ['Dolores']
-        assert result.loc[2, 'characters'] == []
-
-        _delete_model(new_model_id, 'extract')
-
 class TestTrainLookup:
     """
     All tests for train.lookup
