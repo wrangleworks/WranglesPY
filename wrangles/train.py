@@ -161,6 +161,9 @@ class train():
         else:
             raise ValueError('Either a name or a model id must be provided')
 
+        if not response.ok:
+            raise RuntimeError(f"Training Extract Failed. {response.status_code} : {response.text}")
+
         return response
 
     def lookup(
