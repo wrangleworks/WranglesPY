@@ -30,6 +30,55 @@ def _delete_model_from_log(caplog, log_marker):
     model_id = matching_records[-1].message.split("::")[-1].strip()
     wrangles.train.delete(model_id)
 
+def test_create_model_with_content_posts_training_payload(monkeypatch):
+    """
+    Model creation by name should match the UI POST-with-payload flow.
+    """
+    import importlib
+
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    class Response:
+        ok = True
+        text = '{"model_id":"12345678-1234-1234"}'
+        status_code = 200
+
+        def json(self):
+            return {"model_id": "12345678-1234-1234"}
+
+    monkeypatch.setattr(train_module._auth, "get_access_token", lambda: "token")
+
+    def post(*args, **kwargs):
+        calls.append(("POST", args, kwargs))
+        return Response()
+
+    monkeypatch.setattr(train_module._requests, "post", post)
+
+    training_data = [
+        ["Find", "Output", "Notes"],
+        ["a", "a", "testa"]
+    ]
+
+    train_module._create_model_with_content(
+        "extract",
+        "New Extract",
+        training_data,
+        raise_on_fail=True
+    )
+
+    assert calls == [
+        (
+            "POST",
+            (f"{train_module._config.api_host}/model/content",),
+            {
+                "params": {"type": "extract", "name": "New Extract"},
+                "headers": {"Authorization": "Bearer token"},
+                "json": training_data
+            }
+        )
+    ]
+
 def _delete_model(model_id, model_type=None):
     """Delete a model by id. Best-effort - silently ignores failures."""
     from wrangles import config as _config, auth as _auth
@@ -197,6 +246,55 @@ def test_classify_write_logs_new_model_id_integration(caplog):
         assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
     finally:
         _delete_model_from_log(caplog, "New classify model created")
+
+def test_classify_write_name_posts_payload(monkeypatch):
+    """
+    Creating a classify should send the initial content in the POST.
+    """
+    import importlib
+
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    class Response:
+        ok = True
+
+    def create_model_with_content(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Response()
+
+    monkeypatch.setattr(
+        train_module,
+        "_create_model_with_content",
+        create_model_with_content
+    )
+
+    wrangles.recipe.run(
+        """
+        write:
+          - train.classify:
+              name: New Classify
+        """,
+        dataframe=pd.DataFrame({
+            'Example': ['apple'],
+            'Category': ['fruit'],
+            'Notes': [''],
+        })
+    )
+
+    assert calls == (
+        [(
+            (
+                'classify',
+                'New Classify',
+                [
+                    ['Example', 'Category', 'Notes'],
+                    ['apple', 'fruit', '']
+                ]
+            ),
+            {}
+        )]
+    )
 
 def test_classify_name_creates_working_model(caplog):
     """
@@ -375,6 +473,57 @@ class TestTrainExtract:
         })
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Output'] == 'C Sharp'
+
+    def test_extract_write_pattern_create_posts_payload(self, monkeypatch):
+        """
+        Creating a pattern extract should send the initial content in the POST.
+        """
+        import importlib
+
+        train_module = importlib.import_module("wrangles.train")
+        calls = []
+
+        class Response:
+            ok = True
+
+        def create_model_with_content(*args, **kwargs):
+            calls.append((args, kwargs))
+            return Response()
+
+        monkeypatch.setattr(
+            train_module,
+            "_create_model_with_content",
+            create_model_with_content
+        )
+
+        wrangles.recipe.run(
+            """
+            write:
+            - train.extract:
+                name: New Pattern Extract
+            """,
+            dataframe=pd.DataFrame({
+                'Find': ['Rachel', 'Dolores', 'TARS'],
+                'Output': ['', '', ''],
+                'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
+            })
+        )
+
+        assert calls == (
+            [(
+                (
+                    'extract',
+                    'New Pattern Extract',
+                    [
+                        ['Find', 'Output', 'Notes'],
+                        ['Rachel', '', 'Blade Runner'],
+                        ['Dolores', '', 'Westworld'],
+                        ['TARS', '', 'Interstellar']
+                    ]
+                ),
+                {'extra_params': {}}
+            )]
+        )
 
     def test_extract_ai_write(self):
         """
@@ -1612,6 +1761,55 @@ class TestTrainLookup:
 
         _delete_model(new_model_id, 'lookup')
 
+    def test_lookup_write_name_posts_payload(self, monkeypatch):
+        """
+        Creating a lookup should send the initial content in the POST.
+        """
+        import importlib
+
+        train_module = importlib.import_module("wrangles.train")
+        calls = []
+
+        class Response:
+            ok = True
+
+        def create_model_with_content(*args, **kwargs):
+            calls.append((args, kwargs))
+            return Response()
+
+        monkeypatch.setattr(
+            train_module,
+            "_create_model_with_content",
+            create_model_with_content
+        )
+
+        wrangles.recipe.run(
+            """
+            write:
+              - train.lookup:
+                  name: New Lookup
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key': ['a'],
+                'Column1': ['b'],
+            })
+        )
+
+        assert calls == (
+            [(
+                (
+                    'lookup',
+                    'New Lookup',
+                    {
+                        'Columns': ['Key', 'Column1'],
+                        'Data': [['a', 'b']]
+                    }
+                ),
+                {'extra_params': {'variant': 'key'}}
+            )]
+        )
+
     def test_missing_columns_error_message(self, mocker):
         """
         Verify that INSERT/UPSERT/UPDATE raise the expected error
@@ -1717,6 +1915,55 @@ def test_standardize_write_1():
         })
     )
     assert df.iloc[0]['Find'] == 'ASAP'
+
+def test_standardize_write_name_posts_payload(monkeypatch):
+    """
+    Creating a standardize should send the initial content in the POST.
+    """
+    import importlib
+
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    class Response:
+        ok = True
+
+    def create_model_with_content(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Response()
+
+    monkeypatch.setattr(
+        train_module,
+        "_create_model_with_content",
+        create_model_with_content
+    )
+
+    wrangles.recipe.run(
+        """
+        write:
+          - train.standardize:
+              name: New Standardize
+        """,
+        dataframe=pd.DataFrame({
+            'Find': ['ASAP'],
+            'Replace': ['As Soon As Possible'],
+            'Notes': [''],
+        })
+    )
+
+    assert calls == (
+        [(
+            (
+                'standardize',
+                'New Standardize',
+                [
+                    ['Find', 'Replace', 'Notes'],
+                    ['ASAP', 'As Soon As Possible', '']
+                ]
+            ),
+            {}
+        )]
+    )
 
 def test_standardize_write_2():
     """
