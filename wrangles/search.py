@@ -4,9 +4,13 @@ import json
 import time
 import logging as _logging
 import random
+from utils import LazyLoader as _LazyLoader
 
 # Import our client factory
 from .clients import get_client as _get_client
+
+# Lazy load bs4
+bs4 = _LazyLoader("bs4")
 
 
 def find_links(
@@ -84,16 +88,6 @@ def _clean_headers(
     :param keep_info: A string or list of strings representing header keys to keep.
     :return: A JSON string of the cleaned headers.
     """
-    # Attempt to import BeautifulSoup
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        def BeautifulSoup(*args, **kwargs):
-            raise ImportError(
-                "beautifulsoup4 is required to parse HTML content in "
-                "wrangles.search. Install `beautifulsoup4` to use this functionality."
-            )
-
     if drop_info=='': drop_info=[
                             "x-*",              # Drops X-Frame-Options, X-Cache, X-Amz, etc.
                             "cf-*",             # Drops CF-RAY, cf-cache-status, etc.
@@ -176,16 +170,6 @@ def _clean_html_head(
     :param keep_info: A single or list of HTML tag names to keep (e.g., ['script', 'style']).
     :return: The cleaned HTML string.
     """
-    # Attempt to import BeautifulSoup
-    try:
-        from bs4 import BeautifulSoup
-    except ImportError:
-        def BeautifulSoup(*args, **kwargs):
-            raise ImportError(
-                "beautifulsoup4 is required to parse HTML content in "
-                "wrangles.search. Install `beautifulsoup4` to use this functionality."
-            )
-    
     if drop_info=='': drop_info=[
                             "script",   # Removes all JavaScript functions and external script links
                             "style",    # Removes all inline CSS blocks
