@@ -1,4 +1,5 @@
 from typing import Union as _Union
+import logging as _logging
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -52,6 +53,7 @@ def standardize(
     if purpose != 'standardize':
         raise ValueError(f'Using {purpose} model_id {model_id} in a standardize function.')
 
+    _logging.info(f": Standardizing {len(json_data)} records :: model_id :: {model_id}, case_sensitive :: {case_sensitive}")
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str): results = results[0]

@@ -1,6 +1,7 @@
 import pandas as _pd
 from typing import Union as _Union
 from numpy import nan as _nan
+import logging as _logging
 
 
 def copy(
@@ -29,6 +30,7 @@ def copy(
           - array
         description: Name of the output columns or columns
     """
+    _logging.debug(f": Copying columns :: input :: {input}")
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists
@@ -75,6 +77,7 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
           - string
         description: Name of the column(s) to drop
     """
+    _logging.debug(f": Dropping columns :: {columns}")
     return df.drop(columns=columns, errors='ignore')
     
 
@@ -94,6 +97,7 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
           for the transposed DataFrame. Default 0 (first column).
           Use header_column = null to not use any column as header.
     """
+    _logging.debug(f": Transposing dataframe :: header_column :: {header_column}")
     if header_column is not None:
         if isinstance(header_column, int):
             # If header_column is an integer, use it as the column index
@@ -137,6 +141,7 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
           If this is a list of bools then it must match the length of the by.
     """
     
+    _logging.debug(": Sorting dataframe")
     # Extract and normalize the 'by' parameter  
     by = kwargs.get("by")  
     if by is None:  
@@ -194,6 +199,7 @@ def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, o
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     
+    _logging.debug(f": Rounding columns :: input :: {input}, decimals :: {decimals}")
     for input_column, output_column in zip(input, output):
         # coerce input column to floats (nan on error)
         # replace nan with empty string
@@ -277,6 +283,7 @@ def explode(
             If false, rows that contain empty lists will keep 1 row with an empty value.
             Default False.
     """
+    _logging.debug(f": Exploding columns :: {input}")
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     

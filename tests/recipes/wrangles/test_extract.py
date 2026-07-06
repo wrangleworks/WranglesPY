@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+from unittest.mock import patch
 
 
 class TestExtractAddress:
@@ -4046,3 +4047,38 @@ class TestExtractAI:
             })
         )
         assert df['numbers'][0] >= 7
+
+    def test_ai_special_char_column_names(self):
+        """
+        Regression test for #983: column names containing parentheses or other
+        special characters must be preserved in the output dataframe.
+        The model receives sanitized property names; the recipe must remap them
+        back to the originals.
+        """
+        # Return values keyed by the sanitized names that were sent to the model
+        mock_responses = [
+            {"Size__Diameter_": '1-7/8"', "Size": '1-7/8x2-3/8"'},
+            {"Size__Diameter_": '2-3/8"', "Size": ""},
+        ]
+        with patch("wrangles.openai.chatGPT", side_effect=mock_responses):
+            df = wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.ai:
+                    input: Product
+                    model: gpt-4o-mini
+                    api_key: dummy
+                    output:
+                      Size (Diameter):
+                        type: string
+                        description: The diameter of the cap in inches
+                      Size:
+                        type: string
+                        description: The overall size specification
+                """,
+                dataframe=pd.DataFrame({
+                    "Product": ['1-7/8" cap', '2-3/8" cap'],
+                }),
+            )
+        assert list(df.columns) == ["Product", "Size (Diameter)", "Size"]
+        assert df["Size (Diameter)"].tolist() == ['1-7/8"', '2-3/8"']

@@ -5,6 +5,7 @@ import re as _re
 from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
+import logging as _logging
 import pandas as _pd
 from . import config as _config
 from . import data as _data
@@ -33,6 +34,7 @@ def address(
     else:
         json_data = input
 
+    _logging.info(f": Extracting address {dataType} from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/address'
     params = {
         'responseFormat':'array',
@@ -248,6 +250,25 @@ def ai(
         for k, v in output.items()
     }
 
+    # Sanitize output keys: replace any character outside [a-zA-Z0-9_] with
+    # an underscore before sending to the model. Property names with special
+    # characters (e.g. parentheses, spaces) are sometimes altered by the model,
+    # producing key mismatches that cause silent empty columns. We remap the
+    # sanitized names back to the originals after receiving results.
+    _key_to_original = {}
+    _sanitized_output = {}
+    for _k, _v in output.items():
+        _sk = _re.sub(r'[^a-zA-Z0-9_]', '_', _k)
+        _base, _n = _sk, 2
+        while _sk in _key_to_original:
+            _sk = f"{_base}_{_n}"
+            _n += 1
+        _key_to_original[_sk] = _k
+        _sanitized_output[_sk] = _v
+    _needs_remap = any(sk != ok for sk, ok in _key_to_original.items())
+    if _needs_remap:
+        output = _sanitized_output
+
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
         messages = [str(messages)]
@@ -308,6 +329,7 @@ def ai(
         **kwargs
     }
 
+    _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = list(executor.map(
             _openai.chatGPT,
@@ -318,6 +340,13 @@ def ai(
             [timeout] * len(input),
             [retries] * len(input),
         ))
+
+    if _needs_remap:
+        results = [
+            {_key_to_original.get(k, k): v for k, v in row.items()}
+            if isinstance(row, dict) else row
+            for row in results
+        ]
 
     if input_was_scalar:
         if output_generic_key:
@@ -357,6 +386,7 @@ def attributes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting attributes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {
         'responseFormat':'array',
@@ -403,6 +433,7 @@ def codes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting codes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/codes'
     params = {'responseFormat': 'array', **kwargs}
     batch_size = 10000
@@ -527,6 +558,7 @@ def html(
     else:
         json_data = input
 
+    _logging.info(f": Extracting {dataType} from HTML")
     url = f'{_config.api_host}/wrangles/extract/html'
     params = {
         'responseFormat': 'array',
@@ -566,6 +598,7 @@ def properties(
     else:
         json_data = input
 
+    _logging.info(f": Extracting properties from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/properties'
     params = {'responseFormat':'array', **kwargs}
     if type is not None: params['dataType'] = type
@@ -603,6 +636,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     else:
         flags = 0 # this is the default for _re.sub
     
+    _logging.info(f": Removing words from {len(input)} records")
     results = []
     for _in, _remove in zip(input, to_remove):
         
@@ -663,6 +697,7 @@ def brackets(
     :param include_brackets: Whether to include brackets in the results
     :return: List of extracted values
     """
+    _logging.info(": Extracting text from brackets")
     results = []
     bracket_patterns = {
     'round': r'\(.*?\)',
