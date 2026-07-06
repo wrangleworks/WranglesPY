@@ -42,7 +42,3 @@ pymysql
 
 # AI / LLM
 openai
-google-genai
-
-# Search
-serpapi
