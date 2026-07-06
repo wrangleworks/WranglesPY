@@ -1021,9 +1021,10 @@ def lookup(
             df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
 
         # Perform lookup based on lookup_mode
+        model_columns = metadata.get("settings", {}).get("columns", [])
         if lookup_mode == 'by_row':
           if _wrangle_cols:
-            if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+            if all([col in model_columns for col in _wrangle_cols]):
               data = _lookup(
                 df[input].values.tolist(),
                 model_id,
@@ -1042,7 +1043,7 @@ def lookup(
               else:
                 df[_out_cols] = data
 
-            elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+            elif not any([col in model_columns for col in _wrangle_cols]):
               data = _lookup(
                 df[input].values.tolist(),
                 model_id,
@@ -1062,11 +1063,11 @@ def lookup(
                   df[out] = data
             else:
               raise ValueError('Lookup may only contain all named or unnamed columns.')
-                  
+
         elif lookup_mode == 'by_dataframe':
           unique_values = df[input].unique()
           if _wrangle_cols:
-            if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+            if all([col in model_columns for col in _wrangle_cols]):
               unique_data = _lookup(
                 unique_values.tolist(),
                 model_id,
@@ -1083,7 +1084,7 @@ def lookup(
                   df[out_col] = df[input].map(
                     lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""
                   )
-            elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+            elif not any([col in model_columns for col in _wrangle_cols]):
               unique_data = _lookup(
                 unique_values.tolist(),
                 model_id,
@@ -1092,11 +1093,11 @@ def lookup(
               value_to_result = dict(zip(unique_values, unique_data))
               for out in _out_cols:
                 df[out] = df[input].map(lambda x: value_to_result.get(x, {}))
-            else:  
+            else:
               # User specified a mixture of unrecognized columns and columns from the wrangle
               raise ValueError('Lookup may only contain all named or unnamed columns.')
-            
-        elif lookup_mode == 'by_matrix':   
+
+        elif lookup_mode == 'by_matrix':
           # Get matrix variables and permutations  
           matrix_vars = kwargs.get('matrix_variables', [])  
           if not matrix_vars:  
@@ -1124,7 +1125,7 @@ def lookup(
               perm_values = df.loc[mask, input].unique()  
                     
               if _wrangle_cols:
-                if all([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+                if all([col in model_columns for col in _wrangle_cols]):
                   perm_data = _lookup(
                     perm_values.tolist(),
                     model_id,
@@ -1141,7 +1142,7 @@ def lookup(
                       df.loc[mask, out_col] = df.loc[mask, input].map(
                         lambda x: value_to_result.get(x, [])[i] if x in value_to_result and len(value_to_result[x]) > i else ""
                       )
-                elif not any([col in metadata["settings"]["columns"] for col in _wrangle_cols]):
+                elif not any([col in model_columns for col in _wrangle_cols]):
                   perm_data = _lookup(
                     perm_values.tolist(),
                     model_id,
