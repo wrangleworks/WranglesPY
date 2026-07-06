@@ -133,8 +133,6 @@ def chatGPT(
                     raise ValueError("The schema submitted for output is not valid.")
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
-                if "exceeded your current quota" in error_message or "billing" in error_message:
-                    raise RuntimeError(f"OpenAI quota exceeded: {error_message}")
             context = _openai_responses._response_context(
                 response,
                 endpoint="chat_completions",
