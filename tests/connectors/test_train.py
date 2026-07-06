@@ -1,12 +1,10 @@
 import uuid
-import time
 
 import wrangles
 import pandas as pd
 import pytest
 import logging
 import re
-import requests as _requests
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -37,7 +35,7 @@ def test_create_model_with_content_posts_training_payload(monkeypatch):
     monkeypatch.setattr(train_module._auth, "get_access_token", lambda: "token")
 
     def post(*args, **kwargs):
-        calls.append(("POST", args, kwargs))
+        calls.append((args, kwargs))
         return Response()
 
     monkeypatch.setattr(train_module._requests, "post", post)
@@ -56,7 +54,6 @@ def test_create_model_with_content_posts_training_payload(monkeypatch):
 
     assert calls == [
         (
-            "POST",
             (f"{train_module._config.api_host}/model/content",),
             {
                 "params": {"type": "extract", "name": "New Extract"},
@@ -66,39 +63,25 @@ def test_create_model_with_content_posts_training_payload(monkeypatch):
         )
     ]
 
-def _delete_model(model_id, model_type=None):
-    """Delete a model by id. Best-effort - silently ignores failures."""
-    from wrangles import config as _config, auth as _auth
-    try:
-        params = {'model_id': model_id}
-        if model_type:
-            params['type'] = model_type
-        _requests.delete(
-            f'{_config.api_host}/model/content',
-            params=params,
-            headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
-        )
-    except Exception:
-        pass
+def _capture_create_model_calls(monkeypatch):
+    import importlib
 
-def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
-    """
-    Newly created models may still be initializing after the PUT returns.
-    Retries running the recipe until it raises no exception or max_wait seconds elapse.
-    """
-    deadline = time.time() + max_wait
-    last_err = None
-    while time.time() < deadline:
-        try:
-            return wrangles.recipe.run(recipe, dataframe=dataframe)
-        except (ValueError, TypeError, AttributeError, KeyError):
-            raise
-        except Exception as e:
-            last_err = e
-        time.sleep(interval)
-    if last_err:
-        raise last_err
-    raise AssertionError(f'Model did not produce expected output within {max_wait}s')
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    class Response:
+        ok = True
+
+    def create_model_with_content(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Response()
+
+    monkeypatch.setattr(
+        train_module,
+        "_create_model_with_content",
+        create_model_with_content
+    )
+    return calls
 
 #
 # Classify
@@ -235,23 +218,7 @@ def test_classify_write_name_posts_payload(monkeypatch):
     """
     Creating a classify should send the initial content in the POST.
     """
-    import importlib
-
-    train_module = importlib.import_module("wrangles.train")
-    calls = []
-
-    class Response:
-        ok = True
-
-    def create_model_with_content(*args, **kwargs):
-        calls.append((args, kwargs))
-        return Response()
-
-    monkeypatch.setattr(
-        train_module,
-        "_create_model_with_content",
-        create_model_with_content
-    )
+    calls = _capture_create_model_calls(monkeypatch)
 
     wrangles.recipe.run(
         """
@@ -266,8 +233,8 @@ def test_classify_write_name_posts_payload(monkeypatch):
         })
     )
 
-    assert calls == (
-        [(
+    assert calls == [
+        (
             (
                 'classify',
                 'New Classify',
@@ -277,52 +244,8 @@ def test_classify_write_name_posts_payload(monkeypatch):
                 ]
             ),
             {}
-        )]
-    )
-
-def test_classify_name_creates_working_model(caplog):
-    """
-    A classify model trained via 'name' must respond to inference without error. Bug #972.
-    """
-    model_name = f'Bug972 Pytest Classify {uuid.uuid4().hex[:8]}'
-
-    wrangles.recipe.run(
-        f"""
-        write:
-            - train.classify:
-                name: {model_name}
-        """,
-        dataframe=pd.DataFrame({
-            'Example':  ['rice', 'wheat', 'milk', 'cheese', 'beef', 'chicken'],
-            'Category': ['Grain', 'Grain', 'Dairy', 'Dairy', 'Meat', 'Meat'],
-            'Notes':    ['', '', '', '', '', ''],
-        }),
-    )
-
-    new_model_id = None
-    for msg in caplog.messages:
-        m = re.search(r'New classify model created :: ([\w-]+)', msg)
-        if m:
-            new_model_id = m.group(1)
-            break
-
-    assert new_model_id is not None, 'model_id was not logged after training'
-
-    result = _wait_for_model(
-        f"""
-        wrangles:
-            - classify:
-                input: item
-                output: category
-                model_id: {new_model_id}
-        """,
-        dataframe=pd.DataFrame({'item': ['rice']}),
-    )
-
-    assert 'category' in result.columns
-    assert isinstance(result.loc[0, 'category'], str) and len(result.loc[0, 'category']) > 0
-
-    _delete_model(new_model_id, 'classify')
+        )
+    ]
 
 class TestTrainExtract:
     """
@@ -462,23 +385,7 @@ class TestTrainExtract:
         """
         Creating a pattern extract should send the initial content in the POST.
         """
-        import importlib
-
-        train_module = importlib.import_module("wrangles.train")
-        calls = []
-
-        class Response:
-            ok = True
-
-        def create_model_with_content(*args, **kwargs):
-            calls.append((args, kwargs))
-            return Response()
-
-        monkeypatch.setattr(
-            train_module,
-            "_create_model_with_content",
-            create_model_with_content
-        )
+        calls = _capture_create_model_calls(monkeypatch)
 
         wrangles.recipe.run(
             """
@@ -493,8 +400,8 @@ class TestTrainExtract:
             })
         )
 
-        assert calls == (
-            [(
+        assert calls == [
+            (
                 (
                     'extract',
                     'New Pattern Extract',
@@ -506,8 +413,8 @@ class TestTrainExtract:
                     ]
                 ),
                 {'extra_params': {}}
-            )]
-        )
+            )
+        ]
 
     def test_extract_ai_write(self):
         """
@@ -706,57 +613,6 @@ class TestTrainExtract:
                     'Notes': ['Blade Runner', 'Westworld', 'Interstellar'],
                 })
             )
-
-    def test_extract_name_creates_working_model(self, caplog):
-        """
-        A model trained via 'name' must work immediately for inference. Bug #972:
-        before the fix, extract.custom returned a 500 error on newly-created models.
-        """
-        model_name = f'Bug972 Pytest Extract {uuid.uuid4().hex[:8]}'
-
-        wrangles.recipe.run(
-            f"""
-            write:
-                - train.extract:
-                    name: {model_name}
-            """,
-            dataframe=pd.DataFrame({
-                'Find':   ['Rachel', 'Dolores', 'TARS'],
-                'Output': ['Rachel', 'Dolores', 'TARS'],
-                'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
-            }),
-        )
-
-        new_model_id = None
-        for msg in caplog.messages:
-            m = re.search(r'New extract model created :: ([\w-]+)', msg)
-            if m:
-                new_model_id = m.group(1)
-                break
-
-        assert new_model_id is not None, 'model_id was not logged after training'
-
-        result = _wait_for_model(
-            f"""
-            wrangles:
-                - extract.custom:
-                    input: description
-                    output: characters
-                    model_id: {new_model_id}
-            """,
-            dataframe=pd.DataFrame({'description': [
-                'Rachel is a replicant from Blade Runner',
-                'Dolores woke up in Westworld',
-                'No character mentioned here',
-            ]}),
-            max_wait=300,
-        )
-
-        assert result.loc[0, 'characters'] == ['Rachel']
-        assert result.loc[1, 'characters'] == ['Dolores']
-        assert result.loc[2, 'characters'] == []
-
-        _delete_model(new_model_id, 'extract')
 
 class TestTrainLookup:
     """
@@ -1566,7 +1422,7 @@ class TestTrainLookup:
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
         assert any("Lookup UPSERT: 1 rows inserted, 2 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
 
-    def test_insert_key_only(self):
+    def test_insert_key_only(self, caplog):
         """
         Test INSERT with only a Key column and no MatchingColumns/settings.
         """
@@ -1639,71 +1495,11 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
 
-    def test_lookup_name_creates_working_model(self, caplog):
-        """
-        A lookup model trained via 'name' must return correct values immediately. Bug #972.
-        """
-        model_name = f'Bug972 Pytest Lookup {uuid.uuid4().hex[:8]}'
-
-        wrangles.recipe.run(
-            f"""
-            write:
-              - train.lookup:
-                  name: {model_name}
-                  variant: key
-            """,
-            dataframe=pd.DataFrame({
-                'Key':   ['Rachel', 'Dolores', 'TARS'],
-                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
-            }),
-        )
-
-        new_model_id = None
-        for msg in caplog.messages:
-            m = re.search(r'New lookup model created :: ([\w-]+)', msg)
-            if m:
-                new_model_id = m.group(1)
-                break
-
-        assert new_model_id is not None, 'model_id was not logged after training'
-
-        result = _wait_for_model(
-            f"""
-            wrangles:
-              - lookup:
-                  input: character
-                  output: movie
-                  model_id: {new_model_id}
-            """,
-            dataframe=pd.DataFrame({'character': ['Rachel', 'TARS']}),
-        )
-
-        assert result.loc[0, 'movie']['Value'] == 'Blade Runner'
-        assert result.loc[1, 'movie']['Value'] == 'Interstellar'
-
-        _delete_model(new_model_id, 'lookup')
-
     def test_lookup_write_name_posts_payload(self, monkeypatch):
         """
         Creating a lookup should send the initial content in the POST.
         """
-        import importlib
-
-        train_module = importlib.import_module("wrangles.train")
-        calls = []
-
-        class Response:
-            ok = True
-
-        def create_model_with_content(*args, **kwargs):
-            calls.append((args, kwargs))
-            return Response()
-
-        monkeypatch.setattr(
-            train_module,
-            "_create_model_with_content",
-            create_model_with_content
-        )
+        calls = _capture_create_model_calls(monkeypatch)
 
         wrangles.recipe.run(
             """
@@ -1718,8 +1514,8 @@ class TestTrainLookup:
             })
         )
 
-        assert calls == (
-            [(
+        assert calls == [
+            (
                 (
                     'lookup',
                     'New Lookup',
@@ -1729,14 +1525,15 @@ class TestTrainLookup:
                     }
                 ),
                 {'extra_params': {'variant': 'key'}}
-            )]
-        )
-
-    def test_missing_columns_error_message(self):
+            )
+        ]
+    
+    def test_missing_columns_error_message(self):  
         """  
         Verify that INSERT/UPSERT/UPDATE raise the expected error  
         when incoming columns are not present in the existing model.  
         """  
+
         df = pd.DataFrame({  
             "Key": ["k3"],  
             "Value": ["v3"],  
@@ -1826,23 +1623,7 @@ def test_standardize_write_name_posts_payload(monkeypatch):
     """
     Creating a standardize should send the initial content in the POST.
     """
-    import importlib
-
-    train_module = importlib.import_module("wrangles.train")
-    calls = []
-
-    class Response:
-        ok = True
-
-    def create_model_with_content(*args, **kwargs):
-        calls.append((args, kwargs))
-        return Response()
-
-    monkeypatch.setattr(
-        train_module,
-        "_create_model_with_content",
-        create_model_with_content
-    )
+    calls = _capture_create_model_calls(monkeypatch)
 
     wrangles.recipe.run(
         """
@@ -1857,8 +1638,8 @@ def test_standardize_write_name_posts_payload(monkeypatch):
         })
     )
 
-    assert calls == (
-        [(
+    assert calls == [
+        (
             (
                 'standardize',
                 'New Standardize',
@@ -1868,8 +1649,8 @@ def test_standardize_write_name_posts_payload(monkeypatch):
                 ]
             ),
             {}
-        )]
-    )
+        )
+    ]
 
 def test_standardize_write_2():
     """

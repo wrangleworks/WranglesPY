@@ -3,10 +3,6 @@ import wrangles
 import pandas as pd
 from wrangles.train import train
 import os
-import base64
-import json
-import numpy as np
-from unittest.mock import patch, MagicMock
 
 
 # Classify
@@ -324,96 +320,59 @@ def test_lookup_n_with_column():
     assert len(result) == 2
     assert all(isinstance(match, dict) and "Value" in match for match in result)
 
-_FAKE_EMB_VEC = np.zeros(1536, dtype=np.float32)
-_FAKE_EMB_VEC[0] = 0.007
-_FAKE_EMB_VEC[1] = -0.045
-_FAKE_EMB_VEC[2] = 0.025
-_FAKE_EMB_B64 = base64.b64encode(_FAKE_EMB_VEC.tobytes()).decode()
-
-def _emb_mock(n=1):
-    m = MagicMock()
-    m.ok = True
-    m.json.return_value = {"data": [{"embedding": _FAKE_EMB_B64}] * n}
-    return m
-
-def _gpt_mock(args):
-    m = MagicMock()
-    m.ok = True
-    m.json.return_value = {
-        "choices": [{"message": {"tool_calls": [{"function": {"arguments": json.dumps(args)}}]}}]
-    }
-    return m
-
-_FAKE_AI_MODEL_CONTENT = {
-    "settings": {},
-    "columns": ["find", "description", "type"],
-    "data": [
-        ["Colors", "Any colors found in the input", "array"],
-        ["Shapes", "Any shapes found in the input", "array"],
-    ],
-}
-
-@patch('wrangles.openai._requests.post')
-def test_embedding_single(mock_post):
+def test_embedding_single():
     """
     Test generating an embedding from a single value
     """
-    mock_post.return_value = _emb_mock(1)
     result = wrangles.openai.embeddings(
         "test string",
-        api_key="test-key",
+        api_key=os.environ["OPENAI_API_KEY"],
         model="text-embedding-3-small"
     )
     assert len(result) == 1536
     assert [round(float(x), 3) for x in result[:3]] == [0.007, -0.045, 0.025]
 
-@patch('wrangles.openai._requests.post')
-def test_embedding_list(mock_post):
+def test_embedding_list():
     """
     Test generating embeddings for a list
     """
-    mock_post.return_value = _emb_mock(2)
     result = wrangles.openai.embeddings(
         ["test string", "test string 2"],
-        api_key="test-key",
+        api_key=os.environ["OPENAI_API_KEY"],
         model="text-embedding-3-small"
     )
     assert len(result) == 2
     assert len(result[0]) == 1536
     assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
 
-@patch('wrangles.data.model_content', return_value=_FAKE_AI_MODEL_CONTENT)
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_model_id(mock_post, _mock_mc):
+def test_extract_ai_model_id():
     """
     Test using python api for extract.ai
     using a pre-created model_id
     """
-    mock_post.return_value = _gpt_mock({"Colors": ["yellow"], "Shapes": ["square"]})
     results = wrangles.extract.ai(
         "yellow square",
         model_id="0e81f1ad-c0a3-42b4",
-        api_key="test-key"
+        api_key=os.environ['OPENAI_API_KEY']
     )
+
     assert (
         'Colors' in results and
         'Shapes' in results and
         isinstance(results['Colors'], list)
     )
 
-@patch('wrangles.data.model_content', return_value=_FAKE_AI_MODEL_CONTENT)
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_model_id_list(mock_post, _mock_mc):
+def test_extract_ai_model_id_list():
     """
     Test using python api for extract.ai
     using a pre-created model_id with a list
     """
-    mock_post.return_value = _gpt_mock({"Colors": ["yellow"], "Shapes": ["square"]})
     results = wrangles.extract.ai(
         ["yellow square", "red circle"],
         model_id="0e81f1ad-c0a3-42b4",
-        api_key="test-key"
+        api_key=os.environ['OPENAI_API_KEY']
     )
+
     assert (
         isinstance(results, list) and
         'Colors' in results[0] and
@@ -421,16 +380,14 @@ def test_extract_ai_model_id_list(mock_post, _mock_mc):
         isinstance(results[1]['Colors'], list)
     )
 
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_output_schema_keys(mock_post):
+def test_extract_ai_output_schema_keys():
     """
     Test using python api for extract.ai
     using an output definition with keys
     """
-    mock_post.return_value = _gpt_mock({"Colors": "yellow"})
     results = wrangles.extract.ai(
         "yellow square",
-        api_key="test-key",
+        api_key=os.environ['OPENAI_API_KEY'],
         output={
             "Colors": {
                 "type": "string",
@@ -439,53 +396,50 @@ def test_extract_ai_output_schema_keys(mock_post):
         },
         retries=2
     )
+
     assert (
         'Colors' in results and
         isinstance(results['Colors'], str)
     )
 
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_output_schema(mock_post):
+def test_extract_ai_output_schema():
     """
     Test using python api for extract.ai
     using an output without keys
     """
-    mock_post.return_value = _gpt_mock({"output": 12})
     results = wrangles.extract.ai(
         "12 penguins",
-        api_key="test-key",
+        api_key=os.environ['OPENAI_API_KEY'],
         output={
             "type": "number",
             "description": "The number of penguins"
         },
         retries=2
     )
+
     assert results == 12
 
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_output_string(mock_post):
+def test_extract_ai_output_string():
     """
     Test using python api for extract.ai
     using an output that is just a description
     """
-    mock_post.return_value = _gpt_mock({"output": "yellow"})
     results = wrangles.extract.ai(
         "yellow square",
-        api_key="test-key",
+        api_key=os.environ['OPENAI_API_KEY'],
         output="The names of any colors found in the input",
         retries=2
     )
+
     assert "yellow" in results
 
-@patch('wrangles.openai._requests.post')
-def test_extract_ai_properties_list(mock_post):
+def test_extract_ai_properties_list():
     """
     Test using a simplier syntax for properties without defining type etc.
     """
-    mock_post.return_value = _gpt_mock({"output": [{"unit": "mm", "value": 12}]})
     result = wrangles.extract.ai(
         "12mm spanner",
-        api_key="test-key",
+        api_key=os.environ['OPENAI_API_KEY'],
         output={
             "type": "array",
             "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
