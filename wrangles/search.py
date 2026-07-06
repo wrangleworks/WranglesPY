@@ -4,13 +4,13 @@ import json
 import time
 import logging as _logging
 import random
-from utils import LazyLoader as _LazyLoader
+from wrangles.utils import LazyLoader as _LazyLoader
 
 # Import our client factory
 from .clients import get_client as _get_client
 
 # Lazy load bs4
-bs4 = _LazyLoader("bs4")
+BeautifulSoup = _LazyLoader("bs4.BeautifulSoup")
 
 
 def find_links(
