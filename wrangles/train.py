@@ -221,7 +221,7 @@ class train():
             elif ("Key" not in columns) and not settings.get("embeddings_columns") and not settings.get("MatchingColumns"):
                 raise ValueError("Semantic lookup: You must provide either a 'Key' column or 'MatchingColumns' in settings.")
         if name:
-            response = _create_model_with_content('lookup', name, data, extra_params=settings, raise_on_fail=True)
+            response = _create_model_with_content('lookup', name, data, extra_params=settings)
         elif model_id:
             # Only use retries when retraining an existing model
             _logging.info(f": Updating lookup model :: {model_id}")
