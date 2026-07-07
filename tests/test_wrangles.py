@@ -133,7 +133,7 @@ def test_translate_list():
     assert isinstance(result[0], str)
     assert 'Chris' in result[0]
     assert result[0] != 'My name is Chris'
-    
+
 # Invalid input type (dict)
 def test_translate_typeError():
     with pytest.raises(TypeError) as info:
