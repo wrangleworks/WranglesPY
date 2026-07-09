@@ -609,6 +609,61 @@ class TestTrainExtract:
 
         _delete_model(new_model_id, 'extract')
 
+    def test_extract_name_creates_working_model_after_short_wait(self, caplog):
+        """
+        Regression test for Bug #972: training a new extract wrangle by 'name'
+        used to create a broken model that returned a 500 error on inference.
+        This waits a fixed, short delay (3s) after training - rather than
+        retrying until it succeeds - to confirm the model is usable right away.
+        """
+        model_name = f'Bug972 Pytest Extract Short Wait {uuid.uuid4().hex[:8]}'
+        new_model_id = None
+        try:
+            wrangles.recipe.run(
+                f"""
+                write:
+                    - train.extract:
+                        name: {model_name}
+                """,
+                dataframe=pd.DataFrame({
+                    'Find':   ['Rachel', 'Dolores', 'TARS'],
+                    'Output': ['Rachel', 'Dolores', 'TARS'],
+                    'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
+                }),
+            )
+
+            for msg in caplog.messages:
+                m = re.search(r'New extract model created :: ([\w-]+)', msg)
+                if m:
+                    new_model_id = m.group(1)
+                    break
+
+            assert new_model_id is not None, 'model_id was not logged after training'
+
+            time.sleep(3)
+
+            result = wrangles.recipe.run(
+                f"""
+                wrangles:
+                    - extract.custom:
+                        input: description
+                        output: characters
+                        model_id: {new_model_id}
+                """,
+                dataframe=pd.DataFrame({'description': [
+                    'Rachel is a replicant from Blade Runner',
+                    'Dolores woke up in Westworld',
+                    'No character mentioned here',
+                ]}),
+            )
+
+            assert result.loc[0, 'characters'] == ['Rachel']
+            assert result.loc[1, 'characters'] == ['Dolores']
+            assert result.loc[2, 'characters'] == []
+        finally:
+            if new_model_id:
+                _delete_model(new_model_id, 'extract')
+
 class TestTrainLookup:
     """
     All tests for train.lookup
