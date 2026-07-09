@@ -472,7 +472,11 @@ class TestExtractAttributes:
 
     def test_attributes_single_input_multi_output(self):
         """
-        If the input and output are different lengths
+        A single input with a multi-name output list implicitly
+        fans the results out across explicit columns. The number
+        of columns actually created is capped to however many
+        results were found - only one match here, so only the
+        first output column is created.
         """
         data = pd.DataFrame({
             'col1': ['13 something 13kg 13 random'],
@@ -482,18 +486,15 @@ class TestExtractAttributes:
         wrangles:
             - extract.attributes:
                 input: col1
-                output: 
+                output:
                 - out1
                 - out2
                 responseContent: span
                 attribute_type: mass
         """
-        with pytest.raises(ValueError) as info:
-            wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
-        )
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == '13kg'
+        assert 'out2' not in df.columns
 
     def test_attributes_where(self):
         """
@@ -631,21 +632,24 @@ class TestExtractCodes:
         assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
 
     def test_extract_codes_one_input_multi_output(self):
+        """
+        A single input with a multi-name output list implicitly
+        fans results across explicit columns, without needing
+        output_format: Columns to be set.
+        """
         recipe = """
         wrangles:
         - extract.codes:
-            input: 
+            input:
                 - code1
             output:
                 - out1
                 - out2
         """
-        with pytest.raises(ValueError) as info:
-            wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
-        )
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
+        assert df.iloc[0]['out1'] == 'ABC123'
+        assert df.iloc[0]['out2'] == 'XYZ789'
 
     def test_extract_codes_first_element(self):
         """
@@ -714,23 +718,6 @@ class TestExtractCodes:
             df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['Code 1'] == 'ABC123'
         assert df.iloc[0]['Code 2'] == 'XYZ789'
-
-    def test_extract_codes_output_format_columns_with_output_column_name(self):
-        data = pd.DataFrame({
-            'col1': ['codes here']
-        })
-        recipe = """
-        wrangles:
-        - extract.codes:
-            input: col1
-            output: ignored_base
-            output_format: Columns
-            output_column_name: code
-        """
-        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
-            df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['code 1'] == 'ABC123'
-        assert df.iloc[0]['code 2'] == 'XYZ789'
 
     def test_extract_codes_where(self):
         """
@@ -3414,14 +3401,13 @@ class TestExtractAI:
                 type: string
                 description: Type of item
             output_format: Dictionary
-            output_column_name: result
         """
         with patch(
             "wrangles.extract.ai",
             return_value=[{"length": "25mm", "type": "wrench"}]
         ):
             result = wrangles.recipe.run(recipe, dataframe=df)
-        assert result.iloc[0]["result"] == {"length": "25mm", "type": "wrench"}
+        assert result.iloc[0]["output"] == {"length": "25mm", "type": "wrench"}
 
     def test_ai_output_format_string_with_delimiter(self):
         df = pd.DataFrame({
