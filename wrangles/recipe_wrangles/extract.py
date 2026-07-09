@@ -52,20 +52,20 @@ def _ensure_list(value):
     return value if isinstance(value, list) else [value]
 
 
-def _is_columns_target(output, output_format):
+def _is_columns_target(output, output_format, output_is_list=False):
     """
     Whether results should be split across explicit output columns.
 
     An explicit output_format always wins. Otherwise, providing output
-    as a list of more than one column name implies Columns format.
+    as a list of one or more column names implies Columns format.
     """
     if output_format is not None:
         return _normalize_output_format(output_format, "json_list") == "columns"
-    return isinstance(output, list) and len(output) > 1
+    return output_is_list or (isinstance(output, list) and len(output) > 1)
 
 
-def _resolve_output_format(output, output_format, default_format):
-    if output_format is None and isinstance(output, list) and len(output) > 1:
+def _resolve_output_format(output, output_format, default_format, output_is_list=False):
+    if output_format is None and (output_is_list or (isinstance(output, list) and len(output) > 1)):
         return "columns"
     return _normalize_output_format(output_format, default_format)
 
@@ -84,9 +84,10 @@ def _write_list_output(
     results,
     output_format,
     delimiter=", ",
-    default_format="json_list"
+    default_format="json_list",
+    output_is_list=False
 ):
-    output_format = _resolve_output_format(output, output_format, default_format)
+    output_format = _resolve_output_format(output, output_format, default_format, output_is_list)
 
     if output_format == "json_dictionary":
         raise ValueError("output_format Dictionary is only valid for dictionary-producing extracts")
@@ -96,19 +97,26 @@ def _write_list_output(
         return
 
     if output_format == "columns":
+        # A scalar (non-list) result counts as a single match.
+        # Always create at least one column, even if no rows
+        # produced any results
         max_result_len = max(
-            [len(row) for row in results if isinstance(row, list)] or [1]
+            [len(row) if isinstance(row, list) else 1 for row in results] + [1]
         )
-        if len(output) > 1:
+        if len(output) > 1 or output_is_list:
             # Cap the number of columns created to however many
-            # results were actually found, even if more output
-            # column names were provided
+            # output column names were explicitly provided, dropping
+            # any results beyond that even if more were found
             output_columns = output[:min(len(output), max_result_len)]
         else:
+            # No explicit column names given (a bare string output)
+            # with Columns format requested - auto-number columns
+            # for however many results were found
             output_columns = [f"{output[0]} {i + 1}" for i in range(max_result_len)]
         for i, output_column in enumerate(output_columns):
             df[output_column] = [
-                row[i] if isinstance(row, list) and len(row) > i else ""
+                (row[i] if len(row) > i else "") if isinstance(row, list)
+                else (row if i == 0 else "")
                 for row in results
             ]
         return
@@ -126,14 +134,18 @@ def _dict_keys(results):
     return keys
 
 
-def _write_dict_output(df, output, results, output_format, default_format="json_dictionary"):
-    output_format = _resolve_output_format(output, output_format, default_format)
+def _write_dict_output(df, output, results, output_format, default_format="json_dictionary", output_is_list=False):
+    output_format = _resolve_output_format(output, output_format, default_format, output_is_list)
 
     if output_format in ("json_list", "string"):
         raise ValueError("output_format List or String is only valid for list-producing extracts")
 
     if output_format == "columns":
-        output_columns = output if len(output) > 1 else (_dict_keys(results) or output)
+        output_columns = (
+            output
+            if len(output) > 1 or output_is_list
+            else (_dict_keys(results) or output)
+        )
         for output_column in output_columns:
             df[output_column] = [
                 row.get(output_column, "") if isinstance(row, dict) else ""
@@ -150,10 +162,11 @@ def _write_results(
     results,
     output_format,
     delimiter=", ",
-    default_format="json_list"
+    default_format="json_list",
+    output_is_list=False
 ):
     if default_format == "json_dictionary":
-        _write_dict_output(df, output, results, output_format, default_format)
+        _write_dict_output(df, output, results, output_format, default_format, output_is_list)
     else:
         _write_list_output(
             df,
@@ -161,7 +174,8 @@ def _write_results(
             results,
             output_format,
             delimiter,
-            default_format
+            default_format,
+            output_is_list
         )
 
 
@@ -235,28 +249,31 @@ def address(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.address(
             df[input[0]].astype(str).tolist(),
             dataType,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter)
+        _write_list_output(df, output, results, output_format, delimiter, output_is_list=output_is_list)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.address(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             dataType,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter)
+        _write_list_output(df, output, results, output_format, delimiter, output_is_list=output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -266,7 +283,7 @@ def address(
                 **kwargs
             )
             _write_list_output(df, [output_column], results, output_format, delimiter)
-  
+
     return df
 
 
@@ -592,15 +609,18 @@ def attributes(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.attributes(
             df[input[0]].astype(str).tolist(),
             responseContent,
@@ -616,7 +636,8 @@ def attributes(
             results,
             output_format,
             delimiter,
-            "json_list" if attribute_type else "json_dictionary"
+            "json_list" if attribute_type else "json_dictionary",
+            output_is_list
         )
     elif len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
@@ -635,7 +656,8 @@ def attributes(
             results,
             output_format,
             delimiter,
-            "json_list" if attribute_type else "json_dictionary"
+            "json_list" if attribute_type else "json_dictionary",
+            output_is_list
         )
     else:
         # Loop through and apply for all columns
@@ -711,12 +733,15 @@ def brackets(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from brackets :: input :: {input}")
@@ -732,10 +757,10 @@ def brackets(
     # If only only one output and multiple inputs, concatenate the inputs
     # Also need list results (not a joined string) whenever a single input
     # is being fanned out across multiple explicit output columns
-    implicit_columns = len(input) == 1 and len(output) > 1
+    implicit_columns = len(input) == 1 and (len(output) > 1 or output_is_list)
     return_data_type = "string" if output_format is None and not implicit_columns else "list"
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.brackets(
             df[input[0]].astype(str).tolist(),
             find,
@@ -748,7 +773,8 @@ def brackets(
             results,
             output_format,
             delimiter,
-            default_format="string"
+            default_format="string",
+            output_is_list=output_is_list
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.brackets(
@@ -763,7 +789,8 @@ def brackets(
             results,
             output_format,
             delimiter,
-            default_format="string"
+            default_format="string",
+            output_is_list=output_is_list
         )
     else:
         # Loop through and apply for all columns
@@ -859,28 +886,31 @@ def codes(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.codes(
             df[input[0]].astype(str).tolist(),
             False,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter)
+        _write_list_output(df, output, results, output_format, delimiter, output_is_list=output_is_list)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.codes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             first_element if output_format is None else False,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter)
+        _write_list_output(df, output, results, output_format, delimiter, output_is_list=output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -973,6 +1003,9 @@ def custom(
     """
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
@@ -980,10 +1013,10 @@ def custom(
 
     default_format = "json_dictionary" if use_labels else "json_list"
 
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_target(output, output_format) and len(model_id) == 1:
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list) and len(model_id) == 1:
         results = _extract.custom(
             df[input[0]].astype(str).tolist(),
             model_id=model_id[0],
@@ -995,7 +1028,7 @@ def custom(
             sort=sort,
             **kwargs
         )
-        _write_results(df, output, results, output_format, delimiter, default_format)
+        _write_results(df, output, results, output_format, delimiter, default_format, output_is_list)
 
     elif len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
@@ -1036,7 +1069,7 @@ def custom(
             results = [_combine_dict_rows(row) for row in df_temp.values.tolist()]
         else:
             results = [_combine_list_rows(row) for row in df_temp.values.tolist()]
-        _write_results(df, [output], results, output_format, delimiter, default_format)
+        _write_results(df, [output], results, output_format, delimiter, default_format, output_is_list)
 
     else:
         # Iterate through the inputs, outputs and model_ids
@@ -1289,23 +1322,26 @@ def html(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from HTML :: input :: {input}")
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.html(
             df[input[0]].astype(str).tolist(),
             dataType=data_type,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter)
+        _write_list_output(df, output, results, output_format, delimiter, output_is_list=output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -1380,6 +1416,9 @@ def properties(
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
@@ -1388,10 +1427,10 @@ def properties(
     if output_format is None and return_data_type == "string":
         output_format = "string"
 
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.properties(
             df[input[0]].astype(str).tolist(),
             type=property_type,
@@ -1405,14 +1444,15 @@ def properties(
             results,
             output_format,
             delimiter,
-            "json_list" if property_type else "json_dictionary"
+            "json_list" if property_type else "json_dictionary",
+            output_is_list
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.properties(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             type=property_type,
-            return_data_type='list' if output_format is not None else return_data_type,
-            first_element=first_element if output_format is None else False,
+            return_data_type='list' if (output_format is not None or output_is_list) else return_data_type,
+            first_element=first_element if (output_format is None and not output_is_list) else False,
             **kwargs
         )
         _write_results(
@@ -1421,7 +1461,8 @@ def properties(
             results,
             output_format,
             delimiter,
-            "json_list" if property_type else "json_dictionary"
+            "json_list" if property_type else "json_dictionary",
+            output_is_list
         )
     else:
         # Loop through and apply for all columns
@@ -1501,6 +1542,9 @@ def regex(
     if output is None:
         output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list)
+
     # If a string is provided, convert to list
     if not isinstance(input, list):
         input = [input]
@@ -1508,7 +1552,7 @@ def regex(
         output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting regex patterns :: input :: {input}")
@@ -1521,15 +1565,15 @@ def regex(
             matches = [find_pattern.sub(output_pattern, match) for match in matches]
         return matches
 
-    def _write_regex(input_column, output_columns):
+    def _write_regex(input_column, output_columns, columns_is_list=False):
         results = df[input_column].apply(_matches).tolist()
-        if output_format is None and first_element and len(output_columns) == 1:
+        if output_format is None and first_element and len(output_columns) == 1 and not columns_is_list:
             df[output_columns[0]] = [row[0] if len(row) >= 1 else "" for row in results]
         else:
-            _write_list_output(df, output_columns, results, output_format, delimiter)
+            _write_list_output(df, output_columns, results, output_format, delimiter, output_is_list=columns_is_list)
 
-    if len(input) == 1 and _is_columns_target(output, output_format):
-        _write_regex(input[0], output)
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        _write_regex(input[0], output, output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):

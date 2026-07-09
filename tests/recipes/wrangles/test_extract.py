@@ -99,7 +99,7 @@ class TestExtractAddress:
             where: elevation > 2000
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'][0] == '742 Evergreen St'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == '742 Evergreen St'
         
     
     def test_address_multi_input(self):
@@ -1091,7 +1091,7 @@ class TestExtractCustom:
             model_id: 1eddb7e8-1b2b-4a52
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
-        assert df['Fact Out'][0] == ['Charizard']
+        assert df['Fact Out'][0] == 'Charizard'
 
     def test_extract_custom_3(self):
         """
@@ -1313,7 +1313,7 @@ class TestExtractCustom:
             where: col1 LIKE col2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output col'] == "" and df.iloc[2]['output col'] == ['Charizard', 'Pikachu']
+        assert df.iloc[0]['output col'] == "" and df.iloc[2]['output col'] == 'Charizard'
 
     def test_extract_custom_multi_io_where(self):
         """
@@ -2697,7 +2697,7 @@ class TestExtractHTML:
             data_type: links
         """
         df = wrangles.recipe.run(recipe, dataframe=self.df)
-        assert df.iloc[0]['Links'] == ['https://www.wrangleworks.com/']
+        assert df.iloc[0]['Links'] == 'https://www.wrangleworks.com/'
 
     def test_extract_html_where(self):
         """
@@ -2757,6 +2757,73 @@ class TestExtractBrackets:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['no_brackets'] == '1234'
+
+    def test_extract_brackets_output_format_columns_caps_matches(self):
+        """
+        With explicit output_format: Columns and fewer named output
+        columns than matches found, only the first N matches (N =
+        number of output columns) are kept and the rest are dropped
+        """
+        data = pd.DataFrame({
+            'brackets_text': [
+                'Widget [SKU-123] (Qty: 5) {Location: A1}',
+                'Bolt <M6x20> [Steel] (Zinc Plated)'
+            ]
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: brackets_text
+            output:
+                - col1
+                - col2
+            output_format: Columns
+            find: all
+            include_brackets: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            list(df.columns) == ['brackets_text', 'col1', 'col2'] and
+            df.iloc[0]['col1'] == 'SKU-123' and df.iloc[0]['col2'] == 'Qty: 5' and
+            df.iloc[1]['col1'] == 'M6x20' and df.iloc[1]['col2'] == 'Steel'
+        )
+
+    def test_extract_brackets_single_item_output_list(self):
+        """
+        Providing output as an explicit single-item list implies
+        Columns format - only as many matches as named columns are
+        kept, any additional matches are dropped
+        """
+        data = pd.DataFrame({
+            'col': ['(a) (b) (c)']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == 'a' and list(df.columns) == ['col', 'col1']
+
+    def test_extract_brackets_single_item_output_list_no_matches(self):
+        """
+        The explicitly named column should still be created, empty,
+        when no matches are found
+        """
+        data = pd.DataFrame({
+            'col': ['no brackets here']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == "" and 'col1' in df.columns
 
     def test_extract_brackets_2(self):
         """
