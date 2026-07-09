@@ -541,18 +541,22 @@ def custom(
         
         if use_labels:
             if include_empty_labels:
-                # Ensure every label has a key, create empty keys if missing.
-                # Use both labels discovered from results and labels defined in the model.
-                all_labels = set(model_labels or [])
+                # Determine a single canonical casing per label (case-insensitive).
+                # Casing seen in the actual API results takes precedence over the
+                # model-defined casing, so labels like "Unlabeled" stay consistent
+                # across every row instead of varying between "Unlabeled"/"unlabeled".
+                canonical_labels = {}
+                for label in (model_labels or []):
+                    canonical_labels.setdefault(str(label).lower(), label)
                 for objs in results:
-                    all_labels.update([str(k).lower() for k in objs.keys()])
+                    for k in objs.keys():
+                        canonical_labels[str(k).lower()] = k
 
                 for objs in results:
-                    # Normalize existing keys to lower-case while preserving original keys
-                    existing = {str(k).lower(): k for k in objs.keys()}
-                    for label in all_labels:
-                        if label not in existing:
-                            objs[label] = []
+                    existing = {str(k).lower(): v for k, v in objs.items()}
+                    objs.clear()
+                    for label_lower, label in canonical_labels.items():
+                        objs[label] = existing.get(label_lower, [])
             if first_element:
                 results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:

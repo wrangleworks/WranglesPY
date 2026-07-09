@@ -1145,6 +1145,40 @@ class TestExtractCustom:
             df['size'][0] == ['small']
         )
 
+    def test_extract_custom_labels_columns_format_unlabeled_consistent_casing(self):
+        """
+        Regression test for output_format: columns combined with include_empty_labels: true.
+
+        One row has an unlabeled match (the "Unlabeled" key is only returned by
+        the API when a row actually has an unmatched span), the other row has
+        none. Previously this produced two separate columns - "Unlabeled" and
+        "unlabeled" - because the empty-label fill-in used inconsistent casing
+        between rows, and pandas filled the resulting gaps with "" instead of [].
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+                output_format: columns
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['small blue', 'my color is red']
+            })
+        )
+
+        # Only a single "Unlabeled" column should exist, not both
+        # "Unlabeled" and "unlabeled".
+        assert 'Unlabeled' in df.columns and 'unlabeled' not in df.columns
+
+        # Row with no unlabeled match gets an empty list, not an empty string.
+        assert df['Unlabeled'][0] == []
+        # Row with an unlabeled match keeps its real value.
+        assert df['Unlabeled'][1] == ['red']
+
     def test_extract_custom_6(self):
         """
         Incorrect model_id - forget to use ${}
