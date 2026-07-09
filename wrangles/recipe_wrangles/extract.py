@@ -52,8 +52,22 @@ def _ensure_list(value):
     return value if isinstance(value, list) else [value]
 
 
-def _is_columns_format(output_format):
-    return _normalize_output_format(output_format, "json_list") == "columns"
+def _is_columns_target(output, output_format):
+    """
+    Whether results should be split across explicit output columns.
+
+    An explicit output_format always wins. Otherwise, providing output
+    as a list of more than one column name implies Columns format.
+    """
+    if output_format is not None:
+        return _normalize_output_format(output_format, "json_list") == "columns"
+    return isinstance(output, list) and len(output) > 1
+
+
+def _resolve_output_format(output, output_format, default_format):
+    if output_format is None and isinstance(output, list) and len(output) > 1:
+        return "columns"
+    return _normalize_output_format(output_format, default_format)
 
 
 def _stringify_list(value, delimiter):
@@ -70,10 +84,9 @@ def _write_list_output(
     results,
     output_format,
     delimiter=", ",
-    default_format="json_list",
-    output_column_name=None
+    default_format="json_list"
 ):
-    output_format = _normalize_output_format(output_format, default_format)
+    output_format = _resolve_output_format(output, output_format, default_format)
 
     if output_format == "json_dictionary":
         raise ValueError("output_format Dictionary is only valid for dictionary-producing extracts")
@@ -83,14 +96,16 @@ def _write_list_output(
         return
 
     if output_format == "columns":
-        output_count = len(output) if len(output) > 1 else max(
+        max_result_len = max(
             [len(row) for row in results if isinstance(row, list)] or [1]
         )
-        output_columns = (
-            output
-            if len(output) > 1
-            else [f"{output_column_name or output[0]} {i + 1}" for i in range(output_count)]
-        )
+        if len(output) > 1:
+            # Cap the number of columns created to however many
+            # results were actually found, even if more output
+            # column names were provided
+            output_columns = output[:min(len(output), max_result_len)]
+        else:
+            output_columns = [f"{output[0]} {i + 1}" for i in range(max_result_len)]
         for i, output_column in enumerate(output_columns):
             df[output_column] = [
                 row[i] if isinstance(row, list) and len(row) > i else ""
@@ -112,7 +127,7 @@ def _dict_keys(results):
 
 
 def _write_dict_output(df, output, results, output_format, default_format="json_dictionary"):
-    output_format = _normalize_output_format(output_format, default_format)
+    output_format = _resolve_output_format(output, output_format, default_format)
 
     if output_format in ("json_list", "string"):
         raise ValueError("output_format List or String is only valid for list-producing extracts")
@@ -135,11 +150,10 @@ def _write_results(
     results,
     output_format,
     delimiter=", ",
-    default_format="json_list",
-    output_column_name=None
+    default_format="json_list"
 ):
     if default_format == "json_dictionary":
-        _write_dict_output(df, output, results, output_format)
+        _write_dict_output(df, output, results, output_format, default_format)
     else:
         _write_list_output(
             df,
@@ -147,8 +161,7 @@ def _write_results(
             results,
             output_format,
             delimiter,
-            default_format,
-            output_column_name
+            default_format
         )
 
 
@@ -179,7 +192,6 @@ def address(
     output: _Union[str, list],
     dataType: str,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -219,9 +231,6 @@ def address(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -231,23 +240,23 @@ def address(
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.address(
             df[input[0]].astype(str).tolist(),
             dataType,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter, output_column_name=output_column_name)
+        _write_list_output(df, output, results, output_format, delimiter)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.address(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             dataType,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter, output_column_name=output_column_name)
+        _write_list_output(df, output, results, output_format, delimiter)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -256,7 +265,7 @@ def address(
                 dataType,
                 **kwargs
             )
-            _write_list_output(df, [output_column], results, output_format, delimiter, output_column_name=output_column_name)
+            _write_list_output(df, [output_column], results, output_format, delimiter)
   
     return df
 
@@ -268,7 +277,6 @@ def ai(
     output: _Union[dict, str, list] = None,
     model_id: str = None,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ):
@@ -369,9 +377,6 @@ def ai(
           - Dictionary
           - Columns
           - String
-      output_column_name:
-        type: string
-        description: Column name to use when output_format is Dictionary
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
@@ -450,17 +455,12 @@ def ai(
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
 
         if output_format_normalized == "json_dictionary":
-            if output_column_name is None:
-                output_column_name = target_columns[0] if target_columns and len(target_columns) == 1 else "output"
+            output_column_name = target_columns[0] if target_columns and len(target_columns) == 1 else "output"
             df[output_column_name] = results
         elif output_format_normalized == "string":
             if target_columns and len(target_columns) != 1:
                 raise ValueError("output_format String can only be used with a single output column")
-            output_column = (
-                target_columns[0]
-                if target_columns
-                else output_column_name or "output"
-            )
+            output_column = target_columns[0] if target_columns else "output"
             if len(exploded_df.columns) == 1:
                 df[output_column] = [
                     _stringify_list(row, delimiter)
@@ -507,7 +507,6 @@ def attributes(
     bound: str = 'mid',
     first_element: bool = False,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -588,9 +587,6 @@ def attributes(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
@@ -601,10 +597,10 @@ def attributes(
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.attributes(
             df[input[0]].astype(str).tolist(),
             responseContent,
@@ -620,8 +616,7 @@ def attributes(
             results,
             output_format,
             delimiter,
-            "json_list" if attribute_type else "json_dictionary",
-            output_column_name
+            "json_list" if attribute_type else "json_dictionary"
         )
     elif len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
@@ -640,8 +635,7 @@ def attributes(
             results,
             output_format,
             delimiter,
-            "json_list" if attribute_type else "json_dictionary",
-            output_column_name
+            "json_list" if attribute_type else "json_dictionary"
         )
     else:
         # Loop through and apply for all columns
@@ -661,10 +655,9 @@ def attributes(
                 results,
                 output_format,
                 delimiter,
-                "json_list" if attribute_type else "json_dictionary",
-                output_column_name
+                "json_list" if attribute_type else "json_dictionary"
             )
-        
+
     return df
 
 
@@ -675,7 +668,6 @@ def brackets(
     find: _Union[str, list] = 'all',
     include_brackets: bool = False,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", "
 ) -> _pd.DataFrame:
     """
@@ -715,9 +707,6 @@ def brackets(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -727,7 +716,7 @@ def brackets(
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from brackets :: input :: {input}")
@@ -741,9 +730,12 @@ def brackets(
         raise ValueError("find must only contain the elements: round, square, curly, angled")
 
     # If only only one output and multiple inputs, concatenate the inputs
-    return_data_type = "string" if output_format is None else "list"
+    # Also need list results (not a joined string) whenever a single input
+    # is being fanned out across multiple explicit output columns
+    implicit_columns = len(input) == 1 and len(output) > 1
+    return_data_type = "string" if output_format is None and not implicit_columns else "list"
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.brackets(
             df[input[0]].astype(str).tolist(),
             find,
@@ -756,8 +748,7 @@ def brackets(
             results,
             output_format,
             delimiter,
-            default_format="string",
-            output_column_name=output_column_name
+            default_format="string"
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.brackets(
@@ -772,8 +763,7 @@ def brackets(
             results,
             output_format,
             delimiter,
-            default_format="string",
-            output_column_name=output_column_name
+            default_format="string"
         )
     else:
         # Loop through and apply for all columns
@@ -790,8 +780,7 @@ def brackets(
                 results,
                 output_format,
                 delimiter,
-                default_format="string",
-                output_column_name=output_column_name
+                default_format="string"
             )
 
     return df
@@ -803,7 +792,6 @@ def codes(
     output: _Union[str, list],
     first_element: bool = False,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -838,9 +826,6 @@ def codes(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
       min_length:
         type:
           - integer
@@ -879,23 +864,23 @@ def codes(
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.codes(
             df[input[0]].astype(str).tolist(),
             False,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter, output_column_name=output_column_name)
+        _write_list_output(df, output, results, output_format, delimiter)
     elif len(output) == 1 and len(input) > 1:
         results = _extract.codes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             first_element if output_format is None else False,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter, output_column_name=output_column_name)
+        _write_list_output(df, output, results, output_format, delimiter)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -904,7 +889,7 @@ def codes(
                 first_element if output_format is None else False,
                 **kwargs
             )
-            _write_list_output(df, [output_column], results, output_format, delimiter, output_column_name=output_column_name)
+            _write_list_output(df, [output_column], results, output_format, delimiter)
 
     return df
 
@@ -921,7 +906,6 @@ def custom(
     use_spellcheck: bool = False,
     sort: str = 'training_order',
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -986,23 +970,20 @@ def custom(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     if output is None: output = input
-    
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     if not isinstance(model_id, list): model_id = [model_id]
 
     default_format = "json_dictionary" if use_labels else "json_list"
-    
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_format(output_format) and len(model_id) == 1:
+    if len(input) == 1 and _is_columns_target(output, output_format) and len(model_id) == 1:
         results = _extract.custom(
             df[input[0]].astype(str).tolist(),
             model_id=model_id[0],
@@ -1014,7 +995,7 @@ def custom(
             sort=sort,
             **kwargs
         )
-        _write_results(df, output, results, output_format, delimiter, default_format, output_column_name)
+        _write_results(df, output, results, output_format, delimiter, default_format)
 
     elif len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
@@ -1031,8 +1012,8 @@ def custom(
                 sort=sort,
                 **kwargs
             )
-            _write_results(df, [out_col], results, output_format, delimiter, default_format, output_column_name)
-    
+            _write_results(df, [out_col], results, output_format, delimiter, default_format)
+
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         model_id = [model_id[0] for _ in range(len(input))]
         output = output[0]
@@ -1055,7 +1036,7 @@ def custom(
             results = [_combine_dict_rows(row) for row in df_temp.values.tolist()]
         else:
             results = [_combine_list_rows(row) for row in df_temp.values.tolist()]
-        _write_results(df, [output], results, output_format, delimiter, default_format, output_column_name)
+        _write_results(df, [output], results, output_format, delimiter, default_format)
 
     else:
         # Iterate through the inputs, outputs and model_ids
@@ -1071,7 +1052,7 @@ def custom(
                 sort=sort,
                 **kwargs
             )
-            _write_results(df, [out_col], results, output_format, delimiter, default_format, output_column_name)
+            _write_results(df, [out_col], results, output_format, delimiter, default_format)
 
     return df
 
@@ -1266,7 +1247,6 @@ def html(
     data_type: str,
     output: _Union[str, list] = None,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -1305,9 +1285,6 @@ def html(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -1317,18 +1294,18 @@ def html(
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from HTML :: input :: {input}")
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.html(
             df[input[0]].astype(str).tolist(),
             dataType=data_type,
             **kwargs
         )
-        _write_list_output(df, output, results, output_format, delimiter, output_column_name=output_column_name)
+        _write_list_output(df, output, results, output_format, delimiter)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
@@ -1337,8 +1314,8 @@ def html(
                 dataType=data_type,
                 **kwargs
             )
-            _write_list_output(df, [output_column], results, output_format, delimiter, output_column_name=output_column_name)
-            
+            _write_list_output(df, [output_column], results, output_format, delimiter)
+
     return df
 
 
@@ -1350,7 +1327,6 @@ def properties(
     return_data_type: str = 'list',
     first_element: bool = False,
     output_format: str = None,
-    output_column_name: str = None,
     delimiter: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
@@ -1400,9 +1376,6 @@ def properties(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -1415,10 +1388,10 @@ def properties(
     if output_format is None and return_data_type == "string":
         output_format = "string"
 
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         results = _extract.properties(
             df[input[0]].astype(str).tolist(),
             type=property_type,
@@ -1432,8 +1405,7 @@ def properties(
             results,
             output_format,
             delimiter,
-            "json_list" if property_type else "json_dictionary",
-            output_column_name
+            "json_list" if property_type else "json_dictionary"
         )
     elif len(output) == 1 and len(input) > 1:
         results = _extract.properties(
@@ -1449,8 +1421,7 @@ def properties(
             results,
             output_format,
             delimiter,
-            "json_list" if property_type else "json_dictionary",
-            output_column_name
+            "json_list" if property_type else "json_dictionary"
         )
     else:
         # Loop through and apply for all columns
@@ -1468,10 +1439,9 @@ def properties(
                 results,
                 output_format,
                 delimiter,
-                "json_list" if property_type else "json_dictionary",
-                output_column_name
+                "json_list" if property_type else "json_dictionary"
             )
-    
+
     return df
 
 def regex(
@@ -1482,7 +1452,6 @@ def regex(
   output_pattern: str = None,
   first_element: bool = False,
   output_format: str = None,
-  output_column_name: str = None,
   delimiter: str = ", "
   ) -> _pd.DataFrame:
     r"""
@@ -1527,24 +1496,21 @@ def regex(
       delimiter:
         type: string
         description: Delimiter to use when output_format is String
-      output_column_name:
-        type: string
-        description: Base output column name to use when output_format is Columns
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: 
+    if output is None:
         output = input
 
     # If a string is provided, convert to list
-    if not isinstance(input, list): 
+    if not isinstance(input, list):
         input = [input]
-    if not isinstance(output, list): 
+    if not isinstance(output, list):
         output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1 and not _is_columns_format(output_format):
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+
     _logging.debug(f": Extracting regex patterns :: input :: {input}")
     find_pattern = _re.compile(find)
 
@@ -1557,12 +1523,12 @@ def regex(
 
     def _write_regex(input_column, output_columns):
         results = df[input_column].apply(_matches).tolist()
-        if output_format is None and first_element:
+        if output_format is None and first_element and len(output_columns) == 1:
             df[output_columns[0]] = [row[0] if len(row) >= 1 else "" for row in results]
         else:
-            _write_list_output(df, output_columns, results, output_format, delimiter, output_column_name=output_column_name)
+            _write_list_output(df, output_columns, results, output_format, delimiter)
 
-    if len(input) == 1 and _is_columns_format(output_format):
+    if len(input) == 1 and _is_columns_target(output, output_format):
         _write_regex(input[0], output)
     else:
         # Loop through and apply for all columns
