@@ -162,6 +162,82 @@ def test_recipe_wrong_model():
     with pytest.raises(ValueError, match="Using classify model_id a62c7480-500e-480c in a recipe wrangle"):
             wrangles.recipe.run('a62c7480-500e-480c')
 
+def test_recipe_model_id_wrong_type_shows_line():
+    """
+    Test the error when a model_id used within a recipe wrangle refers
+    to a model of the wrong type (an extract model used in a classify
+    wrangle). The recipe itself is valid - the problem is in the model
+    the id points to - so the error should identify that and still
+    point at the correct line of the classify wrangle.
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 3
+          values:
+            header: value1
+
+    wrangles:
+      - convert.case:
+          input: header
+          output: temp
+          case: upper
+
+      - classify:
+          input: temp
+          output: result
+          model_id: fce592c9-26f5-4fd7
+    """
+    expected_line = next(
+        i for i, line in enumerate(recipe.splitlines(), start=1)
+        if "classify:" in line
+    )
+
+    with pytest.raises(ValueError) as info:
+        wrangles.recipe.run(recipe)
+
+    msg = info.value.args[0]
+    assert f"at line {expected_line}" in msg
+    assert "Using extract model_id fce592c9-26f5-4fd7 in a classify function" in msg
+
+def test_recipe_model_id_not_found_shows_line():
+    """
+    Test the error when a model_id used within a recipe wrangle is
+    well-formed but doesn't correspond to an existing/accessible model.
+    The recipe syntax is valid - the problem is the model itself - so
+    the error should still point at the correct line of the classify
+    wrangle.
+    """
+    recipe = """
+    read:
+      - test:
+          rows: 3
+          values:
+            header: value1
+
+    wrangles:
+      - convert.case:
+          input: header
+          output: temp
+          case: upper
+
+      - classify:
+          input: temp
+          output: result
+          model_id: 00000000-0000-0000
+    """
+    expected_line = next(
+        i for i, line in enumerate(recipe.splitlines(), start=1)
+        if "classify:" in line
+    )
+
+    with pytest.raises(RuntimeError) as info:
+        wrangles.recipe.run(recipe)
+
+    msg = info.value.args[0]
+    assert f"at line {expected_line}" in msg
+    assert "00000000-0000-0000" in msg
+
 def test_timeout():
     """
     Test that the timeout parameter triggers

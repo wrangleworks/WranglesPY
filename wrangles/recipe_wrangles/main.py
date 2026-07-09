@@ -1571,7 +1571,10 @@ def rename(
                         variables=kwargs.get("variables", {})
                     )["columns"].tolist()
                 except Exception as e:
-                    raise RuntimeError(f"Failed running {wrangle_name} in rename wrangles: {e}")
+                    # Preserve the inner wrangle's own message (which already
+                    # includes the correct line number and a suggestion when
+                    # available) rather than burying it behind extra text.
+                    raise RuntimeError(f"{e}") from e
 
                 if len(target) != len(result):
                     raise RuntimeError(

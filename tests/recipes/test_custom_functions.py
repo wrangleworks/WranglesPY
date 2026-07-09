@@ -1756,7 +1756,7 @@ def test_complete_error_reporting_flow():
             raise RuntimeError("Batch too large")  
         return df  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE batch - Batch #1 - ERROR IN WRANGLE custom.batch_error - at line 2 - Batch too large"):  
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE batch - at line 12 - Batch #1 - ERROR IN WRANGLE custom.batch_error - at line 15 - Batch too large"):
         wrangles.recipe.run(  
             """  
             read:  
