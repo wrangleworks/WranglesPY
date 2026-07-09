@@ -954,6 +954,65 @@ class TestWrite:
         # col2: no override, so default top is applied
         assert captured['column_formats']['col2']['valign'] == 'top'
 
+    class TestIllegalCharacters:
+        """
+        Tests for automatic removal of illegal XML characters when writing .xlsx files.
+        openpyxl raises IllegalCharacterError for chars outside the XML 1.0 legal range.
+        """
+
+        def test_write_xlsx_null_byte_no_error(self):
+            """
+            Writing a DataFrame with null bytes should not raise IllegalCharacterError.
+            """
+            filename = 'tests/temp/illegal_chars_null.xlsx'
+            df = _pd.DataFrame({'col': ['hello\x00world']})
+            wrangles.connectors.file.write(df, name=filename)
+            result = _pd.read_excel(filename)
+            assert result['col'][0] == 'helloworld'
+
+        def test_write_xlsx_control_chars_stripped(self):
+            """
+            ASCII control characters (0x01–0x08, 0x0b, 0x0c, 0x0e–0x1f) are stripped.
+            """
+            filename = 'tests/temp/illegal_chars_ctrl.xlsx'
+            df = _pd.DataFrame({'col': ['a\x01\x02\x03\x08\x0b\x0c\x0e\x1fb']})
+            wrangles.connectors.file.write(df, name=filename)
+            result = _pd.read_excel(filename)
+            assert result['col'][0] == 'ab'
+
+        def test_write_xlsx_allowed_whitespace_preserved(self):
+            """
+            Tab (0x09), LF (0x0a), and CR (0x0d) are legal XML chars and must not be removed.
+            """
+            filename = 'tests/temp/illegal_chars_whitespace.xlsx'
+            df = _pd.DataFrame({'col': ['a\tb\nc\rd']})
+            wrangles.connectors.file.write(df, name=filename)
+            result = _pd.read_excel(filename)
+            assert result['col'][0] == 'a\tb\nc\rd'
+
+        def test_write_xlsx_clean_data_unchanged(self):
+            """
+            Normal strings must pass through unchanged (regression guard).
+            """
+            filename = 'tests/temp/illegal_chars_clean.xlsx'
+            df = _pd.DataFrame({'col': ['hello', 'world', 'normal text']})
+            wrangles.connectors.file.write(df, name=filename)
+            result = _pd.read_excel(filename)
+            assert result['col'].tolist() == ['hello', 'world', 'normal text']
+
+        def test_write_xlsx_in_memory_no_error(self):
+            """
+            The in-memory (file_object) path is also covered.
+            """
+            from io import BytesIO
+            buf = BytesIO()
+            df = _pd.DataFrame({'col': ['null\x00byte', 'ctrl\x01char']})
+            wrangles.connectors.file.write(df, name='output.xlsx', file_object=buf)
+            buf.seek(0)
+            result = _pd.read_excel(buf)
+            assert result['col'].tolist() == ['nullbyte', 'ctrlchar']
+
+
 def test_read_object():
     """
     Test reading a file passed directly into the recipe as an object

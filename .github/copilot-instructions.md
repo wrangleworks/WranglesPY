@@ -13,14 +13,14 @@
 
 ## Tech Stack
 
-- **Python:** 3.10, 3.11, 3.12, 3.13 (multi-version support)
+- **Python:** 3.11, 3.12, 3.13 (multi-version support)
 - **Core Dependencies:** pandas (>=2.0), numpy, polars (1.33.0), pyyaml
 - **Database Connectors:** sqlalchemy, pymssql, psycopg2-binary, pymysql, pymongo
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
 - **Testing:** pytest (7.4.4), pytest-mock, lorem (test data generation)
-- **Containerization:** Docker (Python 3.10.16-slim-bookworm base)
+- **Containerization:** Docker (Python 3.11-slim-bookworm base)
 
 ## Project Structure
 
@@ -214,7 +214,7 @@ Custom functions can be added to recipes:
 ### GitHub Actions Workflows
 - **publish-main.yml:** Main CI pipeline
   - Pytest on multiple OS (Ubuntu, Windows, macOS-14, macOS-latest)
-  - Tests Python 3.10, 3.11, 3.12, 3.13
+  - Tests Python 3.11, 3.12, 3.13
   - Test pip installation
   - Generate and test JSON schema
   - Build and push Docker image
