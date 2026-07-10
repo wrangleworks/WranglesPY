@@ -903,7 +903,7 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    lookup_mode: str = 'by_row', 
+    lookup_mode: str = 'by_row',
     n: int = None,
     **kwargs
 ) -> _pd.DataFrame:
