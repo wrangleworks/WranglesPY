@@ -1098,7 +1098,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
             """
         )
@@ -1127,7 +1127,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 batch_size: 20
                 retries: 1
             """
@@ -1153,7 +1153,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
             """
         )
@@ -1177,7 +1177,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 output_type: python list
                 retries: 1
             """
@@ -1202,7 +1202,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 output_type: numpy array
                 retries: 1
             """
@@ -1229,7 +1229,7 @@ class TestCreateEmbeddings:
                 - create.embeddings:
                     input: text
                     output: embedding
-                    api_key: ${OPENAI_API_KEY}
+                    api_key: ${OPENAI_API_KEY_TESTS}
                     output_type: Something here is not right
                 """
             )
@@ -1255,7 +1255,7 @@ class TestCreateEmbeddings:
                 output:
                     - embedding1
                     - embedding2
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
             """
         )
@@ -1277,7 +1277,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 output_type: numpy array
                 retries: 1
 
@@ -1312,7 +1312,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
                 model: ${EMBEDDING_MODEL}
                 dimensions: 256
@@ -1377,7 +1377,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: column
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
                 where: numbers > 7
             """,
@@ -1407,7 +1407,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: header
                 output: embeddings_16
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
                 output_type: numpy array
                 precision: float16
@@ -1415,7 +1415,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: header
                 output: embeddings_32
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
                 output_type: numpy array
                 dimensions: 256
@@ -1437,7 +1437,7 @@ class TestCreateEmbeddings:
             - create.embeddings:
                 input: text
                 output: embedding
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 retries: 1
             """,
             dataframe=pd.DataFrame({'text': []})

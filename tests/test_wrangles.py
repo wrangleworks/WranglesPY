@@ -297,7 +297,7 @@ def test_embedding_single():
     """
     result = wrangles.openai.embeddings(
         "test string",
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key=os.environ["OPENAI_API_KEY_TESTS"],
         model=wrangles.config.models.testing.embeddings
     )
     assert len(result) == 1536
@@ -309,7 +309,7 @@ def test_embedding_list():
     """
     result = wrangles.openai.embeddings(
         ["test string", "test string 2"],
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key=os.environ["OPENAI_API_KEY_TESTS"],
         model=wrangles.config.models.testing.embeddings
     )
     assert len(result) == 2
@@ -324,7 +324,7 @@ def test_extract_ai_model_id():
     results = wrangles.extract.ai(
         "yellow square",
         model_id="0e81f1ad-c0a3-42b4",
-        api_key=os.environ['OPENAI_API_KEY']
+        api_key=os.environ['OPENAI_API_KEY_TESTS']
     )
 
     assert (
@@ -341,7 +341,7 @@ def test_extract_ai_model_id_list():
     results = wrangles.extract.ai(
         ["yellow square", "red circle"],
         model_id="0e81f1ad-c0a3-42b4",
-        api_key=os.environ['OPENAI_API_KEY']
+        api_key=os.environ['OPENAI_API_KEY_TESTS']
     )
 
     assert (
@@ -358,7 +358,7 @@ def test_extract_ai_output_schema_keys():
     """
     results = wrangles.extract.ai(
         "yellow square",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key=os.environ['OPENAI_API_KEY_TESTS'],
         output={
             "Colors": {
                 "type": "string",
@@ -380,7 +380,7 @@ def test_extract_ai_output_schema():
     """
     results = wrangles.extract.ai(
         "12 penguins",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key=os.environ['OPENAI_API_KEY_TESTS'],
         output={
             "type": "number",
             "description": "The number of penguins"
@@ -397,7 +397,7 @@ def test_extract_ai_output_string():
     """
     results = wrangles.extract.ai(
         "yellow square",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key=os.environ['OPENAI_API_KEY_TESTS'],
         output="The names of any colors found in the input",
         retries=2
     )
@@ -410,7 +410,7 @@ def test_extract_ai_properties_list():
     """
     result = wrangles.extract.ai(
         "12mm spanner",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key=os.environ['OPENAI_API_KEY_TESTS'],
         output={
             "type": "array",
             "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
