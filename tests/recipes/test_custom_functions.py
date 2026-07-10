@@ -1756,30 +1756,33 @@ def test_complete_error_reporting_flow():
             raise RuntimeError("Batch too large")  
         return df  
       
-    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE batch - Batch #1 - ERROR IN WRANGLE custom.batch_error - at line 2 - Batch too large"):  
-        wrangles.recipe.run(  
-            """  
-            read:  
-              - test:  
-                  rows: 20  
-                  values:  
-                    header1: value1  
-            wrangles:  
-                - convert.case:  
-                    input: header1  
-                    output: temp  
-                    case: upper  
-                - batch:  
-                    batch_size: 10  
-                    wrangles:  
-                        - custom.batch_error: {}  
-                        - convert.case:  
-                            input: header1  
-                            case: lower  
-                - convert.case:  
-                    input: header1  
-                    output: final  
-                    case: title  
-            """,  
-            functions=batch_error  
+    with pytest.raises(RuntimeError, match="ERROR IN WRANGLE batch - at line 12 - Batch #1 - ERROR IN WRANGLE custom.batch_error - at line 15 - Batch too large") as err:
+        wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 20
+                  values:
+                    header1: value1
+            wrangles:
+                - convert.case:
+                    input: header1
+                    output: temp
+                    case: upper
+                - batch:
+                    batch_size: 10
+                    wrangles:
+                        - custom.batch_error: {}
+                        - convert.case:
+                            input: header1
+                            case: lower
+                - convert.case:
+                    input: header1
+                    output: final
+                    case: title
+            """,
+            functions=batch_error
         )
+    # The nested batch error is already enhanced with a suggestion by the
+    # inner recipe.run() call - the outer wrap must not append a second one
+    assert str(err.value).count("Suggestion:") == 1

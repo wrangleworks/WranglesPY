@@ -13,6 +13,7 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
+import threading as _threading
 import time as _time
 import pandas as _pandas
 import requests as _requests
@@ -39,6 +40,20 @@ except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
+
+# Text of the recipe currently being executed, used as a best-effort source
+# for error line lookups. Only the outermost recipe.run() call updates this -
+# see _RECIPE_RUN_DEPTH below.
+_CURRENT_RECIPE_STRING = None
+
+# Tracks how many recipe.run() calls are nested on the current call stack.
+# Wrangles such as `rename` run an inner recipe.run() internally to execute
+# their `wrangles:` steps; that inner call must not overwrite
+# _CURRENT_RECIPE_STRING with its own synthetic, re-dumped recipe fragment,
+# otherwise error line lookups for the inner wrangles would point at the
+# wrong (synthetic) source instead of the user's actual recipe.
+_RECIPE_RUN_DEPTH = 0
+_RECIPE_RUN_DEPTH_LOCK = _threading.Lock()
 
 
 # Suppress pandas performance warnings
@@ -83,12 +98,23 @@ def _load_recipe(
     # Dict to store functions stored within a model
     model_functions = {}
 
+    # Whether recipe_string was fetched from an independently addressable
+    # source (a URL, a model_id, or a file path) rather than being an inline
+    # string/dict built by a wrangle at runtime (e.g. rename's inner
+    # wrangles). Fetched sources have their own real, navigable line numbers
+    # and should always be tracked for error line lookups - even when this
+    # is a nested recipe.run() call (e.g. a model_id that itself points to
+    # another recipe) - unlike synthetic inline recipes, which should defer
+    # to whatever recipe text the outer call was already tracking.
+    _is_external_source = False
+
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
         response = _requests.get(recipe)
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
+        _is_external_source = True
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.split(':')[0].strip()):
@@ -117,6 +143,7 @@ def _load_recipe(
 
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
+        _is_external_source = True
         model_functions = model_contents.get('functions', {})
         if model_functions:
             spec = _importlib.util.spec_from_loader('custom_functions', loader=None)
@@ -146,6 +173,7 @@ def _load_recipe(
         try:
             with open(recipe, "r", encoding='utf-8') as f:
                 recipe_string = f.read()
+            _is_external_source = True
         except:
             raise RuntimeError(
                 f'Error reading recipe: "{recipe}". ' \
@@ -220,9 +248,22 @@ def _load_recipe(
         if key != 'recipe_variables'
     }
 
-    # Keep a copy of the raw recipe string for line lookups
-    global _CURRENT_RECIPE_STRING
-    _CURRENT_RECIPE_STRING = recipe_string
+    # Keep a copy of the raw recipe string for line lookups.
+    #
+    # Always do this for the outermost recipe.run() call, and also for any
+    # nested call whose recipe came from an independently addressable source
+    # (a URL, model_id, or file path) - e.g. a model_id that itself points to
+    # another recipe. That fetched recipe has its own real, navigable lines,
+    # so errors inside it should be attributed there.
+    #
+    # For nested calls built from an inline dict/string (e.g. rename's inner
+    # wrangles, or a hardcoded template a wrangle runs internally), skip the
+    # update - that "recipe" is a synthetic fragment with no line numbers
+    # meaningful to the user, so keep pointing at whatever recipe text the
+    # outer call was already tracking.
+    if _RECIPE_RUN_DEPTH <= 1 or _is_external_source:
+        global _CURRENT_RECIPE_STRING
+        _CURRENT_RECIPE_STRING = recipe_string
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
@@ -238,7 +279,11 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
     if not _CURRENT_RECIPE_STRING:
         return None
     try:
-        pattern = _re.compile(r"^\s*-\s*" + _re.escape(item_name) + r"\s*:", _re.MULTILINE)
+        # Use [ \t]* rather than \s* around the dash/name/colon so a blank
+        # line immediately before the match can't be swallowed into it -
+        # \s* matches newlines too, which would anchor the match (and its
+        # line number) to the preceding blank line instead of the real one.
+        pattern = _re.compile(r"^[ \t]*-[ \t]*" + _re.escape(item_name) + r"[ \t]*:", _re.MULTILINE)
         matches = list(pattern.finditer(_CURRENT_RECIPE_STRING))
         if not matches:
             return None
@@ -257,7 +302,72 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
         return None
 
 
+def _get_error_suggestion(original_exception: Exception) -> str:
+    """
+    Best-effort: return a concise suggestion to help the user resolve
+    the given exception, based on its type.
+    """
+    try:
+        if isinstance(original_exception, FileNotFoundError):
+            return (
+                "Check the file path and permissions; ensure the file exists "
+                "and the path is correct."
+            )
+        elif isinstance(original_exception, KeyError):
+            return (
+                "Check for missing keys in the recipe, variables, or function "
+                "parameters; verify spelling and casing."
+            )
+        elif isinstance(original_exception, ValueError):
+            return (
+                "Validate parameter formats and values in the recipe; ensure "
+                "types match expectations."
+            )
+        elif isinstance(original_exception, TypeError):
+            return (
+                "Verify function argument types and the number of parameters "
+                "in the recipe or custom functions."
+            )
+        elif isinstance(original_exception, NotImplementedError):
+            return (
+                "This feature is not implemented; remove or change the offending "
+                "parameter or use an alternative wrangle."
+            )
+        elif isinstance(original_exception, RuntimeError):
+            return (
+                "Check function return values and that connectors return the "
+                "expected types (e.g. DataFrame for reads)."
+            )
+        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
+            return (
+                "Check YAML syntax and encoding (use UTF-8); look for indentation "
+                "or quoting issues."
+            )
+        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
+            return (
+                "Verify the recipe URL, network connectivity, authentication, "
+                "and response status."
+            )
+        else:
+            return (
+                "Inspect the recipe at the indicated line; check parameters, "
+                "variable names, and custom functions for issues."
+            )
+    except Exception:
+        return (
+            "Inspect the recipe at the indicated line; check parameters, "
+            "variable names, and custom functions for issues."
+        )
+
+
 def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
+    # If this exception was already enhanced by a nested recipe.run() call
+    # (e.g. an inner wrangle used by rename's `wrangles:`), propagate it as-is
+    # instead of wrapping it again - otherwise the message and line number
+    # would be duplicated and the real (inner) line number would be buried.
+    if f"{original_exception}".startswith("ERROR IN "):
+        raise original_exception
+
     line = None
     try:
         # For wrangles, we may have an index
@@ -281,61 +391,15 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
         parts.append(f"at line {line}")
     parts.append(orig_msg)
 
-    # Add a concise suggestion to help the user resolve the issue
-    suggestion = None
-    try:
-        if isinstance(original_exception, FileNotFoundError):
-            suggestion = (
-                "Check the file path and permissions; ensure the file exists "
-                "and the path is correct."
-            )
-        elif isinstance(original_exception, KeyError):
-            suggestion = (
-                "Check for missing keys in the recipe, variables, or function "
-                "parameters; verify spelling and casing."
-            )
-        elif isinstance(original_exception, ValueError):
-            suggestion = (
-                "Validate parameter formats and values in the recipe; ensure "
-                "types match expectations."
-            )
-        elif isinstance(original_exception, TypeError):
-            suggestion = (
-                "Verify function argument types and the number of parameters "
-                "in the recipe or custom functions."
-            )
-        elif isinstance(original_exception, NotImplementedError):
-            suggestion = (
-                "This feature is not implemented; remove or change the offending "
-                "parameter or use an alternative wrangle."
-            )
-        elif isinstance(original_exception, RuntimeError):
-            suggestion = (
-                "Check function return values and that connectors return the "
-                "expected types (e.g. DataFrame for reads)."
-            )
-        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
-            suggestion = (
-                "Check YAML syntax and encoding (use UTF-8); look for indentation "
-                "or quoting issues."
-            )
-        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
-            suggestion = (
-                "Verify the recipe URL, network connectivity, authentication, "
-                "and response status."
-            )
-        else:
-            suggestion = (
-                "Inspect the recipe at the indicated line; check parameters, "
-                "variable names, and custom functions for issues."
-            )
-    except Exception:
-        suggestion = (
-            "Inspect the recipe at the indicated line; check parameters, "
-            "variable names, and custom functions for issues."
-        )
-
-    parts.append(f"Suggestion: {suggestion}")
+    # Add a concise suggestion to help the user resolve the issue.
+    # Skip if orig_msg already carries one - this happens when an inner
+    # exception was already wrapped by _wrap_and_raise but then had its
+    # message reformatted by intermediate code (e.g. batch's "Batch #N - "
+    # prefix in recipe_wrangles/main.py), which defeats the "ERROR IN "
+    # startswith check above. Without this, the same suggestion gets
+    # appended twice.
+    if "Suggestion:" not in orig_msg:
+        parts.append(f"Suggestion: {_get_error_suggestion(original_exception)}")
 
     enhanced = " - ".join([p for p in parts if p])
 
@@ -1221,39 +1285,46 @@ def run(
     if variables is None:
         variables = {}
 
-    # Parse recipe
-    recipe, functions = _load_recipe(
-        recipe,
-        variables,
-        functions or {}
-    )
+    global _RECIPE_RUN_DEPTH
+    with _RECIPE_RUN_DEPTH_LOCK:
+        _RECIPE_RUN_DEPTH += 1
+    try:
+        # Parse recipe
+        recipe, functions = _load_recipe(
+            recipe,
+            variables,
+            functions or {}
+        )
 
-    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
-        try:
-            future = executor.submit(
-                _run_thread,
-                recipe,
-                variables,
-                dataframe,
-                functions
-            )
-            return future.result(timeout)
-        
-        except _futures.TimeoutError as e:
+        with _futures.ThreadPoolExecutor(max_workers=1) as executor:
             try:
-                executor._threads.clear()
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+                future = executor.submit(
+                    _run_thread,
+                    recipe,
+                    variables,
+                    dataframe,
+                    functions
+                )
+                return future.result(timeout)
 
-        except Exception as e:
-            try:
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise
+            except _futures.TimeoutError as e:
+                try:
+                    executor._threads.clear()
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+
+            except Exception as e:
+                try:
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise
+    finally:
+        with _RECIPE_RUN_DEPTH_LOCK:
+            _RECIPE_RUN_DEPTH -= 1
