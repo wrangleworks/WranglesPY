@@ -7,7 +7,7 @@ import wrangles.generate
 variables = {
     'GENERATE_AI_MODEL': wrangles.config.models.testing.generate_ai
 }
-@pytest.mark.skipif("OPENAI_API_KEY" not in os.environ,
+@pytest.mark.skipif("OPENAI_API_KEY_TESTS" not in os.environ,
                     reason="needs live OpenAI access")
 def test_generate_ai_recipe_without_web_search_real_call():
     data = pd.DataFrame({
@@ -29,7 +29,7 @@ def test_generate_ai_recipe_without_web_search_real_call():
                     category:
                         type: string
                         description: use any word of the input as category name.
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 model: ${GENERATE_AI_MODEL}
                 reasoning:
                     effort: low
@@ -84,7 +84,7 @@ def test_generate_ai_recipe_without_web_search_real_call_chain():
                     category:
                         type: string
                         description: use any word of the input as category name.
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 model: ${GENERATE_AI_MODEL}
                 reasoning:
                     effort: low
