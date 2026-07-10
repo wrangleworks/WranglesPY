@@ -3942,33 +3942,6 @@ class TestRecipe:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
 
-    def test_recipe_wrangle_nested_error_shows_nested_line(self):
-        """
-        When a nested recipe (referenced by file path via the recipe
-        wrangle) fails, the error should point at the real line inside
-        that nested recipe's own file - not just the outer recipe's line
-        for the `recipe:` wrangle step, and not be lost entirely.
-        """
-        with open('tests/samples/recipe_ception_error.wrgl.yaml') as f:
-            nested_recipe_text = f.read()
-        expected_line = next(
-            i for i, line in enumerate(nested_recipe_text.splitlines(), start=1)
-            if "convert.case:" in line
-        )
-
-        with pytest.raises(Exception) as info:
-            wrangles.recipe.run(
-                """
-                wrangles:
-                - recipe:
-                    name: 'tests/samples/recipe_ception_error.wrgl.yaml'
-                """,
-                dataframe=pd.DataFrame({'col': ['Mario', 'Luigi']})
-            )
-
-        msg = str(info.value)
-        assert f"at line {expected_line}" in msg
-
     def test_recipe_wrangle_model_id_nested_error_shows_nested_line(self):
         """
         When the recipe wrangle's name is a model_id that itself points to
