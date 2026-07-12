@@ -558,7 +558,11 @@ def custom(
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
+    description: |-
+      Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
+      Results are lists by default. A single matched input span can return multiple standardized values when
+      the model maps the same keyword variant to multiple outputs. Use first_element only when downstream
+      logic should keep the first sorted result and discard any remaining matches.
     required:
       - input
       - model_id
@@ -581,16 +585,22 @@ def custom(
         description: The ID of the wrangle to use
       use_labels:
         type: boolean
-        description: "Use Labels in the extract output {label: value}"
+        description: |-
+          Use labels in the extract output, for example {label: [value]}.
+          When multi-match produces multiple labeled outputs, values are grouped under their labels.
       first_element:
         type: boolean
-        description: Get the first element from results
+        description: |-
+          Get the first element from results.
+          If one matched span returns multiple values, only the first value after sorting is kept.
       case_sensitive:
         type: boolean
         description: Allows the wrangle to be case sensitive if set to True, default is False.
       extract_raw:
         type: boolean
-        description: Extract the raw data from the wrangle
+        description: |-
+          Extract the raw text matched in the input instead of the standardized output.
+          Multi-match standardized outputs collapse to the same raw span when this is true.
       use_spellcheck:
         type: boolean
         description: Use spellcheck to also find minor mispellings compared to the reference data
