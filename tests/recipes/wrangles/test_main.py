@@ -8984,6 +8984,22 @@ class TestDebugLogging:
         )
         assert any(': Sorting dataframe' in msg for msg in caplog.messages)
 
+    def test_pandas_sort_coerces_mixed_numeric_types(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: score
+            """,
+            dataframe=pd.DataFrame({
+                'score': [10.5, '', 2.0, '3.5'],
+                'item': ['ten', 'blank', 'two', 'three'],
+            })
+        )
+
+        assert df['item'].tolist() == ['blank', 'two', 'three', 'ten']
+        assert df['score'].tolist() == ['', 2.0, '3.5', 10.5]
+
     def test_pandas_round_debug_log(self, caplog):
         import logging
         caplog.set_level(logging.DEBUG)
