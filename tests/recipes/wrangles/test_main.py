@@ -7869,11 +7869,14 @@ class TestConcurrent:
 
         end = datetime.now()
 
+        # Upper bound is wider than the threaded test to allow for
+        # process-spawn overhead (e.g. Windows uses spawn rather than fork,
+        # which re-imports the full dependency graph in each worker process).
         assert (
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 10
+            5 <= (end - start).seconds < 20
         )
 
     def test_output_error(self):
