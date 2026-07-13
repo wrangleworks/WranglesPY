@@ -2424,6 +2424,67 @@ class TestRename:
         # Should rename Col1 to COL1
         assert 'COL1' in df.columns
 
+    def test_rename_missing_input_skips_when_output_exists_dict(self):
+        """
+        Missing input should not error when the target output column already exists.
+        """
+        data = pd.DataFrame({
+            'Description': ['already normalized'],
+            'Part Number': ['PN-1'],
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                desc: Description
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.columns.tolist() == ['Description', 'Part Number']
+        assert df.iloc[0]['Description'] == 'already normalized'
+
+    def test_rename_multiple_possible_inputs_to_existing_output(self):
+        """
+        Alternate input names can map to one output, or skip if output already exists.
+        """
+        recipe = """
+        wrangles:
+            - rename:
+                input:
+                    - [input desc, desc]
+                output:
+                    - Description
+        """
+
+        input_desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'input desc': ['from input desc'],
+                'Part Number': ['PN-1'],
+            })
+        )
+        assert input_desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert input_desc_df.iloc[0]['Description'] == 'from input desc'
+
+        desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'desc': ['from desc'],
+                'Part Number': ['PN-2'],
+            })
+        )
+        assert desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert desc_df.iloc[0]['Description'] == 'from desc'
+
+        existing_output_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'Description': ['already normalized'],
+                'Part Number': ['PN-3'],
+            })
+        )
+        assert existing_output_df.columns.tolist() == ['Description', 'Part Number']
+        assert existing_output_df.iloc[0]['Description'] == 'already normalized'
+
 class TestSimilarity:
     """
     Test similarity
