@@ -78,8 +78,8 @@ def _load_recipe(
         variables = {}
     user_variable_keys = set(variables.keys())
 
-    if "user_group" not in variables:
-        variables["user_group"] = _auth.get_user_group()
+    if "user_permission_team" not in variables:
+        variables["user_permission_team"] = _auth.get_user_permission_team()
 
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
@@ -127,10 +127,10 @@ def _load_recipe(
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
 
-        metadata_user_group = _auth.extract_user_group(metadata)
-        if metadata_user_group is not None:
-            if "user_group" not in user_variable_keys:
-                variables["user_group"] = metadata_user_group
+        metadata_user_permission_team = _auth.extract_user_permission_team(metadata)
+        if metadata_user_permission_team is not None:
+            if "user_permission_team" not in user_variable_keys:
+                variables["user_permission_team"] = metadata_user_permission_team
 
         # Using model_id in wrong function
         purpose = metadata['purpose']

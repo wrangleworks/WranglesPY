@@ -86,21 +86,21 @@ def get_access_token():
     return _access_token
 
 
-def extract_user_group(source: dict):
+def extract_user_permission_team(source: dict):
     """
-    Extract the permission-driving user group from a metadata or token payload.
+    Extract the permission-driving user team from a metadata or token payload.
     """
     if not isinstance(source, dict):
         return None
 
-    return source.get("user_group")
+    return source.get("user_permission_team")
 
 
-def get_user_group():
+def get_user_permission_team():
     """
-    Return the authenticated user's permission-driving group from the current access token.
+    Return the authenticated user's permission-driving team from the current access token.
 
-    If no user is authenticated or the token does not contain user_group,
+    If no user is authenticated or the token does not contain user_permission_team,
     return None so recipes can still run without backend credentials.
     """
     try:
@@ -113,4 +113,4 @@ def get_user_group():
     except Exception:
         return None
 
-    return extract_user_group(claims)
+    return extract_user_permission_team(claims)
