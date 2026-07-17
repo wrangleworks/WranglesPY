@@ -1087,10 +1087,11 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
                                                             
-    def test_upsert_new_model_recipe(self):  
+    def test_upsert_new_model_recipe(self, monkeypatch):  
         """  
-        Test upsert creates new model when model_id doesn't exist  
+        Test upsert creates a new model request without persisting a real test model.
         """  
+        calls = mock_train_model_create(monkeypatch, "lookup-upsert-test-model")
         df = pd.DataFrame({  
             'Key': ['Rachel', 'NewCharacter'],  
             'Value': ['Updated Rachel', 'New Movie']  
@@ -1105,19 +1106,18 @@ class TestTrainLookup:
             variant: key  
         """  
         
-        model_id = None
-        try:
-            result = wrangles.recipe.run(recipe, dataframe=df)
-            assert len(result) == 2
-            assert 'NewCharacter' in result['Key'].tolist()
-            assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
-            models = wrangles.data.user.models('lookup')
-            model = next((m for m in models if m['name'] == model_name), None)
-            assert model is not None
-            model_id = model['id']
-        finally:
-            if model_id:
-                wrangles.train.delete(model_id)
+        result = wrangles.recipe.run(recipe, dataframe=df)
+        assert len(result) == 2  
+        assert 'NewCharacter' in result['Key'].tolist()  
+        assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
+        assert calls[0][1]["params"] == {"type": "lookup", "name": model_name, "variant": "key"}
+        assert calls[0][1]["json"] == {
+            "Columns": ["Key", "Value"],
+            "Data": [
+                ["Rachel", "Updated Rachel"],
+                ["NewCharacter", "New Movie"],
+            ],
+        }
   
     def test_action_parameter_upsert(self):  
         """  
