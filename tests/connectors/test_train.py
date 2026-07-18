@@ -1400,11 +1400,25 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self):  
+    def test_missing_columns_error_message(self, monkeypatch):  
         """  
         Verify that INSERT/UPSERT/UPDATE raise the expected error  
         when incoming columns are not present in the existing model.  
         """  
+        train_connector = importlib.import_module("wrangles.connectors.train")
+        monkeypatch.setattr(
+            train_connector._data,
+            "model",
+            lambda model_id: {"variant": "key"}
+        )
+        monkeypatch.setattr(
+            train_connector._data,
+            "model_content",
+            lambda model_id: {
+                "Columns": ["Key", "Value"],
+                "Data": [["k1", "v1"], ["k2", "v2"]],
+            }
+        )
 
         df = pd.DataFrame({  
             "Key": ["k3"],  
