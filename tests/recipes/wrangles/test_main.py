@@ -6187,7 +6187,27 @@ class TestBatch:
         assert "Details: column1 does not exist" in msg
         assert "Suggestions:" in msg
         assert "Batch: #2" in msg
-  
+
+    def test_batch_group_by_split_across_batches(self):
+        """
+        Regression test for issue #922 - Group By Results Losing Data (in XL)
+
+        WranglesXL's "Map" feature runs the recipe attached to a live-linked
+        range through the batch wrangle. If select.group_by is run inside
+        batch, it only sees the rows of its own batch - a group whose rows
+        span more than one batch is aggregated separately per batch,
+        producing multiple incomplete rows instead of one complete row.
+
+        Data is the real "AMPS" attribute rows (92 total) extracted from
+        the customer's sample workbook attached to the issue, all sharing
+        eam_attributeName == "AMPS" with different classifications. With
+        batch_size 50, the 92 rows are split into two batches.
+        """
+        df = wrangles.recipe.run('tests/samples/issue_922_group_by_batch.wrgl.yaml')
+
+        assert len(df) == 1
+        assert len(df['eam_classificationName.list'].iloc[0]) == 92
+
 
 
 def _seed_lookup_model(model_id, dataframe, timeout=15, interval=0.5):
