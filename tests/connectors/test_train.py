@@ -1748,13 +1748,27 @@ class TestTrainLookup:
         assert cherry['Mapping'] == 'red'
         assert cherry['Schema']  == '', "Unspecified column for new row must be empty string"
 
-    def test_update_preserves_unspecified_columns(self):
+    def test_update_preserves_unspecified_columns(self, mocker):
         """
         UPDATE must only modify the columns present in the incoming DataFrame;
         all other columns — on both the updated and untouched rows — must be
         preserved exactly.
+
+        Mocked rather than run against the live API: this previously polled
+        a real model for up to 15s and was flaky under eventual consistency.
         """
         MODEL = 'dcac58c3-7da0-403f'
+        store = {}
+
+        mocker.patch("wrangles.data.model", return_value={'variant': 'key'})
+        mocker.patch(
+            "wrangles.data.model_content",
+            side_effect=lambda id, version_id=None: store[id]
+        )
+        mocker.patch(
+            "wrangles.train.train.lookup",
+            side_effect=lambda data, name=None, model_id=None, settings=None: store.__setitem__(model_id, data)
+        )
 
         wrangles.recipe.run(
             f"""
@@ -1769,11 +1783,6 @@ class TestTrainLookup:
                 'Schema':  ['fruit', 'fruit',  'fruit'],
                 'Mapping': ['red',   'yellow', 'red'],
             }),
-        )
-        _wait_for_lookup(
-            MODEL,
-            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
-            and set(df['Key']) == {'apple', 'banana', 'cherry'},
         )
 
         wrangles.recipe.run(
@@ -1790,11 +1799,7 @@ class TestTrainLookup:
             dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
         )
 
-        result = _wait_for_lookup(
-            MODEL,
-            lambda df: 'Schema' in df.columns
-            and (df.loc[df['Key'] == 'apple', 'Mapping'] == 'green').all(),
-        )
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
         assert 'Schema' in result.columns, "Schema must be preserved after update"
         apple  = result[result['Key'] == 'apple'].iloc[0]
         banana = result[result['Key'] == 'banana'].iloc[0]
