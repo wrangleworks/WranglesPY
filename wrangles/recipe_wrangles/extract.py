@@ -561,11 +561,11 @@ def custom(
     description: |-
       Extract data from the input using a DIY or bespoke extraction wrangle. Requires WrangleWorks Account and Subscription.
       Results are lists by default. A single matched input span can return multiple standardized values when
-      the model maps the same keyword variant to multiple outputs. Use first_element only when downstream
-      logic should keep the first sorted result and discard any remaining matches.
+      the model maps the same keyword variant to multiple outputs.
     required:
       - input
       - model_id
+      - output
     properties:
       input:
         type:
@@ -573,16 +573,16 @@ def custom(
           - integer
           - array
         description: Name or list of input columns.
-      output:
-        type:
-          - string
-          - array
-        description: Name or list of output columns
       model_id:
         type:
           - string
           - array
-        description: The ID of the wrangle to use
+        description: The ID of the wrangle to use.
+      output:
+        type:
+          - string
+          - array
+        description: Name or list of output columns.
       use_labels:
         type: boolean
         description: |-
