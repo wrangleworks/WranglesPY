@@ -1641,7 +1641,7 @@ def rename(
             del kwargs["functions"]
 
     def output_exists(output_column):
-        return output_column in list(df.columns)
+        return output_column in df.columns
 
     def resolve_rename_input(input_column, output_column):
         candidates = input_column if isinstance(input_column, list) else [input_column]
@@ -1655,7 +1655,7 @@ def rename(
                 optional = True
                 actual_col = candidate[:-1]
 
-            if actual_col in list(df.columns):
+            if actual_col in df.columns:
                 return actual_col
 
             if optional:
