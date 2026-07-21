@@ -2273,7 +2273,7 @@ class TestTrainDelete:
         model_id = self._get_model_id(response)
         mock_delete = self._mock_delete_ok(mocker)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
@@ -2294,7 +2294,7 @@ class TestTrainDelete:
         model_id = self._get_model_id(response)
         mock_delete = self._mock_delete_ok(mocker)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
@@ -2315,7 +2315,7 @@ class TestTrainDelete:
         model_id = self._get_model_id(response)
         mock_delete = self._mock_delete_ok(mocker)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
@@ -2336,7 +2336,7 @@ class TestTrainDelete:
         model_id = self._get_model_id(response)
         mock_delete = self._mock_delete_ok(mocker)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
@@ -2351,4 +2351,156 @@ class TestTrainDelete:
         mock.return_value.text = '{"message":"Not Found"}'
 
         with pytest.raises(RuntimeError, match="Delete model failed"):
+            wrangles.train.delete("00000000-0000-0000", confirm='delete')
+
+    def test_delete_without_confirm_raises_value_error(self, mocker):
+        """
+        Calling delete without confirm='delete' raises a ValueError and
+        never reaches the API.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
             wrangles.train.delete("00000000-0000-0000")
+
+        mock_delete.assert_not_called()
+
+    def test_delete_with_wrong_confirm_value_raises_value_error(self, mocker):
+        """
+        Calling delete with an incorrect confirm value raises a ValueError
+        and never reaches the API.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000", confirm='yes')
+
+        mock_delete.assert_not_called()
+
+    def test_create_then_delete_in_recipe(self, mocker):
+        """
+        Create a new classify model (real API), then delete it as part of a
+        recipe's run.on_success section (delete call itself is mocked).
+        """
+        training_data = [
+            ['apple', 'fruit', ''],
+            ['banana', 'fruit', ''],
+            ['carrot', 'vegetable', ''],
+        ]
+        response = wrangles.train.classify(training_data, name="Test Recipe Create Then Delete Model")
+        assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
+
+        model_id = self._get_model_id(response)
+        mock_delete = self._mock_delete_ok(mocker)
+
+        df = wrangles.recipe.run(
+            f"""
+            run:
+              on_success:
+                - train.delete:
+                    model_id: {model_id}
+                    confirm: delete
+            """,
+            dataframe=pd.DataFrame({'a': [1, 2]})
+        )
+
+        assert len(df) == 2
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
+
+    def test_delete_in_recipe_without_confirm_raises(self, mocker):
+        """
+        Omitting confirm in a recipe's train.delete step fails schema
+        validation before the delete call is ever made.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        with pytest.raises(Exception, match="confirm"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_success:
+                    - train.delete:
+                        model_id: 00000000-0000-0000
+                """,
+                dataframe=pd.DataFrame({'a': [1, 2]})
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_in_recipe_blocks_model_used_in_read(self, mocker):
+        """
+        A recipe cannot delete a model_id that its own read section
+        depends on - this guards against a recipe destroying the
+        model it is currently reading from.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        with pytest.raises(Exception, match="because it is used in this recipe's read or write section"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - train.classify:
+                      model_id: 94674750-f9e1-44af
+                run:
+                  on_success:
+                    - train.delete:
+                        model_id: 94674750-f9e1-44af
+                        confirm: delete
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_in_recipe_blocks_model_used_in_write(self, mocker):
+        """
+        A recipe cannot delete a model_id that its own write section
+        depends on - this guards against a recipe destroying the
+        model it just trained.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        with pytest.raises(Exception, match="because it is used in this recipe's read or write section"):
+            wrangles.recipe.run(
+                """
+                write:
+                  - train.classify:
+                      model_id: 94674750-f9e1-44af
+                run:
+                  on_success:
+                    - train.delete:
+                        model_id: 94674750-f9e1-44af
+                        confirm: delete
+                """,
+                dataframe=pd.DataFrame({
+                    'Example': ['rice'],
+                    'Category': ['Grains'],
+                    'Notes': ['']
+                })
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_in_recipe_allows_unrelated_model(self, mocker):
+        """
+        A recipe can still delete a model_id that is unrelated to
+        its own read/write sections.
+        """
+        mock_delete = self._mock_delete_ok(mocker)
+
+        df = wrangles.recipe.run(
+            """
+            read:
+              - train.classify:
+                  model_id: 94674750-f9e1-44af
+            run:
+              on_success:
+                - train.delete:
+                    model_id: some-unrelated-model-id
+                    confirm: delete
+            """
+        )
+
+        assert len(df) > 0
+        mock_delete.assert_called_once()
+        assert 'some-unrelated-model-id' in str(mock_delete.call_args)
