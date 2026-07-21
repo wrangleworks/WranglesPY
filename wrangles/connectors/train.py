@@ -656,6 +656,38 @@ class lookup():
         """
 
 
+class delete():
+    _schema = {}
+
+    def run(model_id: str, confirm: str = None) -> None:
+        """
+        Delete a trained Wrangle model.
+
+        :param model_id: The ID of the model to delete.
+        :param confirm: Must be set to 'delete' to confirm this destructive action.
+        """
+        _logging.info(f": Deleting Wrangle :: {model_id}")
+        _train.delete(model_id, confirm)
+
+    _schema["run"] = """
+        type: object
+        description: Delete a trained Wrangle model
+        additionalProperties: false
+        required:
+          - model_id
+          - confirm
+        properties:
+          model_id:
+            type: string
+            description: The ID of the model to delete
+          confirm:
+            type: string
+            description: Must be set to 'delete' to confirm this destructive action
+            enum:
+              - delete
+        """
+
+
 class meta_data():
     _schema = {}
 
