@@ -685,7 +685,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['code'] == 'Z1ON0101'
 
-    def test_extract_codes_output_format_string_with_delimiter(self):
+    def test_extract_codes_output_format_concatenate_with_char(self):
         data = pd.DataFrame({
             'col1': ['codes here']
         })
@@ -694,8 +694,8 @@ class TestExtractCodes:
         - extract.codes:
             input: col1
             output: code
-            output_format: String
-            delimiter: " | "
+            output_format: Concatenate
+            char: " | "
         """
         with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
             df = wrangles.recipe.run(recipe, dataframe=data)
@@ -2595,7 +2595,7 @@ class TestExtractProperties:
         assert df.iloc[0]['Colours'] == ['green']
         assert df.iloc[0]['Materials'] == ['cotton']
 
-    def test_extract_properties_output_format_string_with_delimiter(self):
+    def test_extract_properties_output_format_concatenate_with_char(self):
         data = pd.DataFrame({
             'col': ['green blue']
         })
@@ -2605,8 +2605,8 @@ class TestExtractProperties:
             input: col
             output: colours
             property_type: Colours
-            output_format: String
-            delimiter: "; "
+            output_format: Concatenate
+            char: "; "
         """
         with patch(
             "wrangles.extract.properties",
@@ -2857,7 +2857,7 @@ class TestExtractBrackets:
             output: no_brackets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets'] == '1234'
+        assert df.iloc[0]['no_brackets'] == ['1234']
 
     def test_extract_brackets_output_format_columns_caps_matches(self):
         """
@@ -2945,7 +2945,7 @@ class TestExtractBrackets:
                 - no_brackets2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets2'] == '1234'
+        assert df.iloc[0]['no_brackets2'] == ['1234']
 
     def test_extract_brackets_3(self):
         """
@@ -2964,7 +2964,7 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 1234'
+        assert df.iloc[0]['output'] == ['12345', '1234']
 
     def test_extract_brackets_multi_input(self):
         """
@@ -2983,7 +2983,7 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 6789'
+        assert df.iloc[0]['output'] == ['12345', '6789']
 
     def test_extract_brackets_multi_input_where(self):
         """
@@ -3004,7 +3004,7 @@ class TestExtractBrackets:
             where: numbers > 4
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == ['this is in brackets'] and df.iloc[2]['output'] == ['more stuff in brackets', 'But this is']
 
     def test_brackets_round(self):
         data = pd.DataFrame({
@@ -3018,8 +3018,8 @@ class TestExtractBrackets:
                 find: round
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['some']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_square(self):
         data = pd.DataFrame({
@@ -3033,8 +3033,8 @@ class TestExtractBrackets:
                 find: square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_round_square(self):
         data = pd.DataFrame({
@@ -3050,8 +3050,8 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == 'example'
+        assert df.iloc[0]['output'] == ['some']
+        assert df.iloc[1]['output'] == ['example']
 
     def test_all_brackets(self):
         data = pd.DataFrame({
@@ -3069,7 +3069,7 @@ class TestExtractBrackets:
                     - angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some'], ['example'], ['example'], ['example']]
 
     def test_all_brackets_no_find(self):
         data = pd.DataFrame({
@@ -3082,7 +3082,7 @@ class TestExtractBrackets:
                 output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some, some2', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some', 'some2'], ['example'], ['example'], ['example']]
 
     def test_all_brackets_with_all_specified(self):
         data = pd.DataFrame({
@@ -3096,7 +3096,7 @@ class TestExtractBrackets:
                 find: all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some'], ['example'], ['example'], ['example']]
 
     def test_multi_bracket_all_included(self):
         data = pd.DataFrame({
@@ -3113,7 +3113,7 @@ class TestExtractBrackets:
                     - all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df['output'].tolist() == [['some'], ['example'], [], []]
 
     def test_all_brackets_no_find_raw(self):
         data = pd.DataFrame({
@@ -3127,7 +3127,7 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some), (some2)', '[example]', '{example}', '<example>']
+        assert df['output'].tolist() == [['(some)', '(some2)'], ['[example]'], ['{example}'], ['<example>']]
 
     def test_all_brackets_raw(self):
         data = pd.DataFrame({
@@ -3146,7 +3146,7 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some)', '[example]', '{example}', '<example>']
+        assert df['output'].tolist() == [['(some)'], ['[example]'], ['{example}'], ['<example>']]
 
     def test_two_bracket_types(self):
         data = pd.DataFrame({
@@ -3162,7 +3162,7 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df['output'].tolist() == [['some'], ['example'], [], []]
 
     def test_brackets_curly(self):
         data = pd.DataFrame({
@@ -3176,8 +3176,8 @@ class TestExtractBrackets:
                 find: curly
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_angled(self):
         data = pd.DataFrame({
@@ -3191,8 +3191,8 @@ class TestExtractBrackets:
                 find: angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_extract_raw(self):
         data = pd.DataFrame({
@@ -3206,9 +3206,9 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '(some)'
-        assert df.iloc[1]['output'] == '[example]'
-    
+        assert df.iloc[0]['output'] == ['(some)']
+        assert df.iloc[1]['output'] == ['[example]']
+
     def test_where(self):
         """
         Test using a where clause
@@ -3226,7 +3226,7 @@ class TestExtractBrackets:
                 'column': ['[x]', '[y]']
             })
         )
-        assert df['output'].values.tolist() == ['x', '']
+        assert df['output'].values.tolist() == [['x'], '']
 
     def test_brackets_empty(self):
         """
@@ -3507,7 +3507,7 @@ class TestExtractAI:
             result = wrangles.recipe.run(recipe, dataframe=df)
         assert result.iloc[0]["output"] == {"length": "25mm", "type": "wrench"}
 
-    def test_ai_output_format_string_with_delimiter(self):
+    def test_ai_output_format_concatenate_with_char(self):
         df = pd.DataFrame({
             "data": ["wrench 25mm"]
         })
@@ -3519,8 +3519,8 @@ class TestExtractAI:
               tags:
                 type: array
                 description: Tags found in the data
-            output_format: String
-            delimiter: " | "
+            output_format: Concatenate
+            char: " | "
         """
         with patch(
             "wrangles.extract.ai",
