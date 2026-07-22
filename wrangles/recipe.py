@@ -417,39 +417,11 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
     raise original_exception.__class__(enhanced).with_traceback(original_exception.__traceback__) from None
 
 
-def _get_train_model_ids(section: _Union[dict, list, None]) -> set:
-    """
-    Extract all model_id values referenced by train.* actions
-    within a read or write section of a recipe.
-
-    :param section: read or write section of a recipe
-    :return: Set of model_ids referenced by train.* actions
-    """
-    model_ids = set()
-    if not section:
-        return model_ids
-    if not isinstance(section, list):
-        section = [section]
-    for step in section:
-        if not isinstance(step, dict):
-            continue
-        for action_type, params in step.items():
-            if (
-                isinstance(action_type, str) and
-                action_type.startswith('train.') and
-                isinstance(params, dict) and
-                params.get('model_id')
-            ):
-                model_ids.add(params['model_id'])
-    return model_ids
-
-
 def _run_actions(
     recipe: _Union[dict, list],
     functions: dict = None,
     variables: dict = None,
-    error: Exception = None,
-    full_recipe: dict = None
+    error: Exception = None
 ) -> None:
     """
     Run any actions defined in the recipe
@@ -458,8 +430,6 @@ def _run_actions(
     :param functions: (Optional) A dictionary of named custom functions passed in by the user
     :param variables: (Optional) A dictionary of variables to pass to the recipe
     :param error: (Optional) If the action is triggered by an exception, this contains the error object
-    :param full_recipe: (Optional) The full parsed recipe, used to check that train.delete \
-        does not target a model_id that this recipe's read or write sections depend on
     """
     if functions is None:
         functions = {}
@@ -468,11 +438,6 @@ def _run_actions(
     # Ensure recipe object is a list
     if not isinstance(recipe, list):
         recipe = [recipe]
-
-    protected_model_ids = (
-        _get_train_model_ids((full_recipe or {}).get('read')) |
-        _get_train_model_ids((full_recipe or {}).get('write'))
-    )
 
     for action in recipe:
         if not isinstance(action, dict):
@@ -484,23 +449,13 @@ def _run_actions(
 
         for action_type, params in action.items():
             try:
-                if (
-                    action_type == 'train.delete' and
-                    isinstance(params, dict) and
-                    params.get('model_id') in protected_model_ids
-                ):
-                    raise ValueError(
-                        f"Cannot delete model {params.get('model_id')} because it is "
-                        "used in this recipe's read or write section."
-                    )
-
                 # If the action is conditional, check if it should be run
                 if (
                     "if" in params and
                     not _evaluate_conditional(params["if"], variables)
                 ):
                     continue
-
+                
                 common_params = {}
                 # Add to common_params dict and remove from params
                 for key in ['if']:
@@ -1272,7 +1227,7 @@ def _run_thread(
     # supported sources such as files, url, model id
     # Run any actions required before the main recipe runs
     if 'on_start' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_start'], functions, variables, full_recipe=recipe)
+        _run_actions(recipe['run']['on_start'], functions, variables)
 
     # Get requested data
     if 'read' in recipe.keys():
@@ -1309,7 +1264,7 @@ def _run_thread(
 
     # Run any actions required after the main recipe finishes
     if 'on_success' in recipe.get('run', {}).keys():
-        _run_actions(recipe['run']['on_success'], functions, variables, full_recipe=recipe)
+        _run_actions(recipe['run']['on_success'], functions, variables)
 
     return df
 
@@ -1367,7 +1322,7 @@ def run(
                     executor._threads.clear()
                     # Run any actions requested if the recipe fails
                     if 'on_failure' in recipe.get('run', {}).keys():
-                        _run_actions(recipe['run']['on_failure'], functions, variables, e, full_recipe=recipe)
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
                 except:
                     pass
                 raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
@@ -1376,7 +1331,7 @@ def run(
                 try:
                     # Run any actions requested if the recipe fails
                     if 'on_failure' in recipe.get('run', {}).keys():
-                        _run_actions(recipe['run']['on_failure'], functions, variables, e, full_recipe=recipe)
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
                 except:
                     pass
                 raise
