@@ -754,18 +754,12 @@ def brackets(
     if not all(element in bracket_types for element in find):
         raise ValueError("find must only contain the elements: round, square, curly, angled")
 
-    # If only only one output and multiple inputs, concatenate the inputs
-    # Also need list results (not a joined string) whenever a single input
-    # is being fanned out across multiple explicit output columns
-    implicit_columns = len(input) == 1 and (len(output) > 1 or output_is_list)
-    return_data_type = "string" if output_format is None and not implicit_columns else "list"
-
     if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
         results = _extract.brackets(
             df[input[0]].astype(str).tolist(),
             find,
             include_brackets,
-            return_data_type=return_data_type
+            return_data_type="list"
         )
         _write_list_output(
             df,
@@ -773,7 +767,6 @@ def brackets(
             results,
             output_format,
             char,
-            default_format="concatenate",
             output_is_list=output_is_list
         )
     elif len(output) == 1 and len(input) > 1:
@@ -781,7 +774,7 @@ def brackets(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             find,
             include_brackets,
-            return_data_type=return_data_type
+            return_data_type="list"
         )
         _write_list_output(
             df,
@@ -789,7 +782,6 @@ def brackets(
             results,
             output_format,
             char,
-            default_format="concatenate",
             output_is_list=output_is_list
         )
     else:
@@ -799,15 +791,14 @@ def brackets(
                 df[input_column].astype(str).tolist(),
                 find,
                 include_brackets,
-                return_data_type=return_data_type
+                return_data_type="list"
             )
             _write_list_output(
                 df,
                 [output_column],
                 results,
                 output_format,
-                char,
-                default_format="concatenate"
+                char
             )
 
     return df
