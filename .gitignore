@@ -4,6 +4,10 @@
 tests/temp/*
 !tests/temp/README.md
 
+# Local/generated output files
+output_files/*
+!output_files/.gitkeep
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

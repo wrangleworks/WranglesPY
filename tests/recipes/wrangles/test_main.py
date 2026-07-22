@@ -2424,6 +2424,67 @@ class TestRename:
         # Should rename Col1 to COL1
         assert 'COL1' in df.columns
 
+    def test_rename_missing_input_skips_when_output_exists_dict(self):
+        """
+        Missing input should not error when the target output column already exists.
+        """
+        data = pd.DataFrame({
+            'Description': ['already normalized'],
+            'Part Number': ['PN-1'],
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                desc: Description
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.columns.tolist() == ['Description', 'Part Number']
+        assert df.iloc[0]['Description'] == 'already normalized'
+
+    def test_rename_multiple_possible_inputs_to_existing_output(self):
+        """
+        Alternate input names can map to one output, or skip if output already exists.
+        """
+        recipe = """
+        wrangles:
+            - rename:
+                input:
+                    - [input desc, desc]
+                output:
+                    - Description
+        """
+
+        input_desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'input desc': ['from input desc'],
+                'Part Number': ['PN-1'],
+            })
+        )
+        assert input_desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert input_desc_df.iloc[0]['Description'] == 'from input desc'
+
+        desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'desc': ['from desc'],
+                'Part Number': ['PN-2'],
+            })
+        )
+        assert desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert desc_df.iloc[0]['Description'] == 'from desc'
+
+        existing_output_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'Description': ['already normalized'],
+                'Part Number': ['PN-3'],
+            })
+        )
+        assert existing_output_df.columns.tolist() == ['Description', 'Part Number']
+        assert existing_output_df.iloc[0]['Description'] == 'already normalized'
+
 class TestSimilarity:
     """
     Test similarity
@@ -3969,7 +4030,32 @@ class TestRecipe:
             })
         )
         assert df.values.tolist() == [['a', 'value1'], ['B', 'VALUE2']]
-    
+
+    def test_recipe_where_empty_dataframe(self):
+        """
+        Test that when where filters out all rows, the recipe wrangle is
+        skipped entirely and does not fail due to missing columns. Issue #1005.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - recipe:
+                  where: successful_search == True
+                  wrangles:
+                    - split.dictionary:
+                        input: scored_results
+                    - split.dictionary:
+                        input: summary
+            """,
+            dataframe=pd.DataFrame({
+                'scored_results': [{}],
+                'successful_search': [False]
+            })
+        )
+        assert df['scored_results'].tolist() == [{}]
+        assert df['successful_search'].tolist() == [False]
+        assert 'summary' not in df.columns
+
     def test_recipe_empty_column_preserved(self):
         data = [
             ["col1", "", "col2"],
@@ -5922,6 +6008,34 @@ class TestBatch:
         )     
         assert df['output col'].to_list() == ["A","","C"]
 
+    def test_batch_size_one_where_no_column_shift(self):
+        """
+        Test batch_size: 1 combined with a wrangle-level where.
+        Regression test - when a batch's single row does not match
+        the where clause, the output column must still be created
+        (as an empty value) rather than omitted entirely, otherwise
+        results become misaligned between batches.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - convert.case:
+                        input: Desc
+                        output: output_column_name
+                        case: upper
+                        where: WC = "A"
+            """,
+            dataframe=pd.DataFrame({
+                "WC": ["A", "A", "B"],
+                "Desc": ["first A", "second A", "first B"]
+            })
+        )
+        assert df.columns.tolist() == ["WC", "Desc", "output_column_name"]
+        assert df["output_column_name"].to_list() == ["FIRST A", "SECOND A", ""]
+
     def test_batch_variables(self):
         """
         Test batch wrangle with a variable passed through
@@ -6913,6 +7027,150 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+
+    def test_lookup_n_single_output(self):
+        """
+        Test lookup with n returns a list of n matches in a single output column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output: Matches
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert isinstance(df['Matches'].iloc[0], list)
+        assert len(df['Matches'].iloc[0]) == 2
+
+    def test_lookup_n_output_distribution(self):
+        """
+        Test lookup with n where output list length equals n distributes matches across columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+
+    def test_lookup_n_output_wildcard_expansion(self):
+        """
+        Test lookup with n where a single wildcard output name is expanded
+        into one column per match
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Top *
+                model_id: e8658a6f-c694-45d0
+                n: 3
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Top 1' in df.columns
+        assert 'Top 2' in df.columns
+        assert 'Top 3' in df.columns
+        assert df['Top 1'].iloc[0] != df['Top 2'].iloc[0] != df['Top 3'].iloc[0]
+
+    def test_lookup_n_output_distribution_multiple_rows(self):
+        """
+        Test lookup with n distributes matches correctly across multiple rows
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel', 'Dolores']})
+        )
+        assert len(df) == 2
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+        assert df['Match1'].iloc[0] != df['Match2'].iloc[0]
+
+    def test_lookup_n_named_output_columns_distribution(self):
+        """
+        Test lookup with n where the output columns match the model's
+        column names, distributing matches across those columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Value
+                  - Score
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Value' in df.columns
+        assert 'Score' in df.columns
+        assert df['Value'].iloc[0] != df['Score'].iloc[0]
+
+    def test_lookup_n_output_mismatch_named_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Value
+                      - Score
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
+
+    def test_lookup_n_output_mismatch_unnamed_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that don't correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Match1
+                      - Match2
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
 
     def test_lookup_wrong_model_id_type(self):
         """
@@ -8786,6 +9044,22 @@ class TestDebugLogging:
             dataframe=pd.DataFrame({'col1': ['b', 'a', 'c']})
         )
         assert any(': Sorting dataframe' in msg for msg in caplog.messages)
+
+    def test_pandas_sort_coerces_mixed_numeric_types(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: score
+            """,
+            dataframe=pd.DataFrame({
+                'score': [10.5, '', 2.0, '3.5'],
+                'item': ['ten', 'blank', 'two', 'three'],
+            })
+        )
+
+        assert df['item'].tolist() == ['blank', 'two', 'three', 'ten']
+        assert df['score'].tolist() == ['', 2.0, '3.5', 10.5]
 
     def test_pandas_round_debug_log(self, caplog):
         import logging

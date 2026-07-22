@@ -925,6 +925,7 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
     output_format: str = None,
     char: str = ", ",
@@ -991,6 +992,9 @@ def custom(
       char:
         type: string
         description: Character to use when output_format is concatenate
+      include_empty_labels:
+        type: boolean
+        description: Include labels with no found values in the output when using use_labels=True
     """
     if output is None: output = input
 
