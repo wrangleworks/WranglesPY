@@ -1361,21 +1361,33 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self):  
-        """  
-        Verify that INSERT/UPSERT/UPDATE raise the expected error  
-        when incoming columns are not present in the existing model.  
-        """  
+    def test_missing_columns_error_message(self, mocker):
+        """
+        Verify that INSERT/UPSERT/UPDATE raise the expected error
+        when incoming columns are not present in the existing model.
+        """
 
-        df = pd.DataFrame({  
-            "Key": ["k3"],  
-            "Value": ["v3"],  
-            "ExtraCol": ["x"]  # This column does not exist in the model  
-        })  
+        df = pd.DataFrame({
+            "Key": ["k3"],
+            "Value": ["v3"],
+            "ExtraCol": ["x"]  # This column does not exist in the model
+        })
 
-    
-        # Test each action that performs the column-alignment check  
-        for action in ("insert", "upsert", "update"):  
+        # Mock the existing model so the test does not depend on a real, live model
+        mocker.patch(
+            "wrangles.data.model_content",
+            return_value={
+                "Columns": ["Key", "Value"],
+                "Data": [["k1", "v1"]]
+            }
+        )
+        mocker.patch(
+            "wrangles.data.model",
+            return_value={"variant": "key"}
+        )
+
+        # Test each action that performs the column-alignment check
+        for action in ("insert", "upsert", "update"):
             recipe = f"""
                 write:
                     - train.lookup:
