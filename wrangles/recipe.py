@@ -19,6 +19,7 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
+from . import auth as _auth
 from .config import (
     reserved_word_replacements as _reserved_word_replacements,
     where_overwrite_output as _where_overwrite_output,
@@ -64,6 +65,10 @@ def _load_recipe(
     """
     if variables is None:
         variables = {}
+    user_variable_keys = set(variables.keys())
+
+    if "user_permission_team" not in variables:
+        variables["user_permission_team"] = _auth.get_user_permission_team()
 
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
@@ -99,6 +104,11 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+
+        metadata_user_permission_team = _auth.extract_user_permission_team(metadata)
+        if metadata_user_permission_team is not None:
+            if "user_permission_team" not in user_variable_keys:
+                variables["user_permission_team"] = metadata_user_permission_team
 
         # Using model_id in wrong function
         purpose = metadata['purpose']

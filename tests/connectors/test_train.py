@@ -1,12 +1,37 @@
 import uuid
 
-from pytest_mock import mocker
-
 import wrangles
 import pandas as pd
 import pytest
 import logging
 import re
+import importlib
+
+
+class FakeTrainResponse:
+    ok = True
+    status_code = 200
+
+    def __init__(self, model_id="test-model-id"):
+        self.model_id = model_id
+        self.text = f'{{"model_id":"{model_id}"}}'
+
+    def json(self):
+        return {"model_id": self.model_id}
+
+
+def mock_train_model_create(monkeypatch, model_id="test-model-id"):
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    def post(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeTrainResponse(model_id)
+
+    monkeypatch.setattr(train_module._auth, "get_access_token", lambda: "test-token")
+    monkeypatch.setattr(train_module._requests, "post", post)
+    return calls
+
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -130,7 +155,8 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
+def test_classify_write_logs_new_model_id_integration(caplog, monkeypatch):  
+    calls = mock_train_model_create(monkeypatch, "classify-test-model")
     df = pd.DataFrame({  
         'Example': ['apple', 'banana'],  
         'Category': ['fruit', 'fruit'],  
@@ -147,6 +173,12 @@ def test_classify_write_logs_new_model_id_integration(caplog):
     )  
   
     assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+    assert calls[0][1]["params"] == {"type": "classify", "name": "Test Classify Model"}
+    assert calls[0][1]["json"] == [
+        ["Example", "Category", "Notes"],
+        ["apple", "fruit", ""],
+        ["banana", "fruit", ""],
+    ]
 
 class TestTrainExtract:
     """
@@ -730,10 +762,11 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
                                                             
-    def test_upsert_new_model_recipe(self):  
+    def test_upsert_new_model_recipe(self, monkeypatch):  
         """  
-        Test upsert creates new model when model_id doesn't exist  
+        Test upsert creates a new model request without persisting a real test model.
         """  
+        calls = mock_train_model_create(monkeypatch, "lookup-upsert-test-model")
         df = pd.DataFrame({  
             'Key': ['Rachel', 'NewCharacter'],  
             'Value': ['Updated Rachel', 'New Movie']  
@@ -752,8 +785,14 @@ class TestTrainLookup:
         assert len(result) == 2  
         assert 'NewCharacter' in result['Key'].tolist()  
         assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
-        models = wrangles.data.user.models('lookup')
-        assert any(m['name'] == model_name for m in models)
+        assert calls[0][1]["params"] == {"type": "lookup", "name": model_name, "variant": "key"}
+        assert calls[0][1]["json"] == {
+            "Columns": ["Key", "Value"],
+            "Data": [
+                ["Rachel", "Updated Rachel"],
+                ["NewCharacter", "New Movie"],
+            ],
+        }
   
     def test_action_parameter_upsert(self):  
         """  
@@ -1361,11 +1400,25 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self):  
+    def test_missing_columns_error_message(self, monkeypatch):  
         """  
         Verify that INSERT/UPSERT/UPDATE raise the expected error  
         when incoming columns are not present in the existing model.  
         """  
+        train_connector = importlib.import_module("wrangles.connectors.train")
+        monkeypatch.setattr(
+            train_connector._data,
+            "model",
+            lambda model_id: {"variant": "key"}
+        )
+        monkeypatch.setattr(
+            train_connector._data,
+            "model_content",
+            lambda model_id: {
+                "Columns": ["Key", "Value"],
+                "Data": [["k1", "v1"], ["k2", "v2"]],
+            }
+        )
 
         df = pd.DataFrame({  
             "Key": ["k3"],  
@@ -1388,10 +1441,11 @@ class TestTrainLookup:
                 wrangles.recipe.run(recipe, dataframe=df)
     
             
-def test_lookup_write_logs_new_model_id(caplog):  
+def test_lookup_write_logs_new_model_id(caplog, monkeypatch):  
     """  
-    Integration test for lookup model creation logging  
+    Test lookup model creation logging without creating a real test model.
     """  
+    calls = mock_train_model_create(monkeypatch, "lookup-test-model")
     df = pd.DataFrame({  
         'Key': ['apple', 'banana'],  
         'Value': ['fruit', 'fruit']  
@@ -1412,6 +1466,11 @@ def test_lookup_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "New lookup model created" in record.message  
     )
+    assert calls[0][1]["params"] == {"type": "lookup", "name": "Test Lookup Model Integration", "variant": "key"}
+    assert calls[0][1]["json"] == {
+        "Columns": ["Key", "Value"],
+        "Data": [["apple", "fruit"], ["banana", "fruit"]],
+    }
 
 
 #
@@ -1495,10 +1554,11 @@ def test_standardize_error():
             })
         )
 
-def test_standardize_write_logs_new_model_id(caplog):  
+def test_standardize_write_logs_new_model_id(caplog, monkeypatch):  
     """  
-    Integration test for standardize model creation logging  
+    Test standardize model creation logging without creating a real test model.
     """  
+    calls = mock_train_model_create(monkeypatch, "standardize-test-model")
     df = pd.DataFrame({  
         'Find': ['ASAP', 'ETA'],  
         'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
@@ -1519,6 +1579,12 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
+    assert calls[0][1]["params"] == {"type": "standardize", "name": "Test Standardize Model Integration"}
+    assert calls[0][1]["json"] == [
+        ["Find", "Replace", "Notes"],
+        ["ASAP", "As Soon As Possible", ""],
+        ["ETA", "Estimated Time of Arrival", ""],
+    ]
 
 
 class TestTrainMetaData:
