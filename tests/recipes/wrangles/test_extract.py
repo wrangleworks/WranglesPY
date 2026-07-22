@@ -685,7 +685,7 @@ class TestExtractCodes:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['code'] == 'Z1ON0101'
 
-    def test_extract_codes_output_format_string_with_delimiter(self):
+    def test_extract_codes_output_format_concatenate_with_char(self):
         data = pd.DataFrame({
             'col1': ['codes here']
         })
@@ -694,8 +694,8 @@ class TestExtractCodes:
         - extract.codes:
             input: col1
             output: code
-            output_format: String
-            delimiter: " | "
+            output_format: Concatenate
+            char: " | "
         """
         with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
             df = wrangles.recipe.run(recipe, dataframe=data)
@@ -2595,7 +2595,7 @@ class TestExtractProperties:
         assert df.iloc[0]['Colours'] == ['green']
         assert df.iloc[0]['Materials'] == ['cotton']
 
-    def test_extract_properties_output_format_string_with_delimiter(self):
+    def test_extract_properties_output_format_concatenate_with_char(self):
         data = pd.DataFrame({
             'col': ['green blue']
         })
@@ -2605,8 +2605,8 @@ class TestExtractProperties:
             input: col
             output: colours
             property_type: Colours
-            output_format: String
-            delimiter: "; "
+            output_format: Concatenate
+            char: "; "
         """
         with patch(
             "wrangles.extract.properties",
@@ -3507,7 +3507,7 @@ class TestExtractAI:
             result = wrangles.recipe.run(recipe, dataframe=df)
         assert result.iloc[0]["output"] == {"length": "25mm", "type": "wrench"}
 
-    def test_ai_output_format_string_with_delimiter(self):
+    def test_ai_output_format_concatenate_with_char(self):
         df = pd.DataFrame({
             "data": ["wrench 25mm"]
         })
@@ -3519,8 +3519,8 @@ class TestExtractAI:
               tags:
                 type: array
                 description: Tags found in the data
-            output_format: String
-            delimiter: " | "
+            output_format: Concatenate
+            char: " | "
         """
         with patch(
             "wrangles.extract.ai",
