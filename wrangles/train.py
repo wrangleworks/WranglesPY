@@ -242,6 +242,30 @@ class train():
         
         return response
 
+    def delete(model_id: str, confirm: str = None):
+        """
+        Delete a trained model by its model ID.
+        Requires WrangleWorks Account and Subscription.
+
+        :param model_id: The ID of the model to delete.
+        :param confirm: Must be set to 'delete' to confirm this destructive action.
+        """
+        if confirm != 'delete':
+            raise ValueError(
+                "Deleting a model is destructive. "
+                "To confirm, pass confirm='delete'."
+            )
+
+        _logging.info(f": Deleting model :: {model_id}")
+        response = _requests.delete(
+            f'{_config.api_host}/model/delete',
+            params={'model_id': model_id},
+            headers={'Authorization': f'Bearer {_auth.get_access_token()}'}
+        )
+        if not response.ok:
+            raise RuntimeError(f"Delete model failed. {response.status_code} : {response.text}")
+        return response
+
     def standardize(training_data: list, name: str = None, model_id: str = None):
         """
         Train a standardize model. This can standardize text to a desired format.

@@ -1194,6 +1194,52 @@ def _write_data(
     return df_return
 
 
+def _contains_model_id(recipe_section, model_id: str, ignored_object=None) -> bool:
+    """
+    Return True when a recipe section references model_id.
+    """
+    if recipe_section is ignored_object:
+        return False
+
+    if isinstance(recipe_section, dict):
+        for key, value in recipe_section.items():
+            if key == "model_id" and value == model_id:
+                return True
+            if _contains_model_id(value, model_id, ignored_object):
+                return True
+
+    elif isinstance(recipe_section, list):
+        return any(
+            _contains_model_id(item, model_id, ignored_object)
+            for item in recipe_section
+        )
+
+    return False
+
+
+def _validate_train_delete_targets(recipe: dict) -> None:
+    """
+    Prevent a recipe from deleting a model_id it also uses elsewhere.
+    """
+    write_section = recipe.get("write", [])
+    if not isinstance(write_section, list):
+        write_section = [write_section]
+
+    for write_step in write_section:
+        if not isinstance(write_step, dict):
+            continue
+
+        for export_type, params in write_step.items():
+            if export_type != "train.delete" or not isinstance(params, dict):
+                continue
+
+            model_id = params.get("model_id")
+            if model_id and _contains_model_id(recipe, model_id, params):
+                raise ValueError(
+                    f"Cannot delete model {model_id} because it is used elsewhere in this recipe."
+                )
+
+
 def _run_thread(
     recipe: str,
     variables: dict = None,
@@ -1222,6 +1268,8 @@ def _run_thread(
     """
     if variables is None:
         variables = {}
+
+    _validate_train_delete_targets(recipe)
     
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id

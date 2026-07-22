@@ -1,5 +1,6 @@
 import time
 import uuid
+from unittest.mock import Mock
 
 import wrangles
 import pandas as pd
@@ -2235,3 +2236,154 @@ class TestTrainMetaData:
                 """,
                 dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
             )
+
+
+#
+# Delete
+#
+class TestTrainDelete:
+    """
+    Tests for wrangles.train.delete.
+    """
+
+    def _mock_delete_ok(self, monkeypatch):
+        mock = Mock()
+        mock.return_value.ok = True
+        mock.return_value.status_code = 200
+        train_module = importlib.import_module("wrangles.train")
+        auth_module = importlib.import_module("wrangles.auth")
+        monkeypatch.setattr(auth_module, "get_access_token", lambda: "token")
+        monkeypatch.setattr(train_module._requests, "delete", mock)
+        return mock
+
+    def test_delete_error_raises_runtime_error(self, monkeypatch):
+        """
+        A non-OK response from the delete endpoint raises RuntimeError.
+        """
+        mock = Mock()
+        mock.return_value.ok = False
+        mock.return_value.status_code = 404
+        mock.return_value.text = '{"message":"Not Found"}'
+        train_module = importlib.import_module("wrangles.train")
+        auth_module = importlib.import_module("wrangles.auth")
+        monkeypatch.setattr(auth_module, "get_access_token", lambda: "token")
+        monkeypatch.setattr(train_module._requests, "delete", mock)
+
+        with pytest.raises(RuntimeError, match="Delete model failed"):
+            wrangles.train.delete("00000000-0000-0000", confirm='delete')
+
+    def test_delete_without_confirm_raises_value_error(self, monkeypatch):
+        """
+        Calling delete without confirm='delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000")
+
+        mock_delete.assert_not_called()
+
+    def test_delete_with_wrong_confirm_value_raises_value_error(self, monkeypatch):
+        """
+        Calling delete with any confirm value except 'delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000", confirm='yes')
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write(self, monkeypatch):
+        """
+        train.delete can be used as a side-effect connector in the write section.
+        """
+        model_id = "93d92b4c-9f49-4ff5"
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        df = wrangles.recipe.run(
+            f"""
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    value: keep
+            write:
+              - train.delete:
+                  model_id: {model_id}
+                  confirm: delete
+            """
+        )
+
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
+        assert df["value"].iloc[0] == "keep"
+
+    def test_delete_as_recipe_write_without_confirm_raises(self, monkeypatch):
+        """
+        train.delete in a recipe write section still requires confirm='delete'.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        value: keep
+                write:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write_blocks_model_used_in_read(self, monkeypatch):
+        """
+        train.delete cannot delete a model_id used elsewhere in the same recipe.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="used elsewhere in this recipe"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - train.lookup:
+                      model_id: 93d92b4c-9f49-4ff5
+                write:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                      confirm: delete
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write_blocks_model_used_in_another_write(self, monkeypatch):
+        """
+        train.delete cannot delete a model_id another write step updates.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="used elsewhere in this recipe"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        Key: value
+                        Value: keep
+                write:
+                  - train.lookup:
+                      model_id: 93d92b4c-9f49-4ff5
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                      confirm: delete
+                """
+            )
+
+        mock_delete.assert_not_called()
