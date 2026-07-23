@@ -1020,6 +1020,7 @@ def custom(
             case_sensitive=case_sensitive,
             extract_raw=extract_raw,
             use_spellcheck=use_spellcheck,
+            include_empty_labels=include_empty_labels,
             sort=sort,
             **kwargs
         )
@@ -1037,6 +1038,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
@@ -1056,6 +1058,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
@@ -1077,6 +1080,7 @@ def custom(
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
