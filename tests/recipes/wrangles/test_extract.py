@@ -1058,7 +1058,10 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'ERROR IN WRANGLE extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            (
+                'ERROR IN WRANGLE extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected input, longest, or shortest."} \n' in info.value.args[0]
+                or 'ERROR IN WRANGLE extract.codes - at line 3 - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            )
         )
 
         
