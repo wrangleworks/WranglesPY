@@ -381,7 +381,7 @@ class TestCopy:
             wrangles.recipe.run(recipe=recipe, dataframe=data)
         assert (
             info.typename == "ValueError" and 
-            ("ERROR IN WRANGLE copy - at line 3 - Input and output must be the same length") in str(info.value)
+            ("copy (line 3) - Input and output must be the same length") in str(info.value)
         )
 
     def test_copy_shorthand(self):
@@ -902,7 +902,7 @@ class TestExplode:
             )
         assert (
             info.typename == "ValueError" and 
-            ("ERROR IN WRANGLE explode - at line 3 - columns must have matching element counts") in str(info.value)
+            ("explode (line 3) - columns must have matching element counts") in str(info.value)
         )
 
     def test_explode_reset_index_default(self):

@@ -130,6 +130,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     try:
@@ -144,6 +147,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     df_temp = df_temp.set_index(f"index_asbjdbasjk_{random_str}")[output]
@@ -1607,7 +1613,11 @@ def rename(
                     # Preserve the inner wrangle's own message (which already
                     # includes the correct line number and a suggestion when
                     # available) rather than burying it behind extra text.
-                    raise RuntimeError(f"{e}") from e
+                    # Also carry over the "already wrapped" marker so the
+                    # outer rename wrangle doesn't wrap it a second time.
+                    wrapped = RuntimeError(f"{e}")
+                    wrapped._wrangles_error_wrapped = getattr(e, '_wrangles_error_wrapped', False)
+                    raise wrapped.with_traceback(e.__traceback__) from None
 
                 if len(target) != len(result):
                     raise RuntimeError(
