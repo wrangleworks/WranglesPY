@@ -2037,6 +2037,47 @@ class TestRename:
         )
         assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+    def test_rename_wrangles_error_shows_correct_line(self):
+        """
+        When an inner wrangle used inside rename's `wrangles:` (e.g. convert.case)
+        raises an error, the reported line number should point at that wrangle's
+        real position in the user's recipe - not the line number of the internal,
+        synthetic single-wrangle recipe that rename() builds to run it. The error
+        also should not be wrapped twice with a redundant "Failed running ... in
+        rename wrangles" message.
+        """
+        recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                Manufacturer Name: Delos
+                Part Number: CH465517080
+
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: bogus_case_value
+                - custom.add_suffix:
+                    output: columns
+        """
+        expected_line = next(
+            i for i, line in enumerate(recipe.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def add_suffix(columns):
+            return columns + "_clean"
+
+        with pytest.raises(Exception) as info:
+            wrangles.recipe.run(recipe, functions=add_suffix)
+
+        msg = str(info.value)
+        assert f"at line {expected_line}" in msg
+        assert "Failed running" not in msg
+
     def test_rename_empty(self):
         """
         Test rename with empty data
@@ -2424,6 +2465,67 @@ class TestRename:
         # Should rename Col1 to COL1
         assert 'COL1' in df.columns
 
+    def test_rename_missing_input_skips_when_output_exists_dict(self):
+        """
+        Missing input should not error when the target output column already exists.
+        """
+        data = pd.DataFrame({
+            'Description': ['already normalized'],
+            'Part Number': ['PN-1'],
+        })
+        recipe = """
+        wrangles:
+            - rename:
+                desc: Description
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.columns.tolist() == ['Description', 'Part Number']
+        assert df.iloc[0]['Description'] == 'already normalized'
+
+    def test_rename_multiple_possible_inputs_to_existing_output(self):
+        """
+        Alternate input names can map to one output, or skip if output already exists.
+        """
+        recipe = """
+        wrangles:
+            - rename:
+                input:
+                    - [input desc, desc]
+                output:
+                    - Description
+        """
+
+        input_desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'input desc': ['from input desc'],
+                'Part Number': ['PN-1'],
+            })
+        )
+        assert input_desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert input_desc_df.iloc[0]['Description'] == 'from input desc'
+
+        desc_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'desc': ['from desc'],
+                'Part Number': ['PN-2'],
+            })
+        )
+        assert desc_df.columns.tolist() == ['Description', 'Part Number']
+        assert desc_df.iloc[0]['Description'] == 'from desc'
+
+        existing_output_df = wrangles.recipe.run(
+            recipe,
+            dataframe=pd.DataFrame({
+                'Description': ['already normalized'],
+                'Part Number': ['PN-3'],
+            })
+        )
+        assert existing_output_df.columns.tolist() == ['Description', 'Part Number']
+        assert existing_output_df.iloc[0]['Description'] == 'already normalized'
+
 class TestSimilarity:
     """
     Test similarity
@@ -2511,7 +2613,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2705,7 +2807,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -3900,6 +4002,57 @@ class TestRecipe:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
+
+    def test_recipe_wrangle_model_id_nested_error_shows_nested_line(self):
+        """
+        When the recipe wrangle's name is a model_id that itself points to
+        another recipe (rather than a synthetic/inline recipe fragment),
+        an error inside that nested recipe should be attributed to a line
+        within that nested recipe's own source - not the outer recipe's
+        line, and not lost entirely.
+        """
+        nested_recipe_text = """
+wrangles:
+  - convert.case:
+      input: temp
+      case: bogus_case_value
+"""
+        expected_line = next(
+            i for i, line in enumerate(nested_recipe_text.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def fake_model(model_id):
+            return {'purpose': 'recipe'}
+
+        def fake_model_content(model_id, version_id=None):
+            return {'recipe': nested_recipe_text}
+
+        outer_recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value1
+
+        wrangles:
+          - convert.case:
+              input: header
+              output: temp
+              case: upper
+
+          - recipe:
+              name: aaaaaaaa-bbbb-cccc
+              input: temp
+        """
+
+        with patch('wrangles.recipe._data.model', side_effect=fake_model), \
+             patch('wrangles.recipe._data.model_content', side_effect=fake_model_content):
+            with pytest.raises(Exception) as info:
+                wrangles.recipe.run(outer_recipe)
+
+        msg = str(info.value)
+        assert f"at line {expected_line}" in msg
 
     def test_recipe_input(self):
         """
@@ -5299,7 +5452,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_invalid_wrangles_column_output(self):
@@ -5333,7 +5487,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            "accordion - \'Did you forget" in err.value.args[0]
+            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_inconsistent_lengths(self):
@@ -5407,7 +5562,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_empty_list(self):
@@ -6031,7 +6187,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE custom\.fail_on_2nd_batch.*"'):  
             wrangles.recipe.run(  
                 """  
                 read:  
@@ -6048,6 +6204,33 @@ class TestBatch:
                 functions=fail_on_2nd_batch  
         )  
   
+
+
+def _seed_lookup_model(model_id, dataframe, timeout=15, interval=0.5):
+    """
+    Overwrite a live train.lookup model and poll until the write is visible.
+
+    The lookup API is eventually consistent, so callers must wait for the
+    write to land before reading it back rather than assuming it's immediate.
+    """
+    wrangles.recipe.run(
+        f"""
+        write:
+          - train.lookup:
+              model_id: {model_id}
+              action: overwrite
+              variant: key
+        """,
+        dataframe=dataframe,
+    )
+    expected_keys = set(dataframe['Key'])
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {model_id}")
+        if set(result.columns) == set(dataframe.columns) and set(result['Key']) == expected_keys:
+            return
+        time.sleep(interval)
+    raise AssertionError(f"Lookup model {model_id} did not reach seeded state within {timeout}s")
 
 
 class TestLookup:
@@ -6203,6 +6386,58 @@ class TestLookup:
                 dataframe=pd.DataFrame({'Col1': ['a']} )  
             )  
     
+    def test_lookup_output_key_only(self):
+        """
+        Specifying output: Key should return the looked-up key string, not a dict.
+        Issue #992: 'Key' was not in metadata["settings"]["columns"] so the unnamed-
+        columns path was hit and the full dict was returned instead.
+        """
+        _seed_lookup_model(
+            '3f23acaf-a2e6-4327',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output: Key
+                  model_id: 3f23acaf-a2e6-4327
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+
+    def test_lookup_output_key_and_value_column(self):
+        """
+        Specifying output: [Key, Schema] must work without error.
+        Issue #992: mixing 'Key' with a real model column raised ValueError.
+        """
+        _seed_lookup_model(
+            '33961b4e-92f5-4705',
+            pd.DataFrame({
+                'Key':    ['apple', 'banana', 'cherry'],
+                'Schema': ['fruit', 'fruit',  'fruit'],
+            }),
+        )
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - lookup:
+                  input: fruit
+                  output:
+                    - Key
+                    - Schema
+                  model_id: 33961b4e-92f5-4705
+            """,
+            dataframe=pd.DataFrame({'fruit': ['apple', 'banana', 'cherry']}),
+        )
+        assert df['Key'].tolist() == ['apple', 'banana', 'cherry']
+        assert df['Schema'].tolist() == ['fruit', 'fruit', 'fruit']
+
     def test_lookup_mode_invalid_mode(self):  
         """  
         Test error when invalid lookup_mode is provided  
@@ -6966,6 +7201,150 @@ class TestLookup:
             """
         )
         assert df['Value'][0] == ""
+        
+    def test_lookup_n_single_output(self):
+        """
+        Test lookup with n returns a list of n matches in a single output column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output: Matches
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert isinstance(df['Matches'].iloc[0], list)
+        assert len(df['Matches'].iloc[0]) == 2
+
+    def test_lookup_n_output_distribution(self):
+        """
+        Test lookup with n where output list length equals n distributes matches across columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+
+    def test_lookup_n_output_wildcard_expansion(self):
+        """
+        Test lookup with n where a single wildcard output name is expanded
+        into one column per match
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Top *
+                model_id: e8658a6f-c694-45d0
+                n: 3
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Top 1' in df.columns
+        assert 'Top 2' in df.columns
+        assert 'Top 3' in df.columns
+        assert df['Top 1'].iloc[0] != df['Top 2'].iloc[0] != df['Top 3'].iloc[0]
+
+    def test_lookup_n_output_distribution_multiple_rows(self):
+        """
+        Test lookup with n distributes matches correctly across multiple rows
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Match1
+                  - Match2
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel', 'Dolores']})
+        )
+        assert len(df) == 2
+        assert 'Match1' in df.columns
+        assert 'Match2' in df.columns
+        assert df['Match1'].iloc[0] != df['Match2'].iloc[0]
+
+    def test_lookup_n_named_output_columns_distribution(self):
+        """
+        Test lookup with n where the output columns match the model's
+        column names, distributing matches across those columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - lookup:
+                input: Col1
+                output:
+                  - Value
+                  - Score
+                model_id: e8658a6f-c694-45d0
+                n: 2
+            """,
+            dataframe=pd.DataFrame({'Col1': ['Rachel']})
+        )
+        assert 'Value' in df.columns
+        assert 'Score' in df.columns
+        assert df['Value'].iloc[0] != df['Score'].iloc[0]
+
+    def test_lookup_n_output_mismatch_named_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Value
+                      - Score
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
+
+    def test_lookup_n_output_mismatch_unnamed_columns(self):
+        """
+        Test that an error is raised when n does not match the number of
+        output columns that don't correspond to the model's column names
+        """
+        with pytest.raises(ValueError, match="must equal n"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - lookup:
+                    input: Col1
+                    output:
+                      - Match1
+                      - Match2
+                    model_id: e8658a6f-c694-45d0
+                    n: 3
+                """,
+                dataframe=pd.DataFrame({'Col1': ['Rachel']})
+            )
 
     def test_lookup_n_single_output(self):
         """
@@ -7720,11 +8099,14 @@ class TestConcurrent:
 
         end = datetime.now()
 
+        # Upper bound is wider than the threaded test to allow for
+        # process-spawn overhead (e.g. Windows uses spawn rather than fork,
+        # which re-imports the full dependency graph in each worker process).
         assert (
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 10
+            5 <= (end - start).seconds < 20
         )
 
     def test_output_error(self):
@@ -8984,6 +9366,22 @@ class TestDebugLogging:
         )
         assert any(': Sorting dataframe' in msg for msg in caplog.messages)
 
+    def test_pandas_sort_coerces_mixed_numeric_types(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - sort:
+                by: score
+            """,
+            dataframe=pd.DataFrame({
+                'score': [10.5, '', 2.0, '3.5'],
+                'item': ['ten', 'blank', 'two', 'three'],
+            })
+        )
+
+        assert df['item'].tolist() == ['blank', 'two', 'three', 'ten']
+        assert df['score'].tolist() == ['', 2.0, '3.5', 10.5]
+
     def test_pandas_round_debug_log(self, caplog):
         import logging
         caplog.set_level(logging.DEBUG)
@@ -9084,3 +9482,29 @@ class TestWrangleSchema:
                 failures.append(f'{path}: YAML parse error — {e}')
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
+
+    def test_extract_codes_schema_matches_microservice_params(self):
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.extract.codes.__doc__)
+        properties = schema['properties']
+
+        for param in (
+            'min_length',
+            'max_length',
+            'sort_order',
+            'disallowed_patterns',
+            'include_multi_part_tokens',
+            'extract_raw'
+        ):
+            assert param in properties
+
+        for param in (
+            'minLength',
+            'maxLength',
+            'sortOrder',
+            'disallowedPatterns',
+            'includeMultiPartTokens',
+            'extractRaw'
+        ):
+            assert param not in properties

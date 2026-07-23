@@ -470,7 +470,9 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = 'dict',
     **kwargs
 ) -> list:
     """
@@ -509,6 +511,15 @@ def custom(
     }
 
     model_properties = _data.model(model_id)
+    model_content = _data.model_content(model_id)
+
+    model_labels = set()
+    for item in model_content['Data']:  
+        if len(item) >= 2: 
+            if ':' in item[1]: 
+                label = item[1].split(':')[0]  # Second column typically contains the label/type  
+                model_labels.add(label.strip())
+    
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error':
         raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -538,13 +549,30 @@ def custom(
                 {results["columns"][i]: row[i] for i in range(len(row))}
                 for row in results["data"]
             ]
-
     if isinstance(results, list):
         if first_element and not use_labels:
             results = [x[0] if len(x) >= 1 else "" for x in results]
         
-        if use_labels and first_element:
-            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+        if use_labels:
+            if include_empty_labels:
+                # Determine a single canonical casing per label (case-insensitive).
+                # Casing seen in the actual API results takes precedence over the
+                # model-defined casing, so labels like "Unlabeled" stay consistent
+                # across every row instead of varying between "Unlabeled"/"unlabeled".
+                canonical_labels = {}
+                for label in (model_labels or []):
+                    canonical_labels.setdefault(str(label).lower(), label)
+                for objs in results:
+                    for k in objs.keys():
+                        canonical_labels[str(k).lower()] = k
+
+                for objs in results:
+                    existing = {str(k).lower(): v for k, v in objs.items()}
+                    objs.clear()
+                    for label_lower, label in canonical_labels.items():
+                        objs[label] = existing.get(label_lower, [])
+            if first_element:
+                results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:
         raise ValueError(f'API Response did not return an expected format for model {model_id}')
 
@@ -701,7 +729,8 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 def brackets(
     input: str,
     find: list = _Union[str, list],
-    include_brackets: bool = False
+    include_brackets: bool = False,
+    return_data_type: str = "string"
     ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
@@ -736,7 +765,9 @@ def brackets(
         # Traverse list and remove all brackets if include_brackets is False
         if include_brackets is False:
             re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
-            results.append(', '.join(re))
+
+        if return_data_type == "list":
+            results.append(re)
         else:
             results.append(', '.join(re))
         

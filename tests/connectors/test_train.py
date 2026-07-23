@@ -1,12 +1,61 @@
+import time
 import uuid
-
-from pytest_mock import mocker
+from unittest.mock import Mock
 
 import wrangles
 import pandas as pd
 import pytest
 import logging
 import re
+import requests as _requests
+import importlib
+
+
+def _wait_for_lookup(model_id, predicate, timeout=15, interval=0.5):
+    """
+    Poll a live train.lookup model until predicate(df) is true.
+
+    The lookup API is eventually consistent, so a fixed sleep after a write
+    can race with a subsequent read. Polling on the actual expected state
+    avoids that race instead of guessing a delay.
+    """
+    deadline = time.time() + timeout
+    result = None
+    while time.time() < deadline:
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {model_id}")
+        if predicate(result):
+            return result
+        time.sleep(interval)
+    raise AssertionError(
+        f"Lookup model {model_id} did not reach expected state within {timeout}s; "
+        f"last seen columns: {list(result.columns) if result is not None else None}"
+    )
+
+
+class FakeTrainResponse:
+    ok = True
+    status_code = 200
+
+    def __init__(self, model_id="test-model-id"):
+        self.model_id = model_id
+        self.text = f'{{"model_id":"{model_id}"}}'
+
+    def json(self):
+        return {"model_id": self.model_id}
+
+
+def mock_train_model_create(monkeypatch, model_id="test-model-id"):
+    train_module = importlib.import_module("wrangles.train")
+    calls = []
+
+    def post(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeTrainResponse(model_id)
+
+    monkeypatch.setattr(train_module._auth, "get_access_token", lambda: "test-token")
+    monkeypatch.setattr(train_module._requests, "post", post)
+    return calls
+
 
 class LogCapture(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -16,6 +65,40 @@ class LogCapture(logging.Handler):
         self.records.append(record)
     def get_messages(self):
         return [self.format(r) for r in self.records]
+
+def _delete_model(model_id, model_type=None):
+    """Delete a model by id. Best-effort - silently ignores failures."""
+    from wrangles import config as _config, auth as _auth
+    try:
+        params = {'model_id': model_id}
+        if model_type:
+            params['type'] = model_type
+        _requests.delete(
+            f'{_config.api_host}/model/content',
+            params=params,
+            headers={'Authorization': f'Bearer {_auth.get_access_token()}'},
+        )
+    except Exception:
+        pass
+
+def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
+    """
+    Newly created models may still be initializing after the PUT returns.
+    Retries running the recipe until it raises no exception or max_wait seconds elapse.
+    """
+    deadline = time.time() + max_wait
+    last_err = None
+    while time.time() < deadline:
+        try:
+            return wrangles.recipe.run(recipe, dataframe=dataframe)
+        except (ValueError, TypeError, AttributeError, KeyError):
+            raise
+        except Exception as e:
+            last_err = e
+        time.sleep(interval)
+    if last_err:
+        raise last_err
+    raise AssertionError(f'Model did not produce expected output within {max_wait}s')
 
 #
 # Classify
@@ -130,7 +213,8 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
+def test_classify_write_logs_new_model_id_integration(caplog, monkeypatch):  
+    calls = mock_train_model_create(monkeypatch, "classify-test-model")
     df = pd.DataFrame({  
         'Example': ['apple', 'banana'],  
         'Category': ['fruit', 'fruit'],  
@@ -147,6 +231,56 @@ def test_classify_write_logs_new_model_id_integration(caplog):
     )  
   
     assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+    assert calls[0][1]["params"] == {"type": "classify", "name": "Test Classify Model"}
+    assert calls[0][1]["json"] == [
+        ["Example", "Category", "Notes"],
+        ["apple", "fruit", ""],
+        ["banana", "fruit", ""],
+    ]
+
+def test_classify_name_creates_working_model(caplog):
+    """
+    A classify model trained via 'name' must respond to inference without error. Bug #972.
+    """
+    model_name = f'Bug972 Pytest Classify {uuid.uuid4().hex[:8]}'
+
+    wrangles.recipe.run(
+        f"""
+        write:
+            - train.classify:
+                name: {model_name}
+        """,
+        dataframe=pd.DataFrame({
+            'Example':  ['rice', 'wheat', 'milk', 'cheese', 'beef', 'chicken'],
+            'Category': ['Grain', 'Grain', 'Dairy', 'Dairy', 'Meat', 'Meat'],
+            'Notes':    ['', '', '', '', '', ''],
+        }),
+    )
+
+    new_model_id = None
+    for msg in caplog.messages:
+        m = re.search(r'New classify model created :: ([\w-]+)', msg)
+        if m:
+            new_model_id = m.group(1)
+            break
+
+    assert new_model_id is not None, 'model_id was not logged after training'
+
+    result = _wait_for_model(
+        f"""
+        wrangles:
+            - classify:
+                input: item
+                output: category
+                model_id: {new_model_id}
+        """,
+        dataframe=pd.DataFrame({'item': ['rice']}),
+    )
+
+    assert 'category' in result.columns
+    assert isinstance(result.loc[0, 'category'], str) and len(result.loc[0, 'category']) > 0
+
+    _delete_model(new_model_id, 'classify')
 
 class TestTrainExtract:
     """
@@ -480,6 +614,56 @@ class TestTrainExtract:
                 })
             )
 
+    def test_extract_name_creates_working_model(self, caplog):
+        """
+        A model trained via 'name' must work immediately for inference. Bug #972:
+        before the fix, extract.custom returned a 500 error on newly-created models.
+        """
+        model_name = f'Bug972 Pytest Extract {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.extract:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Find':   ['Rachel', 'Dolores', 'TARS'],
+                'Output': ['Rachel', 'Dolores', 'TARS'],
+                'Notes':  ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New extract model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+                - extract.custom:
+                    input: description
+                    output: characters
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'description': [
+                'Rachel is a replicant from Blade Runner',
+                'Dolores woke up in Westworld',
+                'No character mentioned here',
+            ]})
+        )
+
+        assert result.loc[0, 'characters'] == ['Rachel']
+        assert result.loc[1, 'characters'] == ['Dolores']
+        assert result.loc[2, 'characters'] == []
+
+        _delete_model(new_model_id, 'extract')
+
 class TestTrainLookup:
     """
     All tests for train.lookup
@@ -644,6 +828,9 @@ class TestTrainLookup:
               model_id: 3c8f6707-2de4-4be3 
               action: INSERT
               variant: key
+              columns:
+                - Key
+                - Value
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Dolores', 'TARS'],
@@ -666,30 +853,36 @@ class TestTrainLookup:
                 model_id: 3c8f6707-2de4-4be3 
                 action: INSERT
                 variant: key
+                columns:
+                  - Key
+                  - Value
             """ 
         with pytest.raises(ValueError, match="Lookup: All Keys must be unique"):  
             wrangles.recipe.run(recipe, dataframe=df)
         
     
-    def test_update_model_not_found(self):  
-        """  
-        Test update fails when model doesn't exist   
-        """  
-        df = pd.DataFrame({  
-            'Key': ['Rachel', 'Dolores'],  
-            'Value': ['Blade Runner 2049', 'Westworld Updated']  
-        })  
-          
-        recipe = """  
-        write:  
-          - train.lookup:  
-              model_id: test-model-id  
-              action: UPDATE  
-        """  
-          
-        # This would test with an actual existing model  
-        # For testing purposes, we'll catch the expected error  
-        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):  
+    def test_update_model_not_found(self):
+        """
+        Test update fails when model doesn't exist
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'Dolores'],
+            'Value': ['Blade Runner 2049', 'Westworld Updated']
+        })
+
+        recipe = """
+        write:
+          - train.lookup:
+              model_id: test-model-id
+              action: UPDATE
+              columns:
+                - Key
+                - Value
+        """
+
+        # This would test with an actual existing model
+        # For testing purposes, we'll catch the expected error
+        with pytest.raises(RuntimeError, match="Access denied to model test-model-id"):
             wrangles.recipe.run(recipe, dataframe=df)  
   
     def test_action_parameter_validation_recipe(self):  
@@ -725,15 +918,19 @@ class TestTrainLookup:
           - train.lookup:  
               model_id: 3c8f6707-2de4-4be3
               action: UPDATE  
-        """  
+              columns:
+                - Key
+                - Value
+        """
         
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
                                                             
-    def test_upsert_new_model_recipe(self):  
+    def test_upsert_new_model_recipe(self, monkeypatch):  
         """  
-        Test upsert creates new model when model_id doesn't exist  
+        Test upsert creates a new model request without persisting a real test model.
         """  
+        calls = mock_train_model_create(monkeypatch, "lookup-upsert-test-model")
         df = pd.DataFrame({  
             'Key': ['Rachel', 'NewCharacter'],  
             'Value': ['Updated Rachel', 'New Movie']  
@@ -743,17 +940,26 @@ class TestTrainLookup:
         recipe = f"""  
         write:  
         - train.lookup:  
-            name: {model_name} 
+            name: {model_name}  
             action: UPSERT  
             variant: key  
+            columns:
+              - Key
+              - Value
         """  
         
         result = wrangles.recipe.run(recipe, dataframe=df)  
         assert len(result) == 2  
         assert 'NewCharacter' in result['Key'].tolist()  
         assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
-        models = wrangles.data.user.models('lookup')
-        assert any(m['name'] == model_name for m in models)
+        assert calls[0][1]["params"] == {"type": "lookup", "name": model_name, "variant": "key"}
+        assert calls[0][1]["json"] == {
+            "Columns": ["Key", "Value"],
+            "Data": [
+                ["Rachel", "Updated Rachel"],
+                ["NewCharacter", "New Movie"],
+            ],
+        }
   
     def test_action_parameter_upsert(self):  
         """  
@@ -769,6 +975,9 @@ class TestTrainLookup:
             model_id: b2cd1a8a-4d99-4be1
             action: UPSERT  
             variant: key  
+            columns:
+              - Key
+              - Value
         """  
         result = wrangles.recipe.run(recipe, dataframe=df)  
         assert len(result) == 1
@@ -857,24 +1066,61 @@ class TestTrainLookup:
         assert 'Interstellar' in result.values
         assert 'Value' in result.columns and 'Description' in result.columns
 
-    def test_upsert_mismatched_columns_existing_model(self):
+    def test_upsert_adds_new_column(self):
         """
-        UPSERT should fail when new data includes columns not present
-        in the existing model schema.
+        UPSERT with a column that doesn't exist in the model yet must add
+        that column; existing rows receive '' for the new column.
+
         """
-        df = pd.DataFrame({
-            'Key': ['Rachel'],
-            'Other': ['Blade Runner']
-        })
-        recipe = """
-        write:
-          - train.lookup:
-              model_id: b2cd1a8a-4d99-4be1
-              action: UPSERT
-              variant: key
-        """
-        with pytest.raises(ValueError, match="The following columns are not present in the existing model: Other"):
-            wrangles.recipe.run(recipe, dataframe=df)
+        MODEL = 'c060a706-db4a-4564'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':   ['apple', 'banana'],
+                'Value': ['red',   'yellow'],
+            }),
+        )
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Value'} and set(df['Key']) == {'apple', 'banana'},
+        )
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: upsert
+                  variant: key
+                  columns:
+                    - Key
+                    - Value
+                    - Weight
+            """,
+            dataframe=pd.DataFrame({
+                'Key':    ['apple'],
+                'Value':  ['green'],
+                'Weight': ['1.0'],
+            }),
+        )
+
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Weight' in df.columns
+            and (df.loc[df['Key'] == 'apple', 'Value'] == 'green').all(),
+        )
+        assert 'Weight' in result.columns, "New column must be present after upsert"
+        apple  = result[result['Key'] == 'apple'].iloc[0]
+        banana = result[result['Key'] == 'banana'].iloc[0]
+        assert apple['Weight']  == '1.0', "Updated row must carry the new column value"
+        assert banana['Weight'] == '',    "Unaffected rows get '' for the new column"
 
     def test_upsert_missing_key_for_key_variant(self):
         """
@@ -890,6 +1136,8 @@ class TestTrainLookup:
               model_id: b2cd1a8a-4d99-4be1
               action: UPSERT
               variant: key
+              columns:
+                - Value
         """
         with pytest.raises(ValueError, match="'Key' column must be provided for 'key' variant"):
             wrangles.recipe.run(recipe, dataframe=df)
@@ -905,6 +1153,9 @@ class TestTrainLookup:
             model_id: 89637e77-7214-49a0
             action: UPDATE
             variant: semantic
+            columns:
+              - Not Key
+              - Not Value
         """
         data = pd.DataFrame({
             'Not Key': ['A', 'B'],
@@ -924,6 +1175,9 @@ class TestTrainLookup:
             model_id: 3c8f6707-2de4-4be3
             action: UPDATE
             variant: key
+            columns:
+              - NotKey
+              - Value
         """
         data = pd.DataFrame({
             'NotKey': ['A', 'B'],
@@ -985,6 +1239,11 @@ class TestTrainLookup:
             model_id: 3c8f6707-2de4-4be3
             action: INSERT
             variant: key
+            columns:
+              - City
+              - Country
+              - Key
+              - Value
             settings:
               MatchingColumns:
                 - Not City
@@ -1028,6 +1287,9 @@ class TestTrainLookup:
             - train.lookup:
                     name: 083ed6fe-a073-4b1a
                     action: UPSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1049,6 +1311,9 @@ class TestTrainLookup:
             - train.lookup:
                     model_id: 083ed6fe-a073-4b1a
                     action: UPSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1071,6 +1336,9 @@ class TestTrainLookup:
             - train.lookup:
                     model_id: 083ed6fe-a073-4b1a
                     action: INSERT
+                    columns:
+                      - City
+                      - Country
                     settings:
                         MatchingColumns:
                             - NotKey
@@ -1123,6 +1391,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: update
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1154,6 +1427,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: update
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                             - City
@@ -1186,6 +1464,11 @@ class TestTrainLookup:
                 - train.lookup:
                         model_id: 4202c974-430a-46b9
                         action: insert
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1217,6 +1500,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: insert
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                                 - City
@@ -1247,6 +1535,11 @@ class TestTrainLookup:
                 - train.lookup:
                         model_id: 4202c974-430a-46b9
                         action: upsert
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: City
             ''',
@@ -1277,6 +1570,11 @@ class TestTrainLookup:
                         model_id: 4202c974-430a-46b9
                         action: upsert
                         variant: semantic
+                        columns:
+                          - City
+                          - Country
+                          - Code
+                          - Currency
                         settings:
                             MatchingColumns: 
                                 - City
@@ -1288,7 +1586,7 @@ class TestTrainLookup:
         messages = [record.message for record in caplog.records if record.levelname == "INFO"]
         assert any("Lookup UPSERT: 1 rows inserted, 2 rows updated. Total rows:" in msg for msg in messages), "Log should mention rows inserted (variant specified)"
 
-    def test_insert_key_only(self, caplog):
+    def test_insert_key_only(self):
         """
         Test INSERT with only a Key column and no MatchingColumns/settings.
         """
@@ -1298,6 +1596,9 @@ class TestTrainLookup:
                 model_id: 12b7ac66-7418-45b5
                 action: INSERT
                 variant: key
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Rachel', 'Dolores'],
@@ -1326,6 +1627,9 @@ class TestTrainLookup:
             - train.lookup:
                 model_id: 12b7ac66-7418-45b5
                 action: UPDATE
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Alice'],
@@ -1342,6 +1646,169 @@ class TestTrainLookup:
 
         assert 'London Updated' in df['City'].values
 
+    def test_upsert_preserves_unspecified_columns(self):
+        """
+        UPSERT with a partial set of columns must not delete columns that are
+        present in the model but absent from the incoming DataFrame.
+        Issue #992: unspecified columns were silently dropped.
+        """
+        MODEL = 'be1fcb1c-08ea-43bc'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana', 'cherry'],
+                'Schema':  ['fruit', 'fruit',  'fruit'],
+                'Mapping': ['red',   'yellow', 'red'],
+            }),
+        )
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
+            and set(df['Key']) == {'apple', 'banana', 'cherry'},
+        )
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: upsert
+                  variant: key
+                  columns:
+                    - Key
+                    - Mapping
+            """,
+            dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
+        )
+
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Schema' in df.columns
+            and (df.loc[df['Key'] == 'apple', 'Mapping'] == 'green').all(),
+        )
+        assert 'Schema' in result.columns, "Schema must be preserved after partial upsert"
+        apple = result[result['Key'] == 'apple'].iloc[0]
+        assert apple['Mapping'] == 'green', "Updated column must reflect new value"
+        assert apple['Schema']  == 'fruit', "Unspecified column must retain original value"
+
+    def test_insert_preserves_unspecified_columns(self):
+        """
+        INSERT must not drop columns that exist in the model but are absent
+        from the incoming DataFrame.  New rows get '' for unspecified columns.
+        """
+        MODEL = '29a87d05-0617-4283'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana'],
+                'Schema':  ['fruit', 'fruit'],
+                'Mapping': ['red',   'yellow'],
+            }),
+        )
+        _wait_for_lookup(
+            MODEL,
+            lambda df: set(df.columns) == {'Key', 'Schema', 'Mapping'}
+            and set(df['Key']) == {'apple', 'banana'},
+        )
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: insert
+                  variant: key
+                  columns:
+                    - Key
+                    - Mapping
+            """,
+            dataframe=pd.DataFrame({'Key': ['cherry'], 'Mapping': ['red']}),
+        )
+
+        result = _wait_for_lookup(
+            MODEL,
+            lambda df: 'Schema' in df.columns and len(df) == 3,
+        )
+        assert 'Schema' in result.columns, "Schema column must be preserved after insert"
+        assert len(result) == 3, "New row must be added"
+        cherry = result[result['Key'] == 'cherry'].iloc[0]
+        assert cherry['Mapping'] == 'red'
+        assert cherry['Schema']  == '', "Unspecified column for new row must be empty string"
+
+    def test_update_preserves_unspecified_columns(self, mocker):
+        """
+        UPDATE must only modify the columns present in the incoming DataFrame;
+        all other columns — on both the updated and untouched rows — must be
+        preserved exactly.
+
+        Mocked rather than run against the live API: this previously polled
+        a real model for up to 15s and was flaky under eventual consistency.
+        """
+        MODEL = 'dcac58c3-7da0-403f'
+        store = {}
+
+        mocker.patch("wrangles.data.model", return_value={'variant': 'key'})
+        mocker.patch(
+            "wrangles.data.model_content",
+            side_effect=lambda id, version_id=None: store[id]
+        )
+        mocker.patch(
+            "wrangles.train.train.lookup",
+            side_effect=lambda data, name=None, model_id=None, settings=None: store.__setitem__(model_id, data)
+        )
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: overwrite
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':     ['apple', 'banana', 'cherry'],
+                'Schema':  ['fruit', 'fruit',  'fruit'],
+                'Mapping': ['red',   'yellow', 'red'],
+            }),
+        )
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  model_id: {MODEL}
+                  action: update
+                  variant: key
+                  columns:
+                    - Key
+                    - Mapping
+            """,
+            dataframe=pd.DataFrame({'Key': ['apple'], 'Mapping': ['green']}),
+        )
+
+        result = wrangles.recipe.run(f"read:\n  - train.lookup:\n      model_id: {MODEL}")
+        assert 'Schema' in result.columns, "Schema must be preserved after update"
+        apple  = result[result['Key'] == 'apple'].iloc[0]
+        banana = result[result['Key'] == 'banana'].iloc[0]
+        assert apple['Mapping']  == 'green',  "Updated Mapping must reflect new value"
+        assert apple['Schema']   == 'fruit',  "Unspecified Schema on updated row must be preserved"
+        assert banana['Mapping'] == 'yellow', "Untouched row must be unchanged"
+        assert banana['Schema']  == 'fruit',  "Untouched row Schema must be unchanged"
+
     def test_upsert_key_only(self):
         """
         Test UPSERT with only a Key column and no MatchingColumns/settings.
@@ -1352,6 +1819,9 @@ class TestTrainLookup:
                 model_id: 12b7ac66-7418-45b5
                 action: UPSERT
                 variant: key
+                columns:
+                  - Key
+                  - City
         """
         data = pd.DataFrame({
             'Key': ['Charlie', 'NewKey'],
@@ -1360,38 +1830,121 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
-    
-    def test_missing_columns_error_message(self):  
-        """  
-        Verify that INSERT/UPSERT/UPDATE raise the expected error  
-        when incoming columns are not present in the existing model.  
-        """  
 
-        df = pd.DataFrame({  
-            "Key": ["k3"],  
-            "Value": ["v3"],  
-            "ExtraCol": ["x"]  # This column does not exist in the model  
-        })  
+    def test_missing_columns_error_message(self, monkeypatch):
+        """
+        INSERT and UPDATE raise an error when incoming columns are not present
+        in the existing model schema.  UPSERT is intentionally excluded: it
+        allows new columns (adds them to the model schema, filling existing
+        rows with '').
+        """
+        train_connector = importlib.import_module("wrangles.connectors.train")
+        monkeypatch.setattr(
+            train_connector._data,
+            "model",
+            lambda model_id: {"variant": "key"}
+        )
+        monkeypatch.setattr(
+            train_connector._data,
+            "model_content",
+            lambda model_id: {
+                "Columns": ["Key", "Value"],
+                "Data": [["k1", "v1"], ["k2", "v2"]],
+            }
+        )
 
-    
-        # Test each action that performs the column-alignment check  
-        for action in ("insert", "upsert", "update"):  
+        df = pd.DataFrame({
+            "Key": ["k3"],
+            "Value": ["v3"],
+            "ExtraCol": ["x"]  # does not exist in the model
+        })
+
+        for action in ("insert", "update"):
             recipe = f"""
                 write:
                     - train.lookup:
                         model_id: bc3ee6a0-e104-4700
                         action: {action}
                         variant: key
-
+                        columns:
+                          - Key
+                          - Value
+                          - ExtraCol
                 """
             with pytest.raises(ValueError, match="Lookup: The following columns are not present in the existing model: ExtraCol"):
                 wrangles.recipe.run(recipe, dataframe=df)
-    
-            
-def test_lookup_write_logs_new_model_id(caplog):  
+
+    def test_lookup_name_creates_working_model(self, caplog):
+        """
+        A lookup model trained via 'name' must return correct values immediately. Bug #972.
+        """
+        model_name = f'Bug972 Pytest Lookup {uuid.uuid4().hex[:8]}'
+
+        wrangles.recipe.run(
+            f"""
+            write:
+              - train.lookup:
+                  name: {model_name}
+                  variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key':   ['Rachel', 'Dolores', 'TARS'],
+                'Value': ['Blade Runner', 'Westworld', 'Interstellar'],
+            }),
+        )
+
+        new_model_id = None
+        for msg in caplog.messages:
+            m = re.search(r'New lookup model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        result = _wait_for_model(
+            f"""
+            wrangles:
+              - lookup:
+                  input: character
+                  output: movie
+                  model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'character': ['Rachel', 'TARS']}),
+        )
+
+        assert result.loc[0, 'movie']['Value'] == 'Blade Runner'
+        assert result.loc[1, 'movie']['Value'] == 'Interstellar'
+
+        _delete_model(new_model_id, 'lookup')
+
+    def test_columns_required_for_partial_update_actions(self):
+        """
+        INSERT, UPDATE, and UPSERT must raise ValueError when 'columns' is not specified.
+        OVERWRITE does not require it.
+        """
+        df = pd.DataFrame({'Key': ['apple'], 'Value': ['red']})
+        for action in ('insert', 'update', 'upsert'):
+            with pytest.raises(
+                ValueError,
+                match=f"Lookup: 'columns' is required for action '{action}'"
+            ):
+                wrangles.recipe.run(
+                    f"""
+                    write:
+                      - train.lookup:
+                          model_id: 3c8f6707-2de4-4be3
+                          action: {action}
+                    """,
+                    dataframe=df,
+                )
+
+
+def test_lookup_write_logs_new_model_id(caplog, monkeypatch):
+    """
+    Test lookup model creation logging without creating a real test model.
     """  
-    Integration test for lookup model creation logging  
-    """  
+    calls = mock_train_model_create(monkeypatch, "lookup-test-model")
     df = pd.DataFrame({  
         'Key': ['apple', 'banana'],  
         'Value': ['fruit', 'fruit']  
@@ -1412,6 +1965,11 @@ def test_lookup_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "New lookup model created" in record.message  
     )
+    assert calls[0][1]["params"] == {"type": "lookup", "name": "Test Lookup Model Integration", "variant": "key"}
+    assert calls[0][1]["json"] == {
+        "Columns": ["Key", "Value"],
+        "Data": [["apple", "fruit"], ["banana", "fruit"]],
+    }
 
 
 #
@@ -1495,10 +2053,11 @@ def test_standardize_error():
             })
         )
 
-def test_standardize_write_logs_new_model_id(caplog):  
+def test_standardize_write_logs_new_model_id(caplog, monkeypatch):  
     """  
-    Integration test for standardize model creation logging  
+    Test standardize model creation logging without creating a real test model.
     """  
+    calls = mock_train_model_create(monkeypatch, "standardize-test-model")
     df = pd.DataFrame({  
         'Find': ['ASAP', 'ETA'],  
         'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
@@ -1519,6 +2078,12 @@ def test_standardize_write_logs_new_model_id(caplog):
         record.message for record in caplog.records   
         if record.levelname == "INFO" and "Creating new standardize model" in record.message  
     )
+    assert calls[0][1]["params"] == {"type": "standardize", "name": "Test Standardize Model Integration"}
+    assert calls[0][1]["json"] == [
+        ["Find", "Replace", "Notes"],
+        ["ASAP", "As Soon As Possible", ""],
+        ["ETA", "Estimated Time of Arrival", ""],
+    ]
 
 
 class TestTrainMetaData:
@@ -1671,3 +2236,154 @@ class TestTrainMetaData:
                 """,
                 dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
             )
+
+
+#
+# Delete
+#
+class TestTrainDelete:
+    """
+    Tests for wrangles.train.delete.
+    """
+
+    def _mock_delete_ok(self, monkeypatch):
+        mock = Mock()
+        mock.return_value.ok = True
+        mock.return_value.status_code = 200
+        train_module = importlib.import_module("wrangles.train")
+        auth_module = importlib.import_module("wrangles.auth")
+        monkeypatch.setattr(auth_module, "get_access_token", lambda: "token")
+        monkeypatch.setattr(train_module._requests, "delete", mock)
+        return mock
+
+    def test_delete_error_raises_runtime_error(self, monkeypatch):
+        """
+        A non-OK response from the delete endpoint raises RuntimeError.
+        """
+        mock = Mock()
+        mock.return_value.ok = False
+        mock.return_value.status_code = 404
+        mock.return_value.text = '{"message":"Not Found"}'
+        train_module = importlib.import_module("wrangles.train")
+        auth_module = importlib.import_module("wrangles.auth")
+        monkeypatch.setattr(auth_module, "get_access_token", lambda: "token")
+        monkeypatch.setattr(train_module._requests, "delete", mock)
+
+        with pytest.raises(RuntimeError, match="Delete model failed"):
+            wrangles.train.delete("00000000-0000-0000", confirm='delete')
+
+    def test_delete_without_confirm_raises_value_error(self, monkeypatch):
+        """
+        Calling delete without confirm='delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000")
+
+        mock_delete.assert_not_called()
+
+    def test_delete_with_wrong_confirm_value_raises_value_error(self, monkeypatch):
+        """
+        Calling delete with any confirm value except 'delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000", confirm='yes')
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write(self, monkeypatch):
+        """
+        train.delete can be used as a side-effect connector in the write section.
+        """
+        model_id = "93d92b4c-9f49-4ff5"
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        df = wrangles.recipe.run(
+            f"""
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    value: keep
+            write:
+              - train.delete:
+                  model_id: {model_id}
+                  confirm: delete
+            """
+        )
+
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
+        assert df["value"].iloc[0] == "keep"
+
+    def test_delete_as_recipe_write_without_confirm_raises(self, monkeypatch):
+        """
+        train.delete in a recipe write section still requires confirm='delete'.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        value: keep
+                write:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write_blocks_model_used_in_read(self, monkeypatch):
+        """
+        train.delete cannot delete a model_id used elsewhere in the same recipe.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="used elsewhere in this recipe"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - train.lookup:
+                      model_id: 93d92b4c-9f49-4ff5
+                write:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                      confirm: delete
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write_blocks_model_used_in_another_write(self, monkeypatch):
+        """
+        train.delete cannot delete a model_id another write step updates.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="used elsewhere in this recipe"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        Key: value
+                        Value: keep
+                write:
+                  - train.lookup:
+                      model_id: 93d92b4c-9f49-4ff5
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                      confirm: delete
+                """
+            )
+
+        mock_delete.assert_not_called()

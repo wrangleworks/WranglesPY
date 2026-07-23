@@ -3,6 +3,10 @@ import wrangles
 import pandas as pd
 from wrangles.train import train
 import os
+import base64
+import json
+import numpy as np
+from unittest.mock import patch, MagicMock
 
 
 # Classify
@@ -129,7 +133,7 @@ def test_translate_list():
     assert isinstance(result[0], str)
     assert 'Chris' in result[0]
     assert result[0] != 'My name is Chris'
-    
+
 # Invalid input type (dict)
 def test_translate_typeError():
     with pytest.raises(TypeError) as info:
@@ -324,55 +328,62 @@ def test_embedding_single():
     """
     Test generating an embedding from a single value
     """
+    mock_post.return_value = _emb_mock(1)
     result = wrangles.openai.embeddings(
         "test string",
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key="test-key",
         model="text-embedding-3-small"
     )
     assert len(result) == 1536
     assert [round(float(x), 3) for x in result[:3]] == [0.007, -0.045, 0.025]
 
-def test_embedding_list():
+@patch('wrangles.openai._requests.post')
+def test_embedding_list(mock_post):
     """
     Test generating embeddings for a list
     """
+    mock_post.return_value = _emb_mock(2)
     result = wrangles.openai.embeddings(
         ["test string", "test string 2"],
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key="test-key",
         model="text-embedding-3-small"
     )
     assert len(result) == 2
     assert len(result[0]) == 1536
     assert [round(float(x), 3) for x in result[0][:3]] == [0.007, -0.045, 0.025]
 
-def test_extract_ai_model_id():
+@patch('wrangles.data.model_content', return_value=_FAKE_AI_MODEL_CONTENT)
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_model_id(mock_post, _mock_mc):
     """
     Test using python api for extract.ai
     using a pre-created model_id
     """
+    mock_post.return_value = _gpt_mock({"Colors": ["yellow"], "Shapes": ["square"]})
     results = wrangles.extract.ai(
         "yellow square",
         model_id="0e81f1ad-c0a3-42b4",
-        api_key=os.environ['OPENAI_API_KEY']
+        api_key="test-key"
     )
-
     assert (
         'Colors' in results and
         'Shapes' in results and
         isinstance(results['Colors'], list)
     )
 
-def test_extract_ai_model_id_list():
+@patch('wrangles.data.model_content', return_value=_FAKE_AI_MODEL_CONTENT)
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_model_id_list(mock_post, _mock_mc):
     """
     Test using python api for extract.ai
     using a pre-created model_id with a list
     """
+    mock_post.return_value = _gpt_mock({"Colors": ["yellow"], "Shapes": ["square"]})
     results = wrangles.extract.ai(
         ["yellow square", "red circle"],
         model_id="0e81f1ad-c0a3-42b4",
-        api_key=os.environ['OPENAI_API_KEY']
+        api_key="test-key"
     )
-
     assert (
         isinstance(results, list) and
         'Colors' in results[0] and
@@ -380,14 +391,16 @@ def test_extract_ai_model_id_list():
         isinstance(results[1]['Colors'], list)
     )
 
-def test_extract_ai_output_schema_keys():
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_output_schema_keys(mock_post):
     """
     Test using python api for extract.ai
     using an output definition with keys
     """
+    mock_post.return_value = _gpt_mock({"Colors": "yellow"})
     results = wrangles.extract.ai(
         "yellow square",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key="test-key",
         output={
             "Colors": {
                 "type": "string",
@@ -396,50 +409,53 @@ def test_extract_ai_output_schema_keys():
         },
         retries=2
     )
-
     assert (
         'Colors' in results and
         isinstance(results['Colors'], str)
     )
 
-def test_extract_ai_output_schema():
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_output_schema(mock_post):
     """
     Test using python api for extract.ai
     using an output without keys
     """
+    mock_post.return_value = _gpt_mock({"output": 12})
     results = wrangles.extract.ai(
         "12 penguins",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key="test-key",
         output={
             "type": "number",
             "description": "The number of penguins"
         },
         retries=2
     )
-
     assert results == 12
 
-def test_extract_ai_output_string():
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_output_string(mock_post):
     """
     Test using python api for extract.ai
     using an output that is just a description
     """
+    mock_post.return_value = _gpt_mock({"output": "yellow"})
     results = wrangles.extract.ai(
         "yellow square",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key="test-key",
         output="The names of any colors found in the input",
         retries=2
     )
-
     assert "yellow" in results
 
-def test_extract_ai_properties_list():
+@patch('wrangles.openai._requests.post')
+def test_extract_ai_properties_list(mock_post):
     """
     Test using a simplier syntax for properties without defining type etc.
     """
+    mock_post.return_value = _gpt_mock({"output": [{"unit": "mm", "value": 12}]})
     result = wrangles.extract.ai(
         "12mm spanner",
-        api_key=os.environ['OPENAI_API_KEY'],
+        api_key="test-key",
         output={
             "type": "array",
             "description": "Any numeric values such as lengths or weights returned as an object with keys for unit and value",
