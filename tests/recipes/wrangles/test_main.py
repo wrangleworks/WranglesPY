@@ -2075,7 +2075,7 @@ class TestRename:
             wrangles.recipe.run(recipe, functions=add_suffix)
 
         msg = str(info.value)
-        assert f"at line {expected_line}" in msg
+        assert f"(line {expected_line})" in msg
         assert "Failed running" not in msg
 
     def test_rename_empty(self):
@@ -2613,7 +2613,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2807,7 +2807,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - at line 3 - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -4052,7 +4052,7 @@ wrangles:
                 wrangles.recipe.run(outer_recipe)
 
         msg = str(info.value)
-        assert f"at line {expected_line}" in msg
+        assert f"(line {expected_line})" in msg
 
     def test_recipe_input(self):
         """
@@ -5427,7 +5427,7 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'accordion (line' in err.value.args[0] and
             'Did you forget' in err.value.args[0]
         )
 
@@ -5462,7 +5462,7 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'accordion (line' in err.value.args[0] and
             'Did you forget' in err.value.args[0]
         )
 
@@ -5537,7 +5537,7 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'ERROR IN WRANGLE accordion' in err.value.args[0] and
+            'accordion (line' in err.value.args[0] and
             'Did you forget' in err.value.args[0]
         )
 
@@ -6162,7 +6162,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "custom\.fail_on_2nd_batch.*"'):  
             wrangles.recipe.run(  
                 """  
                 read:  

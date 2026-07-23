@@ -312,70 +312,16 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
         return None
 
 
-def _get_error_suggestion(original_exception: Exception) -> str:
-    """
-    Best-effort: return a concise suggestion to help the user resolve
-    the given exception, based on its type.
-    """
-    try:
-        if isinstance(original_exception, FileNotFoundError):
-            return (
-                "Check the file path and permissions; ensure the file exists "
-                "and the path is correct."
-            )
-        elif isinstance(original_exception, KeyError):
-            return (
-                "Check for missing keys in the recipe, variables, or function "
-                "parameters; verify spelling and casing."
-            )
-        elif isinstance(original_exception, ValueError):
-            return (
-                "Validate parameter formats and values in the recipe; ensure "
-                "types match expectations."
-            )
-        elif isinstance(original_exception, TypeError):
-            return (
-                "Verify function argument types and the number of parameters "
-                "in the recipe or custom functions."
-            )
-        elif isinstance(original_exception, NotImplementedError):
-            return (
-                "This feature is not implemented; remove or change the offending "
-                "parameter or use an alternative wrangle."
-            )
-        elif isinstance(original_exception, RuntimeError):
-            return (
-                "Check function return values and that connectors return the "
-                "expected types (e.g. DataFrame for reads)."
-            )
-        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
-            return (
-                "Check YAML syntax and encoding (use UTF-8); look for indentation "
-                "or quoting issues."
-            )
-        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
-            return (
-                "Verify the recipe URL, network connectivity, authentication, "
-                "and response status."
-            )
-        else:
-            return (
-                "Inspect the recipe at the indicated line; check parameters, "
-                "variable names, and custom functions for issues."
-            )
-    except Exception:
-        return (
-            "Inspect the recipe at the indicated line; check parameters, "
-            "variable names, and custom functions for issues."
-        )
-
-
 def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
     # If this exception was already enhanced by a nested recipe.run() call
     # (e.g. an inner wrangle used by rename's `wrangles:`), propagate it as-is
     # instead of wrapping it again - otherwise the message and line number
     # would be duplicated and the real (inner) line number would be buried.
-    if f"{original_exception}".startswith("ERROR IN "):
+    # Tracked via an attribute (rather than sniffing the message text) since
+    # intermediate code sometimes reformats the message (e.g. rename always
+    # re-raises as RuntimeError) independently of whether it was already
+    # enhanced.
+    if getattr(original_exception, '_wrangles_error_wrapped', False):
         raise original_exception
 
     line = None
@@ -390,31 +336,20 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
         line = None
 
     # Build enhanced message but keep original exception class so tests expecting
-    # original exceptions continue to work.
+    # original exceptions continue to work. The exception type name isn't
+    # included here - Python already prefixes it automatically when the
+    # exception is displayed (e.g. "KeyError: convert.case (line 10) - ...").
     orig_msg = f"{original_exception}"
-    header = f"ERROR IN {section.upper()}"
-    if name:
-        header += f" {name}"
-
-    parts = [header]
+    header = name or ""
     if line is not None:
-        parts.append(f"at line {line}")
-    parts.append(orig_msg)
+        header += f" (line {line})"
 
-    # Add a concise suggestion to help the user resolve the issue.
-    # Skip if orig_msg already carries one - this happens when an inner
-    # exception was already wrapped by _wrap_and_raise but then had its
-    # message reformatted by intermediate code (e.g. batch's "Batch #N - "
-    # prefix in recipe_wrangles/main.py), which defeats the "ERROR IN "
-    # startswith check above. Without this, the same suggestion gets
-    # appended twice.
-    if "Suggestion:" not in orig_msg:
-        parts.append(f"Suggestion: {_get_error_suggestion(original_exception)}")
-
-    enhanced = " - ".join([p for p in parts if p])
+    enhanced = " - ".join([p for p in [header, orig_msg] if p])
 
     # Re-raise same exception type with enhanced message
-    raise original_exception.__class__(enhanced).with_traceback(original_exception.__traceback__) from None
+    wrapped_exception = original_exception.__class__(enhanced)
+    wrapped_exception._wrangles_error_wrapped = True
+    raise wrapped_exception.with_traceback(original_exception.__traceback__) from None
 
 
 def _run_actions(
