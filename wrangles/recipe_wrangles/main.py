@@ -207,6 +207,11 @@ def _batch_thread(
                 for k, v in on_error.items()
             })
         else:
+            if getattr(err, "_wrangles_error_wrapped", False):
+                message = err.args[0] if len(getattr(err, "args", [])) == 1 else str(err)
+                batched_error = err.__class__(f"{message}\nBatch: #{batch_num}")
+                batched_error._wrangles_error_wrapped = True
+                raise batched_error.with_traceback(err.__traceback__) from None
             raise err.__class__(f"Batch #{batch_num} - {err}").with_traceback(err.__traceback__) from None 
 
 

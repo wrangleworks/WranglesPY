@@ -935,7 +935,9 @@ class TestColumnWildcards:
             )
         assert (
             info.typename == 'KeyError' and
-            "format.trim (line 3) - 'Column nothing does not exist'" in info.value.args[0]
+            "Key Error: format.trim (line 3)" in info.value.args[0] and
+            "Details: Column nothing does not exist" in info.value.args[0] and
+            "Suggestions:" in info.value.args[0]
         )
 
 
@@ -1058,15 +1060,19 @@ def test_enhanced_error_message_long_recipe():
           case: lower  
     """  
       
-    with pytest.raises(RuntimeError, match=r"custom\.failing_function \(line 18\) - This is the actual error from wrangle #5"):
+    with pytest.raises(RuntimeError) as exc:
         wrangles.recipe.run(recipe, functions=[working_function, failing_function])
+    msg = exc.value.args[0]
+    assert "Runtime Error: custom.failing_function (line 18)" in msg
+    assert "Details: This is the actual error from wrangle #5" in msg
+    assert "Suggestions:" in msg
 
 def test_enhanced_error_message_read_phase():  
     """Test error message prominence in read phase"""  
     def failing_read():  
         raise RuntimeError("Read operation failed")  
       
-    with pytest.raises(RuntimeError, match=r"custom\.failing_read \(line 3\) - Read operation failed"):
+    with pytest.raises(RuntimeError) as exc:
         wrangles.recipe.run(  
             """  
             read:  
@@ -1074,13 +1080,17 @@ def test_enhanced_error_message_read_phase():
             """,  
             functions=[failing_read]  
         )  
+    msg = exc.value.args[0]
+    assert "Runtime Error: custom.failing_read (line 3)" in msg
+    assert "Details: Read operation failed" in msg
+    assert "Suggestions:" in msg
     
 def test_enhanced_error_message_write_phase():  
     """Test error message prominence in write phase"""  
     def failing_write(df):  
         raise RuntimeError("Write operation failed")  
       
-    with pytest.raises(RuntimeError, match=r"custom\.failing_write \(line 8\) - Write operation failed"):
+    with pytest.raises(RuntimeError) as exc:
         wrangles.recipe.run(  
             """  
             read:  
@@ -1093,6 +1103,10 @@ def test_enhanced_error_message_write_phase():
             """,  
             functions=[failing_write]  
         )
+    msg = exc.value.args[0]
+    assert "Runtime Error: custom.failing_write (line 8)" in msg
+    assert "Details: Write operation failed" in msg
+    assert "Suggestions:" in msg
 
 def test_enhanced_error_message_nested_recipe():  
     """Test error messages work correctly with nested meta-wrangles"""  
@@ -1106,10 +1120,8 @@ def test_enhanced_error_message_nested_recipe():
         """A function that always fails"""  
         raise RuntimeError("Error in nested recipe")  
     
-    # Test the batch wrangle with a failing function  
-    with pytest.raises(RuntimeError, match=r"Error in nested recipe"):  
-        wrangles.recipe.run(  
-            """  
+    # Test the batch wrangle with a failing function
+    r = """  
             read:  
             - test:  
                 rows: 5  
@@ -1122,12 +1134,25 @@ def test_enhanced_error_message_nested_recipe():
                 - custom.working_function: {}  
                 - custom.failing_function: {}  
                 - custom.working_function: {}  
-            """,  
+            """
+    expected_line = next(
+        i for i, line in enumerate(r.splitlines(), start=1)
+        if "custom.failing_function:" in line
+    )
+
+    with pytest.raises(RuntimeError) as exc:
+        wrangles.recipe.run(
+            r,
             functions={  
                 "working_function": working_function,  
                 "failing_function": failing_function  
             }  
         )
+    msg = exc.value.args[0]
+    assert f"Runtime Error: custom.failing_function (line {expected_line})" in msg
+    assert "Details: Error in nested recipe" in msg
+    assert "Suggestions:" in msg
+    assert "batch (line" not in msg
 
 def test_action_position_error():  
     """  
@@ -1136,7 +1161,7 @@ def test_action_position_error():
     def fail_func():  
         raise RuntimeError("Action failed")  
       
-    with pytest.raises(RuntimeError, match=r"custom\.fail_func \(line 4\) - Action failed"):
+    with pytest.raises(RuntimeError) as exc:
         wrangles.recipe.run(  
             """  
             run:  
@@ -1147,6 +1172,10 @@ def test_action_position_error():
             """,
             functions=fail_func
         )
+    msg = exc.value.args[0]
+    assert "Runtime Error: custom.fail_func (line 4)" in msg
+    assert "Details: Action failed" in msg
+    assert "Suggestions:" in msg
 
 
 def test_wrangle_error_includes_index_and_name_and_line():
@@ -1162,6 +1191,33 @@ def test_wrangle_error_includes_index_and_name_and_line():
     msg = str(exc.value)
     assert '(line' in msg
     assert 'nonexistent_wrangle' in msg
+
+
+def test_wrangle_error_has_details_and_suggestion_format():
+    r = """
+        read:
+        - test:
+            rows: 1
+            values:
+                header1: value1
+        wrangles:
+        - convert.case:
+            input: missing_column
+            output: output
+            case: upper
+        """
+    expected_line = next(
+        i for i, line in enumerate(r.splitlines(), start=1)
+        if "convert.case:" in line
+    )
+
+    with pytest.raises(KeyError) as exc:
+        recipe.run(r)
+
+    msg = exc.value.args[0]
+    assert f"Key Error: convert.case (line {expected_line})" in msg
+    assert "Details: Column missing_column does not exist" in msg
+    assert "Suggestions:" in msg
 
 
 def test_read_error_shows_line():
