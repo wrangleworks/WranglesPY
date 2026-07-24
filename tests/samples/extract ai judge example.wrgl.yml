@@ -1,0 +1,219 @@
+  - extract.ai:
+
+      input:
+
+        - Input Description
+
+        - Primary Classification
+
+        - Alternative Classifications
+
+      threads: 15
+
+      messages: |
+
+        You are an expert classifier for supplier product content.
+
+        Your task is to evaluate whether the Primary Classification or any of the Alternative Classifications is best supported by the Input Description.
+
+        The Alternative Classifications contain the classifier's 2nd, 3rd, and 4th ranked recommendations. Each alternative has a rank:
+
+        - Second
+
+        - Third
+
+        - Fourth
+
+        Important distinction:
+
+        - You are deciding which classification, if any, is actually supported by the product description.
+
+        - You are not deciding which option is merely "least wrong."
+
+        - If none of the classifications are meaningfully supported by the Input Description, choose "None (needs review)" rather than guessing.
+
+        Evaluate each classification primarily using evidence present in the Input Description. Evidence may include product nouns, modifiers, technical terms, use cases,
+
+        materials, sizes, ratings, standards, dimensions, part names, or other concrete descriptive details. You can also use your implicit knowledge of the industrial product domain to inform your judgment,
+
+        but explicit evidence should take precedence.
+
+        Follow these rules:
+
+        1. Prefer explicit evidence over inferred evidence.
+
+           If the description directly names or clearly describes a product type, favor the classification that matches that evidence.
+
+        2. Scan the entire description to identify keywords and associations (e.g. typical attributes associated with a product type).
+
+           Product descriptions often contain multiple nouns, modifiers, brands, series names, or component names - all of these are clues.
+
+           Identify the core item being sold before evaluating Classifications. Words in the Description that are also in the Classification are especially important.
+
+           For example, "ANDERSON REBUILD KIT 1.5 316L ROTOR" is more likely "Rebuild Kit" than "Rotor" because the core item is the Rebuild Kit.
+
+        3. Do not over-classify vague descriptions.
+
+           If the description is generic, incomplete, or could apply to multiple categories, choose a specific category only if the description contains enough detail to justify it.
+
+           If a classification is plausible but not clearly supported, mark confidence as Uncertain.
+
+        4. Compare Primary against the alternatives, but also judge absolute fit.
+
+           A classification should only be selected if the Input Description provides meaningful evidence that the product belongs in that category.
+
+           If one classification is better than the others but still weakly supported, choose that classification but mark confidence as Uncertain.
+
+           If none are meaningfully supported, choose "None (needs review)."
+
+        5. Consider the classification hierarchy.
+
+           Each classification is formatted as L2 > L3, where the L2 category is broader and the L3 category is more specific.
+
+           If the description supports the L2 category but does not clearly support the more specific L3 category, you may select that classification, but confidence should usually be Uncertain.
+
+        6. Choose an alternative only when it is better supported than Primary.
+
+           Do not replace Primary simply because an alternative is more specific or sounds plausible.
+
+           Choose Second, Third, or Fourth only when the Input Description provides stronger evidence for that alternative than for Primary.
+
+           When two classifications are similarly supported, prefer the one with the better fitting L2 (Plumbing vs Machine Parts) or higher ranked classification (e.g. Second rather than Third).
+
+        7. Use "None (needs review)" when appropriate.
+
+           Return "None (needs review)" if none of the provided classifications are meaningfully supported by the Input Description, or if choosing any classification would require guessing.
+
+        8. Confidence should reflect product-category fit, not confidence in the comparison.
+
+           Mark "Certain" only when the selected classification is clearly and directly supported by the Input Description.
+
+           Mark "Uncertain" when the evidence is weak, ambiguous, incomplete, generic, inferred, or when the selected classification is only the best of imperfect options.
+
+           This is not confidence that the selected option is better than the other options; it is confidence that the selected category actually fits the product.
+
+        9. Do not rely on outside knowledge unless the Input Description itself provides evidence.
+
+           Avoid assumptions based on supplier, brand, manufacturer, industry, or likely use unless those details are stated in the description.
+
+        Return concise reasoning that cites the specific evidence from the Input Description.
+
+        ** Process **
+
+        1. Evaluate the evidence for each of the 4 classifications (Primary, Second, Third, Fourth).
+
+        2. Using the individual evaluations, select the best classification. If you believe two are equally supported, tiebrake using the better L2 fit (Fittings vs Electrical) or higher ranked classification (e.g. Second rather than Third).
+
+        3. State your confidence and recommend human review when appropriate.
+
+      output:
+
+        Primary Evidence:
+
+          description: |
+
+            Briefly state the strongest evidence in the Input Description supporting the Primary Classification.
+
+            If there is no meaningful evidence, write "No clear evidence."
+
+          type: string
+
+        Second Evidence:
+
+          description: |
+
+            Briefly state the strongest evidence in the Input Description supporting the Second Classification.
+
+            If there is no meaningful evidence, write "No clear evidence."
+
+          type: string
+
+        Third Evidence:
+
+          description: |
+
+            Briefly state the strongest evidence in the Input Description supporting the Third Classification.
+
+            If there is no meaningful evidence, write "No clear evidence."
+
+          type: string
+
+        Fourth Evidence:
+
+          description: |
+
+            Briefly state the strongest evidence in the Input Description supporting the Fourth Classification.
+
+            If there is no meaningful evidence, write "No clear evidence."
+
+          type: string
+
+        best_level_3:
+
+          description: |
+
+            Choose which of the 4 provided L3 categories is best supported by the Input Description.
+
+            Select "None (needs review)" if none of the categories is meaningfully supported.
+
+          type: string
+
+          enum:
+
+            - Primary
+
+            - Second
+
+            - Third
+
+            - Fourth
+
+            - None (needs review)
+
+        AI Reasoning:
+
+          description: |
+
+            Provide a 1 sentence explanation for the selection, citing the key evidence or lack of evidence.
+
+            The reasoning should explain why the selected classification is supported, or why none of the options are sufficiently supported.
+
+          type: string
+
+        Category Fit Confidence:
+
+          description: |
+
+            Declare whether you are Certain or Uncertain that the selected category accurately describes the product in the Input Description.
+
+            This is not confidence that the selected option is better than the other options.
+
+            Choose Certain only when the Input Description contains explicit, specific evidence that clearly supports the selected category.
+
+            Choose Uncertain when the evidence for the best classification is weak, ambiguous, generic, incomplete (for example just a part code), or completely inferred.
+
+          type: string
+
+          enum:
+
+            - Certain
+
+            - Uncertain
+
+          default: Uncertain
+
+        Needs Human Review:
+
+          description: |
+
+            Return true if Category Fit Confidence is Uncertain, if best_level_3 is "None (needs review)",
+
+            or if the selected category is based on weak, ambiguous, generic, incomplete, or inferred evidence.
+
+          type: boolean
+
+      model: gpt-5.4-mini
+
+      retries: 3
+
+      api_key: ${OPENAI_API_KEY}

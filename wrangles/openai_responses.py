@@ -56,8 +56,18 @@ _OPENAI_SCHEMA_KEYS = {
     "type",
 }
 
-_UNSUPPORTED_RESPONSES_PARAMS = {
-    "seed",
+_LEGACY_RESPONSES_PARAM_MAP = {
+    "max_tokens": "max_output_tokens",
+    "max_completion_tokens": "max_output_tokens",
+}
+
+_IGNORED_RESPONSES_PARAMS = {
+    "seed": "Responses does not support deterministic seeding; remove 'seed' from the definition.",
+}
+
+_INCOMPATIBLE_RESPONSES_PARAMS = {
+    "n": "Responses returns one generation per request; submit separate requests instead.",
+    "response_format": "Use the extract.ai output schema; Responses structured output is sent through text.format.",
 }
 
 _RATE_LIMIT_HEADERS = (
@@ -133,6 +143,8 @@ def _rate_limit_headers(response) -> dict:
 def _response_context(response, endpoint: str, model: str = None, attempt: int = None, elapsed_seconds: float = None) -> dict:
     body = _response_json(response)
     error = body.get("error", {}) if isinstance(body, dict) else {}
+    usage = body.get("usage", {}) if isinstance(body, dict) else {}
+    input_details = usage.get("input_tokens_details", {}) if isinstance(usage, dict) else {}
     headers = _rate_limit_headers(response)
     status_code = getattr(response, "status_code", None)
     message = error.get("message", "") if isinstance(error, dict) else ""
@@ -165,6 +177,10 @@ def _response_context(response, endpoint: str, model: str = None, attempt: int =
         "request_id": headers.get("x-request-id"),
         "limit_family": limit_family,
         "retry_after": _parse_delay(headers.get("retry-after")),
+        "input_tokens": usage.get("input_tokens") if isinstance(usage, dict) else None,
+        "output_tokens": usage.get("output_tokens") if isinstance(usage, dict) else None,
+        "total_tokens": usage.get("total_tokens") if isinstance(usage, dict) else None,
+        "cached_tokens": input_details.get("cached_tokens") if isinstance(input_details, dict) else None,
         "rate_limit_headers": {
             key: value
             for key, value in headers.items()
@@ -209,11 +225,26 @@ def _log_api_error(context: dict, final: bool = False) -> None:
     )
 
 
-def _sleep_for_retry(context: dict, backoff_time: float) -> float:
+def _remaining_seconds(deadline_at: float = None) -> float:
+    if deadline_at is None:
+        return None
+    return deadline_at - _time.monotonic()
+
+
+def _sleep_for_retry(
+    context: dict,
+    backoff_time: float,
+    deadline_at: float = None,
+) -> float:
     if context.get("retry_after") is not None:
         delay = min(context["retry_after"], 60)
     else:
         delay = min(backoff_time + _random.uniform(0, min(backoff_time, 1)), 60)
+
+    remaining = _remaining_seconds(deadline_at)
+    if remaining is not None and delay >= remaining:
+        return None
+
     _time.sleep(delay)
     return delay
 
@@ -226,10 +257,13 @@ def _success_log_every() -> int:
 
 
 def _record_success(context: dict) -> None:
-    if not _truthy(_os.getenv("WRANGLES_OPENAI_LOG_RATE_LIMITS", "")):
+    if not (
+        _truthy(_os.getenv("WRANGLES_OPENAI_LOG_RATE_LIMITS", ""))
+        or _truthy(_os.getenv("WRANGLES_OPENAI_LOG_METRICS", ""))
+    ):
         return
     headers = context.get("rate_limit_headers", {})
-    if not headers:
+    if not headers and context.get("input_tokens") is None:
         return
 
     key = (context.get("endpoint") or "unknown", context.get("model") or "unknown")
@@ -247,6 +281,10 @@ def _record_success(context: dict) -> None:
                 "min_remaining_requests": None,
                 "min_remaining_tokens": None,
                 "max_elapsed_seconds": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cached_tokens": 0,
+                "cache_hit_responses": 0,
                 "latest_reset_requests": None,
                 "latest_reset_tokens": None,
                 "latest_request_id": None,
@@ -267,6 +305,11 @@ def _record_success(context: dict) -> None:
             )
         if context.get("elapsed_seconds") is not None:
             stats["max_elapsed_seconds"] = max(stats["max_elapsed_seconds"], context["elapsed_seconds"])
+        stats["input_tokens"] += context.get("input_tokens") or 0
+        stats["output_tokens"] += context.get("output_tokens") or 0
+        stats["cached_tokens"] += context.get("cached_tokens") or 0
+        if context.get("cached_tokens"):
+            stats["cache_hit_responses"] += 1
         stats["latest_reset_requests"] = headers.get("x-ratelimit-reset-requests")
         stats["latest_reset_tokens"] = headers.get("x-ratelimit-reset-tokens")
         stats["latest_request_id"] = context.get("request_id")
@@ -464,11 +507,46 @@ def prompt_cache_key(namespace: str, model: str, schema: dict) -> str:
 
 
 def sanitize_request_params(params: dict) -> dict:
-    return {
-        key: value
-        for key, value in params.items()
-        if key not in _UNSUPPORTED_RESPONSES_PARAMS
-    }
+    """
+    Translate known Chat Completions parameters and reject ambiguous ones.
+
+    This compatibility layer is intentionally explicit and temporary. It emits
+    warnings for every legacy parameter it consumes so definitions can be
+    upgraded and the mappings removed later.
+    """
+    sanitized = _copy.deepcopy(params)
+
+    for old_name, new_name in _LEGACY_RESPONSES_PARAM_MAP.items():
+        if old_name not in sanitized:
+            continue
+        if new_name in sanitized:
+            raise ValueError(
+                f"Both legacy '{old_name}' and Responses '{new_name}' were provided."
+            )
+        sanitized[new_name] = sanitized.pop(old_name)
+        _LOG.warning(
+            "Mapped legacy OpenAI parameter '%s' to '%s'; update this extract.ai definition.",
+            old_name,
+            new_name,
+        )
+
+    for name, guidance in _IGNORED_RESPONSES_PARAMS.items():
+        if name in sanitized:
+            sanitized.pop(name)
+            _LOG.warning(
+                "Ignored legacy OpenAI parameter '%s': %s",
+                name,
+                guidance,
+            )
+
+    for name, guidance in _INCOMPATIBLE_RESPONSES_PARAMS.items():
+        if name in sanitized:
+            raise ValueError(
+                f"OpenAI parameter '{name}' is not compatible with extract.ai Responses calls. "
+                f"{guidance}"
+            )
+
+    return sanitized
 
 
 def call_structured(
@@ -479,6 +557,7 @@ def call_structured(
     timeout: int,
     retries: int,
     required_fields: list,
+    deadline_at: float = None,
 ) -> dict:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     request_payload = _copy.deepcopy(payload)
@@ -492,23 +571,32 @@ def call_structured(
     response = None
     backoff_time = 1
     for attempt in range(retries + 1):
+        remaining = _remaining_seconds(deadline_at)
+        if remaining is not None and remaining <= 0:
+            return error_result(required_fields, "Deadline Exceeded")
+
+        request_timeout = timeout
+        if remaining is not None:
+            request_timeout = min(timeout, max(remaining, 0.001))
+
+        response = None
         try:
             started = _time.time()
             response = _requests.post(
                 url=url,
                 headers=headers,
                 json=request_payload,
-                timeout=timeout,
+                timeout=request_timeout,
             )
             elapsed_seconds = _time.time() - started
-        except _requests.exceptions.ReadTimeout:
+        except _requests.exceptions.Timeout:
             if attempt >= retries:
                 return error_result(required_fields, "Timed Out")
         except Exception as e:
             if attempt >= retries:
                 return error_result(required_fields, str(e))
 
-        if response and response.ok:
+        if response is not None and response.ok:
             try:
                 output_text = extract_response_text(response.json())
                 parsed = _json.loads(output_text)
@@ -544,10 +632,12 @@ def call_structured(
                 return error_result(required_fields, _error_message(context))
             _log_api_error(context, final=False)
 
-        if response and not response.ok:
-            _sleep_for_retry(context, backoff_time)
+        if response is not None and not response.ok:
+            delay = _sleep_for_retry(context, backoff_time, deadline_at)
         else:
-            _time.sleep(backoff_time)
+            delay = _sleep_for_retry({}, backoff_time, deadline_at)
+        if delay is None:
+            return error_result(required_fields, "Deadline Exceeded")
         backoff_time *= 2
 
     return error_result(required_fields, "Failed")

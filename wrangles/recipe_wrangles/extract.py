@@ -361,19 +361,39 @@ def ai(
         type: integer
         description: The number of requests to send in parallel
       timeout:
-        type: integer
-        description: The number of seconds to wait for a response before timing out
+        type: number
+        exclusiveMinimum: 0
+        description: Per-request timeout in seconds. The configured default is 12.
       retries:
         type: integer
+        minimum: 0
         description: >-
           The number of times to retry if the request fails.
-          This will apply exponential backoff to help with rate limiting.
+          Defaults to 0 to protect the total Lambda response budget.
       url:
         type: string
         description: |-
-          Override the default url for the AI endpoint.
-          Must use the OpenAI Responses API by default.
-          Chat Completions-compatible URLs are still supported for backwards compatibility.
+          Override the endpoint configured for the selected protocol.
+          Existing chat/completions URLs are detected for backwards compatibility,
+          but definitions should set protocol explicitly while being upgraded.
+      provider:
+        type: string
+        description: AI provider. Phase 1 supports OpenAI; this field reserves a stable provider boundary.
+        enum:
+          - openai
+      protocol:
+        type: string
+        description: API protocol. Responses is the configured default.
+        enum:
+          - responses
+          - chat_completions
+      deadline:
+        type: number
+        exclusiveMinimum: 0
+        description: Total call budget in seconds, including retries. The configured default is 15.
+      store:
+        type: boolean
+        description: Whether OpenAI may store Responses. Defaults to false.
       messages:
         type:
           - string
@@ -398,7 +418,7 @@ def ai(
         description: Character to use when output_format is concatenate
       reasoning:
         type: object
-        description: Responses API reasoning options. Defaults to effort low for models that support reasoning.
+        description: Responses API reasoning options. Defaults to effort none for models that support reasoning.
       verbosity:
         type: string
         description: Responses API output verbosity. Defaults to low for models that support low verbosity.
