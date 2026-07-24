@@ -772,7 +772,9 @@ class TestConvertDataType:
             wrangles.recipe.run(recipe, dataframe=df)
         assert (
             info.typename == 'TypeError' and
-            'convert.data_type (line 3) - data_type squirrel is not supported.' in info.value.args[0]
+            'Type Error: convert.data_type (line 3)' in info.value.args[0] and
+            'Details: data_type squirrel is not supported.' in info.value.args[0] and
+            'Suggestions:' in info.value.args[0]
         )
 
 
