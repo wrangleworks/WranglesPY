@@ -1,0 +1,28 @@
+version: 1
+
+extract_ai:
+  profile: extract_fast
+  provider: openai
+  protocol: responses
+  model: gpt-5.4-mini
+  endpoints:
+    responses: https://api.openai.com/v1/responses
+    chat_completions: https://api.openai.com/v1/chat/completions
+  max_concurrency: 20
+  request_timeout_seconds: 12
+  total_deadline_seconds: 15
+  retries: 0
+  strict: true
+  store: false
+  reasoning:
+    effort: none
+  text:
+    verbosity: low
+  prompt:
+    version: 1
+    instructions: |-
+      You are an expert data extraction assistant.
+      Extract and standardize only the requested fields from the provided data.
+      Use only the provided DATA. Do not invent missing values.
+      For literal extracted strings, preserve concise source text and units unless the field asks for conversion.
+      Return data that satisfies the supplied JSON schema exactly.

@@ -21,6 +21,7 @@ def chatGPT(
     url: str = "https://api.openai.com/v1/chat/completions",
     timeout: int = None,
     retries: int = 0,
+    deadline_at: float = None,
 ):
     """
     Submit a request to openAI chatGPT.
@@ -30,6 +31,7 @@ def chatGPT(
     :param settings: Custom model settings
     :param timeout: Time limit to apply to the request
     :param retries: Number of times to retry if the request fails
+    :param deadline_at: Monotonic deadline shared by all retries for this call
     """
     if isinstance(data, (dict, list)):
         content = _yaml.dump(
@@ -52,11 +54,26 @@ def chatGPT(
     )
 
     if not isinstance(retries, int) or retries < 0:
-        raise ValueError("Retries must be a positive integer")
+        raise ValueError("Retries must be a non-negative integer")
     
     response = None
+    deadline_exceeded = False
     backoff_time = 1
     while (retries + 1):
+        remaining = _openai_responses._remaining_seconds(deadline_at)
+        if remaining is not None and remaining <= 0:
+            deadline_exceeded = True
+            break
+
+        request_timeout = timeout
+        if remaining is not None:
+            request_timeout = (
+                min(timeout, max(remaining, 0.001))
+                if timeout is not None
+                else max(remaining, 0.001)
+            )
+
+        response = None
         try:
             response = _requests.post(
                 url = url,
@@ -64,9 +81,9 @@ def chatGPT(
                     "Authorization": f"Bearer {api_key}"
                 },
                 json = settings_local,
-                timeout=timeout
+                timeout=request_timeout
             )
-        except _requests.exceptions.ReadTimeout:
+        except _requests.exceptions.Timeout:
             if retries == 0:
                 if settings_local.get("tools", []):
                     return {
@@ -87,7 +104,7 @@ def chatGPT(
                 else:
                     return e
 
-        if response and response.ok:
+        if response is not None and response.ok:
             break
         else:
             error_message = ""
@@ -105,22 +122,33 @@ def chatGPT(
                 response,
                 endpoint="chat_completions",
                 model=settings_local.get("model"),
-            ) if response else {}
+            ) if response is not None else {}
             if retries == 0 or not _openai_responses._should_retry(context):
-                if response:
+                if response is not None:
                     _openai_responses._log_api_error(context, final=True)
                 break
-            if response:
+            if response is not None:
                 _openai_responses._log_api_error(context, final=False)
  
         retries -=1
-        if response and not response.ok:
-            _openai_responses._sleep_for_retry(context, backoff_time)
+        if response is not None and not response.ok:
+            delay = _openai_responses._sleep_for_retry(
+                context,
+                backoff_time,
+                deadline_at,
+            )
         else:
-            _time.sleep(backoff_time)
+            delay = _openai_responses._sleep_for_retry(
+                {},
+                backoff_time,
+                deadline_at,
+            )
+        if delay is None:
+            deadline_exceeded = True
+            break
         backoff_time *= 2
 
-    if response and response.ok:
+    if response is not None and response.ok:
         try:
             result = _json.loads(
                 response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
@@ -130,16 +158,19 @@ def chatGPT(
             pass
 
     # Attempt to get a useful error message
-    try:
-        error_message = _openai_responses._error_message(
-            _openai_responses._response_context(
-                response,
-                endpoint="chat_completions",
-                model=settings_local.get("model"),
+    if deadline_exceeded:
+        error_message = "Deadline Exceeded"
+    else:
+        try:
+            error_message = _openai_responses._error_message(
+                _openai_responses._response_context(
+                    response,
+                    endpoint="chat_completions",
+                    model=settings_local.get("model"),
+                )
             )
-        )
-    except:
-        error_message = "Failed"
+        except:
+            error_message = "Failed"
     
     # Return error for each requested column
     return {

@@ -6,6 +6,7 @@ import logging as _logging
 from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
+import time as _time
 import pandas as _pd
 from . import config as _config
 from . import data as _data
@@ -13,8 +14,41 @@ from . import batching as _batching
 from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
 from . import openai_responses as _openai_responses
+from . import ai_config as _ai_config
 
 _LOG = _logging.getLogger(__name__)
+
+
+def _normalize_ai_protocol(protocol: str) -> str:
+    protocol = str(protocol or "").strip().lower().replace("-", "_")
+    aliases = {
+        "responses_api": "responses",
+        "chat": "chat_completions",
+        "chat_completion": "chat_completions",
+    }
+    protocol = aliases.get(protocol, protocol)
+    if protocol not in {"responses", "chat_completions"}:
+        raise ValueError(
+            "protocol must be 'responses' or 'chat_completions'. "
+            f"Received {protocol!r}."
+        )
+    return protocol
+
+
+def _validate_ai_runtime_settings(
+    threads: int,
+    timeout: float,
+    retries: int,
+    deadline: float,
+) -> None:
+    if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
+        raise ValueError("threads must be a positive integer.")
+    if not isinstance(retries, int) or isinstance(retries, bool) or retries < 0:
+        raise ValueError("retries must be a non-negative integer.")
+    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+        raise ValueError("timeout must be a positive number of seconds.")
+    if not isinstance(deadline, (int, float)) or isinstance(deadline, bool) or deadline <= 0:
+        raise ValueError("deadline must be a positive number of seconds.")
 
 
 def address(
@@ -57,15 +91,19 @@ def ai(
     api_key: str,
     output: dict = None,
     model_id: str = None,
-    model: str = "gpt-5.4-mini",
-    threads: int = 20,
-    timeout: int = 90,
-    retries: int = 0,
+    model: str = None,
+    threads: int = None,
+    timeout: float = None,
+    retries: int = None,
     messages: list = None,
-    url: str = "https://api.openai.com/v1/responses",
-    strict: bool = True,
+    url: str = None,
+    strict: bool = None,
     reasoning: dict = None,
     verbosity: str = None,
+    provider: str = None,
+    protocol: str = None,
+    deadline: float = None,
+    store: bool = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -90,16 +128,67 @@ def ai(
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param url: (Optional) Override the endpoint. Must implement the OpenAI Responses API schema by default. \
-        Chat Completions-compatible URLs are still supported for backwards compatibility.
-    :param strict: (Optional) Enable structured output strict mode. Default True.
-    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "low"} \
+    :param url: (Optional) Override the configured endpoint.
+    :param strict: (Optional) Enable structured output strict mode.
+    :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
         for models that support reasoning.
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
         for models that support low verbosity.
+    :param provider: (Optional) AI provider. Currently only "openai" is supported.
+    :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
+    :param deadline: (Optional) Total seconds allowed for this extract.ai call, including retries.
+    :param store: (Optional) Whether OpenAI may store Responses. Defaults to False.
 
     :return: A scalar or list of extracted information.
     """
+    policy = _ai_config.extract_ai()
+    provider = str(provider or policy.get("provider", "openai")).strip().lower()
+    if provider != "openai":
+        raise ValueError(
+            f"Unsupported extract.ai provider {provider!r}. Phase 1 supports only 'openai'."
+        )
+
+    if protocol is None:
+        if url and "/chat/completions" in url:
+            protocol = "chat_completions"
+            _LOG.warning(
+                "Inferred legacy protocol 'chat_completions' from url; "
+                "set protocol explicitly while upgrading this definition."
+            )
+        else:
+            protocol = policy.get("protocol", "responses")
+    protocol = _normalize_ai_protocol(protocol)
+
+    if url:
+        if protocol == "responses" and "/chat/completions" in url:
+            raise ValueError("A Chat Completions url cannot be used with protocol='responses'.")
+        if protocol == "chat_completions" and "/responses" in url:
+            raise ValueError("A Responses url cannot be used with protocol='chat_completions'.")
+    else:
+        url = policy.get("endpoints", {}).get(protocol)
+    if not url:
+        raise ValueError(f"No endpoint is configured for extract.ai protocol {protocol!r}.")
+
+    model = model or policy.get("model")
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("model must be a non-empty string.")
+    threads = threads if threads is not None else policy.get("max_concurrency", 20)
+    timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
+    retries = retries if retries is not None else policy.get("retries", 0)
+    strict = strict if strict is not None else policy.get("strict", True)
+    deadline = deadline if deadline is not None else policy.get("total_deadline_seconds", 15)
+    store = store if store is not None else policy.get("store", False)
+
+    if not isinstance(strict, bool):
+        raise ValueError("strict must be true or false.")
+    if not isinstance(store, bool):
+        raise ValueError("store must be true or false.")
+    if verbosity is not None and verbosity not in {"low", "medium", "high"}:
+        raise ValueError("verbosity must be 'low', 'medium', or 'high'.")
+    if reasoning is not None and not isinstance(reasoning, dict):
+        raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
+    _validate_ai_runtime_settings(threads, timeout, retries, deadline)
+
     if messages is None:
         messages = []
 
@@ -172,6 +261,9 @@ def ai(
             **model_definition,
             **(output or {})
         }
+
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError("model must be a non-empty string.")
 
     json_schema_basic_types = ["string", "number", "boolean"]
 
@@ -299,7 +391,7 @@ def ai(
         "additionalProperties": False,
     }
 
-    if "/chat/completions" not in url:
+    if protocol == "responses":
         field_guidance = []
         for field, schema_node in output.items():
             examples = schema_node.get("examples")
@@ -309,13 +401,11 @@ def ai(
                 )
 
         schema = _openai_responses.sanitize_schema(root_schema)
-        instructions = "\n".join([
-            "You are an expert data extraction assistant.",
-            "Extract and standardize only the requested fields from the provided data.",
-            "Use only the provided DATA. Do not invent missing values.",
-            "For literal extracted strings, preserve concise source text and units unless the field asks for conversion.",
-            "Return data that satisfies the supplied JSON schema exactly.",
-        ])
+        instructions = str(
+            policy.get("prompt", {}).get("instructions", "")
+        ).strip()
+        if not instructions:
+            raise ValueError("extract.ai prompt instructions are missing from the AI configuration.")
         if field_guidance:
             instructions += "\n\nUse these field examples as style guidance, not values to copy:\n"
             instructions += "\n".join(field_guidance)
@@ -341,6 +431,7 @@ def ai(
                 model,
                 schema,
             ),
+            "store": store,
             **_openai_responses.sanitize_request_params(kwargs),
         }
         if reasoning is not None:
@@ -352,7 +443,7 @@ def ai(
                     model,
                 )
         elif _openai_responses.supports_reasoning(model):
-            payload["reasoning"] = {"effort": "low"}
+            payload["reasoning"] = policy.get("reasoning", {"effort": "none"})
         if verbosity is not None:
             if _openai_responses.supports_low_verbosity(model):
                 payload["text"]["verbosity"] = verbosity
@@ -362,8 +453,9 @@ def ai(
                     model,
                 )
         elif _openai_responses.supports_low_verbosity(model):
-            payload["text"]["verbosity"] = "low"
+            payload["text"]["verbosity"] = policy.get("text", {}).get("verbosity", "low")
 
+        deadline_at = _time.monotonic() + deadline
         with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
             results = list(executor.map(
                 _openai_responses.call_structured,
@@ -374,6 +466,7 @@ def ai(
                 [timeout] * len(input),
                 [retries] * len(input),
                 [list(output.keys())] * len(input),
+                [deadline_at] * len(input),
             ))
 
         if _needs_remap:
@@ -439,6 +532,7 @@ def ai(
         **kwargs
     }
 
+    deadline_at = _time.monotonic() + deadline
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = list(executor.map(
             _openai.chatGPT,
@@ -448,6 +542,7 @@ def ai(
             [url] * len(input),
             [timeout] * len(input),
             [retries] * len(input),
+            [deadline_at] * len(input),
         ))
 
     if _needs_remap:
