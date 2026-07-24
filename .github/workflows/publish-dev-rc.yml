@@ -160,7 +160,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: wrangleworks/wrangleworks.github.io
-          token: ${{ secrets.CROSS_REPO_PAT }}
+          token: ${{ secrets.CROSS_REPO_PAT_V2 }}
           path: wrangleworks.github.io
 
       - name: Copy schema_dev.json to wrangleworks.github.io
