@@ -2613,7 +2613,9 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'Value Error: similarity (line 3)' in info.value.args[0] and
+            'Details: shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0] and
+            'Suggestions:' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2807,7 +2809,9 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'Value Error: similarity (line 3)' in info.value.args[0] and
+            'Details: shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0] and
+            'Suggestions:' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -6162,7 +6166,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError) as exc:
             wrangles.recipe.run(  
                 """  
                 read:  
@@ -6178,6 +6182,11 @@ class TestBatch:
                 """,  
                 functions=fail_on_2nd_batch  
         )  
+        msg = exc.value.args[0]
+        assert "Key Error: custom.fail_on_2nd_batch (line 11)" in msg
+        assert "Details: column1 does not exist" in msg
+        assert "Suggestions:" in msg
+        assert "Batch: #2" in msg
   
 
 

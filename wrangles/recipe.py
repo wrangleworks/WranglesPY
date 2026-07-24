@@ -312,6 +312,78 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
         return None
 
 
+def _format_exception_type(error: Exception) -> str:
+    """
+    Convert exception class names to a display label.
+    """
+    name = error.__class__.__name__
+    return _re.sub(r"(?<!^)(?=[A-Z])", " ", name)
+
+
+def _get_exception_detail(error: Exception) -> str:
+    """
+    Return the most useful detail string without KeyError's repr quotes.
+    """
+    if len(getattr(error, "args", [])) == 1:
+        return str(error.args[0])
+    return str(error)
+
+
+def _get_error_suggestion(original_exception: Exception) -> str:
+    """
+    Best-effort: return a concise suggestion to help the user resolve
+    the given exception, based on its type.
+    """
+    try:
+        if isinstance(original_exception, FileNotFoundError):
+            return (
+                "Check the file path and permissions; ensure the file exists "
+                "and the path is correct."
+            )
+        elif isinstance(original_exception, KeyError):
+            return (
+                "Check that referenced columns, recipe variables, and function "
+                "parameters exist; verify spelling and casing."
+            )
+        elif isinstance(original_exception, ValueError):
+            return (
+                "Validate parameter formats and values in the recipe; ensure "
+                "types match expectations."
+            )
+        elif isinstance(original_exception, TypeError):
+            return (
+                "Verify function argument types and the number of parameters "
+                "in the recipe or custom functions."
+            )
+        elif isinstance(original_exception, NotImplementedError):
+            return (
+                "This feature is not implemented; remove or change the offending "
+                "parameter or use an alternative wrangle."
+            )
+        elif isinstance(original_exception, RuntimeError):
+            return (
+                "Check function return values and that connectors return the "
+                "expected types, such as a DataFrame for reads."
+            )
+        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
+            return (
+                "Check YAML syntax and encoding; look for indentation, quoting, "
+                "or formatting issues."
+            )
+        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
+            return (
+                "Verify the recipe URL, network connectivity, authentication, "
+                "and response status."
+            )
+    except Exception:
+        pass
+
+    return (
+        "Inspect the recipe at the indicated line; check parameters, variable "
+        "names, and custom functions for issues."
+    )
+
+
 def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
     # If this exception was already enhanced by a nested recipe.run() call
     # (e.g. an inner wrangle used by rename's `wrangles:`), propagate it as-is
@@ -336,15 +408,18 @@ def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exc
         line = None
 
     # Build enhanced message but keep original exception class so tests expecting
-    # original exceptions continue to work. The exception type name isn't
-    # included here - Python already prefixes it automatically when the
-    # exception is displayed (e.g. "KeyError: convert.case (line 10) - ...").
-    orig_msg = f"{original_exception}"
+    # original exceptions continue to work.
     header = name or ""
     if line is not None:
         header += f" (line {line})"
 
-    enhanced = " - ".join([p for p in [header, orig_msg] if p])
+    detail = _get_exception_detail(original_exception)
+    suggestion = _get_error_suggestion(original_exception)
+    enhanced = (
+        f"{_format_exception_type(original_exception)}: {header}\n\n"
+        f"Details: {detail}\n"
+        f"Suggestions: {suggestion}"
+    )
 
     # Re-raise same exception type with enhanced message
     wrapped_exception = original_exception.__class__(enhanced)

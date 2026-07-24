@@ -68,7 +68,12 @@ def test_non_existing_unit():
             """,
             dataframe=data
         )
-    assert info.typename == 'ValueError' and ('extract.attributes (line 3) - Status Code: 400 - Bad Request. {"ValueError":"Invalid desiredUnit provided"}\n \n') in info.value.args[0]
+    assert (
+        info.typename == 'ValueError' and
+        'Value Error: extract.attributes (line 3)' in info.value.args[0] and
+        'Details: Status Code: 400 - Bad Request. {"ValueError":"Invalid desiredUnit provided"}\n \n' in info.value.args[0] and
+        'Suggestions:' in info.value.args[0]
+    )
 
 def test_wrong_match_1():
     """
