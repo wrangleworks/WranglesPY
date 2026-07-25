@@ -24,6 +24,7 @@ from .standardize import standardize
 from . import format
 from . import openai
 from . import ai_config
+from . import ai_definition
 from .clients import serp_api as search
 
 from . import data

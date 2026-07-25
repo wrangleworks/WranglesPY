@@ -302,8 +302,12 @@ def ai(
     description: Extract data using an AI model.
     additionalProperties: false
     required:
-      - output
       - api_key
+    anyOf:
+      - required:
+          - output
+      - required:
+          - model_id
     properties:
       input:
         type:
@@ -351,6 +355,28 @@ def ai(
               examples:
                 type: array
                 description: Provide examples of typical values to return.
+              properties:
+                type:
+                  - object
+                  - array
+                  - string
+                description: >-
+                  Named properties for an object. A list or comma-separated
+                  string creates fixed property names.
+              additionalProperties:
+                type:
+                  - boolean
+                  - object
+                description: >-
+                  Set true, or provide a value schema, for a dynamic dictionary.
+                  Dynamic dictionaries automatically use non-strict schema mode
+                  while fixed portions of the output remain constrained.
+              items:
+                type: object
+                description: Schema for each item returned by an array.
+              nullable:
+                type: boolean
+                description: Legacy shorthand mapped to a type union containing null.
       api_key:
         type: string
         description: API Key for the model
@@ -369,7 +395,8 @@ def ai(
         minimum: 0
         description: >-
           The number of times to retry if the request fails.
-          Defaults to 0 to protect the total Lambda response budget.
+          Defaults to 1. Retry delays and request timeouts are bounded
+          by the total deadline.
       url:
         type: string
         description: |-
@@ -405,7 +432,9 @@ def ai(
       strict:
         type: boolean
         description: >-
-          Enable structured output strict mode. Default True.
+          Enable structured output strict mode. Default true. Definitions with
+          dynamic dictionaries automatically use non-strict provider mode and
+          are validated locally.
       output_format:
         type: string
         description: Format of the extract output
