@@ -363,7 +363,13 @@ def sanitize_schema(schema: dict, strict: bool = True) -> dict:
         if key in _OPENAI_SCHEMA_KEYS
     }
 
-    if schema.get("type") == "object":
+    schema_types = (
+        schema.get("type")
+        if isinstance(schema.get("type"), list)
+        else [schema.get("type")]
+    )
+
+    if "object" in schema_types:
         properties = schema.get("properties", {})
         schema["required"] = list(properties.keys())
         schema["properties"] = {
@@ -381,7 +387,7 @@ def sanitize_schema(schema: dict, strict: bool = True) -> dict:
         else:
             schema["additionalProperties"] = bool(additional)
 
-    if schema.get("type") == "array" and isinstance(schema.get("items"), dict):
+    if "array" in schema_types and isinstance(schema.get("items"), dict):
         schema["items"] = sanitize_schema(schema["items"], strict=strict)
 
     if isinstance(schema.get("anyOf"), list):
@@ -532,9 +538,18 @@ def extract_response_text(response_json: dict) -> str:
     raise ValueError("Could not find 'output_text' in the API response.")
 
 
-def prompt_cache_key(namespace: str, model: str, schema: dict) -> str:
-    stable_schema = _json.dumps(schema, sort_keys=True, separators=(",", ":"))
-    digest = _hashlib.sha256(stable_schema.encode("utf-8")).hexdigest()[:16]
+def prompt_cache_key(namespace: str, model: str, static_prefix: dict) -> str:
+    """
+    Identify the complete reusable request prefix, excluding row-level input.
+    """
+    stable_prefix = _json.dumps(
+        static_prefix,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    digest = _hashlib.sha256(stable_prefix.encode("utf-8")).hexdigest()[:16]
     return f"{namespace}:{model}:{digest}"
 
 
