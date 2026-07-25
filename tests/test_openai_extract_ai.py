@@ -69,7 +69,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert result == {"length": "25mm"}
     assert calls[0]["url"] == "https://api.openai.com/v1/responses"
     assert payload["model"] == "gpt-5-mini"
-    assert payload["reasoning"] == {"effort": "none"}
+    assert "reasoning" not in payload
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
     assert payload["store"] is False
@@ -204,6 +204,21 @@ def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch
     assert result == {"fruits": ["bananas", "lemons"]}
     assert "reasoning" not in payload
     assert "verbosity" not in payload["text"]
+
+
+@pytest.mark.parametrize(
+    ("model", "supported"),
+    [
+        ("o3-mini", False),
+        ("gpt-5", False),
+        ("gpt-5-mini", False),
+        ("gpt-5.1", True),
+        ("gpt-5.4-mini", True),
+        ("gpt-5.4-pro", False),
+    ],
+)
+def test_reasoning_none_model_compatibility(model, supported):
+    assert extract._openai_responses.supports_reasoning_effort(model, "none") is supported
 
 
 def test_extract_ai_scalar_output_returns_scalar_with_responses(monkeypatch):

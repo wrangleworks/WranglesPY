@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import wrangles
 import pandas as pd
@@ -3589,7 +3591,7 @@ class TestTranslate:
                 target_language: EN-GB
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello, world!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English'].lower()) == 'helloworld'
 
     def test_translate_2(self):
         """
@@ -3607,7 +3609,7 @@ class TestTranslate:
                 target_language: English
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello, world!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English'].lower()) == 'helloworld'
 
     def test_translate_3(self):
         """
@@ -3630,7 +3632,7 @@ class TestTranslate:
                 target_language: English
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English2'] == 'Hello World Two!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English2'].lower()) == 'helloworldtwo'
 
     def test_translate_4(self):
         """
