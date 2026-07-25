@@ -155,7 +155,7 @@ def ai(
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
     :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
-        for models that support reasoning.
+        for models that support disabling reasoning; otherwise omitted so the provider default applies.
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
         for models that support low verbosity.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
@@ -301,16 +301,27 @@ def ai(
             "store": store,
             **_openai_responses.sanitize_request_params(kwargs),
         }
-        if reasoning is not None:
-            if _openai_responses.supports_reasoning(model):
-                payload["reasoning"] = reasoning
+        configured_reasoning = (
+            reasoning
+            if reasoning is not None
+            else policy.get("reasoning", {"effort": "none"})
+        )
+        if _openai_responses.supports_reasoning(model):
+            effort = configured_reasoning.get("effort")
+            if _openai_responses.supports_reasoning_effort(model, effort):
+                payload["reasoning"] = configured_reasoning
             else:
                 _LOG.warning(
-                    "Ignoring 'reasoning' parameter: not supported by model '%s'",
+                    "Ignoring reasoning effort %r: not supported by model '%s'; "
+                    "the provider's default reasoning effort will apply.",
+                    effort,
                     model,
                 )
-        elif _openai_responses.supports_reasoning(model):
-            payload["reasoning"] = policy.get("reasoning", {"effort": "none"})
+        elif reasoning is not None:
+            _LOG.warning(
+                "Ignoring 'reasoning' parameter: not supported by model '%s'",
+                model,
+            )
         if verbosity is not None:
             if _openai_responses.supports_low_verbosity(model):
                 payload["text"]["verbosity"] = verbosity

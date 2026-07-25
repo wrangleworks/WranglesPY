@@ -465,7 +465,9 @@ def ai(
           are validated locally.
       reasoning:
         type: object
-        description: Responses API reasoning options. Defaults to effort none for models that support reasoning.
+        description: >-
+          Responses API reasoning options. Defaults to effort none for models
+          that support disabling reasoning; otherwise the provider default applies.
       verbosity:
         type: string
         description: Responses API output verbosity. Defaults to low for models that support low verbosity.

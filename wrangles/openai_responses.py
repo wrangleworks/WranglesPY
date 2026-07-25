@@ -344,6 +344,30 @@ def supports_reasoning(model: str) -> bool:
     return model.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
+def supports_reasoning_effort(model: str, effort: str) -> bool:
+    """
+    Return whether a model supports a specific reasoning effort.
+
+    OpenAI models before GPT-5.1 do not support ``none``. Pro models also
+    require reasoning, so they cannot honor the package's no-reasoning
+    default. Other effort/model compatibility is left to the provider because
+    it varies more narrowly by model.
+    """
+    if not supports_reasoning(model):
+        return False
+
+    effort = str(effort or "").strip().lower()
+    if effort != "none":
+        return True
+
+    model = (model or "").strip().lower()
+    if "-pro" in model:
+        return False
+
+    version = _re.match(r"^gpt-5\.(\d+)(?:-|$)", model)
+    return bool(version and int(version.group(1)) >= 1)
+
+
 def supports_low_verbosity(model: str) -> bool:
     """
     Return whether a model supports low text verbosity.

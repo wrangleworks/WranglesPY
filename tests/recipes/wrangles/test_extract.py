@@ -3791,6 +3791,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 api_key: ${OPENAI_API_KEY}
+                cache: false
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3825,6 +3826,7 @@ class TestExtractAI:
             - extract.ai:
                 model: gpt-4o-mini
                 api_key: ${OPENAI_API_KEY}
+                cache: false
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3980,7 +3982,8 @@ class TestExtractAI:
                     "data": ["wrench 25mm"],
                 })
             )
-        assert "schema submitted for output is not valid" in error.value.args[0]
+        assert "Invalid extract.ai definition" in error.value.args[0]
+        assert "unsupported JSON type" in error.value.args[0]
 
     def test_ai_invalid_apikey(self):
         """
@@ -3998,7 +4001,7 @@ class TestExtractAI:
                       retries: 2
                       output:
                         length:
-                          type: invalid
+                          type: string
                           description: >-
                             Any lengths found in the data
                             such as cm, m, ft, etc.
