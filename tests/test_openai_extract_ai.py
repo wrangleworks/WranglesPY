@@ -387,6 +387,7 @@ def test_ai_defaults_are_packaged_and_public():
     assert policy["protocol"] == "responses"
     assert policy["request_timeout_seconds"] == 12
     assert policy["total_deadline_seconds"] == 15
+    assert policy["retries"] == 1
     assert policy["reasoning"] == {"effort": "none"}
     assert policy["store"] is False
 
@@ -588,3 +589,109 @@ def test_legacy_chat_transport_retries_real_falsey_response(monkeypatch):
     assert result == {"length": "25mm"}
     assert len(calls) == 2
     assert sleeps == [1.0]
+
+
+def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
+    calls = []
+    saved = {
+        "Settings": {
+            "GPTModel": "gpt-5-mini",
+            "AdditionalMessages": "Normalize units.",
+        },
+        "Columns": [
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+        ],
+        "Data": [[
+            "Voltage",
+            "Voltage and unit",
+            "object",
+            "",
+            "",
+            "",
+            "",
+            "value,uom",
+        ]],
+    }
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"Voltage":{"value":12,"uom":"VDC"}}',
+            }],
+        }]
+    }
+
+    monkeypatch.setattr(extract._data, "model_content", lambda model_id: saved)
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    result = extract.ai(
+        "12 VDC",
+        "key",
+        model_id="saved-model",
+        messages="Prefer explicit source values.",
+        threads=1,
+    )
+
+    payload = calls[0]["json"]
+    voltage = payload["text"]["format"]["schema"]["properties"]["Voltage"]
+    assert result == {"Voltage": {"value": 12, "uom": "VDC"}}
+    assert payload["model"] == "gpt-5-mini"
+    assert payload["text"]["format"]["strict"] is True
+    assert voltage["required"] == ["value", "uom"]
+    assert "Normalize units." in payload["instructions"]
+    assert "Prefer explicit source values." in payload["instructions"]
+
+
+def test_dynamic_recipe_output_relaxes_only_nested_dictionary(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"attributes":{"Voltage":"12 VDC"},"source":"description"}',
+            }],
+        }]
+    }
+
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    result = extract.ai(
+        "Voltage: 12 VDC",
+        "key",
+        output={
+            "attributes": {
+                "type": "object",
+                "additionalProperties": {"type": "string"},
+            },
+            "source": {"type": "string"},
+        },
+        threads=1,
+    )
+
+    text_format = calls[0]["json"]["text"]["format"]
+    assert result == {
+        "attributes": {"Voltage": "12 VDC"},
+        "source": "description",
+    }
+    assert text_format["strict"] is False
+    assert text_format["schema"]["additionalProperties"] is False
+    assert text_format["schema"]["properties"]["attributes"]["additionalProperties"] == {
+        "type": "string"
+    }

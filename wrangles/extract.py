@@ -7,7 +7,6 @@ from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
 import time as _time
-import pandas as _pd
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -15,6 +14,7 @@ from .format import flatten_lists as _flatten_lists
 from . import openai as _openai
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
+from . import ai_definition as _ai_definition
 
 _LOG = _logging.getLogger(__name__)
 
@@ -129,7 +129,8 @@ def ai(
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
     :param url: (Optional) Override the configured endpoint.
-    :param strict: (Optional) Enable structured output strict mode.
+    :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
+        automatically use non-strict mode and are validated locally.
     :param reasoning: (Optional) Responses API reasoning options. Defaults to {"effort": "none"} \
         for models that support reasoning.
     :param verbosity: (Optional) Responses API text verbosity. Defaults to "low" \
@@ -198,198 +199,34 @@ def ai(
         input_was_scalar = True
         input = [input]
 
-    if output is None and model_id is None:
-        raise ValueError("output or model_id must be specified.")
-
-    output_generic_key = False
-    # If output was provided as a string
-    # Then convert to JSON schema structure
-    if isinstance(output, str):
-        output_generic_key = True
-        output = {"output": {"description": output}}
-
-    # If output was a single JSON schema object
-    # nest with a generic key
-    elif (
-        isinstance(output, dict) and
-        'description' in output and
-        not isinstance(output['description'], dict)
-    ):
-        output_generic_key = True
-        output = {"output": output}
-
-    if output is not None:
-        # Ensure output values are JSON schema objects
-        output = {
-            k: v
-            if isinstance(v, dict)
-            else {"description": str(v)}
-            for k, v in output.items()
-        }
-
-    if model_id is not None:
-        if output_generic_key:
-            raise ValueError("Output must be set with keys when combining with a model_id")
-
-        # Get model definition, make sure keys are case insensitive
-        model_definition = {
-            str(k).lower(): v
-            for k, v in _data.model_content(model_id).items()
-        }
-
-        try:
-            # Use saved model general settings
-            model = model_definition.get('settings', {}).get('GPTModel', model)
-            messages = model_definition.get('settings', {}).get('AdditionalMessages', messages)
-
-            model_definition = {
-                x["find"]: {
-                    k: v
-                    for k, v in x.items()
-                    if k not in ["find", "notes"] # find is key, notes is for info only
-                    and v not in ("", None) # ignore empty values but allow False and 0 as real possibilities
-                }
-                for x in _pd.DataFrame(
-                    model_definition['data'],
-                    columns=[str(x).lower() for x in model_definition['columns']]
-                ).to_dict(orient='records')
-            }
-        except:
-            raise ValueError(f"Model definition for {model_id} is not correctly formatted")
-        
-        output = {
-            **model_definition,
-            **(output or {})
-        }
-
-    if not isinstance(model, str) or not model.strip():
-        raise ValueError("model must be a non-empty string.")
-
-    json_schema_basic_types = ["string", "number", "boolean"]
-
-    # Parse any JSON values
-    def _safe_json_parse(value):
-        try:
-            return _json.loads(value)
-        except:
-            return value
-
-    def _standardize_schema(node):
-        """
-        Make schema JSON schema compliant allowing for simpler user input
-
-        Add default types if not specified.
-        Parse any inputs that are JSON and not true objects.
-        Parse any lists that are comma separated values.
-        Convert properties as lists of keys
-        """
-        if not isinstance(node, dict):
-            raise ValueError(f"Output is not correctly formatted: {str(node)}")
-
-        # If type isn't specified, assume basic scalar value
-        if not node.get("type", ''):
-            node['type'] = json_schema_basic_types
-
-        # Parse any JSON columns
-        node = {
-            label: _safe_json_parse(value)
-            if (
-                isinstance(value, str) and
-                (value.startswith("{") or value.startswith("["))
-            )
-            else value
-            for label, value in node.items()
-        }
-        
-        # Parse any comma separated values into lists
-        node = {
-            label: [x.strip() for x in value.split(",")]
-            if label in ("examples", "enum", "properties")
-            and isinstance(value, str)
-            else value
-            for label, value in node.items()
-        }
-
-        # Ensure examples are a list if provided
-        if (
-            'examples' in node and
-            not isinstance(node['examples'], list) and
-            node['examples'] not in ("", None)
-        ):
-            node['examples'] = [node.get('examples')]
-        # 
-        if 'properties' in node:
-            # Allows user to define properties as a comma separated or JSON list
-            # Rather than having to give a full JSON schema object
-            if isinstance(node['properties'], list):
-                node['properties'] = {
-                    v: {}
-                    for v in node['properties']
-                }
-            
-            # Clean up sub properties
-            node['properties'] = {
-                k: _standardize_schema(v)
-                for k, v in node['properties'].items()
-            }
-
-        if (
-            (isinstance(node['type'], list) and "array" in node["type"])
-            or node["type"] == "array"
-        ):
-            # Ensure array types specify the items
-            if "items" not in node:
-                node["items"] = {}
-
-            # Clean any sub item schema
-            if isinstance(node["items"], dict):
-                node["items"] = _standardize_schema(node["items"])
-
-        return node
-
-    # Fix misc schema issues
-    output = {
-        k: _standardize_schema(v)
-        for k, v in output.items()
-    }
-
-    # Sanitize output keys: replace any character outside [a-zA-Z0-9_] with
-    # an underscore before sending to the model. Property names with special
-    # characters (e.g. parentheses, spaces) are sometimes altered by the model,
-    # producing key mismatches that cause silent empty columns. We remap the
-    # sanitized names back to the originals after receiving results.
-    _key_to_original = {}
-    _sanitized_output = {}
-    for _k, _v in output.items():
-        _sk = _re.sub(r'[^a-zA-Z0-9_]', '_', _k)
-        _base, _n = _sk, 2
-        while _sk in _key_to_original:
-            _sk = f"{_base}_{_n}"
-            _n += 1
-        _key_to_original[_sk] = _k
-        _sanitized_output[_sk] = _v
-    _needs_remap = any(sk != ok for sk, ok in _key_to_original.items())
-    if _needs_remap:
-        output = _sanitized_output
-
-    # Format any user submitted header messages
-    if messages and not isinstance(messages, list):
-        messages = [str(messages)]
+    saved_model_content = (
+        _data.model_content(model_id)
+        if model_id is not None
+        else None
+    )
+    compiled = _ai_definition.compile_definition(
+        output,
+        model=model,
+        messages=messages,
+        strict=strict,
+        saved_model_content=saved_model_content,
+        source=f"saved model {model_id}" if model_id else "recipe/Python output",
+    )
+    output = compiled.output
+    model = compiled.model
+    strict = compiled.strict
+    output_generic_key = compiled.output_generic_key
+    _key_to_original = compiled.key_to_original
+    _needs_remap = compiled.needs_remap
+    root_schema = compiled.root_schema
 
     messages = [
         {
             "role": "user",
             "content": message
         }
-        for message in messages
+        for message in compiled.messages
     ]
-
-    root_schema = {
-        "type": "object",
-        "properties": output,
-        "required": list(output.keys()),
-        "additionalProperties": False,
-    }
 
     if protocol == "responses":
         field_guidance = []
@@ -400,7 +237,10 @@ def ai(
                     f"- {field}: examples are {_json.dumps(examples, default=str)}"
                 )
 
-        schema = _openai_responses.sanitize_schema(root_schema)
+        schema = _openai_responses.sanitize_schema(
+            root_schema,
+            strict=strict,
+        )
         instructions = str(
             policy.get("prompt", {}).get("instructions", "")
         ).strip()

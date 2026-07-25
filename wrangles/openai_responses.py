@@ -352,7 +352,7 @@ def supports_low_verbosity(model: str) -> bool:
     return model.startswith("gpt-5")
 
 
-def sanitize_schema(schema: dict) -> dict:
+def sanitize_schema(schema: dict, strict: bool = True) -> dict:
     """
     Convert a user schema to the subset required by OpenAI Structured Outputs.
     """
@@ -366,18 +366,27 @@ def sanitize_schema(schema: dict) -> dict:
     if schema.get("type") == "object":
         properties = schema.get("properties", {})
         schema["required"] = list(properties.keys())
-        schema["additionalProperties"] = False
         schema["properties"] = {
-            key: sanitize_schema(value)
+            key: sanitize_schema(value, strict=strict)
             for key, value in properties.items()
         }
+        additional = schema.get("additionalProperties", False)
+        if strict:
+            schema["additionalProperties"] = False
+        elif isinstance(additional, dict):
+            schema["additionalProperties"] = sanitize_schema(
+                additional,
+                strict=False,
+            )
+        else:
+            schema["additionalProperties"] = bool(additional)
 
     if schema.get("type") == "array" and isinstance(schema.get("items"), dict):
-        schema["items"] = sanitize_schema(schema["items"])
+        schema["items"] = sanitize_schema(schema["items"], strict=strict)
 
     if isinstance(schema.get("anyOf"), list):
         schema["anyOf"] = [
-            sanitize_schema(option)
+            sanitize_schema(option, strict=strict)
             for option in schema["anyOf"]
             if isinstance(option, dict)
         ]
@@ -386,6 +395,15 @@ def sanitize_schema(schema: dict) -> dict:
 
 
 def schema_type_to_python(schema: dict, name: str) -> _Any:
+    if isinstance(schema.get("anyOf"), list):
+        python_types = tuple(
+            schema_type_to_python(option, f"{name}Option{index}")
+            for index, option in enumerate(schema["anyOf"])
+            if isinstance(option, dict)
+        )
+        if python_types:
+            return _Union.__getitem__(python_types)
+
     if schema.get("enum"):
         return _Literal.__getitem__(tuple(schema["enum"]))
 
@@ -403,13 +421,21 @@ def schema_type_to_python(schema: dict, name: str) -> _Any:
     if schema_type == "object":
         properties = schema.get("properties")
         if isinstance(properties, dict) and properties:
-            return build_response_model(f"{name}Model", properties)
-        return _Dict[str, _Any]
+            return build_response_model(f"{name}Model", schema)
+        additional = schema.get("additionalProperties")
+        value_type = (
+            schema_type_to_python(additional, f"{name}Value")
+            if isinstance(additional, dict)
+            else _Any
+        )
+        return _Dict[str, value_type]
 
     return _JSON_TYPE_MAP.get(schema_type, _Any)
 
 
-def build_response_model(name: str, properties: dict):
+def build_response_model(name: str, schema: dict):
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", properties))
     fields = {}
     constraint_map = {
         "minimum": "ge",
@@ -437,12 +463,18 @@ def build_response_model(name: str, properties: dict):
 
         fields[field_name] = (
             field_type,
-            _Field(..., **field_kwargs),
+            _Field(... if field_name in required else None, **field_kwargs),
         )
 
     return _create_model(
         name,
-        __config__={"extra": "forbid"},
+        __config__={
+            "extra": (
+                "allow"
+                if schema.get("additionalProperties") not in (None, False)
+                else "forbid"
+            )
+        },
         **fields,
     )
 
@@ -453,7 +485,7 @@ def validate_structured_output(parsed: dict, schema: dict) -> dict:
 
     response_model = build_response_model(
         "ExtractAIResponse",
-        schema.get("properties", {}),
+        schema,
     )
     return response_model.model_validate(parsed).model_dump()
 

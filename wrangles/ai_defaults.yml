@@ -11,7 +11,7 @@ extract_ai:
   max_concurrency: 20
   request_timeout_seconds: 12
   total_deadline_seconds: 15
-  retries: 0
+  retries: 1
   strict: true
   store: false
   reasoning:
