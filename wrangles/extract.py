@@ -4,8 +4,6 @@ Functions to extract information from unstructured text.
 import re as _re
 import logging as _logging
 from typing import Union as _Union
-import concurrent.futures as _futures
-import json as _json
 import time as _time
 from . import config as _config
 from . import data as _data
@@ -15,6 +13,7 @@ from . import openai as _openai
 from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
 from . import ai_definition as _ai_definition
+from . import ai_cache as _ai_cache
 
 _LOG = _logging.getLogger(__name__)
 
@@ -49,6 +48,25 @@ def _validate_ai_runtime_settings(
         raise ValueError("timeout must be a positive number of seconds.")
     if not isinstance(deadline, (int, float)) or isinstance(deadline, bool) or deadline <= 0:
         raise ValueError("deadline must be a positive number of seconds.")
+
+
+def _cacheable_ai_result(result) -> bool:
+    """Do not retain transport, validation, or deadline failures."""
+    if not isinstance(result, dict) or not result:
+        return False
+    error_prefixes = (
+        "deadline exceeded",
+        "failed",
+        "invalid structured response",
+        "openai api error",
+        "timed out",
+    )
+    for value in result.values():
+        if isinstance(value, BaseException):
+            return False
+        if isinstance(value, str) and value.strip().lower().startswith(error_prefixes):
+            return False
+    return True
 
 
 def address(
@@ -96,6 +114,7 @@ def ai(
     timeout: float = None,
     retries: int = None,
     messages: list = None,
+    examples: list = None,
     url: str = None,
     strict: bool = None,
     reasoning: dict = None,
@@ -104,6 +123,8 @@ def ai(
     protocol: str = None,
     deadline: float = None,
     store: bool = None,
+    cache: bool = None,
+    cache_ttl: float = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -128,6 +149,7 @@ def ai(
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
+    :param examples: (Optional) Holistic examples containing paired input and output values.
     :param url: (Optional) Override the configured endpoint.
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
@@ -139,6 +161,8 @@ def ai(
     :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
     :param deadline: (Optional) Total seconds allowed for this extract.ai call, including retries.
     :param store: (Optional) Whether OpenAI may store Responses. Defaults to False.
+    :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
+    :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
 
     :return: A scalar or list of extracted information.
     """
@@ -179,6 +203,11 @@ def ai(
     strict = strict if strict is not None else policy.get("strict", True)
     deadline = deadline if deadline is not None else policy.get("total_deadline_seconds", 15)
     store = store if store is not None else policy.get("store", False)
+    cache_policy = _ai_cache.resolve_policy(
+        policy.get("cache", {}),
+        enabled=cache,
+        ttl_seconds=cache_ttl,
+    )
 
     if not isinstance(strict, bool):
         raise ValueError("strict must be true or false.")
@@ -208,6 +237,7 @@ def ai(
         output,
         model=model,
         messages=messages,
+        examples=examples,
         strict=strict,
         saved_model_content=saved_model_content,
         source=f"saved model {model_id}" if model_id else "recipe/Python output",
@@ -219,6 +249,7 @@ def ai(
     _key_to_original = compiled.key_to_original
     _needs_remap = compiled.needs_remap
     root_schema = compiled.root_schema
+    example_guidance = _ai_definition.render_example_guidance(compiled)
 
     messages = [
         {
@@ -229,14 +260,6 @@ def ai(
     ]
 
     if protocol == "responses":
-        field_guidance = []
-        for field, schema_node in output.items():
-            examples = schema_node.get("examples")
-            if examples:
-                field_guidance.append(
-                    f"- {field}: examples are {_json.dumps(examples, default=str)}"
-                )
-
         schema = _openai_responses.sanitize_schema(
             root_schema,
             strict=strict,
@@ -246,9 +269,8 @@ def ai(
         ).strip()
         if not instructions:
             raise ValueError("extract.ai prompt instructions are missing from the AI configuration.")
-        if field_guidance:
-            instructions += "\n\nUse these field examples as style guidance, not values to copy:\n"
-            instructions += "\n".join(field_guidance)
+        if example_guidance:
+            instructions += "\n\nExamples:\n" + example_guidance
         if messages:
             instructions += "\n\nAdditional instructions:\n" + "\n".join(
                 str(message.get("content", ""))
@@ -266,11 +288,6 @@ def ai(
                     "strict": strict,
                 },
             },
-            "prompt_cache_key": _openai_responses.prompt_cache_key(
-                "extract.ai",
-                model,
-                schema,
-            ),
             "store": store,
             **_openai_responses.sanitize_request_params(kwargs),
         }
@@ -295,19 +312,42 @@ def ai(
         elif _openai_responses.supports_low_verbosity(model):
             payload["text"]["verbosity"] = policy.get("text", {}).get("verbosity", "low")
 
+        payload["prompt_cache_key"] = _openai_responses.prompt_cache_key(
+            "extract.ai",
+            model,
+            payload,
+        )
         deadline_at = _time.monotonic() + deadline
-        with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-            results = list(executor.map(
-                _openai_responses.call_structured,
-                input,
-                [api_key] * len(input),
-                [payload] * len(input),
-                [url] * len(input),
-                [timeout] * len(input),
-                [retries] * len(input),
-                [list(output.keys())] * len(input),
-                [deadline_at] * len(input),
-            ))
+        static_request = {
+            "url": url,
+            "payload": payload,
+            "cache_ttl_seconds": cache_policy.ttl_seconds,
+        }
+        results = _ai_cache.execute_batch(
+            input,
+            key_for=lambda row: _ai_cache.make_key(
+                namespace="extract.ai",
+                provider=provider,
+                protocol=protocol,
+                tenant_secret=api_key,
+                static_request=static_request,
+                data=_openai_responses.format_input_data(row),
+            ),
+            compute=lambda row: _openai_responses.call_structured(
+                row,
+                api_key,
+                payload,
+                url,
+                timeout,
+                retries,
+                list(output.keys()),
+                deadline_at,
+            ),
+            cacheable=_cacheable_ai_result,
+            max_workers=threads,
+            policy=cache_policy,
+            deadline_at=deadline_at,
+        )
 
         if _needs_remap:
             results = [
@@ -327,13 +367,14 @@ def ai(
             else:
                 return results
 
-    messages = [
+    stable_messages = [
         {
             "role": "system",
             "content": " ".join([
                 "You are an expert data analyst.",
                 "Your job is to extract and standardize information as provided by the user.",
-                "The data may be provided as a single value or as YAML syntax with keys and values."
+                "The data may be provided as a single value or as YAML syntax with keys and values.",
+                "Return null when the data does not explicitly support a requested field.",
             ])
         },
         {
@@ -343,7 +384,13 @@ def ai(
                 "Only use the functions you have been provided with.",
             ])
         },
-    ] + messages
+    ]
+    if example_guidance:
+        stable_messages.append({
+            "role": "system",
+            "content": "Examples:\n" + example_guidance,
+        })
+    messages = stable_messages + messages
     
     default_settings = {
         "gpt-4o-mini": {"temperature": 0.2},
@@ -373,17 +420,35 @@ def ai(
     }
 
     deadline_at = _time.monotonic() + deadline
-    with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        results = list(executor.map(
-            _openai.chatGPT,
-            input, 
-            [api_key] * len(input),
-            [settings] * len(input),
-            [url] * len(input),
-            [timeout] * len(input),
-            [retries] * len(input),
-            [deadline_at] * len(input),
-        ))
+    static_request = {
+        "url": url,
+        "settings": settings,
+        "cache_ttl_seconds": cache_policy.ttl_seconds,
+    }
+    results = _ai_cache.execute_batch(
+        input,
+        key_for=lambda row: _ai_cache.make_key(
+            namespace="extract.ai",
+            provider=provider,
+            protocol=protocol,
+            tenant_secret=api_key,
+            static_request=static_request,
+            data=_openai.format_input_data(row),
+        ),
+        compute=lambda row: _openai.chatGPT(
+            row,
+            api_key,
+            settings,
+            url,
+            timeout,
+            retries,
+            deadline_at,
+        ),
+        cacheable=_cacheable_ai_result,
+        max_workers=threads,
+        policy=cache_policy,
+        deadline_at=deadline_at,
+    )
 
     if _needs_remap:
         results = [

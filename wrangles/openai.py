@@ -14,6 +14,20 @@ except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
 
+def format_input_data(data: any) -> str:
+    """Serialize row input exactly as Chat Completions will receive it."""
+    if isinstance(data, (dict, list)):
+        return _yaml.dump(
+            data,
+            indent=2,
+            sort_keys=False,
+            allow_unicode=True,
+            Dumper=_YAMLDumper,
+            width=1000,
+        )
+    return str(data)
+
+
 def chatGPT(
     data: any,
     api_key: str,
@@ -33,17 +47,7 @@ def chatGPT(
     :param retries: Number of times to retry if the request fails
     :param deadline_at: Monotonic deadline shared by all retries for this call
     """
-    if isinstance(data, (dict, list)):
-        content = _yaml.dump(
-            data,
-            indent=2,
-            sort_keys=False,
-            allow_unicode=True,
-            Dumper=_YAMLDumper,
-            width=1000
-        )
-    else:
-        content = str(data)
+    content = format_input_data(data)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(

@@ -136,8 +136,17 @@ def ai(
                   - array
                 description: A default value to return.
               examples:
-                type: array
-                description: Provide examples of typical values to return.
+                type:
+                  - array
+                  - object
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                description: >-
+                  Provide typical output values, or paired objects with input
+                  and output keys for field-specific examples.
               properties:
                 type:
                   - object
@@ -159,7 +168,16 @@ def ai(
                 description: Schema for each item returned by an array.
               nullable:
                 type: boolean
-                description: Legacy shorthand mapped to a type union containing null.
+                description: >-
+                  Whether the field may return null. Defaults to true while
+                  the field key remains required. Set false to opt out.
+      examples:
+        type:
+          - array
+          - object
+        description: >-
+          Holistic input/output example pairs spanning the complete output
+          record. Sparse outputs are completed with null for omitted fields.
       api_key:
         type: string
         description: API Key for the model
@@ -168,7 +186,8 @@ def ai(
         description: The name of the AI model to use
       threads:
         type: integer
-        description: The number of requests to send in parallel
+        minimum: 1
+        description: The number of requests to send in parallel. The configured default is 32.
       timeout:
         type: number
         exclusiveMinimum: 0
@@ -204,6 +223,15 @@ def ai(
       store:
         type: boolean
         description: Whether OpenAI may store Responses. Defaults to false.
+      cache:
+        type: boolean
+        description: >-
+          Use the bounded warm-instance result cache. Defaults to true.
+          Set false for a call-level bypass.
+      cache_ttl:
+        type: number
+        exclusiveMinimum: 0
+        description: Override the result-cache TTL in seconds for this call.
       messages:
         type:
           - string

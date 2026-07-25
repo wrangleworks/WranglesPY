@@ -5,6 +5,14 @@ import pytest
 import requests
 import wrangles.extract as extract
 from wrangles import ai_config
+from wrangles import ai_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_result_cache():
+    ai_cache.clear()
+    yield
+    ai_cache.clear()
 
 
 class _Response:
@@ -72,6 +80,89 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert 'examples are ["25mm"]' in payload["instructions"]
     assert schema["required"] == ["length"]
     assert schema["additionalProperties"] is False
+
+
+def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"color":"yellow"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    common = {
+        "input": "yellow handle",
+        "api_key": "key",
+        "output": {"color": {"type": "string"}},
+        "threads": 1,
+    }
+
+    extract.ai(
+        examples=[{
+            "input": "yellow grip",
+            "output": {"color": "yellow"},
+        }],
+        **common,
+    )
+    extract.ai(
+        examples=[{
+            "input": "red grip",
+            "output": {"color": "red"},
+        }],
+        **common,
+    )
+
+    assert len(calls) == 2
+    assert "<record_example" in calls[0]["json"]["instructions"]
+    assert calls[0]["json"]["prompt_cache_key"] != calls[1]["json"]["prompt_cache_key"]
+
+
+def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatch):
+    calls = []
+    body = {
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "function": {"arguments": '{"color":"yellow"}'}
+                }]
+            }
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    result = extract.ai(
+        "yellow handle",
+        "key",
+        output={
+            "color": {
+                "type": "string",
+                "examples": [{"input": "yellow grip", "output": "yellow"}],
+            }
+        },
+        protocol="chat_completions",
+        threads=1,
+    )
+
+    assert result == {"color": "yellow"}
+    stable_content = "\n".join(
+        message["content"]
+        for message in calls[0]["json"]["messages"]
+        if message["role"] == "system"
+    )
+    assert "<field_example" in stable_content
+    assert "yellow grip" in stable_content
 
 
 def test_extract_ai_omits_default_reasoning_for_non_reasoning_models(monkeypatch):
@@ -385,11 +476,20 @@ def test_ai_defaults_are_packaged_and_public():
     assert ai_config.config_path().is_file()
     assert policy["provider"] == "openai"
     assert policy["protocol"] == "responses"
+    assert policy["max_concurrency"] == 32
     assert policy["request_timeout_seconds"] == 12
     assert policy["total_deadline_seconds"] == 15
     assert policy["retries"] == 1
     assert policy["reasoning"] == {"effort": "none"}
     assert policy["store"] is False
+    assert policy["cache"] == {
+        "enabled": True,
+        "ttl_seconds": 3600,
+        "max_entries": 512,
+        "max_value_bytes": 65536,
+        "single_flight": True,
+        "log_every": 100,
+    }
 
 
 def test_ai_config_can_be_overridden(monkeypatch, tmp_path):
@@ -695,3 +795,156 @@ def test_dynamic_recipe_output_relaxes_only_nested_dictionary(monkeypatch):
     assert text_format["schema"]["properties"]["attributes"]["additionalProperties"] == {
         "type": "string"
     }
+
+
+def test_extract_ai_deduplicates_batch_and_reuses_warm_result_cache(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"length":"25mm"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    arguments = {
+        "input": ["wrench 25mm", "wrench 25mm", "wrench 25mm"],
+        "api_key": "tenant-key",
+        "output": {"length": {"type": "string"}},
+        "threads": 3,
+    }
+    first = extract.ai(**arguments)
+    second = extract.ai(**arguments)
+
+    assert first == [{"length": "25mm"}] * 3
+    assert second == first
+    assert len(calls) == 1
+    assert ai_cache.stats()["stores"] == 1
+    assert ai_cache.stats()["hits"] == 1
+
+
+def test_extract_ai_cache_is_tenant_scoped_and_bypassable(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"length":"25mm"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    common = {
+        "input": "wrench 25mm",
+        "output": {"length": {"type": "string"}},
+        "threads": 1,
+    }
+
+    extract.ai(api_key="tenant-a", **common)
+    extract.ai(api_key="tenant-b", **common)
+    extract.ai(api_key="tenant-a", cache=False, **common)
+
+    assert len(calls) == 3
+
+
+def test_extract_ai_does_not_cache_failures(monkeypatch):
+    calls = []
+    rate_limit = _requests_response(
+        {"error": {"message": "Rate limit reached", "type": "requests"}},
+        status_code=429,
+    )
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or rate_limit,
+    )
+    arguments = {
+        "input": "wrench 25mm",
+        "api_key": "tenant-key",
+        "output": {"length": {"type": "string"}},
+        "threads": 1,
+        "retries": 0,
+    }
+
+    first = extract.ai(**arguments)
+    second = extract.ai(**arguments)
+
+    assert "OpenAI API error" in first["length"]
+    assert second == first
+    assert len(calls) == 2
+    assert ai_cache.stats()["stores"] == 0
+    assert ai_cache.stats()["skipped_error"] == 2
+
+
+def test_prompt_cache_key_covers_complete_static_prefix(monkeypatch):
+    payloads = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"length":"25mm"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: payloads.append(kwargs["json"]) or _Response(body),
+    )
+    common = {
+        "input": "wrench 25mm",
+        "api_key": "tenant-key",
+        "output": {"length": {"type": "string"}},
+        "threads": 1,
+        "cache": False,
+    }
+
+    extract.ai(messages="Use source units.", **common)
+    extract.ai(messages="Use source units.", **common)
+    extract.ai(messages="Convert to inches.", **common)
+
+    keys = [payload["prompt_cache_key"] for payload in payloads]
+    assert keys[0] == keys[1]
+    assert keys[0] != keys[2]
+
+
+def test_legacy_chat_completions_uses_same_result_cache(monkeypatch):
+    calls = []
+    body = {
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "function": {"arguments": '{"length":"25mm"}'}
+                }]
+            }
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    result = extract.ai(
+        ["wrench 25mm", "wrench 25mm"],
+        "tenant-key",
+        output={"length": {"type": "string"}},
+        protocol="chat_completions",
+        threads=2,
+    )
+
+    assert result == [{"length": "25mm"}, {"length": "25mm"}]
+    assert len(calls) == 1

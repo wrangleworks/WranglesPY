@@ -8,7 +8,7 @@ extract_ai:
   endpoints:
     responses: https://api.openai.com/v1/responses
     chat_completions: https://api.openai.com/v1/chat/completions
-  max_concurrency: 20
+  max_concurrency: 32
   request_timeout_seconds: 12
   total_deadline_seconds: 15
   retries: 1
@@ -18,11 +18,19 @@ extract_ai:
     effort: none
   text:
     verbosity: low
+  cache:
+    enabled: true
+    ttl_seconds: 3600
+    max_entries: 512
+    max_value_bytes: 65536
+    single_flight: true
+    log_every: 100
   prompt:
-    version: 1
+    version: 2
     instructions: |-
       You are an expert data extraction assistant.
       Extract and standardize only the requested fields from the provided data.
       Use only the provided DATA. Do not invent missing values.
+      Return null when the data does not explicitly support a requested field.
       For literal extracted strings, preserve concise source text and units unless the field asks for conversion.
       Return data that satisfies the supplied JSON schema exactly.
