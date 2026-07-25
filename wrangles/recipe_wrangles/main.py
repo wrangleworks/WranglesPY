@@ -903,7 +903,8 @@ def lookup(
     input: str,
     output: _Union[str, list] = None,
     model_id: str = None,
-    lookup_mode: str = 'by_row', 
+    lookup_mode: str = 'by_row',
+    n: int = None,
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -925,7 +926,17 @@ def lookup(
         type:
           - string
           - array
-        description: Name of the output column(s)
+        description: >-
+          Name of the output column(s). When n is provided and the output list
+          length equals n, each output column receives the corresponding match.
+          A single output containing a wildcard (*) is expanded into n columns,
+          e.g. "Top *" with n: 3 becomes "Top 1", "Top 2", "Top 3".
+      n:
+        type: integer
+        description: >-
+          Number of matches to return per input value. When the output list
+          length equals n, each output column receives the corresponding match.
+          Otherwise all n matches are stored as a list in each output column.
       lookup_mode:
         type: string
         description: >-
@@ -949,6 +960,16 @@ def lookup(
 
     # Ensure output is a list
     if not isinstance(output, list): output = [output]
+
+    # Expand a single wildcard output name into one column per match
+    # e.g. output: "Top *" with n=3 -> ["Top 1", "Top 2", "Top 3"]
+    if (
+        n and n > 1 and
+        len(output) == 1 and
+        isinstance(output[0], str) and
+        '*' in output[0]
+    ):
+        output = [output[0].replace('*', str(i)) for i in range(1, n + 1)]
 
     # Return early on empty df
     if df.empty: 
@@ -986,6 +1007,12 @@ def lookup(
             kwargs.pop('matrix_variables')
           return kwargs
 
+        # Distribute the n matches for each row across the output columns,
+        # ranked match i goes to output column i
+        def _distribute_n_matches(data):
+          for i, out in enumerate(output):
+            df[out] = [row[i] if isinstance(row, list) and i < len(row) else None for row in data]
+
         # Perform lookup based on lookup_mode
         if lookup_mode == 'by_row':
           # Current behavior - process all rows
@@ -995,20 +1022,40 @@ def lookup(
               df[input].values.tolist(),
               model_id,
               columns=wrangle_output,
+              n=n,
               **_clean_kwargs(kwargs)
             )
-            df[output] = data
+            if n and n > 1 and len(output) == n:
+              # Distribute: each output column gets the nth match
+              _distribute_n_matches(data)
+            elif n and n > 1 and len(output) > 1:
+              raise ValueError(
+                f'When n > 1 and multiple output columns are provided, the number '
+                f'of output columns ({len(output)}) must equal n ({n}).'
+              )
+            else:
+              df[output] = data
           elif not any([col in metadata["settings"]["columns"] for col in wrangle_output]):
             # User specified no columns from the wrangle
             data = _lookup(
               df[input].values.tolist(),
               model_id,
+              n=n,
               **_clean_kwargs(kwargs)
             )
-            for out in output:
-              df[out] = data
+            if n and n > 1 and len(output) == n:
+              # Distribute: each output column gets the nth match
+              _distribute_n_matches(data)
+            elif n and n > 1 and len(output) > 1:
+              raise ValueError(
+                f'When n > 1 and multiple output columns are provided, the number '
+                f'of output columns ({len(output)}) must equal n ({n}).'
+              )
+            else:
+              for out in output:
+                df[out] = data
           else:
-            # User specified a mixture of unrecognized columns and columns from the wrangle 
+            # User specified a mixture of unrecognized columns and columns from the wrangle
             raise ValueError('Lookup may only contain all named or unnamed columns.')
                   
         elif lookup_mode == 'by_dataframe':
@@ -1593,6 +1640,39 @@ def rename(
         ):
             del kwargs["functions"]
 
+    def output_exists(output_column):
+        return output_column in df.columns
+
+    def resolve_rename_input(input_column, output_column):
+        candidates = input_column if isinstance(input_column, list) else [input_column]
+        optional_candidates = []
+        required_candidates = []
+
+        for candidate in candidates:
+            optional = False
+            actual_col = candidate
+            if isinstance(candidate, str) and candidate.endswith("?"):
+                optional = True
+                actual_col = candidate[:-1]
+
+            if actual_col in df.columns:
+                return actual_col
+
+            if optional:
+                optional_candidates.append(actual_col)
+                continue
+
+            required_candidates.append(actual_col)
+
+        if optional_candidates and not required_candidates:
+            return None
+
+        if output_exists(output_column):
+            return None
+
+        missing = required_candidates[0] if required_candidates else candidates[0]
+        raise ValueError(f'Rename column "{missing}" not found.')
+
 
     # If short form of paired names is provided, use that
     if input is None:
@@ -1650,7 +1730,7 @@ def rename(
 
         # Regular non-wildcard name
         if name not in cols:
-          if optional:
+          if optional or kwargs[x] in cols:
             continue
           else:
             raise ValueError(f'Rename column "{name}" not found.')
@@ -1676,19 +1756,12 @@ def rename(
             raise ValueError('The lists for input and output must be the same length.')
           
         for inp, out in zip(input, output):
-            if inp.endswith("?"):
-                actual_col = inp[:-1]
-                if actual_col not in list(df.columns):
-                    # Skip this column if it doesn't exist
-                    continue  # This skips both input and output
-                else:
-                    filtered_input.append(actual_col)
-                    filtered_output.append(out)
-            elif inp not in list(df.columns):
-                raise ValueError(f'Rename column "{inp}" not found.')
-            else:
-                filtered_input.append(inp)
-                filtered_output.append(out)
+            actual_col = resolve_rename_input(inp, out)
+            if actual_col is None:
+                continue
+
+            filtered_input.append(actual_col)
+            filtered_output.append(out)
           
         # Check that the output columns don't already exist if so drop them
         df = df.drop(columns=[x for x in filtered_output if x in df.columns and x not in filtered_input])

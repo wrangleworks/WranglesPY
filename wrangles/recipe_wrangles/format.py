@@ -2,6 +2,7 @@
 Functions to re-format data
 """
 from typing import Union as _Union
+import logging as _logging
 import pandas as _pd
 from .. import format as _format
 from ..utils import safe_str_transform as _safe_str_transform
@@ -43,6 +44,7 @@ def dates(df: _pd.DataFrame, input: _Union[str, int, list], format: str, output:
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
     
+    _logging.debug(f": Formatting dates :: format :: {format}, input :: {input}")
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         # convert the column to timestamp type and format date
@@ -98,6 +100,7 @@ def pad(
         description: If true, skip padding for empty or whitespace-only values
         default: false
   """
+    _logging.debug(f": Padding strings :: pad_length :: {pad_length}, side :: {side}")
     char = str(char)
     # If the output is not specified, overwrite input columns in place
     if output is None: output = input
@@ -171,7 +174,8 @@ def prefix(
     # If the input and output are not the same type
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-    
+
+    _logging.debug(f": Adding prefix to {input}")
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
@@ -216,6 +220,7 @@ def remove_duplicates(df: _pd.DataFrame, input: _Union[str, int, list], output: 
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    _logging.debug(f": Removing duplicates :: input :: {input}, ignore_case :: {ignore_case}")
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         df[output_column] =  _format.remove_duplicates(df[input_column].values.tolist(), ignore_case)
@@ -257,6 +262,7 @@ def significant_figures(df: _pd.DataFrame, input: _Union[str, int, list], signif
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    _logging.debug(f": Rounding to {significant_figures} significant figures :: input :: {input}")
     # Loop through all requested columns and apply sig figs
     for input_column, output_column in zip(input, output):
         df[output_column] = _format.significant_figures(df[input_column].to_list(), significant_figures)
@@ -311,6 +317,7 @@ def suffix(
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
     
+    _logging.debug(f": Adding suffix to {input}")
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if skip_empty:
@@ -351,6 +358,7 @@ def trim(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
 
+    _logging.debug(f": Trimming whitespace :: input :: {input}")
     warnings = {
         "invalid_data": {
             "logged": False,
@@ -370,5 +378,6 @@ def price_breaks(df: _pd.DataFrame, input: list, categoryLabel: str, valueLabel:
     """
     Rearrange price breaks
     """
+    _logging.info(f": Processing price breaks :: input :: {input}")
     df = _pd.concat([df, _format.price_breaks(df[input], categoryLabel, valueLabel)], axis=1)
     return df

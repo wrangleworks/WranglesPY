@@ -89,6 +89,7 @@ def address(
     else:
         json_data = input
 
+    _logging.info(f": Extracting address {dataType} from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/address'
     params = {
         'responseFormat':'array',
@@ -258,6 +259,15 @@ def ai(
         }
         for message in compiled.messages
     ]
+
+    _LOG.info(
+        ": Extracting data using AI model :: model_id :: %s, "
+        "model :: %s, protocol :: %s, thread_count :: %s",
+        model_id,
+        model,
+        protocol,
+        threads,
+    )
 
     if protocol == "responses":
         schema = _openai_responses.sanitize_schema(
@@ -495,6 +505,7 @@ def attributes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting attributes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {
         'responseFormat':'array',
@@ -541,6 +552,7 @@ def codes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting codes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/codes'
     params = {'responseFormat': 'array', **kwargs}
     batch_size = 10000
@@ -563,7 +575,9 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = 'dict',
     **kwargs
 ) -> list:
     """
@@ -602,6 +616,15 @@ def custom(
     }
 
     model_properties = _data.model(model_id)
+    model_content = _data.model_content(model_id)
+
+    model_labels = set()
+    for item in model_content['Data']:
+        if len(item) >= 2:
+            if ':' in item[1]:
+                label = item[1].split(':')[0]  # Second column typically contains the label/type
+                model_labels.add(label.strip())
+
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error':
         raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -631,13 +654,26 @@ def custom(
                 {results["columns"][i]: row[i] for i in range(len(row))}
                 for row in results["data"]
             ]
-
     if isinstance(results, list):
         if first_element and not use_labels:
             results = [x[0] if len(x) >= 1 else "" for x in results]
         
-        if use_labels and first_element:
-            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+        if use_labels:
+            if include_empty_labels:
+                # Ensure every label has a key, create empty keys if missing.
+                # Use both labels discovered from results and labels defined in the model.
+                all_labels = set(model_labels or [])
+                for objs in results:
+                    all_labels.update([str(k).lower() for k in objs.keys()])
+
+                for objs in results:
+                    # Normalize existing keys to lower-case while preserving original keys
+                    existing = {str(k).lower(): k for k in objs.keys()}
+                    for label in all_labels:
+                        if label not in existing:
+                            objs[label] = []
+            if first_element:
+                results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:
         raise ValueError(f'API Response did not return an expected format for model {model_id}')
 
@@ -665,6 +701,7 @@ def html(
     else:
         json_data = input
 
+    _logging.info(f": Extracting {dataType} from HTML")
     url = f'{_config.api_host}/wrangles/extract/html'
     params = {
         'responseFormat': 'array',
@@ -704,6 +741,7 @@ def properties(
     else:
         json_data = input
 
+    _logging.info(f": Extracting properties from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/properties'
     params = {'responseFormat':'array', **kwargs}
     if type is not None: params['dataType'] = type
@@ -741,6 +779,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     else:
         flags = 0 # this is the default for _re.sub
     
+    _logging.info(f": Removing words from {len(input)} records")
     results = []
     for _in, _remove in zip(input, to_remove):
         
@@ -791,7 +830,8 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 def brackets(
     input: str,
     find: list = _Union[str, list],
-    include_brackets: bool = False
+    include_brackets: bool = False,
+    return_data_type: str = "string"
     ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
@@ -801,6 +841,7 @@ def brackets(
     :param include_brackets: Whether to include brackets in the results
     :return: List of extracted values
     """
+    _logging.info(": Extracting text from brackets")
     results = []
     bracket_patterns = {
     'round': r'\(.*?\)',
@@ -825,7 +866,9 @@ def brackets(
         # Traverse list and remove all brackets if include_brackets is False
         if include_brackets is False:
             re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
-            results.append(', '.join(re))
+
+        if return_data_type == "list":
+            results.append(re)
         else:
             results.append(', '.join(re))
         

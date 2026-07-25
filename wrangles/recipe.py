@@ -64,6 +64,11 @@ def _load_recipe(
     """
     if variables is None:
         variables = {}
+
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(recipe, _os.PathLike):
+        recipe = str(recipe)
+
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
     
@@ -444,6 +449,27 @@ def _execute_wrangles(
                 # Used to store parameters common to all wrangles - e.g where
                 common_params = {}
 
+                # If the action is conditional, check if it should be run
+                # before column validation or wildcard expansion so that
+                # wrangles can be skipped when their input columns don't exist
+                if (
+                    "if" in params and
+                    not _evaluate_conditional(
+                        params["if"],
+                        {
+                            **variables,
+                            **{
+                                "row_count": len(df),
+                                "column_count": len(df.columns),
+                                "columns": df.columns.tolist(),
+                                "df": df
+                            }
+                        }
+                    )
+                ):
+                    _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
+                    continue
+
                 # Blacklist of Wrangles not to allow wildcards for
                 original_input = params.get('input') # Save for later reference
                 if (
@@ -480,24 +506,41 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
-                # If the action is conditional, check if it should be run
-                if (
-                    "if" in params and
-                    not _evaluate_conditional(
-                        params["if"],
-                        {
-                            **variables,
-                            **{
-                                "row_count": len(df),
-                                "column_count": len(df.columns),
-                                "columns": df.columns.tolist(),
-                                "df": df
-                            }
-                        }
-                    )
-                ):
-                    _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
-                    continue
+                    # If where filters out all rows, skip actually executing the
+                    # wrangle (some wrangles error when given no rows), but if it
+                    # explicitly declares output columns, still add them (empty)
+                    # so the dataframe structure stays consistent with runs where
+                    # at least one row matches - otherwise batching with where can
+                    # produce inconsistent columns between batches
+                    if len(df) == 0:
+                        if 'output' in params:
+                            if isinstance(params['output'], list):
+                                output_columns = [
+                                    list(col.values()) if isinstance(col, dict) else [col]
+                                    for col in params['output']
+                                ]
+                                output_columns = [
+                                    item
+                                    for sublist in output_columns
+                                    for item in sublist
+                                ]
+                            elif isinstance(params['output'], dict):
+                                output_columns = list(params['output'].keys())
+                            else:
+                                output_columns = [params['output']]
+
+                            for col in output_columns:
+                                # Wildcard outputs (e.g. 'Col*') are expanded into
+                                # concrete column names based on the actual data,
+                                # which can't be determined with no rows to work
+                                # with - skip adding those, only add named columns
+                                if '*' in str(col):
+                                    continue
+                                if col not in df_original.columns:
+                                    df_original[col] = ''
+
+                        df = df_original
+                        continue
 
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
