@@ -2198,7 +2198,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2216,7 +2216,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -4525,7 +4525,7 @@ class TestExtractAI:
         recipe = f"""
             wrangles:
             - extract.ai:
-                model: gpt-5-mini
+                model: gpt-5.4-mini
                 api_key: ${{OPENAI_API_KEY}}
                 timeout: 90
                 retries: 2
