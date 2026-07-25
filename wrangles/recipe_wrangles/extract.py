@@ -1248,7 +1248,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
         'business month starts': 'BMS',
         'quarters': 'Q',
         'quarter starts': 'QS',
-        'years': 'Y',
+        'years': 'YE',
         'business hours': 'BH',
         'hours': 'H',
         'minutes': 'T',
