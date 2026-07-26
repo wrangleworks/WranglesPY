@@ -19,7 +19,7 @@
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
-- **Testing:** pytest (7.4.4), pytest-mock, lorem (test data generation)
+- **Testing:** pytest (9.0.2), pytest-mock, lorem (test data generation)
 - **Containerization:** Docker (Python 3.11-slim-bookworm base)
 
 ## Project Structure
@@ -57,11 +57,12 @@ WranglesPY/
 
 ## Installation & Setup
 
-### Standard Installation
+### Development Installation
 ```bash
 pip install --upgrade pip
-pip install pytest==7.4.4 lorem pytest-mock
-pip install -r requirements.txt
+pip install pytest==9.0.2 pytest-mock
+pip install -r requirements-full.txt
+pip install -e .
 ```
 
 ### macOS-specific Requirements
@@ -74,9 +75,9 @@ pip install -r requirements.txt
 
 ### Development Container
 The project includes a `.devcontainer/devcontainer.json` for VS Code:
-- Base image: `mcr.microsoft.com/devcontainers/python:1-3.12-bullseye`
-- Auto-installs pytest, lorem, pytest-mock on creation
-- Includes YAML schema validation for `.wrgl.yml` files
+- Base image: `mcr.microsoft.com/devcontainers/python:1-3.13-bookworm`
+- Auto-installs the full test dependencies and the package in editable mode
+- Includes YAML schema validation for `.wrgl.yml` and `.recipe` files
 - Configured for pytest test discovery
 
 ## Testing
