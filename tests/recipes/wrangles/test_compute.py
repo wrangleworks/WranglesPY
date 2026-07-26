@@ -550,7 +550,7 @@ class TestScoreSearchResults:
             "input_code": "NATV6",
         }]
 
-    def test_part_code_matches_remove_partial_code_within_mpn_match(self):
+    def test_part_code_matches_remove_codes_contained_within_mpn_match(self):
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
@@ -567,22 +567,13 @@ class TestScoreSearchResults:
             must_match_part_code=False,
         )[0]
 
-        assert result["part_code_matches"] == [
-            {
-                "match_type": "MPN",
-                "match_level": "exact",
-                "match_source": "snippet",
-                "matched_code": "085-196-225 M10",
-                "input_code": "085-196-225 M10",
-            },
-            {
-                "match_type": "Codes",
-                "match_level": "exact",
-                "match_source": "snippet",
-                "matched_code": "085-196-225",
-                "input_code": "085-196-225",
-            },
-        ]
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "exact",
+            "match_source": "snippet",
+            "matched_code": "085-196-225 M10",
+            "input_code": "085-196-225 M10",
+        }]
 
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
