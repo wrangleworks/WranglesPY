@@ -927,6 +927,288 @@ class TestConvertFractionToDecimal:
         assert df.empty and df.columns.to_list() == ['column', 'output column']
 
 
+class TestConvertParse:
+    """
+    Test convert.parse wrangle
+    """
+    def test_proper_json(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    '{"key": "value", "enabled": false}',
+                    '["one", 2, true]',
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value", "enabled": False},
+            ["one", 2, True],
+        ]
+
+    def test_human_readable_json_and_yaml(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{key: value, items: [one, two]}",
+                    "key: value\nitems:\n- one\n- two",
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value", "items": ["one", "two"]},
+            {"key": "value", "items": ["one", "two"]},
+        ]
+
+    def test_python_representation(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{'active': True, 'missing': None, 'items': ['one']}"
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "active": True,
+            "missing": None,
+            "items": ["one"],
+        }
+
+    def test_accidentally_quoted_structures(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    """'{"key": "value"}'""",
+                    '"[1, 2, 3]"',
+                    '''"{'key': None}"''',
+                    "'key: value'",
+                ]
+            })
+        )
+
+        assert df["column"].tolist() == [
+            {"key": "value"},
+            [1, 2, 3],
+            {"key": None},
+            {"key": "value"},
+        ]
+
+    def test_missing_values_use_independent_defaults(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                default: {}
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "   ", None, _np.nan]
+            })
+        )
+
+        assert df["column"].tolist() == [{}, {}, {}, {}]
+        assert len({id(value) for value in df["column"]}) == 4
+
+    def test_missing_values_without_default_remain_empty(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "   ", None, _np.nan]
+            })
+        )
+
+        # The recipe runner normalizes None results to its standard empty cell.
+        assert df["column"].tolist() == ["", "", "", ""]
+
+    def test_valid_falsy_values_are_preserved(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                default: fallback
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["[]", "{}", '""', "false", "0"]
+            })
+        )
+
+        assert df["column"].tolist() == [[], {}, "", False, 0]
+
+    def test_yaml_scalar_resolution_stays_json_like(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    "{answer: yes, state: on, date: 2026-07-25, enabled: true}"
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "answer": "yes",
+            "state": "on",
+            "date": "2026-07-25",
+            "enabled": True,
+        }
+
+    def test_existing_objects_are_normalized(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+            """,
+            dataframe=pd.DataFrame({
+                "column": [
+                    {"number": _np.int64(2), "values": _np.array([1, 2])}
+                ]
+            })
+        )
+
+        assert df["column"][0] == {
+            "number": 2,
+            "values": [1, 2],
+        }
+
+    def test_expected_types_and_per_column_defaults(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input:
+                  - dictionary
+                  - array
+                output:
+                  - dictionary result
+                  - array result
+                expected:
+                  - dictionary
+                  - list
+                default:
+                  - {}
+                  - []
+            """,
+            dataframe=pd.DataFrame({
+                "dictionary": ["[1, 2]", "{bad"],
+                "array": ['{"key": "value"}', "[1, 2]"],
+            })
+        )
+
+        assert df["dictionary result"].tolist() == [{}, {}]
+        assert df["array result"].tolist() == [[], [1, 2]]
+
+    def test_explicit_null_default(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                expected: dictionary
+                default: null
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["not a dictionary"]
+            })
+        )
+
+        # The recipe runner normalizes a null result to its standard empty cell.
+        assert df["column"][0] == ""
+
+    def test_invalid_nonempty_value_without_default_errors(self):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input: column
+                    expected: dictionary
+                """,
+                dataframe=pd.DataFrame({
+                    "column": ["{not closed"]
+                })
+            )
+
+    def test_non_json_yaml_types_are_rejected(self):
+        with pytest.raises(ValueError, match="Unable to convert value"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input: column
+                """,
+                dataframe=pd.DataFrame({
+                    "column": ["!!set {one: null, two: null}"]
+                })
+            )
+
+    def test_multiple_inputs_require_matching_outputs(self):
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.parse:
+                    input:
+                      - column 1
+                      - column 2
+                    output: result
+                """,
+                dataframe=pd.DataFrame({
+                    "column 1": ["{}"],
+                    "column 2": ["[]"],
+                })
+            )
+
+    def test_empty_dataframe(self):
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.parse:
+                input: column
+                output: result
+            """,
+            dataframe=pd.DataFrame({
+                "column": []
+            })
+        )
+
+        assert df.empty and df.columns.to_list() == ["column", "result"]
+
+
 class TestConvertFromJSON:
     """
     Test convert.from_json wrangles
