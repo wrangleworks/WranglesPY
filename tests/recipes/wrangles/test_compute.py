@@ -550,6 +550,40 @@ class TestScoreSearchResults:
             "input_code": "NATV6",
         }]
 
+    def test_part_code_matches_remove_partial_code_within_mpn_match(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Product details",
+                "snippet": "Part number 085-196-225 M10",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["085-196-225 M10"],
+            part_codes=["085-196-225 M10", "225 M10", "085-196-225"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [
+            {
+                "match_type": "MPN",
+                "match_level": "exact",
+                "match_source": "snippet",
+                "matched_code": "085-196-225 M10",
+                "input_code": "085-196-225 M10",
+            },
+            {
+                "match_type": "Codes",
+                "match_level": "exact",
+                "match_source": "snippet",
+                "matched_code": "085-196-225",
+                "input_code": "085-196-225",
+            },
+        ]
+
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
             "search_metadata": {"query_index": 1},
