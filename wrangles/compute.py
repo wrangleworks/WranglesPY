@@ -226,6 +226,10 @@ def _reduce_part_code_matches(matches: list) -> list:
         _compare.normalize_alphanum(best_mpn.get("matched_code", ""))
         if best_mpn else ""
     )
+    best_mpn_input_code = (
+        _compare.normalize_alphanum(best_mpn.get("input_code", ""))
+        if best_mpn else ""
+    )
 
     best_code_matches = {}
     code_key_order = []
@@ -241,6 +245,8 @@ def _reduce_part_code_matches(matches: list) -> list:
             match.get("matched_code", "")
         )
         if normalized_input in normalized_mpn_inputs:
+            continue
+        if best_mpn_input_code and normalized_input in best_mpn_input_code:
             continue
         if (
             best_mpn_matched_code
@@ -465,10 +471,12 @@ def score_search_results(
         # Entity Scoring
         mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, squashed_fields, mpn_exact_score, mpn_partial_base, "MPN")
         pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, squashed_fields, part_code_exact_score, part_code_partial_base, "Part Code")
-        part_code_matches = _reduce_part_code_matches(
+        raw_part_code_matches = (
             _find_part_code_matches(mpns, raw_fields, "MPN")
             + _find_part_code_matches(part_codes, raw_fields, "Codes")
         )
+        part_code_match_count = len(raw_part_code_matches)
+        part_code_matches = _reduce_part_code_matches(raw_part_code_matches)
 
         sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, raw_fields, supplier_exact_score, supplier_partial_base, "Supplier")
 
@@ -589,6 +597,7 @@ def score_search_results(
         scored_item = {
             "summary": summary,
             "part_code_matches": part_code_matches,
+            "part_code_match_count": part_code_match_count,
             "pricing": formatted_pricing,
             "scoring_details": scoring_details,
             "metadata": metadata

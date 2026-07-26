@@ -411,6 +411,7 @@ class TestScoreSearchResults:
             "matched_code": "NATV6-PP-A",
             "input_code": "NATV6-PP-A",
         }]
+        assert result["part_code_match_count"] == 3
 
     def test_part_code_match_inside_larger_code_is_partial(self):
         payloads = [{
@@ -575,6 +576,35 @@ class TestScoreSearchResults:
             "input_code": "085-196-225 M10",
         }]
 
+    def test_part_code_matches_remove_code_input_contained_within_mpn(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "LBBR 14-2LS linear ball bearing",
+                "snippet": "",
+                "link": (
+                    "https://example.com/lbbr-14-2ls-hv6-ewellix-"
+                    "stainless-steel-linear-ball-bearing"
+                ),
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["LBBR14-2LS"],
+            part_codes=["LBBR14-2LS", "LBBR14"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "stripped",
+            "match_source": "title",
+            "matched_code": "LBBR 14-2LS",
+            "input_code": "LBBR14-2LS",
+        }]
+        assert result["part_code_match_count"] == 6
+
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
             "search_metadata": {"query_index": 1},
@@ -593,3 +623,4 @@ class TestScoreSearchResults:
         )[0]
 
         assert result["part_code_matches"] == []
+        assert result["part_code_match_count"] == 0
