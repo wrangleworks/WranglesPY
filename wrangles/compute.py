@@ -242,11 +242,8 @@ def _reduce_part_code_matches(matches: list) -> list:
         )
         if normalized_input in normalized_mpn_inputs:
             continue
-        if best_mpn_matched_code and normalized_matched == best_mpn_matched_code:
-            continue
         if (
             best_mpn_matched_code
-            and match.get("match_level") == "partial"
             and normalized_matched in best_mpn_matched_code
         ):
             continue
