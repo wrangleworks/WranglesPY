@@ -1,5 +1,6 @@
-from urllib.parse import urlsplit
+import re
 from typing import List, Tuple, Dict
+from urllib.parse import urlsplit
 
 # Import our separated helpers
 from . import web as _web
@@ -94,6 +95,101 @@ def _evaluate_part_code_match(
                                 best_visual = token.replace(norm_cand, f"**{norm_cand}**")
 
     return best_score, best_reason, best_ratio, best_visual
+
+
+def _find_part_code_matches(
+    candidates: list,
+    raw_fields: dict,
+    match_type: str,
+    min_length_for_substring: int = 4
+) -> list:
+    """
+    Return each field-level part-code match without reducing the result to a score.
+
+    Match levels are mutually exclusive for a candidate and field:
+    - exact: the original candidate appears with alphanumeric boundaries
+    - stripped: the candidate matches after removing non-alphanumeric characters
+    - partial: the normalized candidate is embedded in a larger normalized string
+    """
+    def _find_partial_source_code(source_text: str, norm_cand: str) -> str:
+        for token_match in re.finditer(
+            r"[a-z0-9]+(?:[-._][a-z0-9]+)*",
+            source_text,
+            re.IGNORECASE
+        ):
+            token = token_match.group()
+            if norm_cand in _compare.normalize_alphanum(token):
+                return token
+
+        normalized_chars = []
+        source_indexes = []
+        for index, char in enumerate(source_text):
+            normalized_char = _compare.normalize_alphanum(char)
+            if normalized_char:
+                normalized_chars.extend(normalized_char)
+                source_indexes.extend([index] * len(normalized_char))
+
+        match_start = "".join(normalized_chars).find(norm_cand)
+        if match_start < 0:
+            return ""
+
+        match_end = match_start + len(norm_cand) - 1
+        return source_text[source_indexes[match_start]:source_indexes[match_end] + 1]
+
+    matches = []
+    seen = set()
+
+    for candidate in candidates or []:
+        candidate_text = str(candidate).strip()
+        norm_cand = _compare.normalize_alphanum(candidate_text)
+        if not norm_cand:
+            continue
+
+        exact_pattern = re.compile(
+            rf"(?<![a-z0-9]){re.escape(candidate_text)}(?![a-z0-9])",
+            re.IGNORECASE
+        )
+        stripped_pattern = re.compile(
+            rf"(?<![a-z0-9]){'[^a-z0-9]*'.join(map(re.escape, norm_cand))}(?![a-z0-9])",
+            re.IGNORECASE
+        )
+
+        for field_name, field_text in (raw_fields or {}).items():
+            source_text = str(field_text or "")
+            match_level = None
+            matched_code = ""
+
+            exact_match = exact_pattern.search(source_text)
+            stripped_match = stripped_pattern.search(source_text)
+
+            if exact_match:
+                match_level = "exact"
+                matched_code = exact_match.group()
+            elif stripped_match:
+                match_level = "stripped"
+                matched_code = stripped_match.group()
+            elif len(norm_cand) >= min_length_for_substring:
+                squashed_text = _compare.normalize_alphanum(source_text)
+                if norm_cand in squashed_text:
+                    match_level = "partial"
+                    matched_code = _find_partial_source_code(source_text, norm_cand)
+
+            if not match_level:
+                continue
+
+            match = {
+                "match_type": match_type,
+                "match_level": match_level,
+                "result_source": field_name.lower(),
+                "input_code": candidate_text,
+                "matched_code": matched_code,
+            }
+            match_key = tuple(match.values())
+            if match_key not in seen:
+                seen.add(match_key)
+                matches.append(match)
+
+    return matches
 
 
 def _evaluate_match(
@@ -298,6 +394,10 @@ def score_search_results(
         # Entity Scoring
         mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, squashed_fields, mpn_exact_score, mpn_partial_base, "MPN")
         pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, squashed_fields, part_code_exact_score, part_code_partial_base, "Part Code")
+        part_code_matches = (
+            _find_part_code_matches(mpns, raw_fields, "MPN")
+            + _find_part_code_matches(part_codes, raw_fields, "Codes")
+        )
         
         sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, raw_fields, supplier_exact_score, supplier_partial_base, "Supplier")
 
@@ -417,6 +517,7 @@ def score_search_results(
 
         scored_item = {
             "summary": summary,
+            "part_code_matches": part_code_matches,
             "pricing": formatted_pricing,
             "scoring_details": scoring_details,
             "metadata": metadata
