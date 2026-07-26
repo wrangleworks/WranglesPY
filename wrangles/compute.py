@@ -145,12 +145,15 @@ def _find_part_code_matches(
         if not norm_cand:
             continue
 
+        code_characters = r"a-z0-9._/-"
         exact_pattern = re.compile(
-            rf"(?<![a-z0-9]){re.escape(candidate_text)}(?![a-z0-9])",
+            rf"(?<![{code_characters}]){re.escape(candidate_text)}(?![{code_characters}])",
             re.IGNORECASE
         )
         stripped_pattern = re.compile(
-            rf"(?<![a-z0-9]){'[^a-z0-9]*'.join(map(re.escape, norm_cand))}(?![a-z0-9])",
+            rf"(?<![{code_characters}])"
+            rf"{'[^a-z0-9]*'.join(map(re.escape, norm_cand))}"
+            rf"(?![{code_characters}])",
             re.IGNORECASE
         )
 
@@ -190,6 +193,39 @@ def _find_part_code_matches(
                 matches.append(match)
 
     return matches
+
+
+def _reduce_part_code_matches(matches: list) -> list:
+    """
+    Keep the strongest explanation for each matched code occurrence.
+
+    Evidence is ranked by match level, MPN provenance, and input-code length.
+    Matches against different result fields or different source codes remain
+    separate.
+    """
+    match_level_rank = {"partial": 1, "stripped": 2, "exact": 3}
+    match_type_rank = {"Codes": 1, "MPN": 2}
+    best_matches = {}
+    key_order = []
+
+    for match in matches:
+        match_key = (
+            match.get("match_source"),
+            _compare.normalize_alphanum(match.get("matched_code", "")),
+        )
+        match_rank = (
+            match_level_rank.get(match.get("match_level"), 0),
+            match_type_rank.get(match.get("match_type"), 0),
+            len(_compare.normalize_alphanum(match.get("input_code", ""))),
+        )
+
+        if match_key not in best_matches:
+            key_order.append(match_key)
+            best_matches[match_key] = (match_rank, match)
+        elif match_rank > best_matches[match_key][0]:
+            best_matches[match_key] = (match_rank, match)
+
+    return [best_matches[key][1] for key in key_order]
 
 
 def _evaluate_match(
@@ -394,7 +430,7 @@ def score_search_results(
         # Entity Scoring
         mpn_score, mpn_reason, mpn_ratio, mpn_vis = _evaluate_part_code_match(mpns, fields_tokens, squashed_fields, mpn_exact_score, mpn_partial_base, "MPN")
         pc_score, pc_reason, pc_ratio, pc_vis = _evaluate_part_code_match(part_codes, fields_tokens, squashed_fields, part_code_exact_score, part_code_partial_base, "Part Code")
-        part_code_matches = (
+        part_code_matches = _reduce_part_code_matches(
             _find_part_code_matches(mpns, raw_fields, "MPN")
             + _find_part_code_matches(part_codes, raw_fields, "Codes")
         )
