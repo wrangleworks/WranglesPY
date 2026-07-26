@@ -372,23 +372,16 @@ class TestScoreSearchResults:
 
         assert result["part_code_matches"] == [
             {
-                "match_source": "title",
-                "match_level": "exact",
                 "match_type": "MPN",
+                "match_level": "exact",
+                "match_source": "title",
                 "matched_code": "AB-123",
                 "input_code": "AB-123",
             },
             {
-                "match_source": "url",
-                "match_level": "partial",
-                "match_type": "MPN",
-                "matched_code": "AB123X",
-                "input_code": "AB-123",
-            },
-            {
-                "match_source": "snippet",
-                "match_level": "stripped",
                 "match_type": "Codes",
+                "match_level": "stripped",
+                "match_source": "snippet",
                 "matched_code": "ZX900",
                 "input_code": "ZX-900",
             },
@@ -412,9 +405,9 @@ class TestScoreSearchResults:
         )[0]
 
         assert result["part_code_matches"] == [{
-            "match_source": "title",
-            "match_level": "exact",
             "match_type": "MPN",
+            "match_level": "exact",
+            "match_source": "title",
             "matched_code": "NATV6-PP-A",
             "input_code": "NATV6-PP-A",
         }]
@@ -436,18 +429,18 @@ class TestScoreSearchResults:
         )[0]
 
         assert result["part_code_matches"] == [{
-            "match_source": "title",
-            "match_level": "partial",
             "match_type": "Codes",
+            "match_level": "partial",
+            "match_source": "title",
             "matched_code": "NATV6-PP-A",
             "input_code": "NATV6",
         }]
 
-    def test_part_code_matches_prefer_match_quality_before_provenance(self):
+    def test_part_code_matches_prefer_mpn_over_duplicate_code_evidence(self):
         payloads = [{
             "search_metadata": {"query_index": 1},
             "search_results": [{
-                "title": "Genuine AB123 replacement",
+                "title": "Genuine AB123 replacement with ZX900",
                 "snippet": "",
                 "link": "https://example.com/product",
             }],
@@ -455,17 +448,106 @@ class TestScoreSearchResults:
 
         result = compute.score_search_results(
             payloads=payloads,
-            mpns=["AB-123"],
-            part_codes=["AB123"],
+            mpns=["AB-12"],
+            part_codes=["AB123", "ZX900"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [
+            {
+                "match_type": "MPN",
+                "match_level": "partial",
+                "match_source": "title",
+                "matched_code": "AB123",
+                "input_code": "AB-12",
+            },
+            {
+                "match_type": "Codes",
+                "match_level": "exact",
+                "match_source": "title",
+                "matched_code": "ZX900",
+                "input_code": "ZX900",
+            },
+        ]
+
+    def test_part_code_matches_url_case_difference_is_exact(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "INA track roller",
+                "snippet": "",
+                "link": "https://example.com/products/natv6-pp-a",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["NATV6-PP-A"],
+            part_codes=["NATV6-PP-A"],
             must_match_part_code=False,
         )[0]
 
         assert result["part_code_matches"] == [{
-            "match_source": "title",
+            "match_type": "MPN",
             "match_level": "exact",
+            "match_source": "url",
+            "matched_code": "natv6-pp-a",
+            "input_code": "NATV6-PP-A",
+        }]
+        assert list(result["part_code_matches"][0]) == [
+            "match_type",
+            "match_level",
+            "match_source",
+            "matched_code",
+            "input_code",
+        ]
+
+    def test_part_code_matches_keep_only_one_best_mpn(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "NATV6-PP-A track roller",
+                "snippet": "Replacement NATV6-PP-A",
+                "link": "https://example.com/products/natv6-pp-a",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["NATV6-PP-A"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_type": "MPN",
+            "match_level": "exact",
+            "match_source": "title",
+            "matched_code": "NATV6-PP-A",
+            "input_code": "NATV6-PP-A",
+        }]
+
+    def test_part_code_matches_deduplicate_codes_across_sources(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "NATV6-X-PP-A track roller",
+                "snippet": "Replacement NATV6-X-PP-A",
+                "link": "https://example.com/products/NATV6-X-PP-A",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            part_codes=["NATV6"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
             "match_type": "Codes",
-            "matched_code": "AB123",
-            "input_code": "AB123",
+            "match_level": "partial",
+            "match_source": "title",
+            "matched_code": "NATV6-X-PP-A",
+            "input_code": "NATV6",
         }]
 
     def test_part_code_matches_is_empty_when_no_code_matches(self):

@@ -145,7 +145,7 @@ def _find_part_code_matches(
         if not norm_cand:
             continue
 
-        code_characters = r"a-z0-9._/-"
+        code_characters = r"a-z0-9._-"
         exact_pattern = re.compile(
             rf"(?<![{code_characters}]){re.escape(candidate_text)}(?![{code_characters}])",
             re.IGNORECASE
@@ -181,9 +181,9 @@ def _find_part_code_matches(
                 continue
 
             match = {
-                "match_source": field_name.lower(),
-                "match_level": match_level,
                 "match_type": match_type,
+                "match_level": match_level,
+                "match_source": field_name.lower(),
                 "matched_code": matched_code,
                 "input_code": candidate_text,
             }
@@ -197,35 +197,67 @@ def _find_part_code_matches(
 
 def _reduce_part_code_matches(matches: list) -> list:
     """
-    Keep the strongest explanation for each matched code occurrence.
+    Return one best MPN match followed by unique matched Code evidence.
 
-    Evidence is ranked by match level, MPN provenance, and input-code length.
-    Matches against different result fields or different source codes remain
-    separate.
+    Duplicate Codes that repeat an MPN input or matched value are omitted.
+    Repeated Code evidence across fields is reduced to the strongest and most
+    specific match, preferring title, then snippet, then URL when otherwise tied.
     """
     match_level_rank = {"partial": 1, "stripped": 2, "exact": 3}
-    match_type_rank = {"Codes": 1, "MPN": 2}
-    best_matches = {}
-    key_order = []
+    match_source_rank = {"url": 1, "snippet": 2, "title": 3}
+
+    def _match_rank(match: dict) -> tuple:
+        return (
+            match_level_rank.get(match.get("match_level"), 0),
+            len(_compare.normalize_alphanum(match.get("input_code", ""))),
+            match_source_rank.get(match.get("match_source"), 0),
+        )
+
+    mpn_matches = [
+        match for match in matches
+        if match.get("match_type") == "MPN"
+    ]
+    best_mpn = max(mpn_matches, key=_match_rank, default=None)
+    normalized_mpn_inputs = {
+        _compare.normalize_alphanum(match.get("input_code", ""))
+        for match in mpn_matches
+    }
+    best_mpn_matched_code = (
+        _compare.normalize_alphanum(best_mpn.get("matched_code", ""))
+        if best_mpn else ""
+    )
+
+    best_code_matches = {}
+    code_key_order = []
 
     for match in matches:
-        match_key = (
-            match.get("match_source"),
-            _compare.normalize_alphanum(match.get("matched_code", "")),
-        )
-        match_rank = (
-            match_level_rank.get(match.get("match_level"), 0),
-            match_type_rank.get(match.get("match_type"), 0),
-            len(_compare.normalize_alphanum(match.get("input_code", ""))),
-        )
+        if match.get("match_type") != "Codes":
+            continue
 
-        if match_key not in best_matches:
-            key_order.append(match_key)
-            best_matches[match_key] = (match_rank, match)
-        elif match_rank > best_matches[match_key][0]:
-            best_matches[match_key] = (match_rank, match)
+        normalized_input = _compare.normalize_alphanum(
+            match.get("input_code", "")
+        )
+        normalized_matched = _compare.normalize_alphanum(
+            match.get("matched_code", "")
+        )
+        if normalized_input in normalized_mpn_inputs:
+            continue
+        if best_mpn_matched_code and normalized_matched == best_mpn_matched_code:
+            continue
 
-    return [best_matches[key][1] for key in key_order]
+        if normalized_matched not in best_code_matches:
+            code_key_order.append(normalized_matched)
+            best_code_matches[normalized_matched] = match
+        elif _match_rank(match) > _match_rank(
+            best_code_matches[normalized_matched]
+        ):
+            best_code_matches[normalized_matched] = match
+
+    reduced_matches = [best_mpn] if best_mpn else []
+    reduced_matches.extend(
+        best_code_matches[key] for key in code_key_order
+    )
+    return reduced_matches
 
 
 def _evaluate_match(
