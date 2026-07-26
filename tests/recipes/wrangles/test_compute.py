@@ -503,6 +503,30 @@ class TestScoreSearchResults:
             "input_code",
         ]
 
+    def test_part_code_match_fallback_reclassifies_identical_token_as_exact(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Product details",
+                "snippet": "Olympic Part Code: 085-196-225.",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            part_codes=["085-196-225"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_type": "Codes",
+            "match_level": "exact",
+            "match_source": "snippet",
+            "matched_code": "085-196-225",
+            "input_code": "085-196-225",
+        }]
+
     def test_part_code_matches_keep_only_one_best_mpn(self):
         payloads = [{
             "search_metadata": {"query_index": 1},

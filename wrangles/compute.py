@@ -174,8 +174,13 @@ def _find_part_code_matches(
             elif len(norm_cand) >= min_length_for_substring:
                 squashed_text = _compare.normalize_alphanum(source_text)
                 if norm_cand in squashed_text:
-                    match_level = "partial"
                     matched_code = _find_partial_source_code(source_text, norm_cand)
+                    if matched_code.casefold() == candidate_text.casefold():
+                        match_level = "exact"
+                    elif _compare.normalize_alphanum(matched_code) == norm_cand:
+                        match_level = "stripped"
+                    else:
+                        match_level = "partial"
 
             if not match_level:
                 continue
