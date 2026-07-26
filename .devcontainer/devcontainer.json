@@ -20,7 +20,8 @@
 		"vscode": {
 			"extensions": [
 				"redhat.vscode-yaml",
-				"GitHub.copilot"
+				"GitHub.copilot",
+				"editorconfig.editorconfig"
 			],
 			"settings": {
 				"yaml.schemas": {
