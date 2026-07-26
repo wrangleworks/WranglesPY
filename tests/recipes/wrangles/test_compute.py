@@ -372,41 +372,101 @@ class TestScoreSearchResults:
 
         assert result["part_code_matches"] == [
             {
-                "match_type": "MPN",
+                "match_source": "title",
                 "match_level": "exact",
-                "result_source": "title",
-                "input_code": "AB-123",
-                "matched_code": "AB-123",
-            },
-            {
                 "match_type": "MPN",
-                "match_level": "partial",
-                "result_source": "url",
-                "input_code": "AB-123",
-                "matched_code": "AB123X",
-            },
-            {
-                "match_type": "Codes",
-                "match_level": "exact",
-                "result_source": "title",
-                "input_code": "AB-123",
                 "matched_code": "AB-123",
-            },
-            {
-                "match_type": "Codes",
-                "match_level": "partial",
-                "result_source": "url",
                 "input_code": "AB-123",
-                "matched_code": "AB123X",
             },
             {
-                "match_type": "Codes",
+                "match_source": "url",
+                "match_level": "partial",
+                "match_type": "MPN",
+                "matched_code": "AB123X",
+                "input_code": "AB-123",
+            },
+            {
+                "match_source": "snippet",
                 "match_level": "stripped",
-                "result_source": "snippet",
-                "input_code": "ZX-900",
+                "match_type": "Codes",
                 "matched_code": "ZX900",
+                "input_code": "ZX-900",
             },
         ]
+
+    def test_part_code_matches_remove_redundant_less_specific_matches(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "INA NATV6-PP-A track roller",
+                "snippet": "",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["NATV6-PP-A"],
+            part_codes=["NATV6-PP-A", "NATV6"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_source": "title",
+            "match_level": "exact",
+            "match_type": "MPN",
+            "matched_code": "NATV6-PP-A",
+            "input_code": "NATV6-PP-A",
+        }]
+
+    def test_part_code_match_inside_larger_code_is_partial(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "INA NATV6-PP-A track roller",
+                "snippet": "",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            part_codes=["NATV6"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_source": "title",
+            "match_level": "partial",
+            "match_type": "Codes",
+            "matched_code": "NATV6-PP-A",
+            "input_code": "NATV6",
+        }]
+
+    def test_part_code_matches_prefer_match_quality_before_provenance(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Genuine AB123 replacement",
+                "snippet": "",
+                "link": "https://example.com/product",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["AB-123"],
+            part_codes=["AB123"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [{
+            "match_source": "title",
+            "match_level": "exact",
+            "match_type": "Codes",
+            "matched_code": "AB123",
+            "input_code": "AB123",
+        }]
 
     def test_part_code_matches_is_empty_when_no_code_matches(self):
         payloads = [{
