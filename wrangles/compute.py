@@ -24,7 +24,7 @@ def _get_supplier_site_score(supplier_names: list, netloc: str) -> int:
 
     domain_parts = netloc.split('.')
     if len(domain_parts) < 2: return 0
-        
+
     normalized_domain = _compare.normalize_alphanum(domain_parts[-2])
     normalized_suppliers = [_compare.normalize_alphanum(s) for s in supplier_names]
 
@@ -34,13 +34,13 @@ def _get_supplier_site_score(supplier_names: list, netloc: str) -> int:
     for sup_norm in normalized_suppliers:
         if len(normalized_domain) > 4 and normalized_domain in sup_norm: return 1
         if len(sup_norm) > 4 and sup_norm in normalized_domain: return 1
-            
+
     return 0
 
 
 def _evaluate_part_code_match(
     candidates: list,
-    fields_tokens: dict, 
+    fields_tokens: dict,
     squashed_fields: dict,   # <--- NEW PARAMETER
     exact_score: float,
     partial_base: float,
@@ -55,17 +55,17 @@ def _evaluate_part_code_match(
     best_score, best_ratio = 0.0, 0.0
     best_reason = f"No {entity_name} Match"
     best_visual = ""
-    
-    if not candidates: 
+
+    if not candidates:
         return best_score, best_reason, best_ratio, best_visual
-        
+
     for candidate in candidates:
         norm_cand = _compare.normalize_alphanum(candidate)
         if not norm_cand: continue
-            
+
         cand_len = len(norm_cand)
         is_short_code = cand_len < min_length_for_substring
-        
+
         # --- THE FIX: The Long-Code Bypass ---
         # If the code is 4+ chars, it's safe to check the squashed text for a perfect embedded match
         if not is_short_code and squashed_fields:
@@ -79,11 +79,11 @@ def _evaluate_part_code_match(
                 for token in tokens:
                     if not token: continue
                     token_len = len(token)
-                    
-                    # 1. Exact Token Match 
+
+                    # 1. Exact Token Match
                     if norm_cand == token:
                         return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, f"**{norm_cand}**"
-                        
+
                     # 2. Variant / Substring Match (e.g., '555' inside 'LM555CN')
                     elif not is_short_code and norm_cand in token:
                         ratio = cand_len / token_len
@@ -178,11 +178,11 @@ def _find_part_code_matches(
                 continue
 
             match = {
-                "match_type": match_type,
+                "match_source": field_name.lower(),
                 "match_level": match_level,
-                "result_source": field_name.lower(),
-                "input_code": candidate_text,
+                "match_type": match_type,
                 "matched_code": matched_code,
+                "input_code": candidate_text,
             }
             match_key = tuple(match.values())
             if match_key not in seen:
@@ -194,7 +194,7 @@ def _find_part_code_matches(
 
 def _evaluate_match(
     candidates: List[str],
-    fields: Dict[str, str], 
+    fields: Dict[str, str],
     exact_score: float,
     partial_base: float,
     entity_name: str,
@@ -207,24 +207,24 @@ def _evaluate_match(
     best_score, best_ratio = 0.0, 0.0
     best_reason = f"No {entity_name} Match"
     best_match_str = ""
-    
-    if not candidates or not fields: 
+
+    if not candidates or not fields:
         return best_score, best_reason, best_ratio, best_match_str
-        
+
     for candidate in candidates:
         norm_cand = _compare.normalize_alphanum(candidate)
         if not norm_cand: continue
-            
+
         for field_name, field_text in fields.items():
             if not field_text: continue
-            
+
             norm_field = _compare.normalize_alphanum(field_text)
             if not norm_field: continue
-                
+
             # 1. EXACT MATCH
             if norm_cand == norm_field:
                 return exact_score, f"Exact Match '{candidate}' ({entity_name}) in {field_name}", 1.0, candidate
-                
+
             # 2. SUBSTRING BYPASS
             if norm_cand in norm_field:
                 score = round(1.0 * partial_base, 2)
@@ -233,15 +233,15 @@ def _evaluate_match(
                     best_reason = f"Embedded Match '{candidate}' ({entity_name}) in {field_name}"
                     best_match_str = candidate
                 continue
-                
+
             # 3. TOKENIZED FALLBACKS (Reverse Substring & Fuzzy)
             clean_field = field_text.replace('/', ' ').replace('-', ' ').replace('.', ' ').replace('_', ' ')
             tokens = clean_field.split()
-            
+
             for token in tokens:
                 norm_token = _compare.normalize_alphanum(token)
                 if not norm_token: continue
-                
+
                 # A. Reverse Substring Bypass
                 if len(norm_token) >= 5 and norm_token in norm_cand:
                     score = round(0.95 * partial_base, 2)
@@ -259,7 +259,7 @@ def _evaluate_match(
                         best_score, best_ratio = score, ratio
                         best_reason = f"Fuzzy Match '{candidate}' ({entity_name}) in {field_name} [{ratio:.2f}]"
                         best_match_str = candidate
-                        
+
     return best_score, best_reason, best_ratio, best_match_str
 
 ### Main Score Function ###
@@ -294,7 +294,7 @@ def score_search_results(
     raw_terms.extend(mpns)
     for d in descriptions:
         raw_terms.append(d)
-        raw_terms.extend([w for w in d.split() if len(w) > 2]) 
+        raw_terms.extend([w for w in d.split() if len(w) > 2])
 
     unique_terms = {}
     for t in raw_terms:
@@ -314,7 +314,7 @@ def score_search_results(
     for item in flat_results:
         link = item.get("link", "")
         if not link: continue
-        
+
         norm_link = _web.normalize_site(link)
         if norm_link not in deduped_map:
             deduped_map[norm_link] = item
@@ -324,7 +324,7 @@ def score_search_results(
 
     unique_raw_results = list(deduped_map.values())
     scored_flat_results = []
-    
+
     def _get_tokens(text: str) -> list:
         if not text: return []
         clean = text.replace('/', ' ').replace('-', ' ').replace('_', ' ')
@@ -341,48 +341,48 @@ def score_search_results(
             "Snippet": str(item.get("snippet", "")),
             "URL": str(item.get("link", ""))
         }
-        
+
         # 2. Squashed version for the complex Part Code bypass
         squashed_fields = {k: _compare.normalize_alphanum(v) for k, v in raw_fields.items()}
 
         # 3. Create the tokenized version for the short Part Codes & Context Matchers
         fields_tokens = {k: _get_tokens(v) for k, v in raw_fields.items()}
 
-        
+
         # --- REFACTORED CONTEXT MATH ---
         item_matches = []
         # Pool all tokens together from title, snippet, and URL
         all_tokens = fields_tokens["Title"] + fields_tokens["Snippet"] + fields_tokens["URL"]
-        
+
         for norm_t, orig_t in unique_terms.items():
             term_matched = False
-            
+
             for token in all_tokens:
                 if not token: continue
-                
+
                 # 1. Exact Token Match
                 if norm_t == token:
                     term_matched = True
                     break
-                    
+
                 # 2. Embedded Match (Only if the term is > 3 chars to prevent false positives)
                 elif len(norm_t) > 3 and norm_t in token:
                     term_matched = True
                     break
-                    
+
                 # 3. Token Fuzzy Match (Typos)
                 else:
                     ratio, _, _ = _compare.partial_ratio(norm_t, token)
                     if ratio >= fuzzy_match_threshold:
                         term_matched = True
                         break
-                        
+
             if term_matched:
                 item_matches.append(orig_t)
 
         context_ratio = len(item_matches) / max(1, len(unique_terms))
         context_score = round(context_ratio * context_match_base, 1)
-        
+
         # Build the specific reason string for context score
         if item_matches:
             matched_terms_str = ", ".join([f"'{t}'" for t in item_matches])
@@ -398,7 +398,7 @@ def score_search_results(
             _find_part_code_matches(mpns, raw_fields, "MPN")
             + _find_part_code_matches(part_codes, raw_fields, "Codes")
         )
-        
+
         sup_score, sup_reason, sup_ratio, sup_vis = _evaluate_match(suppliers, raw_fields, supplier_exact_score, supplier_partial_base, "Supplier")
 
         if mpn_score >= pc_score:
@@ -419,13 +419,13 @@ def score_search_results(
             part_code_found_enum = "other_code_exact"
         elif pc_score > 0:
             part_code_found_enum = "other_code_partial"
-            
+
         part_code_found = part_code_found_enum != "none"
         supplier_found = sup_ratio >= fuzzy_match_threshold
 
         position = item.get("google_rank", 1)
         position_weight = _get_position_weight(position)
-        
+
         supplier_site_score = 0
         site = item.get("link", "")
         try:
@@ -460,10 +460,10 @@ def score_search_results(
             "score": total_score,
             "part_match_score": best_pc_score,
             "part_match_reason": pc_match_reason,
-            "part_match_visual": best_vis,         
+            "part_match_visual": best_vis,
             "brand_score": sup_score,
             "brand_match_reason": sup_reason,
-            "brand_match_visual": sup_vis,     
+            "brand_match_visual": sup_vis,
         }
         for k, val in sorted_remainder.items():
             scoring_details[k] = val
@@ -477,10 +477,10 @@ def score_search_results(
             reason = "no part code match"
 
         summary = {
-            "scored_result_index": 0, 
+            "scored_result_index": 0,
             "input_row_id": item.get("input_row_id"),
             "source": item.get("source"),
-            "score": total_score,                      
+            "score": total_score,
             "link": item.get("link"),
             "part_code_found": part_code_found_enum, # Storing the enum string here momentarily
             "brand_found": brand_found,
@@ -522,13 +522,13 @@ def score_search_results(
             "scoring_details": scoring_details,
             "metadata": metadata
         }
-            
+
         scored_flat_results.append(scored_item)
 
     filtered_in = sorted([s for s in scored_flat_results if not s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
     filtered_out = sorted([s for s in scored_flat_results if s["summary"]["filtered"]], key=lambda x: x["summary"]["score"], reverse=True)
     combined_results = filtered_in + filtered_out
-    
+
     for idx, res in enumerate(combined_results, start=1):
         res["summary"]["scored_result_index"] = idx
 
