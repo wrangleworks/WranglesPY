@@ -1,4 +1,5 @@
 import wrangles
+import wrangles.compute as compute
 import pandas as pd
 
 
@@ -350,3 +351,78 @@ class TestScoreSearchResults:
         assert isinstance(df.iloc[0]['scored_results'], list) and isinstance(df.iloc[0]['scored_results'][0], dict)
         assert isinstance(df.iloc[0]['Score Summary'], list) and isinstance(df.iloc[0]['Score Summary'][0], str)
         assert len(df.iloc[0]['scored_results']) == 4 and len(df.iloc[0]['Score Summary']) == 4
+        assert isinstance(df.iloc[0]['scored_results'][0]['part_code_matches'], list)
+
+    def test_part_code_matches_preserve_match_details(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Genuine AB-123 replacement",
+                "snippet": "Compatible code ZX900",
+                "link": "https://example.com/products/AB123X",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["AB-123"],
+            part_codes=["AB-123", "ZX-900"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == [
+            {
+                "match_type": "MPN",
+                "match_level": "exact",
+                "result_source": "title",
+                "input_code": "AB-123",
+                "matched_code": "AB-123",
+            },
+            {
+                "match_type": "MPN",
+                "match_level": "partial",
+                "result_source": "url",
+                "input_code": "AB-123",
+                "matched_code": "AB123X",
+            },
+            {
+                "match_type": "Codes",
+                "match_level": "exact",
+                "result_source": "title",
+                "input_code": "AB-123",
+                "matched_code": "AB-123",
+            },
+            {
+                "match_type": "Codes",
+                "match_level": "partial",
+                "result_source": "url",
+                "input_code": "AB-123",
+                "matched_code": "AB123X",
+            },
+            {
+                "match_type": "Codes",
+                "match_level": "stripped",
+                "result_source": "snippet",
+                "input_code": "ZX-900",
+                "matched_code": "ZX900",
+            },
+        ]
+
+    def test_part_code_matches_is_empty_when_no_code_matches(self):
+        payloads = [{
+            "search_metadata": {"query_index": 1},
+            "search_results": [{
+                "title": "Unrelated product",
+                "snippet": "No matching identifiers",
+                "link": "https://example.com/products/unrelated",
+            }],
+        }]
+
+        result = compute.score_search_results(
+            payloads=payloads,
+            mpns=["AB-123"],
+            part_codes=["AB-123"],
+            must_match_part_code=False,
+        )[0]
+
+        assert result["part_code_matches"] == []
