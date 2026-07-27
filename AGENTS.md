@@ -12,7 +12,7 @@
   **Recommended disposition:** Approve | Request changes | Needs decision | Comment only
 
   **Next steps**
-  1. **PR author:** <the first concrete code, test, or reply action>
+  1. **PR assignee:** <the first concrete code, test, or reply action>
   2. **AI agent:** <the exact agent-specific request to post if implementation
      is safe>
   3. **Reviewer:** <what to verify, resolve, approve, or decide>
@@ -31,6 +31,10 @@
 - A suggestion, reply, or pushed commit does not resolve a review thread.
   Explicitly tell the reviewer to verify the fix, resolve the conversation, and
   submit a fresh approval when applicable.
+- Pushing fixes does not hand the PR back to the reviewer. After every blocking
+  thread has a reply with the fixing commit or rationale, the human assignee
+  must re-request review. That review request is the native GitHub signal that
+  returns the PR to the reviewer's **Needs your review** queue.
 
 ### Keep the pull request description current
 
