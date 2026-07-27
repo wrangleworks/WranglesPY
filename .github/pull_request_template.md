@@ -25,6 +25,7 @@ and the safest rollback.
 - [ ] New or changed behavior has direct test coverage
 - [ ] Documentation/schema/configuration is updated where applicable
 - [ ] The PR contains no unrelated changes
+- [ ] The PR description reflects the branch's current scope and latest validation
 - [ ] One primary reviewer is requested only when this PR is ready
 
 See [the pull request workflow](../docs/pull-request-workflow.md).

@@ -30,6 +30,23 @@
   Explicitly tell the reviewer to verify the fix, resolve the conversation, and
   submit a fresh approval when applicable.
 
+### Keep the pull request description current
+
+- Treat the PR description—not a top-level summary comment—as the canonical
+  description of the branch's current behavior, scope, risks, and validation.
+- When Codex authors a PR or materially changes its branch, update the existing
+  PR description before requesting or re-requesting review. Refresh the summary,
+  behavior/API impact, tests run, remaining work, compatibility, and rollback
+  notes affected by the new commits.
+- Preserve linked issues, human-authored notes, checklists, and required
+  template sections. Edit only the stale portions; do not replace useful context
+  or add a second cumulative summary comment.
+- Do not rewrite the description for mechanical rebases, conflict-only merges,
+  formatting-only commits, or other changes that do not alter the reviewer's
+  understanding.
+- If Codex cannot edit the PR description, state that limitation and provide
+  the exact replacement text or sections for the delivery owner to apply.
+
 ### Keep reviews consequential
 
 - Prioritize correctness, regressions, compatibility, security, unintended
