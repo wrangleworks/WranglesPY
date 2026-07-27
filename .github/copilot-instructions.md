@@ -48,7 +48,7 @@ WranglesPY/
 ├── schema/                     # JSON schema generation
 │   ├── generate_recipe_schema.py
 │   └── recipe_base_schema.json
-├── setup.py                    # Package setup (version: 1.16.0)
+├── setup.py                    # Package setup and release version
 ├── requirements.txt            # Production dependencies
 ├── dockerfile                  # Multi-stage Docker build
 ├── main.py                     # Container entry point
@@ -136,6 +136,20 @@ docker build -t wrangles:latest .
 ```
 
 ## Coding Guidelines
+
+### Pull Request Review Policy
+
+- Follow `docs/pull-request-workflow.md`.
+- Prioritize correctness, behavioral regressions, compatibility, security,
+  missing tests, and unintended scope.
+- Label review findings P0 through P3. Request changes for P0-P2 findings.
+- Treat P3 improvements as non-blocking and link a follow-up issue when useful.
+- Put file-specific findings in inline review threads so the author can reply
+  and the reviewer can explicitly resolve them.
+- Do not approve a PR with failing required checks, unresolved blocking
+  threads, merge conflicts, or unrelated changes.
+- Applying a suggestion or pushing a fix does not resolve its review thread;
+  verify the fix, resolve the thread, and submit a fresh approval.
 
 ### Code Style
 - Follow existing patterns in the codebase (no formal linter configured)
