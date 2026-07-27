@@ -1,11 +1,11 @@
-# Codex repository instructions
+# Repository instructions for AI agents
 
 ## Code Review Rules
 
 ### Make the required action explicit
 
-- For every GitHub review and every follow-up reply to an `@codex` mention,
-  distinguish the finding from the action needed to advance the PR.
+- For every GitHub review and every follow-up reply to a request directed at an
+  AI agent, distinguish the finding from the action needed to advance the PR.
 - End the response with the following compact block:
 
   ```md
@@ -13,16 +13,18 @@
 
   **Next steps**
   1. **PR author:** <the first concrete code, test, or reply action>
-  2. **@codex:** <the exact comment to post if Codex can safely implement it>
+  2. **AI agent:** <the exact agent-specific request to post if implementation
+     is safe>
   3. **Reviewer:** <what to verify, resolve, approve, or decide>
   ```
 
 - Include only applicable steps, never more than three. Do not use vague actions
   such as "consider," "address this," or "follow up." Name the file or behavior
   to change, the focused test to add or run, and the GitHub action that follows.
-- If implementation can be delegated safely, provide a ready-to-paste command,
-  such as `@codex address that feedback by <specific scope>, add <specific
-  regression test>, and report the checks run`.
+- If implementation can be delegated safely, provide a ready-to-paste,
+  agent-specific command. For Codex, for example: `@codex address that feedback
+  by <specific scope>, add <specific regression test>, and report the checks
+  run`.
 - If a product or security decision is still missing, ask one precise decision
   question and use `Needs decision`; do not imply that implementation should
   begin.
@@ -34,25 +36,26 @@
 
 - Treat the PR description—not a top-level summary comment—as the canonical
   description of the branch's current behavior, scope, risks, and validation.
-- When Codex authors a PR or materially changes its branch, update the existing
-  PR description before requesting or re-requesting review. Refresh the summary,
-  behavior/API impact, tests run, remaining work, compatibility, and rollback
-  notes affected by the new commits.
+- When an AI agent authors a PR or materially changes its branch, update the
+  existing PR description before requesting or re-requesting review. Refresh
+  the summary, behavior/API impact, tests run, remaining work, compatibility,
+  and rollback notes affected by the new commits.
 - Preserve linked issues, human-authored notes, checklists, and required
   template sections. Edit only the stale portions; do not replace useful context
   or add a second cumulative summary comment.
 - Do not rewrite the description for mechanical rebases, conflict-only merges,
   formatting-only commits, or other changes that do not alter the reviewer's
   understanding.
-- If Codex cannot edit the PR description, state that limitation and provide
-  the exact replacement text or sections for the delivery owner to apply.
+- If the agent cannot edit the PR description, state that limitation and
+  provide the exact replacement text or sections for the delivery owner to
+  apply.
 
 ### Keep reviews consequential
 
 - Prioritize correctness, regressions, compatibility, security, unintended
   scope, and missing behavioral tests.
 - Put line-specific findings in inline threads. Use P0/P1 for blocking findings
-  in GitHub Codex reviews; capture non-blocking improvements in a follow-up
-  issue rather than obscuring the merge decision.
+  in AI-assisted GitHub reviews; capture non-blocking improvements in a
+  follow-up issue rather than obscuring the merge decision.
 - Follow `docs/pull-request-workflow.md` for ownership, Draft/Ready state,
   requested-changes handling, and review resolution.
