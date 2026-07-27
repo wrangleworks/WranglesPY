@@ -7876,11 +7876,14 @@ class TestConcurrent:
 
         end = datetime.now()
 
+        # Upper bound is wider than the threaded test to allow for
+        # process-spawn overhead (e.g. Windows uses spawn rather than fork,
+        # which re-imports the full dependency graph in each worker process).
         assert (
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 10
+            5 <= (end - start).seconds < 20
         )
 
     def test_output_error(self):
@@ -9256,3 +9259,29 @@ class TestWrangleSchema:
                 failures.append(f'{path}: YAML parse error — {e}')
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
+
+    def test_extract_codes_schema_matches_microservice_params(self):
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.extract.codes.__doc__)
+        properties = schema['properties']
+
+        for param in (
+            'min_length',
+            'max_length',
+            'sort_order',
+            'disallowed_patterns',
+            'include_multi_part_tokens',
+            'extract_raw'
+        ):
+            assert param in properties
+
+        for param in (
+            'minLength',
+            'maxLength',
+            'sortOrder',
+            'disallowedPatterns',
+            'includeMultiPartTokens',
+            'extractRaw'
+        ):
+            assert param not in properties
