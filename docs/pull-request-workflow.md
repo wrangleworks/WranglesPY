@@ -22,6 +22,11 @@ Every open PR must have:
 The assignee is normally the author. A bot may author code, but a bot is never
 the delivery owner. Reviewers review; assignment does not mean "please review."
 
+Throughout this document, **owner** is shorthand for the human delivery owner
+recorded in GitHub's **Assignees** field. It does not mean the repository or
+organization owner. Use **Assignee** when referring specifically to the GitHub
+field and **owner** when discussing the person's responsibility.
+
 ## State and ownership
 
 | GitHub state | Meaning | Who acts next |
@@ -145,18 +150,11 @@ documentation. GitHub may update the interface over time.
 These limits make review the controlled work queue. Starting more code is not
 progress when the Ready queue is full.
 
-## Release milestone rules
+## Release lifecycle
 
-The release milestone is a commitment, not a wishlist.
-
-- Add a PR only after the linked issue has been accepted for the release.
-- Remove or move a PR when it is no longer likely to be mergeable before the
-  release freeze.
-- Forty-eight hours before release, accept only fixes for a documented release
-  blocker.
-- Release readiness requires every milestone PR to be merged or explicitly
-  moved out; no conflicted, failing, or changes-requested PR may be silently
-  carried.
+Release milestones, freeze decisions, readiness, publication, and follow-up are
+covered in the separate [release lifecycle](release-lifecycle.md). The document
+currently records the interim milestone rules and the topics still to define.
 
 ## Daily GitHub views
 
@@ -169,6 +167,12 @@ These searches provide the shared queue:
 - **Release PRs:** `is:pr is:open milestone:"v1.20"`
 - **Unowned PRs:** `is:pr is:open no:assignee`
 - **Stale PRs:** `is:pr is:open updated:<YYYY-MM-DD`
+
+At least once each working day, each owner checks **My delivery work** and
+leaves every assigned PR with accurate metadata, the correct Draft or Ready
+state, and an unambiguous next action. Reviewers check **My reviews** for new
+and re-requested reviews. The re-request is what returns a changed PR to that
+review queue.
 
 GitHub cannot search directly for every merge-conflict state in the PR search
 box. During triage, check mergeability on each Ready PR; if it conflicts,
