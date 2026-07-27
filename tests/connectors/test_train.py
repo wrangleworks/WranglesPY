@@ -32,23 +32,39 @@ def _delete_model(model_id, model_type=None):
     except Exception:
         pass
 
-def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5):
+def _wait_for_model(recipe, dataframe=None, max_wait=120, interval=5, check=None):
     """
-    Newly created models may still be initializing after the PUT returns.
-    Retries running the recipe until it raises no exception or max_wait seconds elapse.
+    Newly created models may still be initializing when first used. Some wrangles
+    surface this as an exception; others (e.g. classify/lookup/standardize treating
+    unrecognized input as "no match") return successfully but with the input
+    untouched. `check`, if given, is called with the result and should return True
+    once the output looks genuinely trained - otherwise it's treated the same as
+    an exception and retried. Retries until `check` passes (or no exception is
+    raised, if `check` is None) or max_wait seconds elapse.
     """
     deadline = time.time() + max_wait
     last_err = None
+    last_result = None
     while time.time() < deadline:
         try:
-            return wrangles.recipe.run(recipe, dataframe=dataframe)
-        except (ValueError, TypeError, AttributeError, KeyError):
+            result = wrangles.recipe.run(recipe, dataframe=dataframe)
+            if check is None or check(result):
+                return result
+            last_result = result
+        except (TypeError, AttributeError):
+            # Indicates a mistake in the test/recipe itself rather than a model
+            # that isn't ready yet - fail fast instead of burning the full wait budget.
             raise
         except Exception as e:
+            # Newly-created models can transiently raise ValueError (model_id
+            # not yet resolvable) or KeyError (metadata not yet fully populated,
+            # e.g. lookup's settings.columns) before the backend catches up.
             last_err = e
         time.sleep(interval)
     if last_err:
         raise last_err
+    if last_result is not None:
+        raise AssertionError(f'Model did not produce expected output within {max_wait}s. Last result:\n{last_result}')
     raise AssertionError(f'Model did not produce expected output within {max_wait}s')
 
 def test_create_model_with_content_posts_training_payload(monkeypatch):
@@ -232,24 +248,6 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
-    df = pd.DataFrame({  
-        'Example': ['apple', 'banana'],  
-        'Category': ['fruit', 'fruit'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.classify:  
-              name: Test Classify Model  
-        """,  
-        dataframe=df  
-    )  
-  
-    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
-
 def test_classify_write_name_posts_payload(monkeypatch):
     """
     Creating a classify should send the initial content in the POST.
@@ -282,6 +280,53 @@ def test_classify_write_name_posts_payload(monkeypatch):
             {}
         )
     ]
+
+def test_classify_name_creates_working_model(caplog):
+    """
+    A model trained via 'name' must work immediately for inference. Bug #972:
+    before the fix, newly-created models were not reliably usable right away.
+    """
+    model_name = f'Bug972 Pytest Classify {uuid.uuid4().hex[:8]}'
+    new_model_id = None
+    try:
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.classify:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Example':  ['apple', 'banana', 'chicken', 'beef'],
+                'Category': ['fruit', 'fruit', 'meat', 'meat'],
+                'Notes':    ['', '', '', ''],
+            }),
+        )
+
+        for msg in caplog.messages:
+            m = re.search(r'New classify model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        # Predict on the same values used in training so the result is deterministic
+        # regardless of the underlying classification algorithm.
+        _wait_for_model(
+            f"""
+            wrangles:
+                - classify:
+                    input: Input
+                    output: Class
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'Input': ['apple', 'chicken']}),
+            max_wait=300,
+            check=lambda r: r.loc[0, 'Class'] == 'fruit' and r.loc[1, 'Class'] == 'meat',
+        )
+    finally:
+        if new_model_id:
+            _delete_model(new_model_id, 'classify')
 
 class TestTrainExtract:
     """
@@ -679,7 +724,7 @@ class TestTrainExtract:
 
         assert new_model_id is not None, 'model_id was not logged after training'
 
-        result = _wait_for_model(
+        _wait_for_model(
             f"""
             wrangles:
                 - extract.custom:
@@ -693,11 +738,12 @@ class TestTrainExtract:
                 'No character mentioned here',
             ]}),
             max_wait=300,
+            check=lambda r: (
+                r.loc[0, 'characters'] == ['Rachel']
+                and r.loc[1, 'characters'] == ['Dolores']
+                and r.loc[2, 'characters'] == []
+            ),
         )
-
-        assert result.loc[0, 'characters'] == ['Rachel']
-        assert result.loc[1, 'characters'] == ['Dolores']
-        assert result.loc[2, 'characters'] == []
 
         _delete_model(new_model_id, 'extract')
 
@@ -1697,30 +1743,50 @@ class TestTrainLookup:
                 wrangles.recipe.run(recipe, dataframe=df)
     
             
-def test_lookup_write_logs_new_model_id(caplog):  
-    """  
-    Integration test for lookup model creation logging  
-    """  
-    df = pd.DataFrame({  
-        'Key': ['apple', 'banana'],  
-        'Value': ['fruit', 'fruit']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.lookup:  
-              name: Test Lookup Model Integration  
-              variant: key  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model_id was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "New lookup model created" in record.message  
-    )
+def test_lookup_name_creates_working_model(caplog):
+    """
+    A model trained via 'name' must work immediately for inference. Bug #972:
+    before the fix, newly-created models were not reliably usable right away.
+    """
+    model_name = f'Bug972 Pytest Lookup {uuid.uuid4().hex[:8]}'
+    new_model_id = None
+    try:
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.lookup:
+                    name: {model_name}
+                    variant: key
+            """,
+            dataframe=pd.DataFrame({
+                'Key': ['apple', 'banana'],
+                'Value': ['fruit', 'fruit'],
+            }),
+        )
+
+        for msg in caplog.messages:
+            m = re.search(r'New lookup model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        _wait_for_model(
+            f"""
+            wrangles:
+                - lookup:
+                    input: Key
+                    output: Value
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'Key': ['apple', 'banana']}),
+            max_wait=300,
+            check=lambda r: r.loc[0, 'Value'] == 'fruit' and r.loc[1, 'Value'] == 'fruit',
+        )
+    finally:
+        if new_model_id:
+            _delete_model(new_model_id, 'lookup')
 
 
 #
@@ -1837,30 +1903,53 @@ def test_standardize_error():
             })
         )
 
-def test_standardize_write_logs_new_model_id(caplog):  
-    """  
-    Integration test for standardize model creation logging  
-    """  
-    df = pd.DataFrame({  
-        'Find': ['ASAP', 'ETA'],  
-        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.standardize:  
-              name: Test Standardize Model Integration  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model creation was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
-    )
+def test_standardize_name_creates_working_model(caplog):
+    """
+    A model trained via 'name' must work immediately for inference. Bug #972:
+    before the fix, newly-created models were not reliably usable right away.
+    """
+    model_name = f'Bug972 Pytest Standardize {uuid.uuid4().hex[:8]}'
+    new_model_id = None
+    try:
+        wrangles.recipe.run(
+            f"""
+            write:
+                - train.standardize:
+                    name: {model_name}
+            """,
+            dataframe=pd.DataFrame({
+                'Find':    ['ASAP', 'ETA'],
+                'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],
+                'Notes':   ['', ''],
+            }),
+        )
+
+        for msg in caplog.messages:
+            m = re.search(r'New standardize model created :: ([\w-]+)', msg)
+            if m:
+                new_model_id = m.group(1)
+                break
+
+        assert new_model_id is not None, 'model_id was not logged after training'
+
+        _wait_for_model(
+            f"""
+            wrangles:
+                - standardize:
+                    input: Text
+                    output: Standardized
+                    model_id: {new_model_id}
+            """,
+            dataframe=pd.DataFrame({'Text': ['ASAP', 'ETA']}),
+            max_wait=300,
+            check=lambda r: (
+                r.loc[0, 'Standardized'] == 'As Soon As Possible'
+                and r.loc[1, 'Standardized'] == 'Estimated Time of Arrival'
+            ),
+        )
+    finally:
+        if new_model_id:
+            _delete_model(new_model_id, 'standardize')
 
 
 class TestTrainMetaData:
