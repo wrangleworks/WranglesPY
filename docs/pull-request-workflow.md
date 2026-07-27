@@ -162,7 +162,7 @@ These searches provide the shared queue:
 
 - **My delivery work:** `is:pr is:open assignee:@me`
 - **My reviews:** `is:pr is:open review-requested:@me draft:false`
-- **Author action:** `is:pr is:open review:changes_requested`
+- **Owner action:** `is:pr is:open review:changes_requested`
 - **Ready and waiting:** `is:pr is:open draft:false review:none`
 - **Release PRs:** `is:pr is:open milestone:"v1.20"`
 - **Unowned PRs:** `is:pr is:open no:assignee`
