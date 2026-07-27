@@ -4,6 +4,56 @@ from numpy import nan as _nan
 import logging as _logging
 
 
+def _sort_by_columns(by):
+    return [by] if isinstance(by, str) else list(by)
+
+
+def _is_empty_sort_value(value):
+    if isinstance(value, str) and value.strip() == "":
+        return True
+
+    try:
+        return bool(_pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _coerce_sort_series(series: _pd.Series) -> _pd.Series:
+    non_empty = series[~series.map(_is_empty_sort_value)]
+    if non_empty.empty:
+        return series
+
+    numeric_values = _pd.to_numeric(series, errors="coerce")
+    numeric_count = numeric_values.loc[non_empty.index].notna().sum()
+    if numeric_count >= len(non_empty) / 2:
+        return numeric_values.fillna(0)
+
+    return series.map(lambda value: "" if _is_empty_sort_value(value) else str(value))
+
+
+def _coerced_sort_values(df: _pd.DataFrame, by_columns: list, ignore_index: bool, kwargs: dict) -> _pd.DataFrame:
+    sort_df = df.copy()
+    sort_kwargs = kwargs.copy()
+    temp_columns = []
+
+    for index, column in enumerate(by_columns):
+        if column not in sort_df.columns:
+            continue
+
+        temp_column = f"__wrangles_sort_key_{index}"
+        while temp_column in sort_df.columns:
+            temp_column = f"_{temp_column}"
+
+        sort_df[temp_column] = _coerce_sort_series(sort_df[column])
+        temp_columns.append(temp_column)
+
+    if not temp_columns:
+        return df.sort_values(ignore_index=ignore_index, **kwargs)
+
+    sort_kwargs["by"] = temp_columns
+    return sort_df.sort_values(ignore_index=ignore_index, **sort_kwargs).drop(columns=temp_columns)
+
+
 def copy(
     df: _pd.DataFrame,
     input: _Union[str, int, list] = None,
@@ -148,7 +198,7 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
         raise ValueError("'by' parameter is required for sorting")  
       
     # Ensure 'by' is a list for consistent processing  
-    by_columns = [by] if isinstance(by, str) else by  
+    by_columns = _sort_by_columns(by)  
       
     # Check if any columns need dtype conversion (float16 -> float32)  
     # float16 can cause sorting issues in pandas  
@@ -166,8 +216,12 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
             if col in df.columns and df[col].dtype == "float16":  
                 df[col] = df[col].astype("float32")  
       
-    # Perform the sort operation  
-    return df.sort_values(ignore_index=ignore_index, **kwargs)
+    # Perform the sort operation. If mixed column types cannot be compared,
+    # retry using temporary sort keys coerced to the predominant compatible type.
+    try:
+        return df.sort_values(ignore_index=ignore_index, **kwargs)
+    except TypeError:
+        return _coerced_sort_values(df, by_columns, ignore_index, kwargs)
 
 
 def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
