@@ -129,3 +129,42 @@ def test_excel_sheet_overwrite_accumulates_repeated_writes():
     assert excel_outputs[0]["name"] == "Results"
     assert excel_outputs[0]["action"] == "overwrite"
     assert len(excel_outputs[0]["data"]) == 1000
+
+
+def test_excel_sheet_overwrite_uses_append_after_first_external_batch():
+    """
+    WranglesXL can execute each batch as a separate Python run. In that case,
+    in-memory accumulation is not available, so later overwrite batches must be
+    returned as append actions.
+    """
+    df = pd.DataFrame({"header1": ["value1"] * 100})
+
+    memory.clear()
+    wrangles.connectors.excel.sheet.write(
+        df,
+        name="Results",
+        action="overwrite",
+        variables={"batch_number": 1, "batch_total": 10}
+    )
+    first_batch = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ][0]
+
+    memory.clear()
+    wrangles.connectors.excel.sheet.write(
+        df,
+        name="Results",
+        action="overwrite",
+        variables={"batch_number": 2, "batch_total": 10}
+    )
+    second_batch = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ][0]
+    memory.clear()
+
+    assert first_batch["action"] == "overwrite"
+    assert second_batch["action"] == "append"
