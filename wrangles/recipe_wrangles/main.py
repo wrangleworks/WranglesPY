@@ -1452,7 +1452,7 @@ def recipe(
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     name: str = None,
-    variables = {},
+    variables = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
@@ -1472,6 +1472,8 @@ def recipe(
             type: object
             description: A dictionary of variables to pass to the recipe
     """
+    if variables is None:
+        variables = {}
     if not name: name = kwargs
 
     df_temp = df.copy() # copy of the original df
@@ -1484,18 +1486,25 @@ def recipe(
     if output is None and input is not None:
         output = input
 
+    recipe_object, functions = _recipe._load_recipe(
+        name,
+        variables=variables,
+        functions=functions
+    )
+    recipe_object.pop('write', None)
+
     # If output columns are specified, only apply to those
     if output:
         if not isinstance(output, list): output = [output]
         df[output] = _recipe.run(
-            name,
+            recipe_object,
             variables=variables,
             functions=functions,
             dataframe=df_temp
         )[output]
     else:
         df = _recipe.run(
-            name,
+            recipe_object,
             variables=variables,
             functions=functions,
             dataframe=df_temp
