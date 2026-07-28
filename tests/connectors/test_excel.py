@@ -103,6 +103,42 @@ def test_excel_sheet_append_accumulates_repeated_writes():
     assert len(excel_outputs[0]["data"]) == 1000
 
 
+def test_excel_sheet_append_aligns_dynamic_batch_columns_by_name():
+    """
+    Dynamic dictionary keys can create different columns in each batch.
+    Accumulated Excel output must union the columns and align values by name
+    instead of stacking each batch positionally.
+    """
+    memory.clear()
+    batches = [
+        pd.DataFrame({"ID": [1], "A": [1], "X": [97]}),
+        pd.DataFrame({"ID": [2], "B": [2], "Y": [98]}),
+        pd.DataFrame({"ID": [3], "C": [3], "Z": [99]}),
+        pd.DataFrame({"ID": [4], "D": [4], "Zz": [100]}),
+    ]
+
+    for df in batches:
+        wrangles.connectors.excel.sheet.write(df, name="Results")
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 1
+    assert excel_outputs[0]["columns"] == [
+        "ID", "A", "X", "B", "Y", "C", "Z", "D", "Zz"
+    ]
+    assert excel_outputs[0]["data"] == [
+        [1, 1, 97, "", "", "", "", "", ""],
+        [2, "", "", 2, 98, "", "", "", ""],
+        [3, "", "", "", "", 3, 99, "", ""],
+        [4, "", "", "", "", "", "", 4, 100],
+    ]
+
+
 def test_excel_sheet_overwrite_accumulates_repeated_writes():
     """
     Batched WranglesXL runs may emit repeated overwrite writes to the same
@@ -129,6 +165,39 @@ def test_excel_sheet_overwrite_accumulates_repeated_writes():
     assert excel_outputs[0]["name"] == "Results"
     assert excel_outputs[0]["action"] == "overwrite"
     assert len(excel_outputs[0]["data"]) == 1000
+
+
+def test_excel_sheet_overwrite_aligns_reordered_columns_by_name():
+    """
+    Overwrite batches with the same columns in a different order must retain
+    the first payload's column order without shifting values.
+    """
+    memory.clear()
+    wrangles.connectors.excel.sheet.write(
+        pd.DataFrame({"ID": [1], "A": [1], "X": [97]}),
+        name="Results",
+        action="overwrite"
+    )
+    wrangles.connectors.excel.sheet.write(
+        pd.DataFrame({"X": [98], "ID": [2], "A": [2]}),
+        name="Results",
+        action="overwrite"
+    )
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 1
+    assert excel_outputs[0]["columns"] == ["ID", "A", "X"]
+    assert excel_outputs[0]["data"] == [
+        [1, 1, 97],
+        [2, 2, 98],
+    ]
+    assert excel_outputs[0]["action"] == "overwrite"
 
 
 def test_excel_sheet_overwrite_uses_append_after_first_external_batch():
