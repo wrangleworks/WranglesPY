@@ -1,4 +1,5 @@
 import pytest
+import importlib
 import wrangles
 import pandas as pd
 from wrangles.train import train
@@ -120,8 +121,10 @@ def test_extract_html_str():
     assert result == 'Wrangle Works!'
 # Translate
 def test_translate(mocker):
-    mocker.patch(
-        'wrangles.translate._batching.batch_api_calls',
+    translate_module = importlib.import_module('wrangles.translate')
+    mocker.patch.object(
+        translate_module._batching,
+        'batch_api_calls',
         return_value=['Ich heisse Chris'],
     )
     result = wrangles.translate('My name is Chris', 'DE')
@@ -131,8 +134,10 @@ def test_translate(mocker):
     assert 'Chris' in result
 
 def test_translate_list(mocker):
-    mocker.patch(
-        'wrangles.translate._batching.batch_api_calls',
+    translate_module = importlib.import_module('wrangles.translate')
+    mocker.patch.object(
+        translate_module._batching,
+        'batch_api_calls',
         return_value=['Ich heisse Chris'],
     )
     result = wrangles.translate(['My name is Chris'], 'DE')
