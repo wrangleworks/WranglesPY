@@ -5,6 +5,60 @@ import pandas as _pd
 from . import memory as _memory
 import logging as _logging
 
+
+def _append_rows_by_column(saved: dict, df: _pd.DataFrame) -> bool:
+    """
+    Append a dataframe to an orient="split" payload, aligning values by column
+    name and adding newly encountered columns in first-seen order.
+    """
+    new_data = df.to_dict(orient="split")
+    saved_columns = saved["columns"]
+    new_columns = new_data["columns"]
+
+    # Duplicate labels cannot be aligned by name unambiguously. Preserve the
+    # existing behavior for identical layouts, but leave different layouts as
+    # separate writes rather than risking a positional shift.
+    if (
+        saved_columns != new_columns
+        and (
+            not _pd.Index(saved_columns).is_unique
+            or not _pd.Index(new_columns).is_unique
+        )
+    ):
+        return False
+
+    combined_columns = saved_columns + [
+        column
+        for column in new_columns
+        if column not in saved_columns
+    ]
+
+    if combined_columns == saved_columns == new_columns:
+        saved["data"].extend(new_data["data"])
+    else:
+        added_columns = len(combined_columns) - len(saved_columns)
+        if added_columns:
+            saved["data"] = [
+                list(row) + [""] * added_columns
+                for row in saved["data"]
+            ]
+
+        column_positions = {
+            column: position
+            for position, column in enumerate(combined_columns)
+        }
+        for row in new_data["data"]:
+            aligned_row = [""] * len(combined_columns)
+            for column, value in zip(new_columns, row):
+                aligned_row[column_positions[column]] = value
+            saved["data"].append(aligned_row)
+
+        saved["columns"] = combined_columns
+
+    saved["index"].extend(new_data["index"])
+    return True
+
+
 class sheet():
     _schema = {}
 
@@ -37,14 +91,11 @@ class sheet():
                     and saved.get("name") == name
                     and saved.get("cell") == cell
                     and saved.get("action", "append") in ("append", "overwrite")
-                    and saved.get("columns") == df.columns.tolist()
                 ):
-                    new_data = df.to_dict(orient="split")
-                    saved["data"].extend(new_data["data"])
-                    saved["index"].extend(new_data["index"])
-                    if action == "overwrite":
-                        saved["action"] = "overwrite"
-                    return
+                    if _append_rows_by_column(saved, df):
+                        if action == "overwrite":
+                            saved["action"] = "overwrite"
+                        return
 
         _memory.write(
             df,
