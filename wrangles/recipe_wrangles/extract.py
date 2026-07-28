@@ -5,8 +5,17 @@ from typing import Union as _Union
 import re as _re
 import pandas as _pd
 from .. import extract as _extract
-from .. import format as _format
 from .. import data as _data
+
+
+def _combine_list_rows(rows):
+    combined = []
+    for row in rows:
+        if isinstance(row, list):
+            combined.extend(row)
+        elif row not in ("", None):
+            combined.append(row)
+    return list(dict.fromkeys(combined))
 
 
 def address(
@@ -642,8 +651,8 @@ def custom(
                 **kwargs
             )
 
-        # Concatenate the results into a single column
-        df[output] = [list(dict.fromkeys(_format.concatenate([x for x in row if x], ' '))) for row in df_temp.values.tolist()]
+        # Combine the per-column match lists into a single output list.
+        df[output] = [_combine_list_rows(row) for row in df_temp.values.tolist()]
 
     else:
         # Iterate through the inputs, outputs and model_ids

@@ -1,6 +1,7 @@
 import pytest
 import wrangles
 import pandas as pd
+from unittest.mock import patch
 
 
 class TestExtractAddress:
@@ -1202,6 +1203,32 @@ class TestExtractCustom:
             'Charizard' in df['Fact Output'][0] and
             'Pikachu' in df['Fact Output'][0]
         )
+
+    def test_extract_custom_multi_input_single_output_preserves_match_lists(self):
+        data = pd.DataFrame({
+            'Colm 1': ['one, two'],
+            'Colm 2': ['three four']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+              - Colm 1
+              - Colm 2
+            output: my_output_colm
+            model_id: 73d89595-e5c9-40a4
+        """
+
+        with patch(
+            "wrangles.extract.custom",
+            side_effect=[
+                [['one', 'two']],
+                [['three', 'four']],
+            ]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]['my_output_colm'] == ['one', 'two', 'three', 'four']
 
     def test_extract_custom_mulit_input_output(self):
         """
