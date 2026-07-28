@@ -15,19 +15,21 @@ class sheet():
         name = kwargs.get("name")
         cell = kwargs.get("cell")
 
-        if action == "append":
+        if action in ("append", "overwrite"):
             for saved in reversed(list(_memory.dataframes.values())):
                 if (
                     isinstance(saved, dict)
                     and saved.get("connector") == "excel.sheet.write"
                     and saved.get("name") == name
                     and saved.get("cell") == cell
-                    and saved.get("action", "append") == "append"
+                    and saved.get("action", "append") in ("append", "overwrite")
                     and saved.get("columns") == df.columns.tolist()
                 ):
                     new_data = df.to_dict(orient="split")
                     saved["data"].extend(new_data["data"])
                     saved["index"].extend(new_data["index"])
+                    if action == "overwrite":
+                        saved["action"] = "overwrite"
                     return
 
         _memory.write(
