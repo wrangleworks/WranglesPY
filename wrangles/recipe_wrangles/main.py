@@ -177,6 +177,13 @@ def accordion(
     return df
 
 
+# Wrangles that aggregate across the whole dataframe rather than
+# row-by-row. These cannot be run independently per-batch - a group
+# of rows split across a batch boundary must be aggregated once over
+# the full result, not once per batch.
+_AGGREGATING_WRANGLES = {"select.group_by"}
+
+
 def _batch_thread(
     df,
     batch_num: int,
@@ -286,26 +293,57 @@ def batch(
     else:
         pool_executor = _futures.ThreadPoolExecutor
 
-    with pool_executor(max_workers=threads) as executor:
-        batches = list(_divide_batches(df, batch_size))
-        
-        # Set a chunk size for process pool executor
-        # to reduce overhead of process creation
-        chunksize = min(max(len(batches) // threads, 1), 20)
+    # If any of the wrangles aggregate across the whole dataframe (e.g.
+    # select.group_by), only run the wrangles before it per-batch, then
+    # run it and everything after it once on the full concatenated result.
+    # Otherwise a group of rows split across a batch boundary would be
+    # aggregated separately per batch instead of once overall.
+    aggregate_index = next(
+        (
+            i for i, step in enumerate(wrangles)
+            if isinstance(step, dict) and _AGGREGATING_WRANGLES.intersection(step.keys())
+        ),
+        None
+    )
+    if aggregate_index is not None:
+        per_batch_wrangles = wrangles[:aggregate_index]
+        post_batch_wrangles = wrangles[aggregate_index:]
+    else:
+        per_batch_wrangles = wrangles
+        post_batch_wrangles = []
 
-        results = executor.map(
-            _batch_thread,
-            batches,
-            range(1, len(batches) + 1), 
-            [wrangles] * len(batches),
-            [functions] * len(batches),
-            [variables] * len(batches),
-            [timeout] * len(batches),
-            [on_error] * len(batches),
-            chunksize = chunksize
+    if per_batch_wrangles:
+        with pool_executor(max_workers=threads) as executor:
+            batches = list(_divide_batches(df, batch_size))
+
+            # Set a chunk size for process pool executor
+            # to reduce overhead of process creation
+            chunksize = min(max(len(batches) // threads, 1), 20)
+
+            results = executor.map(
+                _batch_thread,
+                batches,
+                range(1, len(batches) + 1),
+                [per_batch_wrangles] * len(batches),
+                [functions] * len(batches),
+                [variables] * len(batches),
+                [timeout] * len(batches),
+                [on_error] * len(batches),
+                chunksize = chunksize
+            )
+
+        df = _pd.concat(results)
+
+    if post_batch_wrangles:
+        df = _wrangles.recipe.run(
+            {"wrangles": post_batch_wrangles},
+            dataframe=df,
+            functions=functions,
+            variables=variables,
+            timeout=timeout
         )
 
-    return _pd.concat(results)
+    return df
 
 
 def classify(
