@@ -11,6 +11,25 @@ class sheet():
     def write(df: _pd.DataFrame, **kwargs):
         _logging.info(f": Saving data for Excel Sheet")
 
+        action = kwargs.get("action", "append")
+        name = kwargs.get("name")
+        cell = kwargs.get("cell")
+
+        if action == "append":
+            for saved in reversed(list(_memory.dataframes.values())):
+                if (
+                    isinstance(saved, dict)
+                    and saved.get("connector") == "excel.sheet.write"
+                    and saved.get("name") == name
+                    and saved.get("cell") == cell
+                    and saved.get("action", "append") == "append"
+                    and saved.get("columns") == df.columns.tolist()
+                ):
+                    new_data = df.to_dict(orient="split")
+                    saved["data"].extend(new_data["data"])
+                    saved["index"].extend(new_data["index"])
+                    return
+
         _memory.write(
             df,
             connector = "excel.sheet.write",
