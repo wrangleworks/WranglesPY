@@ -1361,11 +1361,22 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self):  
+    def test_missing_columns_error_message(self, mocker):  
         """  
         Verify that INSERT/UPSERT/UPDATE raise the expected error  
         when incoming columns are not present in the existing model.  
         """  
+        mocker.patch(
+            "wrangles.connectors.train._data.model_content",
+            return_value={
+                "Columns": ["Key", "Value"],
+                "Data": [["k1", "v1"]],
+            },
+        )
+        mocker.patch(
+            "wrangles.connectors.train._data.model",
+            return_value={"variant": "key"},
+        )
 
         df = pd.DataFrame({  
             "Key": ["k3"],  

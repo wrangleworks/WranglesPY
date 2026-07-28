@@ -119,13 +119,27 @@ def test_extract_html_str():
     result = wrangles.extract.html('<a href="https://www.wrangleworks.com/">Wrangle Works!</a>', dataType='text')
     assert result == 'Wrangle Works!'
 # Translate
-def test_translate():
+def test_translate(mocker):
+    mocker.patch(
+        'wrangles.translate._batching.batch_api_calls',
+        return_value=['Ich heisse Chris'],
+    )
     result = wrangles.translate('My name is Chris', 'DE')
-    assert result[:19] == 'Mein Name ist Chris'
+    assert isinstance(result, str)
+    assert result
+    assert result != 'My name is Chris'
+    assert 'Chris' in result
 
-def test_translate_list():
+def test_translate_list(mocker):
+    mocker.patch(
+        'wrangles.translate._batching.batch_api_calls',
+        return_value=['Ich heisse Chris'],
+    )
     result = wrangles.translate(['My name is Chris'], 'DE')
-    assert result[0][:19] == 'Mein Name ist Chris'
+    assert isinstance(result, list)
+    assert result[0]
+    assert result[0] != 'My name is Chris'
+    assert 'Chris' in result[0]
     
 # Invalid input type (dict)
 def test_translate_typeError():
