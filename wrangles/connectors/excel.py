@@ -8,10 +8,24 @@ import logging as _logging
 class sheet():
     _schema = {}
 
-    def write(df: _pd.DataFrame, **kwargs):
+    def write(df: _pd.DataFrame, variables: dict = None, **kwargs):
         _logging.info(f": Saving data for Excel Sheet")
 
+        if variables is None:
+            variables = {}
+
         action = kwargs.get("action", "append")
+        try:
+            batch_number = int(variables.get("batch_number", 1))
+            batch_total = int(variables.get("batch_total", 1))
+        except (TypeError, ValueError):
+            batch_number = 1
+            batch_total = 1
+
+        if action == "overwrite" and batch_total > 1 and batch_number > 1:
+            kwargs["action"] = "append"
+            action = "append"
+
         name = kwargs.get("name")
         cell = kwargs.get("cell")
 
