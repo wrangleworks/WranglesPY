@@ -1640,6 +1640,39 @@ def rename(
         ):
             del kwargs["functions"]
 
+    def output_exists(output_column):
+        return output_column in df.columns
+
+    def resolve_rename_input(input_column, output_column):
+        candidates = input_column if isinstance(input_column, list) else [input_column]
+        optional_candidates = []
+        required_candidates = []
+
+        for candidate in candidates:
+            optional = False
+            actual_col = candidate
+            if isinstance(candidate, str) and candidate.endswith("?"):
+                optional = True
+                actual_col = candidate[:-1]
+
+            if actual_col in df.columns:
+                return actual_col
+
+            if optional:
+                optional_candidates.append(actual_col)
+                continue
+
+            required_candidates.append(actual_col)
+
+        if optional_candidates and not required_candidates:
+            return None
+
+        if output_exists(output_column):
+            return None
+
+        missing = required_candidates[0] if required_candidates else candidates[0]
+        raise ValueError(f'Rename column "{missing}" not found.')
+
 
     # If short form of paired names is provided, use that
     if input is None:
@@ -1697,7 +1730,7 @@ def rename(
 
         # Regular non-wildcard name
         if name not in cols:
-          if optional:
+          if optional or kwargs[x] in cols:
             continue
           else:
             raise ValueError(f'Rename column "{name}" not found.')
@@ -1723,19 +1756,12 @@ def rename(
             raise ValueError('The lists for input and output must be the same length.')
           
         for inp, out in zip(input, output):
-            if inp.endswith("?"):
-                actual_col = inp[:-1]
-                if actual_col not in list(df.columns):
-                    # Skip this column if it doesn't exist
-                    continue  # This skips both input and output
-                else:
-                    filtered_input.append(actual_col)
-                    filtered_output.append(out)
-            elif inp not in list(df.columns):
-                raise ValueError(f'Rename column "{inp}" not found.')
-            else:
-                filtered_input.append(inp)
-                filtered_output.append(out)
+            actual_col = resolve_rename_input(inp, out)
+            if actual_col is None:
+                continue
+
+            filtered_input.append(actual_col)
+            filtered_output.append(out)
           
         # Check that the output columns don't already exist if so drop them
         df = df.drop(columns=[x for x in filtered_output if x in df.columns and x not in filtered_input])
