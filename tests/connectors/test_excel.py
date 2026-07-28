@@ -101,3 +101,31 @@ def test_excel_sheet_append_accumulates_repeated_writes():
     assert len(excel_outputs) == 1
     assert excel_outputs[0]["name"] == "Results"
     assert len(excel_outputs[0]["data"]) == 1000
+
+
+def test_excel_sheet_overwrite_accumulates_repeated_writes():
+    """
+    Batched WranglesXL runs may emit repeated overwrite writes to the same
+    sheet. The connector should still return one full payload so Excel replaces
+    the sheet with all rows, not just the final batch.
+    """
+    memory.clear()
+    df = pd.DataFrame({"header1": ["value1"] * 1000})
+    for start in range(0, 1000, 100):
+        wrangles.connectors.excel.sheet.write(
+            df.iloc[start:start + 100],
+            name="Results",
+            action="overwrite"
+        )
+
+    excel_outputs = [
+        v
+        for v in memory.dataframes.values()
+        if v.get("connector") == "excel.sheet.write"
+    ]
+    memory.clear()
+
+    assert len(excel_outputs) == 1
+    assert excel_outputs[0]["name"] == "Results"
+    assert excel_outputs[0]["action"] == "overwrite"
+    assert len(excel_outputs[0]["data"]) == 1000
