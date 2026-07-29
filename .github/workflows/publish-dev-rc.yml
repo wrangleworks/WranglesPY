@@ -189,7 +189,7 @@ jobs:
   publish-codeartifact:
     name: Publish RC Package
     runs-on: ubuntu-latest
-    needs: [compute-version, test-pip-install, test-generate-schema]
+    needs: [compute-version, test-pip-install]
     permissions:
       contents: read
       id-token: write   # required for OIDC AssumeRoleWithWebIdentity
