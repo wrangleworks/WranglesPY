@@ -451,11 +451,21 @@ def brackets(
 
     # If only only one output and multiple inputs, concatenate the inputs
     if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, include_brackets)
+        df[output[0]] = _extract.brackets(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            find,
+            include_brackets,
+            return_data_type="list"
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets)
+            df[output_column] = _extract.brackets(
+                df[input_column].astype(str).tolist(),
+                find,
+                include_brackets,
+                return_data_type="list"
+            )
 
     return df
 

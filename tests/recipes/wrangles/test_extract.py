@@ -99,7 +99,7 @@ class TestExtractAddress:
             where: elevation > 2000
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'][0] == '742 Evergreen St'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == ['742 Evergreen St']
         
     
     def test_address_multi_input(self):
@@ -2676,7 +2676,44 @@ class TestExtractBrackets:
             output: no_brackets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets'] == '1234'
+        assert df.iloc[0]['no_brackets'] == ['1234']
+
+    def test_extract_brackets_single_item_output_list(self):
+        """
+        Providing output as an explicit single-item list should behave
+        the same as a bare string output - the full list of matches is
+        kept, not just the first one
+        """
+        data = pd.DataFrame({
+            'col': ['(a) (b) (c)']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == ['a', 'b', 'c'] and list(df.columns) == ['col', 'col1']
+
+    def test_extract_brackets_single_item_output_list_no_matches(self):
+        """
+        The explicitly named column should still be created, empty,
+        when no matches are found
+        """
+        data = pd.DataFrame({
+            'col': ['no brackets here']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == [] and 'col1' in df.columns
 
     def test_extract_brackets_2(self):
         """
