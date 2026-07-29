@@ -1,0 +1,39 @@
+# Reproduction for https://github.com/wrangleworks/WranglesPY/issues/922
+#
+# Data: the real "AMPS" attribute rows extracted from the customer's
+# sample workbook attached to the issue (92 rows, all sharing
+# eam_attributeName == "AMPS", each with a different eam_classificationName).
+#
+# Root cause: `batch` splits the dataframe into row chunks and runs the
+# given wrangles independently per chunk, then concatenates the results.
+# WranglesXL's "Map" feature runs recipes attached to a live-linked range
+# through this same batching mechanism.
+#
+# When select.group_by is one of the wrangles executed per-batch, it can
+# only see the rows in its own batch. Here, the 92 AMPS rows are split
+# across a batch boundary (batch_size: 50), so select.group_by produces
+# TWO rows for "AMPS", each with only its own partial list of
+# classifications, instead of one row with the full list of 92 - the
+# "missing data in the middle of the return payload" symptom reported
+# on the issue.
+#
+# Expected: 1 row for AMPS with all 92 classifications aggregated.
+# Actual: 2 rows for AMPS, each with a partial (46-row) list.
+read:
+  - file:
+      name: tests/samples/issue_922_group_by_batch.csv
+
+wrangles:
+  - batch:                       # <- what "the map" does under the hood
+      batch_size: 50
+      wrangles:
+        - replace:
+            input: eam_attributeName
+            find: '[-.@()]'
+            replace: ' '
+            output: Att Name
+
+        - select.group_by:
+            by: Att Name
+            list:
+              - eam_classificationName

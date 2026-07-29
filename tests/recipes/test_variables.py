@@ -365,3 +365,99 @@ def test_variables_variable_overwrite():
         variables={'recipe_variables': 'This is a string'}
     )
     assert isinstance(df['vars'][0], dict)
+
+
+def test_user_permission_team_variable(monkeypatch):
+    """
+    Test that the authenticated user's permission team is available as a recipe variable.
+    """
+    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                team: ${user_permission_team}
+        """
+    )
+
+    assert df['team'][0] == 'enterprise'
+
+
+def test_user_permission_team_variable_if(monkeypatch):
+    """
+    Test that user_permission_team can be used in Python-style if conditions.
+    """
+    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                result: kept
+        wrangles:
+        - create.column:
+            output: allowed
+            value: true
+            if: user_permission_team == 'enterprise'
+        """
+    )
+
+    assert df['allowed'][0] == True
+
+
+def test_user_permission_team_variable_user_override(monkeypatch):
+    """
+    Test that explicit variables still override the authenticated permission team.
+    """
+    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+
+    df = wrangles.recipe.run(
+        """
+        read:
+        - test:
+            rows: 1
+            values:
+                team: ${user_permission_team}
+        """,
+        variables={"user_permission_team": "manual"}
+    )
+
+    assert df['team'][0] == 'manual'
+
+
+def test_user_permission_team_variable_from_recipe_metadata(monkeypatch):
+    """
+    Test that recipe metadata permission team is preferred for remote recipes.
+    """
+    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "token-team")
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model",
+        lambda model_id: {
+            "purpose": "recipe",
+            "production_version_id": "v1",
+            "user_permission_team": "metadata-team",
+        }
+    )
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": """
+            read:
+            - test:
+                rows: 1
+                values:
+                    team: ${user_permission_team}
+            """
+        }
+    )
+
+    df = wrangles.recipe.run("12345678-1234-1234")
+
+    assert df["team"][0] == "metadata-team"

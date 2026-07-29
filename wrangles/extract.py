@@ -5,6 +5,7 @@ import re as _re
 from typing import Union as _Union
 import concurrent.futures as _futures
 import json as _json
+import logging as _logging
 import pandas as _pd
 from . import config as _config
 from . import data as _data
@@ -33,6 +34,7 @@ def address(
     else:
         json_data = input
 
+    _logging.info(f": Extracting address {dataType} from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/address'
     params = {
         'responseFormat':'array',
@@ -248,6 +250,25 @@ def ai(
         for k, v in output.items()
     }
 
+    # Sanitize output keys: replace any character outside [a-zA-Z0-9_] with
+    # an underscore before sending to the model. Property names with special
+    # characters (e.g. parentheses, spaces) are sometimes altered by the model,
+    # producing key mismatches that cause silent empty columns. We remap the
+    # sanitized names back to the originals after receiving results.
+    _key_to_original = {}
+    _sanitized_output = {}
+    for _k, _v in output.items():
+        _sk = _re.sub(r'[^a-zA-Z0-9_]', '_', _k)
+        _base, _n = _sk, 2
+        while _sk in _key_to_original:
+            _sk = f"{_base}_{_n}"
+            _n += 1
+        _key_to_original[_sk] = _k
+        _sanitized_output[_sk] = _v
+    _needs_remap = any(sk != ok for sk, ok in _key_to_original.items())
+    if _needs_remap:
+        output = _sanitized_output
+
     # Format any user submitted header messages
     if messages and not isinstance(messages, list):
         messages = [str(messages)]
@@ -308,6 +329,7 @@ def ai(
         **kwargs
     }
 
+    _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
     with _futures.ThreadPoolExecutor(max_workers=threads) as executor:
         results = list(executor.map(
             _openai.chatGPT,
@@ -318,6 +340,13 @@ def ai(
             [timeout] * len(input),
             [retries] * len(input),
         ))
+
+    if _needs_remap:
+        results = [
+            {_key_to_original.get(k, k): v for k, v in row.items()}
+            if isinstance(row, dict) else row
+            for row in results
+        ]
 
     if input_was_scalar:
         if output_generic_key:
@@ -357,6 +386,7 @@ def attributes(
     else:
         json_data = input
 
+    _logging.info(f": Extracting attributes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/attributes'
     params = {
         'responseFormat':'array',
@@ -397,12 +427,27 @@ def codes(
 
     e.g. 'Something ABC123ZZ something' -> 'ABC123ZZ'
 
+    :param input: A string or list of strings to search for codes.
+    :param first_element: Get the first element from results.
+    :param min_length: Minimum length of allowed results.
+    :param max_length: Maximum length of allowed results.
+    :param strategy: How aggressive to be at removing false positives such as
+        measurements. One of 'lenient', 'balanced' or 'strict'. Default is
+        'balanced'. Default minimum lengths are 3 for lenient, 4 for balanced,
+        and 5 for strict unless min_length is provided.
+    :param sort_order: Default is input order. Also allows 'longest' or 'shortest'.
+    :param disallowed_patterns: A pattern or JSON array of regex patterns to not include in the found codes.
+    :param include_multi_part_tokens: Whether to include multi-part tokens that have a space. Default True.
+    :param extract_raw: Whether to return tokens with their adjacent non-whitespace characters
+        included, rather than the cleaned token. Default False.
+    :return: A list of codes found.
     """
     if isinstance(input, str): 
         json_data = [input]
     else:
         json_data = input
 
+    _logging.info(f": Extracting codes from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/codes'
     params = {'responseFormat': 'array', **kwargs}
     batch_size = 10000
@@ -425,7 +470,9 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = 'dict',
     **kwargs
 ) -> list:
     """
@@ -464,6 +511,15 @@ def custom(
     }
 
     model_properties = _data.model(model_id)
+    model_content = _data.model_content(model_id)
+
+    model_labels = set()
+    for item in model_content['Data']:  
+        if len(item) >= 2: 
+            if ':' in item[1]: 
+                label = item[1].split(':')[0]  # Second column typically contains the label/type  
+                model_labels.add(label.strip())
+    
     # If model_id format is correct but no mode_id exists
     if model_properties.get('message', None) == 'error':
         raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
@@ -484,22 +540,55 @@ def custom(
 
     if isinstance(results, dict) and "data" in results and "columns" in results:
         if len(results["columns"]) == 1:
-            results = [
-                row[0]
-                for row in results["data"]
-            ]
+            # For a single output column, the service returns the matches
+            # as a ", " joined string rather than an array. Convert this
+            # back into a list of matches to preserve the expected output type.
+            def _entities_to_list(value):
+                if isinstance(value, list):
+                    return value
+                if value in (None, ""):
+                    return []
+                return [item.strip() for item in value.split(",")]
+
+            if use_labels:
+                results = [
+                    {results["columns"][0]: _entities_to_list(row[0])}
+                    for row in results["data"]
+                ]
+            else:
+                results = [
+                    _entities_to_list(row[0])
+                    for row in results["data"]
+                ]
         else:
             results = [
                 {results["columns"][i]: row[i] for i in range(len(row))}
                 for row in results["data"]
             ]
-
     if isinstance(results, list):
         if first_element and not use_labels:
             results = [x[0] if len(x) >= 1 else "" for x in results]
         
-        if use_labels and first_element:
-            results = [{k:v[0] for (k, v) in zip(objs.keys(), objs.values())} for objs in results]
+        if use_labels:
+            if include_empty_labels:
+                # Determine a single canonical casing per label (case-insensitive).
+                # Casing seen in the actual API results takes precedence over the
+                # model-defined casing, so labels like "Unlabeled" stay consistent
+                # across every row instead of varying between "Unlabeled"/"unlabeled".
+                canonical_labels = {}
+                for label in (model_labels or []):
+                    canonical_labels.setdefault(str(label).lower(), label)
+                for objs in results:
+                    for k in objs.keys():
+                        canonical_labels[str(k).lower()] = k
+
+                for objs in results:
+                    existing = {str(k).lower(): v for k, v in objs.items()}
+                    objs.clear()
+                    for label_lower, label in canonical_labels.items():
+                        objs[label] = existing.get(label_lower, [])
+            if first_element:
+                results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]
     else:
         raise ValueError(f'API Response did not return an expected format for model {model_id}')
 
@@ -527,6 +616,7 @@ def html(
     else:
         json_data = input
 
+    _logging.info(f": Extracting {dataType} from HTML")
     url = f'{_config.api_host}/wrangles/extract/html'
     params = {
         'responseFormat': 'array',
@@ -566,6 +656,7 @@ def properties(
     else:
         json_data = input
 
+    _logging.info(f": Extracting properties from {len(json_data)} records")
     url = f'{_config.api_host}/wrangles/extract/properties'
     params = {'responseFormat':'array', **kwargs}
     if type is not None: params['dataType'] = type
@@ -603,6 +694,7 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
     else:
         flags = 0 # this is the default for _re.sub
     
+    _logging.info(f": Removing words from {len(input)} records")
     results = []
     for _in, _remove in zip(input, to_remove):
         
@@ -653,7 +745,8 @@ def remove_words(input: _Union[str, list], to_remove: list, tokenize_to_remove: 
 def brackets(
     input: str,
     find: list = _Union[str, list],
-    include_brackets: bool = False
+    include_brackets: bool = False,
+    return_data_type: str = "string"
     ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
@@ -663,6 +756,7 @@ def brackets(
     :param include_brackets: Whether to include brackets in the results
     :return: List of extracted values
     """
+    _logging.info(": Extracting text from brackets")
     results = []
     bracket_patterns = {
     'round': r'\(.*?\)',
@@ -687,7 +781,9 @@ def brackets(
         # Traverse list and remove all brackets if include_brackets is False
         if include_brackets is False:
             re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
-            results.append(', '.join(re))
+
+        if return_data_type == "list":
+            results.append(re)
         else:
             results.append(', '.join(re))
         

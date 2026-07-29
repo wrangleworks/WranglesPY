@@ -15,6 +15,7 @@ def _get_oauth_token(url, method="POST", **kwargs):
     :param method: The http method to use. Default POST.
     :return: The OAuth token
     """
+    _logging.debug(f": Fetching OAuth token :: url :: {url}, method :: {method}")
     response = _requests.request(url=url, method=method, **kwargs)
     if not response.ok:
         raise RuntimeError(
@@ -62,6 +63,7 @@ def run(
        **kwargs
     )
     if not response.ok:
+        _logging.error(f": HTTP request failed :: status :: {response.status_code}, url :: {url}")
         raise RuntimeError(
             f"Request failed with status code {response.status_code}. Response: {response.text}"
         )

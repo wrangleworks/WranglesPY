@@ -13,11 +13,14 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
+import threading as _threading
+import time as _time
 import pandas as _pandas
 import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
+from . import auth as _auth
 from .config import (
     reserved_word_replacements as _reserved_word_replacements,
     where_overwrite_output as _where_overwrite_output,
@@ -38,6 +41,20 @@ except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
+
+# Text of the recipe currently being executed, used as a best-effort source
+# for error line lookups. Only the outermost recipe.run() call updates this -
+# see _RECIPE_RUN_DEPTH below.
+_CURRENT_RECIPE_STRING = None
+
+# Tracks how many recipe.run() calls are nested on the current call stack.
+# Wrangles such as `rename` run an inner recipe.run() internally to execute
+# their `wrangles:` steps; that inner call must not overwrite
+# _CURRENT_RECIPE_STRING with its own synthetic, re-dumped recipe fragment,
+# otherwise error line lookups for the inner wrangles would point at the
+# wrong (synthetic) source instead of the user's actual recipe.
+_RECIPE_RUN_DEPTH = 0
+_RECIPE_RUN_DEPTH_LOCK = _threading.Lock()
 
 
 # Suppress pandas performance warnings
@@ -63,6 +80,15 @@ def _load_recipe(
     """
     if variables is None:
         variables = {}
+    user_variable_keys = set(variables.keys())
+
+    if "user_permission_team" not in variables:
+        variables["user_permission_team"] = _auth.get_user_permission_team()
+
+    # Accept path-like objects (e.g. pathlib.Path) by converting to str
+    if isinstance(recipe, _os.PathLike):
+        recipe = str(recipe)
+
     if isinstance(recipe, str) and "\n" not in recipe:
         _logging.info(f": Reading Recipe :: {recipe}")
     
@@ -77,12 +103,23 @@ def _load_recipe(
     # Dict to store functions stored within a model
     model_functions = {}
 
+    # Whether recipe_string was fetched from an independently addressable
+    # source (a URL, a model_id, or a file path) rather than being an inline
+    # string/dict built by a wrangle at runtime (e.g. rename's inner
+    # wrangles). Fetched sources have their own real, navigable line numbers
+    # and should always be tracked for error line lookups - even when this
+    # is a nested recipe.run() call (e.g. a model_id that itself points to
+    # another recipe) - unlike synthetic inline recipes, which should defer
+    # to whatever recipe text the outer call was already tracking.
+    _is_external_source = False
+
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
         response = _requests.get(recipe)
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
+        _is_external_source = True
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.split(':')[0].strip()):
@@ -93,6 +130,11 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+
+        metadata_user_permission_team = _auth.extract_user_permission_team(metadata)
+        if metadata_user_permission_team is not None:
+            if "user_permission_team" not in user_variable_keys:
+                variables["user_permission_team"] = metadata_user_permission_team
 
         # Using model_id in wrong function
         purpose = metadata['purpose']
@@ -111,6 +153,7 @@ def _load_recipe(
 
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
+        _is_external_source = True
         model_functions = model_contents.get('functions', {})
         if model_functions:
             spec = _importlib.util.spec_from_loader('custom_functions', loader=None)
@@ -140,6 +183,7 @@ def _load_recipe(
         try:
             with open(recipe, "r", encoding='utf-8') as f:
                 recipe_string = f.read()
+            _is_external_source = True
         except:
             raise RuntimeError(
                 f'Error reading recipe: "{recipe}". ' \
@@ -214,10 +258,173 @@ def _load_recipe(
         if key != 'recipe_variables'
     }
 
+    # Keep a copy of the raw recipe string for line lookups.
+    #
+    # Always do this for the outermost recipe.run() call, and also for any
+    # nested call whose recipe came from an independently addressable source
+    # (a URL, model_id, or file path) - e.g. a model_id that itself points to
+    # another recipe. That fetched recipe has its own real, navigable lines,
+    # so errors inside it should be attributed there.
+    #
+    # For nested calls built from an inline dict/string (e.g. rename's inner
+    # wrangles, or a hardcoded template a wrangle runs internally), skip the
+    # update - that "recipe" is a synthetic fragment with no line numbers
+    # meaningful to the user, so keep pointing at whatever recipe text the
+    # outer call was already tracking.
+    if _RECIPE_RUN_DEPTH <= 1 or _is_external_source:
+        global _CURRENT_RECIPE_STRING
+        _CURRENT_RECIPE_STRING = recipe_string
+
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object, functions
+
+
+def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
+    """Best-effort: find the 1-based line number of the Nth occurrence of
+    an item defined as "- item_name:" in the last loaded recipe string.
+    Returns None if not found.
+    """
+    if not _CURRENT_RECIPE_STRING:
+        return None
+    try:
+        # Use [ \t]* rather than \s* around the dash/name/colon so a blank
+        # line immediately before the match can't be swallowed into it -
+        # \s* matches newlines too, which would anchor the match (and its
+        # line number) to the preceding blank line instead of the real one.
+        pattern = _re.compile(r"^[ \t]*-[ \t]*" + _re.escape(item_name) + r"[ \t]*:", _re.MULTILINE)
+        matches = list(pattern.finditer(_CURRENT_RECIPE_STRING))
+        if not matches:
+            return None
+        if len(matches) == 1:
+            # Only one occurrence in the recipe - use it regardless of the
+            # requested index, since the index may not align with a global count
+            m = matches[0]
+        elif occurrence_index < 1 or occurrence_index > len(matches):
+            # Requested occurrence is out of range - fall back to the last match
+            m = matches[-1]
+        else:
+            m = matches[occurrence_index - 1]
+        # line numbers are 1-based
+        return _CURRENT_RECIPE_STRING[:m.start()].count('\n') + 1
+    except Exception:
+        return None
+
+
+def _format_exception_type(error: Exception) -> str:
+    """
+    Convert exception class names to a display label.
+    """
+    name = error.__class__.__name__
+    return _re.sub(r"(?<!^)(?=[A-Z])", " ", name)
+
+
+def _get_exception_detail(error: Exception) -> str:
+    """
+    Return the most useful detail string without KeyError's repr quotes.
+    """
+    if len(getattr(error, "args", [])) == 1:
+        return str(error.args[0])
+    return str(error)
+
+
+def _get_error_suggestion(original_exception: Exception) -> str:
+    """
+    Best-effort: return a concise suggestion to help the user resolve
+    the given exception, based on its type.
+    """
+    try:
+        if isinstance(original_exception, FileNotFoundError):
+            return (
+                "Check the file path and permissions; ensure the file exists "
+                "and the path is correct."
+            )
+        elif isinstance(original_exception, KeyError):
+            return (
+                "Check that referenced columns, recipe variables, and function "
+                "parameters exist; verify spelling and casing."
+            )
+        elif isinstance(original_exception, ValueError):
+            return (
+                "Validate parameter formats and values in the recipe; ensure "
+                "types match expectations."
+            )
+        elif isinstance(original_exception, TypeError):
+            return (
+                "Verify function argument types and the number of parameters "
+                "in the recipe or custom functions."
+            )
+        elif isinstance(original_exception, NotImplementedError):
+            return (
+                "This feature is not implemented; remove or change the offending "
+                "parameter or use an alternative wrangle."
+            )
+        elif isinstance(original_exception, RuntimeError):
+            return (
+                "Check function return values and that connectors return the "
+                "expected types, such as a DataFrame for reads."
+            )
+        elif 'yaml' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _yaml.YAMLError):
+            return (
+                "Check YAML syntax and encoding; look for indentation, quoting, "
+                "or formatting issues."
+            )
+        elif 'request' in original_exception.__class__.__name__.lower() or isinstance(original_exception, _requests.exceptions.RequestException):
+            return (
+                "Verify the recipe URL, network connectivity, authentication, "
+                "and response status."
+            )
+    except Exception:
+        pass
+
+    return (
+        "Inspect the recipe at the indicated line; check parameters, variable "
+        "names, and custom functions for issues."
+    )
+
+
+def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
+    # If this exception was already enhanced by a nested recipe.run() call
+    # (e.g. an inner wrangle used by rename's `wrangles:`), propagate it as-is
+    # instead of wrapping it again - otherwise the message and line number
+    # would be duplicated and the real (inner) line number would be buried.
+    # Tracked via an attribute (rather than sniffing the message text) since
+    # intermediate code sometimes reformats the message (e.g. rename always
+    # re-raises as RuntimeError) independently of whether it was already
+    # enhanced.
+    if getattr(original_exception, '_wrangles_error_wrapped', False):
+        raise original_exception
+
+    line = None
+    try:
+        # For wrangles, we may have an index
+        if section.upper() == 'WRANGLE' and index is not None:
+            line = _find_item_line(name, index)
+        else:
+            # Best-effort: find first occurrence
+            line = _find_item_line(name, 1)
+    except Exception:
+        line = None
+
+    # Build enhanced message but keep original exception class so tests expecting
+    # original exceptions continue to work.
+    header = name or ""
+    if line is not None:
+        header += f" (line {line})"
+
+    detail = _get_exception_detail(original_exception)
+    suggestion = _get_error_suggestion(original_exception)
+    enhanced = (
+        f"{_format_exception_type(original_exception)}: {header}\n\n"
+        f"Details: {detail}\n"
+        f"Suggestions: {suggestion}"
+    )
+
+    # Re-raise same exception type with enhanced message
+    wrapped_exception = original_exception.__class__(enhanced)
+    wrapped_exception._wrangles_error_wrapped = True
+    raise wrapped_exception.with_traceback(original_exception.__traceback__) from None
 
 
 def _run_actions(
@@ -276,8 +483,8 @@ def _run_actions(
                 # Execute the function
                 func(**args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN ACTION: {action_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('ACTION', action_type, None, e)
 
 def _read_data(
     recipe: _Union[dict, list],
@@ -333,6 +540,11 @@ def _read_data(
 
                 # Reference the recipe execution input dataframe
                 if read_type == "input":
+                    if input_dataframe is None:
+                        # No dataframe was passed in to the recipe.
+                        # Treat as if this source returned nothing,
+                        # consistent with a false if condition above.
+                        return None
                     df = input_dataframe
                 # Allow blended imports
                 elif read_type in ['join', 'concatenate', 'union']:
@@ -387,8 +599,8 @@ def _read_data(
                     raise RuntimeError(f"Function {read_type} did not return a dataframe")
 
             except Exception as e:
-                # Append name of read to message and pass through exception
-                raise e.__class__(f"ERROR IN READ: {read_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('READ', read_type, None, e)
     if len(results) == 1:
         return results[0]
     else:
@@ -443,6 +655,27 @@ def _execute_wrangles(
                 # Used to store parameters common to all wrangles - e.g where
                 common_params = {}
 
+                # If the action is conditional, check if it should be run
+                # before column validation or wildcard expansion so that
+                # wrangles can be skipped when their input columns don't exist
+                if (
+                    "if" in params and
+                    not _evaluate_conditional(
+                        params["if"],
+                        {
+                            **variables,
+                            **{
+                                "row_count": len(df),
+                                "column_count": len(df.columns),
+                                "columns": df.columns.tolist(),
+                                "df": df
+                            }
+                        }
+                    )
+                ):
+                    _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
+                    continue
+
                 # Blacklist of Wrangles not to allow wildcards for
                 original_input = params.get('input') # Save for later reference
                 if (
@@ -479,29 +712,49 @@ def _execute_wrangles(
                         preserve_index=True
                     )
 
-                # If the action is conditional, check if it should be run
-                if (
-                    "if" in params and
-                    not _evaluate_conditional(
-                        params["if"],
-                        {
-                            **variables,
-                            **{
-                                "row_count": len(df),
-                                "column_count": len(df.columns),
-                                "columns": df.columns.tolist(),
-                                "df": df
-                            }
-                        }
-                    )
-                ):
-                    _logging.info(f": Wrangling :: {wrangle} skipped due to not passing the if statement.")
-                    continue
+                    # If where filters out all rows, skip actually executing the
+                    # wrangle (some wrangles error when given no rows), but if it
+                    # explicitly declares output columns, still add them (empty)
+                    # so the dataframe structure stays consistent with runs where
+                    # at least one row matches - otherwise batching with where can
+                    # produce inconsistent columns between batches
+                    if len(df) == 0:
+                        if 'output' in params:
+                            if isinstance(params['output'], list):
+                                output_columns = [
+                                    list(col.values()) if isinstance(col, dict) else [col]
+                                    for col in params['output']
+                                ]
+                                output_columns = [
+                                    item
+                                    for sublist in output_columns
+                                    for item in sublist
+                                ]
+                            elif isinstance(params['output'], dict):
+                                output_columns = list(params['output'].keys())
+                            else:
+                                output_columns = [params['output']]
+
+                            for col in output_columns:
+                                # Wildcard outputs (e.g. 'Col*') are expanded into
+                                # concrete column names based on the actual data,
+                                # which can't be determined with no rows to work
+                                # with - skip adding those, only add named columns
+                                if '*' in str(col):
+                                    continue
+                                if col not in df_original.columns:
+                                    df_original[col] = ''
+
+                        df = df_original
+                        continue
 
                 # Add to common_params dict and remove from params
                 for key in ['where', 'where_params', 'if']:
                     if key in params.keys():
                         common_params[key] = params.pop(key)
+
+                _logging.info(f": Wrangling :: {wrangle} :: Starting")
+                _wrangle_start_time = _time.perf_counter()
 
                 if wrangle.split('.')[0] == 'pandas':
                     # Execute a pandas method
@@ -785,12 +1038,13 @@ def _execute_wrangles(
                         if isinstance(input_display, list):  
                             input_display = ', '.join(str(x) for x in input_display)  
                             
-                        output_display = ', '.join(str(col) for col in output_columns)  
-                        _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display}")
+                        output_display = ', '.join(str(col) for col in output_columns)
+                        _wrangle_elapsed = _time.perf_counter() - _wrangle_start_time
+                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s")
 
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRANGLE #{i} {wrangle} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information and include wrangle index
+                _wrap_and_raise('WRANGLE', wrangle, i, e)
 
     return df
 
@@ -945,9 +1199,55 @@ def _write_data(
                     # Execute the function
                     func(df_temp, **args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRITE: {export_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('WRITE', export_type, None, e)
     return df_return
+
+
+def _contains_model_id(recipe_section, model_id: str, ignored_object=None) -> bool:
+    """
+    Return True when a recipe section references model_id.
+    """
+    if recipe_section is ignored_object:
+        return False
+
+    if isinstance(recipe_section, dict):
+        for key, value in recipe_section.items():
+            if key == "model_id" and value == model_id:
+                return True
+            if _contains_model_id(value, model_id, ignored_object):
+                return True
+
+    elif isinstance(recipe_section, list):
+        return any(
+            _contains_model_id(item, model_id, ignored_object)
+            for item in recipe_section
+        )
+
+    return False
+
+
+def _validate_train_delete_targets(recipe: dict) -> None:
+    """
+    Prevent a recipe from deleting a model_id it also uses elsewhere.
+    """
+    write_section = recipe.get("write", [])
+    if not isinstance(write_section, list):
+        write_section = [write_section]
+
+    for write_step in write_section:
+        if not isinstance(write_step, dict):
+            continue
+
+        for export_type, params in write_step.items():
+            if export_type != "train.delete" or not isinstance(params, dict):
+                continue
+
+            model_id = params.get("model_id")
+            if model_id and _contains_model_id(recipe, model_id, params):
+                raise ValueError(
+                    f"Cannot delete model {model_id} because it is used elsewhere in this recipe."
+                )
 
 
 def _run_thread(
@@ -978,6 +1278,8 @@ def _run_thread(
     """
     if variables is None:
         variables = {}
+
+    _validate_train_delete_targets(recipe)
     
     # Parse recipe and custom functions from the various
     # supported sources such as files, url, model id
@@ -1051,39 +1353,46 @@ def run(
     if variables is None:
         variables = {}
 
-    # Parse recipe
-    recipe, functions = _load_recipe(
-        recipe,
-        variables,
-        functions or {}
-    )
+    global _RECIPE_RUN_DEPTH
+    with _RECIPE_RUN_DEPTH_LOCK:
+        _RECIPE_RUN_DEPTH += 1
+    try:
+        # Parse recipe
+        recipe, functions = _load_recipe(
+            recipe,
+            variables,
+            functions or {}
+        )
 
-    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
-        try:
-            future = executor.submit(
-                _run_thread,
-                recipe,
-                variables,
-                dataframe,
-                functions
-            )
-            return future.result(timeout)
-        
-        except _futures.TimeoutError as e:
+        with _futures.ThreadPoolExecutor(max_workers=1) as executor:
             try:
-                executor._threads.clear()
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+                future = executor.submit(
+                    _run_thread,
+                    recipe,
+                    variables,
+                    dataframe,
+                    functions
+                )
+                return future.result(timeout)
 
-        except Exception as e:
-            try:
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise
+            except _futures.TimeoutError as e:
+                try:
+                    executor._threads.clear()
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+
+            except Exception as e:
+                try:
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise
+    finally:
+        with _RECIPE_RUN_DEPTH_LOCK:
+            _RECIPE_RUN_DEPTH -= 1
