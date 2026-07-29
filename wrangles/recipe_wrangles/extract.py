@@ -250,7 +250,7 @@ def address(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -610,7 +610,7 @@ def attributes(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -734,7 +734,7 @@ def brackets(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -882,7 +882,7 @@ def codes(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1003,7 +1003,7 @@ def custom(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1326,7 +1326,7 @@ def html(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1420,7 +1420,7 @@ def properties(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1546,7 +1546,7 @@ def regex(
         output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string is provided, convert to list
     if not isinstance(input, list):
