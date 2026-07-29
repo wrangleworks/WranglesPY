@@ -8,7 +8,6 @@ import pandas as _pd
 from .. import extract as _extract
 from .. import data as _data
 
-
 _OUTPUT_FORMAT_ALIASES = {
     "json": "json",
     "json list": "json_list",
@@ -188,7 +187,6 @@ def _combine_list_rows(rows):
             combined.append(row)
     return list(dict.fromkeys(combined))
 
-
 def _combine_dict_rows(rows):
     combined = {}
     for row in rows:
@@ -198,7 +196,6 @@ def _combine_dict_rows(rows):
             values = value if isinstance(value, list) else [value]
             combined[key] = _combine_list_rows([combined.get(key, []), values])
     return combined
-
 
 def address(
     df: _pd.DataFrame,
@@ -250,7 +247,7 @@ def address(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -610,7 +607,7 @@ def attributes(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -734,7 +731,7 @@ def brackets(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -882,7 +879,7 @@ def codes(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1003,7 +1000,7 @@ def custom(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1326,7 +1323,7 @@ def html(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1420,7 +1417,7 @@ def properties(
     if output is None: output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
@@ -1546,7 +1543,7 @@ def regex(
         output = input
 
     # Whether output was explicitly given as a list of column names
-    output_is_list = isinstance(output, list)
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string is provided, convert to list
     if not isinstance(input, list):
@@ -1583,4 +1580,3 @@ def regex(
             _write_regex(input_column, [output_column])
 
     return df
-
