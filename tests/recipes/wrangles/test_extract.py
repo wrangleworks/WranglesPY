@@ -2677,7 +2677,7 @@ class TestExtractBrackets:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['no_brackets'] == ['1234']
-
+    
     def test_extract_brackets_single_item_output_list(self):
         """
         Providing output as an explicit single-item list should behave

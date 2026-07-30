@@ -673,7 +673,7 @@ def brackets(
     ) -> list:
     """
     Extract values in brackets, [], {}, (), <>
-
+    
     :param input: Input string to search for brackets
     :param find: Types of brackets to find (e.g., 'round', 'square', 'curly', 'angled'). Default is all types.
     :param include_brackets: Whether to include brackets in the results
