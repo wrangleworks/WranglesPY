@@ -1252,7 +1252,36 @@ class TestExtractCustom:
             })
         )
         assert df.iloc[0]['Fact2'] == ['Charizard']
-        
+
+    def test_extract_custom_mismatched_input_output_lengths(self):
+        """
+        If input and output are different lengths (and output has more
+        than one column), extract.custom should raise a clear error
+        rather than silently dropping the extra output columns
+        """
+        data = pd.DataFrame({
+            'col1': ['First Place Pikachu'],
+            'col2': ['Second Place Charizard']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+                - col1
+                - col2
+            output:
+                - Fact1
+                - Fact2
+                - Fact3
+            model_id: 1eddb7e8-1b2b-4a52
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
+        )
+
     def test_extract_custom_where(self):
         """
         Test custom extract with where

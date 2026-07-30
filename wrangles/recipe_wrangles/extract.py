@@ -624,7 +624,11 @@ def custom(
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     if not isinstance(model_id, list): model_id = [model_id]
-    
+
+    # Ensure input and output lengths are compatible
+    if len(input) != len(output) and len(output) > 1:
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+
     if len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
