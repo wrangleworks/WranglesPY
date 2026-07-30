@@ -484,10 +484,26 @@ def custom(
 
     if isinstance(results, dict) and "data" in results and "columns" in results:
         if len(results["columns"]) == 1:
-            results = [
-                row[0]
-                for row in results["data"]
-            ]
+            # For a single output column, the service returns the matches
+            # as a ", " joined string rather than an array. Convert this
+            # back into a list of matches to preserve the expected output type.
+            def _entities_to_list(value):
+                if isinstance(value, list):
+                    return value
+                if value in (None, ""):
+                    return []
+                return [item.strip() for item in value.split(",")]
+
+            if use_labels:
+                results = [
+                    {results["columns"][0]: _entities_to_list(row[0])}
+                    for row in results["data"]
+                ]
+            else:
+                results = [
+                    _entities_to_list(row[0])
+                    for row in results["data"]
+                ]
         else:
             results = [
                 {results["columns"][i]: row[i] for i in range(len(row))}
@@ -661,7 +677,7 @@ def brackets(
     :param input: Input string to search for brackets
     :param find: Types of brackets to find (e.g., 'round', 'square', 'curly', 'angled'). Default is all types.
     :param include_brackets: Whether to include brackets in the results
-    :return: List of extracted values
+    :return: List of lists of extracted values
     """
     results = []
     bracket_patterns = {
@@ -687,8 +703,7 @@ def brackets(
         # Traverse list and remove all brackets if include_brackets is False
         if include_brackets is False:
             re = [_re.sub(r'\[|\]|{|}|\(|\)|<|>', '', re[x]) for x in range(len(re))]
-            results.append(', '.join(re))
-        else:
-            results.append(', '.join(re))
-        
+
+        results.append(re)
+
     return results
