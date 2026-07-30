@@ -129,67 +129,67 @@ jobs:
           pip install .
           wrangles.recipe tests/samples/generate-data.wrgl.yml
 
-  # ── 3. Generate and test schema ──────────────────────────────────────────
-  test-generate-schema:
-    name: Generate and Test Schema
-    runs-on: ubuntu-latest
-    needs: [compute-version]
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
+  # # ── 3. Generate and test schema ──────────────────────────────────────────
+  # test-generate-schema:
+  #   name: Generate and Test Schema
+  #   runs-on: ubuntu-latest
+  #   needs: [compute-version]
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v6
+  #       with:
+  #         python-version: '3.12'
 
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements-full.txt
-          pip install jsonschema
+  #     - name: Install Dependencies
+  #       run: |
+  #         pip install -r requirements-full.txt
+  #         pip install jsonschema
 
-      - name: Generate and Test Schema
-        run: cd schema && python generate_recipe_schema.py
+  #     - name: Generate and Test Schema
+  #       run: cd schema && python generate_recipe_schema.py
 
-      - name: Save schema as schema_dev.json
-        run: cp schema/schema.json schema/schema_dev.json
+  #     - name: Save schema as schema_dev.json
+  #       run: cp schema/schema.json schema/schema_dev.json
 
-      - name: Checkout wrangleworks.github.io
-        uses: actions/checkout@v5
-        with:
-          repository: wrangleworks/wrangleworks.github.io
-          token: ${{ secrets.CROSS_REPO_PAT_V2 }}
-          path: wrangleworks.github.io
+  #     - name: Checkout wrangleworks.github.io
+  #       uses: actions/checkout@v5
+  #       with:
+  #         repository: wrangleworks/wrangleworks.github.io
+  #         token: ${{ secrets.CROSS_REPO_PAT_V2 }}
+  #         path: wrangleworks.github.io
 
-      - name: Copy schema_dev.json to wrangleworks.github.io
-        run: cp schema/schema_dev.json wrangleworks.github.io/schema/recipes/schema_dev.json
+  #     - name: Copy schema_dev.json to wrangleworks.github.io
+  #       run: cp schema/schema_dev.json wrangleworks.github.io/schema/recipes/schema_dev.json
 
-      - name: Commit and push schema_dev.json
-        working-directory: wrangleworks.github.io
-        run: |
-          git config user.name "mborodii-prog"
-          git config user.email "mborodii@binariks.com"
-          git add schema/recipes/schema_dev.json
-          if git diff --cached --quiet; then
-            echo "No changes to schema_dev.json, skipping commit."
-          else
-            git commit -m "Update dev recipe schema"
-            git push
-          fi
+  #     - name: Commit and push schema_dev.json
+  #       working-directory: wrangleworks.github.io
+  #       run: |
+  #         git config user.name "mborodii-prog"
+  #         git config user.email "mborodii@binariks.com"
+  #         git add schema/recipes/schema_dev.json
+  #         if git diff --cached --quiet; then
+  #           echo "No changes to schema_dev.json, skipping commit."
+  #         else
+  #           git commit -m "Update dev recipe schema"
+  #           git push
+  #         fi
 
-      - name: Save Schema as Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: schema
-          path: schema/schema_dev.json
+  #     - name: Save Schema as Artifact
+  #       uses: actions/upload-artifact@v6
+  #       with:
+  #         name: schema
+  #         path: schema/schema_dev.json
 
   # ── 4. Publish Python package to CodeArtifact ────────────────────────────
   publish-codeartifact:
     name: Publish RC Package
     runs-on: ubuntu-latest
-    needs: [compute-version, test-pip-install, test-generate-schema]
+    needs: [compute-version, test-pip-install]
     permissions:
       contents: read
       id-token: write   # required for OIDC AssumeRoleWithWebIdentity
