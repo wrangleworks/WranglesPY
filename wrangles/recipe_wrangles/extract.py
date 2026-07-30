@@ -454,8 +454,7 @@ def brackets(
         df[output[0]] = _extract.brackets(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             find,
-            include_brackets,
-            return_data_type="list"
+            include_brackets
         )
     else:
         # Loop through and apply for all columns
@@ -463,8 +462,7 @@ def brackets(
             df[output_column] = _extract.brackets(
                 df[input_column].astype(str).tolist(),
                 find,
-                include_brackets,
-                return_data_type="list"
+                include_brackets
             )
 
     return df
