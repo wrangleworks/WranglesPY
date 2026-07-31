@@ -400,15 +400,6 @@ def ai(
     """
     output_format_normalized = _normalize_output_format(output_format, "columns")
 
-    # If input is provided, extract only those columns
-    # Otherwise, provide the whole dataframe
-    if input is not None:
-        if not isinstance(input, list):
-            input = [input]
-        df_temp = df[input]
-    else:
-        df_temp = df
-    
     # Target columns will contain a list of column names
     # to insert to created results into
     target_columns = None
@@ -459,6 +450,20 @@ def ai(
     # If a schema has been provided, define the target columns
     if not target_columns and output is not None:
         target_columns = list(output.keys())
+
+    # If input is provided, extract only those columns. Otherwise, provide
+    # the whole dataframe except columns this wrangle is about to overwrite.
+    if input is not None:
+        if not isinstance(input, list):
+            input = [input]
+        df_temp = df[input]
+    else:
+        input_columns = [
+            column
+            for column in df.columns
+            if not target_columns or column not in target_columns
+        ]
+        df_temp = df[input_columns]
 
     results = _extract.ai(
         df_temp.to_dict(orient='records'),
@@ -1583,4 +1588,3 @@ def regex(
             _write_regex(input_column, [output_column])
 
     return df
-
