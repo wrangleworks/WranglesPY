@@ -526,10 +526,26 @@ def custom(
 
     if isinstance(results, dict) and "data" in results and "columns" in results:
         if len(results["columns"]) == 1:
-            results = [
-                row[0]
-                for row in results["data"]
-            ]
+            # For a single output column, the service returns the matches
+            # as a ", " joined string rather than an array. Convert this
+            # back into a list of matches to preserve the expected output type.
+            def _entities_to_list(value):
+                if isinstance(value, list):
+                    return value
+                if value in (None, ""):
+                    return []
+                return [item.strip() for item in value.split(",")]
+
+            if use_labels:
+                results = [
+                    {results["columns"][0]: _entities_to_list(row[0])}
+                    for row in results["data"]
+                ]
+            else:
+                results = [
+                    _entities_to_list(row[0])
+                    for row in results["data"]
+                ]
         else:
             results = [
                 {results["columns"][i]: row[i] for i in range(len(row))}
