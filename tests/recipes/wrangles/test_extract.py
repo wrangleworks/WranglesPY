@@ -3596,6 +3596,50 @@ class TestExtractAI:
             result = wrangles.recipe.run(recipe, dataframe=df)
         assert result.iloc[0]["tags"] == "wrench | 25mm"
 
+    def test_ai_existing_output_column_is_not_used_as_implicit_input(self):
+        df = pd.DataFrame({
+            "data": [
+                "wrench 25mm",
+                "6m cable",
+                "screwdriver 3mm"
+            ],
+            "length": [123, 123, 123]
+        })
+        recipe = """
+        wrangles:
+        - extract.ai:
+            api_key: dummy
+            output:
+              length:
+                type: string
+                description: >-
+                  Any lengths found in the data
+                  such as cm, m, ft, etc.
+        """
+
+        with patch(
+            "wrangles.extract.ai",
+            return_value=[
+                {"length": "25mm"},
+                {"length": "6m"},
+                {"length": "3mm"}
+            ]
+        ) as mock_ai:
+            result = wrangles.recipe.run(recipe, dataframe=df)
+
+        assert mock_ai.call_args.kwargs["output"] == {
+            "length": {
+                "type": "string",
+                "description": "Any lengths found in the data such as cm, m, ft, etc."
+            }
+        }
+        assert mock_ai.call_args.args[0] == [
+            {"data": "wrench 25mm"},
+            {"data": "6m cable"},
+            {"data": "screwdriver 3mm"}
+        ]
+        assert result["length"].tolist() == ["25mm", "6m", "3mm"]
+
     def test_ai(self):
         """
         Test openai extract with a single input and output
