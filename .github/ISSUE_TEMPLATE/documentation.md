@@ -1,22 +1,17 @@
 ---
 name: Documentation
 about: Updates for Docs
-title: '[DOCS] '
-labels: documentation
+title: ''
+labels: 'P1'
 assignees: ''
+type: Enhancement
 ---
 
-**Location**
-URL or path to documentation
-
-**Issue**
-- [ ] Missing
-- [ ] Incorrect
-- [ ] Unclear
-- [ ] Outdated
-
 **Description**
-What needs to be fixed or added?
+What is missing, incorrect, or unclear in the documentation?
 
-**Suggestion**
-How should it be improved?
+**Desired Behavior**
+What should the documentation say or cover?
+
+**Example current / desired**
+Link to the page + current text vs. proposed text
