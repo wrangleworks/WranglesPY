@@ -1,6 +1,57 @@
 import pandas as _pd
 from typing import Union as _Union
 from numpy import nan as _nan
+import logging as _logging
+
+
+def _sort_by_columns(by):
+    return [by] if isinstance(by, str) else list(by)
+
+
+def _is_empty_sort_value(value):
+    if isinstance(value, str) and value.strip() == "":
+        return True
+
+    try:
+        return bool(_pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _coerce_sort_series(series: _pd.Series) -> _pd.Series:
+    non_empty = series[~series.map(_is_empty_sort_value)]
+    if non_empty.empty:
+        return series
+
+    numeric_values = _pd.to_numeric(series, errors="coerce")
+    numeric_count = numeric_values.loc[non_empty.index].notna().sum()
+    if numeric_count >= len(non_empty) / 2:
+        return numeric_values.fillna(0)
+
+    return series.map(lambda value: "" if _is_empty_sort_value(value) else str(value))
+
+
+def _coerced_sort_values(df: _pd.DataFrame, by_columns: list, ignore_index: bool, kwargs: dict) -> _pd.DataFrame:
+    sort_df = df.copy()
+    sort_kwargs = kwargs.copy()
+    temp_columns = []
+
+    for index, column in enumerate(by_columns):
+        if column not in sort_df.columns:
+            continue
+
+        temp_column = f"__wrangles_sort_key_{index}"
+        while temp_column in sort_df.columns:
+            temp_column = f"_{temp_column}"
+
+        sort_df[temp_column] = _coerce_sort_series(sort_df[column])
+        temp_columns.append(temp_column)
+
+    if not temp_columns:
+        return df.sort_values(ignore_index=ignore_index, **kwargs)
+
+    sort_kwargs["by"] = temp_columns
+    return sort_df.sort_values(ignore_index=ignore_index, **sort_kwargs).drop(columns=temp_columns)
 
 
 def copy(
@@ -29,6 +80,7 @@ def copy(
           - array
         description: Name of the output columns or columns
     """
+    _logging.debug(f": Copying columns :: input :: {input}")
     # If short form of paired names is provided, use that
     if input is None:
         # Check that column name exists
@@ -75,6 +127,7 @@ def drop(df: _pd.DataFrame, columns: _Union[str, list]) -> _pd.DataFrame:
           - string
         description: Name of the column(s) to drop
     """
+    _logging.debug(f": Dropping columns :: {columns}")
     return df.drop(columns=columns, errors='ignore')
     
 
@@ -94,6 +147,7 @@ def transpose(df: _pd.DataFrame, header_column = 0) -> _pd.DataFrame:
           for the transposed DataFrame. Default 0 (first column).
           Use header_column = null to not use any column as header.
     """
+    _logging.debug(f": Transposing dataframe :: header_column :: {header_column}")
     if header_column is not None:
         if isinstance(header_column, int):
             # If header_column is an integer, use it as the column index
@@ -137,13 +191,14 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
           If this is a list of bools then it must match the length of the by.
     """
     
+    _logging.debug(": Sorting dataframe")
     # Extract and normalize the 'by' parameter  
     by = kwargs.get("by")  
     if by is None:  
         raise ValueError("'by' parameter is required for sorting")  
       
     # Ensure 'by' is a list for consistent processing  
-    by_columns = [by] if isinstance(by, str) else by  
+    by_columns = _sort_by_columns(by)  
       
     # Check if any columns need dtype conversion (float16 -> float32)  
     # float16 can cause sorting issues in pandas  
@@ -161,8 +216,12 @@ def sort(df: _pd.DataFrame, ignore_index=True, **kwargs) -> _pd.DataFrame:
             if col in df.columns and df[col].dtype == "float16":  
                 df[col] = df[col].astype("float32")  
       
-    # Perform the sort operation  
-    return df.sort_values(ignore_index=ignore_index, **kwargs)
+    # Perform the sort operation. If mixed column types cannot be compared,
+    # retry using temporary sort keys coerced to the predominant compatible type.
+    try:
+        return df.sort_values(ignore_index=ignore_index, **kwargs)
+    except TypeError:
+        return _coerced_sort_values(df, by_columns, ignore_index, kwargs)
 
 
 def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, output: _Union[str, list] = None) -> _pd.DataFrame:
@@ -194,6 +253,7 @@ def round(df: _pd.DataFrame, input: _Union[str, int, list], decimals: int = 0, o
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     
+    _logging.debug(f": Rounding columns :: input :: {input}, decimals :: {decimals}")
     for input_column, output_column in zip(input, output):
         # coerce input column to floats (nan on error)
         # replace nan with empty string
@@ -277,6 +337,7 @@ def explode(
             If false, rows that contain empty lists will keep 1 row with an empty value.
             Default False.
     """
+    _logging.debug(f": Exploding columns :: {input}")
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     

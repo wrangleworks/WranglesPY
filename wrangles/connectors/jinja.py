@@ -1,6 +1,7 @@
 """
 Use JINJA to manipulate a template
 """
+import logging as _logging
 from ..utils import LazyLoader as _LazyLoader
 
 # Lazy load external dependency
@@ -17,6 +18,7 @@ def run(template: dict, context: dict, output_file: str):
     :param context: A dictionary used to define the output template
     :param output_file: File name/path for the file to be output
     """
+    _logging.info(f": Processing Jinja template :: output_file :: {output_file}")
     if 'file' in template:
         template = _jinja.Environment(
             loader=_jinja.FileSystemLoader(''),

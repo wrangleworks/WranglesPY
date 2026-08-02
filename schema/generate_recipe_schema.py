@@ -158,24 +158,28 @@ getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
 # Add common wrangle properties
 for wrangle in schema['wrangles']:
-    if "properties" not in schema['wrangles'][wrangle]:
-        schema['wrangles'][wrangle]["properties"] = {}
+    if "properties" in schema['wrangles'][wrangle]:
+        wrangle_properties = schema['wrangles'][wrangle]['properties']
+    else:
+        # Wrangles defined with a top-level anyOf (e.g. recipe, which is
+        # recursive) keep their properties in the final anyOf branch
+        wrangle_properties = schema['wrangles'][wrangle]['anyOf'][-1]['properties']
 
-    schema['wrangles'][wrangle]['properties']["if"] = {
+    wrangle_properties["if"] = {
         "$ref": f"#/$defs/wrangles/commonProperties/if"
     }
 
     if wrangle not in wrangles.config.where_not_implemented:
         if wrangle in wrangles.config.where_overwrite_output:
-            schema['wrangles'][wrangle]['properties']['where'] = {
+            wrangle_properties['where'] = {
                 "$ref": "#/$defs/wrangles/commonProperties/where_special"
             }
         else:
-            schema['wrangles'][wrangle]['properties']['where'] = {
+            wrangle_properties['where'] = {
                 "$ref": "#/$defs/wrangles/commonProperties/where"
             }
 
-        schema['wrangles'][wrangle]['properties']["where_params"] = {
+        wrangle_properties["where_params"] = {
             "$ref": f"#/$defs/wrangles/commonProperties/where_params"
         }
 

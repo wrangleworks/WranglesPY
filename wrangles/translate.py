@@ -2,6 +2,7 @@
 Functions to translate text
 """
 from typing import Union as _Union
+import logging as _logging
 from . import config as _config
 from . import batching as _batching
 
@@ -102,6 +103,7 @@ def translate(
     elif case == 'title':
         json_data = [val.title() for val in json_data]
 
+    _logging.info(f": Translating {len(json_data)} records :: {source_language} -> {target_language}")
     url = f'{_config.api_host}/wrangles/translate'
     params = {
         'responseFormat':'array',

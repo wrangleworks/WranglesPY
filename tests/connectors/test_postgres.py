@@ -103,13 +103,15 @@ def test_write_sql_experimental(mocker):
     
 
 def test_psql_insert_copy(mocker):
-    m = mocker.patch("wrangles.connectors.postgres.write")
-    m2 = mocker.patch("psycopg2.connect")
-    config = {
-        'table': m,
-        'conn': m2,
-        'keys': 'keys_mock',
-        'data_iter': 'data_iter_mock'
-    }
-    df = _psql_insert_copy(**config)
-    assert df == None
+    conn = mocker.MagicMock()
+    table = mocker.MagicMock()
+    table.schema = None
+    table.name = "WrWx"
+    result = _psql_insert_copy(
+        table=table,
+        conn=conn,
+        keys=["col1", "col2"],
+        data_iter=[("a", "b")],
+    )
+    assert result is None
+    conn.connection.cursor().__enter__().copy_expert.assert_called_once()
