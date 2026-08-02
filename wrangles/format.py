@@ -1,6 +1,7 @@
 from typing import Union as _Union
 import types as _types
 import re as _re
+import logging as _logging
 import pandas as _pandas
 import numpy as _np
 
@@ -14,6 +15,7 @@ def concatenate(data_list, concat_char, skip_empty: bool=False):
     """
     Concatenate a list of columns
     """
+    _logging.debug(f": Concatenating {len(data_list)} records :: char :: {concat_char}")
     if skip_empty:
         return [
             concat_char.join([str(x) for x in row if x])
@@ -46,6 +48,7 @@ def split(
     :param element: Slice the output lists to specific elements.
     :param skip_empty: If true, skip empty cells.
     """
+    _logging.debug(f": Splitting {len(input_list)} records :: char :: {split_char}")
     # Split as either regex or simple string
     if split_char[:6] == 'regex:':
         split_char = split_char[6:].strip()
@@ -122,15 +125,67 @@ def coalesce(input_list: list) -> list:
     Return the first not empty result for each row
     where each row has a list of possibilities
     """
+
+    _logging.debug(f": Coalescing {len(input_list)} values")
+
+    if not input_list:
+        return []
+
+    # Use numpy optimization for rectangular (fixed-width) input (e.g. multi-column coalesce).
+    # Fall back to Python loop for ragged input (e.g. lists stored in a single column).
+    row_len = len(input_list[0])
+    if row_len > 0 and all(len(row) == row_len for row in input_list):
+        arr = _np.empty((len(input_list), row_len), dtype=object)
+        for i, row in enumerate(input_list):
+            for j, val in enumerate(row):
+                arr[i, j] = val if val is not None else ''
+
+        n_rows, m = arr.shape
+
+        # Fast C-level check: find first column per row where value != ''
+        mask = arr != ''
+        idx = _np.argmax(mask, axis=1)
+        has_any = mask.any(axis=1)
+        result = arr[_np.arange(n_rows), idx].copy()
+        result[~has_any] = ''
+
+        # arr != '' treats whitespace-only strings as non-empty; handle those edge cases
+        # by stripping only the selected values (1 per row) rather than the full matrix.
+        try:
+            stripped_result = _np.frompyfunc(str.strip, 1, 1)(result)
+        except (TypeError, AttributeError):
+            def _safe_strip(x):
+                try:
+                    return x.strip()
+                except AttributeError:
+                    return '' if not x else x
+            stripped_result = _np.frompyfunc(_safe_strip, 1, 1)(result)
+        needs_fallback = _np.where(has_any & (stripped_result == ''))[0]
+        for i in needs_fallback:
+            for j in range(int(idx[i]) + 1, m):
+                val = arr[i, j]
+                if isinstance(val, str):
+                    val = val.strip()
+                if val:
+                    result[i] = val
+                    break
+            else:
+                result[i] = ''
+
+        return result.tolist()
+
     output_list = []
     for row in input_list:
         output_row = ''
         for value in row:
-            if isinstance(value, str): value = value.strip()
-            if value:
+            if isinstance(value, str):
+                value = value.strip()
+                if value:
+                    output_row = value
+                    break
+            elif value is not None:
                 output_row = value
                 break
-
         output_list.append(output_row)
     return output_list
 
@@ -139,6 +194,7 @@ def price_breaks(df_input, header_cat, header_val): # pragma: no cover
     """
     Rearrange price breaks
     """
+    _logging.info(f": Processing price breaks for {len(df_input)} records")
     output = []
     headers = []
     i = 1
@@ -224,6 +280,7 @@ def remove_duplicates(input_list: list, ignore_case: bool = False) -> list:
     """
     Remove duplicates from a list. Preserves input order.
     """
+    _logging.debug(f": Removing duplicates :: ignore_case :: {ignore_case}")
     results = []
     for row in input_list:
         # If row is a list, remove duplicates while ignoring case
@@ -462,6 +519,7 @@ def tokenize(
     :param pattern: A custom regex pattern or regex string to split the input on
     :return: The tokenized list
     """
+    _logging.debug(f": Tokenizing {len(input)} records")
     word_boundary_pattern = _re.compile(r"([\b\W\b])")
 
     def split_boundary_ignore_space(value):
