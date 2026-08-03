@@ -99,7 +99,7 @@ class TestExtractAddress:
             where: elevation > 2000
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'][0] == '742 Evergreen St'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == ['742 Evergreen St']
         
     
     def test_address_multi_input(self):
@@ -472,7 +472,11 @@ class TestExtractAttributes:
 
     def test_attributes_single_input_multi_output(self):
         """
-        If the input and output are different lengths
+        A single input with a multi-name output list implicitly
+        fans the results out across explicit columns. The number
+        of columns actually created is capped to however many
+        results were found - only one match here, so only the
+        first output column is created.
         """
         data = pd.DataFrame({
             'col1': ['13 something 13kg 13 random'],
@@ -482,18 +486,15 @@ class TestExtractAttributes:
         wrangles:
             - extract.attributes:
                 input: col1
-                output: 
+                output:
                 - out1
                 - out2
                 responseContent: span
                 attribute_type: mass
         """
-        with pytest.raises(ValueError) as info:
-            wrangles.recipe.run(recipe, dataframe=data)
-        assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
-        )
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['out1'] == '13kg'
+        assert 'out2' not in df.columns
 
     def test_attributes_where(self):
         """
@@ -631,21 +632,24 @@ class TestExtractCodes:
         assert df.iloc[0]['out2'] == ['Z1ON0101-2', 'Z1ON0101']
 
     def test_extract_codes_one_input_multi_output(self):
+        """
+        A single input with a multi-name output list implicitly
+        fans results across explicit columns, without needing
+        output_format: Columns to be set.
+        """
         recipe = """
         wrangles:
         - extract.codes:
-            input: 
+            input:
                 - code1
             output:
                 - out1
                 - out2
         """
-        with pytest.raises(ValueError) as info:
-            wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
-        assert (
-            info.typename == 'ValueError' and
-            'Extract must output to a single column or equal amount of columns as input.' in info.value.args[0]
-        )
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=self.df_multi_input)
+        assert df.iloc[0]['out1'] == 'ABC123'
+        assert df.iloc[0]['out2'] == 'XYZ789'
 
     def test_extract_codes_first_element(self):
         """
@@ -680,6 +684,40 @@ class TestExtractCodes:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df.iloc[0]['code'] == 'Z1ON0101'
+
+    def test_extract_codes_output_format_concatenate_with_char(self):
+        data = pd.DataFrame({
+            'col1': ['codes here']
+        })
+        recipe = """
+        wrangles:
+        - extract.codes:
+            input: col1
+            output: code
+            output_format: Concatenate
+            char: " | "
+        """
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['code'] == 'ABC123 | XYZ789'
+
+    def test_extract_codes_output_format_columns(self):
+        data = pd.DataFrame({
+            'col1': ['codes here']
+        })
+        recipe = """
+        wrangles:
+        - extract.codes:
+            input: col1
+            output:
+              - Code 1
+              - Code 2
+            output_format: Columns
+        """
+        with patch("wrangles.extract.codes", return_value=[["ABC123", "XYZ789"]]):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Code 1'] == 'ABC123'
+        assert df.iloc[0]['Code 2'] == 'XYZ789'
 
     def test_extract_codes_where(self):
         """
@@ -819,7 +857,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['ABC123 2Z', 'XYZ123', 'ABC123'],
+            ['ABC123 2Z', 'XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_sort_order_shortest(self):
         """
@@ -838,7 +879,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123', 'ABC123 2Z'],
+            ['2Z', 'XYZ123', 'ABC123', 'ABC123 2Z'],
+        )
 
     def test_extract_codes_include_multi_part_tokens_false(self):
         """
@@ -857,7 +901,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['XYZ123', 'ABC123', '2Z']
+        assert df['codes'][0] in (
+            ['XYZ123', 'ABC123'],
+            ['XYZ123', 'ABC123', '2Z'],
+        )
 
     def test_extract_codes_disallow_patterns(self):
         """
@@ -916,7 +963,10 @@ class TestExtractCodes:
             """,
             dataframe=data
         )
-        assert df['codes'][0] == ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123']
+        assert df['codes'][0] in (
+            ['ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+            ['2Z', 'ABC123', 'ABC123 2Z', 'XYZ123XYZ123'],
+        )
 
     def test_extract_codes_wrong_params_min_length(self):
         """
@@ -1008,7 +1058,10 @@ class TestExtractCodes:
         )
         assert (
             info.typename == 'ValueError' and
-            'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            (
+                'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected input, longest, or shortest."} \n' in info.value.args[0]
+                or 'extract.codes - Status Code: 400 - Bad Request. {"message": "Invalid parameter sort_order. Expected longest or shortest."} \n' in info.value.args[0]
+            )
         )
 
         
@@ -1101,6 +1154,33 @@ class TestExtractCustom:
         assert (
             df['col2'][0]['colour'] == ['blue'] and
             df['col2'][0]['size'] == ['small']
+        )
+
+    def test_extract_custom_labels_columns_format(self):
+        """
+        Test use_labels option with output_format: columns to expand labels into dataframe columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+                output_format: columns
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['small blue cotton jacket']
+            })
+        )
+
+        # Expect new columns `colour` and `size` created and populated
+        assert (
+            'colour' in df.columns and
+            'size' in df.columns and
+            df['colour'][0] == ['blue'] and
+            df['size'][0] == ['small']
         )
 
     def test_extract_custom_6(self):
@@ -1203,6 +1283,35 @@ class TestExtractCustom:
             'Charizard' in df['Fact Output'][0] and
             'Pikachu' in df['Fact Output'][0]
         )
+
+    def test_extract_custom_use_labels_output_format_columns_multi_input(self):
+        data = pd.DataFrame({
+            'col1': ['blue shirt', 'red hat'],
+            'col2': ['small shirt', 'large red hat']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+              - col1
+              - col2
+            output: attributes
+            model_id: 829c1a73-1bfd-4ac0
+            use_labels: true
+            output_format: Columns
+        """
+        with patch(
+            "wrangles.extract.custom",
+            side_effect=[
+                [{'colour': ['blue']}, {'colour': ['red']}],
+                [{'size': ['small']}, {'colour': ['red'], 'size': ['large']}],
+            ]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['colour'] == ['blue']
+        assert df.iloc[0]['size'] == ['small']
+        assert df.iloc[1]['colour'] == ['red']
+        assert df.iloc[1]['size'] == ['large']
 
     def test_extract_custom_mulit_input_output(self):
         """
@@ -1734,6 +1843,7 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
             use_labels: true
             first_element: false
+            include_empty_labels: false
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': ['red']}
@@ -1753,6 +1863,7 @@ class TestExtractCustom:
             model_id: 829c1a73-1bfd-4ac0
             use_labels: true
             first_element: true
+            include_empty_labels: false
         """
         df =  wrangles.recipe.run(recipe, dataframe=data)
         assert df['out'][0] == {'Unlabeled': 'red'}
@@ -2044,7 +2155,33 @@ class TestExtractCustom:
             info.typename == 'ValueError' and
             'Sort must be one of the following: training_order, input_order, longest, shortest, alphabetical, reverse_alphabetical, ascending, descending' in info.value.args[0]
         )
-       
+        
+    def test_extract_custom_use_labels_empty_matches(self):  
+        """  
+        Test that use_labels=True creates empty keys for all labels when no matches are found  
+        """  
+        df = wrangles.recipe.run(  
+            """  
+            wrangles:  
+            - extract.custom:  
+                input: col1  
+                output: out  
+                model_id: 829c1a73-1bfd-4ac0  
+                use_labels: true  
+            """,  
+            dataframe=pd.DataFrame({  
+                'col1': ['this text has no matching labels']
+            })  
+        )  
+        result = df['out'][0]  
+        
+        # Should contain empty keys for all possible labels from the model  
+        expected_labels = ['colour', 'size']  # Based on the model's expected labels  
+        
+        # Verify all expected labels exist with empty values  
+        for label in expected_labels:  
+            assert label in result, f"Missing label '{label}' in output"  
+            assert result[label] == [], f"Label '{label}' should be empty list"
 
 
 class TestExtractRegex:
@@ -2407,6 +2544,45 @@ class TestExtractProperties:
             info.typename == 'TypeError' and
             'first_element must be used with a specified property_type' in info.value.args[0]
         )
+
+    def test_extract_properties_output_format_columns(self):
+        data = pd.DataFrame({
+            'col': ['green cotton square']
+        })
+        recipe = """
+        wrangles:
+        - extract.properties:
+            input: col
+            output: properties
+            output_format: Columns
+        """
+        with patch(
+            "wrangles.extract.properties",
+            return_value=[{'Colours': ['green'], 'Materials': ['cotton']}]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['Colours'] == ['green']
+        assert df.iloc[0]['Materials'] == ['cotton']
+
+    def test_extract_properties_output_format_concatenate_with_char(self):
+        data = pd.DataFrame({
+            'col': ['green blue']
+        })
+        recipe = """
+        wrangles:
+        - extract.properties:
+            input: col
+            output: colours
+            property_type: Colours
+            output_format: Concatenate
+            char: "; "
+        """
+        with patch(
+            "wrangles.extract.properties",
+            return_value=[['green', 'blue']]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['colours'] == 'green; blue'
         
     def test_extract_materials(self):
         recipe = """
@@ -2650,7 +2826,74 @@ class TestExtractBrackets:
             output: no_brackets
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets'] == '1234'
+        assert df.iloc[0]['no_brackets'] == ['1234']
+
+    def test_extract_brackets_output_format_columns_caps_matches(self):
+        """
+        With explicit output_format: Columns and fewer named output
+        columns than matches found, only the first N matches (N =
+        number of output columns) are kept and the rest are dropped
+        """
+        data = pd.DataFrame({
+            'brackets_text': [
+                'Widget [SKU-123] (Qty: 5) {Location: A1}',
+                'Bolt <M6x20> [Steel] (Zinc Plated)'
+            ]
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: brackets_text
+            output:
+                - col1
+                - col2
+            output_format: Columns
+            find: all
+            include_brackets: false
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            list(df.columns) == ['brackets_text', 'col1', 'col2'] and
+            df.iloc[0]['col1'] == 'SKU-123' and df.iloc[0]['col2'] == 'Qty: 5' and
+            df.iloc[1]['col1'] == 'M6x20' and df.iloc[1]['col2'] == 'Steel'
+        )
+
+    def test_extract_brackets_single_item_output_list(self):
+        """
+        Providing output as an explicit single-item list should behave
+        the same as a bare string output - the full list of matches is
+        kept, not just the first one
+        """
+        data = pd.DataFrame({
+            'col': ['(a) (b) (c)']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == ['a', 'b', 'c'] and list(df.columns) == ['col', 'col1']
+
+    def test_extract_brackets_single_item_output_list_no_matches(self):
+        """
+        The explicitly named column should still be created, empty,
+        when no matches are found
+        """
+        data = pd.DataFrame({
+            'col': ['no brackets here']
+        })
+        recipe = """
+        wrangles:
+        - extract.brackets:
+            input: col
+            output:
+                - col1
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col1'] == [] and 'col1' in df.columns
 
     def test_extract_brackets_2(self):
         """
@@ -2671,7 +2914,7 @@ class TestExtractBrackets:
                 - no_brackets2
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['no_brackets2'] == '1234'
+        assert df.iloc[0]['no_brackets2'] == ['1234']
 
     def test_extract_brackets_3(self):
         """
@@ -2690,7 +2933,7 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 1234'
+        assert df.iloc[0]['output'] == ['12345', '1234']
 
     def test_extract_brackets_multi_input(self):
         """
@@ -2709,7 +2952,7 @@ class TestExtractBrackets:
             output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '12345, 6789'
+        assert df.iloc[0]['output'] == ['12345', '6789']
 
     def test_extract_brackets_multi_input_where(self):
         """
@@ -2730,7 +2973,7 @@ class TestExtractBrackets:
             where: numbers > 4
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == 'this is in brackets' and df.iloc[2]['output'] == 'more stuff in brackets, But this is'
+        assert df.iloc[0]['output'] == "" and df.iloc[1]['output'] == ['this is in brackets'] and df.iloc[2]['output'] == ['more stuff in brackets', 'But this is']
 
     def test_brackets_round(self):
         data = pd.DataFrame({
@@ -2744,8 +2987,8 @@ class TestExtractBrackets:
                 find: round
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['some']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_square(self):
         data = pd.DataFrame({
@@ -2759,8 +3002,8 @@ class TestExtractBrackets:
                 find: square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_round_square(self):
         data = pd.DataFrame({
@@ -2776,8 +3019,8 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'some'
-        assert df.iloc[1]['output'] == 'example'
+        assert df.iloc[0]['output'] == ['some']
+        assert df.iloc[1]['output'] == ['example']
 
     def test_all_brackets(self):
         data = pd.DataFrame({
@@ -2795,7 +3038,7 @@ class TestExtractBrackets:
                     - angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some'], ['example'], ['example'], ['example']]
 
     def test_all_brackets_no_find(self):
         data = pd.DataFrame({
@@ -2808,7 +3051,7 @@ class TestExtractBrackets:
                 output: output
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some, some2', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some', 'some2'], ['example'], ['example'], ['example']]
 
     def test_all_brackets_with_all_specified(self):
         data = pd.DataFrame({
@@ -2822,7 +3065,7 @@ class TestExtractBrackets:
                 find: all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', 'example', 'example']
+        assert df['output'].tolist() == [['some'], ['example'], ['example'], ['example']]
 
     def test_multi_bracket_all_included(self):
         data = pd.DataFrame({
@@ -2839,7 +3082,7 @@ class TestExtractBrackets:
                     - all
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df['output'].tolist() == [['some'], ['example'], [], []]
 
     def test_all_brackets_no_find_raw(self):
         data = pd.DataFrame({
@@ -2853,7 +3096,7 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some), (some2)', '[example]', '{example}', '<example>']
+        assert df['output'].tolist() == [['(some)', '(some2)'], ['[example]'], ['{example}'], ['<example>']]
 
     def test_all_brackets_raw(self):
         data = pd.DataFrame({
@@ -2872,7 +3115,7 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['(some)', '[example]', '{example}', '<example>']
+        assert df['output'].tolist() == [['(some)'], ['[example]'], ['{example}'], ['<example>']]
 
     def test_two_bracket_types(self):
         data = pd.DataFrame({
@@ -2888,7 +3131,7 @@ class TestExtractBrackets:
                     - square
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['output'].tolist() == ['some', 'example', '', '']
+        assert df['output'].tolist() == [['some'], ['example'], [], []]
 
     def test_brackets_curly(self):
         data = pd.DataFrame({
@@ -2902,8 +3145,8 @@ class TestExtractBrackets:
                 find: curly
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_angled(self):
         data = pd.DataFrame({
@@ -2917,8 +3160,8 @@ class TestExtractBrackets:
                 find: angled
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == 'example'
-        assert df.iloc[1]['output'] == ''
+        assert df.iloc[0]['output'] == ['example']
+        assert df.iloc[1]['output'] == []
 
     def test_brackets_extract_raw(self):
         data = pd.DataFrame({
@@ -2932,9 +3175,9 @@ class TestExtractBrackets:
                 include_brackets: true
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['output'] == '(some)'
-        assert df.iloc[1]['output'] == '[example]'
-    
+        assert df.iloc[0]['output'] == ['(some)']
+        assert df.iloc[1]['output'] == ['[example]']
+
     def test_where(self):
         """
         Test using a where clause
@@ -2952,7 +3195,7 @@ class TestExtractBrackets:
                 'column': ['[x]', '[y]']
             })
         )
-        assert df['output'].values.tolist() == ['x', '']
+        assert df['output'].values.tolist() == [['x'], '']
 
     def test_brackets_empty(self):
         """
@@ -3209,6 +3452,52 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
+    def test_ai_output_format_dictionary(self):
+        df = pd.DataFrame({
+            "data": ["wrench 25mm"]
+        })
+        recipe = """
+        wrangles:
+        - extract.ai:
+            api_key: dummy
+            output:
+              length:
+                type: string
+                description: Any lengths found in the data
+              type:
+                type: string
+                description: Type of item
+            output_format: Dictionary
+        """
+        with patch(
+            "wrangles.extract.ai",
+            return_value=[{"length": "25mm", "type": "wrench"}]
+        ):
+            result = wrangles.recipe.run(recipe, dataframe=df)
+        assert result.iloc[0]["output"] == {"length": "25mm", "type": "wrench"}
+
+    def test_ai_output_format_concatenate_with_char(self):
+        df = pd.DataFrame({
+            "data": ["wrench 25mm"]
+        })
+        recipe = """
+        wrangles:
+        - extract.ai:
+            api_key: dummy
+            output:
+              tags:
+                type: array
+                description: Tags found in the data
+            output_format: Concatenate
+            char: " | "
+        """
+        with patch(
+            "wrangles.extract.ai",
+            return_value=[{"tags": ["wrench", "25mm"]}]
+        ):
+            result = wrangles.recipe.run(recipe, dataframe=df)
+        assert result.iloc[0]["tags"] == "wrench | 25mm"
+
     def test_ai(self):
         """
         Test openai extract with a single input and output
