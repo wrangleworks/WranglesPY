@@ -547,7 +547,7 @@ def _execute_wrangles(
                     if key in params.keys():
                         common_params[key] = params.pop(key)
 
-                _logging.info(f": Wrangling :: {wrangle} :: Starting")
+                _logging.debug(f": Wrangling :: {wrangle} :: Starting")
                 _wrangle_start_time = _time.perf_counter()
 
                 if wrangle.split('.')[0] == 'pandas':
@@ -834,7 +834,7 @@ def _execute_wrangles(
                             
                         output_display = ', '.join(str(col) for col in output_columns)
                         _wrangle_elapsed = _time.perf_counter() - _wrangle_start_time
-                        _logging.info(f": Wrangling :: {wrangle} :: Completed :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s")
+                        _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s Completed")
 
             except Exception as e:
                 # Append name of wrangle to message and pass through exception
