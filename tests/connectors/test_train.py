@@ -1,4 +1,6 @@
 import uuid
+from importlib import import_module
+from unittest.mock import Mock
 
 import wrangles
 import pandas as pd
@@ -14,6 +16,21 @@ class LogCapture(logging.Handler):
         self.records.append(record)
     def get_messages(self):
         return [self.format(r) for r in self.records]
+
+def _delete_model_from_log(caplog, log_marker):
+    """
+    Find a model id logged as "<log_marker> :: <id>" and delete it, so tests
+    that create a real model clean up after themselves. Tolerates failure
+    while the real delete endpoint is unavailable.
+    """
+    for record in caplog.records:
+        if record.levelname == "INFO" and log_marker in record.message:
+            model_id = record.message.split("::")[-1].strip()
+            try:
+                wrangles.train.delete(model_id, confirm='delete')
+            except RuntimeError:
+                pass
+            return
 
 #
 # Classify
@@ -128,23 +145,26 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
-    df = pd.DataFrame({  
-        'Example': ['apple', 'banana'],  
-        'Category': ['fruit', 'fruit'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.classify:  
-              name: Test Classify Model  
-        """,  
-        dataframe=df  
-    )  
-  
-    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+def test_classify_write_logs_new_model_id_integration(caplog):
+    df = pd.DataFrame({
+        'Example': ['apple', 'banana'],
+        'Category': ['fruit', 'fruit'],
+        'Notes': ['', '']
+    })
+
+    try:
+        wrangles.recipe.run(
+            """
+            write:
+              - train.classify:
+                  name: Test Classify Model
+            """,
+            dataframe=df
+        )
+
+        assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+    finally:
+        _delete_model_from_log(caplog, "New classify model created")
 
 class TestTrainExtract:
     """
@@ -737,7 +757,6 @@ class TestTrainLookup:
             'Value': ['Updated Rachel', 'New Movie']  
         })  
         model_name = f"model {{ {uuid.uuid4().hex[:8]} }}"
-        
         recipe = f"""  
         write:  
         - train.lookup:  
@@ -745,13 +764,23 @@ class TestTrainLookup:
             action: UPSERT  
             variant: key  
         """  
-        
-        result = wrangles.recipe.run(recipe, dataframe=df)  
-        assert len(result) == 2  
-        assert 'NewCharacter' in result['Key'].tolist()  
-        assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
-        models = wrangles.data.user.models('lookup')
-        assert any(m['name'] == model_name for m in models)
+
+        model_id = None  
+        try:
+            result = wrangles.recipe.run(recipe, dataframe=df)
+            assert len(result) == 2
+            assert 'NewCharacter' in result['Key'].tolist()
+            assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
+            models = wrangles.data.user.models('lookup')
+            match = next((m for m in models if m['name'] == model_name), None)
+            assert match is not None
+            model_id = match['id']
+        finally:
+            if model_id:
+                try:
+                    wrangles.train.delete(model_id, confirm='delete')
+                except RuntimeError:
+                    pass
   
     def test_action_parameter_upsert(self):  
         """  
@@ -1359,33 +1388,21 @@ class TestTrainLookup:
         assert 'Blade Runner Upsert' in df['City'].values
         assert 'New Value' in df['City'].values
     
-    def test_missing_columns_error_message(self, mocker):
-        """
-        Verify that INSERT/UPSERT/UPDATE raise the expected error
-        when incoming columns are not present in the existing model.
-        """
+    def test_missing_columns_error_message(self):  
+        """  
+        Verify that INSERT/UPSERT/UPDATE raise the expected error  
+        when incoming columns are not present in the existing model.  
+        """  
 
-        df = pd.DataFrame({
-            "Key": ["k3"],
-            "Value": ["v3"],
-            "ExtraCol": ["x"]  # This column does not exist in the model
-        })
+        df = pd.DataFrame({  
+            "Key": ["k3"],  
+            "Value": ["v3"],  
+            "ExtraCol": ["x"]  # This column does not exist in the model  
+        })  
 
-        # Mock the existing model so the test does not depend on a real, live model
-        mocker.patch(
-            "wrangles.data.model_content",
-            return_value={
-                "Columns": ["Key", "Value"],
-                "Data": [["k1", "v1"]]
-            }
-        )
-        mocker.patch(
-            "wrangles.data.model",
-            return_value={"variant": "key"}
-        )
-
-        # Test each action that performs the column-alignment check
-        for action in ("insert", "upsert", "update"):
+    
+        # Test each action that performs the column-alignment check  
+        for action in ("insert", "upsert", "update"):  
             recipe = f"""
                 write:
                     - train.lookup:
@@ -1406,22 +1423,25 @@ def test_lookup_write_logs_new_model_id(caplog):
         'Key': ['apple', 'banana'],  
         'Value': ['fruit', 'fruit']  
     })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.lookup:  
-              name: Test Lookup Model Integration  
-              variant: key  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model_id was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "New lookup model created" in record.message  
-    )
+
+    try:
+        wrangles.recipe.run(  
+            """    
+            write:  
+              - train.lookup:  
+                  name: Test Lookup Model Integration  
+                  variant: key  
+            """,  
+            dataframe=df  
+        )  
+
+        # Check that model_id was logged  
+        assert any(  
+            record.message for record in caplog.records   
+            if record.levelname == "INFO" and "New lookup model created" in record.message  
+        )
+    finally:
+        _delete_model_from_log(caplog, "New lookup model created")
 
 
 #
@@ -1514,21 +1534,24 @@ def test_standardize_write_logs_new_model_id(caplog):
         'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
         'Notes': ['', '']  
     })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.standardize:  
-              name: Test Standardize Model Integration  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model creation was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
-    )
+
+    try:
+        wrangles.recipe.run(  
+            """  
+            write:  
+              - train.standardize:  
+                  name: Test Standardize Model Integration  
+            """,  
+            dataframe=df  
+        )  
+
+        # Check that model creation was logged  
+        assert any(  
+            record.message for record in caplog.records   
+            if record.levelname == "INFO" and "Creating new standardize model" in record.message  
+        )
+    finally:
+        _delete_model_from_log(caplog, "New standardize model created")
 
 
 class TestTrainMetaData:
@@ -1697,13 +1720,15 @@ class TestTrainDelete:
         assert model_id, f"No model_id in creation response: {body}"
         return model_id
 
-    def _mock_delete_ok(self, mocker):
-        mock = mocker.patch('wrangles.train._requests.delete')
+    def _mock_delete_ok(self, monkeypatch):
+        mock = Mock()
         mock.return_value.ok = True
         mock.return_value.status_code = 200
+        monkeypatch.setattr(import_module("wrangles.auth"), "get_access_token", lambda: "token")
+        monkeypatch.setattr(import_module("wrangles.train")._requests, "delete", mock)
         return mock
 
-    def test_create_and_delete_classify(self, mocker):
+    def test_create_and_delete_classify(self, monkeypatch):
         """
         Train a new classify model (real API) then delete it (mocked).
         Verifies creation succeeds and delete is called with the correct model_id.
@@ -1717,14 +1742,14 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        mock_delete = self._mock_delete_ok(mocker)
+        mock_delete = self._mock_delete_ok(monkeypatch)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_extract(self, mocker):
+    def test_create_and_delete_extract(self, monkeypatch):
         """
         Train a new extract model (real API) then delete it (mocked).
         Verifies creation succeeds and delete is called with the correct model_id.
@@ -1738,14 +1763,14 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        mock_delete = self._mock_delete_ok(mocker)
+        mock_delete = self._mock_delete_ok(monkeypatch)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_lookup(self, mocker):
+    def test_create_and_delete_lookup(self, monkeypatch):
         """
         Train a new lookup model (real API) then delete it (mocked).
         Verifies creation succeeds and delete is called with the correct model_id.
@@ -1759,14 +1784,14 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        mock_delete = self._mock_delete_ok(mocker)
+        mock_delete = self._mock_delete_ok(monkeypatch)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
 
-    def test_create_and_delete_standardize(self, mocker):
+    def test_create_and_delete_standardize(self, monkeypatch):
         """
         Train a new standardize model (real API) then delete it (mocked).
         Verifies creation succeeds and delete is called with the correct model_id.
@@ -1780,21 +1805,163 @@ class TestTrainDelete:
         assert response.ok, f"Model creation failed: {response.status_code} {response.text}"
 
         model_id = self._get_model_id(response)
-        mock_delete = self._mock_delete_ok(mocker)
+        mock_delete = self._mock_delete_ok(monkeypatch)
 
-        wrangles.train.delete(model_id)
+        wrangles.train.delete(model_id, confirm='delete')
 
         mock_delete.assert_called_once()
         assert model_id in str(mock_delete.call_args)
 
-    def test_delete_error_raises_runtime_error(self, mocker):
+    def test_delete_error_raises_runtime_error(self, monkeypatch):
         """
         A non-OK response from the delete endpoint raises RuntimeError.
         """
-        mock = mocker.patch('wrangles.train._requests.delete')
+        mock = Mock()
         mock.return_value.ok = False
         mock.return_value.status_code = 404
         mock.return_value.text = '{"message":"Not Found"}'
+        monkeypatch.setattr(import_module("wrangles.auth"), "get_access_token", lambda: "token")
+        monkeypatch.setattr(import_module("wrangles.train")._requests, "delete", mock)
 
         with pytest.raises(RuntimeError, match="Delete model failed"):
+            wrangles.train.delete("00000000-0000-0000", confirm='delete')
+
+    def test_delete_without_confirm_raises_value_error(self, monkeypatch):
+        """
+        Calling delete without confirm='delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
             wrangles.train.delete("00000000-0000-0000")
+
+        mock_delete.assert_not_called()
+
+    def test_delete_with_wrong_confirm_value_raises_value_error(self, monkeypatch):
+        """
+        Calling delete with any confirm value except 'delete' raises before the API is called.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.train.delete("00000000-0000-0000", confirm='yes')
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_wrangle_section(self, monkeypatch):
+        """
+        train.delete can be used as a side-effect wrangle in the wrangles section.
+        """
+        model_id = "93d92b4c-9f49-4ff5"
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        df = wrangles.recipe.run(
+            f"""
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    value: keep
+            wrangles:
+              - train.delete:
+                  model_id: {model_id}
+                  confirm: delete
+            """
+        )
+
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
+        assert df["value"].iloc[0] == "keep"
+
+    def test_delete_as_recipe_wrangle_section_requires_confirm(self, monkeypatch):
+        """
+        train.delete in a recipe wrangles section still requires confirm='delete'.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        value: keep
+                wrangles:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_wrangle_section_rejects_wrong_confirm(self, monkeypatch):
+        """
+        train.delete in a recipe wrangles section rejects confirm values other than 'delete'.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        value: keep
+                wrangles:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                      confirm: yes
+                """
+            )
+
+        mock_delete.assert_not_called()
+
+    def test_delete_as_recipe_write(self, monkeypatch):
+        """
+        train.delete can be used as a side-effect connector in the write section.
+        """
+        model_id = "93d92b4c-9f49-4ff5"
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        df = wrangles.recipe.run(
+            f"""
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    value: keep
+            write:
+              - train.delete:
+                  model_id: {model_id}
+                  confirm: delete
+            """
+        )
+
+        mock_delete.assert_called_once()
+        assert model_id in str(mock_delete.call_args)
+        assert df["value"].iloc[0] == "keep"
+
+    def test_delete_as_recipe_write_without_confirm_raises(self, monkeypatch):
+        """
+        train.delete in a recipe write section still requires confirm='delete'.
+        """
+        mock_delete = self._mock_delete_ok(monkeypatch)
+
+        with pytest.raises(ValueError, match="confirm='delete'"):
+            wrangles.recipe.run(
+                """
+                read:
+                  - test:
+                      rows: 1
+                      values:
+                        value: keep
+                write:
+                  - train.delete:
+                      model_id: 93d92b4c-9f49-4ff5
+                """
+            )
+
+        mock_delete.assert_not_called()
+

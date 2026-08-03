@@ -258,16 +258,23 @@ class train():
 
         if not response.ok:
             raise RuntimeError(f"Training Lookup Failed. {response.status_code} : {response.text}")
-        
+
         return response
 
-    def delete(model_id: str):
+    def delete(model_id: str, confirm: str = None):
         """
         Delete a trained model by its model ID.
         Requires WrangleWorks Account and Subscription.
 
         :param model_id: The ID of the model to delete.
+        :param confirm: Must be set to 'delete' to confirm this destructive action.
         """
+        if confirm != 'delete':
+            raise ValueError(
+                "Deleting a model is destructive. "
+                "To confirm, pass confirm='delete'."
+            )
+
         _logging.info(f": Deleting model :: {model_id}")
         response = _requests.delete(
             f'{_config.api_host}/model/delete',

@@ -28,3 +28,28 @@ from . import compare
 from . import generate
 from . import compute
 from . import search
+
+
+class train():
+    def delete(df, model_id: str, confirm: str = None):
+        """
+        type: object
+        description: Delete a trained model.
+        additionalProperties: false
+        required:
+          - model_id
+          - confirm
+        properties:
+          model_id:
+            type: string
+            description: The ID of the model to delete.
+          confirm:
+            type: string
+            description: Must be set to 'delete' to confirm this destructive action.
+            enum:
+              - delete
+        """
+        from ..train import train as _train
+
+        _train.delete(model_id, confirm=confirm)
+        return df
