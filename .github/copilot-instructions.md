@@ -213,7 +213,7 @@ Custom functions can be added to recipes:
 ## CI/CD Pipeline
 
 ### GitHub Actions Workflows
-- **publish-main.yml:** Main CI pipeline
+- **ci.yml:** Main CI pipeline
   - Pytest on multiple OS (Ubuntu, Windows)
   - Tests Python 3.11, 3.13
   - Test pip installation

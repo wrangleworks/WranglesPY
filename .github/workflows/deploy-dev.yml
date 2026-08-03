@@ -1,4 +1,4 @@
-name: Publish Dev Release Candidate
+name: Deploy Dev
 
 on:
   workflow_dispatch:
