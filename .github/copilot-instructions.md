@@ -112,6 +112,21 @@ Some tests require cloud-based ML models and need credentials set as environment
 
 Tests that require authentication will fail without these variables but this is expected in local development.
 
+## Git and Pull Request workflow
+
+- `main` is the production source of truth.
+- `dev` is a staging destination, not a feature-branch source.
+- Start every feature or fix branch from the latest `origin/main`.
+- Never create feature branches from `dev`.
+- The first pull request for a feature must target `dev` for staging validation.
+- Never merge `dev` into a feature branch.
+- After staging validation succeeds, open a second pull request from the same
+  feature branch into `main`.
+- Never merge `dev` into `main`.
+- Do not delete the feature branch until its pull request into `main` is merged.
+- Before opening a pull request, verify its commits, changed files, and focused
+  tests.
+
 ## Building & Packaging
 
 ### Local Installation
