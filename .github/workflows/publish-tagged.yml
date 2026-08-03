@@ -54,7 +54,6 @@ jobs:
           [[ -z "$CODEARTIFACT_REPOSITORY"   ]] && MISSING+=(CODEARTIFACT_REPOSITORY)
           if [[ ${#MISSING[@]} -gt 0 ]]; then
             echo "::error::The following GitHub Actions Variables are not set: ${MISSING[*]}"
-            echo "::error::See docs/release-runbook.md (Required configuration) for setup instructions."
             exit 1
           fi
 
@@ -282,7 +281,6 @@ jobs:
   #
   # Gated on test-container so a failing image blocks the package release
   # instead of letting the two artifacts diverge. Everything from this job
-  # onwards is externally visible - see docs/release-runbook.md to recover a
   # release that fails partway through.
   publish-codeartifact:
     name: Publish to CodeArtifact

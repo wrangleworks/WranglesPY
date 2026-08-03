@@ -52,7 +52,6 @@ jobs:
           [[ -z "$CODEARTIFACT_REPOSITORY"   ]] && MISSING+=(CODEARTIFACT_REPOSITORY)
           if [[ ${#MISSING[@]} -gt 0 ]]; then
             echo "::error::The following GitHub Actions Variables are not set: ${MISSING[*]}"
-            echo "::error::See docs/release-runbook.md (Required configuration) for setup instructions."
             exit 1
           fi
 
