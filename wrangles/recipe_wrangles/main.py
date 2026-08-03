@@ -276,7 +276,12 @@ def batch(
         pool_executor = _futures.ThreadPoolExecutor
 
     with pool_executor(max_workers=threads) as executor:
-        batches = list(_divide_batches(df, batch_size))
+        # Pandas row slices may be views. Give each worker an independent
+        # dataframe so nested wrangles can safely add or transform columns.
+        batches = [
+            batch.copy()
+            for batch in _divide_batches(df, batch_size)
+        ]
         
         # Set a chunk size for process pool executor
         # to reduce overhead of process creation
@@ -1360,7 +1365,7 @@ def python(
         exception = None
 
     # Raise a warniing for illegal python variables
-    if _re.search('\${.*\s.*}', command):
+    if _re.search(r'\${.*\s.*}', command):
         _logging.warning(f'Spaces should be dropped in python wrangle variables in order to be valid python syntax.')
 
     # Clean up variables and replace column variables with the column name

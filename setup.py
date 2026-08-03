@@ -16,6 +16,9 @@ setup(
         'wrangles.connectors',
         'wrangles.recipe_wrangles'
     ],
+    package_data = {
+        'wrangles': ['ai_defaults.yml']
+    },
     description = 'Wrangle your data into shape with AI',
     long_description = long_description,
     long_description_content_type = 'text/markdown',

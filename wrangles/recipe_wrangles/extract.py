@@ -302,8 +302,12 @@ def ai(
     description: Extract data using an AI model.
     additionalProperties: false
     required:
-      - output
       - api_key
+    anyOf:
+      - required:
+          - output
+      - required:
+          - model_id
     properties:
       input:
         type:
@@ -349,8 +353,48 @@ def ai(
                   - array
                 description: A default value to return.
               examples:
-                type: array
-                description: Provide examples of typical values to return.
+                type:
+                  - array
+                  - object
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                description: >-
+                  Provide typical output values, or paired objects with input
+                  and output keys for field-specific examples.
+              properties:
+                type:
+                  - object
+                  - array
+                  - string
+                description: >-
+                  Named properties for an object. A list or comma-separated
+                  string creates fixed property names.
+              additionalProperties:
+                type:
+                  - boolean
+                  - object
+                description: >-
+                  Set true, or provide a value schema, for a dynamic dictionary.
+                  Dynamic dictionaries automatically use non-strict schema mode
+                  while fixed portions of the output remain constrained.
+              items:
+                type: object
+                description: Schema for each item returned by an array.
+              nullable:
+                type: boolean
+                description: >-
+                  Whether the field may return null. Defaults to true while
+                  the field key remains required. Set false to opt out.
+      examples:
+        type:
+          - array
+          - object
+        description: >-
+          Holistic input/output example pairs spanning the complete output
+          record. Sparse outputs are completed with null for omitted fields.
       api_key:
         type: string
         description: API Key for the model
@@ -359,20 +403,52 @@ def ai(
         description: The name of the AI model to use
       threads:
         type: integer
-        description: The number of requests to send in parallel
+        minimum: 1
+        description: The number of requests to send in parallel. The configured default is 32.
       timeout:
-        type: integer
-        description: The number of seconds to wait for a response before timing out
+        type: number
+        exclusiveMinimum: 0
+        description: Per-request timeout in seconds. The configured default is 12.
       retries:
         type: integer
+        minimum: 0
         description: >-
           The number of times to retry if the request fails.
-          This will apply exponential backoff to help with rate limiting.
+          Defaults to 1. Retry delays and request timeouts are bounded
+          by the total deadline.
       url:
         type: string
         description: |-
-          Override the default url for the AI endpoint.
-          Must use the OpenAI chat completions API.
+          Override the endpoint configured for the selected protocol.
+          Existing chat/completions URLs are detected for backwards compatibility,
+          but definitions should set protocol explicitly while being upgraded.
+      provider:
+        type: string
+        description: AI provider. Phase 1 supports OpenAI; this field reserves a stable provider boundary.
+        enum:
+          - openai
+      protocol:
+        type: string
+        description: API protocol. Responses is the configured default.
+        enum:
+          - responses
+          - chat_completions
+      deadline:
+        type: number
+        exclusiveMinimum: 0
+        description: Total call budget in seconds, including retries. The configured default is 15.
+      store:
+        type: boolean
+        description: Whether OpenAI may store Responses. Defaults to false.
+      cache:
+        type: boolean
+        description: >-
+          Use the bounded warm-instance result cache. Defaults to true.
+          Set false for a call-level bypass.
+      cache_ttl:
+        type: number
+        exclusiveMinimum: 0
+        description: Override the result-cache TTL in seconds for this call.
       messages:
         type:
           - string
@@ -384,19 +460,31 @@ def ai(
       strict:
         type: boolean
         description: >-
-          Enable strict mode. Default False.
-          If True, the function will be required to match the schema,
-          but may be more limited in the schema it can return.
+          Enable structured output strict mode. Default true. Definitions with
+          dynamic dictionaries automatically use non-strict provider mode and
+          are validated locally.
+      reasoning:
+        type: object
+        description: >-
+          Responses API reasoning options. Defaults to effort none for models
+          that support disabling reasoning; otherwise the provider default applies.
+      verbosity:
+        type: string
+        description: Responses API output verbosity. Defaults to low for models that support low verbosity.
+        enum:
+          - low
+          - medium
+          - high
       output_format:
         type: string
-        description: Format of the extract output
+        description: Format of the extract output.
         enum:
           - dictionary
           - columns
           - concatenate
       char:
         type: string
-        description: Character to use when output_format is concatenate
+        description: Character to use when output_format is concatenate.
     """
     output_format_normalized = _normalize_output_format(output_format, "columns")
 
@@ -1248,7 +1336,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
         'business month starts': 'BMS',
         'quarters': 'Q',
         'quarter starts': 'QS',
-        'years': 'Y',
+        'years': 'YE',
         'business hours': 'BH',
         'hours': 'H',
         'minutes': 'T',
