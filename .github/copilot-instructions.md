@@ -220,6 +220,9 @@ Custom functions can be added to recipes:
   - Generate and test JSON schema
   - Build and push Docker image
   - Run container tests
+- **deploy-dev.yml:** Manual RC release to CodeArtifact, then DEV deploy
+- **publish-tagged.yml** (*Deploy Prod*)**:** `v*` tag release to GHCR, CodeArtifact
+  and PyPI.
 
 ### Workflow Jobs
 1. **pytest:** Run test suite across OS/Python matrix
@@ -227,6 +230,12 @@ Custom functions can be added to recipes:
 3. **test-generate-schema:** Generate JSON schema from code
 4. **build:** Create Docker image and push to GitHub Container Registry
 5. **test-container:** Validate Docker image with full test suite
+6. **promote-image:** Retag the tested image as `dev` / `latest`
+
+Mutable tags are only moved after `test-container` passes, and package
+publication is gated on the container, so the wheel and the image cannot
+diverge. See `docs/release-runbook.md` for the release order and for how to
+resume a release that fails partway through.
 
 ## Known Issues & Workarounds
 

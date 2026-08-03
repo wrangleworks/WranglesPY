@@ -54,6 +54,7 @@ jobs:
           [[ -z "$CODEARTIFACT_REPOSITORY"   ]] && MISSING+=(CODEARTIFACT_REPOSITORY)
           if [[ ${#MISSING[@]} -gt 0 ]]; then
             echo "::error::The following GitHub Actions Variables are not set: ${MISSING[*]}"
+            echo "::error::See docs/release-runbook.md (Required configuration) for setup instructions."
             exit 1
           fi
 
@@ -181,10 +182,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      # Login against a Docker registry except on PR
+      # Login against a Docker registry
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -199,15 +199,54 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Build and push Docker image with Buildx (don't push on PR)
+      # Build and push Docker image with Buildx
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  test-container:
+    name: Test Container
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    container:
+      image: ghcr.io/wrangleworks/wrangles:${{ needs.validate.outputs.version }}
+    env:
+      WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+      WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      HUGGINGFACE_TOKEN: ${{ secrets.HUGGINGFACE_TOKEN }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Remove wrangles folder
+        run: rm -r wrangles
+
+      - name: Install Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest==9.0.2 lorem pytest-mock
+
+      - name: Run Tests
+        run: pytest
+
+      - name: Run Recipe (Remote)
+        run: wrangles.recipe 42f319a8-0849-4177
+
+      - name: Run Recipe (Local)
+        run: >-
+          cd tests/samples
+          && wrangles.recipe recipe-basic.wrgl.yml
+          && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py
 
   # ── Build the distributions once so both registries get identical files ──
   build-dist:
@@ -240,10 +279,15 @@ jobs:
   # ── Publish to CodeArtifact ──────────────────────────────────────────────
   # Runs before PyPI: CodeArtifact rejects a version that already exists in a
   # reachable external repository, so publishing here first avoids a conflict.
+  #
+  # Gated on test-container so a failing image blocks the package release
+  # instead of letting the two artifacts diverge. Everything from this job
+  # onwards is externally visible - see docs/release-runbook.md to recover a
+  # release that fails partway through.
   publish-codeartifact:
     name: Publish to CodeArtifact
     runs-on: ubuntu-latest
-    needs: [validate, build-dist]
+    needs: [validate, build-dist, test-container]
     permissions:
       contents: read
       id-token: write   # required for OIDC AssumeRoleWithWebIdentity
@@ -277,8 +321,11 @@ jobs:
             --domain-owner ${{ vars.CODEARTIFACT_DOMAIN_OWNER }} \
             --repository ${{ vars.CODEARTIFACT_REPOSITORY }}
 
+      # --skip-existing keeps re-runs safe after a partial release: CodeArtifact
+      # answers 409 for an asset that is already stored, which twine treats as
+      # "already published" rather than a failure.
       - name: Publish to CodeArtifact
-        run: twine upload --repository codeartifact dist/*
+        run: twine upload --skip-existing --repository codeartifact dist/*
 
       # CodeArtifact persists package versions asynchronously, so a successful
       # upload is not proof the version is available to consumers yet.
@@ -317,4 +364,9 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        
+        with:
+          # Allows the job to be re-run after a partial release. A version can
+          # never be replaced on PyPI, so a bad publish is fixed by releasing a
+          # new version, not by re-running this job.
+          skip-existing: true
+

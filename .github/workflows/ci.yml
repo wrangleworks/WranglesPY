@@ -1,16 +1,20 @@
 name: CI
 
 on:
+  # Push is limited to the branches that publish an image. A branch with an open
+  # PR in this repo would otherwise produce a push run and a pull_request run for
+  # the same commit, and the two would cancel each other out of the concurrency
+  # group below. Feature branches are covered by their pull_request run.
   push:
-    branches: ['**']
+    branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
 
 concurrency:
-  # head_ref (PR) and ref_name (push) resolve to the same branch name, so the
-  # PR run supersedes the duplicate push run for the same commit.
-  group: ci-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: ${{ github.ref_name != 'main' && github.ref_name != 'dev' }}
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
+  # Pushes to main/dev publish and promote :latest / :dev, so they must always
+  # finish. Only superseded PR runs are safe to cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -21,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.resolve.outputs.matrix }}
-      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      build_tag: ${{ steps.resolve.outputs.build_tag }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
       push_image: ${{ steps.resolve.outputs.push_image }}
       run_build: ${{ steps.resolve.outputs.run_build }}
     steps:
@@ -38,35 +43,35 @@ jobs:
             echo 'matrix={"os":["ubuntu-latest"],"python-version":["3.11"]}' >> "$GITHUB_OUTPUT"
           fi
 
-          IMAGE_TAG=""
+          RELEASE_TAG=""
           PUSH_IMAGE=false
           RUN_BUILD=false
 
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             RUN_BUILD=true
-            if [[ "$BASE_REF" == "main" ]]; then
-              IMAGE_TAG="latest"
-            elif [[ "$BASE_REF" == "dev" ]]; then
-              IMAGE_TAG="dev"
-            fi
           elif [[ "$EVENT_NAME" == "push" ]]; then
             if [[ "$GITHUB_REF_NAME" == "main" ]]; then
-              IMAGE_TAG="latest"
+              RELEASE_TAG="latest"
               PUSH_IMAGE=true
               RUN_BUILD=true
             elif [[ "$GITHUB_REF_NAME" == "dev" ]]; then
-              IMAGE_TAG="dev"
+              RELEASE_TAG="dev"
               PUSH_IMAGE=true
               RUN_BUILD=true
             fi
           fi
 
-          # Local-only tag when building without pushing (PRs).
-          if [[ "$RUN_BUILD" == "true" && "$PUSH_IMAGE" == "false" ]]; then
-            IMAGE_TAG="ci-${GITHUB_SHA}"
+          # Pushes land on an immutable per-commit tag. The mutable release tag
+          # (dev / latest) is only moved onto that image once test-container
+          # passes, so consumers never resolve it to an untested build.
+          if [[ "$PUSH_IMAGE" == "true" ]]; then
+            BUILD_TAG="sha-${GITHUB_SHA}"
+          else
+            BUILD_TAG="ci-${GITHUB_SHA}"
           fi
 
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "build_tag=${BUILD_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "push_image=${PUSH_IMAGE}" >> "$GITHUB_OUTPUT"
           echo "run_build=${RUN_BUILD}" >> "$GITHUB_OUTPUT"
 
@@ -159,6 +164,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
@@ -181,14 +188,15 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Build and push Docker image with Buildx (don't push on PR / feature branches)
+      # Build and push Docker image with Buildx (build only, never push, on PRs)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ needs.config.outputs.push_image == 'true' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.image_tag }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
           labels: ${{ steps.meta.outputs.labels }}
 
   test-container:
@@ -196,7 +204,7 @@ jobs:
     if: needs.config.outputs.push_image == 'true'
     needs: [config, build]
     container:
-      image: ghcr.io/wrangleworks/wrangles:${{ needs.config.outputs.image_tag }}
+      image: ghcr.io/wrangleworks/wrangles:${{ needs.config.outputs.build_tag }}
     env:
       WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
       WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
@@ -229,3 +237,31 @@ jobs:
           cd tests/samples
           && wrangles.recipe recipe-basic.wrgl.yml
           && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py
+
+  # Moves :dev / :latest onto the image that test-container just validated.
+  # Retagging by digest guarantees the promoted image is the tested one and not
+  # a rebuild, so no consumer of a mutable tag ever sees an untested image.
+  promote-image:
+    name: Promote Image
+    runs-on: ubuntu-latest
+    if: needs.config.outputs.push_image == 'true'
+    needs: [config, build, test-container]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retag tested image as ${{ needs.config.outputs.release_tag }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${REGISTRY}/${IMAGE_NAME}:${RELEASE_TAG}" \
+            "${REGISTRY}/${IMAGE_NAME}@${DIGEST}"
+        env:
+          RELEASE_TAG: ${{ needs.config.outputs.release_tag }}
+          DIGEST: ${{ needs.build.outputs.digest }}
