@@ -8,6 +8,7 @@ import logging as _logging
 import requests as _requests
 import numpy as _np
 import time as _time
+from . import config as _config
 try:
     from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
@@ -225,7 +226,7 @@ def _embedding_thread(
 def embeddings(
     input_list,
     api_key,
-    model: str = "text-embedding-3-small",
+    model: str = _config.models.embeddings,
     batch_size: int = 100,
     threads: int = 10,
     retries: int = 0,

@@ -3452,6 +3452,9 @@ class TestExtractAI:
     """
     All tests for extract.ai
     """
+    variables = {
+    'EXTRACT_AI_MODEL':  wrangles.config.models.testing.extract_ai
+    }
     def test_ai_output_format_dictionary(self):
         df = pd.DataFrame({
             "data": ["wrench 25mm"]
@@ -3506,8 +3509,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3524,7 +3527,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3543,8 +3547,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3559,7 +3563,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3578,8 +3583,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3594,7 +3599,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3613,8 +3619,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 temperature: 0.2
                 timeout: 60
@@ -3628,7 +3634,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3648,8 +3655,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3661,7 +3668,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 1/3 as good enough for test to pass
@@ -3680,8 +3688,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3703,7 +3711,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 4/6 as good enough for test to pass
@@ -3725,8 +3734,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3749,7 +3758,8 @@ class TestExtractAI:
                     "6m",
                     "3mm"
                 ]
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3768,8 +3778,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3788,7 +3798,8 @@ class TestExtractAI:
                     "I almost threw up. I wouldn't go again.",
                     "I had a smile on my face all day."
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -3804,7 +3815,7 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3837,8 +3848,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 0.1
                 retries: 0
@@ -3860,7 +3871,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         assert (
             df['length'][0] == 'Timed Out' and
@@ -3879,8 +3891,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3898,7 +3910,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
 
         # This is temperamental, and sometimes GPT returns lowercase
@@ -3919,8 +3932,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 2
                 temperature: 0.2
                 timeout: 60
@@ -3934,7 +3947,8 @@ class TestExtractAI:
             """,
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            }),
+            variables=self.variables
         )
         assert (
             ("lemon" in df['fruits'][0] or "lemons" in df['fruits'][0]) and
@@ -3950,8 +3964,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o-mini
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -3965,7 +3979,8 @@ class TestExtractAI:
             """,
             dataframe=pd.DataFrame({
                 "data": ["I had 3 strawberries, 5 bananas and 2 lemons"],
-            })
+            }),
+            variables=self.variables
         )
         assert df['count'][0] == [3,5,2]
 
@@ -3979,7 +3994,7 @@ class TestExtractAI:
                 """
                 wrangles:
                   - extract.ai:
-                      api_key: ${OPENAI_API_KEY}
+                      api_key: ${OPENAI_API_KEY_TESTS}
                       seed: 1
                       timeout: 60
                       retries: 2
@@ -4032,7 +4047,7 @@ class TestExtractAI:
             wrangles:
               - extract.ai:
                   input: data
-                  api_key: ${OPENAI_API_KEY}
+                  api_key: ${OPENAI_API_KEY_TESTS}
                   seed: 1
                   timeout: 60
                   retries: 2
@@ -4062,8 +4077,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -4081,7 +4096,8 @@ class TestExtractAI:
                     "6m cable",
                     "screwdriver 3mm"
                 ],
-            })
+            }),
+            variables=self.variables
         )
         # This is temperamental
         # Score as 2/3 as good enough for test to pass
@@ -4100,8 +4116,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -4114,7 +4130,8 @@ class TestExtractAI:
             """,
             dataframe=pd.DataFrame({
                 "data": [],
-            })
+            }),
+            variables=self.variables
         )
         assert df.empty and df.columns.to_list() == ['data', 'length']
 
@@ -4127,7 +4144,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model: o3-mini
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -4164,7 +4181,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: 0e81f1ad-c0a3-42b4
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 temperature: 0.2
                 retries: 2
@@ -4192,7 +4209,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: d7c8270d-f15a-4c9c
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 retries: 2
             """,
@@ -4214,7 +4231,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: 0e81f1ad-c0a3-42b4
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 retries: 2
                 output: result
@@ -4243,7 +4260,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: 0e81f1ad-c0a3-42b4
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 retries: 2
                 output:
@@ -4274,7 +4291,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: c3e6715a-6214-4517
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 retries: 2
             """,
@@ -4297,7 +4314,7 @@ class TestExtractAI:
             wrangles:
             - extract.ai:
                 model_id: d168c456-514f-4513
-                api_key: ${OPENAI_API_KEY}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 retries: 2
             """,
@@ -4317,8 +4334,8 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4o
-                api_key: ${OPENAI_API_KEY}
+                model: ${EXTRACT_AI_MODEL}
+                api_key: ${OPENAI_API_KEY_TESTS}
                 seed: 1
                 timeout: 60
                 retries: 2
@@ -4333,7 +4350,8 @@ class TestExtractAI:
                 "data": [
                     "1,2,3,4",
                 ],
-            })
+            }),
+            variables=self.variables
         )
         assert df['numbers'][0] >= 7
 
@@ -4355,7 +4373,7 @@ class TestExtractAI:
                 wrangles:
                 - extract.ai:
                     input: Product
-                    model: gpt-4o-mini
+                    model: ${EXTRACT_AI_MODEL}
                     api_key: dummy
                     output:
                       Size (Diameter):
@@ -4368,6 +4386,7 @@ class TestExtractAI:
                 dataframe=pd.DataFrame({
                     "Product": ['1-7/8" cap', '2-3/8" cap'],
                 }),
+                variables=self.variables
             )
         assert list(df.columns) == ["Product", "Size (Diameter)", "Size"]
         assert df["Size (Diameter)"].tolist() == ['1-7/8"', '2-3/8"']
