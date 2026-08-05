@@ -212,14 +212,80 @@ Custom functions can be added to recipes:
 
 ## CI/CD Pipeline
 
+### Branching & Release Flow
+
+Two long-lived branches:
+
+- **`main`** — released, stable. Its container tag is `:latest`.
+- **`dev`** — integration branch for work heading to a DEV deployment. Its
+  container tag is `:dev`.
+
+Work happens on a short-lived feature branch. Both merge targets are allowed, so
+pick the base branch deliberately:
+
+- Base a PR on **`dev`** when the change should be integrated and exercised in
+  DEV before it reaches a release.
+- Base a PR on **`main`** for a fix that must ship without waiting on whatever
+  else is sitting in `dev`. Land it on `dev` too, or it will be reverted the
+  next time `dev` merges forward.
+
+`dev` merges into `main` via a PR when its contents are ready to release.
+
+Branch the feature off whichever branch you are targeting. Branching off `main`
+and targeting `dev` is allowed but means the branch is missing unreleased `dev`
+work, so rebase before merging.
+
+**Pushing to a feature branch runs nothing.** `ci.yml` only listens for pushes to
+`main` and `dev`; feature branches are covered by their `pull_request` run, so
+open the PR (draft is fine) to get any CI at all.
+
+**Base branch changes the test coverage you get.** The OS/Python matrix is only
+widened to Ubuntu + Windows on 3.11 + 3.13 when `main` is the branch or the PR
+base. A PR based on `dev` runs Ubuntu / 3.11 only, so cross-platform and 3.13
+regressions surface later, at the `dev` → `main` PR. For a change with
+platform-specific risk (paths, encodings, native dependencies, subprocesses),
+prefer basing on `main`, or verify the other platforms locally.
+
+### Merging never releases anything
+
+Merging to `dev` or `main` publishes a **container image only**. It does not
+publish a Python package and does not deploy to any environment.
+
+| Action | Result |
+| --- | --- |
+| Merge to `dev` | tests, then `:dev` image promoted |
+| Merge to `main` | tests, then `:latest` image promoted |
+| Manually dispatch `deploy-dev.yml` | `<version>rcN` to CodeArtifact, then DEV deploy in Lambda-Recipes |
+| Push a `v*` git tag | `:<version>` image, then CodeArtifact, then PyPI |
+
+Both publishing paths are deliberate human actions, not consequences of a merge:
+
+1. **DEV release** — run `deploy-dev.yml` via workflow dispatch from `dev` or
+   `main`, supplying a base version such as `1.20.0`. The `rcN` suffix is
+   resolved automatically from the versions already in CodeArtifact. RC builds
+   go to CodeArtifact only, never PyPI.
+2. **Production release** — bump `version` in `setup.py`, merge to `main`, then
+   push a matching `v<version>` tag. `publish-tagged.yml` refuses to run if the
+   tag and `setup.py` disagree.
+
+There is no "staging" environment. The environments are DEV (Lambda-Recipes) and
+production.
+
+See `.github/RELEASE_RUNBOOK.md` for the full release order and recovery steps.
+
 ### GitHub Actions Workflows
-- **publish-main.yml:** Main CI pipeline
-  - Pytest on multiple OS (Ubuntu, Windows)
-  - Tests Python 3.11, 3.13
+- **ci.yml** (*CI*)**:** pushes to `main` / `dev`, and PRs into `main` / `dev`
+  - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 when the branch or PR
+    base is `main`; Ubuntu / 3.11 only otherwise
   - Test pip installation
   - Generate and test JSON schema
-  - Build and push Docker image
-  - Run container tests
+  - Build the Docker image, pushed only on merges to `main` / `dev`
+  - Run container tests, then promote the mutable tag
+- **deploy-dev.yml** (*Deploy Dev*)**:** manual dispatch from `dev` or `main`.
+  RC to CodeArtifact, then DEV deploy in Lambda-Recipes.
+- **publish-tagged.yml** (*Deploy Prod*)**:** `v*` tag push. GHCR, then
+  CodeArtifact, then PyPI. The file name is pinned by PyPI Trusted Publishing
+  and cannot be renamed without updating the publisher on PyPI first.
 
 ### Workflow Jobs
 1. **pytest:** Run test suite across OS/Python matrix
@@ -227,6 +293,12 @@ Custom functions can be added to recipes:
 3. **test-generate-schema:** Generate JSON schema from code
 4. **build:** Create Docker image and push to GitHub Container Registry
 5. **test-container:** Validate Docker image with full test suite
+6. **promote-image:** Retag the tested image as `dev` / `latest`
+
+Mutable tags are only moved after `test-container` passes, and package
+publication is gated on the container, so the wheel and the image cannot
+diverge. See `.github/RELEASE_RUNBOOK.md` for the release order and for how to
+resume a release that fails partway through.
 
 ## Known Issues & Workarounds
 
