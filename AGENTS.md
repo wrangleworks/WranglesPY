@@ -1,5 +1,24 @@
 # Repository instructions for AI agents
 
+## Integration and recovery workflow
+
+- Treat `main` as the only integration branch for new work. Create each feature,
+  fix, or documentation branch from a freshly fetched `origin/main`, and target
+  its pull request directly to `main`.
+- Treat a development environment as a deployment destination, not as a Git
+  integration branch. Build development packages and deployments from an
+  explicit commit that is already on `main`; do not route new pull requests
+  through a `dev` branch.
+- For wanted work stranded on a legacy `dev` branch, freeze that branch and
+  recover one logical change at a time on a clean branch from current
+  `origin/main`. Bring over only the required product commits and their
+  prerequisites, reference the original pull request, and validate the resulting
+  scope and tests in a new pull request to `main`.
+- Never merge a legacy `dev` branch wholesale into `main`, and never
+  cherry-pick its synchronization or merge commits merely to preserve history.
+  After every legacy change is recovered, superseded, or intentionally
+  abandoned, archive or delete the legacy branch.
+
 ## Code Review Rules
 
 ### Make the required action explicit
