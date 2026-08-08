@@ -467,7 +467,17 @@ def custom(
 
     :param input: A string or list of strings to searched for information.
     :param model_id: The model to be used to search for information.
-    :return: A list of entities found.
+    :param first_element: Return only the first extracted value for each input. If the service returns
+        multiple values for one matched span, only the first value after sorting is kept.
+    :param use_labels: Return labeled output as a dictionary such as {'colour': ['blue']}.
+    :param case_sensitive: Match keywords and regex using case-sensitive behavior.
+    :param extract_raw: Return the raw matched input text instead of the standardized output.
+    :param use_spellcheck: Apply spellcheck before extraction.
+    :param sort: Sort mode used by the extract service.
+    :return: For a scalar input, returns that input's extracted values. For a list input, returns one
+        result per input. Results are lists by default, dictionaries when use_labels is true, or scalar
+        values when first_element is true. A single matched input span can contribute multiple values
+        when the model maps the same variant to multiple outputs.
     """
     if isinstance(input, str): 
         json_data = [input]
