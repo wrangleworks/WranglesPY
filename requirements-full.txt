@@ -12,3 +12,11 @@ duckdb>=1.0.0
 pyodbc>=5.0.0
 pymssql>=2.3.3
 psycopg2-binary>=2.9.10
+
+# PRA Specific
+# Search
+serpapi
+
+# Retrieve 
+google-genai>=2.10,<2.11
+beautifulsoup4~=4.14.3
