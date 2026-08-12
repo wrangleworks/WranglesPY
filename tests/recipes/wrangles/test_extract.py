@@ -1284,6 +1284,32 @@ class TestExtractCustom:
             'Pikachu' in df['Fact Output'][0]
         )
 
+    def test_extract_custom_multi_input_single_output_preserves_match_lists(self):
+        data = pd.DataFrame({
+            'col1': ['one, two'],
+            'col2': ['three four']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+              - col1
+              - col2
+            output: matches
+            model_id: 73d89595-e5c9-40a4
+        """
+
+        with patch(
+            "wrangles.extract.custom",
+            side_effect=[
+                [['one', 'two']],
+                [['three', 'four']],
+            ]
+        ):
+            df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]['matches'] == ['one', 'two', 'three', 'four']
+
     def test_extract_custom_use_labels_output_format_columns_multi_input(self):
         data = pd.DataFrame({
             'col1': ['blue shirt', 'red hat'],
@@ -1335,7 +1361,31 @@ class TestExtractCustom:
             })
         )
         assert df.iloc[0]['Fact2'] == ['Charizard']
-        
+
+    def test_extract_custom_mismatched_input_output_lengths(self):
+        data = pd.DataFrame({
+            'col1': ['First Place Pikachu'],
+            'col2': ['Second Place Charizard']
+        })
+        recipe = """
+        wrangles:
+        - extract.custom:
+            input:
+                - col1
+                - col2
+            output:
+                - Fact1
+                - Fact2
+                - Fact3
+            model_id: 1eddb7e8-1b2b-4a52
+        """
+
+        with pytest.raises(
+            ValueError,
+            match='Extract must output to a single column or equal amount of columns as input.'
+        ):
+            wrangles.recipe.run(recipe, dataframe=data)
+
     def test_extract_custom_where(self):
         """
         Test custom extract with where
