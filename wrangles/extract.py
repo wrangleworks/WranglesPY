@@ -689,7 +689,7 @@ def custom(
                     # Normalize existing keys to lower-case while preserving original keys
                     existing = {str(k).lower(): k for k in objs.keys()}
                     for label in all_labels:
-                        if label not in existing:
+                        if label.lower() not in existing:
                             objs[label] = []
             if first_element:
                 results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]

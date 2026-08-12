@@ -1157,6 +1157,28 @@ class TestExtractCustom:
             df['col2'][0]['size'] == ['small']
         )
 
+    def test_extract_custom_preserves_capitalized_label(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. is the capital of the United States', 'Austin is the capital of Texas']
+            })
+        )
+        assert (
+            df['col2'][0]['CAPITAL'] == ['Washington D.C.'] and
+            df['col2'][1]['CAPITAL'] == ['Austin']
+        )
+
     def test_extract_custom_labels_columns_format(self):
         """
         Test use_labels option with output_format: columns to expand labels into dataframe columns
