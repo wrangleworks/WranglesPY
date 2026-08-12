@@ -4209,16 +4209,15 @@ class TestExtractAI:
         ])
         assert matches >= 2
 
-    def test_ai_gpt5_reasoning_and_verbosity(self):
+    def test_ai_reasoning_and_verbosity(self):
         """
-        Test extract.ai with a gpt-5 model, setting
-        reasoning.effort and verbosity explicitly in the recipe
+        Test extract.ai using the configured default model with
+        reasoning.effort and verbosity explicitly set in the recipe.
         """
         df = wrangles.recipe.run(
             """
             wrangles:
             - extract.ai:
-                model: gpt-5-mini
                 api_key: ${OPENAI_API_KEY}
                 timeout: 60
                 retries: 2
@@ -4317,7 +4316,6 @@ class TestExtractAI:
             """
             wrangles:
             - extract.ai:
-                model: gpt-4.1-mini
                 api_key: ${OPENAI_API_KEY}
                 seed: 1
                 retries: 2
@@ -4590,7 +4588,6 @@ class TestExtractAI:
         recipe = f"""
             wrangles:
             - extract.ai:
-                model: gpt-5-mini
                 api_key: ${{OPENAI_API_KEY}}
                 timeout: 90
                 retries: 2
