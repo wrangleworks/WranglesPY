@@ -28,4 +28,4 @@ and the safest rollback.
 - [ ] The PR description reflects the branch's current scope and latest validation
 - [ ] One primary reviewer is requested only when this PR is ready
 
-See [the pull request workflow](../docs/pull-request-workflow.md).
+See [the pull request workflow](https://github.com/wrangleworks/WranglesPY/blob/main/docs/pull-request-workflow.md).

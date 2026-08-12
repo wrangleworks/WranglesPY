@@ -164,9 +164,12 @@ These searches provide the shared queue:
 - **My reviews:** `is:pr is:open review-requested:@me draft:false`
 - **Owner action:** `is:pr is:open review:changes_requested`
 - **Ready and waiting:** `is:pr is:open draft:false review:none`
-- **Release PRs:** `is:pr is:open milestone:"v1.20"`
+- **Release PRs:** `is:pr is:open milestone:"<current release milestone>"`
 - **Unowned PRs:** `is:pr is:open no:assignee`
 - **Stale PRs:** `is:pr is:open updated:<YYYY-MM-DD`
+
+Replace the release-milestone placeholder with the milestone currently being
+prepared. Update the saved view when release planning moves to a new milestone.
 
 At least once each working day, each owner checks **My delivery work** and
 leaves every assigned PR with accurate metadata, the correct Draft or Ready
