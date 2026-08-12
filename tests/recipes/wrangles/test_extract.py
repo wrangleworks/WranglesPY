@@ -1872,7 +1872,7 @@ class TestExtractCustom:
         Testing use labels with multiple same labels and other labels
         """
         data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: black']
+            'col': ['colour: blue size: small colour: black Washington D.C. Austin']
         })
         recipe = """
         wrangles:
@@ -1884,7 +1884,7 @@ class TestExtractCustom:
             first_element: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']} or df['out'][0] == {'colour': ['black', 'blue'], 'size': ['small']}
+        assert df['out'][0] == {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['black', 'blue'], 'size': ['small']}
         
     def test_use_labels_same_key(self):
         """
