@@ -1171,12 +1171,13 @@ class TestExtractCustom:
                 use_labels: true
             """,
             dataframe = pd.DataFrame({
-                'col1': ['Washington D.C. is the capital of the United States', 'Austin is the capital of Texas']
+                'col1': ['Washington D.C. is the capital of the United States', 'Austin is the capital of Texas', 'No Matches Here']
             })
         )
         assert (
-            df['col2'][0]['CAPITAL'] == ['Washington D.C.'] and
-            df['col2'][1]['CAPITAL'] == ['Austin']
+            df['col2'][0]['CAPITAL'] == {'size': [], 'CAPITAL': ['Washington D.C.'], 'colour': []} and
+            df['col2'][1]['CAPITAL'] == {'size': [], 'CAPITAL': ['Austin'], 'colour': []} and
+            df['col2'][2] == {'size': [], 'CAPITAL': [], 'colour': []}
         )
 
     def test_extract_custom_labels_columns_format(self):
