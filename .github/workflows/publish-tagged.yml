@@ -378,3 +378,57 @@ jobs:
           # new version, not by re-running this job.
           skip-existing: true
 
+  # ── Trigger PROD deployment in Lambda-Recipes ─────────────────────────────
+  # Runs after publish-pypi (or when skipped) because Lambda-Recipes verify-setup
+  # requires the version to exist on PyPI before the deploy pipeline starts.
+  # CROSS_REPO_PAT: GitHub PAT with Actions read/write on Lambda-Recipes.
+  trigger-deploy-prod:
+    name: Trigger PROD Deploy
+    runs-on: ubuntu-latest
+    needs: [validate, publish-codeartifact, publish-pypi]
+    if: >-
+      needs.validate.result == 'success' &&
+      needs.publish-codeartifact.result == 'success' &&
+      (needs.publish-pypi.result == 'success' || needs.publish-pypi.result == 'skipped')
+    steps:
+      - name: Record deploy attribution
+        run: |
+          {
+            echo "## PROD deploy attribution"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **deploy_user** | \`${{ github.actor }}\` |"
+            echo "| **wrangles_version** | \`${{ needs.validate.outputs.version }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build Lambda-Recipes dispatch payload
+        id: dispatch
+        env:
+          WRANGLES_VERSION: ${{ needs.validate.outputs.version }}
+          DEPLOY_USER: ${{ github.actor }}
+        run: |
+          if [ -z "$DEPLOY_USER" ]; then
+            echo "::error::deploy_user is empty"
+            exit 1
+          fi
+          payload=$(jq -n \
+            --arg wrangles_version "$WRANGLES_VERSION" \
+            --arg deploy_user "$DEPLOY_USER" \
+            '{wrangles_version: $wrangles_version, deploy_user: $deploy_user}')
+          echo "payload=$payload" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Prod
+        uses: convictional/trigger-workflow-and-wait@v1.6.5
+        with:
+          owner: wrangleworks
+          repo: Lambda-Recipes
+          workflow_file_name: deploy-prod.yml
+          github_token: ${{ secrets.CROSS_REPO_PAT }}
+          ref: main
+          wait_interval: 15
+          client_payload: ${{ steps.dispatch.outputs.payload }}
+          propagate_failure: true
+          trigger_workflow: true
+          wait_workflow: true
+
