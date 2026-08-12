@@ -18,6 +18,7 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
+import contextvars as _contextvars
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -130,6 +131,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     try:
@@ -144,6 +148,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     df_temp = df_temp.set_index(f"index_asbjdbasjk_{random_str}")[output]
@@ -277,22 +284,38 @@ def batch(
 
     with pool_executor(max_workers=threads) as executor:
         batches = list(_divide_batches(df, batch_size))
-        
-        # Set a chunk size for process pool executor
-        # to reduce overhead of process creation
-        chunksize = min(max(len(batches) // threads, 1), 20)
 
-        results = executor.map(
-            _batch_thread,
-            batches,
-            range(1, len(batches) + 1), 
-            [wrangles] * len(batches),
-            [functions] * len(batches),
-            [variables] * len(batches),
-            [timeout] * len(batches),
-            [on_error] * len(batches),
-            chunksize = chunksize
-        )
+        if use_multiprocessing:
+            # Set a chunk size for process pool executor
+            # to reduce overhead of process creation.
+            chunksize = min(max(len(batches) // threads, 1), 20)
+            results = executor.map(
+                _batch_thread,
+                batches,
+                range(1, len(batches) + 1),
+                [wrangles] * len(batches),
+                [functions] * len(batches),
+                [variables] * len(batches),
+                [timeout] * len(batches),
+                [on_error] * len(batches),
+                chunksize=chunksize
+            )
+        else:
+            futures = [
+                executor.submit(
+                    _contextvars.copy_context().run,
+                    _batch_thread,
+                    batch_df,
+                    batch_num,
+                    wrangles,
+                    functions,
+                    variables,
+                    timeout,
+                    on_error
+                )
+                for batch_num, batch_df in enumerate(batches, 1)
+            ]
+            results = [future.result() for future in futures]
 
     return _pd.concat(results)
 
@@ -463,13 +486,23 @@ def concurrent(
             ):
                 raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
 
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe= {'wrangles': [wrangle_definition]},
-                dataframe=df.copy(),
-                variables=variables,
-                functions=functions
-            )
+            if use_multiprocessing:
+                future = executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'wrangles': [wrangle_definition]},
+                    dataframe=df.copy(),
+                    variables=variables,
+                    functions=functions
+                )
+            else:
+                future = executor.submit(
+                    _contextvars.copy_context().run,
+                    _wrangles.recipe.run,
+                    {'wrangles': [wrangle_definition]},
+                    variables,
+                    df.copy(),
+                    functions
+                )
             futures.append(future)
 
             # Add output columns to reference on completion
@@ -1627,7 +1660,14 @@ def rename(
                         variables=kwargs.get("variables", {})
                     )["columns"].tolist()
                 except Exception as e:
-                    raise RuntimeError(f"Failed running {wrangle_name} in rename wrangles: {e}")
+                    # Preserve the inner wrangle's own message (which already
+                    # includes the correct line number and a suggestion when
+                    # available) rather than burying it behind extra text.
+                    # Also carry over the "already wrapped" marker so the
+                    # outer rename wrangle doesn't wrap it a second time.
+                    wrapped = RuntimeError(f"{e}")
+                    wrapped._wrangles_error_wrapped = getattr(e, '_wrangles_error_wrapped', False)
+                    raise wrapped.with_traceback(e.__traceback__) from None
 
                 if len(target) != len(result):
                     raise RuntimeError(

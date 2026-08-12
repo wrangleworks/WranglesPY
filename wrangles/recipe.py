@@ -13,6 +13,7 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
+import contextvars as _contextvars
 import time as _time
 import pandas as _pandas
 import requests as _requests
@@ -39,6 +40,16 @@ except ImportError:
     from yaml import SafeDumper as _YAMLDumper
 
 _logging.getLogger().setLevel(_logging.INFO)
+
+# Recipe source and nesting state used for best-effort error line lookups.
+# Context variables isolate simultaneous recipe.run() calls. Each run creates
+# a new dictionary so nested recipes can update their own source without
+# mutating the parent run's context. The context is copied into the worker
+# thread below, where recipe wrangles and any nested runs execute.
+_RECIPE_RUN_CONTEXT = _contextvars.ContextVar(
+    'wrangles_recipe_run_context',
+    default=None
+)
 
 
 # Suppress pandas performance warnings
@@ -83,12 +94,23 @@ def _load_recipe(
     # Dict to store functions stored within a model
     model_functions = {}
 
+    # Whether recipe_string was fetched from an independently addressable
+    # source (a URL, a model_id, or a file path) rather than being an inline
+    # string/dict built by a wrangle at runtime (e.g. rename's inner
+    # wrangles). Fetched sources have their own real, navigable line numbers
+    # and should always be tracked for error line lookups - even when this
+    # is a nested recipe.run() call (e.g. a model_id that itself points to
+    # another recipe) - unlike synthetic inline recipes, which should defer
+    # to whatever recipe text the outer call was already tracking.
+    _is_external_source = False
+
     # If the recipe to read is from "https://" or "http://"
     if 'https://' == recipe[:8] or 'http://' == recipe[:7]:
         response = _requests.get(recipe)
         if str(response.status_code)[0] != '2':
             raise ValueError(f'Error getting recipe from url: {response.url}\nReason: {response.reason}-{response.status_code}')
         recipe_string = response.text
+        _is_external_source = True
 
     # If recipe matches xxxxxxxx-xxxx-xxxx, it's probably a model
     elif _re.match(r"^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}$", recipe.split(':')[0].strip()):
@@ -117,6 +139,7 @@ def _load_recipe(
 
         model_contents = _data.model_content(model_id, version_id)
         recipe_string = model_contents['recipe']
+        _is_external_source = True
         model_functions = model_contents.get('functions', {})
         if model_functions:
             spec = _importlib.util.spec_from_loader('custom_functions', loader=None)
@@ -146,6 +169,7 @@ def _load_recipe(
         try:
             with open(recipe, "r", encoding='utf-8') as f:
                 recipe_string = f.read()
+            _is_external_source = True
         except:
             raise RuntimeError(
                 f'Error reading recipe: "{recipe}". ' \
@@ -220,10 +244,100 @@ def _load_recipe(
         if key != 'recipe_variables'
     }
 
+    # Keep a copy of the raw recipe string for line lookups.
+    #
+    # Always do this for the outermost recipe.run() call, and also for any
+    # nested call whose recipe came from an independently addressable source
+    # (a URL, model_id, or file path) - e.g. a model_id that itself points to
+    # another recipe. That fetched recipe has its own real, navigable lines,
+    # so errors inside it should be attributed there.
+    #
+    # For nested calls built from an inline dict/string (e.g. rename's inner
+    # wrangles, or a hardcoded template a wrangle runs internally), skip the
+    # update - that "recipe" is a synthetic fragment with no line numbers
+    # meaningful to the user, so keep pointing at whatever recipe text the
+    # outer call was already tracking.
+    run_context = _RECIPE_RUN_CONTEXT.get()
+    if run_context is not None and (run_context['depth'] <= 1 or _is_external_source):
+        run_context['recipe_string'] = recipe_string
+
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
 
     return recipe_object, functions
+
+
+def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
+    """Best-effort: find the 1-based line number of the Nth occurrence of
+    an item defined as "- item_name:" in the last loaded recipe string.
+    Returns None if not found.
+    """
+    run_context = _RECIPE_RUN_CONTEXT.get()
+    recipe_string = run_context.get('recipe_string') if run_context else None
+    if not recipe_string:
+        return None
+    try:
+        # Use [ \t]* rather than \s* around the dash/name/colon so a blank
+        # line immediately before the match can't be swallowed into it -
+        # \s* matches newlines too, which would anchor the match (and its
+        # line number) to the preceding blank line instead of the real one.
+        pattern = _re.compile(r"^[ \t]*-[ \t]*" + _re.escape(item_name) + r"[ \t]*:", _re.MULTILINE)
+        matches = list(pattern.finditer(recipe_string))
+        if not matches:
+            return None
+        if len(matches) == 1:
+            # Only one occurrence in the recipe - use it regardless of the
+            # requested index, since the index may not align with a global count
+            m = matches[0]
+        elif occurrence_index < 1 or occurrence_index > len(matches):
+            # Requested occurrence is out of range - fall back to the last match
+            m = matches[-1]
+        else:
+            m = matches[occurrence_index - 1]
+        # line numbers are 1-based
+        return recipe_string[:m.start()].count('\n') + 1
+    except Exception:
+        return None
+
+
+def _wrap_and_raise(section: str, name: str, index: int, original_exception: Exception):
+    # If this exception was already enhanced by a nested recipe.run() call
+    # (e.g. an inner wrangle used by rename's `wrangles:`), propagate it as-is
+    # instead of wrapping it again - otherwise the message and line number
+    # would be duplicated and the real (inner) line number would be buried.
+    # Tracked via an attribute (rather than sniffing the message text) since
+    # intermediate code sometimes reformats the message (e.g. rename always
+    # re-raises as RuntimeError) independently of whether it was already
+    # enhanced.
+    if getattr(original_exception, '_wrangles_error_wrapped', False):
+        raise original_exception
+
+    line = None
+    try:
+        # For wrangles, we may have an index
+        if section.upper() == 'WRANGLE' and index is not None:
+            line = _find_item_line(name, index)
+        else:
+            # Best-effort: find first occurrence
+            line = _find_item_line(name, 1)
+    except Exception:
+        line = None
+
+    # Build enhanced message but keep original exception class so tests expecting
+    # original exceptions continue to work. The exception type name isn't
+    # included here - Python already prefixes it automatically when the
+    # exception is displayed (e.g. "KeyError: convert.case (line 10) - ...").
+    orig_msg = f"{original_exception}"
+    header = name or ""
+    if line is not None:
+        header += f" (line {line})"
+
+    enhanced = " - ".join([p for p in [header, orig_msg] if p])
+
+    # Re-raise same exception type with enhanced message
+    wrapped_exception = original_exception.__class__(enhanced)
+    wrapped_exception._wrangles_error_wrapped = True
+    raise wrapped_exception.with_traceback(original_exception.__traceback__) from None
 
 
 def _run_actions(
@@ -282,8 +396,8 @@ def _run_actions(
                 # Execute the function
                 func(**args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN ACTION: {action_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('ACTION', action_type, None, e)
 
 def _read_data(
     recipe: _Union[dict, list],
@@ -393,8 +507,8 @@ def _read_data(
                     raise RuntimeError(f"Function {read_type} did not return a dataframe")
 
             except Exception as e:
-                # Append name of read to message and pass through exception
-                raise e.__class__(f"ERROR IN READ: {read_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('READ', read_type, None, e)
     if len(results) == 1:
         return results[0]
     else:
@@ -837,8 +951,8 @@ def _execute_wrangles(
                         _logging.info(f": Wrangling :: {wrangle} :: {input_display} >> {output_display} :: {_wrangle_elapsed:.3f}s Completed")
 
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRANGLE #{i} {wrangle} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information and include wrangle index
+                _wrap_and_raise('WRANGLE', wrangle, i, e)
 
     return df
 
@@ -993,8 +1107,8 @@ def _write_data(
                     # Execute the function
                     func(df_temp, **args)
             except Exception as e:
-                # Append name of wrangle to message and pass through exception
-                raise e.__class__(f"ERROR IN WRITE: {export_type} - {e}").with_traceback(e.__traceback__) from None
+                # Wrap with enhanced error information
+                _wrap_and_raise('WRITE', export_type, None, e)
     return df_return
 
 
@@ -1099,39 +1213,50 @@ def run(
     if variables is None:
         variables = {}
 
-    # Parse recipe
-    recipe, functions = _load_recipe(
-        recipe,
-        variables,
-        functions or {}
-    )
+    parent_context = _RECIPE_RUN_CONTEXT.get()
+    run_context = {
+        'depth': (parent_context.get('depth', 0) if parent_context else 0) + 1,
+        'recipe_string': parent_context.get('recipe_string') if parent_context else None
+    }
+    context_token = _RECIPE_RUN_CONTEXT.set(run_context)
+    try:
+        # Parse recipe
+        recipe, functions = _load_recipe(
+            recipe,
+            variables,
+            functions or {}
+        )
 
-    with _futures.ThreadPoolExecutor(max_workers=1) as executor:
-        try:
-            future = executor.submit(
-                _run_thread,
-                recipe,
-                variables,
-                dataframe,
-                functions
-            )
-            return future.result(timeout)
-        
-        except _futures.TimeoutError as e:
+        with _futures.ThreadPoolExecutor(max_workers=1) as executor:
             try:
-                executor._threads.clear()
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+                worker_context = _contextvars.copy_context()
+                future = executor.submit(
+                    worker_context.run,
+                    _run_thread,
+                    recipe,
+                    variables,
+                    dataframe,
+                    functions
+                )
+                return future.result(timeout)
 
-        except Exception as e:
-            try:
-                # Run any actions requested if the recipe fails
-                if 'on_failure' in recipe.get('run', {}).keys():
-                    _run_actions(recipe['run']['on_failure'], functions, variables, e)
-            except:
-                pass
-            raise
+            except _futures.TimeoutError as e:
+                try:
+                    executor._threads.clear()
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise TimeoutError(f"Recipe timed out. Limit: {timeout}s")
+
+            except Exception as e:
+                try:
+                    # Run any actions requested if the recipe fails
+                    if 'on_failure' in recipe.get('run', {}).keys():
+                        _run_actions(recipe['run']['on_failure'], functions, variables, e)
+                except:
+                    pass
+                raise
+    finally:
+        _RECIPE_RUN_CONTEXT.reset(context_token)

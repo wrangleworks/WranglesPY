@@ -2037,6 +2037,47 @@ class TestRename:
         )
         assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+    def test_rename_wrangles_error_shows_correct_line(self):
+        """
+        When an inner wrangle used inside rename's `wrangles:` (e.g. convert.case)
+        raises an error, the reported line number should point at that wrangle's
+        real position in the user's recipe - not the line number of the internal,
+        synthetic single-wrangle recipe that rename() builds to run it. The error
+        also should not be wrapped twice with a redundant "Failed running ... in
+        rename wrangles" message.
+        """
+        recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                Manufacturer Name: Delos
+                Part Number: CH465517080
+
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: bogus_case_value
+                - custom.add_suffix:
+                    output: columns
+        """
+        expected_line = next(
+            i for i, line in enumerate(recipe.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def add_suffix(columns):
+            return columns + "_clean"
+
+        with pytest.raises(Exception) as info:
+            wrangles.recipe.run(recipe, functions=add_suffix)
+
+        msg = str(info.value)
+        assert f"(line {expected_line})" in msg
+        assert "Failed running" not in msg
+
     def test_rename_empty(self):
         """
         Test rename with empty data
@@ -2572,7 +2613,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2766,7 +2807,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -3961,6 +4002,57 @@ class TestRecipe:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
+
+    def test_recipe_wrangle_model_id_nested_error_shows_nested_line(self):
+        """
+        When the recipe wrangle's name is a model_id that itself points to
+        another recipe (rather than a synthetic/inline recipe fragment),
+        an error inside that nested recipe should be attributed to a line
+        within that nested recipe's own source - not the outer recipe's
+        line, and not lost entirely.
+        """
+        nested_recipe_text = """
+wrangles:
+  - convert.case:
+      input: temp
+      case: bogus_case_value
+"""
+        expected_line = next(
+            i for i, line in enumerate(nested_recipe_text.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def fake_model(model_id):
+            return {'purpose': 'recipe'}
+
+        def fake_model_content(model_id, version_id=None):
+            return {'recipe': nested_recipe_text}
+
+        outer_recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value1
+
+        wrangles:
+          - convert.case:
+              input: header
+              output: temp
+              case: upper
+
+          - recipe:
+              name: aaaaaaaa-bbbb-cccc
+              input: temp
+        """
+
+        with patch('wrangles.recipe._data.model', side_effect=fake_model), \
+             patch('wrangles.recipe._data.model_content', side_effect=fake_model_content):
+            with pytest.raises(Exception) as info:
+                wrangles.recipe.run(outer_recipe)
+
+        msg = str(info.value)
+        assert f"(line {expected_line})" in msg
 
     def test_recipe_input(self):
         """
@@ -5360,7 +5452,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_invalid_wrangles_column_output(self):
@@ -5394,7 +5487,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            "accordion - \'Did you forget" in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_inconsistent_lengths(self):
@@ -5468,7 +5562,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_empty_list(self):
@@ -6127,7 +6222,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "custom\.fail_on_2nd_batch.*"'):
             wrangles.recipe.run(  
                 """  
                 read:  
