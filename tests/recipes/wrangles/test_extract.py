@@ -2262,7 +2262,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
@@ -2280,7 +2280,7 @@ class TestExtractRegex:
         data = pd.DataFrame({
             'col': ['Random Pikachu Random', 'Random', 'Random Random Pikachu']
         })
-        recipe = """
+        recipe = r"""
         wrangles:
         - extract.regex:
             input: col
