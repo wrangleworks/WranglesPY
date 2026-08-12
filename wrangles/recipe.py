@@ -13,7 +13,7 @@ import importlib as _importlib
 import re as _re
 import warnings as _warnings
 import concurrent.futures as _futures
-import threading as _threading
+import contextvars as _contextvars
 import time as _time
 import pandas as _pandas
 import requests as _requests
@@ -41,19 +41,15 @@ except ImportError:
 
 _logging.getLogger().setLevel(_logging.INFO)
 
-# Text of the recipe currently being executed, used as a best-effort source
-# for error line lookups. Only the outermost recipe.run() call updates this -
-# see _RECIPE_RUN_DEPTH below.
-_CURRENT_RECIPE_STRING = None
-
-# Tracks how many recipe.run() calls are nested on the current call stack.
-# Wrangles such as `rename` run an inner recipe.run() internally to execute
-# their `wrangles:` steps; that inner call must not overwrite
-# _CURRENT_RECIPE_STRING with its own synthetic, re-dumped recipe fragment,
-# otherwise error line lookups for the inner wrangles would point at the
-# wrong (synthetic) source instead of the user's actual recipe.
-_RECIPE_RUN_DEPTH = 0
-_RECIPE_RUN_DEPTH_LOCK = _threading.Lock()
+# Recipe source and nesting state used for best-effort error line lookups.
+# Context variables isolate simultaneous recipe.run() calls. Each run creates
+# a new dictionary so nested recipes can update their own source without
+# mutating the parent run's context. The context is copied into the worker
+# thread below, where recipe wrangles and any nested runs execute.
+_RECIPE_RUN_CONTEXT = _contextvars.ContextVar(
+    'wrangles_recipe_run_context',
+    default=None
+)
 
 
 # Suppress pandas performance warnings
@@ -261,9 +257,9 @@ def _load_recipe(
     # update - that "recipe" is a synthetic fragment with no line numbers
     # meaningful to the user, so keep pointing at whatever recipe text the
     # outer call was already tracking.
-    if _RECIPE_RUN_DEPTH <= 1 or _is_external_source:
-        global _CURRENT_RECIPE_STRING
-        _CURRENT_RECIPE_STRING = recipe_string
+    run_context = _RECIPE_RUN_CONTEXT.get()
+    if run_context is not None and (run_context['depth'] <= 1 or _is_external_source):
+        run_context['recipe_string'] = recipe_string
 
     # Check if there are any templated valued to update
     recipe_object = _replace_templated_values(recipe_object, variables)
@@ -276,7 +272,9 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
     an item defined as "- item_name:" in the last loaded recipe string.
     Returns None if not found.
     """
-    if not _CURRENT_RECIPE_STRING:
+    run_context = _RECIPE_RUN_CONTEXT.get()
+    recipe_string = run_context.get('recipe_string') if run_context else None
+    if not recipe_string:
         return None
     try:
         # Use [ \t]* rather than \s* around the dash/name/colon so a blank
@@ -284,7 +282,7 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
         # \s* matches newlines too, which would anchor the match (and its
         # line number) to the preceding blank line instead of the real one.
         pattern = _re.compile(r"^[ \t]*-[ \t]*" + _re.escape(item_name) + r"[ \t]*:", _re.MULTILINE)
-        matches = list(pattern.finditer(_CURRENT_RECIPE_STRING))
+        matches = list(pattern.finditer(recipe_string))
         if not matches:
             return None
         if len(matches) == 1:
@@ -297,7 +295,7 @@ def _find_item_line(item_name: str, occurrence_index: int = 1) -> int:
         else:
             m = matches[occurrence_index - 1]
         # line numbers are 1-based
-        return _CURRENT_RECIPE_STRING[:m.start()].count('\n') + 1
+        return recipe_string[:m.start()].count('\n') + 1
     except Exception:
         return None
 
@@ -1215,9 +1213,12 @@ def run(
     if variables is None:
         variables = {}
 
-    global _RECIPE_RUN_DEPTH
-    with _RECIPE_RUN_DEPTH_LOCK:
-        _RECIPE_RUN_DEPTH += 1
+    parent_context = _RECIPE_RUN_CONTEXT.get()
+    run_context = {
+        'depth': (parent_context.get('depth', 0) if parent_context else 0) + 1,
+        'recipe_string': parent_context.get('recipe_string') if parent_context else None
+    }
+    context_token = _RECIPE_RUN_CONTEXT.set(run_context)
     try:
         # Parse recipe
         recipe, functions = _load_recipe(
@@ -1228,7 +1229,9 @@ def run(
 
         with _futures.ThreadPoolExecutor(max_workers=1) as executor:
             try:
+                worker_context = _contextvars.copy_context()
                 future = executor.submit(
+                    worker_context.run,
                     _run_thread,
                     recipe,
                     variables,
@@ -1256,5 +1259,4 @@ def run(
                     pass
                 raise
     finally:
-        with _RECIPE_RUN_DEPTH_LOCK:
-            _RECIPE_RUN_DEPTH -= 1
+        _RECIPE_RUN_CONTEXT.reset(context_token)

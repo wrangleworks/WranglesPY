@@ -9,6 +9,8 @@ from wrangles.connectors import memory, recipe
 import pandas as pd
 import pytest
 import time
+import concurrent.futures
+import threading
 
 
 def test_recipe_from_file():
@@ -162,7 +164,7 @@ def test_recipe_wrong_model():
     with pytest.raises(ValueError, match="Using classify model_id a62c7480-500e-480c in a recipe wrangle"):
             wrangles.recipe.run('a62c7480-500e-480c')
 
-def test_recipe_model_id_wrong_type_shows_line():
+def test_recipe_model_id_wrong_type_shows_line(monkeypatch):
     """
     Test the error when a model_id used within a recipe wrangle refers
     to a model of the wrong type (an extract model used in a classify
@@ -193,6 +195,12 @@ def test_recipe_model_id_wrong_type_shows_line():
         if "classify:" in line
     )
 
+    monkeypatch.setattr(
+        wrangles.data,
+        'model',
+        lambda model_id: {'batch_size': 100, 'purpose': 'extract'}
+    )
+
     with pytest.raises(ValueError) as info:
         wrangles.recipe.run(recipe)
 
@@ -200,7 +208,7 @@ def test_recipe_model_id_wrong_type_shows_line():
     assert f"(line {expected_line})" in msg
     assert "Using extract model_id fce592c9-26f5-4fd7 in a classify function" in msg
 
-def test_recipe_model_id_not_found_shows_line():
+def test_recipe_model_id_not_found_shows_line(monkeypatch):
     """
     Test the error when a model_id used within a recipe wrangle is
     well-formed but doesn't correspond to an existing/accessible model.
@@ -231,12 +239,18 @@ def test_recipe_model_id_not_found_shows_line():
         if "classify:" in line
     )
 
-    with pytest.raises(RuntimeError) as info:
+    monkeypatch.setattr(
+        wrangles.data,
+        'model',
+        lambda model_id: {'message': 'error'}
+    )
+
+    with pytest.raises(ValueError) as info:
         wrangles.recipe.run(recipe)
 
     msg = info.value.args[0]
     assert f"(line {expected_line})" in msg
-    assert "00000000-0000-0000" in msg
+    assert "Incorrect model_id" in msg
 
 def test_timeout():
     """
@@ -1061,6 +1075,47 @@ def test_enhanced_error_message_long_recipe():
     with pytest.raises(RuntimeError, match=r"custom\.failing_function \(line 18\) - This is the actual error from wrangle #5"):
         wrangles.recipe.run(recipe, functions=[working_function, failing_function])
 
+
+def test_concurrent_recipe_errors_use_their_own_source_lines():
+    barrier = threading.Barrier(2)
+
+    def fail_alpha(df):
+        barrier.wait()
+        raise RuntimeError("alpha failed")
+
+    def fail_beta(df):
+        barrier.wait()
+        raise RuntimeError("beta failed")
+
+    recipe_alpha = """
+    wrangles:
+      - custom.fail_alpha: {}
+    """
+    recipe_beta = """
+
+
+    wrangles:
+      - custom.fail_beta: {}
+    """
+
+    def capture_error(recipe, function):
+        try:
+            wrangles.recipe.run(
+                recipe,
+                dataframe=pd.DataFrame({'value': [1]}),
+                functions=function
+            )
+        except RuntimeError as error:
+            return str(error)
+        raise AssertionError("Recipe did not raise RuntimeError")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        alpha_future = executor.submit(capture_error, recipe_alpha, fail_alpha)
+        beta_future = executor.submit(capture_error, recipe_beta, fail_beta)
+
+    assert "custom.fail_alpha (line 3) - alpha failed" in alpha_future.result()
+    assert "custom.fail_beta (line 5) - beta failed" in beta_future.result()
+
 def test_enhanced_error_message_read_phase():  
     """Test error message prominence in read phase"""  
     def failing_read():  
@@ -1187,4 +1242,3 @@ def test_write_error_shows_line():
     msg = str(exc.value)
     assert '(line' in msg
     assert 'nonexistent_write' in msg
-  
