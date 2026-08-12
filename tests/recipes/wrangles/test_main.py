@@ -5715,6 +5715,41 @@ class TestBatch:
             number_of_batches[0] == 1000
         )
 
+    def test_batch_dynamic_dictionary_columns_align_by_name(self):
+        """
+        Dynamic dictionary keys can produce different columns in every batch.
+        The combined result must union those columns and align values by name.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - split.dictionary:
+                        input: Spec Dicts
+            """,
+            dataframe=pd.DataFrame({
+                "ID": [1, 2, 3, 4],
+                "Spec Dicts": [
+                    {"A": "1", "X": "97"},
+                    {"B": "2", "Y": "98"},
+                    {"C": "3", "Z": "99"},
+                    {"D": "4", "Zz": "100"},
+                ]
+            })
+        )
+
+        assert df.columns.tolist() == [
+            "ID", "Spec Dicts", "A", "X", "B", "Y", "C", "Z", "D", "Zz"
+        ]
+        assert df[["A", "X", "B", "Y", "C", "Z", "D", "Zz"]].values.tolist() == [
+            ["1", "97", "", "", "", "", "", ""],
+            ["", "", "2", "98", "", "", "", ""],
+            ["", "", "", "", "3", "99", "", ""],
+            ["", "", "", "", "", "", "4", "100"],
+        ]
+
     def test_batch_preserves_order(self):
         """
         Test batch preserves
