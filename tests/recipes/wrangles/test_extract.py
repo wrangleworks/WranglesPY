@@ -1175,9 +1175,32 @@ class TestExtractCustom:
             })
         )
         assert (
-            df['col2'][0]['CAPITAL'] == {'size': [], 'CAPITAL': ['Washington D.C.'], 'colour': []} and
-            df['col2'][1]['CAPITAL'] == {'size': [], 'CAPITAL': ['Austin'], 'colour': []} and
-            df['col2'][2] == {'size': [], 'CAPITAL': [], 'colour': []}
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'size': [], 'colour': []} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'size': [], 'colour': []} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
+        )
+
+    def test_extract_custom_preserves_capitalized_label_multi_matches(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. green small', 'Austin black medium', 'No Matches Here']
+            })
+        )
+        assert (
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'colour': ['green'], 'size': ['small']} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'colour': ['black'], 'size': ['medium']} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
         )
 
     def test_extract_custom_labels_columns_format(self):
@@ -2136,7 +2159,7 @@ class TestExtractCustom:
     ])
     def test_extract_custom_sort_use_labels(self, sort_type, expected):
         df = pd.DataFrame({
-            "input_col":  ['medium blue black small']
+            "input_col":  ['medium blue black small austin']
         })
         recipe = f"""
         wrangles:
