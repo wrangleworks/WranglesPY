@@ -681,7 +681,9 @@ def custom(
             if include_empty_labels:
                 # Ensure every label has a key, create empty keys if missing.
                 # Use both labels discovered from results and labels defined in the model.
-                all_labels = {label.lower(): label for label in model_labels}
+                all_labels = {}
+                for label in sorted(model_labels, key=lambda x: x.lower()):
+                    all_labels.setdefault(label.lower(), label)
                 for objs in results:
                     for label in objs:
                         all_labels.setdefault(str(label).lower(), label)
