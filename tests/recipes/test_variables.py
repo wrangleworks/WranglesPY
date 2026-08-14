@@ -371,7 +371,12 @@ def test_user_permission_team_variable(monkeypatch):
     """
     Test that the authenticated user's permission team is available as a recipe variable.
     """
-    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+    token = wrangles.auth._jwt.encode(
+        {"user_permission_team": "enterprise"},
+        "test-secret",
+        algorithm="HS256"
+    )
+    monkeypatch.setattr(wrangles.auth, "get_access_token", lambda: token)
 
     df = wrangles.recipe.run(
         """
