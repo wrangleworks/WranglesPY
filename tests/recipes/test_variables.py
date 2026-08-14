@@ -367,12 +367,12 @@ def test_variables_variable_overwrite():
     assert isinstance(df['vars'][0], dict)
 
 
-def test_user_permission_team_variable(monkeypatch):
+def test_applied_permission_group_variable(monkeypatch):
     """
-    Test that the authenticated user's permission team is available as a recipe variable.
+    Test that the authenticated user's effective permission group is available as a recipe variable.
     """
     token = wrangles.auth._jwt.encode(
-        {"user_permission_team": "enterprise"},
+        {"applied_permission_group": "enterprise"},
         "test-secret",
         algorithm="HS256"
     )
@@ -384,18 +384,18 @@ def test_user_permission_team_variable(monkeypatch):
         - test:
             rows: 1
             values:
-                team: ${user_permission_team}
+                group: ${applied_permission_group}
         """
     )
 
-    assert df['team'][0] == 'enterprise'
+    assert df['group'][0] == 'enterprise'
 
 
-def test_user_permission_team_variable_if(monkeypatch):
+def test_applied_permission_group_variable_if(monkeypatch):
     """
-    Test that user_permission_team can be used in Python-style if conditions.
+    Test that applied_permission_group can be used in Python-style if conditions.
     """
-    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "enterprise")
 
     df = wrangles.recipe.run(
         """
@@ -408,18 +408,18 @@ def test_user_permission_team_variable_if(monkeypatch):
         - create.column:
             output: allowed
             value: true
-            if: user_permission_team == 'enterprise'
+            if: applied_permission_group == 'enterprise'
         """
     )
 
     assert df['allowed'][0] == True
 
 
-def test_user_permission_team_variable_user_override(monkeypatch):
+def test_applied_permission_group_variable_user_override(monkeypatch):
     """
-    Test that explicit variables still override the authenticated permission team.
+    Test that explicit variables still override the authenticated permission group.
     """
-    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "enterprise")
+    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "enterprise")
 
     df = wrangles.recipe.run(
         """
@@ -427,26 +427,26 @@ def test_user_permission_team_variable_user_override(monkeypatch):
         - test:
             rows: 1
             values:
-                team: ${user_permission_team}
+                group: ${applied_permission_group}
         """,
-        variables={"user_permission_team": "manual"}
+        variables={"applied_permission_group": "manual"}
     )
 
-    assert df['team'][0] == 'manual'
+    assert df['group'][0] == 'manual'
 
 
-def test_user_permission_team_variable_from_recipe_metadata(monkeypatch):
+def test_applied_permission_group_variable_from_recipe_metadata(monkeypatch):
     """
-    Test that recipe metadata permission team is preferred for remote recipes.
+    Test that recipe metadata permission group is preferred for remote recipes.
     """
-    monkeypatch.setattr(wrangles.auth, "get_user_permission_team", lambda: "token-team")
+    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "token-group")
     monkeypatch.setattr(
         wrangles.recipe._data,
         "model",
         lambda model_id: {
             "purpose": "recipe",
             "production_version_id": "v1",
-            "user_permission_team": "metadata-team",
+            "applied_permission_group": "metadata-group",
         }
     )
     monkeypatch.setattr(
@@ -458,11 +458,11 @@ def test_user_permission_team_variable_from_recipe_metadata(monkeypatch):
             - test:
                 rows: 1
                 values:
-                    team: ${user_permission_team}
+                    group: ${applied_permission_group}
             """
         }
     )
 
     df = wrangles.recipe.run("12345678-1234-1234")
 
-    assert df["team"][0] == "metadata-team"
+    assert df["group"][0] == "metadata-group"
