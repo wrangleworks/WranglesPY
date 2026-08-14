@@ -86,21 +86,29 @@ def get_access_token():
     return _access_token
 
 
-def extract_user_permission_team(source: dict):
+def extract_applied_permission_group(source: dict):
     """
-    Extract the permission-driving user team from a metadata or token payload.
+    Extract the effective permission group from a metadata or token payload.
     """
     if not isinstance(source, dict):
         return None
 
+    if "applied_permission_group" in source:
+        return source.get("applied_permission_group")
+
     return source.get("user_permission_team")
 
 
-def get_user_permission_team():
-    """
-    Return the authenticated user's permission-driving team from the current access token.
+def extract_user_permission_team(source: dict):
+    """Backward-compatible alias for extract_applied_permission_group."""
+    return extract_applied_permission_group(source)
 
-    If no user is authenticated or the token does not contain user_permission_team,
+
+def get_applied_permission_group():
+    """
+    Return the authenticated user's effective permission group from the current access token.
+
+    If no user is authenticated or the token does not contain the claim,
     return None so recipes can still run without backend credentials.
     """
     try:
@@ -113,4 +121,9 @@ def get_user_permission_team():
     except Exception:
         return None
 
-    return extract_user_permission_team(claims)
+    return extract_applied_permission_group(claims)
+
+
+def get_user_permission_team():
+    """Backward-compatible alias for get_applied_permission_group."""
+    return get_applied_permission_group()
