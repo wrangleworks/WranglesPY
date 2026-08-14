@@ -681,15 +681,18 @@ def custom(
             if include_empty_labels:
                 # Ensure every label has a key, create empty keys if missing.
                 # Use both labels discovered from results and labels defined in the model.
-                all_labels = set(model_labels or [])
+                all_labels = {}
+                for label in sorted(model_labels, key=lambda x: x.lower()):
+                    all_labels.setdefault(label.lower(), label)
                 for objs in results:
-                    all_labels.update([str(k).lower() for k in objs.keys()])
+                    for label in objs:
+                        all_labels.setdefault(str(label).lower(), label)
 
                 for objs in results:
                     # Normalize existing keys to lower-case while preserving original keys
                     existing = {str(k).lower(): k for k in objs.keys()}
-                    for label in all_labels:
-                        if label not in existing:
+                    for normalized_label, label in all_labels.items():
+                        if normalized_label not in existing:
                             objs[label] = []
             if first_element:
                 results = [{k: v[0] if isinstance(v, list) and v else "" for k, v in objs.items()} for objs in results]

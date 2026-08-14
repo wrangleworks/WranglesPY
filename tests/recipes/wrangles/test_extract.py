@@ -1157,6 +1157,52 @@ class TestExtractCustom:
             df['col2'][0]['size'] == ['small']
         )
 
+    def test_extract_custom_preserves_capitalized_label(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. is the capital of the United States', 'Austin is the capital of Texas', 'No Matches Here']
+            })
+        )
+        assert (
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'size': [], 'colour': []} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'size': [], 'colour': []} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
+        )
+
+    def test_extract_custom_preserves_capitalized_label_multi_matches(self):
+        """
+        Test use_labels option to group output and preserve capitalized label
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - extract.custom:
+                input: col1
+                output: col2
+                model_id: 829c1a73-1bfd-4ac0
+                use_labels: true
+            """,
+            dataframe = pd.DataFrame({
+                'col1': ['Washington D.C. green small', 'Austin black medium', 'No Matches Here']
+            })
+        )
+        assert (
+            df['col2'][0] == {'CAPITAL': ['Washington D.C.'], 'colour': ['green'], 'size': ['small']} and
+            df['col2'][1] == {'CAPITAL': ['Austin'], 'colour': ['black'], 'size': ['medium']} and
+            df['col2'][2] == {'CAPITAL': [], 'size': [], 'colour': []}
+        )
+
     def test_extract_custom_labels_columns_format(self):
         """
         Test use_labels option with output_format: columns to expand labels into dataframe columns
@@ -1826,7 +1872,7 @@ class TestExtractCustom:
         Testing use labels with multiple same labels and other labels
         """
         data = pd.DataFrame({
-            'col': ['colour: blue size: small colour: black']
+            'col': ['colour: blue size: small colour: black Washington D.C. Austin']
         })
         recipe = """
         wrangles:
@@ -1838,7 +1884,7 @@ class TestExtractCustom:
             first_element: false
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df['out'][0] == {'size': ['small'], 'colour': ['blue', 'black']} or df['out'][0] == {'colour': ['black', 'blue'], 'size': ['small']}
+        assert df['out'][0] == {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small']}
         
     def test_use_labels_same_key(self):
         """
@@ -2102,18 +2148,18 @@ class TestExtractCustom:
 
 
     @pytest.mark.parametrize("sort_type, expected", [
-        ("training_order", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("input_order", {'colour': ['blue', 'black'], 'size': ['medium', 'small']}),
-        ("longest", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("shortest", {'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("alphabetical", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("reverse_alphabetical",{'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
-        ("descending", {'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
-        ("ascending", {'colour': ['blue', 'black'], 'size': ['small', 'medium']})
+        ("training_order", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("input_order", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['medium', 'small']}),
+        ("longest", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("shortest", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("alphabetical", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("reverse_alphabetical",{'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']}),
+        ("descending", {'CAPITAL': ['Washington D.C.', 'Austin'], 'colour': ['black', 'blue'], 'size': ['medium', 'small']}),
+        ("ascending", {'CAPITAL': ['Austin', 'Washington D.C.'], 'colour': ['blue', 'black'], 'size': ['small', 'medium']})
     ])
     def test_extract_custom_sort_use_labels(self, sort_type, expected):
         df = pd.DataFrame({
-            "input_col":  ['medium blue black small']
+            "input_col":  ['medium blue black small austin washington d.c.']
         })
         recipe = f"""
         wrangles:
@@ -2122,6 +2168,7 @@ class TestExtractCustom:
                 output: result
                 sort: {sort_type}
                 use_labels: True
+                # include_empty_labels: False
                 model_id: 829c1a73-1bfd-4ac0
         """
         result = wrangles.recipe.run(recipe, dataframe=df)
