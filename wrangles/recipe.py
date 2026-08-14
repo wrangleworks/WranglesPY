@@ -133,7 +133,14 @@ def _load_recipe(
                 f'Using {purpose} model_id {model_id} in a recipe wrangle.'
             )
 
-        if 'production_version_id' in metadata.keys() and version_id is None:
+        if version_id == 'production':
+            version_id = metadata.get('production_version_id')
+            if version_id:
+                _logging.info(f": 'production' version specified, using production version {version_id}")
+            else:
+                _logging.info(": No production version exists, defaulting to latest version")
+
+        elif 'production_version_id' in metadata.keys() and version_id is None:
             version_id = metadata['production_version_id']
             _logging.info(f": No version specified, defaulting to production version {version_id}")
         
