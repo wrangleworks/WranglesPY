@@ -1951,14 +1951,14 @@ class TestGroupBy:
                   auto_rename_columns: false
             """,
             dataframe=pd.DataFrame({
-                "Selection": ["Primary", "Primary", "None"],
-                "Review": [False, False, True],
+                "Selection": ["Primary", "Primary", "None", None],
+                "Review": [False, False, True, None],
             }),
         )
 
         assert df.to_dict(orient="records") == [{
-            "Selection Counts": {"Primary": 2, "None": 1},
-            "Review Counts": {"false": 2, "true": 1},
+            "Selection Counts": {"Primary": 2, "None": 1, "null": 1},
+            "Review Counts": {"false": 2, "true": 1, "null": 1},
         }]
 
 
