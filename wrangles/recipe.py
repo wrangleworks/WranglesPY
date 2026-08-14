@@ -1108,6 +1108,7 @@ def run(
     """
     if variables is None:
         variables = {}
+    variables = variables.copy()
 
     # Parse recipe
     recipe, functions = _load_recipe(
