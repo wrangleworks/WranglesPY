@@ -1,5 +1,6 @@
 import logging as _logging
 import pandas as _pd
+from concurrent.futures import ThreadPoolExecutor
 
 # Import the combined core wrangles
 from .. import search as _search_core
@@ -309,5 +310,89 @@ def retrieve_link_content(
             df[output[i]] = out_cells_dict
             
         _logging.info(f": Wrangling :: retrieve_link_content summary :: processed {total_urls} URLs")
+
+    return df
+
+
+def retrieve_metadata(
+    df: _pd.DataFrame,
+    input: str,
+    page_size: str = "Page Size",
+    raw_headers: str = "Raw Headers",
+    html_head: str = "HTML Head",
+    headers_to_drop: str | list = '',
+    headers_to_keep: str | list = '',
+    tags_to_drop: str | list = '',
+    tags_to_keep: str | list = ''
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Retrieve website metadata without cost.
+    required:
+      - input
+    properties:
+      input:
+        type:
+          - string
+          - integer
+          - array
+        description: Name or list of input columns.
+      page_size:
+        type: string
+        description: The name of the output column containing page size.
+      raw_headers:
+        type: string
+        description: The name of the output column containing the raw headers.
+      html_head:
+        type: string
+        description: The name of the output column containing the html head.
+      headers_to_drop:
+        type:
+          - string
+          - array
+        description: >
+          The headers to be dropped, if passed defaults are overwritten.
+          Defaults to ['x-*', 'cf-*', 'content-security-policy',
+          'strict-transport-security', 'server-timing', 'set-cookie',
+          'report-to', 'nel', 'alt-svc'].
+      headers_to_keep:
+        type:
+          - string
+          - array
+        description: The headers to keep, overrides headers_to_drop.
+      tags_to_drop:
+        type:
+          - string
+          - array
+        description: >
+          The tags to be dropped, if passed defaults are overwritten.
+          Defaults to ['script', 'style', 'noscript', 'svg' ]
+      tags_to_keep:
+        type:
+          - string
+          - array
+        description: The tags to keep, overrides tags_to_drop.
+    """
+
+    # Wildcard expansion causes input strings to become lists
+    if isinstance(input, list) and len(input)==1:
+        input=input[0]
+    if isinstance(input, list) and len(input)>1:
+        raise TypeError(f"input must be a string or list of length 1, got {len(input)} instead.")
+
+    # Helper function to pass to the thread pool
+    def fetch_metadata(url):
+        return _search_core.retrieve_metadata(
+            url=url,
+            headers_to_drop=headers_to_drop,
+            headers_to_keep=headers_to_keep,
+            tags_to_drop=tags_to_drop,
+            tags_to_keep=tags_to_keep
+        )
+
+    urls = df[input].tolist()
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        df[[page_size, raw_headers, html_head]] =  list(executor.map(fetch_metadata, urls))
 
     return df
