@@ -1229,6 +1229,7 @@ def run(
     """
     if variables is None:
         variables = {}
+    variables = variables.copy()
 
     parent_context = _RECIPE_RUN_CONTEXT.get()
     run_context = {
