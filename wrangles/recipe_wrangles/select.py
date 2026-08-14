@@ -324,7 +324,8 @@ def group_by(
           - array
         description: >-
           Return a dictionary containing the count of each distinct value for
-          these column(s). Keys are converted to JSON-safe strings.
+          these column(s). Keys are converted to JSON-safe strings; missing
+          values use the key "null" and booleans use lowercase "true"/"false".
       std:
         type:
           - string
