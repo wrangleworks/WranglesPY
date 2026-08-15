@@ -207,10 +207,18 @@ class TestStandardizeCleanCore:
             trim=False
         ) == '  one   two  '
 
-    def test_invalid_inputs_and_kwargs_fail_clearly(self):
+    def test_invalid_inputs_and_kwargs_fail_clearly(self, monkeypatch):
         with pytest.raises(TypeError, match='string or a list'):
             wrangles.standardize.clean({'value': 'text'})
 
+        standardize_module = importlib.import_module('wrangles.standardize')
+        monkeypatch.setattr(
+            standardize_module,
+            '_fix_text',
+            lambda *args, **kwargs: pytest.fail(
+                'unknown kwargs must be rejected before calling ftfy'
+            )
+        )
         with pytest.raises(TypeError, match='unexpected field names'):
             wrangles.standardize.clean('text', unknown_ftfy_option=True)
 

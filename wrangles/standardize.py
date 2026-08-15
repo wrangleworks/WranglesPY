@@ -2,10 +2,16 @@ from typing import Union as _Union
 import logging as _logging
 import re as _re
 import unicodedata as _unicodedata
+from ftfy import TextFixerConfig as _TextFixerConfig
 from ftfy import fix_text as _fix_text
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
+
+
+_SUPPORTED_FTFY_KWARGS = frozenset(_TextFixerConfig._fields) | {
+    'fix_entities'
+}
 
 
 def standardize(
@@ -99,6 +105,10 @@ def clean(
     :param kwargs: Additional options forwarded to ``ftfy.fix_text``.
     :return: A cleaned string or shape-preserving list.
     """
+    unexpected_kwargs = sorted(set(kwargs) - _SUPPORTED_FTFY_KWARGS)
+    if unexpected_kwargs:
+        raise TypeError(f'Got unexpected field names: {unexpected_kwargs}')
+
     if isinstance(input, str):
         values = [input]
         scalar_input = True
