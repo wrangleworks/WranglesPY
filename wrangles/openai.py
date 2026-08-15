@@ -9,6 +9,7 @@ import requests as _requests
 import numpy as _np
 import time as _time
 import warnings as _warnings
+from . import openai_responses as _openai_responses
 try:
     from yaml import CSafeDumper as _YAMLDumper
 except ImportError:
@@ -22,6 +23,20 @@ DEFAULT_EMBEDDING_URLS = {
 }
 
 
+def format_input_data(data: any) -> str:
+    """Serialize row input exactly as Chat Completions will receive it."""
+    if isinstance(data, (dict, list)):
+        return _yaml.dump(
+            data,
+            indent=2,
+            sort_keys=False,
+            allow_unicode=True,
+            Dumper=_YAMLDumper,
+            width=1000,
+        )
+    return str(data)
+
+
 def chatGPT(
     data: any,
     api_key: str,
@@ -29,6 +44,7 @@ def chatGPT(
     url: str = "https://api.openai.com/v1/chat/completions",
     timeout: int = None,
     retries: int = 0,
+    deadline_at: float = None,
 ):
     """
     Submit a request to openAI chatGPT.
@@ -38,18 +54,9 @@ def chatGPT(
     :param settings: Custom model settings
     :param timeout: Time limit to apply to the request
     :param retries: Number of times to retry if the request fails
+    :param deadline_at: Monotonic deadline shared by all retries for this call
     """
-    if isinstance(data, (dict, list)):
-        content = _yaml.dump(
-            data,
-            indent=2,
-            sort_keys=False,
-            allow_unicode=True,
-            Dumper=_YAMLDumper,
-            width=1000
-        )
-    else:
-        content = str(data)
+    content = format_input_data(data)
 
     settings_local = _copy.deepcopy(settings)
     settings_local["messages"].append(
@@ -60,14 +67,28 @@ def chatGPT(
     )
 
     if not isinstance(retries, int) or retries < 0:
-        raise ValueError("Retries must be a positive integer")
+        raise ValueError("Retries must be a non-negative integer")
 
     _logging.debug(f": Calling OpenAI ChatGPT :: timeout :: {timeout}, retries :: {retries}")
-
     response = None
+    deadline_exceeded = False
     backoff_time = 1
     retry_count = 0
     while (retries + 1):
+        remaining = _openai_responses._remaining_seconds(deadline_at)
+        if remaining is not None and remaining <= 0:
+            deadline_exceeded = True
+            break
+
+        request_timeout = timeout
+        if remaining is not None:
+            request_timeout = (
+                min(timeout, max(remaining, 0.001))
+                if timeout is not None
+                else max(remaining, 0.001)
+            )
+
+        response = None
         try:
             response = _requests.post(
                 url = url,
@@ -75,9 +96,9 @@ def chatGPT(
                     "Authorization": f"Bearer {api_key}"
                 },
                 json = settings_local,
-                timeout=timeout
+                timeout=request_timeout
             )
-        except _requests.exceptions.ReadTimeout:
+        except _requests.exceptions.Timeout:
             if retries == 0:
                 if settings_local.get("tools", []):
                     return {
@@ -98,40 +119,76 @@ def chatGPT(
                 else:
                     return e
 
-        if response and response.ok:
+        if response is not None and response.ok:
             break
         else:
+            error_message = ""
             try:
                 error_message = response.json().get('error').get('message')
             except:
-                error_message = ""
+                pass
             # Raise errors for fatal errors rather than continuing
             if error_message:
                 if "Invalid schema" in error_message:
                     raise ValueError("The schema submitted for output is not valid.")
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
+            context = _openai_responses._response_context(
+                response,
+                endpoint="chat_completions",
+                model=settings_local.get("model"),
+            ) if response is not None else {}
+            if retries == 0 or not _openai_responses._should_retry(context):
+                if response is not None:
+                    _openai_responses._log_api_error(context, final=True)
+                break
+            if response is not None:
+                _openai_responses._log_api_error(context, final=False)
  
         retries -= 1
         retry_count += 1
         if retries >= 0:
             _logging.warning(f": Retrying OpenAI request :: attempt :: {retry_count}")
-            _time.sleep(backoff_time)
+            if response is not None and not response.ok:
+                delay = _openai_responses._sleep_for_retry(
+                    context,
+                    backoff_time,
+                    deadline_at,
+                )
+            else:
+                delay = _openai_responses._sleep_for_retry(
+                    {},
+                    backoff_time,
+                    deadline_at,
+                )
+            if delay is None:
+                deadline_exceeded = True
+                break
             backoff_time *= 2
 
-    if response and response.ok:
+    if response is not None and response.ok:
         try:
-            return _json.loads(
+            result = _json.loads(
                 response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']
             )
+            return result
         except:
             pass
 
     # Attempt to get a useful error message
-    try:
-        error_message = response.json()['error']['message']
-    except:
-        error_message = "Failed"
+    if deadline_exceeded:
+        error_message = "Deadline Exceeded"
+    else:
+        try:
+            error_message = _openai_responses._error_message(
+                _openai_responses._response_context(
+                    response,
+                    endpoint="chat_completions",
+                    model=settings_local.get("model"),
+                )
+            )
+        except:
+            error_message = "Failed"
 
     _logging.error(f": OpenAI API error :: {error_message}")
 
@@ -221,9 +278,23 @@ def _embedding_thread(
             if error_message:
                 if "Incorrect API key" in error_message:
                     raise ValueError("API Key provided is missing or invalid.")
+            context = _openai_responses._response_context(
+                response,
+                endpoint="embeddings",
+                model=model,
+            ) if response else {}
+            if retries == 0 or not _openai_responses._should_retry(context):
+                if response:
+                    _openai_responses._log_api_error(context, final=True)
+                break
+            if response:
+                _openai_responses._log_api_error(context, final=False)
 
         retries -= 1
-        _time.sleep(backoff_time)
+        if response and not response.ok:
+            _openai_responses._sleep_for_retry(context, backoff_time)
+        else:
+            _time.sleep(backoff_time)
         backoff_time *= 2
 
     if response and response.ok:
@@ -237,17 +308,22 @@ def _embedding_thread(
                 ]
             except (KeyError, TypeError) as e:
                 raise RuntimeError(f"Unexpected Jina response schema: {e}")
-        else:
-            return [
-                _np.frombuffer(
-                    _base64.b64decode(row['embedding']),
-                    dtype=_np.float32
-                ).astype(getattr(_np, precision), copy=False)
-                for row in response.json()['data']
-            ]
+        return [
+            _np.frombuffer(
+                _base64.b64decode(row['embedding']),
+                dtype=_np.float32
+            ).astype(getattr(_np, precision), copy=False)
+            for row in response.json()['data']
+        ]
     else:
         try:
-            error_msg = response.json().get('error').get('message')
+            error_msg = _openai_responses._error_message(
+                _openai_responses._response_context(
+                    response,
+                    endpoint="embeddings",
+                    model=model,
+                )
+            )
         except Exception:
             error_msg = 'Unknown error'
         raise RuntimeError(

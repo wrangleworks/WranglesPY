@@ -4,6 +4,10 @@
 tests/temp/*
 !tests/temp/README.md
 
+# Local/generated output files
+output_files/*
+!output_files/.gitkeep
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -57,6 +61,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.test-local/
 
 # Translations
 *.mo
@@ -116,6 +121,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+docs/
 
 # Spyder project settings
 .spyderproject

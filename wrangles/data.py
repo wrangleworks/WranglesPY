@@ -6,6 +6,27 @@ from . import auth as _auth
 from . import utils as _utils
 
 
+class AuthenticationError(RuntimeError):
+    pass
+
+
+class AuthorizationError(RuntimeError):
+    pass
+
+
+def _raise_model_response_error(response, id: str, action: str) -> None:
+    if response.status_code == 401:
+        raise AuthenticationError(
+            f'Authentication failed while accessing model {id}. '
+            'The access token may have expired; refresh credentials and retry.'
+        )
+    if response.status_code == 403:
+        raise AuthorizationError(
+            f"Access denied to model {id}. Check the user's model permissions."
+        )
+    raise RuntimeError(f'Something went wrong trying to {action} model {id}')
+
+
 class user():
     """
     Get user data
@@ -48,10 +69,8 @@ def model(id: str):
             )
     if response.ok:
         return response.json()
-    elif response.status_code in [401, 403]:
-        raise RuntimeError(f'Access denied to model {id}')
     else:
-        raise RuntimeError(f'Something went wrong trying to access model {id}')
+        _raise_model_response_error(response, id, 'access')
 
 
 def model_update(id: str, metadata: dict) -> None:
@@ -70,10 +89,8 @@ def model_update(id: str, metadata: dict) -> None:
                     'json': metadata
                 }
             )
-    if response.status_code in [401, 403]:
-        raise RuntimeError(f'Access denied to model {id}')
-    elif not response.ok:
-        raise RuntimeError(f'Something went wrong trying to update model {id}')
+    if not response.ok:
+        _raise_model_response_error(response, id, 'update')
 
 
 def model_content(id: str, version_id: str = None) -> list:
@@ -97,7 +114,5 @@ def model_content(id: str, version_id: str = None) -> list:
             )
     if response.ok:
         return response.json()
-    elif response.status_code in [401, 403]:
-        raise RuntimeError(f'Access denied to model {id}')
     else:
-        raise RuntimeError(f'Something went wrong trying to access model {id}')
+        _raise_model_response_error(response, id, 'access')

@@ -6,8 +6,198 @@ import re as _re
 import logging as _logging
 import pandas as _pd
 from .. import extract as _extract
-from .. import format as _format
 from .. import data as _data
+
+
+_OUTPUT_FORMAT_ALIASES = {
+    "json": "json",
+    "json list": "json_list",
+    "json_list": "json_list",
+    "list": "json_list",
+    "array": "json_list",
+    "json dictionary": "json_dictionary",
+    "json dict": "json_dictionary",
+    "json_dictionary": "json_dictionary",
+    "json_dict": "json_dictionary",
+    "dict": "json_dictionary",
+    "dictionary": "json_dictionary",
+    "columns": "columns",
+    "column": "columns",
+    "concatenate": "concatenate",
+    "concat": "concatenate",
+}
+
+
+def _normalize_output_format(output_format, default):
+    if output_format is None:
+        return default
+
+    output_format = _OUTPUT_FORMAT_ALIASES.get(
+        str(output_format).strip().lower().replace("-", "_"),
+        output_format
+    )
+
+    if output_format == "json":
+        return default
+
+    if output_format not in ("json_list", "json_dictionary", "columns", "concatenate"):
+        raise ValueError(
+            "output_format must be one of list, dictionary, columns, or concatenate"
+        )
+
+    return output_format
+
+
+def _ensure_list(value):
+    return value if isinstance(value, list) else [value]
+
+
+def _is_columns_target(output, output_format, output_is_list=False):
+    """
+    Whether results should be split across explicit output columns.
+
+    An explicit output_format always wins. Otherwise, providing output
+    as a list of one or more column names implies Columns format.
+    """
+    if output_format is not None:
+        return _normalize_output_format(output_format, "json_list") == "columns"
+    return output_is_list or (isinstance(output, list) and len(output) > 1)
+
+
+def _resolve_output_format(output, output_format, default_format, output_is_list=False):
+    if output_format is None and (output_is_list or (isinstance(output, list) and len(output) > 1)):
+        return "columns"
+    return _normalize_output_format(output_format, default_format)
+
+
+def _stringify_list(value, char):
+    if value in (None, ""):
+        return ""
+    if isinstance(value, list):
+        return char.join([str(item) for item in value])
+    return str(value)
+
+
+def _write_list_output(
+    df,
+    output,
+    results,
+    output_format,
+    char=", ",
+    default_format="json_list",
+    output_is_list=False
+):
+    output_format = _resolve_output_format(output, output_format, default_format, output_is_list)
+
+    if output_format == "json_dictionary":
+        raise ValueError("output_format dictionary is only valid for dictionary-producing extracts")
+
+    if output_format == "concatenate":
+        df[output[0]] = [_stringify_list(row, char) for row in results]
+        return
+
+    if output_format == "columns":
+        # A scalar (non-list) result counts as a single match.
+        # Always create at least one column, even if no rows
+        # produced any results
+        max_result_len = max(
+            [len(row) if isinstance(row, list) else 1 for row in results] + [1]
+        )
+        if len(output) > 1 or output_is_list:
+            # Cap the number of columns created to however many
+            # output column names were explicitly provided, dropping
+            # any results beyond that even if more were found
+            output_columns = output[:min(len(output), max_result_len)]
+        else:
+            # No explicit column names given (a bare string output)
+            # with Columns format requested - auto-number columns
+            # for however many results were found
+            output_columns = [f"{output[0]} {i + 1}" for i in range(max_result_len)]
+        for i, output_column in enumerate(output_columns):
+            df[output_column] = [
+                (row[i] if len(row) > i else "") if isinstance(row, list)
+                else (row if i == 0 else "")
+                for row in results
+            ]
+        return
+
+    df[output[0]] = results
+
+
+def _dict_keys(results):
+    keys = []
+    for row in results:
+        if isinstance(row, dict):
+            for key in row:
+                if key not in keys:
+                    keys.append(key)
+    return keys
+
+
+def _write_dict_output(df, output, results, output_format, default_format="json_dictionary", output_is_list=False):
+    output_format = _resolve_output_format(output, output_format, default_format, output_is_list)
+
+    if output_format in ("json_list", "concatenate"):
+        raise ValueError("output_format list or concatenate is only valid for list-producing extracts")
+
+    if output_format == "columns":
+        output_columns = (
+            output
+            if len(output) > 1 or output_is_list
+            else (_dict_keys(results) or output)
+        )
+        for output_column in output_columns:
+            df[output_column] = [
+                row.get(output_column, "") if isinstance(row, dict) else ""
+                for row in results
+            ]
+        return
+
+    df[output[0]] = results
+
+
+def _write_results(
+    df,
+    output,
+    results,
+    output_format,
+    char=", ",
+    default_format="json_list",
+    output_is_list=False
+):
+    if default_format == "json_dictionary":
+        _write_dict_output(df, output, results, output_format, default_format, output_is_list)
+    else:
+        _write_list_output(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            default_format,
+            output_is_list
+        )
+
+
+def _combine_list_rows(rows):
+    combined = []
+    for row in rows:
+        if isinstance(row, list):
+            combined.extend(row)
+        elif row not in ("", None):
+            combined.append(row)
+    return list(dict.fromkeys(combined))
+
+
+def _combine_dict_rows(rows):
+    combined = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key, value in row.items():
+            values = value if isinstance(value, list) else [value]
+            combined[key] = _combine_list_rows([combined.get(key, []), values])
+    return combined
 
 
 def address(
@@ -15,6 +205,8 @@ def address(
     input: _Union[str, int, list],
     output: _Union[str, list],
     dataType: str,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -43,34 +235,55 @@ def address(
           - cities
           - regions
           - countries
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    _logging.info(f": Extracting address {dataType} :: input :: {input}")
-    if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.address(
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.address(
+            df[input[0]].astype(str).tolist(),
+            dataType,
+            **kwargs
+        )
+        _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
+    elif len(output) == 1 and len(input) > 1:
+        results = _extract.address(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             dataType,
             **kwargs
         )
+        _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.address(
+            results = _extract.address(
                 df[input_column].astype(str).tolist(),
                 dataType,
                 **kwargs
             )
-  
+            _write_list_output(df, [output_column], results, output_format, char)
+
     return df
 
 
@@ -80,6 +293,8 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ):
     """
@@ -87,8 +302,12 @@ def ai(
     description: Extract data using an AI model.
     additionalProperties: false
     required:
-      - output
       - api_key
+    anyOf:
+      - required:
+          - output
+      - required:
+          - model_id
     properties:
       input:
         type:
@@ -134,8 +353,48 @@ def ai(
                   - array
                 description: A default value to return.
               examples:
-                type: array
-                description: Provide examples of typical values to return.
+                type:
+                  - array
+                  - object
+                  - string
+                  - number
+                  - integer
+                  - boolean
+                  - "null"
+                description: >-
+                  Provide typical output values, or paired objects with input
+                  and output keys for field-specific examples.
+              properties:
+                type:
+                  - object
+                  - array
+                  - string
+                description: >-
+                  Named properties for an object. A list or comma-separated
+                  string creates fixed property names.
+              additionalProperties:
+                type:
+                  - boolean
+                  - object
+                description: >-
+                  Set true, or provide a value schema, for a dynamic dictionary.
+                  Dynamic dictionaries automatically use non-strict schema mode
+                  while fixed portions of the output remain constrained.
+              items:
+                type: object
+                description: Schema for each item returned by an array.
+              nullable:
+                type: boolean
+                description: >-
+                  Whether the field may return null. Defaults to true while
+                  the field key remains required. Set false to opt out.
+      examples:
+        type:
+          - array
+          - object
+        description: >-
+          Holistic input/output example pairs spanning the complete output
+          record. Sparse outputs are completed with null for omitted fields.
       api_key:
         type: string
         description: API Key for the model
@@ -144,20 +403,52 @@ def ai(
         description: The name of the AI model to use
       threads:
         type: integer
-        description: The number of requests to send in parallel
+        minimum: 1
+        description: The number of requests to send in parallel. The configured default is 32.
       timeout:
-        type: integer
-        description: The number of seconds to wait for a response before timing out
+        type: number
+        exclusiveMinimum: 0
+        description: Per-request timeout in seconds. The configured default is 12.
       retries:
         type: integer
+        minimum: 0
         description: >-
           The number of times to retry if the request fails.
-          This will apply exponential backoff to help with rate limiting.
+          Defaults to 1. Retry delays and request timeouts are bounded
+          by the total deadline.
       url:
         type: string
         description: |-
-          Override the default url for the AI endpoint.
-          Must use the OpenAI chat completions API.
+          Override the endpoint configured for the selected protocol.
+          Existing chat/completions URLs are detected for backwards compatibility,
+          but definitions should set protocol explicitly while being upgraded.
+      provider:
+        type: string
+        description: AI provider. Phase 1 supports OpenAI; this field reserves a stable provider boundary.
+        enum:
+          - openai
+      protocol:
+        type: string
+        description: API protocol. Responses is the configured default.
+        enum:
+          - responses
+          - chat_completions
+      deadline:
+        type: number
+        exclusiveMinimum: 0
+        description: Total call budget in seconds, including retries. The configured default is 15.
+      store:
+        type: boolean
+        description: Whether OpenAI may store Responses. Defaults to false.
+      cache:
+        type: boolean
+        description: >-
+          Use the bounded warm-instance result cache. Defaults to true.
+          Set false for a call-level bypass.
+      cache_ttl:
+        type: number
+        exclusiveMinimum: 0
+        description: Override the result-cache TTL in seconds for this call.
       messages:
         type:
           - string
@@ -169,11 +460,34 @@ def ai(
       strict:
         type: boolean
         description: >-
-          Enable strict mode. Default False.
-          If True, the function will be required to match the schema,
-          but may be more limited in the schema it can return.
+          Enable structured output strict mode. Default true. Definitions with
+          dynamic dictionaries automatically use non-strict provider mode and
+          are validated locally.
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - dictionary
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
+      reasoning:
+        type: object
+        description: >-
+          Responses API reasoning options. Defaults to effort none for models
+          that support disabling reasoning; otherwise the provider default applies.
+      verbosity:
+        type: string
+        description: Responses API output verbosity. Defaults to low for models that support low verbosity.
+        enum:
+          - low
+          - medium
+          - high
     """
-    _logging.info(f": Extracting using AI :: model_id :: {model_id}, input :: {input}")
+    output_format_normalized = _normalize_output_format(output_format, "columns")
+
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
     if input is not None:
@@ -245,7 +559,24 @@ def ai(
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
 
-        if target_columns and len(target_columns) == 1:
+        if output_format_normalized == "json_dictionary":
+            output_column_name = target_columns[0] if target_columns and len(target_columns) == 1 else "output"
+            df[output_column_name] = results
+        elif output_format_normalized == "concatenate":
+            if target_columns and len(target_columns) != 1:
+                raise ValueError("output_format concatenate can only be used with a single output column")
+            output_column = target_columns[0] if target_columns else "output"
+            if len(exploded_df.columns) == 1:
+                df[output_column] = [
+                    _stringify_list(row, char)
+                    for row in exploded_df[exploded_df.columns[0]].tolist()
+                ]
+            else:
+                df[output_column] = [
+                    char.join([_stringify_list(value, char) for value in row.values()])
+                    for row in results
+                ]
+        elif target_columns and len(target_columns) == 1:
             if len(exploded_df.columns) == 1:
                 # If the AI model only returns a single column
                 # then use the contents of that columns as the output
@@ -280,6 +611,8 @@ def attributes(
     desired_unit: str = None,
     bound: str = 'mid',
     first_element: bool = False,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -348,44 +681,93 @@ def attributes(
       first_element:
         type: boolean
         description: Get the first element from results
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - dictionary
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     $ref: "#/$defs/misc/unit_entity_map"
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    _logging.info(f": Extracting attributes :: input :: {input}")
-    if len(output) == 1 and len(input) > 1:
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.attributes(
+            df[input[0]].astype(str).tolist(),
+            responseContent,
+            attribute_type,
+            desired_unit,
+            bound,
+            False,
+            **kwargs
+        )
+        _write_results(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            "json_list" if attribute_type else "json_dictionary",
+            output_is_list
+        )
+    elif len(output) == 1 and len(input) > 1:
         # df[output[0]] = _extract.attributes(df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist())
-        df[output[0]] = _extract.attributes(
+        results = _extract.attributes(
             df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
             responseContent,
             attribute_type,
             desired_unit,
             bound,
-            first_element,
+            first_element if output_format is None else False,
             **kwargs
+        )
+        _write_results(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            "json_list" if attribute_type else "json_dictionary",
+            output_is_list
         )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.attributes(
+            results = _extract.attributes(
                 df[input_column].astype(str).tolist(),
                 responseContent,
                 attribute_type,
                 desired_unit,
                 bound,
-                first_element,
+                first_element if output_format is None else False,
                 **kwargs
             )
-        
+            _write_results(
+                df,
+                [output_column],
+                results,
+                output_format,
+                char,
+                "json_list" if attribute_type else "json_dictionary"
+            )
+
     return df
 
 
@@ -394,7 +776,9 @@ def brackets(
     input: _Union[str, int, list],
     output: _Union[str, list],
     find: _Union[str, list] = 'all',
-    include_brackets: bool = False
+    include_brackets: bool = False,
+    output_format: str = None,
+    char: str = ", "
 ) -> _pd.DataFrame:
     """
     type: object
@@ -423,16 +807,29 @@ def brackets(
       include_brackets:
         type: boolean
         description: (Optional) Include the brackets in the output
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from brackets :: input :: {input}")
@@ -445,13 +842,52 @@ def brackets(
     if not all(element in bracket_types for element in find):
         raise ValueError("find must only contain the elements: round, square, curly, angled")
 
-    # If only only one output and multiple inputs, concatenate the inputs
-    if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.brackets(df[input].astype(str).aggregate(' '.join, axis=1).tolist(), find, include_brackets)
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.brackets(
+            df[input[0]].astype(str).tolist(),
+            find,
+            include_brackets,
+            return_data_type="list"
+        )
+        _write_list_output(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            output_is_list=output_is_list
+        )
+    elif len(output) == 1 and len(input) > 1:
+        results = _extract.brackets(
+            df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
+            find,
+            include_brackets,
+            return_data_type="list"
+        )
+        _write_list_output(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            output_is_list=output_is_list
+        )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.brackets(df[input_column].astype(str).tolist(), find, include_brackets)
+            results = _extract.brackets(
+                df[input_column].astype(str).tolist(),
+                find,
+                include_brackets,
+                return_data_type="list"
+            )
+            _write_list_output(
+                df,
+                [output_column],
+                results,
+                output_format,
+                char
+            )
 
     return df
 
@@ -461,6 +897,8 @@ def codes(
     input: _Union[str, int, list],
     output: _Union[str, list],
     first_element: bool = False,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -484,6 +922,16 @@ def codes(
       first_element:
         type: boolean
         description: Get the first element from results
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
       min_length:
         type:
           - integer
@@ -503,8 +951,9 @@ def codes(
           - strict
       sort_order:
         type: string
-        description: Default is as found in the input. Also allows longest or shortest.
+        description: Default is input order. Also allows longest or shortest.
         enum:
+          - input
           - longest
           - shortest
       disallowed_patterns:
@@ -513,32 +962,47 @@ def codes(
       include_multi_part_tokens:
         type: boolean
         description: Whether to include multi-part tokens that have a space. Default True.
+      extract_raw:
+        type: boolean
+        description: Whether to return tokens with their adjacent non-whitespace characters. Default False.
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    _logging.info(f": Extracting codes :: input :: {input}")
-    if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.codes(
-            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.codes(
+            df[input[0]].astype(str).tolist(),
+            False,
             **kwargs
         )
+        _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
+    elif len(output) == 1 and len(input) > 1:
+        results = _extract.codes(
+            df[input].astype(str).aggregate(' AAA '.join, axis=1).tolist(),
+            first_element if output_format is None else False,
+            **kwargs
+        )
+        _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.codes(
+            results = _extract.codes(
                 df[input_column].astype(str).tolist(),
-                first_element,
+                first_element if output_format is None else False,
                 **kwargs
             )
+            _write_list_output(df, [output_column], results, output_format, char)
 
     return df
 
@@ -553,7 +1017,10 @@ def custom(
     case_sensitive: bool = False,
     extract_raw: bool = False,
     use_spellcheck: bool = False,
+    include_empty_labels: bool = True,
     sort: str = 'training_order',
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -606,30 +1073,69 @@ def custom(
           - reverse_alphabetical
           - ascending
           - descending
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - dictionary
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
+      include_empty_labels:
+        type: boolean
+        description: Include labels with no found values in the output when using use_labels=True
     """
     if output is None: output = input
-    
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
+
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
     if not isinstance(model_id, list): model_id = [model_id]
-    
-    if len(input) == len(output) and len(model_id) == 1:
+
+    default_format = "json_dictionary" if use_labels else "json_list"
+
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
+        raise ValueError('Extract must output to a single column or equal amount of columns as input.')
+
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list) and len(model_id) == 1:
+        results = _extract.custom(
+            df[input[0]].astype(str).tolist(),
+            model_id=model_id[0],
+            first_element=False,
+            use_labels=use_labels,
+            case_sensitive=case_sensitive,
+            extract_raw=extract_raw,
+            use_spellcheck=use_spellcheck,
+            include_empty_labels=include_empty_labels,
+            sort=sort,
+            **kwargs
+        )
+        _write_results(df, output, results, output_format, char, default_format, output_is_list)
+
+    elif len(input) == len(output) and len(model_id) == 1:
         # if one model_id, then use that model for all columns inputs and outputs
         model_id = [model_id[0] for _ in range(len(input))]
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(
+            results = _extract.custom(
                 df[in_col].astype(str).tolist(),
                 model_id=model,
-                first_element=first_element,
+                first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
-    
+            _write_results(df, [out_col], results, output_format, char, default_format)
+
     elif len(input) > 1 and len(output) == 1 and len(model_id) == 1:
         model_id = [model_id[0] for _ in range(len(input))]
         output = output[0]
@@ -639,32 +1145,38 @@ def custom(
             df_temp[output + str(i)] = _extract.custom(
                 df[in_col].astype(str).tolist(),
                 model_id=single_model_id,
-                first_element=first_element,
+                first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
 
-        # Concatenate the results into a single column
-        df[output] = [list(dict.fromkeys(_format.concatenate([x for x in row if x], ' '))) for row in df_temp.values.tolist()]
+        if use_labels:
+            results = [_combine_dict_rows(row) for row in df_temp.values.tolist()]
+        else:
+            results = [_combine_list_rows(row) for row in df_temp.values.tolist()]
+        _write_results(df, [output], results, output_format, char, default_format, output_is_list)
 
     else:
         # Iterate through the inputs, outputs and model_ids
         for in_col, out_col, model in zip(input, output, model_id):
-            df[out_col] = _extract.custom(
+            results = _extract.custom(
                 df[in_col].astype(str).tolist(),
                 model_id=model,
-                first_element=first_element,
+                first_element=first_element if output_format is None else False,
                 use_labels=use_labels,
                 case_sensitive=case_sensitive,
                 extract_raw=extract_raw,
                 use_spellcheck=use_spellcheck,
+                include_empty_labels=include_empty_labels,
                 sort=sort,
                 **kwargs
             )
+            _write_results(df, [out_col], results, output_format, char, default_format)
 
     return df
 
@@ -824,7 +1336,7 @@ def date_range(df: _pd.DataFrame, start_time: _pd.Timestamp, end_time: _pd.Times
         'business month starts': 'BMS',
         'quarters': 'Q',
         'quarter starts': 'QS',
-        'years': 'Y',
+        'years': 'YE',
         'business hours': 'BH',
         'hours': 'H',
         'minutes': 'T',
@@ -858,6 +1370,8 @@ def html(
     input: _Union[str, int, list],
     data_type: str,
     output: _Union[str, list] = None,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -885,30 +1399,50 @@ def html(
         enum:
           - text
           - links
-      first_element:
-        type: boolean
-        description: Get the first element from results
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
     _logging.debug(f": Extracting from HTML :: input :: {input}")
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        df[output_column] = _extract.html(
-            df[input_column].astype(str).tolist(),
+
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.html(
+            df[input[0]].astype(str).tolist(),
             dataType=data_type,
             **kwargs
         )
-            
+        _write_list_output(df, output, results, output_format, char, output_is_list=output_is_list)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            results = _extract.html(
+                df[input_column].astype(str).tolist(),
+                dataType=data_type,
+                **kwargs
+            )
+            _write_list_output(df, [output_column], results, output_format, char)
+
     return df
 
 
@@ -919,6 +1453,8 @@ def properties(
     property_type: str = None,
     return_data_type: str = 'list',
     first_element: bool = False,
+    output_format: str = None,
+    char: str = ", ",
     **kwargs
 ) -> _pd.DataFrame:
     """
@@ -949,45 +1485,95 @@ def properties(
           - Standards
       return_data_type:
         type: string
-        description: The format to return the data, as a list or as a string
+        description: Legacy format option. Prefer output_format.
         enum:
           - list
           - string
       first_element:
         type: boolean
         description: Get the first element from results
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - dictionary
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     """
     # If output is not specified, overwrite input columns in place
     if output is None: output = input
+
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
 
     # If a string provided, convert to list
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if output_format is None and return_data_type == "string":
+        output_format = "concatenate"
+
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
 
-    _logging.info(f": Extracting properties :: input :: {input}")
-    if len(output) == 1 and len(input) > 1:
-        df[output[0]] = _extract.properties(
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        results = _extract.properties(
+            df[input[0]].astype(str).tolist(),
+            type=property_type,
+            return_data_type='list',
+            first_element=False,
+            **kwargs
+        )
+        _write_results(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            "json_list" if property_type else "json_dictionary",
+            output_is_list
+        )
+    elif len(output) == 1 and len(input) > 1:
+        results = _extract.properties(
             df[input].astype(str).aggregate(' '.join, axis=1).tolist(),
             type=property_type,
-            return_data_type=return_data_type,
-            first_element=first_element,
+            return_data_type='list' if (output_format is not None or output_is_list) else return_data_type,
+            first_element=first_element if (output_format is None and not output_is_list) else False,
             **kwargs
+        )
+        _write_results(
+            df,
+            output,
+            results,
+            output_format,
+            char,
+            "json_list" if property_type else "json_dictionary",
+            output_is_list
         )
     else:
         # Loop through and apply for all columns
         for input_column, output_column in zip(input, output):
-            df[output_column] = _extract.properties(
+            results = _extract.properties(
                 df[input_column].astype(str).tolist(),
                 type=property_type,
-                return_data_type=return_data_type,
-                first_element=first_element,
+                return_data_type='list' if output_format is not None else return_data_type,
+                first_element=first_element if output_format is None else False,
                 **kwargs
             )
-    
+            _write_results(
+                df,
+                [output_column],
+                results,
+                output_format,
+                char,
+                "json_list" if property_type else "json_dictionary"
+            )
+
     return df
 
 def regex(
@@ -996,7 +1582,9 @@ def regex(
   find: str,
   output: _Union[str, list],
   output_pattern: str = None,
-  first_element: bool = False
+  first_element: bool = False,
+  output_format: str = None,
+  char: str = ", "
   ) -> _pd.DataFrame:
     r"""
     type: object
@@ -1030,48 +1618,56 @@ def regex(
       first_element:
         type: boolean
         description: Get the first element from results
+      output_format:
+        type: string
+        description: Format of the extract output
+        enum:
+          - list
+          - columns
+          - concatenate
+      char:
+        type: string
+        description: Character to use when output_format is concatenate
     """
     # If output is not specified, overwrite input columns in place
-    if output is None: 
+    if output is None:
         output = input
 
+    # Whether output was explicitly given as a list of column names
+    output_is_list = isinstance(output, list) and len(output) > 1
+
     # If a string is provided, convert to list
-    if not isinstance(input, list): 
+    if not isinstance(input, list):
         input = [input]
-    if not isinstance(output, list): 
+    if not isinstance(output, list):
         output = [output]
 
     # Ensure input and output lengths are compatible
-    if len(input) != len(output) and len(output) > 1:
+    if len(input) != len(output) and len(output) > 1 and not (len(input) == 1 and _is_columns_target(output, output_format, output_is_list)):
         raise ValueError('Extract must output to a single column or equal amount of columns as input.')
-    
+
     _logging.debug(f": Extracting regex patterns :: input :: {input}")
     find_pattern = _re.compile(find)
 
-    # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
-        if output_pattern is None and first_element:
-            # Return entire matches
-            df[output_column] = df[input_column].apply(
-                lambda x: ([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")][0]
-                           if len([match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")]) >= 1
-                           else "")
-                          )
-        elif output_pattern is None and not first_element:
-            # Return entire matches
-            df[output_column] = df[input_column].apply(lambda x: [match.group(0) for match in _re.finditer(find_pattern, str(x) if x is not None else "")])
-        elif output_pattern and first_element:
-            # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(
-                lambda x: (
-                    [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")][0]
-                    if len([find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")]) >= 1
-                    else ""
-                    )
-                )
+    def _matches(value):
+        value = str(value) if value is not None else ""
+        matches = [match.group(0) for match in _re.finditer(find_pattern, value)]
+        if output_pattern:
+            matches = [find_pattern.sub(output_pattern, match) for match in matches]
+        return matches
+
+    def _write_regex(input_column, output_columns, columns_is_list=False):
+        results = df[input_column].apply(_matches).tolist()
+        if output_format is None and first_element and len(output_columns) == 1 and not columns_is_list:
+            df[output_columns[0]] = [row[0] if len(row) >= 1 else "" for row in results]
         else:
-            # Return specific capture groups in the pattern the were passed
-            df[output_column] = df[input_column].apply(lambda x: [find_pattern.sub(output_pattern, match.group(0)) for match in find_pattern.finditer(str(x) if x is not None else "")])
+            _write_list_output(df, output_columns, results, output_format, char, output_is_list=columns_is_list)
+
+    if len(input) == 1 and _is_columns_target(output, output_format, output_is_list):
+        _write_regex(input[0], output, output_is_list)
+    else:
+        # Loop through and apply for all columns
+        for input_column, output_column in zip(input, output):
+            _write_regex(input_column, [output_column])
 
     return df
-
