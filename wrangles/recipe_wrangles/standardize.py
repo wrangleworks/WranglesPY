@@ -160,8 +160,8 @@ def clean(
         )
 
     warned_for_non_strings = False
-    for input_column, output_column in zip(input, output):
-        values = df[input_column].tolist()
+    source_values = [df[input_column].tolist() for input_column in input]
+    for values, output_column in zip(source_values, output):
         if not warned_for_non_strings and any(
             not isinstance(value, str)
             for value in values
