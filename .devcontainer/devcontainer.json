@@ -17,8 +17,8 @@
 		"PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
 	},
 
-	// Mirror the full CI test environment and install this checkout in editable mode.
-	"postCreateCommand": "python -m pip install --user --upgrade pip && python -m pip install --user -r requirements-full.txt pytest==9.0.2 pytest-mock -e .",
+	// Mirror the complete local test/tooling environment and install this checkout in editable mode.
+	"postCreateCommand": "python -m pip install --user --upgrade pip && python -m pip install --user -r requirements-dev.txt -e . && python -m pip check",
 
 	// Configure tool-specific properties.
 	"customizations": {
@@ -39,7 +39,7 @@
 					"https://public.wrangle.works/schema/recipes/schema.json": ["*.wrgl.yml", "*.wrgl.yaml", "*.recipe"]
 				},
 				"python.defaultInterpreterPath": "/usr/local/bin/python",
-				"python.testing.pytestArgs": ["tests"],
+				"python.testing.pytestArgs": ["-c", "pytest-local.ini"],
 				"python.testing.unittestEnabled": false,
 				"python.testing.pytestEnabled": true
 			}
