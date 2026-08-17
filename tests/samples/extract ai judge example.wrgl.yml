@@ -1,0 +1,291 @@
+read:
+  file:
+    name: ${INPUT_FILE}
+    sep: "\t"
+
+wrangles:
+  # PyYAML safely parses the source's single-quoted Python-style dictionaries.
+  - convert.from_yaml:
+      input: "* Classification"
+
+  # The wildcard makes this work with any number of classification columns.
+  - merge.to_dict:
+      input: "* Classification"
+      output: Possible Classifications
+
+  # Scores describe upstream ranking rather than product evidence. Rebuild
+  # each candidate dictionary from its items without Score so this remains an
+  # independent content-based judgment.
+  - python:
+      input: Possible Classifications
+      output: Possible Classifications
+      command: |
+        {candidate: {key: value for key, value in details.items() if key != "Score"}
+        for candidate, details in Possible_Classifications.items()}
+
+  - merge.to_dict:
+      input:
+        - Input Description
+        - Possible Classifications
+      output: Judge Input
+
+  - extract.ai:
+      input: Judge Input
+      api_key: ${OPENAI_API_KEY}
+      model: gpt-5.4-mini
+      messages: |
+        You are an expert classifier for supplier product content.
+
+        Each input contains:
+        - Input Description: the product text to classify.
+        - Possible Classifications: a dictionary containing one or more
+          candidate classifications. Candidate labels are the dictionary keys.
+
+        Evaluate every candidate supplied in Possible Classifications. The
+        number and labels of candidates are dynamic. Never assume labels such
+        as Primary, Second, Third, or Fourth will be present, and never invent
+        a candidate that was not supplied.
+
+        First identify the core item being sold. Then compare the entire
+        description with each candidate's L1, L2, and L3 hierarchy. Explicit
+        product nouns, modifiers, materials, dimensions, ratings, standards,
+        component names, and stated use cases are evidence. Explicit evidence
+        takes precedence over inference or general industry knowledge.
+
+        A candidate must be meaningfully supported, not merely the least-wrong
+        option. Prefer the candidate with the best-fitting L2 when similarly
+        specific candidates are tied. If they remain tied, preserve the order
+        in which the candidates were supplied.
+
+        Return one Candidate Evaluations entry for every supplied candidate,
+        using its exact dictionary key. Select an exact supplied key only when
+        that classification is meaningfully supported. Otherwise return
+        "None (needs review)" and null classification details.
+
+        Confidence measures whether the selected category truly fits the
+        product, not merely whether it ranks above the other candidates.
+        Use Certain only for clear, direct evidence. Use Uncertain for vague,
+        incomplete, ambiguous, inferred, or weakly supported descriptions.
+        Needs Human Review must be true whenever confidence is Uncertain or
+        no candidate is selected.
+      output:
+        Candidate Evaluations:
+          type: array
+          description: |
+            One evaluation for every supplied candidate, in the same order.
+          items:
+            type: object
+            properties:
+              Candidate:
+                type: string
+                description: Exact candidate key from Possible Classifications.
+              Evidence:
+                type: string
+                description: |
+                  Concise evidence from Input Description supporting or
+                  contradicting this candidate. Write "No clear evidence."
+                  when the description provides no meaningful support.
+              Fit:
+                type: string
+                description: Strength of the product-to-category fit.
+                enum:
+                  - Strong
+                  - Partial
+                  - Unsupported
+        Selected Classification:
+          type: string
+          description: |
+            Exact key of the best-supported supplied candidate, or
+            "None (needs review)" when no candidate is meaningfully supported.
+        Selected Classification Details:
+          type: object
+          description: |
+            The selected candidate's hierarchy. Return null when Selected
+            Classification is "None (needs review)".
+          properties:
+            L1:
+              type: string
+              description: Selected candidate's exact L1 value.
+            L2:
+              type: string
+              description: Selected candidate's exact L2 value.
+            L3:
+              type: string
+              description: Selected candidate's exact L3 value.
+        AI Reasoning:
+          type: string
+          description: |
+            One concise sentence explaining the selection using the strongest
+            evidence, or explaining why none is sufficiently supported.
+        Category Fit Confidence:
+          type: string
+          description: Confidence that the selected category fits the product.
+          enum:
+            - Certain
+            - Uncertain
+        Needs Human Review:
+          type: boolean
+          description: |
+            True when confidence is Uncertain or Selected Classification is
+            "None (needs review)"; otherwise false.
+      examples:
+        - name: dynamic two-candidate example
+          input:
+            Input Description: 18V cordless drill with battery and charger
+            Possible Classifications:
+              Candidate A:
+                L1: TOOLS
+                L2: POWER TOOLS
+                L3: DRILL, CORDLESS
+              Candidate B:
+                L1: ELECTRICAL
+                L2: POWER PRODUCTS AND BATTERIES
+                L3: BATTERY CHARGER
+          output:
+            Candidate Evaluations:
+              - Candidate: Candidate A
+                Evidence: The description explicitly identifies a cordless drill.
+                Fit: Strong
+              - Candidate: Candidate B
+                Evidence: A charger is included, but it is not the core item sold.
+                Fit: Partial
+            Selected Classification: Candidate A
+            Selected Classification Details:
+              L1: TOOLS
+              L2: POWER TOOLS
+              L3: DRILL, CORDLESS
+            AI Reasoning: |
+              The core item is explicitly a cordless drill; the battery and
+              charger are included accessories.
+            Category Fit Confidence: Certain
+            Needs Human Review: false
+
+write:
+  # Row-level results.
+  - file:
+      name: ai_classification_judge_results.json
+      orient: records
+      columns:
+        - Input Description
+        - Possible Classifications
+        - Candidate Evaluations
+        - Selected Classification
+        - Selected Classification Details
+        - AI Reasoning
+        - Category Fit Confidence
+        - Needs Human Review
+
+  # Summary-only output, built from regular recipe wrangles.
+  - recipe:
+      wrangles:
+        - select.group_by:
+            count:
+              - Input Description: Rows
+            list:
+              - Selected Classification: Selected Classification Values
+              - Category Fit Confidence: Confidence Values
+              - Needs Human Review: Human Review Values
+            auto_rename_columns: false
+        - python:
+            input: Selected Classification Values
+            output: Selected Classification Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Selected_Classification_Values.count(value)
+              for value in Selected_Classification_Values}
+        - python:
+            input: Confidence Values
+            output: Confidence Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Confidence_Values.count(value)
+              for value in Confidence_Values}
+        - python:
+            input: Human Review Values
+            output: Human Review Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Human_Review_Values.count(value)
+              for value in Human_Review_Values}
+        - merge.to_dict:
+            input:
+              - Rows
+              - Selected Classification Counts
+              - Confidence Counts
+              - Human Review Counts
+            output: Summary
+      write:
+        file:
+          name: ai_classification_judge_summary.json
+          orient: records
+          columns:
+            - Summary
+
+  # Combined envelope: one record containing row results and their summary.
+  - recipe:
+      wrangles:
+        - pandas.copy:
+            input: Needs Human Review
+            output: Needs Human Review Summary
+        - merge.to_dict:
+            input:
+              - Input Description
+              - Possible Classifications
+              - Candidate Evaluations
+              - Selected Classification
+              - Selected Classification Details
+              - AI Reasoning
+              - Category Fit Confidence
+              - Needs Human Review
+            output: Result
+            include_empty: true
+        - select.group_by:
+            count:
+              - Input Description: Rows
+            list:
+              - Selected Classification: Selected Classification Values
+              - Category Fit Confidence: Confidence Values
+              - Needs Human Review Summary: Human Review Values
+              - Result: Results
+            auto_rename_columns: false
+        - python:
+            input: Selected Classification Values
+            output: Selected Classification Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Selected_Classification_Values.count(value)
+              for value in Selected_Classification_Values}
+        - python:
+            input: Confidence Values
+            output: Confidence Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Confidence_Values.count(value)
+              for value in Confidence_Values}
+        - python:
+            input: Human Review Values
+            output: Human Review Counts
+            command: >-
+              {("null" if value is None else str(value).lower()
+              if isinstance(value, bool) else str(value)):
+              Human_Review_Values.count(value)
+              for value in Human_Review_Values}
+        - merge.to_dict:
+            input:
+              - Rows
+              - Selected Classification Counts
+              - Confidence Counts
+              - Human Review Counts
+            output: Summary
+      write:
+        file:
+          name: ai_classification_judge.json
+          orient: records
+          columns:
+            - Results
+            - Summary

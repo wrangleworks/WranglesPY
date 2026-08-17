@@ -48,7 +48,7 @@ WranglesPY/
 ├── schema/                     # JSON schema generation
 │   ├── generate_recipe_schema.py
 │   └── recipe_base_schema.json
-├── setup.py                    # Package setup (version: 1.16.0)
+├── setup.py                    # Package setup and release version
 ├── requirements.txt            # Production dependencies
 ├── dockerfile                  # Multi-stage Docker build
 ├── main.py                     # Container entry point
@@ -137,6 +137,20 @@ docker build -t wrangles:latest .
 
 ## Coding Guidelines
 
+### Pull Request Review Policy
+
+- Follow `docs/pull-request-workflow.md`.
+- Prioritize correctness, behavioral regressions, compatibility, security,
+  missing tests, and unintended scope.
+- Label review findings P0 through P3. Request changes for P0-P2 findings.
+- Treat P3 improvements as non-blocking and link a follow-up issue when useful.
+- Put file-specific findings in inline review threads so the author can reply
+  and the reviewer can explicitly resolve them.
+- Do not approve a PR with failing required checks, unresolved blocking
+  threads, merge conflicts, or unrelated changes.
+- Applying a suggestion or pushing a fix does not resolve its review thread;
+  verify the fix, resolve the thread, and submit a fresh approval.
+
 ### Code Style
 - Follow existing patterns in the codebase (no formal linter configured)
 - Use descriptive variable names
@@ -212,14 +226,68 @@ Custom functions can be added to recipes:
 
 ## CI/CD Pipeline
 
+### Integration and release direction
+
+`main` is the only integration branch for new work. Create each short-lived
+feature, fix, or documentation branch from current `main` and target its pull
+request directly to `main`.
+
+The DEV environment is a deployment destination, not a Git integration branch.
+Do not target new pull requests to `dev`. Freeze the legacy `dev` branch while
+wanted work is recovered one logical change at a time on clean branches from
+current `main`; never merge `dev` wholesale into `main`.
+
+**Pushing to a feature branch currently runs nothing.** Open a pull request to
+`main` (Draft is fine) to trigger `ci.yml`. A PR to `main` runs the full Ubuntu
+and Windows, Python 3.11 and 3.13 matrix.
+
+PR #1115 established the current workflows, but some triggers still mention the
+legacy `dev` branch. That support is transitional compatibility and does not
+change the integration policy. Issue #1117 tracks enforcing development
+deployments from an explicit `main` SHA and removing the remaining legacy paths.
+
+### Merging never releases anything
+
+Merging to `main` runs CI and, under the current transitional workflow,
+publishes a tested container image. It does not publish a Python package and
+does not deploy to any environment.
+
+| Action | Result |
+| --- | --- |
+| Merge to `main` | tests, then `:latest` image promoted |
+| Manually dispatch `deploy-dev.yml` from `main` | `<version>rcN` to CodeArtifact, then DEV deploy in Lambda-Recipes |
+| Push a matching `v*` tag from `main` | `:<version>` image, then CodeArtifact, then PyPI |
+
+Both publishing paths are deliberate human actions, not consequences of a merge:
+
+1. **DEV release** — run `deploy-dev.yml` via workflow dispatch from `main`,
+   supplying a base version such as `1.20.0`. The `rcN` suffix is
+   resolved automatically from the versions already in CodeArtifact. RC builds
+   go to CodeArtifact only, never PyPI.
+2. **Production release** — bump `version` in `setup.py`, merge to `main`, then
+   push a matching `v<version>` tag. `publish-tagged.yml` refuses to run if the
+   tag and `setup.py` disagree.
+
+There is no "staging" environment. The environments are DEV (Lambda-Recipes) and
+production.
+
+See `docs/release-lifecycle.md` for the current policy and the remaining topics
+to define.
+
 ### GitHub Actions Workflows
-- **publish-main.yml:** Main CI pipeline
-  - Pytest on multiple OS (Ubuntu, Windows)
-  - Tests Python 3.11, 3.13
+- **ci.yml** (*CI*)**:** PRs into `main` and pushes to `main`; legacy `dev`
+  triggers remain temporarily while recovery is completed
+  - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 for `main` PRs
   - Test pip installation
   - Generate and test JSON schema
-  - Build and push Docker image
-  - Run container tests
+  - Build the Docker image, pushed on merges to `main` under the new policy
+  - Run container tests, then promote the mutable tag
+- **deploy-dev.yml** (*Deploy Dev*)**:** manually dispatch from `main`. The
+  workflow still accepts `dev` temporarily; do not use that path for new work.
+  Publishes an RC to CodeArtifact, then deploys DEV in Lambda-Recipes.
+- **publish-tagged.yml** (*Deploy Prod*)**:** `v*` tag push. GHCR, then
+  CodeArtifact, then PyPI. The file name is pinned by PyPI Trusted Publishing
+  and cannot be renamed without updating the publisher on PyPI first.
 
 ### Workflow Jobs
 1. **pytest:** Run test suite across OS/Python matrix
@@ -227,6 +295,12 @@ Custom functions can be added to recipes:
 3. **test-generate-schema:** Generate JSON schema from code
 4. **build:** Create Docker image and push to GitHub Container Registry
 5. **test-container:** Validate Docker image with full test suite
+6. **promote-image:** Retag the tested image; `dev` support is transitional and
+   `latest` handling will be hardened under issue #1117
+
+Mutable tags are only moved after `test-container` passes, and package
+publication is gated on the container, so the wheel and the image cannot
+diverge. See `docs/release-lifecycle.md` for the current release direction.
 
 ## Known Issues & Workarounds
 
