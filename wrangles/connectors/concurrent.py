@@ -5,6 +5,7 @@ other write connectors concurrently.
 import pandas as _pd
 import wrangles as _wrangles
 import concurrent.futures as _futures
+import contextvars as _contextvars
 import types as _types
 from typing import Union as _Union
 
@@ -38,12 +39,22 @@ def run(
     with pool_executor(max_workers=max_concurrency) as executor:
         futures = []
         for run_definition in run:
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe= {'run': {"on_start": [run_definition]}},
-                variables=variables,
-                functions=functions
-            )
+            if use_multiprocessing:
+                future = executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'run': {"on_start": [run_definition]}},
+                    variables=variables,
+                    functions=functions
+                )
+            else:
+                future = executor.submit(
+                    _contextvars.copy_context().run,
+                    _wrangles.recipe.run,
+                    {'run': {"on_start": [run_definition]}},
+                    variables,
+                    None,
+                    functions
+                )
             futures.append(future)
         
         # Wait for all futures to complete
@@ -97,13 +108,28 @@ def read(
         pool_executor = _futures.ThreadPoolExecutor
     
     with pool_executor(max_workers=max_concurrency) as executor:
-        dfs = list(executor.map(
-            _wrangles.recipe.run,
-            [{'read': [read_definition]} for read_definition in read],
-            [variables for _ in read],
-            [None for _ in read],
-            [functions for _ in read]
-        ))
+        recipes = [{'read': [read_definition]} for read_definition in read]
+        if use_multiprocessing:
+            dfs = list(executor.map(
+                _wrangles.recipe.run,
+                recipes,
+                [variables for _ in read],
+                [None for _ in read],
+                [functions for _ in read]
+            ))
+        else:
+            futures = [
+                executor.submit(
+                    _contextvars.copy_context().run,
+                    _wrangles.recipe.run,
+                    recipe,
+                    variables,
+                    None,
+                    functions
+                )
+                for recipe in recipes
+            ]
+            dfs = [future.result() for future in futures]
 
     return dfs
 
@@ -160,13 +186,23 @@ def write(
     with pool_executor(max_workers=max_concurrency) as executor:
         futures = []
         for write_definition in write:
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe= {'write': [write_definition]},
-                dataframe=df.copy(),
-                variables=variables,
-                functions=functions
-            )
+            if use_multiprocessing:
+                future = executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'write': [write_definition]},
+                    dataframe=df.copy(),
+                    variables=variables,
+                    functions=functions
+                )
+            else:
+                future = executor.submit(
+                    _contextvars.copy_context().run,
+                    _wrangles.recipe.run,
+                    {'write': [write_definition]},
+                    variables,
+                    df.copy(),
+                    functions
+                )
             futures.append(future)
         
         # Wait for all futures to complete

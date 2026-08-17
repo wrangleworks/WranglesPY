@@ -18,6 +18,7 @@ import json as _json
 import numpy as _np
 import math as _math
 import concurrent.futures as _futures
+import contextvars as _contextvars
 from ..openai import _divide_batches
 from ..classify import classify as _classify
 from ..standardize import standardize as _standardize
@@ -130,6 +131,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion input or propagate? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     try:
@@ -144,6 +148,9 @@ def accordion(
         )
     except KeyError as e:
         e.args = (f"Did you forget the column in the accordion output? - {e.args[0]}",)
+        # The message just changed, so it no longer reads as already-wrapped -
+        # let the outer accordion wrangle add its own line-number wrap on top.
+        e._wrangles_error_wrapped = False
         raise e
 
     df_temp = df_temp.set_index(f"index_asbjdbasjk_{random_str}")[output]
@@ -276,23 +283,44 @@ def batch(
         pool_executor = _futures.ThreadPoolExecutor
 
     with pool_executor(max_workers=threads) as executor:
-        batches = list(_divide_batches(df, batch_size))
-        
-        # Set a chunk size for process pool executor
-        # to reduce overhead of process creation
-        chunksize = min(max(len(batches) // threads, 1), 20)
+        # Pandas row slices may be views. Give each worker an independent
+        # dataframe so nested wrangles can safely add or transform columns.
+        batches = [
+            batch.copy()
+            for batch in _divide_batches(df, batch_size)
+        ]
 
-        results = executor.map(
-            _batch_thread,
-            batches,
-            range(1, len(batches) + 1), 
-            [wrangles] * len(batches),
-            [functions] * len(batches),
-            [variables] * len(batches),
-            [timeout] * len(batches),
-            [on_error] * len(batches),
-            chunksize = chunksize
-        )
+        if use_multiprocessing:
+            # Set a chunk size for process pool executor
+            # to reduce overhead of process creation.
+            chunksize = min(max(len(batches) // threads, 1), 20)
+            results = executor.map(
+                _batch_thread,
+                batches,
+                range(1, len(batches) + 1),
+                [wrangles] * len(batches),
+                [functions] * len(batches),
+                [variables] * len(batches),
+                [timeout] * len(batches),
+                [on_error] * len(batches),
+                chunksize=chunksize
+            )
+        else:
+            futures = [
+                executor.submit(
+                    _contextvars.copy_context().run,
+                    _batch_thread,
+                    batch_df,
+                    batch_num,
+                    wrangles,
+                    functions,
+                    variables,
+                    timeout,
+                    on_error
+                )
+                for batch_num, batch_df in enumerate(batches, 1)
+            ]
+            results = [future.result() for future in futures]
 
     return _pd.concat(results)
 
@@ -463,13 +491,23 @@ def concurrent(
             ):
                 raise ValueError('Using concurrent requires that each wrangle specify output column(s).')
 
-            future = executor.submit(
-                _wrangles.recipe.run,
-                recipe= {'wrangles': [wrangle_definition]},
-                dataframe=df.copy(),
-                variables=variables,
-                functions=functions
-            )
+            if use_multiprocessing:
+                future = executor.submit(
+                    _wrangles.recipe.run,
+                    recipe={'wrangles': [wrangle_definition]},
+                    dataframe=df.copy(),
+                    variables=variables,
+                    functions=functions
+                )
+            else:
+                future = executor.submit(
+                    _contextvars.copy_context().run,
+                    _wrangles.recipe.run,
+                    {'wrangles': [wrangle_definition]},
+                    variables,
+                    df.copy(),
+                    functions
+                )
             futures.append(future)
 
             # Add output columns to reference on completion
@@ -1346,7 +1384,7 @@ def python(
         exception = None
 
     # Raise a warniing for illegal python variables
-    if _re.search('\${.*\s.*}', command):
+    if _re.search(r'\${.*\s.*}', command):
         _logging.warning(f'Spaces should be dropped in python wrangle variables in order to be valid python syntax.')
 
     # Clean up variables and replace column variables with the column name
@@ -1377,10 +1415,14 @@ def python(
         If an exception value is provided by the user, catch and return
         else raise an error in the normal way otherwise
         """
-        if exception:
+        if exception is not None:
             try:
                 return _apply_command(variables, **kwargs)
             except Exception as e:
+                _logging.warning(
+                    f"Python wrangle command failed ({type(e).__name__}: {e}). "
+                    "Returning value from `except`."
+                )
                 return exception
         else:
             return _apply_command(variables, **kwargs)
@@ -1403,7 +1445,7 @@ def recipe(
     input: _Union[str, int, list] = None,
     output: _Union[str, list] = None,
     name: str = None,
-    variables = {},
+    variables = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
 ) -> _pd.DataFrame:
@@ -1423,6 +1465,8 @@ def recipe(
             type: object
             description: A dictionary of variables to pass to the recipe
     """
+    if variables is None:
+        variables = {}
     if not name: name = kwargs
 
     df_temp = df.copy() # copy of the original df
@@ -1435,18 +1479,25 @@ def recipe(
     if output is None and input is not None:
         output = input
 
+    recipe_object, functions = _recipe._load_recipe(
+        name,
+        variables=variables,
+        functions=functions
+    )
+    recipe_object.pop('write', None)
+
     # If output columns are specified, only apply to those
     if output:
         if not isinstance(output, list): output = [output]
         df[output] = _recipe.run(
-            name,
+            recipe_object,
             variables=variables,
             functions=functions,
             dataframe=df_temp
         )[output]
     else:
         df = _recipe.run(
-            name,
+            recipe_object,
             variables=variables,
             functions=functions,
             dataframe=df_temp
@@ -1604,7 +1655,14 @@ def rename(
                         variables=kwargs.get("variables", {})
                     )["columns"].tolist()
                 except Exception as e:
-                    raise RuntimeError(f"Failed running {wrangle_name} in rename wrangles: {e}")
+                    # Preserve the inner wrangle's own message (which already
+                    # includes the correct line number and a suggestion when
+                    # available) rather than burying it behind extra text.
+                    # Also carry over the "already wrapped" marker so the
+                    # outer rename wrangle doesn't wrap it a second time.
+                    wrapped = RuntimeError(f"{e}")
+                    wrapped._wrangles_error_wrapped = getattr(e, '_wrangles_error_wrapped', False)
+                    raise wrapped.with_traceback(e.__traceback__) from None
 
                 if len(target) != len(result):
                     raise RuntimeError(

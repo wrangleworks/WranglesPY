@@ -2,8 +2,6 @@ import uuid
 import time
 import importlib
 
-from pytest_mock import mocker
-
 import wrangles
 import pandas as pd
 import pytest
@@ -40,6 +38,19 @@ class LogCapture(logging.Handler):
         self.records.append(record)
     def get_messages(self):
         return [self.format(r) for r in self.records]
+
+
+def _delete_model_from_log(caplog, log_marker):
+    """Delete the model ID recorded in a model-creation log message."""
+    matching_records = [
+        record for record in caplog.records
+        if record.levelname == "INFO" and log_marker in record.message
+    ]
+    if not matching_records:
+        return
+
+    model_id = matching_records[-1].message.split("::")[-1].strip()
+    wrangles.train.delete(model_id)
 
 #
 # Classify
@@ -154,23 +165,26 @@ def test_classify_read_four_cols_error(mocker):
             """
         )
 
-def test_classify_write_logs_new_model_id_integration(caplog):  
-    df = pd.DataFrame({  
-        'Example': ['apple', 'banana'],  
-        'Category': ['fruit', 'fruit'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.classify:  
-              name: Test Classify Model  
-        """,  
-        dataframe=df  
-    )  
-  
-    assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+def test_classify_write_logs_new_model_id_integration(caplog):
+    df = pd.DataFrame({
+        'Example': ['apple', 'banana'],
+        'Category': ['fruit', 'fruit'],
+        'Notes': ['', '']
+    })
+
+    try:
+        wrangles.recipe.run(
+            """
+            write:
+              - train.classify:
+                  name: Test Classify Model
+            """,
+            dataframe=df
+        )
+
+        assert any(record.message for record in caplog.records if record.levelname == "INFO" and "New classify model created" in record.message)
+    finally:
+        _delete_model_from_log(caplog, "New classify model created")
 
 class TestTrainExtract:
     """
@@ -787,12 +801,19 @@ class TestTrainLookup:
               - Value
         """
 
-        result = wrangles.recipe.run(recipe, dataframe=df)
-        assert len(result) == 2
-        assert 'NewCharacter' in result['Key'].tolist()
-        assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
-        models = wrangles.data.user.models('lookup')
-        assert any(m['name'] == model_name for m in models)
+        model_id = None
+        try:
+            result = wrangles.recipe.run(recipe, dataframe=df)
+            assert len(result) == 2
+            assert 'NewCharacter' in result['Key'].tolist()
+            assert result['Value'].tolist() == ['Updated Rachel', 'New Movie']
+            models = wrangles.data.user.models('lookup')
+            model = next((m for m in models if m['name'] == model_name), None)
+            assert model is not None
+            model_id = model['id']
+        finally:
+            if model_id:
+                wrangles.train.delete(model_id)
 
     def test_action_parameter_upsert(self):
         """
@@ -1730,29 +1751,32 @@ class TestTrainLookup:
 
 
 def test_lookup_write_logs_new_model_id(caplog):
-    """  
-    Integration test for lookup model creation logging  
-    """  
-    df = pd.DataFrame({  
-        'Key': ['apple', 'banana'],  
-        'Value': ['fruit', 'fruit']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.lookup:  
-              name: Test Lookup Model Integration  
-              variant: key  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model_id was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "New lookup model created" in record.message  
-    )
+    """
+    Integration test for lookup model creation logging
+    """
+    df = pd.DataFrame({
+        'Key': ['apple', 'banana'],
+        'Value': ['fruit', 'fruit']
+    })
+
+    try:
+        wrangles.recipe.run(
+            """
+            write:
+              - train.lookup:
+                  name: Test Lookup Model Integration
+                  variant: key
+            """,
+            dataframe=df
+        )
+
+        # Check that model_id was logged
+        assert any(
+            record.message for record in caplog.records
+            if record.levelname == "INFO" and "New lookup model created" in record.message
+        )
+    finally:
+        _delete_model_from_log(caplog, "New lookup model created")
 
 
 #
@@ -1836,30 +1860,33 @@ def test_standardize_error():
             })
         )
 
-def test_standardize_write_logs_new_model_id(caplog):  
-    """  
-    Integration test for standardize model creation logging  
-    """  
-    df = pd.DataFrame({  
-        'Find': ['ASAP', 'ETA'],  
-        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],  
-        'Notes': ['', '']  
-    })  
-  
-    wrangles.recipe.run(  
-        """  
-        write:  
-          - train.standardize:  
-              name: Test Standardize Model Integration  
-        """,  
-        dataframe=df  
-    )  
-  
-    # Check that model creation was logged  
-    assert any(  
-        record.message for record in caplog.records   
-        if record.levelname == "INFO" and "Creating new standardize model" in record.message  
-    )
+def test_standardize_write_logs_new_model_id(caplog):
+    """
+    Integration test for standardize model creation logging
+    """
+    df = pd.DataFrame({
+        'Find': ['ASAP', 'ETA'],
+        'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],
+        'Notes': ['', '']
+    })
+
+    try:
+        wrangles.recipe.run(
+            """
+            write:
+              - train.standardize:
+                  name: Test Standardize Model Integration
+            """,
+            dataframe=df
+        )
+
+        # Check that model creation was logged
+        assert any(
+            record.message for record in caplog.records
+            if record.levelname == "INFO" and "Creating new standardize model" in record.message
+        )
+    finally:
+        _delete_model_from_log(caplog, "New standardize model created")
 
 
 class TestTrainMetaData:
@@ -2012,3 +2039,66 @@ class TestTrainMetaData:
                 """,
                 dataframe=pd.DataFrame([{"settings": "not-a-dict"}])
             )
+
+
+#
+# Delete
+#
+class TestTrainDelete:
+    """
+    Tests for wrangles.train.delete
+    """
+
+    def _mock_delete_ok(self, mocker):
+        mocker.patch('wrangles.train._auth.get_access_token', return_value='test-token')
+        mock = mocker.patch('wrangles.train._requests.delete')
+        mock.return_value.ok = True
+        mock.return_value.status_code = 200
+        return mock
+
+    def test_cleanup_helper_deletes_logged_model(self, mocker, caplog):
+        mock_delete = mocker.patch.object(wrangles.train, 'delete')
+        caplog.set_level(logging.INFO)
+        logging.info(': New classify model created :: 12345678-1234-1234')
+
+        _delete_model_from_log(caplog, 'New classify model created')
+
+        mock_delete.assert_called_once_with('12345678-1234-1234')
+
+    def test_cleanup_helper_propagates_delete_failure(self, mocker, caplog):
+        mocker.patch.object(
+            wrangles.train,
+            'delete',
+            side_effect=RuntimeError('cleanup failed')
+        )
+        caplog.set_level(logging.INFO)
+        logging.info(': New lookup model created :: 12345678-1234-1234')
+
+        with pytest.raises(RuntimeError, match='cleanup failed'):
+            _delete_model_from_log(caplog, 'New lookup model created')
+
+    def test_delete_sends_authenticated_request(self, mocker):
+        model_id = "00000000-0000-0000"
+        mock_delete = self._mock_delete_ok(mocker)
+
+        response = wrangles.train.delete(model_id)
+
+        assert response is mock_delete.return_value
+        mock_delete.assert_called_once_with(
+            'https://api.wrangle.works/model/delete',
+            params={'model_id': model_id},
+            headers={'Authorization': 'Bearer test-token'}
+        )
+
+    def test_delete_error_raises_runtime_error(self, mocker):
+        """
+        A non-OK response from the delete endpoint raises RuntimeError.
+        """
+        mocker.patch('wrangles.train._auth.get_access_token', return_value='test-token')
+        mock = mocker.patch('wrangles.train._requests.delete')
+        mock.return_value.ok = False
+        mock.return_value.status_code = 404
+        mock.return_value.text = '{"message":"Not Found"}'
+
+        with pytest.raises(RuntimeError, match="Delete model failed"):
+            wrangles.train.delete("00000000-0000-0000")

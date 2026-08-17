@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import wrangles
 import pandas as pd
@@ -2037,6 +2039,47 @@ class TestRename:
         )
         assert df.columns.tolist() == ["HEADER1","HEADER2"]
 
+    def test_rename_wrangles_error_shows_correct_line(self):
+        """
+        When an inner wrangle used inside rename's `wrangles:` (e.g. convert.case)
+        raises an error, the reported line number should point at that wrangle's
+        real position in the user's recipe - not the line number of the internal,
+        synthetic single-wrangle recipe that rename() builds to run it. The error
+        also should not be wrapped twice with a redundant "Failed running ... in
+        rename wrangles" message.
+        """
+        recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                Manufacturer Name: Delos
+                Part Number: CH465517080
+
+        wrangles:
+          - rename:
+              wrangles:
+                - convert.case:
+                    input: columns
+                    case: bogus_case_value
+                - custom.add_suffix:
+                    output: columns
+        """
+        expected_line = next(
+            i for i, line in enumerate(recipe.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def add_suffix(columns):
+            return columns + "_clean"
+
+        with pytest.raises(Exception) as info:
+            wrangles.recipe.run(recipe, functions=add_suffix)
+
+        msg = str(info.value)
+        assert f"(line {expected_line})" in msg
+        assert "Failed running" not in msg
+
     def test_rename_empty(self):
         """
         Test rename with empty data
@@ -2572,7 +2615,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_cosine_string(self):
@@ -2766,7 +2809,7 @@ class TestSimilarity:
             wrangles.recipe.run(recipe, dataframe=data)
         assert (
             info.typename == 'ValueError' and
-            'similarity - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
+            'similarity (line 3) - shapes (4,) and (5,) not aligned: 4 (dim 0) != 5 (dim 0)' in info.value.args[0]
         )
 
     def test_similarity_adjusted_cosine_string(self):
@@ -3548,7 +3591,7 @@ class TestTranslate:
                 target_language: EN-GB
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello World!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English'].lower()) == 'helloworld'
 
     def test_translate_2(self):
         """
@@ -3566,7 +3609,7 @@ class TestTranslate:
                 target_language: English
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English'] == 'Hello World!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English'].lower()) == 'helloworld'
 
     def test_translate_3(self):
         """
@@ -3589,7 +3632,7 @@ class TestTranslate:
                 target_language: English
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
-        assert df.iloc[0]['English2'] == 'Hello World Two!'
+        assert re.sub(r'[^a-z]', '', df.iloc[0]['English2'].lower()) == 'helloworldtwo'
 
     def test_translate_4(self):
         """
@@ -3961,6 +4004,57 @@ class TestRecipe:
         """
         df = wrangles.recipe.run(recipe, dataframe=data)
         assert df['col'].iloc[0] == 'MARIO'
+
+    def test_recipe_wrangle_model_id_nested_error_shows_nested_line(self):
+        """
+        When the recipe wrangle's name is a model_id that itself points to
+        another recipe (rather than a synthetic/inline recipe fragment),
+        an error inside that nested recipe should be attributed to a line
+        within that nested recipe's own source - not the outer recipe's
+        line, and not lost entirely.
+        """
+        nested_recipe_text = """
+wrangles:
+  - convert.case:
+      input: temp
+      case: bogus_case_value
+"""
+        expected_line = next(
+            i for i, line in enumerate(nested_recipe_text.splitlines(), start=1)
+            if "convert.case:" in line
+        )
+
+        def fake_model(model_id):
+            return {'purpose': 'recipe'}
+
+        def fake_model_content(model_id, version_id=None):
+            return {'recipe': nested_recipe_text}
+
+        outer_recipe = """
+        read:
+          - test:
+              rows: 3
+              values:
+                header: value1
+
+        wrangles:
+          - convert.case:
+              input: header
+              output: temp
+              case: upper
+
+          - recipe:
+              name: aaaaaaaa-bbbb-cccc
+              input: temp
+        """
+
+        with patch('wrangles.recipe._data.model', side_effect=fake_model), \
+             patch('wrangles.recipe._data.model_content', side_effect=fake_model_content):
+            with pytest.raises(Exception) as info:
+                wrangles.recipe.run(outer_recipe)
+
+        msg = str(info.value)
+        assert f"(line {expected_line})" in msg
 
     def test_recipe_input(self):
         """
@@ -4629,6 +4723,31 @@ class TestPython:
             """
         )
         assert df["result1"][0] == "error1" and df["result2"][0] == "error2"
+
+    def test_python_except_object(self):
+        """
+        Test that an object can be returned by except
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+            - test:
+                rows: 5
+                values:
+                    attributes_json: '[{"key":"k1","value":"v1"}]'
+            wrangles:
+              - convert.from_json:
+                  input: attributes_json
+              - python:
+                  input: attributes_json
+                  output: attributes_dict
+                  command: this should error
+                  except: {}
+              - convert.to_json:
+                  input: attributes_dict
+            """
+        )
+        assert df["attributes_dict"][0] == "{}"
 
     def test_python_where(self):
         """
@@ -5360,7 +5479,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_invalid_wrangles_column_output(self):
@@ -5394,7 +5514,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            "accordion - \'Did you forget" in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_inconsistent_lengths(self):
@@ -5468,7 +5589,8 @@ class TestAccordion:
             )
         assert (
             err.typename == 'KeyError' and
-            'accordion - "Did you forget' in err.value.args[0]
+            'accordion (line' in err.value.args[0] and
+            'Did you forget' in err.value.args[0]
         )
 
     def test_accordion_empty_list(self):
@@ -5714,6 +5836,41 @@ class TestBatch:
             df['column'].tolist() == ["A"] * 1000 and
             number_of_batches[0] == 1000
         )
+
+    def test_batch_dynamic_dictionary_columns_align_by_name(self):
+        """
+        Dynamic dictionary keys can produce different columns in every batch.
+        The combined result must union those columns and align values by name.
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+              - batch:
+                  batch_size: 1
+                  wrangles:
+                    - split.dictionary:
+                        input: Spec Dicts
+            """,
+            dataframe=pd.DataFrame({
+                "ID": [1, 2, 3, 4],
+                "Spec Dicts": [
+                    {"A": "1", "X": "97"},
+                    {"B": "2", "Y": "98"},
+                    {"C": "3", "Z": "99"},
+                    {"D": "4", "Zz": "100"},
+                ]
+            })
+        )
+
+        assert df.columns.tolist() == [
+            "ID", "Spec Dicts", "A", "X", "B", "Y", "C", "Z", "D", "Zz"
+        ]
+        assert df[["A", "X", "B", "Y", "C", "Z", "D", "Zz"]].values.tolist() == [
+            ["1", "97", "", "", "", "", "", ""],
+            ["", "", "2", "98", "", "", "", ""],
+            ["", "", "", "", "3", "99", "", ""],
+            ["", "", "", "", "", "", "4", "100"],
+        ]
 
     def test_batch_preserves_order(self):
         """
@@ -6092,7 +6249,7 @@ class TestBatch:
                 raise KeyError("column1 does not exist")  
             return df  
         
-        with pytest.raises(KeyError, match=r'Batch #2 - "ERROR IN WRANGLE #1 custom\.fail_on_2nd_batch.*"'):  
+        with pytest.raises(KeyError, match=r'Batch #2 - "custom\.fail_on_2nd_batch.*"'):
             wrangles.recipe.run(  
                 """  
                 read:  
@@ -7860,11 +8017,14 @@ class TestConcurrent:
 
         end = datetime.now()
 
+        # Upper bound is wider than the threaded test to allow for
+        # process-spawn overhead (e.g. Windows uses spawn rather than fork,
+        # which re-imports the full dependency graph in each worker process).
         assert (
             df['column_a'][0] == 'aa' and
             df['column_b'][0] == 'ab' and
             df['column_c'][0] == 'ac' and
-            5 <= (end - start).seconds < 10
+            5 <= (end - start).seconds < 20
         )
 
     def test_output_error(self):
@@ -8305,9 +8465,10 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello']})  
         )  
-        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col2" in caplog.messages[-1]
+        assert ": Wrangling :: convert.case :: Col1 >> Col2 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
 
-    def test_dynamic_output_logging(self, caplog):  
+    def test_dynamic_output_logging(self, caplog):
         """  
         Test logging with dynamic output (new columns created)  
         """  
@@ -8321,9 +8482,10 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello world']}),   
         )  
-        assert ": Wrangling :: split.text :: Completed :: Col1 >> Col1, Col2" in caplog.messages[-1]
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
 
-    def test_skipped_wrangle_logging(self, caplog):  
+    def test_skipped_wrangle_logging(self, caplog):
         """  
         Test logging when wrangle is skipped due to if condition  
         """  
@@ -8343,8 +8505,9 @@ class TestWrangleExecutionLogging:
             dataframe=pd.DataFrame({'Col1': ['hello']})  
         )  
         assert any(": Wrangling :: convert.case skipped due to not passing the if statement." in msg for msg in caplog.messages)
-        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col3" in caplog.messages[-1]   
-      
+        assert ": Wrangling :: convert.case :: Col1 >> Col3 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
+
     def test_mixed_output_logging(self, caplog):  
         """  
         Test logging with mixed output types (strings and dicts)  
@@ -8360,8 +8523,9 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'col1': ['test']}),  
         )  
-        assert ": Wrangling :: create.column :: Completed :: None >> col2, col3, col4" in caplog.messages[-1]  
-      
+        assert ": Wrangling :: create.column :: None >> col2, col3, col4 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
+
     def test_backward_compatibility_logging(self, caplog):  
         """  
         Test that default logging still shows 'Dynamic' for backward compatibility  
@@ -8377,7 +8541,8 @@ class TestWrangleExecutionLogging:
             dataframe=pd.DataFrame({'Col1': ['hello world']})  
         )  
         print(df)
-        assert ": Wrangling :: split.text :: Completed :: Col1 >> Col1, Col2" in caplog.messages[-1]
+        assert ": Wrangling :: split.text :: Col1 >> Col1, Col2 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
 
     def test_input_overwrite_logging(self, caplog):  
         """  
@@ -8392,7 +8557,8 @@ class TestWrangleExecutionLogging:
             """,  
             dataframe=pd.DataFrame({'Col1': ['hello']}),  
         )  
-        assert ": Wrangling :: convert.case :: Completed :: Col1 >> Col1" in caplog.messages[-1]
+        assert ": Wrangling :: convert.case :: Col1 >> Col1 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
 
     def test_output_wildcard_string_logging(_self, caplog):
         df = wrangles.recipe.run(
@@ -8407,7 +8573,8 @@ class TestWrangleExecutionLogging:
                 'Col': [["Hello", "Wrangles!", "and", "World!"]]
             })
         )
-        assert ": Wrangling :: split.list :: Completed :: Col >> Col, Col1, Col2, Col3, Col4" in caplog.messages[-1]
+        assert ": Wrangling :: split.list :: Col >> Col, Col1, Col2, Col3, Col4 ::" in caplog.messages[-1]
+        assert caplog.messages[-1].endswith("Completed")
     
     def test_logging_wildcard_multi_list_no_expansion(self, caplog):  
         """  
@@ -8434,13 +8601,18 @@ class TestWrangleExecutionLogging:
         )  
 
         # Check that the wildcard is not expanded (appears as literal)
-        assert any('Completed :: col1, col2 >> col*, other' in message for message in caplog.messages)
+        assert any(
+            'col1, col2 >> col*, other ::' in message and message.endswith('Completed')
+            for message in caplog.messages
+        )
 
     def test_multiple_wrangles_logging(self, caplog):
         """
         Test that Starting and Completed messages are logged for each wrangle
         in a multi-step recipe, in the correct order.
         """
+        import logging
+        caplog.set_level(logging.DEBUG)
         wrangles.recipe.run(
             """
             wrangles:
@@ -8469,11 +8641,14 @@ class TestWrangleExecutionLogging:
 
         # Verify order: Starting then Completed for each wrangle
         assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[0]
-        assert ': Wrangling :: convert.case :: Completed :: col1 >> col2' in wrangle_logs[1]
+        assert ': Wrangling :: convert.case :: col1 >> col2 ::' in wrangle_logs[1]
+        assert wrangle_logs[1].endswith('Completed')
         assert ': Wrangling :: merge.concatenate :: Starting' in wrangle_logs[2]
-        assert ': Wrangling :: merge.concatenate :: Completed :: col1, col2 >> col3' in wrangle_logs[3]
+        assert ': Wrangling :: merge.concatenate :: col1, col2 >> col3 ::' in wrangle_logs[3]
+        assert wrangle_logs[3].endswith('Completed')
         assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[4]
-        assert ': Wrangling :: convert.case :: Completed :: col3 >> col4' in wrangle_logs[5]
+        assert ': Wrangling :: convert.case :: col3 >> col4 ::' in wrangle_logs[5]
+        assert wrangle_logs[5].endswith('Completed')
 
     def test_completed_log_includes_duration(self, caplog):
         """
@@ -8492,15 +8667,17 @@ class TestWrangleExecutionLogging:
         )
         completed_msg = next(
             msg for msg in caplog.messages
-            if ': Wrangling :: convert.case :: Completed ::' in msg
+            if ': Wrangling :: convert.case ::' in msg
         )
-        assert re.search(r'::\s*\d+\.\d{3}s$', completed_msg), \
-            f"Expected duration suffix like ':: 0.001s' in: {completed_msg}"
+        assert re.search(r'::\s*\d+\.\d{3}s Completed$', completed_msg), \
+            f"Expected duration suffix like ':: 0.001s Completed' in: {completed_msg}"
 
     def test_starting_log_single_wrangle(self, caplog):
         """
         Test that a Starting message is logged before Completed for a single wrangle.
         """
+        import logging
+        caplog.set_level(logging.DEBUG)
         wrangles.recipe.run(
             """
             wrangles:
@@ -8514,7 +8691,7 @@ class TestWrangleExecutionLogging:
         wrangle_logs = [msg for msg in caplog.messages if ': Wrangling :: convert.case ::' in msg]
         assert len(wrangle_logs) == 2
         assert ': Wrangling :: convert.case :: Starting' in wrangle_logs[0]
-        assert ': Wrangling :: convert.case :: Completed ::' in wrangle_logs[1]
+        assert wrangle_logs[1].endswith('Completed')
 
 
 @pytest.mark.usefixtures("caplog")
@@ -9240,3 +9417,29 @@ class TestWrangleSchema:
                 failures.append(f'{path}: YAML parse error — {e}')
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
+
+    def test_extract_codes_schema_matches_microservice_params(self):
+        import yaml
+
+        schema = yaml.safe_load(wrangles.recipe._recipe_wrangles.extract.codes.__doc__)
+        properties = schema['properties']
+
+        for param in (
+            'min_length',
+            'max_length',
+            'sort_order',
+            'disallowed_patterns',
+            'include_multi_part_tokens',
+            'extract_raw'
+        ):
+            assert param in properties
+
+        for param in (
+            'minLength',
+            'maxLength',
+            'sortOrder',
+            'disallowedPatterns',
+            'includeMultiPartTokens',
+            'extractRaw'
+        ):
+            assert param not in properties

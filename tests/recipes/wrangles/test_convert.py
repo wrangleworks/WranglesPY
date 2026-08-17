@@ -772,7 +772,7 @@ class TestConvertDataType:
             wrangles.recipe.run(recipe, dataframe=df)
         assert (
             info.typename == 'TypeError' and
-            'convert.data_type - data_type squirrel is not supported.' in info.value.args[0]
+            'convert.data_type (line 3) - data_type squirrel is not supported.' in info.value.args[0]
         )
 
 
@@ -1113,6 +1113,142 @@ class TestConvertFromJSON:
         )
         assert df.empty and df.columns.to_list() == ['header1', 'output column']
 
+    def test_default_list_single_column(self):
+        """
+        Test that a list of one default applies correctly when input is a list of one column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                default:
+                  - {}
+                output:
+                  - out1
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '[1,2,3]']
+            })
+        )
+        assert df["out1"][0] == {} and df["out1"][1] == [1, 2, 3]
+
+    def test_default_list_multiple_columns(self):
+        """
+        Test that a list of defaults applies one default per column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - {}
+                  - []
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '{"a": 1}'],
+                "header2": ["", '[4,5,6]']
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"a": 1} and
+            df["out2"][0] == [] and
+            df["out2"][1] == [4, 5, 6]
+        )
+
+    def test_default_list_one_applied_to_all_columns(self):
+        """
+        Test that a list of one default is unwrapped and applied to all columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - {}
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '{"a": 1}'],
+                "header2": ["", '{"b": 2}']
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"a": 1} and
+            df["out2"][0] == {} and
+            df["out2"][1] == {"b": 2}
+        )
+
+    def test_default_list_length_mismatch_raises(self):
+        """
+        Test that a default list whose length doesn't match input raises an error
+        """
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.from_json:
+                    input:
+                      - header1
+                      - header2
+                    default:
+                      - {}
+                      - []
+                      - null
+                    output:
+                      - out1
+                      - out2
+                """,
+                dataframe=pd.DataFrame({
+                    "header1": [""],
+                    "header2": [""]
+                })
+            )
+
+    def test_default_list_complex_values_no_output(self):
+        """
+        Test a list of complex defaults (dict and list) with no output specified,
+        overwriting the input columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_json:
+                input:
+                  - header1
+                  - header2
+                default:
+                  - my_output:
+                      key1: Val1
+                      key2: Val2
+                  - [this, is, a, list]
+            """,
+            dataframe=pd.DataFrame({
+                "header1": ["", '{"a": 1}'],
+                "header2": ["", '[1,2,3]']
+            })
+        )
+        assert (
+            df["header1"][0] == {"my_output": {"key1": "Val1", "key2": "Val2"}} and
+            df["header1"][1] == {"a": 1} and
+            df["header2"][0] == ["this", "is", "a", "list"] and
+            df["header2"][1] == [1, 2, 3]
+        )
+
 
 class TestConvertFromYAML:
     """
@@ -1245,6 +1381,225 @@ class TestConvertFromYAML:
             })
         )
         assert df.empty and df.columns.to_list() == ['column', 'output column']
+
+    def test_default_list_single_column(self):
+        """
+        Test that a list of one default applies correctly when input is a list of one column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - column
+                default:
+                  - {}
+                output:
+                  - out1
+            """,
+            dataframe=pd.DataFrame({
+                "column": ["", "key: val\n"]
+            })
+        )
+        assert df["out1"][0] == {} and df["out1"][1] == {"key": "val"}
+
+    def test_default_list_multiple_columns(self):
+        """
+        Test that a list of defaults applies one default per column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - {}
+                  - []
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "key: val\n"],
+                "col2": ["", "- item1\n"]
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"key": "val"} and
+            df["out2"][0] == [] and
+            df["out2"][1] == ["item1"]
+        )
+
+    def test_default_list_one_applied_to_all_columns(self):
+        """
+        Test that a list of one default is unwrapped and applied to all columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - {}
+                output:
+                  - out1
+                  - out2
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "key: val\n"],
+                "col2": ["", "key2: val2\n"]
+            })
+        )
+        assert (
+            df["out1"][0] == {} and
+            df["out1"][1] == {"key": "val"} and
+            df["out2"][0] == {} and
+            df["out2"][1] == {"key2": "val2"}
+        )
+
+    def test_default_list_length_mismatch_raises(self):
+        """
+        Test that a default list whose length doesn't match input raises an error
+        """
+        with pytest.raises(ValueError, match="same length"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - convert.from_yaml:
+                    input:
+                      - col1
+                      - col2
+                    default:
+                      - {}
+                      - []
+                      - null
+                    output:
+                      - out1
+                      - out2
+                """,
+                dataframe=pd.DataFrame({
+                    "col1": [""],
+                    "col2": [""]
+                })
+            )
+
+    def test_default_list_complex_values_no_output(self):
+        """
+        Test a list of complex defaults (dict and list) with no output specified,
+        overwriting the input columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - convert.from_yaml:
+                input:
+                  - col1
+                  - col2
+                default:
+                  - my_output:
+                      key1: Val1
+                      key2: Val2
+                  - [this, is, a, list]
+            """,
+            dataframe=pd.DataFrame({
+                "col1": ["", "a: 1\n"],
+                "col2": ["", "- 1\n- 2\n- 3\n"]
+            })
+        )
+        assert (
+            df["col1"][0] == {"my_output": {"key1": "Val1", "key2": "Val2"}} and
+            df["col1"][1] == {"a": 1} and
+            df["col2"][0] == ["this", "is", "a", "list"] and
+            df["col2"][1] == [1, 2, 3]
+        )
+
+    def test_from_yaml_to_yaml_roundtrip_reported_data(self):
+        """
+        Regression test for a reported round-trip bug (PR #987 review):
+        convert.from_yaml -> convert.to_yaml on multiple wildcard-matched
+        columns with per-column defaults should be idempotent - running
+        from_yaml again on the round-tripped output must reproduce the
+        same parsed values, for every row, including a row with a
+        malformed/empty cell that must fall back to its column's default.
+        """
+        df = pd.DataFrame({
+            "Top 1": [
+                "Score: 0.295\nValue: Blade Runner",
+                "Score: 0.234\nValue: Interstellar",
+                "Score: 0.291\nValue: Interstellar",
+            ],
+            "Top 2": [
+                "[]",
+                "Score: 0.22\nValue: Westworld",
+                "Score: 0.248\nValue: Blade Runner",
+            ],
+            "Top 3": [
+                "Score: 0.174\nValue: Westworld",
+                "'",
+                "Score: 0.195\nValue: Westworld",
+            ],
+        })
+        recipe = """
+        wrangles:
+          - convert.from_yaml:
+              input:
+                - Top *
+              default:
+                - {}
+                - []
+                - ''
+        """
+        parsed = wrangles.recipe.run(recipe, dataframe=df.copy())
+
+        assert parsed.to_dict(orient="records") == [
+            {
+                "Top 1": {"Score": 0.295, "Value": "Blade Runner"},
+                "Top 2": [],
+                "Top 3": {"Score": 0.174, "Value": "Westworld"},
+            },
+            {
+                "Top 1": {"Score": 0.234, "Value": "Interstellar"},
+                "Top 2": {"Score": 0.22, "Value": "Westworld"},
+                # Malformed cell ("'") fails to parse and falls back to the default
+                "Top 3": "",
+            },
+            {
+                "Top 1": {"Score": 0.291, "Value": "Interstellar"},
+                "Top 2": {"Score": 0.248, "Value": "Blade Runner"},
+                "Top 3": {"Score": 0.195, "Value": "Westworld"},
+            },
+        ]
+
+        roundtripped = wrangles.recipe.run(
+            """
+            wrangles:
+              - convert.from_yaml:
+                  input:
+                    - Top *
+                  default:
+                    - {}
+                    - []
+                    - ''
+              - convert.to_yaml:
+                  input:
+                    - Top *
+              - convert.from_yaml:
+                  input:
+                    - Top *
+                  default:
+                    - {}
+                    - []
+                    - ''
+            """,
+            dataframe=df.copy()
+        )
+
+        assert parsed.to_dict(orient="records") == roundtripped.to_dict(orient="records")
 
 
 class TestConvertToJSON:
