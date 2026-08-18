@@ -856,7 +856,7 @@ def codes(
         description: Maximum length of allowed results
       strategy:
         type: string
-        description: How aggressive to be at removing false positives such as measurements. Default is balanced. Default minimum lengths are 3 for lenient, 4 for balanced, and 5 for strict unless min_length is provided.
+        description: Controls filtering of likely false positives such as measurements. Lenient skips this filter; balanced and strict currently apply the same filter. Default is balanced. Unless min_length is provided, minimum lengths default to 3 for lenient, 4 for balanced, and 5 for strict.
         enum:
           - lenient
           - balanced
