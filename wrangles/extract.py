@@ -431,10 +431,10 @@ def codes(
     :param first_element: Get the first element from results.
     :param min_length: Minimum length of allowed results.
     :param max_length: Maximum length of allowed results.
-    :param strategy: How aggressive to be at removing false positives such as
-        measurements. One of 'lenient', 'balanced' or 'strict'. Default is
-        'balanced'. Default minimum lengths are 3 for lenient, 4 for balanced,
-        and 5 for strict unless min_length is provided.
+    :param strategy: Controls filtering of likely false positives such as measurements.
+        'lenient' skips this filter, while 'balanced' and 'strict' currently apply
+        the same filter. Default is 'balanced'. Unless min_length is provided,
+        minimum lengths default to 3 for lenient, 4 for balanced, and 5 for strict.
     :param sort_order: Default is input order. Also allows 'longest' or 'shortest'.
     :param disallowed_patterns: A pattern or JSON array of regex patterns to not include in the found codes.
     :param include_multi_part_tokens: Whether to include multi-part tokens that have a space. Default True.
