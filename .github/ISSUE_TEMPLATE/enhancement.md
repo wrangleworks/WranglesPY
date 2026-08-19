@@ -1,24 +1,17 @@
 ---
 name: Enhancement
 about: A request, idea, or new functionality
-title: '[ENHANCEMENT] '
-labels: enhancement
+title: ''
+labels: 'P1'
 assignees: ''
+type: Enhancement
 ---
 
-**Feature description**
-What would you like to see?
+**Description**
+What feature or improvement would you like?
 
-**Problem it solves**
-Why is this needed?
+**Desired Behavior**
+How should it work once implemented?
 
-**Proposed solution**
-How should it work?
-
-**Use case**
-When would you use this?
-
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Example current / desired**
+Show current behavior (or lack thereof) vs. the desired usage

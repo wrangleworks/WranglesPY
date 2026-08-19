@@ -1,31 +1,17 @@
 ---
 name: Bug
 about: An unexpected problem or behavior
-title: '[BUG] '
-labels: bug
+title: ''
+labels: 'P0'
 assignees: ''
+type: Bug
 ---
 
-**Describe the bug**
+**Description**
 What happened?
 
-**To Reproduce**
-1. 
-2. 
-3. 
+**Desired Behavior**
+What should happen instead?
 
-**Expected**
-What should happen?
-
-**Environment**
-- WranglesXL version:
-- Excel version:
-- OS:
-
-**Additional context**
-Screenshots, error messages, data samples
-
-**Acceptance criteria**
-- [ ] 
-- [ ] 
-- [ ] 
+**Example current / desired**
+Code snippet, error message, or screenshot showing current vs. expected behavior
