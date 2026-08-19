@@ -18,7 +18,7 @@ env:
   IMAGE_NAME: wrangleworks/wrangles
 
 jobs:
-  # ── 1. Validate branch + input, compute the next rcN version ─────────────
+  # ── 1. Validate input, compute the next rcN version ──────────────────────
   compute-version:
     name: Compute RC Version
     runs-on: ubuntu-latest
@@ -28,12 +28,6 @@ jobs:
     outputs:
       rc_version: ${{ steps.compute.outputs.rc_version }}
     steps:
-      - name: Guard – dev or main branch only
-        if: github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main'
-        run: |
-          echo "::error::This workflow may only be triggered from the 'dev' or 'main' branch. Current ref: ${{ github.ref }}"
-          exit 1
-
       - name: Validate version input format
         run: |
           if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
