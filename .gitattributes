@@ -1,0 +1,19 @@
+# Keep all text files LF in both Git and the working tree
+* text=auto eol=lf
+
+# Windows command scripts genuinely require/prefer CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Explicit binary exclusions
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.pdf -text
+*.zip -text
+*.tar -text
+*.gz -text
+*.bz2 -text
+*.7z -text

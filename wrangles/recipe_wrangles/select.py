@@ -5,6 +5,7 @@ from typing import Union as _Union
 import types as _types
 import re as _re
 import json as _json
+import logging as _logging
 import pandas as _pd
 from .. import select as _select
 from ..utils import get_nested_function as _get_nested_function
@@ -24,11 +25,12 @@ def columns(df: _pd.DataFrame, input: _Union[str, int, list]) -> _pd.DataFrame:
           - array
         description: Name of the column(s) to select
     """
+    _logging.debug(f": Selecting columns :: input :: {input}")
     if not isinstance(input, list): input = [input]
-    
+
     # Missing column should be caught by _wildcard_expansion
-    
-    return df[input]    
+
+    return df[input]
 
 
 def dictionary_element(
@@ -90,6 +92,7 @@ def dictionary_element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.dictionary_element')
 
+    _logging.debug(f": Selecting dictionary element :: {element} from {input}")
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.dict_element(df[in_col].tolist(), element, default=default)
     
@@ -168,6 +171,8 @@ def element(
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.element')
+
+    _logging.debug(f": Selecting elements :: input :: {input}")
     
     # Handle default values - convert to list if needed  
     if default is None:  
@@ -313,6 +318,14 @@ def group_by(
           - string
           - array
         description: The count of values for these column(s)
+      counts:
+        type:
+          - string
+          - array
+        description: >-
+          Return a dictionary containing the count of each distinct value for
+          these column(s). Keys are converted to JSON-safe strings; missing
+          values use the key "null" and booleans use lowercase "true"/"false".
       std:
         type:
           - string
@@ -394,6 +407,20 @@ def group_by(
         # Add option to group as a list
         elif operation == "list":
             operation = list
+        elif operation == "counts":
+            def counts(values):
+                output = {}
+                for value, count in values.value_counts(dropna=False).items():
+                    if _pd.isna(value):
+                        key = "null"
+                    elif isinstance(value, bool):
+                        key = str(value).lower()
+                    else:
+                        key = str(value)
+                    output[key] = int(count)
+                return output
+            counts.__name__ = "counts"
+            operation = counts
 
         if not isinstance(columns, list): columns = [columns]
         for column in columns:
@@ -507,6 +534,7 @@ def head(df: _pd.DataFrame, n: int) -> _pd.DataFrame:
         type: integer
         description: Number of rows to return
     """
+    _logging.debug(f": Selecting head :: n :: {n}")
     if not isinstance(n, int) or n <= 0:
         raise ValueError("n must be a positive integer")
     return df.head(n)
@@ -531,6 +559,7 @@ def highest_confidence(df: _pd.DataFrame, input: list, output: _Union[str,list])
         description: If two columns; the result and confidence. If one column; [result, confidence]
     """
 
+    _logging.debug(f": Selecting highest confidence :: input :: {input}")
     if isinstance(output, list) and len(output) == 1:
         output = output[0]
     elif isinstance(output, list) and len(output) > 2:
@@ -704,6 +733,7 @@ def list_element(
     if len(input) != len(output):
         raise ValueError('The list of inputs and outputs must be the same length for select.list_element')
     
+    _logging.debug(f": Selecting list element :: {element} from {input}")
     for in_col, out_col in zip(input, output):
         df[out_col] = _select.list_element(df[in_col].tolist(), element, default=default)
     
@@ -933,5 +963,6 @@ def threshold(df: _pd.DataFrame, input: list, output: str, threshold: float) -> 
         minimum: 0
         maximum: 1
     """
+    _logging.debug(f": Applying confidence threshold :: {threshold} on {input}")
     df[output] = _select.confidence_threshold(df[input[0]].tolist(), df[input[1]].tolist(), threshold)
     return df

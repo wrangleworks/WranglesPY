@@ -254,6 +254,8 @@ def wildcard_expansion(all_columns: list, selected_columns: _Union[str, list]) -
     if not isinstance(selected_columns, list):
         selected_columns = [selected_columns]
 
+    _logging.debug(f": Expanding wildcards :: {len(selected_columns)} patterns against {len(all_columns)} columns")
+
     # Convert wildcards to regex pattern
     for i, val in enumerate(selected_columns):
         if val in all_columns:
@@ -445,6 +447,7 @@ def request_retries(request_type, url, **kwargs):
     :param kwargs: Arguments to pass to requests.request
     :returns: requests.Response object
     """
+    _logging.debug(f": HTTP request :: method :: {request_type}, url :: {url}")
     session = _requests.Session()
     session.mount(
         'https://',

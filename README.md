@@ -2,6 +2,40 @@
 
 Full documentation available at [wrangles.io](https://wrangles.io/python).
 
+## Local development
+
+Supported local development uses Python 3.13. On Windows, create or refresh the
+complete test and tooling environment with one command from the repository
+root:
+
+```powershell
+.\scripts\bootstrap-dev.ps1
+```
+
+Add `-RunTests` to run the self-contained local test suite after installation. The script
+creates `.venv`, installs `requirements-dev.txt` and this checkout in editable
+mode, runs `pip check`, and verifies representative core and SQL connector
+imports. It will not replace an existing environment created with another
+Python version.
+
+If `.venv` was created with an older Python version and can be discarded,
+deactivate it and recreate it from the committed declaration:
+
+```powershell
+deactivate
+Remove-Item -LiteralPath .\.venv -Recurse -Force
+.\scripts\bootstrap-dev.ps1 -RunTests
+.\.venv\Scripts\Activate.ps1
+```
+
+Dev Containers and Codespaces use the same Python 3.13 developer declaration
+automatically. `pytest-local.ini` is the shared credential-safe test selection.
+`scripts/test-local.ps1` clears credential variables before running it and
+isolates generated pytest state by Windows identity. The configuration excludes
+the intentionally live database, AWS, WrangleWorks, AI, and search-provider
+checks. The complete credentialed suite remains a CI validation and a local
+dependency/import pass does not claim live-service validation.
+
 ## What are Wrangles?
 
 Wrangles are a set of modular transformations for data cleaning and enrichment. Each Wrangle is optimized for a particular job, many of which are backed by sophisticated machine learning models.
@@ -32,9 +66,11 @@ Connectors for databases, cloud storage, and external services require additiona
 | Capability | Install |
 |---|---|
 | Microsoft SQL Server | `pip install pymssql sqlalchemy` |
+| Microsoft Access | `pip install pyodbc` |
+| DuckDB | `pip install duckdb` |
 | PostgreSQL | `pip install psycopg2-binary sqlalchemy` |
 | MySQL | `pip install pymysql sqlalchemy` |
-| MongoDB | `pip install pymongo[srv]` |
+| MongoDB | `pip install pymongo` |
 | AWS S3 | `pip install boto3` |
 | Salesforce | `pip install simple-salesforce` |
 | SFTP / SSH | `pip install fabric` |

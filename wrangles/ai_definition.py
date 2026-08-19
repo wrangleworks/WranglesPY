@@ -1,0 +1,1014 @@
+"""
+Compile recipe and saved-model extract.ai definitions into one canonical form.
+
+The compiler is provider-neutral. Provider adapters may further restrict the
+resulting JSON Schema for their own structured-output implementation.
+"""
+import copy as _copy
+import json as _json
+import logging as _logging
+import re as _re
+from dataclasses import dataclass as _dataclass
+from typing import Any as _Any
+
+import yaml as _yaml
+
+try:
+    from yaml import CSafeLoader as _SafeLoader
+except ImportError:
+    from yaml import SafeLoader as _SafeLoader
+
+
+_LOG = _logging.getLogger(__name__)
+
+_DEFAULT_SCALAR_TYPES = ["string", "number", "boolean"]
+_TYPE_ALIASES = {
+    "str": "string",
+    "text": "string",
+    "float": "number",
+    "decimal": "number",
+    "int": "integer",
+    "bool": "boolean",
+    "list": "array",
+    "dict": "object",
+    "map": "object",
+}
+_JSON_TYPES = {
+    "array",
+    "boolean",
+    "integer",
+    "null",
+    "number",
+    "object",
+    "string",
+}
+_SUPPORTED_SCHEMA_KEYS = {
+    "additionalProperties",
+    "anyOf",
+    "const",
+    "default",
+    "description",
+    "enum",
+    "examples",
+    "exclusiveMaximum",
+    "exclusiveMinimum",
+    "items",
+    "maximum",
+    "maxItems",
+    "maxLength",
+    "minimum",
+    "minItems",
+    "minLength",
+    "multipleOf",
+    "nullable",
+    "properties",
+    "required",
+    "title",
+    "type",
+}
+_INCOMPATIBLE_SCHEMA_KEYS = {
+    "$defs",
+    "$ref",
+    "allOf",
+    "definitions",
+    "else",
+    "if",
+    "not",
+    "oneOf",
+    "patternProperties",
+    "then",
+}
+_SAVED_SCHEMA_COLUMNS = {
+    "additionalproperties": "additionalProperties",
+    "default": "default",
+    "description": "description",
+    "enum": "enum",
+    "exampleinput": "exampleInput",
+    "exampleoutput": "exampleOutput",
+    "examples": "examples",
+    "items": "items",
+    "nullable": "nullable",
+    "properties": "properties",
+    "required": "required",
+    "type": "type",
+}
+_EXAMPLE_PAIR_KEYS = {"input", "name", "notes", "output"}
+_MISSING = object()
+
+
+@_dataclass(frozen=True)
+class CompiledFieldExample:
+    """A field-specific example with paired source input and expected value."""
+
+    field: str
+    input: _Any
+    output: _Any
+
+
+@_dataclass(frozen=True)
+class CompiledRecordExample:
+    """A record-level example with paired source input and complete output."""
+
+    name: str
+    input: _Any
+    output: dict
+
+
+@_dataclass(frozen=True)
+class CompiledAIDefinition:
+    """Canonical extract.ai definition consumed by provider transports."""
+
+    output: dict
+    root_schema: dict
+    model: str
+    messages: list
+    field_examples: tuple
+    record_examples: tuple
+    strict: bool
+    strict_requested: bool
+    dynamic_paths: tuple
+    key_to_original: dict
+    output_generic_key: bool
+    diagnostics: tuple
+
+    @property
+    def needs_remap(self) -> bool:
+        return any(
+            sanitized != original
+            for sanitized, original in self.key_to_original.items()
+        )
+
+
+class _Compiler:
+    def __init__(self, source: str):
+        self.source = source
+        self.diagnostics = []
+        self.dynamic_paths = []
+
+    def migration(self, message: str) -> None:
+        diagnostic = f"{self.source}: {message}"
+        self.diagnostics.append(diagnostic)
+        _LOG.warning("extract.ai definition migration: %s", diagnostic)
+
+    def error(self, path: str, message: str) -> None:
+        raise ValueError(f"Invalid extract.ai definition at {path}: {message}")
+
+    @staticmethod
+    def _parse_json_value(value: _Any) -> _Any:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        if not stripped.startswith(("{", "[")):
+            return value
+        try:
+            return _json.loads(stripped)
+        except (TypeError, ValueError):
+            try:
+                return _yaml.load(stripped, Loader=_SafeLoader)
+            except _yaml.YAMLError:
+                return value
+
+    @classmethod
+    def _parse_examples_value(cls, value: _Any) -> _Any:
+        """
+        Parse human-entered JSON/YAML-like examples into structured values.
+
+        Examples cells conventionally contain one or more comma-separated
+        values. Wrapping the cell as a YAML flow sequence supports unquoted
+        object keys and values without requiring users to author strict JSON.
+        """
+        if not isinstance(value, str):
+            return value
+
+        stripped = value.strip()
+        try:
+            return _json.loads(stripped)
+        except (TypeError, ValueError):
+            pass
+
+        parsed = cls._parse_json_value(value)
+        if not isinstance(parsed, str):
+            return parsed
+
+        if "," not in stripped:
+            return value
+        try:
+            sequence = _yaml.load(f"[{stripped}]", Loader=_SafeLoader)
+        except _yaml.YAMLError:
+            return value
+        return sequence if isinstance(sequence, list) else value
+
+    @staticmethod
+    def _looks_like_example_pair(value: _Any) -> bool:
+        return (
+            isinstance(value, dict)
+            and bool({"input", "output"}.intersection(value))
+            and set(value).issubset(_EXAMPLE_PAIR_KEYS)
+        )
+
+    def split_field_examples(self, value: dict, path: str) -> tuple:
+        """
+        Separate schema value examples from field-level input/output pairs.
+
+        `Examples` remains backward-compatible output-only guidance.
+        `Example - Output` also remains output-only when no paired input exists.
+        """
+        schema = _copy.deepcopy(value)
+        pairs = []
+
+        example_input = schema.pop("exampleInput", _MISSING)
+        example_output = schema.pop("exampleOutput", _MISSING)
+        if example_input is not _MISSING:
+            if example_input in ("", None):
+                example_input = _MISSING
+            else:
+                example_input = self._parse_json_value(example_input)
+        if example_output is not _MISSING:
+            if example_output in ("", None):
+                example_output = _MISSING
+            elif example_input is _MISSING:
+                example_output = self._parse_examples_value(example_output)
+            else:
+                example_output = self._parse_json_value(example_output)
+
+        if example_input is not _MISSING and example_output is _MISSING:
+            self.error(path, "Example - Input requires Example - Output.")
+        if example_input is not _MISSING:
+            pairs.append({
+                "input": example_input,
+                "output": example_output,
+            })
+        elif example_output is not _MISSING:
+            existing = schema.get("examples", [])
+            if existing in ("", None):
+                existing = []
+            elif not isinstance(existing, list):
+                existing = [existing]
+            output_values = (
+                example_output
+                if isinstance(example_output, list)
+                else [example_output]
+            )
+            schema["examples"] = list(existing) + list(output_values)
+
+        raw_examples = schema.get("examples", _MISSING)
+        if raw_examples is _MISSING:
+            return schema, pairs
+
+        parsed_examples = self._parse_examples_value(raw_examples)
+        example_items = (
+            parsed_examples
+            if isinstance(parsed_examples, list)
+            else [parsed_examples]
+        )
+        value_examples = []
+        for index, item in enumerate(example_items):
+            if not self._looks_like_example_pair(item):
+                value_examples.append(item)
+                continue
+            if item.get("input") in (None, ""):
+                self.error(f"{path}.examples[{index}].input", "must not be blank.")
+            if "output" not in item or item.get("output") == "":
+                self.error(
+                    f"{path}.examples[{index}].output",
+                    "must be provided for a paired field example.",
+                )
+            pairs.append({
+                "input": self._parse_json_value(item["input"]),
+                "output": self._parse_json_value(item["output"]),
+            })
+
+        if value_examples:
+            schema["examples"] = value_examples
+        else:
+            schema.pop("examples", None)
+        return schema, pairs
+
+    @staticmethod
+    def _matches_json_type(value: _Any, schema_type: str) -> bool:
+        if schema_type == "null":
+            return value is None
+        if schema_type == "boolean":
+            return isinstance(value, bool)
+        if schema_type == "integer":
+            return isinstance(value, int) and not isinstance(value, bool)
+        if schema_type == "number":
+            return isinstance(value, (int, float)) and not isinstance(value, bool)
+        if schema_type == "string":
+            return isinstance(value, str)
+        if schema_type == "object":
+            return isinstance(value, dict)
+        if schema_type == "array":
+            return isinstance(value, list)
+        return False
+
+    def materialize_example(self, value: _Any, schema: dict, path: str) -> _Any:
+        """Validate an expected example and fill omitted fixed properties with null."""
+        if isinstance(schema.get("anyOf"), list):
+            errors = []
+            for option in schema["anyOf"]:
+                try:
+                    return self.materialize_example(value, option, path)
+                except ValueError as exc:
+                    errors.append(str(exc))
+            self.error(path, "does not match any allowed schema.")
+
+        if "enum" in schema and value not in schema["enum"]:
+            self.error(path, f"value {value!r} is not in the field enum.")
+
+        schema_types = (
+            schema.get("type", _DEFAULT_SCALAR_TYPES)
+            if isinstance(schema.get("type", _DEFAULT_SCALAR_TYPES), list)
+            else [schema.get("type")]
+        )
+        matching_types = [
+            schema_type
+            for schema_type in schema_types
+            if self._matches_json_type(value, schema_type)
+        ]
+        if not matching_types:
+            self.error(
+                path,
+                f"value {value!r} does not match type {schema.get('type')!r}.",
+            )
+
+        schema_type = matching_types[0]
+        if schema_type == "object":
+            properties = schema.get("properties", {})
+            additional = schema.get("additionalProperties", False)
+            unknown = [key for key in value if key not in properties]
+            if unknown and additional is False:
+                self.error(
+                    path,
+                    f"contains unknown field(s): {', '.join(map(str, unknown))}.",
+                )
+            materialized = {}
+            for key, child_schema in properties.items():
+                child_value = value.get(key, None)
+                materialized[key] = self.materialize_example(
+                    child_value,
+                    child_schema,
+                    f"{path}.{key}",
+                )
+            for key in unknown:
+                materialized[key] = (
+                    self.materialize_example(
+                        value[key],
+                        additional,
+                        f"{path}.{key}",
+                    )
+                    if isinstance(additional, dict)
+                    else value[key]
+                )
+            return materialized
+
+        if schema_type == "array" and isinstance(schema.get("items"), dict):
+            return [
+                self.materialize_example(
+                    item,
+                    schema["items"],
+                    f"{path}[{index}]",
+                )
+                for index, item in enumerate(value)
+            ]
+        return value
+
+    def compile_record_examples(
+        self,
+        value: _Any,
+        *,
+        root_schema: dict,
+        original_to_sanitized: dict,
+        output_generic_key: bool,
+        path: str,
+    ) -> list:
+        if value in (None, ""):
+            return []
+        raw_examples = value if isinstance(value, list) else [value]
+        compiled = []
+        for index, raw_example in enumerate(raw_examples):
+            example_path = f"{path}[{index}]"
+            if not isinstance(raw_example, dict):
+                self.error(example_path, "must be an object with input and output.")
+            if raw_example.get("input") in (None, ""):
+                self.error(f"{example_path}.input", "must not be blank.")
+            if "output" not in raw_example:
+                self.error(f"{example_path}.output", "must be provided.")
+
+            example_input = self._parse_json_value(raw_example["input"])
+            example_output = raw_example["output"]
+            if output_generic_key and not isinstance(example_output, dict):
+                example_output = {"output": self._parse_examples_value(example_output)}
+            elif isinstance(example_output, str):
+                example_output = self._parse_json_value(example_output)
+            if not isinstance(example_output, dict):
+                self.error(f"{example_path}.output", "must be an object.")
+
+            sanitized_output = {}
+            for key, item in example_output.items():
+                sanitized = original_to_sanitized.get(str(key), str(key))
+                if sanitized not in root_schema["properties"]:
+                    self.error(
+                        f"{example_path}.output",
+                        f"contains unknown output field {key!r}.",
+                    )
+                if sanitized in sanitized_output:
+                    self.error(
+                        f"{example_path}.output",
+                        f"duplicates output field {key!r}.",
+                    )
+                sanitized_output[sanitized] = item
+
+            complete_output = self.materialize_example(
+                sanitized_output,
+                root_schema,
+                f"{example_path}.output",
+            )
+            name = raw_example.get("name")
+            if name in (None, ""):
+                name = f"example-{index + 1}"
+            compiled.append(
+                CompiledRecordExample(
+                    name=str(name),
+                    input=example_input,
+                    output=complete_output,
+                )
+            )
+        return compiled
+
+    def normalize_schema(
+        self,
+        value: _Any,
+        path: str,
+        *,
+        nullable_default: bool = True,
+    ) -> dict:
+        if value is None:
+            value = {}
+        if not isinstance(value, dict):
+            self.error(path, f"expected an object, received {type(value).__name__}.")
+
+        node = {}
+        for key, item in _copy.deepcopy(value).items():
+            parser = (
+                self._parse_examples_value
+                if key == "examples"
+                else self._parse_json_value
+            )
+            node[key] = parser(item)
+
+        incompatible = sorted(_INCOMPATIBLE_SCHEMA_KEYS.intersection(node))
+        if incompatible:
+            self.error(
+                path,
+                "unsupported structured-output keyword(s): "
+                f"{', '.join(incompatible)}. Rewrite this field using properties, "
+                "items, enum, or anyOf.",
+            )
+        unknown = sorted(set(node) - _SUPPORTED_SCHEMA_KEYS - _INCOMPATIBLE_SCHEMA_KEYS)
+        if unknown:
+            self.error(
+                path,
+                "unsupported structured-output keyword(s): "
+                f"{', '.join(unknown)}. Remove or explicitly migrate these fields.",
+            )
+
+        if "const" in node:
+            if "enum" in node:
+                self.error(path, "cannot define both const and enum.")
+            node["enum"] = [node.pop("const")]
+            self.migration(f"{path} mapped const to a single-value enum.")
+
+        nullable = node.pop("nullable", None)
+        if isinstance(nullable, str):
+            normalized_nullable = nullable.strip().lower()
+            if normalized_nullable in {"true", "false"}:
+                nullable = normalized_nullable == "true"
+            else:
+                self.error(path, "nullable must be true or false.")
+        if nullable is not None:
+            if not isinstance(nullable, bool):
+                self.error(path, "nullable must be true or false.")
+            if nullable:
+                self.migration(f"{path} mapped nullable: true to a null type union.")
+
+        schema_type = node.get("type")
+        if isinstance(schema_type, str):
+            normalized_type = _TYPE_ALIASES.get(schema_type.strip().lower(), schema_type)
+            if normalized_type != schema_type:
+                self.migration(
+                    f"{path} mapped legacy type {schema_type!r} to {normalized_type!r}."
+                )
+            node["type"] = normalized_type
+        elif isinstance(schema_type, list):
+            normalized_types = [
+                _TYPE_ALIASES.get(str(item).strip().lower(), item)
+                for item in schema_type
+            ]
+            if normalized_types != schema_type:
+                mappings = [
+                    f"{old!r} to {new!r}"
+                    for old, new in zip(schema_type, normalized_types)
+                    if old != new
+                ]
+                self.migration(
+                    f"{path} mapped legacy type {', '.join(mappings)}."
+                )
+            node["type"] = normalized_types
+        elif schema_type not in (None, ""):
+            self.error(path, "type must be a string or array of strings.")
+
+        if not node.get("type") and (
+            "properties" in node or "additionalProperties" in node
+        ):
+            node["type"] = "object"
+            self.migration(f"{path} inferred type 'object' from object keywords.")
+        elif not node.get("type") and "items" in node:
+            node["type"] = "array"
+            self.migration(f"{path} inferred type 'array' from items.")
+        if not node.get("type") and not node.get("anyOf"):
+            node["type"] = list(_DEFAULT_SCALAR_TYPES)
+
+        nullable_allowed = nullable if nullable is not None else nullable_default
+        if nullable_allowed:
+            if node.get("anyOf"):
+                if not any(
+                    isinstance(option, dict)
+                    and (
+                        option.get("type") == "null"
+                        or (
+                            isinstance(option.get("type"), list)
+                            and "null" in option["type"]
+                        )
+                    )
+                    for option in node["anyOf"]
+                ):
+                    node["anyOf"].append({"type": "null", "nullable": False})
+            else:
+                schema_type = node.get("type")
+                schema_types = (
+                    list(schema_type)
+                    if isinstance(schema_type, list)
+                    else [schema_type]
+                )
+                if "null" not in schema_types:
+                    schema_types.append("null")
+                node["type"] = schema_types
+        elif isinstance(node.get("type"), list) and "null" in node["type"]:
+            self.error(path, "nullable false conflicts with a type containing null.")
+
+        declared_types = (
+            node.get("type")
+            if isinstance(node.get("type"), list)
+            else [node.get("type")]
+        )
+        invalid_types = sorted({
+            str(item)
+            for item in declared_types
+            if item is not None and item not in _JSON_TYPES
+        })
+        if invalid_types:
+            self.error(
+                path,
+                f"unsupported JSON type(s): {', '.join(invalid_types)}.",
+            )
+
+        for label in ("enum", "properties", "required"):
+            if isinstance(node.get(label), str):
+                node[label] = [
+                    item.strip()
+                    for item in node[label].split(",")
+                    if item.strip()
+                ]
+                self.migration(f"{path}.{label} converted a comma-separated string to a list.")
+
+        if "enum" in node and not isinstance(node["enum"], list):
+            self.error(path, "enum must be an array or comma-separated string.")
+        if "enum" in node and nullable_allowed:
+            converted_string_null = False
+            normalized_enum = []
+            for item in node["enum"]:
+                if isinstance(item, str) and item.strip().lower() == "null":
+                    item = None
+                    converted_string_null = True
+                if item not in normalized_enum:
+                    normalized_enum.append(item)
+            if None not in normalized_enum:
+                normalized_enum.append(None)
+            node["enum"] = normalized_enum
+            if converted_string_null:
+                self.migration(
+                    f"{path}.enum converted the string 'null' to JSON null."
+                )
+        if "required" in node and not isinstance(node["required"], list):
+            self.error(path, "required must be an array or comma-separated string.")
+        if "examples" in node and not isinstance(node["examples"], list):
+            if node["examples"] not in ("", None):
+                node["examples"] = [node["examples"]]
+                self.migration(f"{path}.examples wrapped a scalar value in a list.")
+
+        properties = node.get("properties")
+        if isinstance(properties, list):
+            node["properties"] = {str(name): {} for name in properties}
+            properties = node["properties"]
+            self.migration(f"{path}.properties expanded a property-name list.")
+        if properties is not None and not isinstance(properties, dict):
+            self.error(path, "properties must be an object, list, or comma-separated string.")
+        if isinstance(properties, dict):
+            node["properties"] = {
+                str(name): self.normalize_schema(
+                    child,
+                    f"{path}.properties.{name}",
+                    nullable_default=nullable_default,
+                )
+                for name, child in properties.items()
+            }
+
+        is_object = (
+            node.get("type") == "object"
+            or (
+                isinstance(node.get("type"), list)
+                and "object" in node["type"]
+            )
+        )
+        if is_object:
+            additional = node.get("additionalProperties")
+            if isinstance(additional, dict):
+                node["additionalProperties"] = self.normalize_schema(
+                    additional,
+                    f"{path}.additionalProperties",
+                    nullable_default=False,
+                )
+                self.dynamic_paths.append(path)
+            elif additional is True:
+                self.dynamic_paths.append(path)
+            elif additional not in (None, False):
+                self.error(path, "additionalProperties must be true, false, or a schema object.")
+            elif properties is None and "additionalProperties" not in node:
+                node["additionalProperties"] = True
+                self.dynamic_paths.append(path)
+                self.migration(
+                    f"{path} treats an object without named properties as a dynamic dictionary."
+                )
+            else:
+                node["additionalProperties"] = False
+        elif "properties" in node or "additionalProperties" in node:
+            self.error(path, "object keywords require type 'object'.")
+
+        is_array = (
+            node.get("type") == "array"
+            or (
+                isinstance(node.get("type"), list)
+                and "array" in node["type"]
+            )
+        )
+        if is_array:
+            if "items" not in node:
+                node["items"] = {}
+            if not isinstance(node["items"], dict):
+                self.error(path, "items must be a schema object.")
+            node["items"] = self.normalize_schema(
+                node["items"],
+                f"{path}.items",
+                nullable_default=False,
+            )
+        elif "items" in node:
+            self.error(path, "items requires type 'array'.")
+
+        if "anyOf" in node and not isinstance(node["anyOf"], list):
+            self.error(path, "anyOf must be an array of schema objects.")
+        if isinstance(node.get("anyOf"), list):
+            node["anyOf"] = [
+                self.normalize_schema(
+                    option,
+                    f"{path}.anyOf[{index}]",
+                    nullable_default=False,
+                )
+                for index, option in enumerate(node["anyOf"])
+            ]
+
+        return node
+
+    def saved_model(self, content: dict) -> tuple:
+        if not isinstance(content, dict):
+            self.error("model_id", "saved model content must be an object.")
+
+        top_level = {str(key).lower(): value for key, value in content.items()}
+        columns = top_level.get("columns")
+        rows = top_level.get("data")
+        settings = top_level.get("settings") or {}
+        saved_examples = top_level.get("examples")
+        if not isinstance(columns, list) or not isinstance(rows, list):
+            self.error("model_id", "saved model must contain Columns and Data arrays.")
+        if not isinstance(settings, dict):
+            self.error("model_id.settings", "Settings must be an object.")
+
+        normalized_columns = [
+            _re.sub(r"[^a-z0-9]", "", str(column).lower())
+            for column in columns
+        ]
+        if "find" not in normalized_columns:
+            self.error("model_id.columns", "saved model must contain a Find column.")
+
+        output = {}
+        for row_number, row in enumerate(rows, start=1):
+            if isinstance(row, dict):
+                row_values = {
+                    _re.sub(r"[^a-z0-9]", "", str(key).lower()): value
+                    for key, value in row.items()
+                }
+            elif isinstance(row, (list, tuple)):
+                if len(row) > len(normalized_columns):
+                    self.error(
+                        f"model_id.data[{row_number}]",
+                        "contains more values than the Columns array.",
+                    )
+                row_values = dict(zip(normalized_columns, row))
+            else:
+                self.error(
+                    f"model_id.data[{row_number}]",
+                    "must be an array or object.",
+                )
+
+            field_name = row_values.get("find")
+            if field_name in (None, ""):
+                self.error(f"model_id.data[{row_number}].Find", "must not be blank.")
+            field_name = str(field_name)
+            if field_name in output:
+                self.error(
+                    f"model_id.data[{row_number}].Find",
+                    f"duplicates field {field_name!r}.",
+                )
+
+            schema = {}
+            for column, value in row_values.items():
+                if column in {"find", "notes"} or value in ("", None):
+                    continue
+                schema_key = _SAVED_SCHEMA_COLUMNS.get(column)
+                if schema_key is None:
+                    self.error(
+                        f"model_id.data[{row_number}]",
+                        f"unsupported saved-model column {column!r}.",
+                    )
+                schema[schema_key] = value
+            output[field_name] = schema
+
+        normalized_settings = {
+            _re.sub(r"[^a-z0-9]", "", str(key).lower()): value
+            for key, value in settings.items()
+        }
+        saved_model = None
+        saved_messages = []
+        for key in ("gptmodel", "aimodel", "model"):
+            if normalized_settings.get(key) not in (None, ""):
+                saved_model = normalized_settings[key]
+                if key != "model":
+                    self.migration(f"model_id.settings.{key} mapped to model.")
+                break
+        for key in ("additionalmessages", "generalinstructions", "instructions", "messages"):
+            if normalized_settings.get(key) not in (None, ""):
+                saved_messages = normalized_settings[key]
+                if key != "messages":
+                    self.migration(f"model_id.settings.{key} mapped to messages.")
+                break
+
+        known_settings = {
+            "additionalmessages",
+            "aimodel",
+            "generalinstructions",
+            "gptmodel",
+            "instructions",
+            "messages",
+            "model",
+        }
+        unknown_settings = sorted(set(normalized_settings) - known_settings)
+        for key in unknown_settings:
+            self.migration(f"model_id.settings.{key} is not used by extract.ai.")
+
+        return output, saved_model, saved_messages, saved_examples
+
+
+def _message_list(value: _Any) -> list:
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item not in (None, "")]
+    return [str(value)]
+
+
+def compile_definition(
+    output: _Any,
+    *,
+    model: str,
+    messages: _Any = None,
+    examples: _Any = None,
+    strict: bool = True,
+    saved_model_content: dict = None,
+    source: str = "recipe output",
+) -> CompiledAIDefinition:
+    """
+    Compile a recipe/Python output and optional saved XL model definition.
+
+    Direct keyed output overrides fields from the saved model. Saved model
+    instructions and holistic examples run first, followed by call-level
+    messages and examples.
+    """
+    compiler = _Compiler(source)
+    output_generic_key = False
+
+    if isinstance(output, str):
+        output_generic_key = True
+        output = {"output": {"description": output}}
+    elif (
+        isinstance(output, dict)
+        and "description" in output
+        and not isinstance(output["description"], dict)
+    ):
+        output_generic_key = True
+        output = {"output": output}
+    elif output is not None and not isinstance(output, dict):
+        compiler.error("output", "must be a string or object.")
+
+    direct_output = {
+        str(key): value if isinstance(value, dict) else {"description": str(value)}
+        for key, value in (output or {}).items()
+    }
+
+    saved_output = {}
+    saved_model = None
+    saved_messages = []
+    saved_examples = None
+    if saved_model_content is not None:
+        if output_generic_key:
+            compiler.error(
+                "output",
+                "must use named fields when combined with model_id.",
+            )
+        (
+            saved_output,
+            saved_model,
+            saved_messages,
+            saved_examples,
+        ) = compiler.saved_model(saved_model_content)
+
+    merged_output = {**saved_output, **direct_output}
+    if not merged_output:
+        compiler.error("output", "must define at least one field.")
+
+    raw_field_examples = []
+    prepared_output = {}
+    for field, schema in merged_output.items():
+        clean_schema, pairs = compiler.split_field_examples(
+            schema,
+            f"output.{field}",
+        )
+        prepared_output[field] = clean_schema
+        raw_field_examples.extend(
+            (field, index, pair)
+            for index, pair in enumerate(pairs)
+        )
+
+    normalized_output = {
+        field: compiler.normalize_schema(schema, f"output.{field}")
+        for field, schema in prepared_output.items()
+    }
+
+    key_to_original = {}
+    original_to_sanitized = {}
+    sanitized_output = {}
+    for original, schema in normalized_output.items():
+        sanitized = _re.sub(r"[^a-zA-Z0-9_]", "_", original)
+        base = sanitized
+        suffix = 2
+        while sanitized in key_to_original:
+            sanitized = f"{base}_{suffix}"
+            suffix += 1
+        key_to_original[sanitized] = original
+        original_to_sanitized[original] = sanitized
+        sanitized_output[sanitized] = schema
+
+    strict_requested = strict
+    effective_strict = strict and not compiler.dynamic_paths
+    if strict_requested and compiler.dynamic_paths:
+        compiler.migration(
+            "strict mode was disabled because dynamic dictionaries were found at "
+            f"{', '.join(compiler.dynamic_paths)}. Fixed portions of the schema remain constrained."
+        )
+
+    compiled_model = saved_model or model
+    if not isinstance(compiled_model, str) or not compiled_model.strip():
+        compiler.error("model", "must be a non-empty string.")
+
+    compiled_messages = _message_list(saved_messages) + _message_list(messages)
+    root_schema = {
+        "type": "object",
+        "properties": sanitized_output,
+        "required": list(sanitized_output),
+        "additionalProperties": False,
+    }
+    field_examples = []
+    for original_field, index, pair in raw_field_examples:
+        sanitized_field = original_to_sanitized[original_field]
+        field_examples.append(
+            CompiledFieldExample(
+                field=sanitized_field,
+                input=pair["input"],
+                output=compiler.materialize_example(
+                    pair["output"],
+                    sanitized_output[sanitized_field],
+                    f"output.{original_field}.examples[{index}].output",
+                ),
+            )
+        )
+
+    record_examples = []
+    record_examples.extend(
+        compiler.compile_record_examples(
+            saved_examples,
+            root_schema=root_schema,
+            original_to_sanitized=original_to_sanitized,
+            output_generic_key=output_generic_key,
+            path="model_id.examples",
+        )
+    )
+    record_examples.extend(
+        compiler.compile_record_examples(
+            examples,
+            root_schema=root_schema,
+            original_to_sanitized=original_to_sanitized,
+            output_generic_key=output_generic_key,
+            path="examples",
+        )
+    )
+
+    return CompiledAIDefinition(
+        output=sanitized_output,
+        root_schema=root_schema,
+        model=compiled_model,
+        messages=compiled_messages,
+        field_examples=tuple(field_examples),
+        record_examples=tuple(record_examples),
+        strict=effective_strict,
+        strict_requested=strict_requested,
+        dynamic_paths=tuple(compiler.dynamic_paths),
+        key_to_original=key_to_original,
+        output_generic_key=output_generic_key,
+        diagnostics=tuple(compiler.diagnostics),
+    )
+
+
+def render_example_guidance(compiled: CompiledAIDefinition) -> str:
+    """Render canonical examples as stable, provider-neutral prompt content."""
+    sections = []
+    value_lines = []
+    for field, schema in compiled.output.items():
+        values = schema.get("examples")
+        if values:
+            value_lines.append(
+                f"- {field}: examples are "
+                f"{_json.dumps(values, ensure_ascii=False, default=str)}"
+            )
+    if value_lines:
+        sections.append(
+            "Use these field value examples as style guidance, not values to copy:\n"
+            + "\n".join(value_lines)
+        )
+
+    if compiled.field_examples:
+        blocks = []
+        for example in compiled.field_examples:
+            blocks.append("\n".join([
+                f'<field_example field={_json.dumps(example.field)}>',
+                f"<input>{_json.dumps(example.input, ensure_ascii=False, default=str)}</input>",
+                (
+                    "<expected_value>"
+                    f"{_json.dumps(example.output, ensure_ascii=False, default=str)}"
+                    "</expected_value>"
+                ),
+                "</field_example>",
+            ]))
+        sections.append(
+            "Each field example below demonstrates only the named output field. "
+            "Do not infer values for other fields from its expected value.\n"
+            + "\n".join(blocks)
+        )
+
+    if compiled.record_examples:
+        blocks = []
+        for example in compiled.record_examples:
+            blocks.append("\n".join([
+                f'<record_example name={_json.dumps(example.name)}>',
+                f"<input>{_json.dumps(example.input, ensure_ascii=False, default=str)}</input>",
+                (
+                    "<expected_output>"
+                    f"{_json.dumps(example.output, ensure_ascii=False, default=str)}"
+                    "</expected_output>"
+                ),
+                "</record_example>",
+            ]))
+        sections.append(
+            "The record examples below demonstrate the complete expected output shape.\n"
+            + "\n".join(blocks)
+        )
+
+    return "\n\n".join(sections)

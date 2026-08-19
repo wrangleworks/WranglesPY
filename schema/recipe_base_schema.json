@@ -63,6 +63,15 @@
     "alias": {
       "type": "array",
       "description": "Placeholder to store YAML anchor values for use with aliases elsewhere in the recipe"
+    },
+    "where": {
+      "$ref": "#/$defs/wrangles/commonProperties/where"
+    },
+    "where_params": {
+      "$ref": "#/$defs/wrangles/commonProperties/where_params"
+    },
+    "if": {
+      "$ref": "#/$defs/wrangles/commonProperties/if"
     }
   },
   "$defs": {

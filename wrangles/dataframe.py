@@ -19,8 +19,7 @@ class _wrangles_accessor:
                 def make_method(func_name):
                     target_func = getattr(wrangle_module, func_name)
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(self._df, *args, **kwargs))
-                        return self._df
+                        return target_func(self._df.copy(), *args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
@@ -58,8 +57,7 @@ class _wrangles:
                 def make_method(func_name):
                     target_func = getattr(_recipe_wrangles.main, func_name)
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(self._df, *args, **kwargs))
-                        return self._df
+                        return target_func(self._df.copy(), *args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
@@ -139,8 +137,7 @@ class _read:
                 def make_method(func_name):
                     target_func = getattr(getattr(_connectors, func_name), 'read')
                     def method(self, *args, **kwargs):
-                        self._df.__init__(target_func(*args, **kwargs))
-                        return self._df
+                        return target_func(*args, **kwargs)
                     method.__doc__ = target_func.__doc__
                     return method
 
@@ -163,8 +160,7 @@ class _read:
         :param name: Name of the file to import
         :return: A Pandas dataframe of the imported data.
         """
-        self._df.__init__(_connectors.file.read(name, *args, **kwargs))
-        return self._df
+        return _connectors.file.read(name, *args, **kwargs)
 
 
 class _write:

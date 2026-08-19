@@ -1281,6 +1281,175 @@ class TestSplitDictionary:
         )
         assert df.empty and df.columns.to_list() == ['Col']
 
+    def test_split_dictionary_to_lists(self):
+        """
+        Test splitting dictionary keys and values to parallel lists
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input: My Dict
+                output:
+                - Keys
+                - Values
+                output_format: to_lists
+            """,
+            dataframe=pd.DataFrame({
+                'My Dict': [
+                    {"a": 123, "b": "kshdf"},
+                    {"b": 123, "c": "kshdf"}
+                ]
+            })
+        )
+        assert df['Keys'].to_list() == [["a", "b"], ["b", "c"]]
+        assert df['Values'].to_list() == [[123, "kshdf"], [123, "kshdf"]]
+
+    def test_split_dictionary_to_lists_json(self):
+        """
+        Test splitting JSON dictionary keys and values to lists
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input: My Dict
+                output:
+                - Keys
+                - Values
+                output_format: to_lists
+            """,
+            dataframe=pd.DataFrame({
+                'My Dict': ['{"a": 123, "b": "kshdf"}']
+            })
+        )
+        assert df['Keys'][0] == ["a", "b"]
+        assert df['Values'][0] == [123, "kshdf"]
+
+    def test_split_dictionary_to_lists_multiple_inputs(self):
+        """
+        Test splitting multiple dictionaries to keys and values lists
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input:
+                - Dict1
+                - Dict2
+                output:
+                - Keys
+                - Values
+                output_format: to_lists
+            """,
+            dataframe=pd.DataFrame({
+                'Dict1': [{"a": 1, "b": 2}],
+                'Dict2': [{"b": 3, "c": 4}]
+            })
+        )
+        assert df['Keys'][0] == ["a", "b", "c"]
+        assert df['Values'][0] == [1, 3, 4]
+
+    def test_split_dictionary_to_lists_where(self):
+        """
+        Test split.dictionary output_format to_lists using where
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input: My Dict
+                output:
+                - Keys
+                - Values
+                output_format: to_lists
+                where: numbers > 3
+            """,
+            dataframe=pd.DataFrame({
+                'My Dict': [
+                    {"a": 1},
+                    {"b": 2},
+                    {"c": 3}
+                ],
+                'numbers': [3, 4, 5]
+            })
+        )
+        assert df['Keys'].to_list() == ["", ["b"], ["c"]]
+        assert df['Values'].to_list() == ["", [2], [3]]
+
+    def test_split_dictionary_to_lists_default_output(self):
+        """
+        Test split.dictionary output_format to_lists default output columns
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input: My Dict
+                output_format: to_lists
+            """,
+            dataframe=pd.DataFrame({
+                'My Dict': [{"a": 1}]
+            })
+        )
+        assert df['Keys'][0] == ["a"]
+        assert df['Values'][0] == [1]
+
+    def test_split_dictionary_to_lists_output_error(self):
+        """
+        Test split.dictionary output_format to_lists validates output column count
+        """
+        with pytest.raises(ValueError, match="exactly two output columns"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - split.dictionary:
+                    input: My Dict
+                    output: Keys
+                    output_format: to_lists
+                """,
+                dataframe=pd.DataFrame({
+                    'My Dict': [{"a": 1}]
+                })
+            )
+
+    def test_split_dictionary_invalid_output_format(self):
+        """
+        Test split.dictionary validates output_format
+        """
+        with pytest.raises(ValueError, match="output_format must be one of"):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - split.dictionary:
+                    input: My Dict
+                    output_format: invalid
+                """,
+                dataframe=pd.DataFrame({
+                    'My Dict': [{"a": 1}]
+                })
+            )
+
+    def test_split_dictionary_to_lists_empty(self):
+        """
+        Test split.dictionary output_format to_lists with an empty column
+        """
+        df = wrangles.recipe.run(
+            """
+            wrangles:
+            - split.dictionary:
+                input: My Dict
+                output:
+                - Keys
+                - Values
+                output_format: to_lists
+            """,
+            dataframe=pd.DataFrame({
+                'My Dict': []
+            })
+        )
+        assert df.empty and df.columns.to_list() == ['My Dict', 'Keys', 'Values']
+
 
 class TestTokenize:
     """

@@ -137,6 +137,42 @@ def test_wrangles():
     )
     assert df["header1"][0] == "VALUE1"
 
+
+def test_recipe_wrangle_in_batch_does_not_write_partial_batches():
+    """
+    Test that a recipe used as a wrangle does not run its own write step
+    once per batch. The outer recipe should write the final combined result.
+    """
+    memory.clear()
+
+    wrangles.recipe.run(
+        """
+        read:
+          - test:
+              rows: 1000
+              values:
+                header1: value1
+        wrangles:
+          - batch:
+              batch_size: 100
+              wrangles:
+                - recipe:
+                    wrangles:
+                      - convert.case:
+                          input: header1
+                          case: upper
+                    write:
+                      - memory:
+                          id: partial_recipe_write
+        write:
+          - memory:
+              id: final_recipe_write
+        """
+    )
+
+    assert "partial_recipe_write" not in memory.dataframes
+    assert len(memory.dataframes["final_recipe_write"]["data"]) == 1000
+
 def test_write():
     """
     Test write defined within the recipe

@@ -16,6 +16,14 @@ try:
 except ImportError:
     from yaml import SafeLoader as _YAMLLoader, SafeDumper as _YAMLDumper
 
+# Pre-compiled regex for sentence case: matches the first non-whitespace character
+# at the start of the string or immediately after punctuation (. ! ?) + optional
+# whitespace. Using (\S) rather than ([a-zA-Z]) preserves the original char-by-char
+# behaviour where a digit after punctuation "consumes" the capitalize flag
+# (e.g. "13.5mm" stays lowercase because the `5` consumes the flag before `m` is
+# reached), while \s* preserves handling of newlines and other Unicode whitespace.
+_SENTENCE_CASE_RE = _re.compile(r'(^\s*|[.!?]\s*)(\S)')
+
 
 def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, list] = None, case: str = 'lower') -> _pd.DataFrame:
     """
@@ -75,33 +83,44 @@ def case(df: _pd.DataFrame, input: _Union[str, int, list], output: _Union[str, l
     # Loop through and apply for all columns
     for input_column, output_column in zip(input, output):
         if desired_case != 'sentence':
-            df[output_column] = df[input_column].apply(lambda x: _safe_str_transform(x, desired_case, warnings))
+            source = df[input_column]
+            # .str accessor raises AttributeError on non-object/non-string dtypes (e.g. int64).
+            # For those columns, preserve originals and warn once — matching prior behaviour.
+            if _pd.api.types.is_string_dtype(source.dtype) or _pd.api.types.is_object_dtype(source.dtype):
+                # Use vectorized pandas str methods (C-level, much faster than row-wise apply).
+                # Non-string values (lists, ints, etc.) become NaN after str operations;
+                # detect those and restore the originals so behaviour is unchanged.
+                transformed = getattr(source.str, desired_case)()
+                non_string_mask = source.notna() & transformed.isna()
+                if non_string_mask.any():
+                    if not warnings["invalid_data"]["logged"]:
+                        _logging.warning(warnings['invalid_data']['message'])
+                        warnings["invalid_data"]['logged'] = True
+                    transformed = transformed.where(~non_string_mask, source)
+                df[output_column] = transformed
+            else:
+                if not warnings["invalid_data"]["logged"]:
+                    _logging.warning(warnings['invalid_data']['message'])
+                    warnings["invalid_data"]['logged'] = True
+                df[output_column] = source
 
-        elif desired_case == 'sentence':
-            def _getSentenceCase(source: str, warnings={}):
+        else:
+            # Sentence case: lowercase everything with the vectorized str method, then
+            # use a pre-compiled regex to re-capitalise sentence starts.  This avoids
+            # the slow character-by-character Python loop of the previous implementation.
+            def _getSentenceCase(source, warnings=warnings):
                 if isinstance(source, str):
-                    output = []
-                    isFirstWord = True
-
-                    for character in source:
-                        if isFirstWord and not character.isspace():
-                            output.append(character.upper())
-                            isFirstWord = False
-                        elif not isFirstWord and character in ".!?":
-                            isFirstWord = True
-                            output.append(character.upper())
-                        else:
-                            output.append(character.lower())
-
-                    return ''.join(output)
+                    return _SENTENCE_CASE_RE.sub(
+                        lambda m: m.group(1) + m.group(2).upper(),
+                        source.lower()
+                    )
                 else:
-                    # Only show this once to not spam the logs
-                    if not warnings.get("invalid_data", {}).get('logged', False):
+                    if not warnings["invalid_data"]["logged"]:
                         _logging.warning(warnings['invalid_data']['message'])
                         warnings["invalid_data"]['logged'] = True
                     return source
 
-            df[output_column] = df[input_column].apply(lambda x: _getSentenceCase(x, warnings))
+            df[output_column] = df[input_column].apply(_getSentenceCase)
 
     return df
 
@@ -325,9 +344,30 @@ def fraction_to_decimal(
     return df
 
 
+def _normalize_default_list(default, input: list, func_name: str) -> list:
+    """
+    Normalize a default value/list into a per-column list of defaults.
+
+    A scalar (or a single-element list) is broadcast to all columns.
+    A list with the same length as input is used as-is, one default per column.
+    An empty list (`[]`) is treated as the default value itself, not a per-column list.
+    """
+    if isinstance(default, list) and len(default) > 0:
+        if len(default) == 1:
+            return [default[0]] * len(input)
+        elif len(default) != len(input):
+            raise ValueError(
+                f'The list of default values must be a single value or the same length as input/output for {func_name}'
+            )
+        else:
+            return default
+    else:
+        return [default] * len(input)
+
+
 def from_json(
-    df: _pd.DataFrame, 
-    input: _Union[str, int, list], 
+    df: _pd.DataFrame,
+    input: _Union[str, int, list],
     output: _Union[str, list] = None,
     default = None,
     **kwargs
@@ -351,43 +391,43 @@ def from_json(
         description: Name of the output column. If omitted, the input column will be overwritten
       default:
         type: ["string","array","object","number","boolean","null"]
-        description: Value to return if the row is empty or fails to be parsed as JSON
+        description: >-
+            Value to return if the row is empty or fails to be parsed as JSON.
+            If input is a list, default may also be a list - either a single
+            value to apply to all columns, or one value per input column.
     """
-    def _load_with_fallback(value):
-        """
-        Attempt to load JSON.
-        If fails and user has provided a default, return that.
-        If no default, raise an error.
-        """
-        try:
-            return _json.loads(value, **kwargs)
-        except:
-            if default != None:
-                return default
-            else:
-                raise ValueError(
-                    "Unable to load all rows as JSON. " +
-                    "Set a default to set a value if the row is empty or fails to parse."
-                )
-
     # Set output column as input if not provided
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-    
+
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-        
+
+    defaults = _normalize_default_list(default, input, 'convert.from_json')
+
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
+    for input_column, output_column, col_default in zip(input, output, defaults):
+        def _load_with_fallback(value, _col_default=col_default):
+            try:
+                return _json.loads(value, **kwargs)
+            except:
+                if _col_default is not None:
+                    return _col_default
+                else:
+                    raise ValueError(
+                        "Unable to load all rows as JSON. " +
+                        "Set a default to set a value if the row is empty or fails to parse."
+                    )
+
         df[output_column] = [
             _load_with_fallback(x)
             for x in df[input_column]
         ]
-    
+
     return df
 
 
@@ -507,43 +547,47 @@ def from_yaml(
           If omitted, the input column will be overwritten
       default:
         type: ["string","array","object","number","boolean","null"]
-        description: Value to return if the row is empty or fails to be parsed as JSON
+        description: >-
+          Value to return if the row is empty or fails to be parsed as YAML.
+          If input is a list, default may also be a list - either a single
+          value to apply to all columns, or one value per input column.
     """
-    def _load_with_fallback(value):
-        """
-        Attempt to load JSON.
-        If fails and user has provided a default, return that.
-        If no default, raise an error.
-        """
-        try:
-            return _yaml.load(value, Loader=_YAMLLoader, **kwargs) or default
-        except:
-            if default != None:
-                return default
-            else:
-                raise ValueError(
-                    "Unable to load all rows as YAML. " +
-                    "Set a default to set a value if the row is empty or fails to parse."
-                )
-
     # Set output column as input if not provided
     if output is None: output = input
-    
+
     # Ensure input and outputs are lists
     if not isinstance(input, list): input = [input]
     if not isinstance(output, list): output = [output]
-    
+
     # Ensure input and output are equal lengths
     if len(input) != len(output):
         raise ValueError('The lists for input and output must be the same length.')
-        
+
+    defaults = _normalize_default_list(default, input, 'convert.from_yaml')
+
     # Loop through and apply for all columns
-    for input_column, output_column in zip(input, output):
+    for input_column, output_column, col_default in zip(input, output, defaults):
+        def _load_with_fallback(value, _col_default=col_default):
+            try:
+                result = _yaml.load(value, Loader=_YAMLLoader, **kwargs)
+                # Only fall back to the default if the row was empty (parses to None).
+                # A falsy-but-valid result (e.g. [], {}, '', False, 0) must be preserved
+                # as-is rather than being overwritten by the default.
+                return _col_default if result is None else result
+            except:
+                if _col_default is not None:
+                    return _col_default
+                else:
+                    raise ValueError(
+                        "Unable to load all rows as YAML. " +
+                        "Set a default to set a value if the row is empty or fails to parse."
+                    )
+
         df[output_column] = [
             _load_with_fallback(x)
             for x in df[input_column]
         ]
-    
+
     return df
 
 

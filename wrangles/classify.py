@@ -2,6 +2,7 @@
 Functions to classify information.
 """
 from typing import Union as _Union
+import logging as _logging
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -51,6 +52,7 @@ def classify(
     if purpose != 'classify':
         raise ValueError(f'Using {purpose} model_id {model_id} in a classify function.')
 
+    _logging.info(f": Classifying input :: model_id :: {model_id}, record_count :: {len(json_data)}")
     results = _batching.batch_api_calls(url, params, json_data, batch_size)
 
     if isinstance(input, str):
