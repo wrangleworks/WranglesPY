@@ -272,7 +272,7 @@ jobs:
           echo "payload=$payload" >> "$GITHUB_OUTPUT"
 
       - name: Deploy Dev
-        uses: convictional/trigger-workflow-and-wait@v1.6.5
+        uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be # v1.6.5
         with:
           owner: wrangleworks
           repo: Lambda-Recipes
