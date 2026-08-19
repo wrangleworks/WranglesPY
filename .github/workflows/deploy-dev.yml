@@ -7,13 +7,18 @@ on:
         description: "Base version e.g. 1.20.0  (rcN suffix is appended automatically)"
         required: true
         type: string
+      reason:
+        description: "Why this DEV deploy is being run (optional)"
+        required: false
+        type: string
+        default: ""
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: wrangleworks/wrangles
 
 jobs:
-  # ── 1. Validate branch + input, compute the next rcN version ─────────────
+  # ── 1. Validate input, compute the next rcN version ──────────────────────
   compute-version:
     name: Compute RC Version
     runs-on: ubuntu-latest
@@ -23,12 +28,6 @@ jobs:
     outputs:
       rc_version: ${{ steps.compute.outputs.rc_version }}
     steps:
-      - name: Guard – dev or main branch only
-        if: github.ref != 'refs/heads/dev' && github.ref != 'refs/heads/main'
-        run: |
-          echo "::error::This workflow may only be triggered from the 'dev' or 'main' branch. Current ref: ${{ github.ref }}"
-          exit 1
-
       - name: Validate version input format
         run: |
           if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
@@ -236,8 +235,38 @@ jobs:
     runs-on: ubuntu-latest
     needs: [compute-version, publish-codeartifact]
     steps:
+      - name: Record deploy attribution
+        run: |
+          {
+            echo "## DEV deploy attribution"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| **deploy_user** | \`${{ github.actor }}\` |"
+            echo "| **reason** | \`${{ inputs.reason }}\` |"
+            echo "| **wrangles_version** | \`${{ needs.compute-version.outputs.rc_version }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build Lambda-Recipes dispatch payload
+        id: dispatch
+        env:
+          WRANGLES_VERSION: ${{ needs.compute-version.outputs.rc_version }}
+          DEPLOY_USER: ${{ github.actor }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          if [ -z "$DEPLOY_USER" ]; then
+            echo "::error::deploy_user is empty"
+            exit 1
+          fi
+          payload=$(jq -n \
+            --arg wrangles_version "$WRANGLES_VERSION" \
+            --arg deploy_user "$DEPLOY_USER" \
+            --arg reason "$REASON" \
+            '{wrangles_version: $wrangles_version, deploy_user: $deploy_user, reason: $reason}')
+          echo "payload=$payload" >> "$GITHUB_OUTPUT"
+
       - name: Deploy Dev
-        uses: convictional/trigger-workflow-and-wait@v1.6.5
+        uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be # v1.6.5
         with:
           owner: wrangleworks
           repo: Lambda-Recipes
@@ -245,7 +274,7 @@ jobs:
           github_token: ${{ secrets.CROSS_REPO_PAT }}
           ref: main
           wait_interval: 15
-          client_payload: '{"wrangles_version": "${{ needs.compute-version.outputs.rc_version }}"}'
+          client_payload: ${{ steps.dispatch.outputs.payload }}
           propagate_failure: true
           trigger_workflow: true
           wait_workflow: true
