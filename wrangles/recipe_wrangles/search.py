@@ -171,6 +171,210 @@ def find_links(
     return df
 
 
+def ai_mode(
+    df: _pd.DataFrame,
+    queries: str | list,
+    id: str,
+    output: str | list | None = None,
+    client: str = "serpapi",
+    api_key: str | None = None,
+    prompt: str | None = None,
+    n_results: int = 10,
+    threads: int = 10,
+    country: str = "us",
+    language: str = "en",
+    location: str | None = None,
+    uule: str | None = None,
+    device: str = "desktop",
+    no_cache: bool = False,
+    include_raw_response: bool = False,
+) -> _pd.DataFrame:
+    """
+    type: object
+    description: Search and synthesize cited content with SerpAPI Google AI Mode.
+    additionalProperties: false
+    required:
+      - queries
+      - id
+      - output
+    properties:
+      queries:
+        type:
+          - string
+          - array
+        description: Name or list of input columns containing query or product-evidence text.
+      id:
+        type: string
+        description: Name of the input row ID column copied to each source record.
+      output:
+        type:
+          - string
+          - array
+        description: Structured output column, or [structured_results, readable_text] for one query column.
+      client:
+        type: string
+        description: AI Mode search provider.
+        enum:
+          - serpapi
+        default: serpapi
+      api_key:
+        type: string
+        description: SerpAPI key. Defaults to the SERPAPI_API_KEY environment variable.
+      prompt:
+        type: string
+        description: Optional instruction replacing the default industrial-product research prompt.
+      n_results:
+        type: integer
+        minimum: 1
+        description: Maximum normalized source records per query, applied after deduplication.
+        default: 10
+      threads:
+        type: integer
+        minimum: 1
+        description: Number of concurrent requests.
+        default: 10
+      country:
+        type: string
+        description: Country code sent to SerpAPI as gl.
+        default: us
+      language:
+        type: string
+        description: Language code sent to SerpAPI as hl.
+        default: en
+      location:
+        type: string
+        description: Search location. Cannot be combined with uule.
+      uule:
+        type: string
+        description: Encoded Google location. Cannot be combined with location.
+      device:
+        type: string
+        description: Device type for the AI Mode request.
+        enum:
+          - desktop
+          - tablet
+          - mobile
+        default: desktop
+      no_cache:
+        type: boolean
+        description: Request a fresh SerpAPI response instead of cached results.
+        default: false
+      include_raw_response:
+        type: boolean
+        description: Include the JSON-safe provider response in each structured payload.
+        default: false
+    """
+    if output is None:
+        output = queries
+    query_columns = queries if isinstance(queries, list) else [queries]
+    output_columns = output if isinstance(output, list) else [output]
+    is_dual_output = len(query_columns) == 1 and len(output_columns) == 2
+    if not is_dual_output and len(query_columns) != len(output_columns):
+        raise ValueError(
+            "search.ai_mode must have an equal number of query and output columns, "
+            "OR 1 query column and 2 output columns [dicts, strings]."
+        )
+
+    def _is_blank(value) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str):
+            return not value.strip()
+        try:
+            missing = _pd.isna(value)
+            if not isinstance(missing, (list, tuple)):
+                return bool(missing)
+        except (TypeError, ValueError):
+            pass
+        return False
+
+    def _to_query_list(value) -> list[str]:
+        if isinstance(value, (list, tuple)):
+            return [
+                str(item).strip()
+                for item in value
+                if not _is_blank(item)
+            ]
+        return [] if _is_blank(value) else [str(value).strip()]
+
+    row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
+    for column_index, query_column in enumerate(query_columns):
+        structured_column = output_columns[0] if is_dual_output else output_columns[column_index]
+        row_query_lists = [_to_query_list(value) for value in df[query_column].tolist()]
+        flat_queries = [query for row_queries in row_query_lists for query in row_queries]
+
+        if not flat_queries:
+            df[structured_column] = [[] for _ in row_query_lists]
+            if is_dual_output:
+                df[output_columns[1]] = ["" for _ in row_query_lists]
+            _logging.info(": Wrangling :: ai_mode summary :: 0 queries >> 0 results")
+            continue
+
+        flat_responses = _search_core.ai_mode(
+            queries=flat_queries,
+            client=client,
+            api_key=api_key,
+            prompt=prompt,
+            n_results=n_results,
+            threads=threads,
+            country=country,
+            language=language,
+            location=location,
+            uule=uule,
+            device=device,
+            no_cache=no_cache,
+            include_raw_response=include_raw_response,
+        )
+        if isinstance(flat_responses, dict):
+            flat_responses = [flat_responses]
+
+        structured_cells = []
+        text_cells = []
+        position = 0
+        total_results = 0
+        for row_queries, current_id in zip(row_query_lists, row_ids):
+            query_count = len(row_queries)
+            if not query_count:
+                structured_cells.append([])
+                text_cells.append("")
+                continue
+
+            cell = flat_responses[position:position + query_count]
+            for query_index, response in enumerate(cell, start=1):
+                if not isinstance(response, dict):
+                    continue
+                metadata = response.get("search_metadata")
+                if isinstance(metadata, dict):
+                    metadata["query_index"] = query_index
+                source_records = []
+                for source_record in response.get("search_results") or []:
+                    if not isinstance(source_record, dict):
+                        continue
+                    updated_record = dict(source_record)
+                    updated_record["input_row_id"] = current_id
+                    updated_record["query_index"] = query_index
+                    source_records.append(updated_record)
+                response["search_results"] = source_records
+                total_results += len(source_records)
+
+            structured_cells.append(cell)
+            text_cells.append(
+                _format.ai_mode_results_to_text(cell) if is_dual_output else ""
+            )
+            position += query_count
+
+        df[structured_column] = structured_cells
+        if is_dual_output:
+            df[output_columns[1]] = text_cells
+        _logging.info(
+            f": Wrangling :: ai_mode summary :: {len(flat_queries)} queries "
+            f">> {total_results} results"
+        )
+
+    return df
+
+
+
 
 def retrieve_link_content(
     df: _pd.DataFrame,
