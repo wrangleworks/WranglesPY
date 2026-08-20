@@ -6,7 +6,13 @@ from . import memory as _memory
 import logging as _logging
 
 
-_FORMATTING_OPTIONS = {"align", "number_format", "bold", "checkbox"}
+# Names/values follow the syntax already used by the Polars/XlsxWriter
+# formatting implementation (see connectors/_formatting.py and the `file`
+# connector's `formatting.column_formats`), so recipe authors see one
+# consistent formatting syntax across excel.sheet and file, even though
+# excel.sheet is rendered by WranglesXL via the Office API rather than
+# XlsxWriter.
+_FORMATTING_OPTIONS = {"align", "num_format", "bold", "checkbox"}
 _ALIGNMENTS = {"general", "left", "center", "right"}
 
 
@@ -46,14 +52,14 @@ def _validate_formatting(formatting: dict) -> None:
                 "excel.sheet align must be general, left, center, or right"
             )
         if (
-            "number_format" in options
+            "num_format" in options
             and (
-                not isinstance(options["number_format"], str)
-                or not options["number_format"]
+                not isinstance(options["num_format"], str)
+                or not options["num_format"]
             )
         ):
             raise ValueError(
-                "excel.sheet number_format must be a non-empty string"
+                "excel.sheet num_format must be a non-empty string"
             )
         for option in ("bold", "checkbox"):
             if option in options and not isinstance(options[option], bool):
@@ -205,7 +211,10 @@ class sheet():
             description: If true, will write the data as an Excel table. Default true.
           formatting:
             type: object
-            description: Formatting to apply to named columns in WranglesXL.
+            description: >-
+              Formatting to apply to named columns in WranglesXL. Option names
+              and values follow the same Polars/XlsxWriter formatting syntax
+              used by the `file` connector's `formatting.column_formats`.
             additionalProperties: false
             required:
               - columns
@@ -227,10 +236,13 @@ class sheet():
                         - left
                         - center
                         - right
-                    number_format:
+                    num_format:
                       type: string
                       minLength: 1
-                      description: Excel number format code for the column values.
+                      description: >-
+                        Excel number format code for the column values.
+                        Matches the `num_format` key used by the Polars/XlsxWriter
+                        `column_formats` formatting syntax on the `file` connector.
                     bold:
                       type: boolean
                       description: Whether the column values should be bold.

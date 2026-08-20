@@ -125,7 +125,7 @@ def test_excel_sheet_write_preserves_column_formatting():
                     bold: true
                     align: center
                   Amount:
-                    number_format: '$#,##0.00'
+                    num_format: '$#,##0.00'
                   Verified:
                     checkbox: true
         """
@@ -142,10 +142,40 @@ def test_excel_sheet_write_preserves_column_formatting():
     assert excel_outputs[0]["formatting"] == {
         "columns": {
             "ID": {"bold": True, "align": "center"},
-            "Amount": {"number_format": "$#,##0.00"},
+            "Amount": {"num_format": "$#,##0.00"},
             "Verified": {"checkbox": True},
         }
     }
+
+
+def test_excel_sheet_formatting_options_match_xlsxwriter_syntax():
+    """
+    excel.sheet is rendered by WranglesXL via the Office API, not
+    XlsxWriter/Polars, but the recipe syntax must still match the
+    Polars/XlsxWriter formatting syntax already used by the `file` connector
+    (see connectors/_formatting.py) so authors don't learn two syntaxes for
+    the same concept. `align`, `num_format`, `bold`, and `checkbox` must all
+    be real XlsxWriter Format properties.
+    """
+    import inspect
+    import typing
+    import xlsxwriter
+    from wrangles.connectors.excel import _FORMATTING_OPTIONS, _ALIGNMENTS
+
+    format_setters = {
+        name[len("set_"):]
+        for name in dir(xlsxwriter.format.Format)
+        if name.startswith("set_")
+    }
+    assert _FORMATTING_OPTIONS <= format_setters
+
+    # "general" has no XlsxWriter equivalent - it matches Excel's unformatted
+    # default, so it is intentionally excluded from the XlsxWriter check.
+    align_param = inspect.signature(
+        xlsxwriter.format.Format.set_align
+    ).parameters["alignment"]
+    valid_alignments = set(typing.get_args(align_param.annotation))
+    assert (_ALIGNMENTS - {"general"}) <= valid_alignments
 
 
 def test_excel_sheet_formatting_rejects_unsupported_options():
