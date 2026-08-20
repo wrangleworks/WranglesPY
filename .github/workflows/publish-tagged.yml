@@ -412,7 +412,7 @@ jobs:
             echo "::error::deploy_user is empty"
             exit 1
           fi
-          payload=$(jq -n \
+          payload=$(jq -nc \
             --arg wrangles_version "$WRANGLES_VERSION" \
             --arg deploy_user "$DEPLOY_USER" \
             '{wrangles_version: $wrangles_version, deploy_user: $deploy_user}')
