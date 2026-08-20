@@ -180,17 +180,24 @@ def _coerce_price(value):
 def _currency_from_price(value) -> str | None:
     if not isinstance(value, str):
         return None
+    value_upper = value.upper()
     for token, currency in (
+        ("CA$", "CAD"),
+        ("C$", "CAD"),
+        ("A$", "AUD"),
+        ("AU$", "AUD"),
+        ("NZ$", "NZD"),
+        ("US$", "USD"),
         ("USD", "USD"),
         ("CAD", "CAD"),
+        ("AUD", "AUD"),
+        ("NZD", "NZD"),
         ("GBP", "GBP"),
         ("EUR", "EUR"),
-        ("$", "USD"),
         ("£", "GBP"),
         ("€", "EUR"),
     ):
-        haystack = value.upper() if token.isalpha() else value
-        if token in haystack:
+        if token in value_upper:
             return currency
     return None
 
@@ -263,8 +270,11 @@ def _normalize_ai_mode_results(response: dict, query_index: int | None, n_result
             record = _ai_mode_result(item, result_type, query_index)
             if record is None:
                 continue
+            dedupe_link = record["link"]
+            if "://" not in dedupe_link:
+                dedupe_link = f"https://{dedupe_link}"
             key = (
-                _web.normalize_site(record["link"]).lower().rstrip("/"),
+                _web.normalize_site(dedupe_link).lower().rstrip("/"),
                 record["title"].strip().lower(),
             )
             if key in seen:
@@ -467,7 +477,9 @@ class SerpApiWranglesClient:
                 "search_date": meta_raw.get("created_at"),
                 "response_time": meta_raw.get("total_time_taken"),
                 "json_endpoint": meta_raw.get("json_endpoint"),
-                "google_url": _web.clean_link(meta_raw.get("google_url", "")) or None,
+                "google_url": _web.clean_link(
+                    meta_raw.get("google_ai_mode_url") or meta_raw.get("google_url", "")
+                ) or None,
                 "language": search_params.get("hl", language),
                 "country": search_params.get("gl", country),
                 "location": search_params.get("location_used") or search_params.get("location") or location,
@@ -508,7 +520,13 @@ class SerpApiWranglesClient:
         prompt: str | None = None,
         n_results: int = 10,
         threads: int = 10,
-        **kwargs,
+        country: str = "us",
+        language: str = "en",
+        location: str | None = None,
+        uule: str | None = None,
+        device: str = "desktop",
+        no_cache: bool = False,
+        include_raw_response: bool = False,
     ) -> _Union[dict, list]:
         """Perform ordered Google AI Mode searches in parallel."""
         input_was_scalar = not isinstance(input_data, list)
@@ -522,7 +540,13 @@ class SerpApiWranglesClient:
                     prompt=prompt,
                     n_results=n_results,
                     query_index=item[0],
-                    **kwargs,
+                    country=country,
+                    language=language,
+                    location=location,
+                    uule=uule,
+                    device=device,
+                    no_cache=no_cache,
+                    include_raw_response=include_raw_response,
                 ),
                 indexed,
             ))

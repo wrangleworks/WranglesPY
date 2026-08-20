@@ -26,7 +26,7 @@ def ai_mode_response():
             "created_at": "2026-08-20 20:00:00 UTC",
             "total_time_taken": 1.25,
             "json_endpoint": "https://serpapi.com/searches/search-123.json",
-            "google_url": "https://www.google.com/search?q=SKF&utm_source=test",
+            "google_ai_mode_url": "https://www.google.com/search?q=SKF&utm_source=test",
         },
         "search_parameters": {
             "engine": "google_ai_mode",
@@ -54,7 +54,7 @@ def ai_mode_response():
         "quick_results": [
             {
                 "title": "SKF 6205-2RS product page",
-                "link": "https://www.skf.com/products/6205-2RS",
+                "link": "https://skf.com/products/6205-2RS",
                 "source": "SKF",
                 "snippet": "Official product specifications.",
             },
@@ -180,6 +180,7 @@ def test_client_maps_documented_ai_mode_response(ai_mode_response):
     assert result["search_metadata"]["query_index"] == 2
     assert result["search_metadata"]["query"] == PRODUCT_QUERY
     assert result["search_metadata"]["search_type"] == "ai_mode"
+    assert result["search_metadata"]["google_url"] == "www.google.com/search?q=SKF"
     assert result["extracted_content"] == {
         "answer_markdown": "SKF identifies **6205-2RS** as a sealed bearing.[1]",
         "text_blocks": ai_mode_response["text_blocks"],
@@ -229,6 +230,42 @@ def test_client_raw_response_and_partial_success(ai_mode_response):
         "vendor": "Distributor",
     }
     json.dumps(result)
+
+
+@pytest.mark.parametrize(
+    ("formatted_price", "expected_currency"),
+    [
+        ("CA$12.50", "CAD"),
+        ("A$12.50", "AUD"),
+        ("US$12.50", "USD"),
+        ("$12.50", None),
+    ],
+)
+def test_client_does_not_guess_ambiguous_price_currency(
+    formatted_price,
+    expected_currency,
+):
+    response = {
+        "search_metadata": {"status": "Success"},
+        "shopping_results": [
+            {
+                "title": "Industrial product",
+                "link": "https://supplier.example/product",
+                "source": "Supplier",
+                "price": formatted_price,
+            }
+        ],
+    }
+    client = make_client(response)
+
+    result = client.ai_mode_single("industrial product")
+
+    pricing = result["search_results"][0]["pricing"]
+    assert pricing["price"] == 12.5
+    if expected_currency:
+        assert pricing["currency"] == expected_currency
+    else:
+        assert "currency" not in pricing
 
 
 @pytest.mark.parametrize(
