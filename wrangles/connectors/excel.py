@@ -12,7 +12,7 @@ import logging as _logging
 # consistent formatting syntax across excel.sheet and file, even though
 # excel.sheet is rendered by WranglesXL via the Office API rather than
 # XlsxWriter.
-_FORMATTING_OPTIONS = {"align", "num_format", "bold", "checkbox"}
+_FORMATTING_OPTIONS = {"align", "num_format", "bold", "checkbox", "text_wrap"}
 _ALIGNMENTS = {"general", "left", "center", "right"}
 
 
@@ -61,7 +61,7 @@ def _validate_formatting(formatting: dict) -> None:
             raise ValueError(
                 "excel.sheet num_format must be a non-empty string"
             )
-        for option in ("bold", "checkbox"):
+        for option in ("bold", "checkbox", "text_wrap"):
             if option in options and not isinstance(options[option], bool):
                 raise TypeError(f"excel.sheet {option} must be true or false")
 
@@ -249,4 +249,7 @@ class sheet():
                     checkbox:
                       type: boolean
                       description: Whether boolean column values should display as checkboxes.
+                    text_wrap:
+                      type: boolean
+                      description: Whether the column values should wrap text within the cell.
         """

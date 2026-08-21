@@ -116,6 +116,7 @@ def test_excel_sheet_write_preserves_column_formatting():
                 ID: 1
                 Amount: 12.5
                 Verified: true
+                Notes: some long text
         write:
           - excel.sheet:
               name: Results
@@ -128,6 +129,8 @@ def test_excel_sheet_write_preserves_column_formatting():
                     num_format: '$#,##0.00'
                   Verified:
                     checkbox: true
+                  Notes:
+                    text_wrap: true
         """
     )
 
@@ -144,6 +147,7 @@ def test_excel_sheet_write_preserves_column_formatting():
             "ID": {"bold": True, "align": "center"},
             "Amount": {"num_format": "$#,##0.00"},
             "Verified": {"checkbox": True},
+            "Notes": {"text_wrap": True},
         }
     }
 
@@ -154,8 +158,8 @@ def test_excel_sheet_formatting_options_match_xlsxwriter_syntax():
     XlsxWriter/Polars, but the recipe syntax must still match the
     Polars/XlsxWriter formatting syntax already used by the `file` connector
     (see connectors/_formatting.py) so authors don't learn two syntaxes for
-    the same concept. `align`, `num_format`, `bold`, and `checkbox` must all
-    be real XlsxWriter Format properties.
+    the same concept. `align`, `num_format`, `bold`, `checkbox`, and
+    `text_wrap` must all be real XlsxWriter Format properties.
     """
     import inspect
     import typing
@@ -179,7 +183,7 @@ def test_excel_sheet_formatting_options_match_xlsxwriter_syntax():
 
 
 def test_excel_sheet_formatting_rejects_unsupported_options():
-    """The first-draft contract accepts only its four formatting options."""
+    """The first-draft contract accepts only its five formatting options."""
     with pytest.raises(ValueError, match="font_color"):
         wrangles.recipe.run(
             """
