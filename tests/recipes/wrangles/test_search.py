@@ -404,13 +404,11 @@ class TestAiMode:
     def test_search_single_query(self):
         data = pd.DataFrame({
             "query": [self.query],
-            "ID": ["bearing"],
         })
         recipe = """
         wrangles:
           - search.ai_mode:
               queries: query
-              id: ID
               output: results
               api_key: ${SERPAPI_API_KEY}
               country: us
@@ -437,13 +435,12 @@ class TestAiMode:
         ]
         data = pd.DataFrame({
             "query": [queries],
-            "ID": ["bearing"],
+            "recipe_id": ["bearing"],
         })
         recipe = """
         wrangles:
           - search.ai_mode:
               queries: query
-              id: ID
               output: results
               api_key: ${SERPAPI_API_KEY}
         """
@@ -454,8 +451,9 @@ class TestAiMode:
         assert len(results) == 2
         assert [result["search_metadata"]["query"] for result in results] == queries
         assert all(result["status"] == "Success" for result in results)
+        assert df.iloc[0]["recipe_id"] == "bearing"
         assert all(
-            source["input_row_id"] == "bearing"
+            "input_row_id" not in source
             for result in results
             for source in result["search_results"]
         )
@@ -463,13 +461,11 @@ class TestAiMode:
     def test_search_structured_and_readable_outputs(self):
         data = pd.DataFrame({
             "query": [self.query],
-            "ID": ["bearing"],
         })
         recipe = """
         wrangles:
           - search.ai_mode:
               queries: query
-              id: ID
               output:
                 - results
                 - result_text
@@ -485,14 +481,13 @@ class TestAiMode:
     def test_search_empty_input(self):
         data = pd.DataFrame({
             "query": ["", None],
-            "ID": [1, 2],
         })
         recipe = """
         wrangles:
           - search.ai_mode:
               queries: query
-              id: ID
               output: results
+              api_key: ${SERPAPI_API_KEY}
         """
 
         df = wrangles.recipe.run(recipe, dataframe=data)

@@ -174,7 +174,6 @@ def find_links(
 def ai_mode(
     df: _pd.DataFrame,
     queries: str | list,
-    id: str,
     output: str | list | None = None,
     client: str = "serpapi",
     api_key: str | None = None,
@@ -192,17 +191,13 @@ def ai_mode(
     additionalProperties: false
     required:
       - queries
-      - id
       - output
     properties:
       queries:
         type:
           - string
           - array
-        description: Name or list of input columns containing query or product-evidence text.
-      id:
-        type: string
-        description: Name of the input row ID column copied to each source record.
+        description: Name or list of input columns containing search queries.
       output:
         type:
           - string
@@ -219,7 +214,7 @@ def ai_mode(
         description: SerpAPI key. Defaults to the SERPAPI_API_KEY environment variable.
       prompt:
         type: string
-        description: Optional instruction replacing the default industrial-product research prompt.
+        description: Optional instruction prepended to each search query.
       threads:
         type: integer
         minimum: 1
@@ -278,7 +273,6 @@ def ai_mode(
             ]
         return [] if _is_blank(value) else [str(value).strip()]
 
-    row_ids = df[id].tolist() if id in df.columns else [None] * len(df)
     for column_index, query_column in enumerate(query_columns):
         structured_column = output_columns[0] if is_dual_output else output_columns[column_index]
         row_query_lists = [_to_query_list(value) for value in df[query_column].tolist()]
@@ -310,7 +304,7 @@ def ai_mode(
         text_cells = []
         position = 0
         total_results = 0
-        for row_queries, current_id in zip(row_query_lists, row_ids):
+        for row_queries in row_query_lists:
             query_count = len(row_queries)
             if not query_count:
                 structured_cells.append([])
@@ -329,7 +323,6 @@ def ai_mode(
                     if not isinstance(source_record, dict):
                         continue
                     updated_record = dict(source_record)
-                    updated_record["input_row_id"] = current_id
                     updated_record["query_index"] = query_index
                     source_records.append(updated_record)
                 response["search_results"] = source_records
