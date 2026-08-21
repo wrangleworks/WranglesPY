@@ -127,6 +127,41 @@ Wrangles broadly accept a single input string, or a list of strings. If a list i
 ]
 ```
 
+#### Integrated text cleaning
+
+`standardize.clean` repairs common mojibake, HTML character references,
+Unicode inconsistencies, control characters, and whitespace locally. It accepts
+a string or list and preserves that shape:
+
+```python
+>>> wrangles.standardize.clean(["FranÃ§ais", " AT&amp;T "])
+['Français', 'AT&T']
+```
+
+In a recipe, one input maps to one output and an omitted output overwrites the
+input. Multiple inputs map positionally to equally many outputs, or concatenate
+row values when a single output is given. Wildcard-expanded inputs follow the
+same rules.
+
+```yaml
+wrangles:
+  - standardize.clean:
+      input: Description *
+      output: Clean Description
+      separator: " | "
+      normalization: NFKC
+      preserve_line_breaks: true
+```
+
+Common options include `fix_encoding`, `unescape_html`, `normalization`,
+`fix_character_width`, `uncurl_quotes`, `remove_control_chars`,
+`collapse_whitespace`, `preserve_line_breaks`, and `trim`. Less-common
+`ftfy.fix_text` options are forwarded by name. This wrangle does not detect raw
+byte encodings or remove HTML tags.
+
+The existing model-backed `standardize` name remains supported and is also
+available explicitly as `standardize.custom`.
+
 ### Recipes
 
 Recipes are written in YAML and allow a series of Wrangles to be run as an automated sequence.
