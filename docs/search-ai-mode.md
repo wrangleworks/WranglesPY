@@ -39,7 +39,6 @@ wrangles:
       output:
         - AI Mode Results
         - AI Mode Text
-      n_results: 10
       country: us
       language: en
 
@@ -66,7 +65,6 @@ result = wrangles.search.ai_mode(
     "Manufacturer: WESTFALIA\n"
     "Potential part codes: DN65\n"
     "Description: union nut",
-    n_results=10,
     country="us",
     language="en",
 )
@@ -85,19 +83,15 @@ dictionaries.
 | `client` | `serpapi` (default and currently supported provider). |
 | `api_key` | SerpAPI key; defaults to `SERPAPI_API_KEY`. |
 | `prompt` | Optional replacement for the default product-research prompt. |
-| `n_results` | Source limit after normalization and deduplication; minimum 1. |
 | `threads` | Concurrent request count; minimum 1. |
 | `country` | Friendly alias for SerpAPI `gl`; defaults to `us`. |
 | `language` | Friendly alias for SerpAPI `hl`; defaults to `en`. |
 | `location` | Human-readable search location. |
-| `uule` | Encoded Google location; cannot be combined with `location`. |
-| `device` | `desktop`, `tablet`, or `mobile`. |
 | `no_cache` | Request a fresh result rather than a SerpAPI cached response. |
 | `include_raw_response` | Add the provider response to each payload; defaults to `false`. |
 
-Other SerpAPI properties are not passed through by this wrangle.
-`n_results` is applied locally and is not sent as the undocumented `num`
-parameter.
+Other SerpAPI properties may be passed as keyword arguments through the direct
+Python API. AI Mode requests always use the supported desktop device.
 
 ## Structured output
 
@@ -148,9 +142,9 @@ Every query payload has the same top-level shape:
 
 SerpAPI `references`, source-bearing `quick_results`, `shopping_results`, and
 `inline_products` become source records. `result_type` preserves their
-provenance. Sources are deduplicated by cleaned link and title, ranked in
-first-seen order, and then limited by `n_results`. Pricing is included only
-when structured shopping data is available.
+provenance. Sources are deduplicated by cleaned link and title and ranked in
+first-seen order. Pricing is included only when structured shopping data is
+available.
 
 `reconstructed_markdown` becomes `answer_markdown`; `text_blocks` is preserved.
 The full provider payload is omitted unless `include_raw_response` is true.
@@ -171,12 +165,10 @@ Each nonblank query may incur a SerpAPI Google AI Mode request and associated
 provider charges. Review SerpAPI's current pricing and cache policy before
 large batches. Cached responses can reduce repeated provider work; setting
 `no_cache: true` requests a fresh response and may increase cost and latency.
-Use `threads` to control concurrency and `n_results` to limit local output
-size.
+Use `threads` to control concurrency.
 
 ## Unreleased release note
 
 Added `search.ai_mode` for one-request cited search and synthesis through
 SerpAPI Google AI Mode, with stable normalized source/content output, readable
-dual output, direct Python support, local source limiting, and opt-in raw
-responses.
+dual output, direct Python support, and opt-in raw responses.

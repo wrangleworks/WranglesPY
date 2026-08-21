@@ -179,13 +179,10 @@ def ai_mode(
     client: str = "serpapi",
     api_key: str | None = None,
     prompt: str | None = None,
-    n_results: int = 10,
     threads: int = 10,
     country: str = "us",
     language: str = "en",
     location: str | None = None,
-    uule: str | None = None,
-    device: str = "desktop",
     no_cache: bool = False,
     include_raw_response: bool = False,
 ) -> _pd.DataFrame:
@@ -223,11 +220,6 @@ def ai_mode(
       prompt:
         type: string
         description: Optional instruction replacing the default industrial-product research prompt.
-      n_results:
-        type: integer
-        minimum: 1
-        description: Maximum normalized source records per query, applied after deduplication.
-        default: 10
       threads:
         type: integer
         minimum: 1
@@ -243,18 +235,7 @@ def ai_mode(
         default: en
       location:
         type: string
-        description: Search location. Cannot be combined with uule.
-      uule:
-        type: string
-        description: Encoded Google location. Cannot be combined with location.
-      device:
-        type: string
-        description: Device type for the AI Mode request.
-        enum:
-          - desktop
-          - tablet
-          - mobile
-        default: desktop
+        description: Search location.
       no_cache:
         type: boolean
         description: Request a fresh SerpAPI response instead of cached results.
@@ -315,13 +296,10 @@ def ai_mode(
             client=client,
             api_key=api_key,
             prompt=prompt,
-            n_results=n_results,
             threads=threads,
             country=country,
             language=language,
             location=location,
-            uule=uule,
-            device=device,
             no_cache=no_cache,
             include_raw_response=include_raw_response,
         )

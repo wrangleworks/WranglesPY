@@ -85,25 +85,17 @@ def ai_mode(
     client: str = "serpapi",
     api_key: str | None = None,
     prompt: str | None = None,
-    n_results: int = 10,
     threads: int = 10,
     country: str = "us",
     language: str = "en",
     location: str | None = None,
-    uule: str | None = None,
-    device: str = "desktop",
     no_cache: bool = False,
     include_raw_response: bool = False,
+    **kwargs,
 ) -> dict | list:
     """Search and synthesize cited content with SerpAPI Google AI Mode."""
-    if not isinstance(n_results, int) or isinstance(n_results, bool) or n_results < 1:
-        raise ValueError("n_results must be at least 1")
     if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
         raise ValueError("threads must be at least 1")
-    if location and uule:
-        raise ValueError("location and uule cannot both be provided")
-    if device not in ("desktop", "tablet", "mobile"):
-        raise ValueError("device must be one of: desktop, tablet, mobile")
 
     is_scalar = not isinstance(queries, list)
     query_list = [queries] if is_scalar else queries
@@ -121,15 +113,13 @@ def ai_mode(
     return search_client.ai_mode_batch(
         queries,
         prompt=DEFAULT_AI_MODE_PROMPT if prompt is None else prompt,
-        n_results=n_results,
         threads=threads,
         country=country,
         language=language,
         location=location,
-        uule=uule,
-        device=device,
         no_cache=no_cache,
         include_raw_response=include_raw_response,
+        **kwargs,
     )
 
 

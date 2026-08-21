@@ -398,6 +398,108 @@ class TestFindLinks:
         assert all(isinstance(row['results'][0]['search_results'], list) for _, row in df.iterrows())
 
 
+class TestAiMode:
+    query = "SKF 6205-2RS deep groove ball bearing specifications"
+
+    def test_search_single_query(self):
+        data = pd.DataFrame({
+            "query": [self.query],
+            "ID": ["bearing"],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              id: ID
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              country: us
+              language: en
+              location: Austin, Texas, United States
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert result["search_metadata"]["query"] == self.query
+        assert result["search_metadata"]["location"]
+        assert isinstance(result["search_results"], list)
+        assert (
+            result["extracted_content"]["answer_markdown"]
+            or result["extracted_content"]["text_blocks"]
+        )
+
+    def test_search_multiple_queries(self):
+        queries = [
+            self.query,
+            "SKF 6205-2RS bearing dimensions",
+        ]
+        data = pd.DataFrame({
+            "query": [queries],
+            "ID": ["bearing"],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              id: ID
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        results = df.iloc[0]["results"]
+        assert len(results) == 2
+        assert [result["search_metadata"]["query"] for result in results] == queries
+        assert all(result["status"] == "Success" for result in results)
+        assert all(
+            source["input_row_id"] == "bearing"
+            for result in results
+            for source in result["search_results"]
+        )
+
+    def test_search_structured_and_readable_outputs(self):
+        data = pd.DataFrame({
+            "query": [self.query],
+            "ID": ["bearing"],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              id: ID
+              output:
+                - results
+                - result_text
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["status"] == "Success"
+        assert "Query 1:" in df.iloc[0]["result_text"]
+        assert self.query in df.iloc[0]["result_text"]
+
+    def test_search_empty_input(self):
+        data = pd.DataFrame({
+            "query": ["", None],
+            "ID": [1, 2],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              id: ID
+              output: results
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df["results"].tolist() == [[], []]
+
+
 class TestRetrieveLinkContent:
     """
     Test the functionality of the retrieve_link_content wrangle

@@ -2,6 +2,7 @@ import concurrent.futures as _futures
 import json as _json
 import math as _math
 import re
+from collections.abc import Mapping as _Mapping
 from typing import Union as _Union
 
 # Import our new core web helpers
@@ -256,7 +257,7 @@ def _ai_mode_result(item: dict, result_type: str, query_index: int | None) -> di
     return result
 
 
-def _normalize_ai_mode_results(response: dict, query_index: int | None, n_results: int) -> list[dict]:
+def _normalize_ai_mode_results(response: dict, query_index: int | None) -> list[dict]:
     records = []
     seen = set()
     sections = (
@@ -282,9 +283,9 @@ def _normalize_ai_mode_results(response: dict, query_index: int | None, n_result
             seen.add(key)
             records.append(record)
 
-    for rank, record in enumerate(records[:n_results], start=1):
+    for rank, record in enumerate(records, start=1):
         record["google_rank"] = rank
-    return records[:n_results]
+    return records
 
 
 class SerpApiWranglesClient:
@@ -419,15 +420,13 @@ class SerpApiWranglesClient:
         self,
         query,
         prompt: str | None = None,
-        n_results: int = 10,
         query_index: int | None = None,
         country: str = "us",
         language: str = "en",
         location: str | None = None,
-        uule: str | None = None,
-        device: str = "desktop",
         no_cache: bool = False,
         include_raw_response: bool = False,
+        **kwargs,
     ) -> dict:
         """Perform one Google AI Mode search and normalize the provider response."""
         if _is_blank_query(query):
@@ -444,24 +443,24 @@ class SerpApiWranglesClient:
         query_text = str(query).strip()
         request_query = f"{prompt.strip()}\n\nQuery/product evidence:\n{query_text}" if prompt else query_text
         params = {
+            **kwargs,
             "engine": "google_ai_mode",
             "q": request_query,
             "output": "json",
             "gl": country,
             "hl": language,
-            "device": device,
+            "device": "desktop",
             "no_cache": no_cache,
         }
         if location:
             params["location"] = location
-        if uule:
-            params["uule"] = uule
 
         try:
             client = self.client_class(api_key=self.api_key)
             response = client.search(params)
-            if not isinstance(response, dict):
+            if not isinstance(response, _Mapping):
                 raise TypeError("SerpAPI returned a non-object response")
+            response = dict(response)
 
             meta_raw = response.get("search_metadata") or {}
             search_params = response.get("search_parameters") or {}
@@ -493,7 +492,6 @@ class SerpApiWranglesClient:
                 search_results=[] if failed else _normalize_ai_mode_results(
                     response,
                     query_index,
-                    n_results,
                 ),
                 answer_markdown=None if failed else response.get("reconstructed_markdown"),
                 text_blocks=[] if failed else response.get("text_blocks"),
@@ -518,15 +516,13 @@ class SerpApiWranglesClient:
         self,
         input_data: _Union[str, list],
         prompt: str | None = None,
-        n_results: int = 10,
         threads: int = 10,
         country: str = "us",
         language: str = "en",
         location: str | None = None,
-        uule: str | None = None,
-        device: str = "desktop",
         no_cache: bool = False,
         include_raw_response: bool = False,
+        **kwargs,
     ) -> _Union[dict, list]:
         """Perform ordered Google AI Mode searches in parallel."""
         input_was_scalar = not isinstance(input_data, list)
@@ -538,15 +534,13 @@ class SerpApiWranglesClient:
                 lambda item: self.ai_mode_single(
                     query=item[1],
                     prompt=prompt,
-                    n_results=n_results,
                     query_index=item[0],
                     country=country,
                     language=language,
                     location=location,
-                    uule=uule,
-                    device=device,
                     no_cache=no_cache,
                     include_raw_response=include_raw_response,
+                    **kwargs,
                 ),
                 indexed,
             ))
