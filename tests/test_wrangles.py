@@ -934,6 +934,7 @@ def test_compare_overlap_exact_match_custom():
 
 
 def test_search_ai_mode():
+    """Test direct Python usage with a scalar query and opt-in raw response."""
     query = "SKF 6205-2RS deep groove ball bearing specifications"
 
     result = wrangles.search.ai_mode(
@@ -944,6 +945,7 @@ def test_search_ai_mode():
     assert result["status"] == "Success", result["error"]
     assert result["search_metadata"]["query"] == query
     assert isinstance(result["raw_response"], dict)
+    assert result["raw_response"]["search_parameters"]["q"] == query
     assert isinstance(result["search_results"], list)
     assert (
         result["extracted_content"]["answer_markdown"]

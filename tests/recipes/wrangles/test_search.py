@@ -1,5 +1,6 @@
 import wrangles
 import pandas as pd
+import pytest
 
 
 class TestFindLinks:
@@ -399,9 +400,12 @@ class TestFindLinks:
 
 
 class TestAiMode:
+    """Test search.ai_mode recipe usage, parameters, input shapes, and errors."""
+
     query = "SKF 6205-2RS deep groove ball bearing specifications"
 
     def test_search_single_query(self):
+        """Test the smallest recipe: one string query column and one output column."""
         data = pd.DataFrame({
             "query": [self.query],
         })
@@ -410,10 +414,6 @@ class TestAiMode:
           - search.ai_mode:
               queries: query
               output: results
-              api_key: ${SERPAPI_API_KEY}
-              country: us
-              language: en
-              location: Austin, Texas, United States
         """
 
         df = wrangles.recipe.run(recipe, dataframe=data)
@@ -421,17 +421,19 @@ class TestAiMode:
         result = df.iloc[0]["results"][0]
         assert result["status"] == "Success", result["error"]
         assert result["search_metadata"]["query"] == self.query
-        assert result["search_metadata"]["location"]
+        assert result["search_metadata"]["country"] == "us"
+        assert result["search_metadata"]["language"] == "en"
         assert isinstance(result["search_results"], list)
         assert (
             result["extracted_content"]["answer_markdown"]
             or result["extracted_content"]["text_blocks"]
         )
 
-    def test_search_multiple_queries(self):
+    def test_queries_parameter_accepts_a_list_in_each_cell(self):
+        """Test queries with a cell containing a list; each item returns one ordered result."""
         queries = [
-            self.query,
-            "SKF 6205-2RS bearing dimensions",
+            "What is the capital of Texas?",
+            "What is the capital of Oklahoma?",
         ]
         data = pd.DataFrame({
             "query": [queries],
@@ -458,7 +460,31 @@ class TestAiMode:
             for source in result["search_results"]
         )
 
-    def test_search_structured_and_readable_outputs(self):
+    def test_queries_parameter_accepts_multiple_columns(self):
+        """Test a list of query columns paired with the same number of output columns."""
+        data = pd.DataFrame({
+            "state_query": ["What is the capital of Texas?"],
+            "country_query": ["What is the capital of Canada?"],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries:
+                - state_query
+                - country_query
+              output:
+                - state_result
+                - country_result
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["state_result"][0]["search_metadata"]["query"] == data.iloc[0]["state_query"]
+        assert df.iloc[0]["country_result"][0]["search_metadata"]["query"] == data.iloc[0]["country_query"]
+
+    def test_output_parameter_accepts_structured_and_text_columns(self):
+        """Test two outputs for one query: normalized dictionaries followed by readable text."""
         data = pd.DataFrame({
             "query": [self.query],
         })
@@ -478,10 +504,25 @@ class TestAiMode:
         assert "Query 1:" in df.iloc[0]["result_text"]
         assert self.query in df.iloc[0]["result_text"]
 
-    def test_search_empty_input(self):
-        data = pd.DataFrame({
-            "query": ["", None],
-        })
+    def test_client_parameter_accepts_serpapi(self):
+        """Test selecting the supported serpapi client explicitly in a recipe."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              client: serpapi
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["status"] == "Success"
+
+    def test_api_key_parameter_accepts_an_explicit_key(self):
+        """Test supplying the SerpAPI credential through the recipe api_key parameter."""
+        data = pd.DataFrame({"query": [self.query]})
         recipe = """
         wrangles:
           - search.ai_mode:
@@ -492,7 +533,445 @@ class TestAiMode:
 
         df = wrangles.recipe.run(recipe, dataframe=data)
 
+        assert df.iloc[0]["results"][0]["status"] == "Success"
+
+    def test_api_key_parameter_defaults_to_the_environment(self):
+        """Test omitting api_key when SERPAPI_API_KEY is available in the environment."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["status"] == "Success"
+
+    def test_prompt_parameter_is_prepended_to_the_query(self):
+        """Test a custom prompt and verify the exact combined query sent to SerpAPI."""
+        prompt = "Answer in one sentence."
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              prompt: Answer in one sentence.
+              api_key: ${SERPAPI_API_KEY}
+              include_raw_response: true
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert result["raw_response"]["search_parameters"]["q"] == f"{prompt}\n\n{self.query}"
+
+    def test_prompt_parameter_defaults_to_none(self):
+        """Test omitting prompt and verify SerpAPI receives only the unmodified query."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              include_raw_response: true
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert result["raw_response"]["search_parameters"]["q"] == self.query
+
+    def test_prompt_parameter_ignores_blank_text(self):
+        """Test a whitespace-only prompt; it behaves like no prompt and sends only the query."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              prompt: "   "
+              api_key: ${SERPAPI_API_KEY}
+              include_raw_response: true
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert result["raw_response"]["search_parameters"]["q"] == self.query
+
+    def test_threads_parameter_processes_queries_in_order(self):
+        """Test concurrent searches with threads while preserving input row order."""
+        queries = [
+            "What is the capital of Texas?",
+            "What is the capital of Oklahoma?",
+            "What is the capital of Canada?",
+        ]
+        data = pd.DataFrame({"query": queries})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              threads: 3
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        returned_queries = [cell[0]["search_metadata"]["query"] for cell in df["results"]]
+        assert returned_queries == queries
+
+    def test_country_parameter_sets_google_country(self):
+        """Test country as the friendly recipe alias for SerpAPI's gl parameter."""
+        data = pd.DataFrame({"query": ["What is the capital of Canada?"]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              country: ca
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["search_metadata"]["country"] == "ca"
+
+    def test_language_parameter_sets_google_language(self):
+        """Test language as the friendly recipe alias for SerpAPI's hl parameter."""
+        data = pd.DataFrame({"query": ["What is the capital of Texas?"]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              language: es
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["search_metadata"]["language"] == "es"
+
+    def test_location_parameter_sets_search_location(self):
+        """Test a human-readable location and verify it is retained in result metadata."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              location: Austin, Texas, United States
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        location = df.iloc[0]["results"][0]["search_metadata"]["location"]
+        assert "Austin" in location
+
+    def test_no_cache_parameter_requests_a_fresh_response(self):
+        """Test no_cache true, which asks SerpAPI to bypass its cached response."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              no_cache: true
+              include_raw_response: true
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert isinstance(result["raw_response"], dict)
+
+    def test_include_raw_response_parameter_adds_provider_payload(self):
+        """Test opting into the original JSON-safe SerpAPI response."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              include_raw_response: true
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert isinstance(df.iloc[0]["results"][0]["raw_response"], dict)
+
+    def test_include_raw_response_defaults_to_false(self):
+        """Test the default compact payload, which does not retain the provider response."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert "raw_response" not in df.iloc[0]["results"][0]
+
+    def test_where_parameter_searches_only_matching_rows(self):
+        """Test the common where parameter; unmatched rows are left unprocessed."""
+        data = pd.DataFrame({
+            "query": [self.query, "What is the capital of Oklahoma?"],
+            "search": [False, True],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+              where: search == True
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"] == ""
+        assert df.iloc[1]["results"][0]["status"] == "Success"
+
+    def test_multiple_dataframe_rows_remain_aligned(self):
+        """Test a tall dataframe; each row receives only the result for its own query."""
+        queries = [
+            "What is the capital of Texas?",
+            "What is the capital of Oklahoma?",
+            "What is the capital of Canada?",
+        ]
+        data = pd.DataFrame({"query": queries, "recipe_id": [10, 20, 30]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df["recipe_id"].tolist() == [10, 20, 30]
+        assert [cell[0]["search_metadata"]["query"] for cell in df["results"]] == queries
+
+    def test_integer_query_values_are_converted_to_strings(self):
+        """Test an integer query column; numeric values are searched as their string form."""
+        data = pd.DataFrame({"query": [2026]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["search_metadata"]["query"] == "2026"
+
+    def test_datetime_query_values_are_converted_to_strings(self):
+        """Test a datetime query column; timestamps are searched as their string form."""
+        timestamp = pd.Timestamp("2026-08-21")
+        data = pd.DataFrame({"query": [timestamp]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.iloc[0]["results"][0]["search_metadata"]["query"] == str(timestamp)
+
+    def test_blank_and_null_queries_return_empty_aligned_results(self):
+        """Test empty string, whitespace, None, NaN, and pd.NA without provider requests."""
+        data = pd.DataFrame({
+            "query": ["", "   ", None, float("nan"), pd.NA],
+        })
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df["results"].tolist() == [[], [], [], [], []]
+
+    def test_list_queries_discard_blank_and_null_items(self):
+        """Test mixed list cells; blank items are skipped without shifting valid results."""
+        queries = ["What is the capital of Texas?", "", None, pd.NA]
+        data = pd.DataFrame({"query": [queries]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        results = df.iloc[0]["results"]
+        assert len(results) == 1
+        assert results[0]["search_metadata"]["query"] == queries[0]
+
+    def test_empty_dataframe_returns_an_empty_output_column(self):
+        """Test a zero-row dataframe; the output column is created without a request."""
+        data = pd.DataFrame({"query": pd.Series(dtype="object")})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.empty
+        assert "results" in df.columns
+
+    def test_non_default_dataframe_index_is_preserved(self):
+        """Test empty inputs with string index labels; result rows keep the original index."""
+        data = pd.DataFrame({"query": ["", None]}, index=["first", "second"])
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        assert df.index.tolist() == ["first", "second"]
         assert df["results"].tolist() == [[], []]
+
+    def test_error_when_query_and_output_counts_differ(self):
+        """Test that two query columns cannot be mapped to one output column."""
+        data = pd.DataFrame({"first": ["Texas"], "second": ["Oklahoma"]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries:
+                - first
+                - second
+              output: results
+        """
+
+        with pytest.raises(ValueError, match="equal number of query and output columns"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_error_when_one_query_has_more_than_two_outputs(self):
+        """Test that one query supports at most the structured/readable output pair."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output:
+                - first
+                - second
+                - third
+        """
+
+        with pytest.raises(ValueError, match="equal number of query and output columns"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_error_when_query_column_does_not_exist(self):
+        """Test a misspelled query column and surface the missing dataframe label."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: missing_query
+              output: results
+        """
+
+        with pytest.raises(KeyError, match="missing_query"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_error_when_queries_parameter_is_missing(self):
+        """Test omitting the required queries parameter from the recipe."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              output: results
+        """
+
+        with pytest.raises(ValueError, match="requires arguments.*queries"):
+            wrangles.recipe.run(recipe, dataframe=data)
+
+    def test_error_when_threads_is_zero(self):
+        """Test the minimum thread count; zero is rejected before any provider request."""
+        with pytest.raises(ValueError, match="threads must be at least 1"):
+            wrangles.search.ai_mode(self.query, threads=0)
+
+    def test_error_when_threads_is_boolean(self):
+        """Test that booleans are not accepted as integer thread counts."""
+        with pytest.raises(ValueError, match="threads must be at least 1"):
+            wrangles.search.ai_mode(self.query, threads=True)
+
+    def test_error_when_client_is_unknown(self):
+        """Test an unsupported client name and list the available search providers."""
+        with pytest.raises(ValueError, match="Unknown web client"):
+            wrangles.search.ai_mode(self.query, client="unknown", api_key="test-key")
+
+    def test_error_when_api_key_is_missing(self, monkeypatch):
+        """Test a nonblank search without api_key or SERPAPI_API_KEY credentials."""
+        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+
+        with pytest.raises(ValueError, match="requires a valid API key"):
+            wrangles.search.ai_mode(self.query)
+
+    def test_invalid_api_key_returns_a_failure_payload(self):
+        """Test a rejected provider credential; query failures return data instead of shifting rows."""
+        data = pd.DataFrame({"query": [self.query]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: invalid-key
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Failure"
+        assert result["error"]
+        assert result["search_results"] == []
+
+    def test_error_when_removed_id_parameter_is_used(self):
+        """Test that the removed id option is rejected instead of affecting source records."""
+        data = pd.DataFrame({"query": [self.query], "ID": [1]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              id: ID
+        """
+
+        with pytest.raises(TypeError, match="unexpected keyword argument 'id'"):
+            wrangles.recipe.run(recipe, dataframe=data)
 
 
 class TestRetrieveLinkContent:
