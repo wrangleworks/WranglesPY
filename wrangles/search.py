@@ -3,18 +3,6 @@ import math as _math
 
 # Import our client factory
 from .clients import get_client as _get_client
-from .clients.serp_api import SerpApiWranglesClient
-
-
-DEFAULT_AI_MODE_PROMPT = (
-    "Find authoritative manufacturer, product, supplier, and distributor pages "
-    "for this industrial product. Confirm the manufacturer and exact part number "
-    "where possible. Summarize the product description, important specifications "
-    "and attributes, and available price, currency, vendor, availability, and "
-    "quantity basis. Prefer exact identifier evidence, distinguish confirmed facts "
-    "from inference, cite the supporting sources, and leave unknown values unknown "
-    "rather than guessing."
-)
 
 
 def _is_blank_ai_mode_query(query) -> bool:
@@ -112,7 +100,7 @@ def ai_mode(
     )
     return search_client.ai_mode_batch(
         queries,
-        prompt=DEFAULT_AI_MODE_PROMPT if prompt is None else prompt,
+        prompt=prompt,
         threads=threads,
         country=country,
         language=language,

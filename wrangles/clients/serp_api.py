@@ -441,7 +441,8 @@ class SerpApiWranglesClient:
             )
 
         query_text = str(query).strip()
-        request_query = f"{prompt.strip()}\n\nQuery/product evidence:\n{query_text}" if prompt else query_text
+        prompt_text = prompt.strip() if prompt else ""
+        request_query = f"{prompt_text}\n\n{query_text}" if prompt_text else query_text
         params = {
             **kwargs,
             "engine": "google_ai_mode",
