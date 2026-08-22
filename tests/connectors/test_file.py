@@ -684,6 +684,24 @@ class TestWrite:
 
         assert chunked.equals(default)
 
+    def test_write_excel_applies_default_table_formatting(self, tmp_path):
+        """
+        Test that Excel files use the default excel.sheet table formatting.
+        """
+        import openpyxl
+
+        path = tmp_path / "default_formatting.xlsx"
+        source = _pd.DataFrame({"col1": ["aaa"], "col2": ["bbb"]})
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        table = next(iter(worksheet.tables.values()))
+
+        assert table.tableStyleInfo.name == "TableStyleMedium9"
+        workbook.close()
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
@@ -988,7 +1006,8 @@ class TestWrite:
             df = _pd.DataFrame({'col': ['a\tb\nc\rd']})
             wrangles.connectors.file.write(df, name=filename)
             result = _pd.read_excel(filename)
-            assert result['col'][0] == 'a\tb\nc\rd'
+            from openpyxl.utils.escape import unescape
+            assert unescape(result['col'][0]) == 'a\tb\nc\rd'
 
         def test_write_xlsx_clean_data_unchanged(self):
             """
