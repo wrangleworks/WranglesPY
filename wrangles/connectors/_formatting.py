@@ -5,6 +5,24 @@ import pandas as pd
 DEFAULT_TABLE_STYLE = "Table Style Medium9"
 
 
+def _unique_table_headers(headers):
+    unique_headers = []
+    used_headers = set()
+
+    for position, header in enumerate(headers, start=1):
+        base_header = str(header) if header not in (None, "") else f"Column{position}"
+        unique_header = base_header
+        suffix = 2
+        while unique_header.casefold() in used_headers:
+            unique_header = f"{base_header}_{suffix}"
+            suffix += 1
+
+        unique_headers.append(unique_header)
+        used_headers.add(unique_header.casefold())
+
+    return unique_headers
+
+
 def default_file_format(
         df,
         workbook: str='output.xlsx',
@@ -16,10 +34,16 @@ def default_file_format(
     """
     excel_kwargs = kwargs.copy()
     excel_kwargs.pop("engine", None)
-    excel_kwargs.pop("engine_kwargs", None)
-    excel_kwargs.pop("storage_options", None)
+    writer_kwargs = {}
+    for option in ("engine_kwargs", "storage_options"):
+        if option in excel_kwargs:
+            writer_kwargs[option] = excel_kwargs.pop(option)
 
-    with pd.ExcelWriter(workbook, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(
+        workbook,
+        engine="xlsxwriter",
+        **writer_kwargs
+    ) as writer:
         df.to_excel(
             writer,
             sheet_name=worksheet,
@@ -48,6 +72,9 @@ def default_file_format(
                 None,
                 top_format
             )
+
+        if isinstance(df.columns, pd.MultiIndex):
+            return
 
         if len(df) and column_count:
             lastrow = startrow + len(df)
@@ -80,10 +107,10 @@ def default_file_format(
 
                 table_options["columns"] = [
                     {
-                        "header": str(header),
+                        "header": header,
                         "header_format": top_format
                     }
-                    for header in headers
+                    for header in _unique_table_headers(headers)
                 ]
 
             worksheet_object.add_table(

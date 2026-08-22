@@ -739,6 +739,55 @@ class TestWrite:
         result = _pd.read_excel(path)
         assert result["mixed"].tolist() == [1, "aaa"]
 
+    def test_write_excel_default_formatting_honors_engine_options(self, tmp_path):
+        """
+        Test that XlsxWriter engine options are forwarded.
+        """
+        import openpyxl
+
+        path = tmp_path / "engine_options.xlsx"
+        source = _pd.DataFrame({"value": ["=1+1"]})
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            engine_kwargs={"options": {"strings_to_formulas": False}}
+        )
+
+        workbook = openpyxl.load_workbook(path, data_only=False)
+        assert workbook.active["A2"].data_type == "s"
+        workbook.close()
+
+    def test_write_excel_default_formatting_disambiguates_table_headers(self, tmp_path):
+        """
+        Test that case-insensitive duplicate headers still produce a table.
+        """
+        import openpyxl
+
+        path = tmp_path / "duplicate_headers.xlsx"
+        source = _pd.DataFrame([["aaa", "bbb"]], columns=["Find", "find"])
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        assert len(worksheet.tables) == 1
+        assert worksheet["A1"].value == "Find"
+        assert worksheet["B1"].value == "find_2"
+        workbook.close()
+
+    def test_write_excel_default_formatting_supports_multiindex_columns(self, tmp_path):
+        """
+        Test that hierarchical headers do not overlap table formatting.
+        """
+        path = tmp_path / "multiindex_columns.xlsx"
+        columns = _pd.MultiIndex.from_tuples([("group", "one"), ("group", "two")])
+        source = _pd.DataFrame([[1, 2]], columns=columns)
+
+        wrangles.connectors.file.write(source, path, index=True)
+
+        assert path.exists()
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
