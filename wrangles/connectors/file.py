@@ -13,6 +13,7 @@ import base64 as _base64
 import os as _os
 import re as _re
 from ..utils import wildcard_expansion as _wildcard_expansion
+from ._formatting import default_file_format as _default_file_format
 from ._formatting import file_format as _file_format
 
 
@@ -238,14 +239,26 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
         # Write an Excel file
-        if kwargs.get('index', False):
-            df = df.reset_index()
-        _file_format(
-            _remove_illegal_characters(df),
-            workbook=file_object,
-            worksheet=kwargs.get('sheet_name', 'Sheet1'),
-            **(formatting or {})
-        )
+        if 'index' not in kwargs.keys(): kwargs['index'] = False
+        sheet_name = kwargs.pop('sheet_name', 'Sheet1')
+        df = _remove_illegal_characters(df)
+
+        if formatting:
+            if kwargs.get('index', False):
+                df = df.reset_index()
+            _file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **formatting
+            )
+        else:
+            _default_file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **kwargs
+            )
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file

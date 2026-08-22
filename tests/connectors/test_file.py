@@ -702,6 +702,43 @@ class TestWrite:
         assert table.tableStyleInfo.name == "TableStyleMedium9"
         workbook.close()
 
+    def test_write_excel_default_formatting_preserves_pandas_options(self, tmp_path):
+        """
+        Test that default formatting preserves supported pandas Excel options.
+        """
+        import openpyxl
+
+        path = tmp_path / "excel_options.xlsx"
+        source = _pd.DataFrame({"col1": ["aaa"], "col2": ["bbb"]})
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            header=False,
+            startrow=2,
+            freeze_panes=(1, 0)
+        )
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+
+        assert worksheet.freeze_panes == "A2"
+        assert worksheet["A1"].value is None
+        assert worksheet["A3"].value == "aaa"
+        workbook.close()
+
+    def test_write_excel_default_formatting_supports_mixed_types(self, tmp_path):
+        """
+        Test that mixed-type pandas object columns can be written to Excel.
+        """
+        path = tmp_path / "mixed_types.xlsx"
+        source = _pd.DataFrame({"mixed": [1, "aaa"]})
+
+        wrangles.connectors.file.write(source, path)
+
+        result = _pd.read_excel(path)
+        assert result["mixed"].tolist() == [1, "aaa"]
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats

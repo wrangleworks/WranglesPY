@@ -1,4 +1,98 @@
 import polars as pl
+import pandas as pd
+
+
+DEFAULT_TABLE_STYLE = "Table Style Medium9"
+
+
+def default_file_format(
+        df,
+        workbook: str='output.xlsx',
+        worksheet: str='Sheet1',
+        **kwargs
+        ):
+    """
+    Apply the default Excel table formatting using Pandas and XlsxWriter.
+    """
+    excel_kwargs = kwargs.copy()
+    excel_kwargs.pop("engine", None)
+    excel_kwargs.pop("engine_kwargs", None)
+    excel_kwargs.pop("storage_options", None)
+
+    with pd.ExcelWriter(workbook, engine="xlsxwriter") as writer:
+        df.to_excel(
+            writer,
+            sheet_name=worksheet,
+            **excel_kwargs
+        )
+
+        worksheet_object = writer.sheets[worksheet]
+        workbook_object = writer.book
+        startrow = excel_kwargs.get("startrow", 0)
+        startcol = excel_kwargs.get("startcol", 0)
+        include_header = excel_kwargs.get("header", True) is not False
+        include_index = excel_kwargs.get("index", True)
+        selected_columns = excel_kwargs.get("columns")
+        if selected_columns is None:
+            selected_columns = list(df.columns)
+
+        column_count = len(selected_columns)
+        if include_index:
+            column_count += df.index.nlevels
+
+        top_format = workbook_object.add_format({"valign": "top"})
+        if column_count:
+            worksheet_object.set_column(
+                startcol,
+                startcol + column_count - 1,
+                None,
+                top_format
+            )
+
+        if len(df) and column_count:
+            lastrow = startrow + len(df)
+            if not include_header:
+                lastrow -= 1
+
+            table_options = {
+                "style": DEFAULT_TABLE_STYLE,
+                "header_row": include_header
+            }
+            if include_header:
+                headers = excel_kwargs.get("header", True)
+                if headers is True:
+                    headers = list(selected_columns)
+                else:
+                    headers = list(headers)
+
+                if include_index:
+                    index_label = excel_kwargs.get("index_label")
+                    if index_label is None:
+                        index_headers = [
+                            name if name is not None else "index"
+                            for name in df.index.names
+                        ]
+                    elif isinstance(index_label, (list, tuple)):
+                        index_headers = list(index_label)
+                    else:
+                        index_headers = [index_label]
+                    headers = index_headers + headers
+
+                table_options["columns"] = [
+                    {
+                        "header": str(header),
+                        "header_format": top_format
+                    }
+                    for header in headers
+                ]
+
+            worksheet_object.add_table(
+                startrow,
+                startcol,
+                lastrow,
+                startcol + column_count - 1,
+                table_options
+            )
 
 def file_format(
         df,
@@ -18,7 +112,7 @@ def file_format(
 
     # Set default table style
     if "table_style" not in kwargs:
-        kwargs["table_style"] = "Table Style Medium9"
+        kwargs["table_style"] = DEFAULT_TABLE_STYLE
 
     # Set default header format with valign top
     # Merge so caller-supplied header_format takes precedence
