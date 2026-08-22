@@ -3,7 +3,6 @@ Connector to read & write from the local filesystem
 
 Supports Excel, CSV, JSON, JSONL and Parquet files.
 """
-from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
 import pyarrow as _pa
 import pyarrow.parquet as _pq
@@ -14,6 +13,7 @@ import base64 as _base64
 import os as _os
 import re as _re
 from ..utils import wildcard_expansion as _wildcard_expansion
+from ._formatting import default_file_format as _default_file_format
 from ._formatting import file_format as _file_format
 
 
@@ -239,24 +239,26 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
         # Write an Excel file
-        # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
+        sheet_name = kwargs.pop('sheet_name', 'Sheet1')
+        df = _remove_illegal_characters(df)
+
         if formatting:
-            if 'sheet_name' in kwargs.keys():
-                sheet_name = kwargs['sheet_name']
-            else:
-                sheet_name = 'Sheet1'
-            _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
-            
+            if kwargs.get('index', False):
+                df = df.reset_index()
+            _file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **formatting
+            )
         else:
-          with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
-            _remove_illegal_characters(df).to_excel(writer, **kwargs)
-            
-            worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
-            
-            for row in worksheet.iter_rows():
-                for cell in row:
-                  cell.alignment = _Alignment(vertical='top')
+            _default_file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **kwargs
+            )
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file

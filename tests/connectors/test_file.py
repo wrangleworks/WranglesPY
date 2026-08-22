@@ -684,6 +684,171 @@ class TestWrite:
 
         assert chunked.equals(default)
 
+    def test_write_excel_applies_default_table_formatting(self, tmp_path):
+        """
+        Test that Excel files use the default excel.sheet table formatting.
+        """
+        import openpyxl
+
+        path = tmp_path / "default_formatting.xlsx"
+        source = _pd.DataFrame({"col1": ["aaa"], "col2": ["bbb"]})
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        table = next(iter(worksheet.tables.values()))
+
+        assert table.tableStyleInfo.name == "TableStyleMedium9"
+        workbook.close()
+
+    def test_write_excel_default_formatting_preserves_pandas_options(self, tmp_path):
+        """
+        Test that default formatting preserves supported pandas Excel options.
+        """
+        import openpyxl
+
+        path = tmp_path / "excel_options.xlsx"
+        source = _pd.DataFrame({"col1": ["aaa"], "col2": ["bbb"]})
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            header=False,
+            startrow=2,
+            freeze_panes=(1, 0)
+        )
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+
+        assert worksheet.freeze_panes == "A2"
+        assert worksheet["A1"].value is None
+        assert worksheet["A3"].value == "aaa"
+        workbook.close()
+
+    def test_write_excel_default_formatting_supports_mixed_types(self, tmp_path):
+        """
+        Test that mixed-type pandas object columns can be written to Excel.
+        """
+        path = tmp_path / "mixed_types.xlsx"
+        source = _pd.DataFrame({"mixed": [1, "aaa"]})
+
+        wrangles.connectors.file.write(source, path)
+
+        result = _pd.read_excel(path)
+        assert result["mixed"].tolist() == [1, "aaa"]
+
+    def test_write_excel_default_formatting_honors_engine_options(self, tmp_path):
+        """
+        Test that XlsxWriter engine options are forwarded.
+        """
+        import openpyxl
+
+        path = tmp_path / "engine_options.xlsx"
+        source = _pd.DataFrame({"value": ["=1+1"]})
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            engine_kwargs={"options": {"strings_to_formulas": False}}
+        )
+
+        workbook = openpyxl.load_workbook(path, data_only=False)
+        assert workbook.active["A2"].data_type == "s"
+        workbook.close()
+
+    def test_write_excel_default_formatting_disambiguates_table_headers(self, tmp_path):
+        """
+        Test that case-insensitive duplicate headers still produce a table.
+        """
+        import openpyxl
+
+        path = tmp_path / "duplicate_headers.xlsx"
+        source = _pd.DataFrame([["aaa", "bbb"]], columns=["Find", "find"])
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        assert len(worksheet.tables) == 1
+        assert worksheet["A1"].value == "Find"
+        assert worksheet["B1"].value == "find_2"
+        workbook.close()
+
+    def test_write_excel_default_formatting_supports_multiindex_columns(self, tmp_path):
+        """
+        Test that hierarchical headers do not overlap table formatting.
+        """
+        path = tmp_path / "multiindex_columns.xlsx"
+        columns = _pd.MultiIndex.from_tuples([("group", "one"), ("group", "two")])
+        source = _pd.DataFrame([[1, 2]], columns=columns)
+
+        wrangles.connectors.file.write(source, path, index=True)
+
+        assert path.exists()
+
+    def test_write_excel_default_formatting_supports_multiindex_rows(self, tmp_path):
+        """
+        Test that hierarchical row labels do not overlap table formatting.
+        """
+        path = tmp_path / "multiindex_rows.xlsx"
+        index = _pd.MultiIndex.from_tuples([("group", "one"), ("group", "two")])
+        source = _pd.DataFrame({"value": [1, 2]}, index=index)
+
+        wrangles.connectors.file.write(source, path, index=True)
+
+        assert path.exists()
+
+    def test_write_excel_default_formatting_rejects_constant_memory(self, tmp_path):
+        """
+        Test that incompatible XlsxWriter constant-memory mode is rejected.
+        """
+        path = tmp_path / "constant_memory.xlsx"
+        source = _pd.DataFrame({"one": [1, 2], "two": [3, 4]})
+
+        with pytest.raises(ValueError, match="constant_memory"):
+            wrangles.connectors.file.write(
+                source,
+                path,
+                engine_kwargs={"options": {"constant_memory": True}}
+            )
+
+    def test_write_excel_default_formatting_supports_nullable_headers(self, tmp_path):
+        """
+        Test that pandas nullable values can be used as column headers.
+        """
+        import openpyxl
+
+        path = tmp_path / "nullable_header.xlsx"
+        source = _pd.DataFrame([["aaa"]], columns=[_pd.NA])
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        assert len(workbook.active.tables) == 1
+        workbook.close()
+
+    def test_write_excel_default_formatting_aligns_date_cells(self, tmp_path):
+        """
+        Test that date-like cell formats retain top alignment.
+        """
+        import openpyxl
+
+        path = tmp_path / "date_alignment.xlsx"
+        source = _pd.DataFrame({
+            "date": [_pd.Timestamp("2026-08-22")],
+            "duration": _pd.to_timedelta(["1 day"])
+        })
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        assert worksheet["A2"].alignment.vertical == "top"
+        assert worksheet["B2"].alignment.vertical == "top"
+        workbook.close()
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
@@ -988,7 +1153,8 @@ class TestWrite:
             df = _pd.DataFrame({'col': ['a\tb\nc\rd']})
             wrangles.connectors.file.write(df, name=filename)
             result = _pd.read_excel(filename)
-            assert result['col'][0] == 'a\tb\nc\rd'
+            from openpyxl.utils.escape import unescape
+            assert unescape(result['col'][0]) == 'a\tb\nc\rd'
 
         def test_write_xlsx_clean_data_unchanged(self):
             """
