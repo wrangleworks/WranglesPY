@@ -89,6 +89,7 @@ def default_file_format(
 
         if (
             not isinstance(df.columns, pd.MultiIndex)
+            and not (include_index and isinstance(df.index, pd.MultiIndex))
             and len(df)
             and column_count
         ):

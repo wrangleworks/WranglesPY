@@ -788,6 +788,18 @@ class TestWrite:
 
         assert path.exists()
 
+    def test_write_excel_default_formatting_supports_multiindex_rows(self, tmp_path):
+        """
+        Test that hierarchical row labels do not overlap table formatting.
+        """
+        path = tmp_path / "multiindex_rows.xlsx"
+        index = _pd.MultiIndex.from_tuples([("group", "one"), ("group", "two")])
+        source = _pd.DataFrame({"value": [1, 2]}, index=index)
+
+        wrangles.connectors.file.write(source, path, index=True)
+
+        assert path.exists()
+
     def test_write_excel_default_formatting_rejects_constant_memory(self, tmp_path):
         """
         Test that incompatible XlsxWriter constant-memory mode is rejected.
