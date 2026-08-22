@@ -10,7 +10,10 @@ def _unique_table_headers(headers):
     used_headers = set()
 
     for position, header in enumerate(headers, start=1):
-        base_header = str(header) if header not in (None, "") else f"Column{position}"
+        if header is None or (isinstance(header, str) and header == ""):
+            base_header = f"Column{position}"
+        else:
+            base_header = str(header)
         unique_header = base_header
         suffix = 2
         while unique_header.casefold() in used_headers:
@@ -38,6 +41,17 @@ def default_file_format(
     for option in ("engine_kwargs", "storage_options"):
         if option in excel_kwargs:
             writer_kwargs[option] = excel_kwargs.pop(option)
+
+    engine_kwargs = writer_kwargs.get("engine_kwargs") or {}
+    engine_options = engine_kwargs.get("options") or {}
+    if (
+        engine_kwargs.get("constant_memory")
+        or engine_options.get("constant_memory")
+    ):
+        raise ValueError(
+            "XlsxWriter's constant_memory option is not supported for "
+            "formatted Excel tables."
+        )
 
     with pd.ExcelWriter(
         workbook,
@@ -73,10 +87,11 @@ def default_file_format(
                 top_format
             )
 
-        if isinstance(df.columns, pd.MultiIndex):
-            return
-
-        if len(df) and column_count:
+        if (
+            not isinstance(df.columns, pd.MultiIndex)
+            and len(df)
+            and column_count
+        ):
             lastrow = startrow + len(df)
             if not include_header:
                 lastrow -= 1
@@ -120,6 +135,9 @@ def default_file_format(
                 startcol + column_count - 1,
                 table_options
             )
+
+        for cell_format in workbook_object.formats:
+            cell_format.set_align("top")
 
 def file_format(
         df,

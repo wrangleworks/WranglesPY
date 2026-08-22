@@ -788,6 +788,55 @@ class TestWrite:
 
         assert path.exists()
 
+    def test_write_excel_default_formatting_rejects_constant_memory(self, tmp_path):
+        """
+        Test that incompatible XlsxWriter constant-memory mode is rejected.
+        """
+        path = tmp_path / "constant_memory.xlsx"
+        source = _pd.DataFrame({"one": [1, 2], "two": [3, 4]})
+
+        with pytest.raises(ValueError, match="constant_memory"):
+            wrangles.connectors.file.write(
+                source,
+                path,
+                engine_kwargs={"options": {"constant_memory": True}}
+            )
+
+    def test_write_excel_default_formatting_supports_nullable_headers(self, tmp_path):
+        """
+        Test that pandas nullable values can be used as column headers.
+        """
+        import openpyxl
+
+        path = tmp_path / "nullable_header.xlsx"
+        source = _pd.DataFrame([["aaa"]], columns=[_pd.NA])
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        assert len(workbook.active.tables) == 1
+        workbook.close()
+
+    def test_write_excel_default_formatting_aligns_date_cells(self, tmp_path):
+        """
+        Test that date-like cell formats retain top alignment.
+        """
+        import openpyxl
+
+        path = tmp_path / "date_alignment.xlsx"
+        source = _pd.DataFrame({
+            "date": [_pd.Timestamp("2026-08-22")],
+            "duration": _pd.to_timedelta(["1 day"])
+        })
+
+        wrangles.connectors.file.write(source, path)
+
+        workbook = openpyxl.load_workbook(path)
+        worksheet = workbook.active
+        assert worksheet["A2"].alignment.vertical == "top"
+        assert worksheet["B2"].alignment.vertical == "top"
+        workbook.close()
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
