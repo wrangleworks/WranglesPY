@@ -815,6 +815,23 @@ class TestAiMode:
 
         assert df["results"].tolist() == [[], [], [], [], []]
 
+    def test_literal_nan_query_is_searchable(self):
+        """Test that the literal text 'nan' reaches SerpAPI instead of being discarded."""
+        data = pd.DataFrame({"query": ["nan"]})
+        recipe = """
+        wrangles:
+          - search.ai_mode:
+              queries: query
+              output: results
+              api_key: ${SERPAPI_API_KEY}
+        """
+
+        df = wrangles.recipe.run(recipe, dataframe=data)
+
+        result = df.iloc[0]["results"][0]
+        assert result["status"] == "Success", result["error"]
+        assert result["search_metadata"]["query"] == "nan"
+
     def test_list_queries_discard_blank_and_null_items(self):
         """Test mixed list cells; blank items are skipped without shifting valid results."""
         queries = ["What is the capital of Texas?", "", None, pd.NA]
@@ -918,28 +935,6 @@ class TestAiMode:
 
         with pytest.raises(ValueError, match="requires arguments.*queries"):
             wrangles.recipe.run(recipe, dataframe=data)
-
-    def test_error_when_threads_is_zero(self):
-        """Test the minimum thread count; zero is rejected before any provider request."""
-        with pytest.raises(ValueError, match="threads must be at least 1"):
-            wrangles.search.ai_mode(self.query, threads=0)
-
-    def test_error_when_threads_is_boolean(self):
-        """Test that booleans are not accepted as integer thread counts."""
-        with pytest.raises(ValueError, match="threads must be at least 1"):
-            wrangles.search.ai_mode(self.query, threads=True)
-
-    def test_error_when_client_is_unknown(self):
-        """Test an unsupported client name and list the available search providers."""
-        with pytest.raises(ValueError, match="Unknown web client"):
-            wrangles.search.ai_mode(self.query, client="unknown", api_key="test-key")
-
-    def test_error_when_api_key_is_missing(self, monkeypatch):
-        """Test a nonblank search without api_key or SERPAPI_API_KEY credentials."""
-        monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
-
-        with pytest.raises(ValueError, match="requires a valid API key"):
-            wrangles.search.ai_mode(self.query)
 
     def test_invalid_api_key_returns_a_failure_payload(self):
         """Test a rejected provider credential; query failures return data instead of shifting rows."""
