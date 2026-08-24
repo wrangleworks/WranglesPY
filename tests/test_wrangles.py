@@ -951,3 +951,65 @@ def test_search_ai_mode():
         result["extracted_content"]["answer_markdown"]
         or result["extracted_content"]["text_blocks"]
     )
+
+
+def test_search_ai_mode_blank_scalar():
+    """Test that a blank direct scalar call retains the normal dictionary shape."""
+    result = wrangles.search.ai_mode(None)
+
+    assert result["search_metadata"]["query"] is None
+    assert result["status"] == "Success"
+    assert result["search_results"] == []
+    assert result["extracted_content"] == {
+        "answer_markdown": None,
+        "text_blocks": [],
+    }
+
+
+def test_search_ai_mode_blank_list():
+    """Test that direct list calls return one empty payload for each blank value."""
+    queries = [None, "", float("nan"), pd.NA, pd.NaT]
+
+    results = wrangles.search.ai_mode(queries)
+
+    assert len(results) == len(queries)
+    assert all(result["status"] == "Success" for result in results)
+    assert all(result["search_results"] == [] for result in results)
+
+
+def test_search_ai_mode_threads_zero_error():
+    """Test the minimum thread count; zero is rejected before any provider request."""
+    with pytest.raises(ValueError, match="threads must be at least 1"):
+        wrangles.search.ai_mode(
+            "SKF 6205-2RS deep groove ball bearing specifications",
+            threads=0,
+        )
+
+
+def test_search_ai_mode_threads_boolean_error():
+    """Test that booleans are not accepted as integer thread counts."""
+    with pytest.raises(ValueError, match="threads must be at least 1"):
+        wrangles.search.ai_mode(
+            "SKF 6205-2RS deep groove ball bearing specifications",
+            threads=True,
+        )
+
+
+def test_search_ai_mode_unknown_client_error():
+    """Test an unsupported client name and list the available search providers."""
+    with pytest.raises(ValueError, match="Unknown web client"):
+        wrangles.search.ai_mode(
+            "SKF 6205-2RS deep groove ball bearing specifications",
+            client="unknown",
+            api_key="test-key",
+        )
+
+
+def test_search_ai_mode_missing_api_key_error(monkeypatch):
+    """Test a nonblank direct search without api_key or environment credentials."""
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="requires a valid API key"):
+        wrangles.search.ai_mode(
+            "SKF 6205-2RS deep groove ball bearing specifications"
+        )
