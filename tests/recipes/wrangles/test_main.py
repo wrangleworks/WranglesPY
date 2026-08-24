@@ -9361,16 +9361,35 @@ class TestWrangleSchema:
         assert properties["web_search"]["type"] == "boolean"
         assert "web_search_sources" in properties["web_search"]["description"]
 
-        examples = properties["examples"]
+        assert "examples" not in properties
+        examples = properties["record_examples"]
+        assert examples["title"] == "Record examples"
         assert examples["required"] == ["input", "output"]
         assert examples["items"]["required"] == ["input", "output"]
-        assert set(examples["items"]["properties"]) == {"name", "input", "output"}
+        assert set(examples["items"]["properties"]) == {
+            "name",
+            "notes",
+            "input",
+            "output",
+        }
         assert all(
             definition["description"].strip()
             for definition in examples["items"]["properties"].values()
         )
 
         field_schema = next(iter(properties["output"]["patternProperties"].values()))
+        field_examples = field_schema["properties"]["examples"]
+        assert field_examples["title"] == "Field examples"
+        assert "backward-compatible" in field_examples["description"]
+        assert "optional name and notes" in field_examples["description"]
+        paired_field_example = field_examples["items"]["anyOf"][0]
+        assert paired_field_example["required"] == ["input", "output"]
+        assert set(paired_field_example["properties"]) == {
+            "name",
+            "notes",
+            "input",
+            "output",
+        }
         assert all(
             definition["description"].strip()
             for definition in field_schema["properties"].values()

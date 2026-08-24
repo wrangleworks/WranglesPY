@@ -294,6 +294,7 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
+    record_examples: _Union[dict, list] = None,
     output_format: str = None,
     char: str = ", ",
     web_search: bool = False,
@@ -370,6 +371,7 @@ def ai(
                   does not substitute this value when evidence is missing;
                   describe fallback behavior explicitly or allow null.
               examples:
+                title: Field examples
                 type:
                   - array
                   - object
@@ -379,9 +381,40 @@ def ai(
                   - boolean
                   - "null"
                 description: >-
-                  Field-specific examples. Provide typical output values to
-                  demonstrate style, or objects with separate input and output
-                  keys to show how a source value maps to this field.
+                  Field-specific examples. The backward-compatible form is a
+                  scalar or list of typical output values. A paired example may
+                  instead use input and output, with optional name and notes.
+                  Paired examples apply only to this output field; use
+                  record_examples for complete output records.
+                properties:
+                  name:
+                    type: string
+                    description: Optional label included with this paired field example.
+                  notes:
+                    type: string
+                    description: Optional explanatory guidance included with this paired field example.
+                  input:
+                    description: Source value or record for this paired field example.
+                  output:
+                    description: Expected value for this output field only.
+                items:
+                  anyOf:
+                    - type: object
+                      required:
+                        - input
+                        - output
+                      properties:
+                        name:
+                          type: string
+                          description: Optional label included with this paired field example.
+                        notes:
+                          type: string
+                          description: Optional explanatory guidance included with this paired field example.
+                        input:
+                          description: Source value or record for this paired field example.
+                        output:
+                          description: Expected value for this output field only.
+                    - description: Backward-compatible output-only example value.
               properties:
                 type:
                   - object
@@ -409,16 +442,18 @@ def ai(
                 description: >-
                   Whether the field may return null. Defaults to true while
                   the field key remains required. Set false to opt out.
-      examples:
+      record_examples:
+        title: Record examples
         type:
           - array
           - object
         description: >-
-          Named, whole-record examples. Each example has a separate input value
-          or record and the complete expected output record; name is an optional
-          human-readable label. Use {name: ..., input: ..., output: ...}. Omitted
-          output fields are completed with null. This differs from examples
-          nested under one output field, which teach only that field.
+          Whole-record examples. Each example has a separate input value or
+          record and the complete expected output record. Optional name and
+          notes provide model-visible context. Use {name: ..., notes: ...,
+          input: ..., output: ...}. Omitted output fields are completed with
+          null. This differs from examples nested under one output field, which
+          teach only that field.
         required:
           - input
           - output
@@ -426,6 +461,9 @@ def ai(
           name:
             type: string
             description: Optional label used to identify this example in the prompt.
+          notes:
+            type: string
+            description: Optional explanatory guidance included with this example.
           input:
             description: Source value or record the example should match.
           output:
@@ -439,6 +477,9 @@ def ai(
             name:
               type: string
               description: Optional label used to identify this example in the prompt.
+            notes:
+              type: string
+              description: Optional explanatory guidance included with this example.
             input:
               description: Source value or record the example should match.
             output:
@@ -652,6 +693,7 @@ def ai(
         api_key=api_key,
         output=output,
         model_id=model_id,
+        record_examples=record_examples,
         web_search=web_search,
         **kwargs
     )

@@ -128,7 +128,7 @@ wrangles:
           description: |
             True when confidence is Uncertain or Selected Classification is
             "None (needs review)"; otherwise false.
-      examples:
+      record_examples:
         - name: dynamic two-candidate example
           input:
             Input Description: 18V cordless drill with battery and charger

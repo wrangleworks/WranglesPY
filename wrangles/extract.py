@@ -137,7 +137,8 @@ def ai(
     timeout: float = None,
     retries: int = None,
     messages: list = None,
-    examples: list = None,
+    examples: _Union[dict, list] = None,
+    record_examples: _Union[dict, list] = None,
     url: str = None,
     strict: bool = None,
     reasoning: dict = None,
@@ -173,7 +174,8 @@ def ai(
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param examples: (Optional) Holistic examples containing separate input and output values, plus an optional name.
+    :param examples: (Optional) Compatibility alias for record_examples.
+    :param record_examples: (Optional) Whole-record examples containing input and output, with optional name and notes.
     :param url: (Optional) Override the configured endpoint.
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
@@ -252,6 +254,10 @@ def ai(
 
     if messages is None:
         messages = []
+    if record_examples not in (None, "") and examples not in (None, ""):
+        raise ValueError("Use record_examples or examples, not both.")
+    if record_examples in (None, ""):
+        record_examples = examples
 
     # Ensure input is a list
     input_was_scalar = False
@@ -268,7 +274,7 @@ def ai(
         output,
         model=model,
         messages=messages,
-        examples=examples,
+        examples=record_examples,
         strict=strict,
         saved_model_content=saved_model_content,
         source=f"saved model {model_id}" if model_id else "recipe/Python output",
