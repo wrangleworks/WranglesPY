@@ -195,9 +195,44 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          load: ${{ needs.config.outputs.push_image != 'true' }}
           push: ${{ needs.config.outputs.push_image == 'true' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Validate pull request image
+        if: needs.config.outputs.push_image != 'true'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            "$IMAGE" \
+            python /workspace/scripts/container_smoke.py
+          docker run --rm "$IMAGE" python -m pip check
+          docker run --rm "$IMAGE" python -m pip freeze
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            --workdir /workspace/tests/samples \
+            "$IMAGE" \
+            sh -c 'wrangles.recipe recipe-basic.wrgl.yml && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py'
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            "$IMAGE" \
+            sh /workspace/scripts/test-container-local.sh /workspace
+
+      - name: Record pull request image size
+        if: needs.config.outputs.push_image != 'true'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
+          PREVIOUS_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        run: |
+          docker image inspect "$IMAGE" --format 'Python 3.13 candidate: {{.Size}} bytes'
+          if docker pull "$PREVIOUS_IMAGE"; then
+            docker image inspect "$PREVIOUS_IMAGE" --format 'Current latest: {{.Size}} bytes'
+          else
+            echo 'Current latest image is not anonymously readable; record the comparison from an authenticated runner.'
+          fi
 
   test-container:
     runs-on: ubuntu-latest
@@ -220,6 +255,12 @@ jobs:
 
       - name: Remove wrangles folder
         run: rm -r wrangles
+
+      - name: Validate production runtime
+        run: |
+          python scripts/container_smoke.py
+          python -m pip check
+          python -m pip freeze
 
       - name: Install Test Dependencies
         run: |

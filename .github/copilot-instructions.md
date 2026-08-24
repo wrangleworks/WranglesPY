@@ -14,13 +14,13 @@
 ## Tech Stack
 
 - **Python:** 3.11, 3.12, 3.13 (multi-version support)
-- **Core Dependencies:** pandas (>=2.0), numpy, polars (1.33.0), pyyaml
+- **Core Dependencies:** pandas (>=2.0,<3.0), numpy, polars (1.33.0), pyyaml
 - **Database Connectors:** sqlalchemy, pymssql, psycopg2-binary, pymysql, pymongo
 - **Cloud/External:** boto3 (AWS S3), simple-salesforce, fabric (SFTP)
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
 - **Testing:** pytest (9.0.2), pytest-mock, lorem (test data generation)
-- **Containerization:** Production Docker image uses Python 3.11-slim-bookworm; development container uses Python 3.13-bookworm
+- **Containerization:** Production Docker image uses Python 3.13-slim-bookworm with pandas 2.3.3 and NumPy 2.4.6; development container uses Python 3.13-bookworm
 
 ## Project Structure
 
@@ -127,7 +127,7 @@ wrangles.recipe tests/samples/generate-data.wrgl.yml
 
 ### Docker Build
 The Dockerfile uses multi-stage builds for optimization:
-1. Compile stage: Installs build dependencies and packages
+1. Dependency stage: Installs binary NumPy and pandas wheels under the tracked production constraint; no compiler toolchain is installed
 2. Build stage: Copies only necessary files (~400MB final image)
 3. Special optimizations: Removes unused botocore AWS service definitions, pandas test data
 
@@ -280,7 +280,8 @@ to define.
   - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 for `main` PRs
   - Test pip installation
   - Generate and test JSON schema
-  - Build the Docker image, pushed on merges to `main` under the new policy
+  - Build the Docker image and, on PRs, run smoke checks, local recipes, and the credential-safe test suite against that exact image
+  - Push the image on merges to `main` under the new policy
   - Run container tests, then promote the mutable tag
 - **deploy-dev.yml** (*Deploy Dev*)**:** manually dispatch from `main`. The
   workflow still accepts `dev` temporarily; do not use that path for new work.
@@ -325,6 +326,8 @@ Performance warnings from pandas are suppressed in `recipe.py` as they appear du
 ### Docker Image Size Optimization
 - Botocore data reduced to S3-only (removes ~300MB)
 - Pandas test data removed from final image
+- Production data stack constrained to pandas 2.3.3 and NumPy 2.4.6 while the reusable package continues to allow pandas 2.x
+- NumPy and pandas install from binary wheels; compiler tools are absent from the runtime image
 - Uses slim Debian base image for minimal footprint
 
 ## Common Commands
