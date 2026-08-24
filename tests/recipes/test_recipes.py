@@ -620,6 +620,54 @@ def test_column_with_question_mark():
     )
     assert df["result"][0] == "value1,value2,value3"
 
+class TestBlankValues:
+    """Test the shared scalar blank-value definition used by search wrangles."""
+
+    def test_none_is_blank(self):
+        """Test that Python None is treated as a missing value."""
+        assert wrangles.utils.is_blank(None)
+
+    def test_empty_string_is_blank(self):
+        """Test that an empty string is treated as a missing value."""
+        assert wrangles.utils.is_blank("")
+
+    def test_whitespace_string_is_blank(self):
+        """Test that a string containing only whitespace is treated as missing."""
+        assert wrangles.utils.is_blank("   ")
+
+    def test_float_nan_is_blank(self):
+        """Test that a floating-point NaN is treated as a missing value."""
+        assert wrangles.utils.is_blank(float("nan"))
+
+    def test_pandas_na_is_blank(self):
+        """Test that pandas.NA is treated as a missing value."""
+        assert wrangles.utils.is_blank(pd.NA)
+
+    def test_pandas_nat_is_blank(self):
+        """Test that pandas.NaT is treated as a missing value."""
+        assert wrangles.utils.is_blank(pd.NaT)
+
+    def test_literal_none_string_is_not_blank(self):
+        """Test that the searchable text 'none' is not mistaken for a null value."""
+        assert not wrangles.utils.is_blank("none")
+
+    def test_literal_nan_string_is_not_blank(self):
+        """Test that the searchable text 'nan' is not mistaken for a numeric NaN."""
+        assert not wrangles.utils.is_blank("nan")
+
+    def test_literal_nat_string_is_not_blank(self):
+        """Test that the searchable text 'nat' is not mistaken for pandas.NaT."""
+        assert not wrangles.utils.is_blank("nat")
+
+    def test_zero_is_not_blank(self):
+        """Test that numeric zero remains a valid scalar value."""
+        assert not wrangles.utils.is_blank(0)
+
+    def test_false_is_not_blank(self):
+        """Test that boolean False remains a valid scalar value."""
+        assert not wrangles.utils.is_blank(False)
+
+
 class TestColumnWildcards:
     def test_wildcard_expansion(self):
         """
