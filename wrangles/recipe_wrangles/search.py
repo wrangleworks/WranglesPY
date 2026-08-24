@@ -4,6 +4,7 @@ import pandas as _pd
 # Import the combined core wrangles
 from .. import search as _search_core
 from .. import format as _format
+from .. import utils as _utils
 
 def find_links(
     df: _pd.DataFrame,
@@ -251,27 +252,14 @@ def ai_mode(
             "OR 1 query column and 2 output columns [dicts, strings]."
         )
 
-    def _is_blank(value) -> bool:
-        if value is None:
-            return True
-        if isinstance(value, str):
-            return not value.strip()
-        try:
-            missing = _pd.isna(value)
-            if not isinstance(missing, (list, tuple)):
-                return bool(missing)
-        except (TypeError, ValueError):
-            pass
-        return False
-
     def _to_query_list(value) -> list[str]:
         if isinstance(value, (list, tuple)):
             return [
                 str(item).strip()
                 for item in value
-                if not _is_blank(item)
+                if not _utils.is_blank(item)
             ]
-        return [] if _is_blank(value) else [str(value).strip()]
+        return [] if _utils.is_blank(value) else [str(value).strip()]
 
     for column_index, query_column in enumerate(query_columns):
         structured_column = output_columns[0] if is_dual_output else output_columns[column_index]
