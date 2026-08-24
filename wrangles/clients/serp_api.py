@@ -1,12 +1,12 @@
 import concurrent.futures as _futures
 import json as _json
-import math as _math
 import re
 from collections.abc import Mapping as _Mapping
 from typing import Union as _Union
 
 # Import our new core web helpers
 from .. import web as _web
+from .. import utils as _utils
 
 def _extract_target_sites(query: str) -> list[str]:
     """Extract site:domain filters from query using simple token parsing."""
@@ -97,19 +97,11 @@ def _extract_pricing_from_result(result: dict) -> dict:
     }
 
 
-def _is_blank_query(query) -> bool:
-    if query is None:
-        return True
-    if isinstance(query, float) and _math.isnan(query):
-        return True
-    return str(query).strip().lower() in ("", "none", "nan", "nat")
-
-
 def _json_safe(value):
     return _json.loads(_json.dumps(value, default=str))
 
 
-def _ai_mode_payload(
+def ai_mode_payload(
     query,
     query_index: int | None,
     *,
@@ -144,19 +136,6 @@ def _ai_mode_payload(
             "text_blocks": text_blocks or [],
         },
     }
-
-
-def _result_items(section) -> list[dict]:
-    if isinstance(section, list):
-        return [item for item in section if isinstance(item, dict)]
-    if not isinstance(section, dict):
-        return []
-    for key in ("results", "items", "products"):
-        if isinstance(section.get(key), list):
-            return [item for item in section[key] if isinstance(item, dict)]
-    if any(key in section for key in ("link", "product_link", "title")):
-        return [section]
-    return []
 
 
 def _coerce_price(value):
@@ -267,7 +246,12 @@ def _normalize_ai_mode_results(response: dict, query_index: int | None) -> list[
         ("inline_products", "inline_product"),
     )
     for section_name, result_type in sections:
-        for item in _result_items(response.get(section_name)):
+        items = response.get(section_name) or []
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
             record = _ai_mode_result(item, result_type, query_index)
             if record is None:
                 continue
@@ -429,8 +413,8 @@ class SerpApiWranglesClient:
         **kwargs,
     ) -> dict:
         """Perform one Google AI Mode search and normalize the provider response."""
-        if _is_blank_query(query):
-            return _ai_mode_payload(
+        if _utils.is_blank(query):
+            return ai_mode_payload(
                 query,
                 query_index,
                 metadata={
@@ -484,7 +468,7 @@ class SerpApiWranglesClient:
                 "country": search_params.get("gl", country),
                 "location": search_params.get("location_used") or search_params.get("location") or location,
             }
-            result = _ai_mode_payload(
+            result = ai_mode_payload(
                 query_text,
                 query_index,
                 status=status,
@@ -501,7 +485,7 @@ class SerpApiWranglesClient:
                 result["raw_response"] = _json_safe(response)
             return result
         except Exception as error:
-            return _ai_mode_payload(
+            return ai_mode_payload(
                 query_text,
                 query_index,
                 status="Failure",
