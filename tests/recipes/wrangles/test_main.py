@@ -9339,6 +9339,44 @@ class TestWrangleSchema:
 
         assert not failures, 'Wrangle schema docstring YAML parse failures:\n' + '\n'.join(failures)
 
+    def test_extract_ai_schema_documents_public_parameters_and_example_shape(self):
+        import inspect
+        import yaml
+
+        method = wrangles.recipe._recipe_wrangles.extract.ai
+        schema = yaml.safe_load(method.__doc__)
+        properties = schema["properties"]
+        parameters = {
+            name
+            for name in inspect.signature(method).parameters
+            if name not in {"df", "kwargs"}
+        }
+
+        assert parameters <= properties.keys()
+        assert all(
+            isinstance(definition.get("description"), str)
+            and definition["description"].strip()
+            for definition in properties.values()
+        )
+        assert properties["web_search"]["type"] == "boolean"
+        assert "web_search_sources" in properties["web_search"]["description"]
+
+        examples = properties["examples"]
+        assert examples["required"] == ["input", "output"]
+        assert examples["items"]["required"] == ["input", "output"]
+        assert set(examples["items"]["properties"]) == {"name", "input", "output"}
+        assert all(
+            definition["description"].strip()
+            for definition in examples["items"]["properties"].values()
+        )
+
+        field_schema = next(iter(properties["output"]["patternProperties"].values()))
+        assert all(
+            definition["description"].strip()
+            for definition in field_schema["properties"].values()
+        )
+        assert "effort" in properties["reasoning"]["properties"]
+
     def test_extract_codes_schema_matches_microservice_params(self):
         import yaml
 
