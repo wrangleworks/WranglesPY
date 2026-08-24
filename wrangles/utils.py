@@ -9,10 +9,23 @@ import requests as _requests
 from urllib3.util import Retry as _Retry
 import typing as _typing
 import json as _json
+import pandas as _pandas
 try:
     from yaml import CSafeLoader as _YamlLoader
 except ImportError:
     from yaml import SafeLoader as _YamlLoader
+
+
+def is_blank(value) -> bool:
+    """Return whether a scalar is missing or a string contains only whitespace."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    try:
+        return bool(_pandas.isna(value))
+    except (TypeError, ValueError):
+        return False
 
 
 def wildcard_expansion_dict(all_columns: list, selected_columns: dict) -> list:

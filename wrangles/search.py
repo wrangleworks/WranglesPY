@@ -1,48 +1,9 @@
 import concurrent.futures as _futures
-import math as _math
 
 # Import our client factory
 from .clients import get_client as _get_client
-
-
-def _is_blank_ai_mode_query(query) -> bool:
-    if query is None:
-        return True
-    if isinstance(query, float) and _math.isnan(query):
-        return True
-    return str(query).strip().lower() in ("", "none", "nan", "nat")
-
-
-def _empty_ai_mode_result(
-    query,
-    query_index: int,
-    country: str,
-    language: str,
-    location: str | None,
-) -> dict:
-    return {
-        "search_metadata": {
-            "query_index": query_index,
-            "query": None if query is None else str(query).strip(),
-            "search_type": "ai_mode",
-            "search_id": None,
-            "status": "Success",
-            "search_date": None,
-            "response_time": None,
-            "json_endpoint": None,
-            "google_url": None,
-            "language": language,
-            "country": country,
-            "location": location,
-        },
-        "status": "Success",
-        "error": None,
-        "search_results": [],
-        "extracted_content": {
-            "answer_markdown": None,
-            "text_blocks": [],
-        },
-    }
+from .clients.serp_api import ai_mode_payload
+from . import utils as _utils
 
 
 def find_links(
@@ -87,9 +48,17 @@ def ai_mode(
 
     is_scalar = not isinstance(queries, list)
     query_list = [queries] if is_scalar else queries
-    if all(_is_blank_ai_mode_query(query) for query in query_list):
+    if all(_utils.is_blank(query) for query in query_list):
         empty_results = [
-            _empty_ai_mode_result(query, index, country, language, location)
+            ai_mode_payload(
+                query,
+                index,
+                metadata={
+                    "language": language,
+                    "country": country,
+                    "location": location,
+                },
+            )
             for index, query in enumerate(query_list, start=1)
         ]
         return empty_results[0] if is_scalar else empty_results
