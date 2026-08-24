@@ -977,7 +977,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
         "12 VDC",
         "key",
         model_id="saved-model",
-        messages="Prefer explicit source values.",
+        instructions="Prefer explicit source values.",
         threads=1,
     )
 
@@ -989,6 +989,27 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
     assert voltage["required"] == ["value", "uom"]
     assert "Normalize units." in payload["instructions"]
     assert "Prefer explicit source values." in payload["instructions"]
+
+    legacy_result = extract.ai(
+        "12 VDC",
+        "key",
+        model_id="saved-model",
+        messages="Legacy messages alias remains supported.",
+        cache=False,
+        threads=1,
+    )
+    assert legacy_result == result
+    assert "Legacy messages alias remains supported." in calls[1]["json"]["instructions"]
+
+    with pytest.raises(ValueError, match="not both"):
+        extract.ai(
+            "12 VDC",
+            "key",
+            model_id="saved-model",
+            instructions="New name.",
+            messages="Legacy alias.",
+            threads=1,
+        )
 
 
 def test_dynamic_recipe_output_relaxes_only_nested_dictionary(monkeypatch):
@@ -1149,9 +1170,9 @@ def test_prompt_cache_key_covers_complete_static_prefix(monkeypatch):
         "cache": False,
     }
 
-    extract.ai(messages="Use source units.", **common)
-    extract.ai(messages="Use source units.", **common)
-    extract.ai(messages="Convert to inches.", **common)
+    extract.ai(instructions="Use source units.", **common)
+    extract.ai(instructions="Use source units.", **common)
+    extract.ai(instructions="Convert to inches.", **common)
 
     keys = [payload["prompt_cache_key"] for payload in payloads]
     assert keys[0] == keys[1]

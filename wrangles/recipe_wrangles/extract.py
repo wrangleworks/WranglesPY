@@ -298,6 +298,7 @@ def ai(
     output_format: str = None,
     char: str = ", ",
     web_search: bool = False,
+    instructions: _Union[str, list] = None,
     **kwargs
 ):
     """
@@ -547,13 +548,15 @@ def ai(
         description: >-
           Maximum age in seconds for a cached result used by this call. Applies
           to extracted values and web_search_sources together.
-      messages:
+      instructions:
+        title: Instructions
         type:
           - string
           - array
         description: >-
-          Additional overall instruction or list of instructions applied to
-          every row after the configured extraction prompt and examples.
+          Additional guidance applied to every input row. Use this for decision
+          rules, evidence priorities, normalization requirements, or other
+          behavior that applies to the complete extraction.
         items:
           type: string
       model_id:
@@ -695,6 +698,7 @@ def ai(
         model_id=model_id,
         record_examples=record_examples,
         web_search=web_search,
+        instructions=instructions,
         **kwargs
     )
 

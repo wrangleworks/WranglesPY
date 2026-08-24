@@ -677,6 +677,7 @@ def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
             input: Description
             api_key: dummy
             threads: 1
+            instructions: Prefer explicit source values.
             output:
               Color:
                 type: string
@@ -701,8 +702,37 @@ def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
     assert result["Voltage"].tolist() == [""]
     assert "<field_example" in calls[0]["instructions"]
     assert "<record_example" in calls[0]["instructions"]
+    assert "Prefer explicit source values." in calls[0]["instructions"]
     assert "explicit field color" in calls[0]["instructions"]
     assert "This example guides only the Color field." in calls[0]["instructions"]
     assert "complete yellow example" in calls[0]["instructions"]
     assert "The voltage is intentionally absent." in calls[0]["instructions"]
     assert '"Voltage": null' in calls[0]["instructions"]
+
+
+def test_recipe_messages_remains_a_compatibility_alias(monkeypatch):
+    calls = []
+
+    def call_structured(data, api_key, payload, *args):
+        calls.append(payload)
+        return {"Color": "yellow"}
+
+    monkeypatch.setattr(openai_responses, "call_structured", call_structured)
+
+    result = wrangles.recipe.run(
+        """
+        wrangles:
+        - extract.ai:
+            input: Description
+            api_key: dummy
+            threads: 1
+            messages: Legacy recipe guidance.
+            output:
+              Color:
+                type: string
+        """,
+        dataframe=pd.DataFrame({"Description": ["yellow handle"]}),
+    )
+
+    assert result["Color"].tolist() == ["yellow"]
+    assert "Legacy recipe guidance." in calls[0]["instructions"]

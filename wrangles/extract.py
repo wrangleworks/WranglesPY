@@ -136,7 +136,7 @@ def ai(
     threads: int = None,
     timeout: float = None,
     retries: int = None,
-    messages: list = None,
+    messages: _Union[str, list] = None,
     examples: _Union[dict, list] = None,
     record_examples: _Union[dict, list] = None,
     url: str = None,
@@ -150,6 +150,7 @@ def ai(
     cache: bool = None,
     cache_ttl: float = None,
     web_search: bool = False,
+    instructions: _Union[str, list] = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -173,7 +174,10 @@ def ai(
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
-    :param messages: (Optional) Overall prompts to pass additional instructions.
+    :param instructions: (Optional) Additional guidance applied to every input row. Use this for
+        decision rules, evidence priorities, normalization requirements, or other behavior that
+        applies to the complete extraction.
+    :param messages: (Optional) Compatibility alias for instructions.
     :param examples: (Optional) Compatibility alias for record_examples.
     :param record_examples: (Optional) Whole-record examples containing input and output, with optional name and notes.
     :param url: (Optional) Override the configured endpoint.
@@ -191,7 +195,6 @@ def ai(
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
         web_search_sources list containing source titles and URLs. Defaults to False.
-
     :return: Extracted information. When web_search is true, returns a dictionary (or list of
         dictionaries) containing web_search_sources, including for single-field output.
     """
@@ -252,8 +255,10 @@ def ai(
         raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
     _validate_ai_runtime_settings(threads, timeout, retries, deadline)
 
-    if messages is None:
-        messages = []
+    if instructions not in (None, "") and messages not in (None, ""):
+        raise ValueError("Use instructions or messages, not both.")
+    if instructions in (None, ""):
+        instructions = messages
     if record_examples not in (None, "") and examples not in (None, ""):
         raise ValueError("Use record_examples or examples, not both.")
     if record_examples in (None, ""):
@@ -273,7 +278,7 @@ def ai(
     compiled = _ai_definition.compile_definition(
         output,
         model=model,
-        messages=messages,
+        messages=instructions,
         examples=record_examples,
         strict=strict,
         saved_model_content=saved_model_content,

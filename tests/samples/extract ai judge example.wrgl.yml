@@ -33,7 +33,7 @@ wrangles:
       input: Judge Input
       api_key: ${OPENAI_API_KEY}
       model: gpt-5.4-mini
-      messages: |
+      instructions: |
         You are an expert classifier for supplier product content.
 
         Each input contains:
