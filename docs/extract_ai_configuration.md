@@ -45,7 +45,7 @@ cells as sequences; users do not need to quote every object key and value.
 
 ## Examples
 
-Definitions support both field-specific and holistic examples. They compile to
+Definitions support both field-specific and record examples. They compile to
 the same stable prompt representation and precede each row's dynamic input.
 
 For saved models, the field grid supports:
@@ -61,8 +61,9 @@ expected output may be human-friendly JSON/YAML-like syntax. Use explicit list
 syntax for an array-valued paired output, such as `[Ceramic Tile, Slate]`.
 An explicit `null` is valid because output fields are nullable by default.
 
-Field-specific examples teach only the named field. Definitions may also
-provide holistic examples that pair one input with a multi-field output:
+Field-specific examples teach only the named field. Paired field examples may
+include optional `name` and `notes` metadata. Definitions may also provide
+`record_examples` that pair one input with a multi-field output:
 
 ```yaml
 wrangles:
@@ -73,13 +74,16 @@ wrangles:
         Power Source:
           type: string
           examples:
-            - input: 18V cordless drill
+            - name: cordless tool
+              notes: Voltage without a cord indicates a battery.
+              input: 18V cordless drill
               output: Battery
             - Corded
         Voltage:
           type: number
-      examples:
+      record_examples:
         - name: corded saw
+          notes: Use both fields from this complete example.
           input: 120V corded jig saw
           output:
             Power Source: Corded
@@ -87,13 +91,15 @@ wrangles:
 ```
 
 The first `Power Source` item is a paired field example; `Corded` remains
-output-only value guidance. Top-level `examples` are holistic. Their output may
-be sparse: the compiler inserts `null` for omitted output fields so every
-example demonstrates the complete required response shape. Unknown fields and
-values that do not match the output schema fail during compilation.
+output-only value guidance. Top-level `record_examples` demonstrate the complete
+record. Their output may be sparse: the compiler inserts `null` for omitted
+output fields so every example demonstrates the complete required response
+shape. Unknown fields and values that do not match the output schema fail during
+compilation. Optional `name` and `notes` metadata are included in model guidance
+at both levels.
 
 Saved-model content may likewise include a top-level `Examples` array of
-holistic pairs. A dedicated WranglesXL interface for those examples can be
+record pairs. A dedicated WranglesXL interface for those examples can be
 added later without changing the compiler or runtime contract.
 
 ## Result cache

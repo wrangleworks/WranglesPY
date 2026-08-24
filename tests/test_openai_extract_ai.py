@@ -262,7 +262,7 @@ def test_extract_ai_web_search_validates_protocol_and_reserved_output():
         )
 
 
-def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monkeypatch):
+def test_record_examples_are_stable_instructions_and_part_of_the_result_cache_key(monkeypatch):
     calls = []
     body = {
         "output": [{
@@ -286,14 +286,14 @@ def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monke
     }
 
     extract.ai(
-        examples=[{
+        record_examples=[{
             "input": "yellow grip",
             "output": {"color": "yellow"},
         }],
         **common,
     )
     extract.ai(
-        examples=[{
+        record_examples=[{
             "input": "red grip",
             "output": {"color": "red"},
         }],
@@ -303,6 +303,48 @@ def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monke
     assert len(calls) == 2
     assert "<record_example" in calls[0]["json"]["instructions"]
     assert calls[0]["json"]["prompt_cache_key"] != calls[1]["json"]["prompt_cache_key"]
+
+
+def test_examples_remains_a_compatibility_alias_for_record_examples(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"color":"yellow"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    common = {
+        "input": "yellow handle",
+        "api_key": "key",
+        "output": {"color": {"type": "string"}},
+        "threads": 1,
+    }
+
+    result = extract.ai(
+        examples=[{
+            "name": "legacy Python alias",
+            "input": "yellow grip",
+            "output": {"color": "yellow"},
+        }],
+        **common,
+    )
+
+    assert result == {"color": "yellow"}
+    assert "legacy Python alias" in calls[0]["json"]["instructions"]
+    with pytest.raises(ValueError, match="not both"):
+        extract.ai(
+            examples=[{"input": "yellow", "output": {"color": "yellow"}}],
+            record_examples=[{"input": "red", "output": {"color": "red"}}],
+            **common,
+        )
 
 
 def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatch):
