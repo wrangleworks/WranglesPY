@@ -19,6 +19,28 @@ versioned replacement YAML file to override the complete configuration.
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.
 
+## Instructions
+
+Use `instructions` for guidance that applies to every input row:
+
+```yaml
+wrangles:
+  - extract.ai:
+      input: Description
+      api_key: ${OPENAI_API_KEY}
+      instructions:
+        - Prefer explicit evidence over inferred evidence.
+        - Normalize dimensions to inches.
+      output:
+        Product Type:
+          type: string
+```
+
+Instructions are useful for decision rules, evidence priorities,
+normalization requirements, or other behavior that applies to the complete
+extraction. The former `messages` parameter remains available as a compatibility
+alias but is no longer advertised in the recipe schema. Do not provide both.
+
 ## Nullable output fields
 
 Defined output keys remain required so strict Structured Outputs always return

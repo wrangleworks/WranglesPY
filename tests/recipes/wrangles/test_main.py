@@ -9361,6 +9361,14 @@ class TestWrangleSchema:
         assert properties["web_search"]["type"] == "boolean"
         assert "web_search_sources" in properties["web_search"]["description"]
 
+        assert "messages" not in properties
+        instructions = properties["instructions"]
+        assert instructions["title"] == "Instructions"
+        assert instructions["type"] == ["string", "array"]
+        assert "every input row" in instructions["description"]
+        assert "decision rules" in instructions["description"]
+        assert "after" not in instructions["description"].lower()
+
         assert "examples" not in properties
         examples = properties["record_examples"]
         assert examples["title"] == "Record examples"
