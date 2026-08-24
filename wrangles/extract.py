@@ -69,6 +69,28 @@ def _cacheable_ai_result(result) -> bool:
     return True
 
 
+def _enable_responses_web_search(payload: dict) -> None:
+    """Add native web search without replacing expert Responses settings."""
+    tools = payload.setdefault("tools", [])
+    if not isinstance(tools, list):
+        raise ValueError("OpenAI Responses 'tools' must be an array.")
+    if not any(
+        isinstance(tool, dict)
+        and tool.get("type") in {"web_search", "web_search_preview"}
+        for tool in tools
+    ):
+        tools.append({"type": "web_search"})
+
+    included = payload.setdefault("include", [])
+    if not isinstance(included, list):
+        raise ValueError("OpenAI Responses 'include' must be an array.")
+    source_include = "web_search_call.action.sources"
+    if source_include not in included:
+        included.append(source_include)
+
+    payload.setdefault("tool_choice", "auto")
+
+
 def address(
     input: _Union[str, list],
     dataType: str,
@@ -126,6 +148,7 @@ def ai(
     store: bool = None,
     cache: bool = None,
     cache_ttl: float = None,
+    web_search: bool = False,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -140,17 +163,17 @@ def ai(
 
     :param input: A single value or list of values to extract information from. If a list is provided, \
         each element will be analyzed individually and a list of equal length will be returned.
-    :param api_key: API Key
+    :param api_key: OpenAI API key.
     :param output: (Optional) This can be a string prompting the output, a JSON schema definition \
         of the output requested or a dict of JSON schema definitions.
     :param model_id: (Optional) An extract.ai model ID containing a saved definition. Use this or output. \
-        If both are provided, output that precedence over the definition from the model_id.
+        If both are provided, named output fields take precedence over matching saved fields.
     :param model: (Optional) The model to use for the extraction.
     :param threads: (Optional) Number of threads to use for parallel processing.
     :param timeout: (Optional) Timeout in seconds for each API call.
     :param retries: (Optional) Number of retries to attempt on failure.
     :param messages: (Optional) Overall prompts to pass additional instructions.
-    :param examples: (Optional) Holistic examples containing paired input and output values.
+    :param examples: (Optional) Holistic examples containing separate input and output values, plus an optional name.
     :param url: (Optional) Override the configured endpoint.
     :param strict: (Optional) Enable structured output strict mode. Dynamic object schemas \
         automatically use non-strict mode and are validated locally.
@@ -164,8 +187,11 @@ def ai(
     :param store: (Optional) Whether OpenAI may store Responses. Defaults to False.
     :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
+    :param web_search: (Optional) Enable native Responses web search. Each result then includes a
+        web_search_sources list containing source titles and URLs. Defaults to False.
 
-    :return: A scalar or list of extracted information.
+    :return: Extracted information. When web_search is true, returns a dictionary (or list of
+        dictionaries) containing web_search_sources, including for single-field output.
     """
     policy = _ai_config.extract_ai()
     provider = str(provider or policy.get("provider", "openai")).strip().lower()
@@ -184,6 +210,10 @@ def ai(
         else:
             protocol = policy.get("protocol", "responses")
     protocol = _normalize_ai_protocol(protocol)
+    if not isinstance(web_search, bool):
+        raise ValueError("web_search must be true or false.")
+    if web_search and protocol != "responses":
+        raise ValueError("web_search is supported only with protocol='responses'.")
 
     if url:
         if protocol == "responses" and "/chat/completions" in url:
@@ -251,6 +281,14 @@ def ai(
     _needs_remap = compiled.needs_remap
     root_schema = compiled.root_schema
     example_guidance = _ai_definition.render_example_guidance(compiled)
+    if (
+        web_search
+        and _openai_responses.WEB_SEARCH_SOURCES_KEY in compiled.output
+    ):
+        raise ValueError(
+            f"{_openai_responses.WEB_SEARCH_SOURCES_KEY!r} is reserved when "
+            "web_search is enabled. Choose a different output field name."
+        )
 
     messages = [
         {
@@ -277,6 +315,12 @@ def ai(
                 str(message.get("content", ""))
                 for message in messages
             )
+        if web_search:
+            instructions += "\n\n" + " ".join([
+                "Web search is enabled for this call.",
+                "Information returned by the web search tool is authorized evidence in addition to DATA.",
+                "Use web search only when it helps answer the requested fields, and return null when neither DATA nor web evidence supports a field.",
+            ])
 
         payload = {
             "model": model,
@@ -292,6 +336,8 @@ def ai(
             "store": store,
             **_openai_responses.sanitize_request_params(kwargs),
         }
+        if web_search:
+            _enable_responses_web_search(payload)
         configured_reasoning = (
             reasoning
             if reasoning is not None
@@ -369,12 +415,12 @@ def ai(
             ]
 
         if input_was_scalar:
-            if output_generic_key:
+            if output_generic_key and not web_search:
                 return results[0].get('output', 'Failed')
             else:
                 return results[0]
         else:
-            if output_generic_key:
+            if output_generic_key and not web_search:
                 return [x.get('output', 'Failed') for x in results]
             else:
                 return results
