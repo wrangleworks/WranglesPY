@@ -136,22 +136,30 @@ def getMethodDocs(schema_wrangles, obj, path):
     Recursively loop through all non-hidden function and
     look for appropriately formatted docstrings
     """
-    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
-
-    if len(non_hidden_methods) > 0:
-        for method in non_hidden_methods:
-            # Prevent including methods twice that are referenced at the root
-            if method not in ('main', 'pandas'):
-                getMethodDocs(schema_wrangles, getattr(obj, method), '.'.join([path, method]))
-    else:
+    # A wrangle can be both callable itself and a namespace for dotted child
+    # wrangles (for example standardize, standardize.custom, and
+    # standardize.clean). Capture the callable's own schema before walking its
+    # children so the legacy root entry remains available.
+    if callable(obj):
         try:
             schema_wrangle = yaml.safe_load(obj.__doc__)
-            if 'type' in schema_wrangle.keys() or 'anyOf' in schema_wrangle.keys():
+            if (
+                isinstance(schema_wrangle, dict)
+                and ('type' in schema_wrangle or 'anyOf' in schema_wrangle)
+            ):
                 schema_wrangles[
                     reserved_word_replacements.get(path[1:], path[1:])
                 ] = schema_wrangle
         except Exception as e:
             logging.warning(f'{obj} description={e}')
+
+    non_hidden_methods = [conn for conn in dir(obj) if not conn.startswith('_')]
+    for method in non_hidden_methods:
+        # Prevent including methods twice that are referenced at the root
+        if method not in ('main', 'pandas'):
+            child = getattr(obj, method)
+            if child is not obj:
+                getMethodDocs(schema_wrangles, child, '.'.join([path, method]))
 
 getMethodDocs(schema['wrangles'], wrangles.recipe._recipe_wrangles, '')
 
