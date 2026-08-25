@@ -127,11 +127,36 @@ def test_recipe_by_version_tag():
     )
 
 
-def test_recipe_by_production_version():
+def test_recipe_by_production_version(mocker):
     """
     Test running a recipe using a model ID and production version
     """
+    mocker.patch(
+        "wrangles.data.model",
+        return_value={
+            "purpose": "recipe",
+            "production_version_id": "production-version-id"
+        }
+    )
+    model_content = mocker.patch(
+        "wrangles.data.model_content",
+        return_value={
+            "recipe": """
+            read:
+              - test:
+                  rows: 20
+                  values:
+                    header: value1
+            """
+        }
+    )
+
     df = wrangles.recipe.run("a6bac9e7-2388-4347")
+
+    model_content.assert_called_once_with(
+        "a6bac9e7-2388-4347",
+        "production-version-id"
+    )
     assert (
         len(df) == 20 and
         list(df.columns) == ["header"]
@@ -184,21 +209,62 @@ def test_recipe_by_production_semantic_version_falls_back_to_latest(
     assert "No production version exists, defaulting to latest version" in caplog.text
 
 
-def test_recipe_by_version_latest():
+def test_recipe_by_version_latest(mocker):
     """
     Test running a recipe using a model ID and latest version
     """
+    mocker.patch(
+        "wrangles.data.model",
+        return_value={
+            "purpose": "recipe",
+            "production_version_id": "production-version-id"
+        }
+    )
+    model_content = mocker.patch(
+        "wrangles.data.model_content",
+        return_value={
+            "recipe": """
+            read:
+              - test:
+                  rows: 10
+                  values:
+                    header: value1
+            """
+        }
+    )
+
     df = wrangles.recipe.run("a6bac9e7-2388-4347:latest")
+
+    model_content.assert_called_once_with("a6bac9e7-2388-4347", None)
     assert (
         len(df) == 10 and
         list(df.columns) == ["header"]
     )
 
-def test_recipe_by_latest_version():
+def test_recipe_by_latest_version(mocker):
     """
     Test running a recipe using a model ID and latest version
     """
+    mocker.patch(
+        "wrangles.data.model",
+        return_value={"purpose": "recipe"}
+    )
+    model_content = mocker.patch(
+        "wrangles.data.model_content",
+        return_value={
+            "recipe": """
+            read:
+              - test:
+                  rows: 15
+                  values:
+                    header: value1
+            """
+        }
+    )
+
     df = wrangles.recipe.run("02fc0c63-1294-415b")
+
+    model_content.assert_called_once_with("02fc0c63-1294-415b", None)
     assert (
         len(df) == 15 and
         list(df.columns) == ["header"]
