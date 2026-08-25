@@ -1,5 +1,7 @@
 import wrangles
 import pandas as pd
+import numpy as np
+import logging
 
 
 class TestCompareList:
@@ -908,3 +910,414 @@ class TestCompareText:
             dataframe=data,
         )
         assert df["output"][1] == "ANOTHER LINE THAT IS ALSO IN *****CA*S*"
+
+    def test_compare_text_case_sensitive_deprecation_warning(self, caplog):
+        """
+        Supplying case_sensitive should emit a deprecation warning; omitting it should not.
+        """
+        data = pd.DataFrame({"col1": ["Mario"], "col2": ["mario"]})
+
+        recipe_with_param = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+            case_sensitive: true
+        """
+        with caplog.at_level(logging.WARNING):
+            caplog.clear()
+            wrangles.recipe.run(recipe=recipe_with_param, dataframe=data)
+        assert any("case_sensitive" in record.message for record in caplog.records)
+
+        recipe_without_param = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+        """
+        with caplog.at_level(logging.WARNING):
+            caplog.clear()
+            wrangles.recipe.run(recipe=recipe_without_param, dataframe=data)
+        assert not any("case_sensitive" in record.message for record in caplog.records)
+
+    def test_compare_text_case_sensitive_true_false_omitted_equivalent(self):
+        """
+        case_sensitive: true, false, and omitted must all produce identical results,
+        since it is deprecated and ignored - comparisons are always case-insensitive.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["THIS IS IN ALL CAPS"],
+                "col2": ["this is in all lowercase"],
+            }
+        )
+        outputs = {}
+        for label, case_sensitive_line in [
+            ("true", "case_sensitive: true"),
+            ("false", "case_sensitive: false"),
+            ("omitted", ""),
+        ]:
+            recipe = f"""
+            wrangles:
+            - compare.text:
+                input:
+                - col1
+                - col2
+                output: output
+                method: difference
+                {case_sensitive_line}
+            """
+            df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+            outputs[label] = df["output"][0]
+
+        assert outputs["true"] == outputs["false"] == outputs["omitted"] == "lowercase"
+
+    def test_compare_text_default_preserves_title_case(self):
+        """
+        Regression: forcing case-insensitive matching by default must not lowercase
+        legacy difference/intersection output - original casing should be preserved.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["Mario Oak Wood White Marble Top Bookshelf"],
+                "col2": ["Mario Pine Wood Black Marble Bottom Bookshelf"],
+            }
+        )
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df["output"][0] == "Pine Black Bottom"
+
+    def test_compare_text_overlap_quoted_decimal_places(self):
+        """
+        Regression: a quoted decimal_places value must not crash overlap.
+        """
+        data = pd.DataFrame({"col1": ["Mario"], "col2": ["Martio"]})
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: overlap
+            include_ratio: true
+            decimal_places: "2"
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df["output"][0] == ["Mar*io", 0.91]
+
+
+class TestCompareTextSimilarity:
+    """
+    Test compare.text method: similarity
+    """
+
+    def _run(self, data, metric=None, decimal_places=None, extra=""):
+        metric_line = f"metric: {metric}" if metric else ""
+        decimal_places_line = (
+            f"decimal_places: {decimal_places}" if decimal_places is not None else ""
+        )
+        recipe = f"""
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: similarity
+            {metric_line}
+            {decimal_places_line}
+            {extra}
+        """
+        return wrangles.recipe.run(recipe=recipe, dataframe=data)
+
+    def test_default_metric_is_token_sort(self):
+        """
+        Omitting metric should behave the same as explicitly requesting token_sort.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["M8 stainless bolt"],
+                "col2": ["M8 stainless bolt 20mm"],
+            }
+        )
+        df_default = self._run(data)
+        df_token_sort = self._run(data, metric="token_sort")
+        assert df_default["output"][0] == df_token_sort["output"][0]
+
+    def test_token_sort_reordered_tokens_scores_one(self):
+        """
+        token_sort ignores token order.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["M8 stainless bolt 20mm"],
+                "col2": ["20mm bolt stainless M8"],
+            }
+        )
+        df = self._run(data, metric="token_sort")
+        assert df["output"][0] == 1.0
+
+    def test_token_sort_penalizes_missing_and_extra_tokens(self):
+        """
+        token_sort scores below 1.0 when tokens are missing/extra.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["M8 stainless bolt"],
+                "col2": ["M8 stainless bolt 20mm"],
+            }
+        )
+        df = self._run(data, metric="token_sort")
+        assert 0.0 <= df["output"][0] < 1.0
+
+    def test_token_set_subset_containment_scores_one(self):
+        """
+        token_set can score 1.0 when a shorter token set is fully contained in a longer one.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["M8 stainless bolt"],
+                "col2": ["M8 stainless bolt 20mm"],
+            }
+        )
+        df = self._run(data, metric="token_set")
+        assert df["output"][0] == 1.0
+
+    def test_conflicting_attribute_reduces_order_independent_scores(self):
+        """
+        A conflicting attribute (red vs blue) must reduce both order-independent metrics.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["red steel bolt"],
+                "col2": ["blue steel bolt"],
+            }
+        )
+        df_token_sort = self._run(data, metric="token_sort")
+        df_token_set = self._run(data, metric="token_set")
+        assert df_token_sort["output"][0] < 1.0
+        assert df_token_set["output"][0] < 1.0
+
+    def test_damerau_levenshtein_adjacent_transposition(self):
+        """
+        damerau_levenshtein should recognize an adjacent transposition as a single edit.
+        """
+        data = pd.DataFrame({"col1": ["smtih"], "col2": ["smith"]})
+        df = self._run(data, metric="damerau_levenshtein")
+        # a single transposition on a 5-character word -> normalized similarity 0.8
+        assert df["output"][0] == 0.8
+
+    def test_damerau_levenshtein_insertion_deletion_substitution(self):
+        """
+        damerau_levenshtein should score each single-edit-distance operation
+        (insertion, deletion, substitution) as one edit, distinct from a no-op match.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["bolt", "bolt", "bolt"],
+                "col2": ["boltx", "bol", "belt"],
+            },
+            index=["insertion", "deletion", "substitution"],
+        )
+        df = self._run(data, metric="damerau_levenshtein")
+        # a single insertion on a 4/5-character word -> normalized similarity 0.8
+        assert df["output"]["insertion"] == 0.8
+        # a single deletion on a 4-character word -> normalized similarity 0.75
+        assert df["output"]["deletion"] == 0.75
+        # a single substitution on a 4-character word -> normalized similarity 0.75
+        assert df["output"]["substitution"] == 0.75
+
+    def test_duplicate_tokens_token_sort_vs_token_set(self):
+        """
+        token_sort retains duplicate tokens (penalized); token_set is duplicate-insensitive.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["bolt bolt steel"],
+                "col2": ["bolt steel"],
+            }
+        )
+        df_token_sort = self._run(data, metric="token_sort")
+        df_token_set = self._run(data, metric="token_set")
+        assert df_token_sort["output"][0] < 1.0
+        assert df_token_set["output"][0] == 1.0
+
+    def test_anagram_does_not_score_perfect(self):
+        """
+        Character anagrams with no matching tokens must not receive a perfect score.
+        """
+        data = pd.DataFrame({"col1": ["tide"], "col2": ["diet"]})
+        for metric in ["token_sort", "damerau_levenshtein", "token_set"]:
+            df = self._run(data, metric=metric)
+            assert df["output"][0] < 1.0
+
+    def test_punctuation_does_not_equate_identifiers(self):
+        """
+        Normalization must not decide that AB-12 and AB12 are equivalent.
+        """
+        data = pd.DataFrame({"col1": ["AB-12"], "col2": ["AB12"]})
+        for metric in ["token_sort", "damerau_levenshtein", "token_set"]:
+            df = self._run(data, metric=metric)
+            assert df["output"][0] < 1.0
+
+    def test_unicode_and_case_normalization_exact_match(self):
+        """
+        Unicode compatibility normalization and case folding should make these equal.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["Mario Oak Wood"],
+                "col2": ["mario   oak-wood"],
+            }
+        )
+        for metric in ["token_sort", "damerau_levenshtein", "token_set"]:
+            df = self._run(data, metric=metric)
+            assert df["output"][0] == 1.0
+
+    def test_symmetry(self):
+        """
+        Swapping the two inputs must not change the score, for every metric.
+        """
+        data_ab = pd.DataFrame(
+            {"col1": ["red steel bolt M8"], "col2": ["M8 steel bolt blue"]}
+        )
+        data_ba = pd.DataFrame(
+            {"col1": ["M8 steel bolt blue"], "col2": ["red steel bolt M8"]}
+        )
+        for metric in ["token_sort", "damerau_levenshtein", "token_set"]:
+            df_ab = self._run(data_ab, metric=metric)
+            df_ba = self._run(data_ba, metric=metric)
+            assert df_ab["output"][0] == df_ba["output"][0]
+
+    def test_scores_are_bounded_between_zero_and_one(self):
+        """
+        Every produced score must be between 0.0 and 1.0 inclusive.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["Mario", "red steel bolt", "M8 stainless bolt 20mm", "smtih", "tide"],
+                "col2": ["Luigi", "blue steel bolt", "20mm bolt stainless M8", "smith", "diet"],
+            }
+        )
+        for metric in ["token_sort", "damerau_levenshtein", "token_set"]:
+            df = self._run(data, metric=metric)
+            assert all(0.0 <= score <= 1.0 for score in df["output"].tolist())
+
+    def test_missing_values_return_null_not_string(self):
+        """
+        wrangles.compare.similarity() (the library function) should return None
+        for null/blank inputs, not the strings "nan"/"None", and should never
+        stringify a missing value before checking for it.
+        """
+        from wrangles import compare as compare_lib
+
+        results = compare_lib.similarity(
+            input=[
+                ["Mario", "Mario"],
+                [None, "Luigi"],
+                [np.nan, "Peach"],
+                ["Bowser", None],
+                ["", ""],
+            ],
+            metric="token_sort",
+        )
+        assert results[0] == 1.0
+        assert results[1] is None
+        assert results[2] is None
+        assert results[3] is None
+        assert results[4] is None
+
+    def test_missing_values_via_recipe_are_not_stringified(self):
+        """
+        Regression: missing values must never surface as the literal strings
+        "nan"/"None" in the output (the recipe engine blanks nulls to '' after
+        every wrangle, so that - not "nan"/"None" - is the expected surface value).
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["Mario", None, np.nan, "Bowser"],
+                "col2": ["Mario", "Luigi", "Peach", None],
+            }
+        )
+        df = self._run(data, metric="token_sort")
+        assert df["output"][0] == 1.0
+        for value in df["output"][1:]:
+            assert value not in ("nan", "None")
+
+    def test_long_repetitive_string_returns_bounded_score(self):
+        """
+        Long repetitive strings should still return a single bounded score.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": [" ".join(["bolt"] * 500)],
+                "col2": [" ".join(["bolt"] * 499 + ["nut"])],
+            }
+        )
+        df = self._run(data, metric="token_sort")
+        assert 0.0 <= df["output"][0] <= 1.0
+
+    def test_similarity_requires_exactly_two_columns(self):
+        """
+        method: similarity requires exactly two input columns.
+        """
+        data = pd.DataFrame({"col1": ["a"], "col2": ["b"], "col3": ["c"]})
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            - col3
+            output: output
+            method: similarity
+        """
+        try:
+            wrangles.recipe.run(recipe=recipe, dataframe=data)
+            assert False, "Should raise an error if more than two columns are passed"
+        except Exception:
+            pass
+
+    def test_similarity_invalid_metric_raises(self):
+        """
+        An unknown metric should raise an error.
+        """
+        data = pd.DataFrame({"col1": ["a"], "col2": ["b"]})
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: similarity
+            metric: not_a_real_metric
+        """
+        try:
+            wrangles.recipe.run(recipe=recipe, dataframe=data)
+            assert False, "Should raise an error for an invalid metric"
+        except Exception:
+            pass
+
+    def test_quoted_decimal_places(self):
+        """
+        Regression: a quoted decimal_places value must not crash similarity.
+        """
+        data = pd.DataFrame({"col1": ["smtih"], "col2": ["smith"]})
+        df = self._run(data, metric="damerau_levenshtein", decimal_places='"2"')
+        assert df["output"][0] == 0.8
