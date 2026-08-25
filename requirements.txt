@@ -6,7 +6,6 @@ pandas>=2.0,<3.0
 numpy
 numexpr
 polars==1.33.0
-pyarrow
 
 # Recipe engine & templating
 jinja2
