@@ -77,9 +77,6 @@ def _load_recipe(
     if variables is None:
         variables = {}
 
-    if "applied_permission_group" not in variables and "user_permission_team" in variables:
-        variables["applied_permission_group"] = variables["user_permission_team"]
-
     user_variable_keys = set(variables.keys())
 
     if "applied_permission_group" not in variables:
@@ -133,7 +130,7 @@ def _load_recipe(
 
         metadata_applied_permission_group = _auth.extract_applied_permission_group(metadata)
         if metadata_applied_permission_group is not None:
-            if "applied_permission_group" not in user_variable_keys and "user_permission_team" not in user_variable_keys:
+            if "applied_permission_group" not in user_variable_keys:
                 variables["applied_permission_group"] = metadata_applied_permission_group
 
         # Using model_id in wrong function

@@ -93,15 +93,7 @@ def extract_applied_permission_group(source: dict):
     if not isinstance(source, dict):
         return None
 
-    if "applied_permission_group" in source:
-        return source.get("applied_permission_group")
-
-    return source.get("user_permission_team")
-
-
-def extract_user_permission_team(source: dict):
-    """Backward-compatible alias for extract_applied_permission_group."""
-    return extract_applied_permission_group(source)
+    return source.get("applied_permission_group")
 
 
 def get_applied_permission_group():
@@ -122,8 +114,3 @@ def get_applied_permission_group():
         return None
 
     return extract_applied_permission_group(claims)
-
-
-def get_user_permission_team():
-    """Backward-compatible alias for get_applied_permission_group."""
-    return get_applied_permission_group()
