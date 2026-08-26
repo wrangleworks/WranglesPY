@@ -131,7 +131,7 @@ def test_recipe_by_production_version():
     """
     Test running a recipe using a model ID and production version
     """
-    df = wrangles.recipe.run("a6bac9e7-2388-4347")
+    df = wrangles.recipe.run("e954717c-fb9c-4c47")
     assert (
         len(df) == 20 and
         list(df.columns) == ["header"]
@@ -154,10 +154,10 @@ def test_recipe_by_production_semantic_version(mocker):
         return_value={"recipe": "{}"}
     )
 
-    wrangles.recipe.run("a6bac9e7-2388-4347:production")
+    wrangles.recipe.run("e954717c-fb9c-4c47:production")
 
     model_content.assert_called_once_with(
-        "a6bac9e7-2388-4347",
+        "e954717c-fb9c-4c47",
         "production-version-id"
     )
 
@@ -178,9 +178,9 @@ def test_recipe_by_production_semantic_version_falls_back_to_latest(
         return_value={"recipe": "{}"}
     )
 
-    wrangles.recipe.run("a6bac9e7-2388-4347:production")
+    wrangles.recipe.run("e954717c-fb9c-4c47:production")
 
-    model_content.assert_called_once_with("a6bac9e7-2388-4347", None)
+    model_content.assert_called_once_with("e954717c-fb9c-4c47", None)
     assert "No production version exists, defaulting to latest version" in caplog.text
 
 
@@ -188,7 +188,7 @@ def test_recipe_by_version_latest():
     """
     Test running a recipe using a model ID and latest version
     """
-    df = wrangles.recipe.run("a6bac9e7-2388-4347:latest")
+    df = wrangles.recipe.run("e954717c-fb9c-4c47:latest")
     assert (
         len(df) == 10 and
         list(df.columns) == ["header"]
@@ -198,7 +198,7 @@ def test_recipe_by_latest_version():
     """
     Test running a recipe using a model ID and latest version
     """
-    df = wrangles.recipe.run("02fc0c63-1294-415b")
+    df = wrangles.recipe.run("1b41d016-7129-4b66")
     assert (
         len(df) == 15 and
         list(df.columns) == ["header"]
