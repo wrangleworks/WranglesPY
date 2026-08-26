@@ -849,6 +849,53 @@ class TestWrite:
         assert worksheet["B2"].alignment.vertical == "top"
         workbook.close()
 
+    def test_write_excel_formatting_supports_colliding_index_label(self, tmp_path):
+        """
+        Test that formatted exports disambiguate index and column labels.
+        """
+        path = tmp_path / "colliding_index_label.xlsx"
+        source = _pd.DataFrame(
+            {"row": ["aaa"]},
+            index=_pd.Index([10], name="source_index")
+        )
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            index=True,
+            index_label="row",
+            formatting={"table_style": "Table Style Medium9"}
+        )
+
+        result = wrangles.connectors.file.read(path)
+        assert result.columns.tolist() == ["row_2", "row"]
+        assert result.iloc[0].tolist() == [10, "aaa"]
+
+    def test_write_excel_formatting_cleans_illegal_characters_without_map(
+        self,
+        tmp_path
+    ):
+        """
+        Test formatted exports on pandas versions without DataFrame.map.
+        """
+        path = tmp_path / "formatted_illegal_characters.xlsx"
+        source = _pd.DataFrame({"value": ["a\x00b"]})
+
+        with patch.object(
+            _pd.DataFrame,
+            "map",
+            side_effect=AssertionError("DataFrame.map is unavailable"),
+            create=True
+        ):
+            wrangles.connectors.file.write(
+                source,
+                path,
+                formatting={"table_style": "Table Style Medium9"}
+            )
+
+        result = wrangles.connectors.file.read(path)
+        assert result["value"].tolist() == ["ab"]
+
     def test_write_file_format_conditional(self):
         """
         Test the format function with conditional_formats
@@ -1152,9 +1199,8 @@ class TestWrite:
             filename = 'tests/temp/illegal_chars_whitespace.xlsx'
             df = _pd.DataFrame({'col': ['a\tb\nc\rd']})
             wrangles.connectors.file.write(df, name=filename)
-            result = _pd.read_excel(filename)
-            from openpyxl.utils.escape import unescape
-            assert unescape(result['col'][0]) == 'a\tb\nc\rd'
+            result = wrangles.connectors.file.read(filename)
+            assert result['col'][0] == 'a\tb\nc\rd'
 
         def test_write_xlsx_clean_data_unchanged(self):
             """
