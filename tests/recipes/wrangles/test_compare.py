@@ -1,7 +1,6 @@
 import wrangles
 import pandas as pd
 import numpy as np
-import logging
 
 
 class TestCompareList:
@@ -652,7 +651,9 @@ class TestCompareText:
             input:
             - col1
             - col2
-            output: output
+            output:
+            - output_mask
+            - output_ratio
             method: overlap
             non_match_char: '@'
             include_ratio: True
@@ -666,13 +667,14 @@ class TestCompareText:
             recipe=recipe,
             dataframe=data,
         )
-        assert df["output"].values.tolist() == [
-            ["@@@@@Mario", 0.67],
-            ["@@@@@Luigi", 0.67],
-            ["Empty A", 0],
-            ["Empty B", 0],
-            ["Both Empty", 0],
+        assert df["output_mask"].values.tolist() == [
+            "@@@@@Mario",
+            "@@@@@Luigi",
+            "Empty A",
+            "Empty B",
+            "Both Empty",
         ]
+        assert df["output_ratio"].values.tolist() == [0.67, 0.67, 0, 0, 0]
 
     def test_compare_text_overlap_include_ratio(self):
         """
@@ -701,7 +703,9 @@ class TestCompareText:
             input:
             - col1
             - col2
-            output: output
+            output:
+            - output_mask
+            - output_ratio
             method: overlap
             include_ratio: True
         """
@@ -710,12 +714,8 @@ class TestCompareText:
             dataframe=data,
         )
 
-        assert df["output"].values.tolist() == [
-            ["Mario", 1],
-            ["Luigi", 1],
-            ["Mar*io", 0.909],
-            ["Lui*gi", 0.909],
-        ]
+        assert df["output_mask"].values.tolist() == ["Mario", "Luigi", "Mar*io", "Lui*gi"]
+        assert df["output_ratio"].values.tolist() == [1, 1, 0.909, 0.909]
 
     def test_compare_overlap_default_settings(self):
         """
@@ -911,13 +911,13 @@ class TestCompareText:
         )
         assert df["output"][1] == "ANOTHER LINE THAT IS ALSO IN *****CA*S*"
 
-    def test_compare_text_case_sensitive_deprecation_warning(self, caplog):
+    def test_compare_text_case_sensitive_true_enables_case_sensitive_matching(self):
         """
-        Supplying case_sensitive should emit a deprecation warning; omitting it should not.
+        case_sensitive: true restores real case-sensitive matching, distinct
+        from the case-insensitive default.
         """
         data = pd.DataFrame({"col1": ["Mario"], "col2": ["mario"]})
-
-        recipe_with_param = """
+        recipe = """
         wrangles:
         - compare.text:
             input:
@@ -927,29 +927,13 @@ class TestCompareText:
             method: difference
             case_sensitive: true
         """
-        with caplog.at_level(logging.WARNING):
-            caplog.clear()
-            wrangles.recipe.run(recipe=recipe_with_param, dataframe=data)
-        assert any("case_sensitive" in record.message for record in caplog.records)
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df["output"][0] == "mario"
 
-        recipe_without_param = """
-        wrangles:
-        - compare.text:
-            input:
-            - col1
-            - col2
-            output: output
-            method: difference
+    def test_compare_text_case_sensitive_false_and_omitted_equivalent(self):
         """
-        with caplog.at_level(logging.WARNING):
-            caplog.clear()
-            wrangles.recipe.run(recipe=recipe_without_param, dataframe=data)
-        assert not any("case_sensitive" in record.message for record in caplog.records)
-
-    def test_compare_text_case_sensitive_true_false_omitted_equivalent(self):
-        """
-        case_sensitive: true, false, and omitted must all produce identical results,
-        since it is deprecated and ignored - comparisons are always case-insensitive.
+        case_sensitive: false and omitting it entirely must produce identical
+        (case-insensitive) results, since False is the default.
         """
         data = pd.DataFrame(
             {
@@ -959,7 +943,6 @@ class TestCompareText:
         )
         outputs = {}
         for label, case_sensitive_line in [
-            ("true", "case_sensitive: true"),
             ("false", "case_sensitive: false"),
             ("omitted", ""),
         ]:
@@ -976,7 +959,42 @@ class TestCompareText:
             df = wrangles.recipe.run(recipe=recipe, dataframe=data)
             outputs[label] = df["output"][0]
 
-        assert outputs["true"] == outputs["false"] == outputs["omitted"] == "lowercase"
+        assert outputs["false"] == outputs["omitted"] == "lowercase"
+
+    def test_compare_text_case_sensitive_true_differs_from_default(self):
+        """
+        case_sensitive: true must produce a different result than the
+        case-insensitive default when casing differs between inputs.
+        """
+        data = pd.DataFrame(
+            {
+                "col1": ["THIS IS IN ALL CAPS"],
+                "col2": ["this is in all lowercase"],
+            }
+        )
+        recipe_true = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+            case_sensitive: true
+        """
+        recipe_default = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: difference
+        """
+        df_true = wrangles.recipe.run(recipe=recipe_true, dataframe=data)
+        df_default = wrangles.recipe.run(recipe=recipe_default, dataframe=data)
+        assert df_true["output"][0] != df_default["output"][0]
+        assert df_default["output"][0] == "lowercase"
 
     def test_compare_text_default_preserves_title_case(self):
         """
@@ -1012,13 +1030,57 @@ class TestCompareText:
             input:
             - col1
             - col2
-            output: output
+            output:
+            - output_mask
+            - output_ratio
             method: overlap
             include_ratio: true
             decimal_places: "2"
         """
         df = wrangles.recipe.run(recipe=recipe, dataframe=data)
-        assert df["output"][0] == ["Mar*io", 0.91]
+        assert df["output_mask"][0] == "Mar*io"
+        assert df["output_ratio"][0] == 0.91
+
+    def test_compare_text_overlap_include_ratio_requires_two_outputs(self):
+        """
+        include_ratio: true must raise a clear error if output is not a
+        list of exactly two column names.
+        """
+        data = pd.DataFrame({"col1": ["Mario"], "col2": ["Martio"]})
+
+        for bad_output in ["output", "\n            - only_one_column"]:
+            recipe = f"""
+            wrangles:
+            - compare.text:
+                input:
+                - col1
+                - col2
+                output:{bad_output}
+                method: overlap
+                include_ratio: true
+            """
+            try:
+                wrangles.recipe.run(recipe=recipe, dataframe=data)
+                assert False, "Should raise an error if output is not a list of two columns"
+            except Exception:
+                pass
+
+    def test_compare_text_overlap_without_include_ratio_still_accepts_single_output(self):
+        """
+        Without include_ratio, output can still be a single column name as before.
+        """
+        data = pd.DataFrame({"col1": ["Mario"], "col2": ["Martio"]})
+        recipe = """
+        wrangles:
+        - compare.text:
+            input:
+            - col1
+            - col2
+            output: output
+            method: overlap
+        """
+        df = wrangles.recipe.run(recipe=recipe, dataframe=data)
+        assert df["output"][0] == "Mar*io"
 
 
 class TestCompareTextSimilarity:
