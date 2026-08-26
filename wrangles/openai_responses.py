@@ -771,6 +771,7 @@ def call_structured(
 
         if response is not None and response.ok:
             try:
+response_json = None
                 response_json = response.json()
                 output_text = extract_response_text(response_json)
                 parsed = _json.loads(output_text)
