@@ -863,13 +863,34 @@ class TestWrite:
             source,
             path,
             index=True,
-            index_label="row",
+            index_label="ROW",
             formatting={"table_style": "Table Style Medium9"}
         )
 
         result = wrangles.connectors.file.read(path)
-        assert result.columns.tolist() == ["row_2", "row"]
+        assert result.columns.tolist() == ["ROW_2", "row"]
         assert result.iloc[0].tolist() == [10, "aaa"]
+
+    def test_write_excel_formatting_supports_generated_index_collision(
+        self,
+        tmp_path
+    ):
+        """
+        Test that generated index labels avoid existing suffixed labels.
+        """
+        path = tmp_path / "generated_index_label.xlsx"
+        source = _pd.DataFrame({"index": ["aaa"], "index_2": ["bbb"]})
+
+        wrangles.connectors.file.write(
+            source,
+            path,
+            index=True,
+            formatting={"table_style": "Table Style Medium9"}
+        )
+
+        result = wrangles.connectors.file.read(path)
+        assert result.columns.tolist() == ["index_3", "index", "index_2"]
+        assert result.iloc[0].tolist() == [0, "aaa", "bbb"]
 
     def test_write_excel_formatting_cleans_illegal_characters_without_map(
         self,

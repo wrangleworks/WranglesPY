@@ -52,7 +52,9 @@ def _materialize_excel_index(
 ) -> _pd.DataFrame:
     if index_label is None:
         if df.index.nlevels == 1:
-            labels = [df.index.name or 'index']
+            labels = [
+                df.index.name if df.index.name is not None else 'index'
+            ]
         else:
             labels = [
                 name if name is not None else f'level_{position}'
@@ -68,17 +70,17 @@ def _materialize_excel_index(
             "Length of 'index_label' must match the number of index levels."
         )
 
-    used_labels = {str(column) for column in df.columns}
+    used_labels = {str(column).casefold() for column in df.columns}
     unique_labels = []
     for label in labels:
         base_label = str(label)
         unique_label = base_label
         suffix = 2
-        while unique_label in used_labels:
+        while unique_label.casefold() in used_labels:
             unique_label = f'{base_label}_{suffix}'
             suffix += 1
         unique_labels.append(unique_label)
-        used_labels.add(unique_label)
+        used_labels.add(unique_label.casefold())
 
     return df.reset_index(names=unique_labels)
 
