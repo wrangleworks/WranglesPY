@@ -14,7 +14,9 @@ from ..utils import (
     wildcard_expansion as _wildcard_expansion,
     LazyLoader as _LazyLoader,
 )
+from openpyxl.utils.escape import unescape as _unescape
 from ._formatting import file_format as _file_format
+from ._formatting import default_file_format as _default_file_format
 
 _pa = _LazyLoader('pyarrow')
 _pq = _LazyLoader('pyarrow.parquet')
