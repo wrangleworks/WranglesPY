@@ -1,4 +1,4 @@
-"""Credential-free validation for the production Wrangles container."""
+"""Credential-free validation for the WranglesPY CI test image."""
 
 from importlib import metadata
 from pathlib import Path
@@ -6,10 +6,15 @@ import os
 import shutil
 import sys
 
+from packaging.requirements import Requirement
+
 
 EXPECTED_PYTHON = (3, 13)
-EXPECTED_NUMPY = "2.4.6"
-EXPECTED_PANDAS = "2.3.3"
+TEST_CONTAINER_CONSTRAINTS = (
+    Path(__file__).resolve().parents[1]
+    / "constraints"
+    / "test-container-python313.txt"
+)
 RETAINED_BOTOCORE_DATA = frozenset(
     {
         "s3",
@@ -24,6 +29,41 @@ RETAINED_BOTOCORE_DATA = frozenset(
 def _require(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def load_exact_constraints(path=TEST_CONTAINER_CONSTRAINTS):
+    """Load exact package versions from the test-image constraint file."""
+    path = Path(path)
+    _require(path.is_file(), f"Test-container constraints not found: {path}")
+
+    versions = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.partition("#")[0].strip()
+        if not line:
+            continue
+        requirement = Requirement(line)
+        specifiers = list(requirement.specifier)
+        exact_versions = [
+            specifier.version
+            for specifier in specifiers
+            if specifier.operator == "=="
+        ]
+        _require(
+            len(specifiers) == 1 and len(exact_versions) == 1,
+            f"Expected one exact version in test-container constraint: {line}",
+        )
+        name = requirement.name.lower()
+        _require(name not in versions, f"Duplicate test-container constraint: {name}")
+        versions[name] = exact_versions[0]
+
+    for name in ("numpy", "pandas"):
+        _require(name in versions, f"Missing test-container constraint: {name}")
+    return versions
+
+
+TEST_CONTAINER_VERSIONS = load_exact_constraints()
+EXPECTED_NUMPY = TEST_CONTAINER_VERSIONS["numpy"]
+EXPECTED_PANDAS = TEST_CONTAINER_VERSIONS["pandas"]
 
 
 def validate_runtime_versions(python_version, numpy_version, pandas_version):
@@ -48,25 +88,34 @@ def validate_runtime_versions(python_version, numpy_version, pandas_version):
 
 def validate_wrangles_pandas_requirement(requirements):
     """Prove the installed package metadata still excludes Pandas 3."""
-    normalized = [requirement.replace(" ", "").lower() for requirement in requirements]
+    parsed_requirements = [Requirement(requirement) for requirement in requirements]
     pandas_requirements = [
         requirement
-        for requirement in normalized
-        if requirement == "pandas" or requirement.startswith(("pandas<", "pandas>"))
+        for requirement in parsed_requirements
+        if requirement.name.lower() == "pandas"
     ]
     _require(
         len(pandas_requirements) == 1,
-        f"Expected one Pandas package requirement, found {pandas_requirements}",
+        "Expected one Pandas package requirement, found "
+        f"{[str(requirement) for requirement in pandas_requirements]}",
     )
+    pandas_specifier = pandas_requirements[0].specifier
     _require(
-        "<3.0" in pandas_requirements[0],
-        f"Wrangles metadata must exclude Pandas 3: {pandas_requirements[0]}",
+        pandas_specifier.contains("2.999", prereleases=True)
+        and not pandas_specifier.contains("3.0", prereleases=True),
+        "Wrangles metadata must support Pandas 2.x and exclude Pandas 3: "
+        f"{pandas_requirements[0]}",
     )
 
 
 def validate_trimmed_package_data(botocore_data, pandas_package):
     """Validate the two package-data reductions used to control image size."""
-    actual_botocore_data = {path.name for path in Path(botocore_data).iterdir()}
+    botocore_data = Path(botocore_data)
+    _require(
+        botocore_data.exists(),
+        f"Botocore data directory not found: {botocore_data}",
+    )
+    actual_botocore_data = {path.name for path in botocore_data.iterdir()}
     _require(
         actual_botocore_data == RETAINED_BOTOCORE_DATA,
         "Unexpected Botocore data after trimming: "
@@ -152,7 +201,7 @@ def main():
         "Boto3": boto3.__version__,
         "Botocore": botocore.__version__,
     }
-    print("Production container smoke checks passed:")
+    print("CI test-image smoke checks passed:")
     for name, version in versions.items():
         print(f"  {name}={version}")
 

@@ -20,7 +20,7 @@
 - **Data Formats:** openpyxl (Excel), xlsxwriter
 - **AI/ML:** OpenAI integration, Hugging Face models
 - **Testing:** pytest (9.0.2), pytest-mock, lorem (test data generation)
-- **Containerization:** Production Docker image uses Python 3.13-slim-bookworm with pandas 2.3.3 and NumPy 2.4.6; development container uses Python 3.13-bookworm
+- **Containerization:** The WranglesPY CI test image uses Python 3.13-slim-bookworm with pandas 2.3.3 and NumPy 2.4.6; the development container uses Python 3.13-bookworm. The deployed recipe runtime image is owned by `wrangleworks/Lambda-Recipes`.
 
 ## Project Structure
 
@@ -50,8 +50,8 @@ WranglesPY/
 │   └── recipe_base_schema.json
 ├── setup.py                    # Package setup and release version
 ├── requirements.txt            # Production dependencies
-├── dockerfile                  # Multi-stage Docker build
-├── main.py                     # Container entry point
+├── dockerfile                  # Multi-stage CI test-image build
+├── main.py                     # CI test-image entry point
 └── .github/workflows/          # CI/CD pipelines
 ```
 
@@ -125,14 +125,18 @@ pip install .
 wrangles.recipe tests/samples/generate-data.wrgl.yml
 ```
 
-### Docker Build
-The Dockerfile uses multi-stage builds for optimization:
-1. Dependency stage: Installs binary NumPy and pandas wheels under the tracked production constraint; no compiler toolchain is installed
+### CI Test Image Build
+The repository-root Dockerfile builds a GHCR test image used to validate the
+installable package and recipes. It is not the deployed production runtime;
+`wrangleworks/Lambda-Recipes` owns the AWS Lambda image and its Python version.
+
+The test-image Dockerfile uses multi-stage builds for optimization:
+1. Dependency stage: Installs binary wheels under the tracked test-container constraint; no compiler toolchain is installed
 2. Build stage: Copies only necessary files (~400MB final image)
 3. Special optimizations: Removes unused botocore AWS service definitions, pandas test data
 
 ```bash
-docker build -t wrangles:latest .
+docker build -t wrangles:test .
 ```
 
 ## Coding Guidelines
@@ -249,12 +253,12 @@ deployments from an explicit `main` SHA and removing the remaining legacy paths.
 ### Merging never releases anything
 
 Merging to `main` runs CI and, under the current transitional workflow,
-publishes a tested container image. It does not publish a Python package and
+publishes a tested GHCR CI image. It does not publish a Python package and
 does not deploy to any environment.
 
 | Action | Result |
 | --- | --- |
-| Merge to `main` | tests, then `:latest` image promoted |
+| Merge to `main` | tests, then GHCR test image `:latest` promoted |
 | Manually dispatch `deploy-dev.yml` from `main` | `<version>rcN` to CodeArtifact, then DEV deploy in Lambda-Recipes |
 | Push a matching `v*` tag from `main` | `:<version>` image, then CodeArtifact, then PyPI |
 
@@ -280,7 +284,7 @@ to define.
   - Pytest on Ubuntu + Windows across Python 3.11 + 3.13 for `main` PRs
   - Test pip installation
   - Generate and test JSON schema
-  - Build the Docker image and, on PRs, run smoke checks, local recipes, and the credential-safe test suite against that exact image
+  - Build the CI test image and, on PRs, run smoke checks and local recipes against that exact image
   - Push the image on merges to `main` under the new policy
   - Run container tests, then promote the mutable tag
 - **deploy-dev.yml** (*Deploy Dev*)**:** manually dispatch from `main`. The
@@ -294,14 +298,15 @@ to define.
 1. **pytest:** Run test suite across OS/Python matrix
 2. **test-pip-install:** Verify package installs correctly
 3. **test-generate-schema:** Generate JSON schema from code
-4. **build:** Create Docker image and push to GitHub Container Registry
-5. **test-container:** Validate Docker image with full test suite
+4. **build:** Create the CI test image and push it to GitHub Container Registry
+5. **test-container:** Validate the CI test image with the full test suite
 6. **promote-image:** Retag the tested image; `dev` support is transitional and
    `latest` handling will be hardened under issue #1117
 
-Mutable tags are only moved after `test-container` passes, and package
-publication is gated on the container, so the wheel and the image cannot
-diverge. See `docs/release-lifecycle.md` for the current release direction.
+Mutable GHCR test-image tags are only moved after `test-container` passes, and
+package publication is gated on that validation. Production Lambda image
+publication and deployment remain the responsibility of `Lambda-Recipes`. See
+`docs/release-lifecycle.md` for the current release direction.
 
 ## Known Issues & Workarounds
 
@@ -323,11 +328,11 @@ brew install freetds
 ### Pandas Performance Warnings
 Performance warnings from pandas are suppressed in `recipe.py` as they appear during recipe execution without actual performance impact. This is a known issue being monitored.
 
-### Docker Image Size Optimization
+### CI Test Image Size Optimization
 - Botocore data reduced to S3-only (removes ~300MB)
 - Pandas test data removed from final image
-- Production data stack constrained to pandas 2.3.3 and NumPy 2.4.6 while the reusable package continues to allow pandas 2.x
-- NumPy and pandas install from binary wheels; compiler tools are absent from the runtime image
+- Test-image data stack constrained to pandas 2.3.3 and NumPy 2.4.6 while the reusable package continues to allow pandas 2.x
+- All test-image dependencies install from binary wheels; compiler tools are absent from the runtime image
 - Uses slim Debian base image for minimal footprint
 
 ## Common Commands
@@ -345,8 +350,8 @@ pytest -v tests/test_wrangles.py
 # Generate schema
 cd schema && python generate_recipe_schema.py
 
-# Build Docker image
-docker build -t wrangles:latest .
+# Build CI test image
+docker build -t wrangles:test .
 
 # Run recipe locally
 wrangles.recipe tests/samples/recipe-basic.wrgl.yml

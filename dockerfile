@@ -9,13 +9,13 @@ COPY . /pkg
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install the package with the production data-stack constraint. NumPy and
-# Pandas must resolve to binary wheels; the image no longer carries a compiler.
+# Install the package with the CI test-image data-stack constraint. Every
+# dependency must resolve to a wheel because the image has no compiler.
 RUN python -m pip install \
     --no-cache-dir \
-    --only-binary=numpy,pandas \
-    --constraint /pkg/constraints/container-python313.txt \
-    /pkg
+    --only-binary=:all: \
+    --constraint /pkg/constraints/test-container-python313.txt \
+    /pkg packaging
 
 # Retain only the Botocore data used by the S3 connector and remove Pandas test
 # data. Resolve installed-package locations instead of embedding a Python minor.

@@ -1,0 +1,5 @@
+# Reproducible data-stack pins for the Python 3.13 CI test image.
+# These exact test-runtime pins do not replace the reusable package
+# compatibility ranges declared in requirements.txt.
+numpy==2.4.6
+pandas==2.3.3

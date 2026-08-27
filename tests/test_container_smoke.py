@@ -6,7 +6,11 @@ from scripts import container_smoke
 
 
 def test_runtime_versions_accept_migration_baseline():
-    container_smoke.validate_runtime_versions((3, 13, 9), "2.4.6", "2.3.3")
+    container_smoke.validate_runtime_versions(
+        (3, 13, 9),
+        container_smoke.EXPECTED_NUMPY,
+        container_smoke.EXPECTED_PANDAS,
+    )
 
 
 @pytest.mark.parametrize(
@@ -32,7 +36,11 @@ def test_runtime_versions_reject_unapproved_versions(
 
 def test_wrangles_metadata_requires_pandas_below_three():
     container_smoke.validate_wrangles_pandas_requirement(
-        ["numpy", "pandas<3.0,>=2.0", "requests"]
+        [
+            "numpy",
+            "pandas[performance]<3.0,>=2.0; python_version >= '3.11'",
+            "requests",
+        ]
     )
 
 
@@ -75,6 +83,13 @@ def test_trimmed_package_data_rejects_other_services(tmp_path):
         container_smoke.validate_trimmed_package_data(botocore_data, tmp_path / "pandas")
 
 
+def test_trimmed_package_data_rejects_missing_botocore_data(tmp_path):
+    botocore_data = tmp_path / "missing-botocore-data"
+
+    with pytest.raises(RuntimeError, match="Botocore data directory not found"):
+        container_smoke.validate_trimmed_package_data(botocore_data, tmp_path / "pandas")
+
+
 def test_runtime_toolchain_rejects_compiler():
     with pytest.raises(RuntimeError):
         container_smoke.validate_runtime_toolchain(
@@ -86,5 +101,24 @@ def test_data_round_trip():
     container_smoke.validate_data_round_trip()
 
 
-def test_s3_model_loads_without_network():
+def test_data_round_trip_propagates_comparison_failure(mocker):
+    comparison = mocker.patch(
+        "pandas.testing.assert_frame_equal",
+        side_effect=AssertionError("round trip changed the frame"),
+    )
+
+    with pytest.raises(AssertionError, match="round trip changed the frame"):
+        container_smoke.validate_data_round_trip()
+
+    comparison.assert_called_once()
+
+
+def test_s3_model_loads_without_network(mocker):
+    create_connection = mocker.patch(
+        "socket.create_connection",
+        side_effect=AssertionError("network access attempted"),
+    )
+
     container_smoke.validate_s3_model()
+
+    create_connection.assert_not_called()
