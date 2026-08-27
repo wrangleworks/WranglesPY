@@ -19,6 +19,16 @@
   After every legacy change is recovered, superseded, or intentionally
   abandoned, archive or delete the legacy branch.
 
+## Container ownership
+
+- The repository-root `dockerfile` builds the WranglesPY CI test image published
+  to `ghcr.io/wrangleworks/wrangles`. Do not describe it as the production
+  runtime image.
+- The deployed `execute-recipe` AWS Lambda image is built and deployed from the
+  `wrangleworks/Lambda-Recipes` repository. Its `dockerfile` controls the
+  production Python version; verify that repository before making production
+  runtime claims.
+
 ## Code Review Rules
 
 ### Make the required action explicit

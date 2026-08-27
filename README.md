@@ -36,6 +36,20 @@ the intentionally live database, AWS, WrangleWorks, AI, and search-provider
 checks. The complete credentialed suite remains a CI validation and a local
 dependency/import pass does not claim live-service validation.
 
+## Container and deployment ownership
+
+The repository-root `dockerfile` builds the WranglesPY **CI test image** published
+to `ghcr.io/wrangleworks/wrangles`. It validates the installable package and
+recipe behavior in a slim Linux environment; it is not the deployed recipe
+runtime.
+
+The production `execute-recipe` AWS Lambda image is built, published to ECR, and
+deployed from the
+[`wrangleworks/Lambda-Recipes`](https://github.com/wrangleworks/Lambda-Recipes)
+repository. Its `dockerfile` is the source of truth for the production Python
+version. Changing the Python version in this repository's test image does not
+migrate the production Lambda runtime.
+
 ## What are Wrangles?
 
 Wrangles are a set of modular transformations for data cleaning and enrichment. Each Wrangle is optimized for a particular job, many of which are backed by sophisticated machine learning models.

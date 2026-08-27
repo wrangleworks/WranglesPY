@@ -61,9 +61,9 @@ jobs:
             fi
           fi
 
-          # Pushes land on an immutable per-commit tag. The mutable release tag
+          # Pushes land on an immutable per-commit tag. The mutable test-image tag
           # (dev / latest) is only moved onto that image once test-container
-          # passes, so consumers never resolve it to an untested build.
+          # passes, so validation jobs never resolve it to an untested build.
           if [[ "$PUSH_IMAGE" == "true" ]]; then
             BUILD_TAG="sha-${GITHUB_SHA}"
           else
@@ -188,16 +188,34 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Build and push Docker image with Buildx (build only, never push, on PRs)
+      # Build and push the CI test image with Buildx (build only, never push, on PRs)
       # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
+      - name: Build and push CI test image
         id: build
         uses: docker/build-push-action@v7
         with:
           context: .
+          load: ${{ needs.config.outputs.push_image != 'true' }}
           push: ${{ needs.config.outputs.push_image == 'true' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Validate pull request test image
+        if: needs.config.outputs.push_image != 'true'
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.config.outputs.build_tag }}
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            "$IMAGE" \
+            python /workspace/scripts/container_smoke.py
+          docker run --rm "$IMAGE" python -m pip check
+          docker run --rm "$IMAGE" python -m pip freeze
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            --workdir /workspace/tests/samples \
+            "$IMAGE" \
+            sh -c 'wrangles.recipe recipe-basic.wrgl.yml && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py'
 
   test-container:
     runs-on: ubuntu-latest
@@ -221,6 +239,12 @@ jobs:
       - name: Remove wrangles folder
         run: rm -r wrangles
 
+      - name: Validate CI test runtime
+        run: |
+          python scripts/container_smoke.py
+          python -m pip check
+          python -m pip freeze
+
       - name: Install Test Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -238,11 +262,11 @@ jobs:
           && wrangles.recipe recipe-basic.wrgl.yml
           && wrangles.recipe recipe_custom_function.wrgl.yml -f custom_functions.py
 
-  # Moves :dev / :latest onto the image that test-container just validated.
+  # Moves :dev / :latest onto the CI test image that test-container validated.
   # Retagging by digest guarantees the promoted image is the tested one and not
   # a rebuild, so no consumer of a mutable tag ever sees an untested image.
   promote-image:
-    name: Promote Image
+    name: Promote CI Test Image
     runs-on: ubuntu-latest
     if: needs.config.outputs.push_image == 'true'
     needs: [config, build, test-container]

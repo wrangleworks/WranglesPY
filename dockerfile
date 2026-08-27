@@ -1,36 +1,60 @@
-FROM python:3.11-slim-bookworm AS compile-image
+# syntax=docker/dockerfile:1
+
+FROM python:3.13-slim-bookworm AS dependency-image
 
 # Copy package
 COPY . /pkg
-
-# Install compile requirements
-RUN apt-get update \
-    && apt-get install -y build-essential gcc \
-    gfortran python3-dev \
-    --no-install-recommends
 
 # Create a virtual env
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install package + dependencies
-RUN pip install --no-cache-dir wheel
-# Special install for numpy to reduce size
-RUN CFLAGS="-g0 -Wl,--strip-all" pip install --no-cache-dir --compile --global-option=build_ext numpy==1.24.3
-# Regular install (without cache) for everything else
-RUN pip install --no-cache-dir /pkg
+# Install the package with the CI test-image data-stack constraint. Every
+# dependency must resolve to a wheel because the image has no compiler.
+RUN python -m pip install \
+    --no-cache-dir \
+    --only-binary=:all: \
+    --constraint /pkg/constraints/test-container-python313.txt \
+    /pkg packaging
 
-# Botocore contains lots of definitions for all AWS services. We are only using S3. Remove all other files to save space
-RUN cd /opt/venv/lib/python3.11/site-packages/botocore/data && cp -r s3 _retry.json endpoints.json partitions.json sdk-default-configuration.json /tmp/
-RUN rm -r /opt/venv/lib/python3.11/site-packages/botocore/data/*
-RUN cp -r /tmp/s3 /tmp/_retry.json /tmp/endpoints.json /tmp/partitions.json /tmp/sdk-default-configuration.json /opt/venv/lib/python3.11/site-packages/botocore/data
+# Retain only the Botocore data used by the S3 connector and remove Pandas test
+# data. Resolve installed-package locations instead of embedding a Python minor.
+RUN python - <<'PY'
+from pathlib import Path
+import shutil
 
-# Pandas contains a lot of unnecessary test data that we won't use
-RUN rm -r /opt/venv/lib/python3.11/site-packages/pandas/tests/*
+import botocore
+import pandas
+
+botocore_data = Path(botocore.__file__).resolve().parent / "data"
+keep = {
+    "s3",
+    "_retry.json",
+    "endpoints.json",
+    "partitions.json",
+    "sdk-default-configuration.json",
+}
+for path in botocore_data.iterdir():
+    if path.name in keep:
+        continue
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+pandas_tests = Path(pandas.__file__).resolve().parent / "tests"
+if pandas_tests.exists():
+    shutil.rmtree(pandas_tests)
+PY
+
+# Fail the build before the runtime stage if versions, metadata, package-data
+# trimming, imports, or the credential-free data/S3 checks are incorrect.
+RUN python -m pip check \
+    && python /pkg/scripts/container_smoke.py
 
 # Create build image
-FROM python:3.11-slim-bookworm AS build-image
-COPY --from=compile-image /opt/venv /opt/venv
+FROM python:3.13-slim-bookworm AS build-image
+COPY --from=dependency-image /opt/venv /opt/venv
 
 LABEL maintainer="WrangleWorks"
 ENV PATH="/opt/venv/bin:$PATH"
