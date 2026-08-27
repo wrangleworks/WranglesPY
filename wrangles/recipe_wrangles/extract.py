@@ -26,7 +26,6 @@ _OUTPUT_FORMAT_ALIASES = {
     "concatenate": "concatenate",
     "concat": "concatenate",
 }
-_WEB_SEARCH_SOURCES_KEY = "web_search_sources"
 
 
 def _normalize_output_format(output_format, default):
@@ -294,18 +293,13 @@ def ai(
     input: list = None,
     output: _Union[dict, str, list] = None,
     model_id: str = None,
-    record_examples: _Union[dict, list] = None,
     output_format: str = None,
     char: str = ", ",
-    web_search: bool = False,
-    instructions: _Union[str, list] = None,
     **kwargs
 ):
     """
     type: object
-    description: >-
-      Extract structured data from each input row using an AI model. Define
-      the desired fields with output, or reuse a saved definition with model_id.
+    description: Extract data using an AI model.
     additionalProperties: false
     required:
       - api_key
@@ -320,26 +314,20 @@ def ai(
           - string
           - integer
           - array
-        description: >-
-          Input column name, column index, or list of columns supplied together
-          as DATA for each row. If omitted, all dataframe columns are supplied.
-        items:
-          type: [string, integer]
+        description: |-
+          Name or list of input columns to give to the AI
+          to use to determine the output. If not specified, all
+          columns will be used.
       output:
         type: [object, string, array]
-        description: >-
-          Desired extraction. Use an object keyed by output column name for
-          structured fields, a string for one prompted value, or an array of
-          field names/definitions. Each field may use the schema options below.
+        description: List and description of the output you want
         patternProperties:
           "^[a-zA-Z0-9 _-]+$":
             type: [object, string]
             properties:
               type:
                 type: string
-                description: >-
-                  JSON data type required for this field. If omitted, common
-                  scalar types are accepted. Fields allow null by default.
+                description: The type of data you'd like the model to return.
                 enum:
                   - string
                   - number
@@ -350,14 +338,10 @@ def ai(
                   - array
               description:
                 type: string
-                description: >-
-                  Plain-language definition of the value to extract, including
-                  any selection, normalization, unit, or evidence rules.
+                description: Description of the output you'd like the model to return.
               enum:
                 type: array
-                description: >-
-                  Allowed output values. The model must choose one of these
-                  values; null is also allowed unless nullable is false.
+                description: List of possible values for the output.
               default:
                 type:
                   - string
@@ -367,12 +351,8 @@ def ai(
                   - "null"
                   - object
                   - array
-                description: >-
-                  JSON Schema annotation for a preferred default. extract.ai
-                  does not substitute this value when evidence is missing;
-                  describe fallback behavior explicitly or allow null.
+                description: A default value to return.
               examples:
-                title: Field examples
                 type:
                   - array
                   - object
@@ -382,250 +362,131 @@ def ai(
                   - boolean
                   - "null"
                 description: >-
-                  Field-specific examples. The backward-compatible form is a
-                  scalar or list of typical output values. A paired example may
-                  instead use input and output, with optional name and notes.
-                  Paired examples apply only to this output field; use
-                  record_examples for complete output records.
-                properties:
-                  name:
-                    type: string
-                    description: Optional label included with this paired field example.
-                  notes:
-                    type: string
-                    description: Optional explanatory guidance included with this paired field example.
-                  input:
-                    description: Source value or record for this paired field example.
-                  output:
-                    description: Expected value for this output field only.
-                items:
-                  anyOf:
-                    - type: object
-                      required:
-                        - input
-                        - output
-                      properties:
-                        name:
-                          type: string
-                          description: Optional label included with this paired field example.
-                        notes:
-                          type: string
-                          description: Optional explanatory guidance included with this paired field example.
-                        input:
-                          description: Source value or record for this paired field example.
-                        output:
-                          description: Expected value for this output field only.
-                    - description: Backward-compatible output-only example value.
+                  Provide typical output values, or paired objects with input
+                  and output keys for field-specific examples.
               properties:
                 type:
                   - object
                   - array
                   - string
                 description: >-
-                  Child fields when type is object. Use an object to define a
-                  schema for each child. A list or comma-separated string is a
-                  shortcut that creates fixed child names.
+                  Named properties for an object. A list or comma-separated
+                  string creates fixed property names.
               additionalProperties:
                 type:
                   - boolean
                   - object
                 description: >-
-                  Controls keys beyond properties when type is object. Set false
-                  for fixed keys, true for arbitrary values, or provide one
-                  schema applied to every dynamic value. Dynamic dictionaries
-                  use non-strict provider mode plus local validation.
+                  Set true, or provide a value schema, for a dynamic dictionary.
+                  Dynamic dictionaries automatically use non-strict schema mode
+                  while fixed portions of the output remain constrained.
               items:
                 type: object
-                description: >-
-                  Schema applied to every element when this field's type is array.
+                description: Schema for each item returned by an array.
               nullable:
                 type: boolean
                 description: >-
                   Whether the field may return null. Defaults to true while
                   the field key remains required. Set false to opt out.
-      record_examples:
-        title: Record examples
+      examples:
         type:
           - array
           - object
         description: >-
-          Whole-record examples. Each example has a separate input value or
-          record and the complete expected output record. Optional name and
-          notes provide model-visible context. Use {name: ..., notes: ...,
-          input: ..., output: ...}. Omitted output fields are completed with
-          null. This differs from examples nested under one output field, which
-          teach only that field.
-        required:
-          - input
-          - output
-        properties:
-          name:
-            type: string
-            description: Optional label used to identify this example in the prompt.
-          notes:
-            type: string
-            description: Optional explanatory guidance included with this example.
-          input:
-            description: Source value or record the example should match.
-          output:
-            description: Expected result using the field names defined by output.
-        items:
-          type: object
-          required:
-            - input
-            - output
-          properties:
-            name:
-              type: string
-              description: Optional label used to identify this example in the prompt.
-            notes:
-              type: string
-              description: Optional explanatory guidance included with this example.
-            input:
-              description: Source value or record the example should match.
-            output:
-              description: Expected result using the field names defined by output.
+          Holistic input/output example pairs spanning the complete output
+          record. Sparse outputs are completed with null for omitted fields.
       api_key:
         type: string
-        description: OpenAI API key used for this wrangle, normally supplied through a recipe variable.
+        description: API Key for the model
       model:
         type: string
-        description: >-
-          OpenAI model ID for this call. If omitted, uses the configured
-          extract.ai default; a saved model definition may supply its own model.
+        description: The name of the AI model to use
       threads:
         type: integer
         minimum: 1
-        description: Maximum number of row-level requests sent in parallel. The configured default is 32.
+        description: The number of requests to send in parallel. The configured default is 32.
       timeout:
         type: number
         exclusiveMinimum: 0
-        description: >-
-          Maximum seconds for one HTTP attempt. The configured default is 12;
-          deadline can end the overall call sooner.
+        description: Per-request timeout in seconds. The configured default is 12.
       retries:
         type: integer
         minimum: 0
         description: >-
-          Number of additional attempts after a retryable failure. The configured
-          default is 1. Backoff and request timeouts remain bounded by deadline.
+          The number of times to retry if the request fails.
+          Defaults to 1. Retry delays and request timeouts are bounded
+          by the total deadline.
       url:
         type: string
         description: |-
-          Override the endpoint for the selected protocol. A chat/completions URL
-          selects the legacy protocol only when protocol is omitted; new recipes
-          should use the configured Responses endpoint.
+          Override the endpoint configured for the selected protocol.
+          Existing chat/completions URLs are detected for backwards compatibility,
+          but definitions should set protocol explicitly while being upgraded.
       provider:
         type: string
-        description: AI service provider. Currently only OpenAI is supported.
+        description: AI provider. Phase 1 supports OpenAI; this field reserves a stable provider boundary.
         enum:
           - openai
       protocol:
         type: string
-        description: >-
-          OpenAI API protocol. Responses is the configured default and is required
-          for web_search; chat_completions remains available for legacy definitions.
+        description: API protocol. Responses is the configured default.
         enum:
           - responses
           - chat_completions
       deadline:
         type: number
         exclusiveMinimum: 0
-        description: >-
-          Total seconds allowed for the entire wrangle call, including queued
-          work, retries, and backoff. The configured default is 15.
+        description: Total call budget in seconds, including retries. The configured default is 15.
       store:
         type: boolean
-        description: Whether OpenAI may store Responses API results. Defaults to false.
+        description: Whether OpenAI may store Responses. Defaults to false.
       cache:
         type: boolean
         description: >-
-          Reuse identical successful results from the bounded warm-instance cache.
-          Defaults to true. Set false when fresh model or web results are required.
+          Use the bounded warm-instance result cache. Defaults to true.
+          Set false for a call-level bypass.
       cache_ttl:
         type: number
         exclusiveMinimum: 0
-        description: >-
-          Maximum age in seconds for a cached result used by this call. Applies
-          to extracted values and web_search_sources together.
-      instructions:
-        title: Instructions
+        description: Override the result-cache TTL in seconds for this call.
+      messages:
         type:
           - string
           - array
-        description: >-
-          Additional guidance applied to every input row. Use this for decision
-          rules, evidence priorities, normalization requirements, or other
-          behavior that applies to the complete extraction.
-        items:
-          type: string
+        description: Optional. Provide additional overall instructions for the AI.
       model_id:
         type: string
-        description: >-
-          ID of a saved extract.ai definition. Use it instead of defining an
-          output schema. When output is also supplied with model_id in a recipe,
-          output names the destination column or columns for the saved fields.
+        description: Use a saved definition from an extract ai wrangle.
       strict:
         type: boolean
         description: >-
-          Require OpenAI structured-output strict mode. Defaults to true.
-          Definitions with dynamic dictionary keys automatically switch to
-          non-strict provider mode and are still validated locally.
+          Enable structured output strict mode. Default true. Definitions with
+          dynamic dictionaries automatically use non-strict provider mode and
+          are validated locally.
       output_format:
         type: string
-        description: >-
-          How extracted fields are written. columns writes one dataframe column
-          per field (default); dictionary keeps one object; concatenate joins
-          fields into one string using char.
+        description: Format of the extract output
         enum:
           - dictionary
           - columns
           - concatenate
       char:
         type: string
-        description: Separator used only when output_format is concatenate. Defaults to comma-space.
+        description: Character to use when output_format is concatenate
       reasoning:
         type: object
         description: >-
-          Responses API reasoning controls. Set effort for reasoning-capable
-          models. The configured default is none when that model supports it;
-          otherwise the provider default applies.
-        properties:
-          effort:
-            type: string
-            description: Amount of reasoning work requested from a compatible model.
-            enum:
-              - none
-              - minimal
-              - low
-              - medium
-              - high
-              - xhigh
+          Responses API reasoning options. Defaults to effort none for models
+          that support disabling reasoning; otherwise the provider default applies.
       verbosity:
         type: string
-        description: >-
-          Responses API text verbosity for compatible models. Defaults to low
-          when supported; ignored with a warning for incompatible models.
+        description: Responses API output verbosity. Defaults to low for models that support low verbosity.
         enum:
           - low
           - medium
           - high
-      web_search:
-        type: boolean
-        description: >-
-          Enable OpenAI Responses web search; the model decides when searching
-          helps. When true, every row also receives web_search_sources: a
-          deduplicated list of {title, url} objects in source order, or an empty
-          list when no source was used. This reserved column is automatic.
-          Requires protocol responses. Defaults to false.
     """
     output_format_normalized = _normalize_output_format(output_format, "columns")
-    if not isinstance(web_search, bool):
-        raise ValueError("web_search must be true or false.")
-    if web_search and _WEB_SEARCH_SOURCES_KEY in df.columns:
-        raise ValueError(
-            f"Column {_WEB_SEARCH_SOURCES_KEY!r} is reserved when web_search is enabled."
-        )
 
     # If input is provided, extract only those columns
     # Otherwise, provide the whole dataframe
@@ -686,36 +547,14 @@ def ai(
     # If a schema has been provided, define the target columns
     if not target_columns and output is not None:
         target_columns = list(output.keys())
-    if web_search and target_columns and _WEB_SEARCH_SOURCES_KEY in target_columns:
-        raise ValueError(
-            f"Output column {_WEB_SEARCH_SOURCES_KEY!r} is reserved when web_search is enabled."
-        )
 
     results = _extract.ai(
         df_temp.to_dict(orient='records'),
         api_key=api_key,
         output=output,
         model_id=model_id,
-        record_examples=record_examples,
-        web_search=web_search,
-        instructions=instructions,
         **kwargs
     )
-
-    web_search_sources = None
-    if web_search:
-        web_search_sources = []
-        extraction_results = []
-        for result in results:
-            if not isinstance(result, dict):
-                web_search_sources.append([])
-                extraction_results.append(result)
-                continue
-            result = dict(result)
-            sources = result.pop(_WEB_SEARCH_SOURCES_KEY, [])
-            web_search_sources.append(sources if isinstance(sources, list) else [])
-            extraction_results.append(result)
-        results = extraction_results
 
     try:
         exploded_df = _pd.json_normalize(results, max_level=0).fillna('').set_index(df.index)
@@ -759,13 +598,6 @@ def ai(
             df[target_columns] = exploded_df[target_columns]
     except:
       raise RuntimeError("Unable to parse response from AI model")
-
-    if web_search_sources is not None:
-        df[_WEB_SEARCH_SOURCES_KEY] = _pd.Series(
-            web_search_sources,
-            index=df.index,
-            dtype=object,
-        )
 
     return df
 

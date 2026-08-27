@@ -457,18 +457,13 @@ def test_saved_model_compiles_new_field_example_columns_and_legacy_examples():
     assert compiled.output["Power_Source"]["examples"] == ["Corded", "Battery"]
 
 
-def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
+def test_recipe_field_pairs_and_holistic_examples_compile_to_stable_guidance():
     compiled = ai_definition.compile_definition(
         {
             "Power Source": {
                 "type": "string",
                 "examples": [
-                    {
-                        "name": "cordless tool",
-                        "notes": "Voltage without a cord indicates a battery.",
-                        "input": "18V cordless drill",
-                        "output": "Battery",
-                    },
+                    {"input": "18V cordless drill", "output": "Battery"},
                     "Corded",
                 ],
             },
@@ -478,7 +473,6 @@ def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
         examples=[
             {
                 "name": "corded saw",
-                "notes": "Use both fields from this complete record example.",
                 "input": "120V corded jig saw",
                 "output": {"Power Source": "Corded", "Voltage": 120},
             },
@@ -492,15 +486,10 @@ def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
     assert compiled.output["Power_Source"]["examples"] == ["Corded"]
     assert compiled.field_examples[0].field == "Power_Source"
     assert compiled.field_examples[0].output == "Battery"
-    assert compiled.field_examples[0].name == "cordless tool"
-    assert compiled.field_examples[0].notes == "Voltage without a cord indicates a battery."
     assert compiled.record_examples[0].output == {
         "Power_Source": "Corded",
         "Voltage": 120,
     }
-    assert compiled.record_examples[0].notes == (
-        "Use both fields from this complete record example."
-    )
     assert compiled.record_examples[1].output == {
         "Power_Source": None,
         "Voltage": None,
@@ -509,13 +498,10 @@ def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
     guidance = ai_definition.render_example_guidance(compiled)
     assert "<field_example" in guidance
     assert "<record_example" in guidance
-    assert 'name="cordless tool"' in guidance
-    assert "Voltage without a cord indicates a battery." in guidance
-    assert "Use both fields from this complete record example." in guidance
     assert '"Power_Source": null' in guidance
 
 
-def test_saved_model_can_supply_record_examples():
+def test_saved_model_can_supply_holistic_examples():
     saved = _saved_model(
         ["Color", "Explicit color", "string", "", "", "", "", ""],
     )
@@ -564,7 +550,7 @@ def test_field_example_input_requires_output_but_explicit_null_is_valid():
     assert compiled.field_examples[0].output is None
 
 
-def test_record_example_rejects_unknown_output_field():
+def test_holistic_example_rejects_unknown_output_field():
     with pytest.raises(ValueError, match="unknown output field 'Mystery'"):
         ai_definition.compile_definition(
             {"Color": {"type": "string"}},
@@ -661,7 +647,7 @@ def test_saved_model_without_inline_output_flows_through_yaml_recipe(monkeypatch
     assert "Return the explicit color." in calls[0]["instructions"]
 
 
-def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
+def test_field_and_holistic_examples_flow_through_yaml_recipe(monkeypatch):
     calls = []
 
     def call_structured(data, api_key, payload, *args):
@@ -677,21 +663,16 @@ def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
             input: Description
             api_key: dummy
             threads: 1
-            instructions: Prefer explicit source values.
             output:
               Color:
                 type: string
                 examples:
-                  - name: explicit field color
-                    notes: This example guides only the Color field.
-                    input: yellow handle
+                  - input: yellow handle
                     output: yellow
               Voltage:
                 type: number
-            record_examples:
-              - name: complete yellow example
-                notes: The voltage is intentionally absent.
-                input: yellow manual tool
+            examples:
+              - input: yellow manual tool
                 output:
                   Color: yellow
         """,
@@ -702,37 +683,4 @@ def test_field_and_record_examples_flow_through_yaml_recipe(monkeypatch):
     assert result["Voltage"].tolist() == [""]
     assert "<field_example" in calls[0]["instructions"]
     assert "<record_example" in calls[0]["instructions"]
-    assert "Prefer explicit source values." in calls[0]["instructions"]
-    assert "explicit field color" in calls[0]["instructions"]
-    assert "This example guides only the Color field." in calls[0]["instructions"]
-    assert "complete yellow example" in calls[0]["instructions"]
-    assert "The voltage is intentionally absent." in calls[0]["instructions"]
     assert '"Voltage": null' in calls[0]["instructions"]
-
-
-def test_recipe_messages_remains_a_compatibility_alias(monkeypatch):
-    calls = []
-
-    def call_structured(data, api_key, payload, *args):
-        calls.append(payload)
-        return {"Color": "yellow"}
-
-    monkeypatch.setattr(openai_responses, "call_structured", call_structured)
-
-    result = wrangles.recipe.run(
-        """
-        wrangles:
-        - extract.ai:
-            input: Description
-            api_key: dummy
-            threads: 1
-            messages: Legacy recipe guidance.
-            output:
-              Color:
-                type: string
-        """,
-        dataframe=pd.DataFrame({"Description": ["yellow handle"]}),
-    )
-
-    assert result["Color"].tolist() == ["yellow"]
-    assert "Legacy recipe guidance." in calls[0]["instructions"]
