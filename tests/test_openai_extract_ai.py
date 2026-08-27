@@ -73,6 +73,8 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
     assert payload["store"] is False
+    assert "tools" not in payload
+    assert "include" not in payload
     assert calls[0]["timeout"] <= 12
     assert "seed" not in payload
     assert "Ignored legacy OpenAI parameter 'seed'" in caplog.text
@@ -82,7 +84,253 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert schema["additionalProperties"] is False
 
 
-def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monkeypatch):
+def test_extract_ai_web_search_returns_metadata_sources_and_caches_them(monkeypatch):
+    calls = []
+    body = {
+        "output": [
+            {
+                "type": "web_search_call",
+                "action": {
+                    "type": "search",
+                    "sources": [
+                        {"type": "url", "url": "https://example.com/a"},
+                        {
+                            "type": "url",
+                            "url": "https://example.com/b",
+                            "title": "Source B",
+                        },
+                    ],
+                },
+            },
+            {
+                "type": "message",
+                "content": [{
+                    "type": "output_text",
+                    "text": '{"output":"Acme"}',
+                    "annotations": [
+                        {
+                            "type": "url_citation",
+                            "url": "https://example.com/a",
+                            "title": "Source A",
+                        },
+                        {
+                            "type": "url_citation",
+                            "url": "https://example.com/c",
+                            "title": "Source C",
+                        },
+                    ],
+                }],
+            },
+        ]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    arguments = {
+        "input": "Who makes this product?",
+        "api_key": "tenant-key",
+        "output": "Manufacturer name",
+        "web_search": True,
+        "threads": 1,
+    }
+
+    first = extract.ai(**arguments)
+    second = extract.ai(**arguments)
+
+    assert first == {
+        "output": "Acme",
+        "web_search_sources": [
+            {"title": "Source A", "url": "https://example.com/a"},
+            {"title": "Source B", "url": "https://example.com/b"},
+            {"title": "Source C", "url": "https://example.com/c"},
+        ],
+    }
+    assert second == first
+    assert len(calls) == 1
+    payload = calls[0]["json"]
+    assert payload["tools"] == [{"type": "web_search"}]
+    assert payload["include"] == ["web_search_call.action.sources"]
+    assert payload["tool_choice"] == "auto"
+    assert "authorized evidence in addition to DATA" in payload["instructions"]
+
+
+def test_extract_ai_web_search_preserves_expert_tool_settings(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"manufacturer":"Acme"}',
+                "annotations": [],
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output={"manufacturer": {"type": "string"}},
+        web_search=True,
+        tools=[{"type": "code_interpreter", "container": {"type": "auto"}}],
+        include=["reasoning.encrypted_content"],
+        tool_choice="required",
+        threads=1,
+    )
+
+    assert result == {"manufacturer": "Acme", "web_search_sources": []}
+    payload = calls[0]["json"]
+    assert payload["tools"] == [
+        {"type": "code_interpreter", "container": {"type": "auto"}},
+        {"type": "web_search"},
+    ]
+    assert payload["include"] == [
+        "reasoning.encrypted_content",
+        "web_search_call.action.sources",
+    ]
+    assert payload["tool_choice"] == "required"
+
+
+def test_extract_ai_web_search_failure_still_returns_empty_sources(monkeypatch):
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: _Response({
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "type": "search",
+                        "sources": [{"url": "https://example.com/failure-source"}],
+                    },
+                },
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "not json"}],
+                },
+            ]
+        }),
+    )
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output="Manufacturer name",
+        web_search=True,
+        retries=0,
+        threads=1,
+    )
+
+    assert result["web_search_sources"] == [{
+        "title": "",
+        "url": "https://example.com/failure-source",
+    }]
+    assert result["output"].startswith("Invalid structured response")
+
+
+def test_extract_ai_malformed_response_json_returns_structured_failure(monkeypatch):
+    class MalformedResponse(_Response):
+        def json(self):
+            raise json.JSONDecodeError("Malformed response body", "", 0)
+
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: MalformedResponse(None),
+    )
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output="Manufacturer name",
+        web_search=True,
+        retries=0,
+        threads=1,
+    )
+
+    assert result["output"].startswith("Invalid structured response")
+    assert result["web_search_sources"] == []
+
+
+def test_extract_ai_malformed_retry_does_not_reuse_prior_response_sources(monkeypatch):
+    class MalformedResponse(_Response):
+        def json(self):
+            raise json.JSONDecodeError("Malformed response body", "", 0)
+
+    responses = [
+        _Response({
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "type": "search",
+                        "sources": [{"url": "https://example.com/stale-source"}],
+                    },
+                },
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "not json"}],
+                },
+            ]
+        }),
+        MalformedResponse(None),
+    ]
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: responses.pop(0),
+    )
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", lambda delay: None)
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output="Manufacturer name",
+        web_search=True,
+        retries=1,
+        threads=1,
+    )
+
+    assert result["output"].startswith("Invalid structured response")
+    assert result["web_search_sources"] == []
+    assert responses == []
+
+
+def test_extract_ai_web_search_validates_protocol_and_reserved_output():
+    with pytest.raises(ValueError, match="only with protocol='responses'"):
+        extract.ai(
+            "Acme part",
+            "key",
+            output={"manufacturer": {"type": "string"}},
+            web_search=True,
+            protocol="chat_completions",
+        )
+
+    with pytest.raises(ValueError, match="web_search must be true or false"):
+        extract.ai(
+            "Acme part",
+            "key",
+            output={"manufacturer": {"type": "string"}},
+            web_search="yes",
+        )
+
+    with pytest.raises(ValueError, match="is reserved"):
+        extract.ai(
+            "Acme part",
+            "key",
+            output={"web search sources": {"type": "string"}},
+            web_search=True,
+        )
+
+
+def test_record_examples_are_stable_instructions_and_part_of_the_result_cache_key(monkeypatch):
     calls = []
     body = {
         "output": [{
@@ -106,14 +354,14 @@ def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monke
     }
 
     extract.ai(
-        examples=[{
+        record_examples=[{
             "input": "yellow grip",
             "output": {"color": "yellow"},
         }],
         **common,
     )
     extract.ai(
-        examples=[{
+        record_examples=[{
             "input": "red grip",
             "output": {"color": "red"},
         }],
@@ -123,6 +371,48 @@ def test_examples_are_stable_instructions_and_part_of_the_result_cache_key(monke
     assert len(calls) == 2
     assert "<record_example" in calls[0]["json"]["instructions"]
     assert calls[0]["json"]["prompt_cache_key"] != calls[1]["json"]["prompt_cache_key"]
+
+
+def test_examples_remains_a_compatibility_alias_for_record_examples(monkeypatch):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{
+                "type": "output_text",
+                "text": '{"color":"yellow"}',
+            }],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    common = {
+        "input": "yellow handle",
+        "api_key": "key",
+        "output": {"color": {"type": "string"}},
+        "threads": 1,
+    }
+
+    result = extract.ai(
+        examples=[{
+            "name": "legacy Python alias",
+            "input": "yellow grip",
+            "output": {"color": "yellow"},
+        }],
+        **common,
+    )
+
+    assert result == {"color": "yellow"}
+    assert "legacy Python alias" in calls[0]["json"]["instructions"]
+    with pytest.raises(ValueError, match="not both"):
+        extract.ai(
+            examples=[{"input": "yellow", "output": {"color": "yellow"}}],
+            record_examples=[{"input": "red", "output": {"color": "red"}}],
+            **common,
+        )
 
 
 def test_field_examples_are_stable_system_content_for_legacy_protocol(monkeypatch):
@@ -755,7 +1045,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
         "12 VDC",
         "key",
         model_id="saved-model",
-        messages="Prefer explicit source values.",
+        instructions="Prefer explicit source values.",
         threads=1,
     )
 
@@ -767,6 +1057,27 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
     assert voltage["required"] == ["value", "uom"]
     assert "Normalize units." in payload["instructions"]
     assert "Prefer explicit source values." in payload["instructions"]
+
+    legacy_result = extract.ai(
+        "12 VDC",
+        "key",
+        model_id="saved-model",
+        messages="Legacy messages alias remains supported.",
+        cache=False,
+        threads=1,
+    )
+    assert legacy_result == result
+    assert "Legacy messages alias remains supported." in calls[1]["json"]["instructions"]
+
+    with pytest.raises(ValueError, match="not both"):
+        extract.ai(
+            "12 VDC",
+            "key",
+            model_id="saved-model",
+            instructions="New name.",
+            messages="Legacy alias.",
+            threads=1,
+        )
 
 
 def test_dynamic_recipe_output_relaxes_only_nested_dictionary(monkeypatch):
@@ -927,9 +1238,9 @@ def test_prompt_cache_key_covers_complete_static_prefix(monkeypatch):
         "cache": False,
     }
 
-    extract.ai(messages="Use source units.", **common)
-    extract.ai(messages="Use source units.", **common)
-    extract.ai(messages="Convert to inches.", **common)
+    extract.ai(instructions="Use source units.", **common)
+    extract.ai(instructions="Use source units.", **common)
+    extract.ai(instructions="Convert to inches.", **common)
 
     keys = [payload["prompt_cache_key"] for payload in payloads]
     assert keys[0] == keys[1]

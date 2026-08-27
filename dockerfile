@@ -11,11 +11,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install the package with the CI test-image data-stack constraint. Every
 # dependency must resolve to a wheel because the image has no compiler.
+# pyarrow is an optional (requirements-full.txt) dependency of the package
+# itself, but this image's smoke test exercises it directly to validate
+# NumPy/Pandas/PyArrow wheel interop, so it's installed explicitly here.
 RUN python -m pip install \
     --no-cache-dir \
     --only-binary=:all: \
     --constraint /pkg/constraints/test-container-python313.txt \
-    /pkg packaging
+    /pkg packaging pyarrow
 
 # Retain only the Botocore data used by the S3 connector and remove Pandas test
 # data. Resolve installed-package locations instead of embedding a Python minor.

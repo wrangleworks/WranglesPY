@@ -25,6 +25,7 @@ from pydantic import create_model as _create_model
 _LOG = _logging.getLogger(__name__)
 _LOCK = _threading.Lock()
 _SUCCESS_STATS = {}
+WEB_SEARCH_SOURCES_KEY = "web_search_sources"
 _JSON_TYPE_MAP = {
     "string": str,
     "number": float,
@@ -526,11 +527,101 @@ def format_input_data(data: _Any) -> str:
     return str(data)
 
 
-def error_result(required_fields: list, message: str) -> dict:
-    return {
+def _uses_web_search(payload: dict) -> bool:
+    tools = payload.get("tools", [])
+    if not isinstance(tools, list):
+        return False
+    return any(
+        isinstance(tool, dict)
+        and tool.get("type") in {"web_search", "web_search_preview"}
+        for tool in tools
+    )
+
+
+def extract_web_search_sources(response_json: dict) -> list:
+    """Return cited and consulted web URLs in stable response order."""
+    annotation_titles = {}
+    annotations = []
+    output = response_json.get("output", [])
+    if not isinstance(output, list):
+        output = []
+
+    for item in output:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        content_items = item.get("content", [])
+        if not isinstance(content_items, list):
+            continue
+        for content in content_items:
+            if not isinstance(content, dict):
+                continue
+            content_annotations = content.get("annotations", [])
+            if not isinstance(content_annotations, list):
+                continue
+            for annotation in content_annotations:
+                if (
+                    not isinstance(annotation, dict)
+                    or annotation.get("type") != "url_citation"
+                ):
+                    continue
+                url = annotation.get("url")
+                if not isinstance(url, str) or not url.strip():
+                    continue
+                url = url.strip()
+                title = annotation.get("title")
+                title = title.strip() if isinstance(title, str) else ""
+                annotations.append((url, title))
+                if title and url not in annotation_titles:
+                    annotation_titles[url] = title
+
+    sources = []
+    positions = {}
+
+    def add_source(url, title=""):
+        if not isinstance(url, str) or not url.strip():
+            return
+        url = url.strip()
+        title = title.strip() if isinstance(title, str) else ""
+        title = title or annotation_titles.get(url, "")
+        if url in positions:
+            existing = sources[positions[url]]
+            if not existing["title"] and title:
+                existing["title"] = title
+            return
+        positions[url] = len(sources)
+        sources.append({"title": title, "url": url})
+
+    for item in output:
+        if not isinstance(item, dict) or item.get("type") != "web_search_call":
+            continue
+        action = item.get("action")
+        if not isinstance(action, dict):
+            continue
+        action_sources = action.get("sources", [])
+        if isinstance(action_sources, list):
+            for source in action_sources:
+                if isinstance(source, dict):
+                    add_source(source.get("url"), source.get("title", ""))
+        add_source(action.get("url"), action.get("title", ""))
+
+    for url, title in annotations:
+        add_source(url, title)
+
+    return sources
+
+
+def error_result(
+    required_fields: list,
+    message: str,
+    include_web_search_sources: bool = False,
+) -> dict:
+    result = {
         field: message
         for field in required_fields
     }
+    if include_web_search_sources:
+        result[WEB_SEARCH_SOURCES_KEY] = []
+    return result
 
 
 def extract_response_text(response_json: dict) -> str:
@@ -638,13 +729,24 @@ def call_structured(
             "content": f"DATA:\n{format_input_data(data)}",
         }
     ]
+    include_web_search_sources = _uses_web_search(request_payload)
+
+    def failure(message: str, response_json: dict = None) -> dict:
+        result = error_result(
+            required_fields,
+            message,
+            include_web_search_sources=include_web_search_sources,
+        )
+        if include_web_search_sources and isinstance(response_json, dict):
+            result[WEB_SEARCH_SOURCES_KEY] = extract_web_search_sources(response_json)
+        return result
 
     response = None
     backoff_time = 1
     for attempt in range(retries + 1):
         remaining = _remaining_seconds(deadline_at)
         if remaining is not None and remaining <= 0:
-            return error_result(required_fields, "Deadline Exceeded")
+            return failure("Deadline Exceeded")
 
         request_timeout = timeout
         if remaining is not None:
@@ -662,14 +764,16 @@ def call_structured(
             elapsed_seconds = _time.time() - started
         except _requests.exceptions.Timeout:
             if attempt >= retries:
-                return error_result(required_fields, "Timed Out")
+                return failure("Timed Out")
         except Exception as e:
             if attempt >= retries:
-                return error_result(required_fields, str(e))
+                return failure(str(e))
 
         if response is not None and response.ok:
+            response_json = None
             try:
-                output_text = extract_response_text(response.json())
+                response_json = response.json()
+                output_text = extract_response_text(response_json)
                 parsed = _json.loads(output_text)
                 if not isinstance(parsed, dict):
                     raise ValueError("Structured response was not a JSON object.")
@@ -680,10 +784,18 @@ def call_structured(
                     model=request_payload.get("model"),
                     elapsed_seconds=elapsed_seconds,
                 )
-                return validate_structured_output(parsed, schema)
+                validated = validate_structured_output(parsed, schema)
+                if include_web_search_sources:
+                    validated[WEB_SEARCH_SOURCES_KEY] = extract_web_search_sources(
+                        response_json
+                    )
+                return validated
             except (_json.JSONDecodeError, _ValidationError, ValueError) as e:
                 if attempt >= retries:
-                    return error_result(required_fields, f"Invalid structured response: {e}")
+                    return failure(
+                        f"Invalid structured response: {e}",
+                        response_json=response_json,
+                    )
         else:
             context = _response_context(
                 response,
@@ -700,7 +812,7 @@ def call_structured(
                     raise ValueError("API Key provided is missing or invalid.")
             if attempt >= retries or not _should_retry(context):
                 _log_api_error(context, final=True)
-                return error_result(required_fields, _error_message(context))
+                return failure(_error_message(context))
             _log_api_error(context, final=False)
 
         if response is not None and not response.ok:
@@ -708,7 +820,7 @@ def call_structured(
         else:
             delay = _sleep_for_retry({}, backoff_time, deadline_at)
         if delay is None:
-            return error_result(required_fields, "Deadline Exceeded")
+            return failure("Deadline Exceeded")
         backoff_time *= 2
 
-    return error_result(required_fields, "Failed")
+    return failure("Failed")
