@@ -341,6 +341,7 @@ def test_classify_name_creates_working_model(caplog):
             _delete_model(new_model_id, 'classify')
 
 def test_classify_write_logs_new_model_id_integration(caplog):
+    caplog.set_level(logging.INFO)
     df = pd.DataFrame({
         'Example': ['apple', 'banana'],
         'Category': ['fruit', 'fruit'],
@@ -1845,6 +1846,7 @@ def test_lookup_write_logs_new_model_id(caplog):
     """
     Integration test for lookup model creation logging
     """
+    caplog.set_level(logging.INFO)
     df = pd.DataFrame({
         'Key': ['apple', 'banana'],
         'Value': ['fruit', 'fruit']
@@ -2036,6 +2038,7 @@ def test_standardize_write_logs_new_model_id(caplog):
     """
     Integration test for standardize model creation logging
     """
+    caplog.set_level(logging.INFO)
     df = pd.DataFrame({
         'Find': ['ASAP', 'ETA'],
         'Replace': ['As Soon As Possible', 'Estimated Time of Arrival'],
