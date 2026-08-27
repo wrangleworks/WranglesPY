@@ -103,8 +103,6 @@ class CompiledFieldExample:
     field: str
     input: _Any
     output: _Any
-    name: str = None
-    notes: str = None
 
 
 @_dataclass(frozen=True)
@@ -114,7 +112,6 @@ class CompiledRecordExample:
     name: str
     input: _Any
     output: dict
-    notes: str = None
 
 
 @_dataclass(frozen=True)
@@ -276,15 +273,10 @@ class _Compiler:
                     f"{path}.examples[{index}].output",
                     "must be provided for a paired field example.",
                 )
-            pair = {
+            pairs.append({
                 "input": self._parse_json_value(item["input"]),
                 "output": self._parse_json_value(item["output"]),
-            }
-            for metadata_key in ("name", "notes"):
-                metadata_value = item.get(metadata_key)
-                if metadata_value not in (None, ""):
-                    pair[metadata_key] = str(metadata_value)
-            pairs.append(pair)
+            })
 
         if value_examples:
             schema["examples"] = value_examples
@@ -435,15 +427,11 @@ class _Compiler:
             name = raw_example.get("name")
             if name in (None, ""):
                 name = f"example-{index + 1}"
-            notes = raw_example.get("notes")
-            if notes in (None, ""):
-                notes = None
             compiled.append(
                 CompiledRecordExample(
                     name=str(name),
                     input=example_input,
                     output=complete_output,
-                    notes=str(notes) if notes is not None else None,
                 )
             )
         return compiled
@@ -822,7 +810,7 @@ def compile_definition(
     Compile a recipe/Python output and optional saved XL model definition.
 
     Direct keyed output overrides fields from the saved model. Saved model
-    instructions and record examples run first, followed by call-level
+    instructions and holistic examples run first, followed by call-level
     messages and examples.
     """
     compiler = _Compiler(source)
@@ -930,8 +918,6 @@ def compile_definition(
                     sanitized_output[sanitized_field],
                     f"output.{original_field}.examples[{index}].output",
                 ),
-                name=pair.get("name"),
-                notes=pair.get("notes"),
             )
         )
 
@@ -991,17 +977,8 @@ def render_example_guidance(compiled: CompiledAIDefinition) -> str:
     if compiled.field_examples:
         blocks = []
         for example in compiled.field_examples:
-            attributes = f" field={_json.dumps(example.field)}"
-            if example.name:
-                attributes += f" name={_json.dumps(example.name)}"
-            lines = [
-                f"<field_example{attributes}>",
-            ]
-            if example.notes:
-                lines.append(
-                    f"<notes>{_json.dumps(example.notes, ensure_ascii=False)}</notes>"
-                )
-            lines.extend([
+            blocks.append("\n".join([
+                f'<field_example field={_json.dumps(example.field)}>',
                 f"<input>{_json.dumps(example.input, ensure_ascii=False, default=str)}</input>",
                 (
                     "<expected_value>"
@@ -1009,8 +986,7 @@ def render_example_guidance(compiled: CompiledAIDefinition) -> str:
                     "</expected_value>"
                 ),
                 "</field_example>",
-            ])
-            blocks.append("\n".join(lines))
+            ]))
         sections.append(
             "Each field example below demonstrates only the named output field. "
             "Do not infer values for other fields from its expected value.\n"
@@ -1020,14 +996,8 @@ def render_example_guidance(compiled: CompiledAIDefinition) -> str:
     if compiled.record_examples:
         blocks = []
         for example in compiled.record_examples:
-            lines = [
+            blocks.append("\n".join([
                 f'<record_example name={_json.dumps(example.name)}>',
-            ]
-            if example.notes:
-                lines.append(
-                    f"<notes>{_json.dumps(example.notes, ensure_ascii=False)}</notes>"
-                )
-            lines.extend([
                 f"<input>{_json.dumps(example.input, ensure_ascii=False, default=str)}</input>",
                 (
                     "<expected_output>"
@@ -1035,8 +1005,7 @@ def render_example_guidance(compiled: CompiledAIDefinition) -> str:
                     "</expected_output>"
                 ),
                 "</record_example>",
-            ])
-            blocks.append("\n".join(lines))
+            ]))
         sections.append(
             "The record examples below demonstrate the complete expected output shape.\n"
             + "\n".join(blocks)
