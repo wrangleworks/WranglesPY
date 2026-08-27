@@ -7,6 +7,7 @@ resulting JSON Schema for their own structured-output implementation.
 import copy as _copy
 import json as _json
 import logging as _logging
+import math as _math
 import re as _re
 from dataclasses import dataclass as _dataclass
 from typing import Any as _Any
@@ -20,6 +21,189 @@ except ImportError:
 
 
 _LOG = _logging.getLogger(__name__)
+
+
+class _JSONLikeLoader(_SafeLoader):
+    """Restricted YAML loader whose implicit scalar rules match JSON."""
+
+    def compose_node(self, parent, index):
+        event = self.peek_event()
+        if isinstance(event, _yaml.events.AliasEvent) or getattr(event, "anchor", None):
+            raise _yaml.constructor.ConstructorError(
+                None,
+                None,
+                "YAML anchors and aliases are not supported",
+                event.start_mark,
+            )
+        return super().compose_node(parent, index)
+
+    def construct_mapping(self, node, deep=False):
+        if not isinstance(node, _yaml.nodes.MappingNode):
+            raise _yaml.constructor.ConstructorError(
+                None,
+                None,
+                f"expected a mapping node, received {node.id}",
+                node.start_mark,
+            )
+        self.flatten_mapping(node)
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in mapping
+            except TypeError as exc:
+                raise _yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    "found an unhashable key",
+                    key_node.start_mark,
+                ) from exc
+            if duplicate:
+                raise _yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    f"found duplicate key {key!r}",
+                    key_node.start_mark,
+                )
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+
+_JSONLikeLoader.yaml_implicit_resolvers = _copy.deepcopy(
+    _SafeLoader.yaml_implicit_resolvers
+)
+for _first_character, _resolvers in list(
+    _JSONLikeLoader.yaml_implicit_resolvers.items()
+):
+    _JSONLikeLoader.yaml_implicit_resolvers[_first_character] = [
+        resolver
+        for resolver in _resolvers
+        if resolver[0]
+        not in {
+            "tag:yaml.org,2002:bool",
+            "tag:yaml.org,2002:float",
+            "tag:yaml.org,2002:int",
+            "tag:yaml.org,2002:null",
+            "tag:yaml.org,2002:timestamp",
+        }
+    ]
+
+_JSONLikeLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    _re.compile(r"^(?:true|false)$", _re.IGNORECASE),
+    list("tTfF"),
+)
+_JSONLikeLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:null",
+    _re.compile(r"^null$", _re.IGNORECASE),
+    list("nN"),
+)
+_JSONLikeLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    _re.compile(r"^-?(?:0|[1-9][0-9]*)$"),
+    list("-0123456789"),
+)
+_JSONLikeLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    _re.compile(
+        r"^-?(?:(?:0|[1-9][0-9]*)\.[0-9]+(?:[eE][-+]?[0-9]+)?|"
+        r"(?:0|[1-9][0-9]*)[eE][-+]?[0-9]+)$"
+    ),
+    list("-0123456789"),
+)
+
+_MAX_HUMAN_VALUE_LENGTH = 50_000
+_MAX_HUMAN_VALUE_DEPTH = 20
+_MAX_HUMAN_VALUE_NODES = 2_000
+
+
+def _validate_json_tree(value: _Any) -> _Any:
+    """Reject YAML-only values and unreasonably large nested input trees."""
+    nodes = 0
+
+    def visit(item: _Any, path: str, depth: int) -> None:
+        nonlocal nodes
+        nodes += 1
+        if nodes > _MAX_HUMAN_VALUE_NODES:
+            raise ValueError("contains too many nested values")
+        if depth > _MAX_HUMAN_VALUE_DEPTH:
+            raise ValueError("is nested too deeply")
+        if item is None or isinstance(item, (str, bool, int)):
+            return
+        if isinstance(item, float):
+            if not _math.isfinite(item):
+                raise ValueError(f"{path} must be a finite number")
+            return
+        if isinstance(item, list):
+            for index, child in enumerate(item):
+                visit(child, f"{path}[{index}]", depth + 1)
+            return
+        if isinstance(item, dict):
+            for key, child in item.items():
+                if not isinstance(key, str):
+                    raise ValueError(f"{path} contains a non-string object key")
+                visit(child, f"{path}.{key}", depth + 1)
+            return
+        raise ValueError(f"{path} contains unsupported value type {type(item).__name__}")
+
+    visit(value, "$", 0)
+    return value
+
+
+def _load_json_like(value: str) -> _Any:
+    stripped = value.strip()
+    if len(stripped) > _MAX_HUMAN_VALUE_LENGTH:
+        raise ValueError(
+            f"exceeds the {_MAX_HUMAN_VALUE_LENGTH:,}-character saved-cell limit"
+        )
+    for token in _yaml.scan(stripped):
+        if isinstance(token, (_yaml.tokens.AnchorToken, _yaml.tokens.AliasToken)):
+            raise ValueError("YAML anchors and aliases are not supported")
+        if isinstance(token, _yaml.tokens.TagToken):
+            raise ValueError("explicit YAML tags are not supported")
+    try:
+        parsed = _json.loads(stripped)
+    except (TypeError, ValueError):
+        parsed = _yaml.load(stripped, Loader=_JSONLikeLoader)
+    return _validate_json_tree(parsed)
+
+
+def _split_top_level(value: str, delimiter: str) -> list | None:
+    """Split a human list without breaking quoted or nested values."""
+    parts = []
+    start = 0
+    quote = None
+    escaped = False
+    depths = {"[": 0, "{": 0, "(": 0}
+    closing = {"]": "[", "}": "{", ")": "("}
+
+    for index, character in enumerate(value):
+        if quote:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            continue
+        if character in depths:
+            depths[character] += 1
+            continue
+        if character in closing:
+            opener = closing[character]
+            depths[opener] = max(0, depths[opener] - 1)
+            continue
+        if character == delimiter and not any(depths.values()):
+            parts.append(value[start:index].strip())
+            start = index + 1
+
+    if not parts:
+        return None
+    parts.append(value[start:].strip())
+    return parts
 
 _DEFAULT_SCALAR_TYPES = ["string", "number", "boolean"]
 _TYPE_ALIASES = {
@@ -125,6 +309,7 @@ class CompiledAIDefinition:
     root_schema: dict
     model: str
     messages: list
+    reasoning: dict | None
     field_examples: tuple
     record_examples: tuple
     strict: bool
@@ -161,15 +346,136 @@ class _Compiler:
         if not isinstance(value, str):
             return value
         stripped = value.strip()
-        if not stripped.startswith(("{", "[")):
+        if not (
+            stripped.startswith(("{", "["))
+            or stripped.startswith("- ")
+            or ("\n" in stripped and _re.match(r"^(?:-|[^:\n]+:)", stripped))
+        ):
             return value
         try:
-            return _json.loads(stripped)
-        except (TypeError, ValueError):
+            return _load_json_like(stripped)
+        except (TypeError, ValueError, _yaml.YAMLError):
+            return value
+
+    @staticmethod
+    def _parse_scalar_token(value: str) -> _Any:
+        stripped = value.strip()
+        if not stripped:
+            return ""
+        try:
+            return _load_json_like(stripped)
+        except (TypeError, ValueError, _yaml.YAMLError):
+            return stripped
+
+    @classmethod
+    def _parse_list_value(cls, value: _Any) -> _Any:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        if not stripped:
+            return value
+
+        if stripped.startswith("[") or stripped.startswith("- "):
             try:
-                return _yaml.load(stripped, Loader=_SafeLoader)
-            except _yaml.YAMLError:
+                parsed = _load_json_like(stripped)
+            except (TypeError, ValueError, _yaml.YAMLError) as exc:
+                raise ValueError(f"could not parse list value: {exc}") from exc
+            if isinstance(parsed, list):
+                return parsed
+
+        parts = _split_top_level(stripped, "|")
+        if parts is None:
+            parts = _split_top_level(stripped, ",")
+        if parts is None:
+            return [cls._parse_scalar_token(stripped)]
+        return [cls._parse_scalar_token(item) for item in parts if item.strip()]
+
+    @classmethod
+    def _parse_properties_value(cls, value: _Any) -> _Any:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        if not stripped:
+            return value
+
+        if stripped.startswith(("{", "[")) or stripped.startswith("- "):
+            try:
+                parsed = _load_json_like(stripped)
+            except (TypeError, ValueError, _yaml.YAMLError) as exc:
+                raise ValueError(f"could not parse properties value: {exc}") from exc
+            if isinstance(parsed, (dict, list)):
+                return parsed
+
+        pipe_parts = _split_top_level(stripped, "|")
+        comma_parts = _split_top_level(stripped, ",")
+        parts = pipe_parts or comma_parts
+        if parts and all(":" in item for item in parts):
+            mapped = {}
+            for item in parts:
+                name, raw_schema = item.split(":", 1)
+                name = name.strip()
+                if not name or name in mapped:
+                    return value
+                mapped[name] = cls._parse_scalar_token(raw_schema)
+            return mapped
+        if ":" in stripped:
+            try:
+                parsed = _load_json_like(stripped)
+            except (TypeError, ValueError, _yaml.YAMLError):
                 return value
+            if isinstance(parsed, dict):
+                return parsed
+
+        return cls._parse_list_value(value)
+
+    @classmethod
+    def _normalize_property_shorthand(cls, value: _Any) -> _Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = {}
+        for name, schema in value.items():
+            if schema in (None, ""):
+                normalized[str(name)] = {}
+                continue
+            if isinstance(schema, str):
+                schema_type = _TYPE_ALIASES.get(schema.strip().lower(), schema.strip().lower())
+                if schema_type in _JSON_TYPES:
+                    normalized[str(name)] = {"type": schema_type}
+                    continue
+            normalized[str(name)] = schema
+        return normalized
+
+    @classmethod
+    def _parse_items_value(cls, value: _Any) -> _Any:
+        if isinstance(value, str):
+            stripped = value.strip()
+            schema_type = _TYPE_ALIASES.get(stripped.lower(), stripped.lower())
+            if schema_type in _JSON_TYPES:
+                return {"type": schema_type}
+            value = cls._parse_properties_value(value)
+
+        if isinstance(value, list):
+            return {
+                "type": "object",
+                "properties": {str(name): {} for name in value},
+            }
+        if isinstance(value, dict) and not set(value).intersection(_SUPPORTED_SCHEMA_KEYS):
+            return {
+                "type": "object",
+                "properties": cls._normalize_property_shorthand(value),
+            }
+        return value
+
+    @classmethod
+    def _parse_additional_properties_value(cls, value: _Any) -> _Any:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.lower() in {"true", "false"}:
+                return stripped.lower() == "true"
+            schema_type = _TYPE_ALIASES.get(stripped.lower(), stripped.lower())
+            if schema_type in _JSON_TYPES:
+                return {"type": schema_type}
+        return cls._parse_items_value(value)
 
     @classmethod
     def _parse_examples_value(cls, value: _Any) -> _Any:
@@ -184,22 +490,22 @@ class _Compiler:
             return value
 
         stripped = value.strip()
-        try:
-            return _json.loads(stripped)
-        except (TypeError, ValueError):
-            pass
+        if stripped.startswith(("{", "[")) or stripped.startswith("- "):
+            try:
+                parsed = _load_json_like(stripped)
+            except (TypeError, ValueError, _yaml.YAMLError) as exc:
+                if _split_top_level(stripped, ",") is None:
+                    raise ValueError(f"could not parse examples value: {exc}") from exc
+                parsed = value
+            if isinstance(parsed, (dict, list)):
+                return parsed
 
-        parsed = cls._parse_json_value(value)
-        if not isinstance(parsed, str):
-            return parsed
-
-        if "," not in stripped:
-            return value
-        try:
-            sequence = _yaml.load(f"[{stripped}]", Loader=_SafeLoader)
-        except _yaml.YAMLError:
-            return value
-        return sequence if isinstance(sequence, list) else value
+        parts = _split_top_level(stripped, "|")
+        if parts is None:
+            parts = _split_top_level(stripped, ",")
+        if parts is not None:
+            return [cls._parse_scalar_token(item) for item in parts if item.strip()]
+        return cls._parse_scalar_token(stripped)
 
     @staticmethod
     def _looks_like_example_pair(value: _Any) -> bool:
@@ -320,6 +626,20 @@ class _Compiler:
                 except ValueError as exc:
                     errors.append(str(exc))
             self.error(path, "does not match any allowed schema.")
+
+        if isinstance(value, str):
+            declared = schema.get("type", _DEFAULT_SCALAR_TYPES)
+            declared = declared if isinstance(declared, list) else [declared]
+            non_null_types = [item for item in declared if item != "null"]
+            if "string" not in non_null_types:
+                if "object" in non_null_types:
+                    candidate = self._parse_properties_value(value)
+                elif "array" in non_null_types:
+                    candidate = self._parse_list_value(value)
+                else:
+                    candidate = self._parse_scalar_token(value)
+                if candidate != value:
+                    value = candidate
 
         if "enum" in schema and value not in schema["enum"]:
             self.error(path, f"value {value!r} is not in the field enum.")
@@ -462,12 +782,33 @@ class _Compiler:
 
         node = {}
         for key, item in _copy.deepcopy(value).items():
-            parser = (
-                self._parse_examples_value
-                if key == "examples"
-                else self._parse_json_value
-            )
-            node[key] = parser(item)
+            parser = {
+                "additionalProperties": self._parse_additional_properties_value,
+                "anyOf": self._parse_list_value,
+                "const": self._parse_json_value,
+                "default": self._parse_json_value,
+                "enum": self._parse_list_value,
+                "examples": self._parse_examples_value,
+                "items": self._parse_items_value,
+                "properties": self._parse_properties_value,
+                "required": self._parse_list_value,
+            }.get(key)
+            try:
+                node[key] = parser(item) if parser else item
+            except (TypeError, ValueError, _yaml.YAMLError) as exc:
+                self.error(f"{path}.{key}", str(exc))
+            if (
+                key == "enum"
+                and isinstance(item, str)
+                and None in node[key]
+                and any(
+                    token.strip().lower() == "null"
+                    for token in (_split_top_level(item, "|") or _split_top_level(item, ",") or [])
+                )
+            ):
+                self.migration(
+                    f"{path}.enum converted the string 'null' to JSON null."
+                )
 
         incompatible = sorted(_INCOMPATIBLE_SCHEMA_KEYS.intersection(node))
         if incompatible:
@@ -585,14 +926,12 @@ class _Compiler:
                 f"unsupported JSON type(s): {', '.join(invalid_types)}.",
             )
 
-        for label in ("enum", "properties", "required"):
-            if isinstance(node.get(label), str):
-                node[label] = [
-                    item.strip()
-                    for item in node[label].split(",")
-                    if item.strip()
-                ]
-                self.migration(f"{path}.{label} converted a comma-separated string to a list.")
+        if isinstance(node.get("default"), str):
+            non_null_types = [item for item in declared_types if item != "null"]
+            if len(non_null_types) == 1 and non_null_types[0] != "string":
+                parsed_default = self._parse_scalar_token(node["default"])
+                if parsed_default != node["default"]:
+                    node["default"] = parsed_default
 
         if "enum" in node and not isinstance(node["enum"], list):
             self.error(path, "enum must be an array or comma-separated string.")
@@ -624,6 +963,9 @@ class _Compiler:
             node["properties"] = {str(name): {} for name in properties}
             properties = node["properties"]
             self.migration(f"{path}.properties expanded a property-name list.")
+        elif isinstance(properties, dict):
+            node["properties"] = self._normalize_property_shorthand(properties)
+            properties = node["properties"]
         if properties is not None and not isinstance(properties, dict):
             self.error(path, "properties must be an object, list, or comma-separated string.")
         if isinstance(properties, dict):
@@ -631,10 +973,26 @@ class _Compiler:
                 str(name): self.normalize_schema(
                     child,
                     f"{path}.properties.{name}",
-                    nullable_default=nullable_default,
+                    nullable_default=False,
                 )
                 for name, child in properties.items()
             }
+            if "required" not in node:
+                node["required"] = list(node["properties"])
+
+        if "required" in node:
+            invalid_required = [
+                item
+                for item in node["required"]
+                if not isinstance(item, str)
+                or not isinstance(node.get("properties"), dict)
+                or item not in node["properties"]
+            ]
+            if invalid_required:
+                self.error(
+                    path,
+                    "required must contain only names defined in properties.",
+                )
 
         is_object = (
             node.get("type") == "object"
@@ -771,6 +1129,7 @@ class _Compiler:
         }
         saved_model = None
         saved_messages = []
+        saved_reasoning = None
         for key in ("gptmodel", "aimodel", "model"):
             if normalized_settings.get(key) not in (None, ""):
                 saved_model = normalized_settings[key]
@@ -784,6 +1143,16 @@ class _Compiler:
                     self.migration(f"model_id.settings.{key} mapped to messages.")
                 break
 
+        reasoning_effort = normalized_settings.get("reasoningeffort")
+        if reasoning_effort not in (None, ""):
+            reasoning_effort = str(reasoning_effort).strip().lower()
+            if reasoning_effort not in {"none", "low"}:
+                self.error(
+                    "model_id.settings.ReasoningEffort",
+                    "must be 'none' or 'low'.",
+                )
+            saved_reasoning = {"effort": reasoning_effort}
+
         known_settings = {
             "additionalmessages",
             "aimodel",
@@ -792,12 +1161,13 @@ class _Compiler:
             "instructions",
             "messages",
             "model",
+            "reasoningeffort",
         }
         unknown_settings = sorted(set(normalized_settings) - known_settings)
         for key in unknown_settings:
             self.migration(f"model_id.settings.{key} is not used by extract.ai.")
 
-        return output, saved_model, saved_messages, saved_examples
+        return output, saved_model, saved_messages, saved_reasoning, saved_examples
 
 
 def _message_list(value: _Any) -> list:
@@ -849,6 +1219,7 @@ def compile_definition(
     saved_output = {}
     saved_model = None
     saved_messages = []
+    saved_reasoning = None
     saved_examples = None
     if saved_model_content is not None:
         if output_generic_key:
@@ -860,6 +1231,7 @@ def compile_definition(
             saved_output,
             saved_model,
             saved_messages,
+            saved_reasoning,
             saved_examples,
         ) = compiler.saved_model(saved_model_content)
 
@@ -960,6 +1332,7 @@ def compile_definition(
         root_schema=root_schema,
         model=compiled_model,
         messages=compiled_messages,
+        reasoning=saved_reasoning,
         field_examples=tuple(field_examples),
         record_examples=tuple(record_examples),
         strict=effective_strict,

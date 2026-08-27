@@ -286,6 +286,7 @@ def ai(
     )
     output = compiled.output
     model = compiled.model
+    saved_reasoning = compiled.reasoning
     strict = compiled.strict
     output_generic_key = compiled.output_generic_key
     _key_to_original = compiled.key_to_original
@@ -352,7 +353,7 @@ def ai(
         configured_reasoning = (
             reasoning
             if reasoning is not None
-            else policy.get("reasoning", {"effort": "none"})
+            else saved_reasoning or policy.get("reasoning", {"effort": "none"})
         )
         if _openai_responses.supports_reasoning(model):
             effort = configured_reasoning.get("effort")
@@ -365,7 +366,7 @@ def ai(
                     effort,
                     model,
                 )
-        elif reasoning is not None:
+        elif reasoning is not None or saved_reasoning is not None:
             _LOG.warning(
                 "Ignoring 'reasoning' parameter: not supported by model '%s'",
                 model,

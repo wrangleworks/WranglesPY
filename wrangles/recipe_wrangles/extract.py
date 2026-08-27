@@ -424,7 +424,16 @@ def ai(
                 description: >-
                   Child fields when type is object. Use an object to define a
                   schema for each child. A list or comma-separated string is a
-                  shortcut that creates fixed child names.
+                  shortcut that creates fixed child names. Named child values
+                  are non-null by default.
+              required:
+                type:
+                  - array
+                  - string
+                description: >-
+                  Named object properties that must be returned. If omitted,
+                  every named property is required. Strings may use pipe or
+                  comma delimiters.
               additionalProperties:
                 type:
                   - boolean
@@ -433,7 +442,8 @@ def ai(
                   Controls keys beyond properties when type is object. Set false
                   for fixed keys, true for arbitrary values, or provide one
                   schema applied to every dynamic value. Dynamic dictionaries
-                  use non-strict provider mode plus local validation.
+                  use non-strict provider mode plus local validation. Defaults
+                  to false when named properties exist.
               items:
                 type: object
                 description: >-
@@ -442,7 +452,9 @@ def ai(
                 type: boolean
                 description: >-
                   Whether the field may return null. Defaults to true while
-                  the field key remains required. Set false to opt out.
+                  a top-level field key remains required. Named nested
+                  properties default to false. Set this explicitly to override
+                  the applicable default.
       record_examples:
         title: Record examples
         type:

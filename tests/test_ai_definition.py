@@ -51,14 +51,9 @@ def test_fixed_recipe_definition_remains_strict():
     assert compiled.strict is True
     assert compiled.dynamic_paths == ()
     assert compiled.output["Voltage"]["type"] == ["object", "null"]
-    assert compiled.output["Voltage"]["properties"]["value"]["type"] == [
-        "number",
-        "null",
-    ]
-    assert compiled.output["Voltage"]["properties"]["uom"]["type"] == [
-        "string",
-        "null",
-    ]
+    assert compiled.output["Voltage"]["properties"]["value"]["type"] == "number"
+    assert compiled.output["Voltage"]["properties"]["uom"]["type"] == "string"
+    assert compiled.output["Voltage"]["required"] == ["value", "uom"]
     assert compiled.output["Voltage"]["additionalProperties"] is False
     assert compiled.root_schema["required"] == ["Voltage"]
 
@@ -129,6 +124,7 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
         settings={
             "GPTModel": "gpt-5.4-mini",
             "AdditionalMessages": "Use normalized units.",
+            "ReasoningEffort": "low",
         },
     )
 
@@ -163,6 +159,7 @@ def test_saved_and_recipe_definitions_compile_to_the_same_schema(caplog):
         "Use normalized units.",
         "Prefer explicit evidence.",
     ]
+    assert from_saved.reasoning == {"effort": "low"}
     assert "model_id.settings.gptmodel mapped to model" in caplog.text
     assert "model_id.settings.additionalmessages mapped to messages" in caplog.text
 
@@ -179,6 +176,20 @@ def test_saved_model_rejects_unknown_populated_columns():
             model="gpt-5.4-mini",
             saved_model_content=saved,
             source="saved model abc",
+        )
+
+
+def test_saved_model_rejects_unsupported_reasoning_effort():
+    saved = _saved_model(
+        ["Voltage", "Voltage", "number", "", "", "", "", ""],
+        settings={"ReasoningEffort": "medium"},
+    )
+
+    with pytest.raises(ValueError, match="ReasoningEffort.*none.*low"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=saved,
         )
 
 
@@ -399,6 +410,138 @@ def test_saved_model_examples_accept_human_entered_pseudo_json():
         "Slate",
     ]
     assert compiled.output["Dust_Blower"]["examples"] == [True]
+
+
+def test_saved_model_schema_shorthand_compiles_closed_required_nested_objects():
+    saved = _saved_model(
+        [
+            "Voltage",
+            "Voltage and unit",
+            "object",
+            "",
+            "{value: 120, uom: VAC}",
+            "",
+            "",
+            "value: number | uom: string",
+            "",
+            "",
+            "",
+        ],
+        [
+            "Cutting Depth",
+            "Cutting capacity by material",
+            "array",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "value: number | uom: string | material: string",
+            "",
+            "",
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+            "Required",
+            "Additional Properties",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    voltage = compiled.output["Voltage"]
+    assert voltage["required"] == ["value", "uom"]
+    assert voltage["additionalProperties"] is False
+    assert voltage["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+    }
+
+    items = compiled.output["Cutting_Depth"]["items"]
+    assert items["type"] == "object"
+    assert items["required"] == ["value", "uom", "material"]
+    assert items["additionalProperties"] is False
+    assert items["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+        "material": {"type": "string"},
+    }
+
+
+def test_saved_model_human_values_are_shape_aware_and_json_compatible():
+    saved = _saved_model(
+        ["Power Source", "", "string", "", "Corded|Battery", "Corded|Battery", "", ""],
+        ["Applications", "", "array", "", "- Soft Wood\n- Aluminum", "", "", "", "string"],
+        ["Dust Blower", "", "boolean", "", "", "", "", "", "", "", "", "", "stated", "true"],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+            "Required",
+            "Additional Properties",
+            "Nullable",
+            "Example - Input",
+            "Example - Output",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    assert compiled.output["Power_Source"]["examples"] == ["Corded", "Battery"]
+    assert compiled.output["Power_Source"]["enum"] == ["Corded", "Battery", None]
+    assert compiled.output["Applications"]["examples"] == ["Soft Wood", "Aluminum"]
+    assert compiled.output["Applications"]["items"] == {"type": "string"}
+    assert compiled.field_examples[0].output is True
+
+    assert ai_definition._Compiler._parse_examples_value("yes|2026-08-27|001") == [
+        "yes",
+        "2026-08-27",
+        "001",
+    ]
+
+
+def test_saved_model_human_values_reject_duplicate_keys_and_anchors():
+    duplicate = _saved_model(
+        ["Attribute", "", "object", "", "", "", "", "{value: number, value: string}"],
+    )
+    with pytest.raises(ValueError, match="duplicate key"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=duplicate,
+        )
+
+    anchored = _saved_model(
+        ["Attribute", "", "object", "", "", "", "", "{value: &shared {type: number}}"],
+    )
+    with pytest.raises(ValueError, match="anchors and aliases"):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=anchored,
+        )
 
 
 def test_saved_model_compiles_new_field_example_columns_and_legacy_examples():

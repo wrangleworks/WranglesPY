@@ -1002,6 +1002,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
         "Settings": {
             "GPTModel": "gpt-5-mini",
             "AdditionalMessages": "Normalize units.",
+            "ReasoningEffort": "low",
         },
         "Columns": [
             "Find",
@@ -1053,6 +1054,7 @@ def test_saved_model_and_call_instructions_use_shared_compiler(monkeypatch):
     voltage = payload["text"]["format"]["schema"]["properties"]["Voltage"]
     assert result == {"Voltage": {"value": 12, "uom": "VDC"}}
     assert payload["model"] == "gpt-5-mini"
+    assert payload["reasoning"] == {"effort": "low"}
     assert payload["text"]["format"]["strict"] is True
     assert voltage["required"] == ["value", "uom"]
     assert "Normalize units." in payload["instructions"]

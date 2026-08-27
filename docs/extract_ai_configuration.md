@@ -1,5 +1,8 @@
 # `extract.ai` configuration
 
+For a task-oriented introduction to defining attributes in Excel or directly
+in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
+
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
@@ -44,8 +47,9 @@ alias but is no longer advertised in the recipe schema. Do not provide both.
 ## Nullable output fields
 
 Defined output keys remain required so strict Structured Outputs always return
-the complete response shape. Their values are nullable by default, allowing the
-model to return JSON `null` when the input does not support a value. Python
+the complete response shape. Top-level values are nullable by default, allowing
+the model to return JSON `null` when the input does not support a value. Named
+nested properties are non-null by default. Python
 represents that value as `None`; presentation layers such as WranglesXL may
 convert it to an empty cell or empty string at their serialization boundary.
 
@@ -54,16 +58,18 @@ string `"null"` in an Enum cell is normalized to JSON `null` when the field is
 nullable. A future or existing saved-model `Nullable` column is supported:
 blank or `true` uses the nullable default, while `false` explicitly opts out.
 
-Saved-model Examples cells accept strict JSON or human-friendly YAML-like
-values. For example, both of these are compiled into structured examples:
+Saved-model Examples cells accept strict JSON or restricted, human-friendly
+YAML-like values. Pipe-delimited lists are preferred; comma-delimited values
+remain compatible. For example, these are compiled into structured examples:
 
 ```text
 {value: 12, uom: VDC},{value: 110, uom: VAC}
-Ceramic Tile, Slate
+Ceramic Tile | Slate
 ```
 
-The compiler uses PyYAML's safe loader and treats comma-separated Examples
-cells as sequences; users do not need to quote every object key and value.
+The compiler uses JSON-compatible scalar rules and rejects YAML tags, anchors,
+aliases, duplicate keys, and non-JSON values. Users do not need to quote every
+object key and value.
 
 ## Examples
 
