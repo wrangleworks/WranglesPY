@@ -3,7 +3,6 @@ Connector to read & write from the local filesystem
 
 Supports Excel, CSV, JSON, JSONL and Parquet files.
 """
-from openpyxl.styles import Alignment as _Alignment
 import pandas as _pd
 import logging as _logging
 from typing import Union as _Union
@@ -40,7 +39,52 @@ def _clean_cell_value(value):
 
 
 def _remove_illegal_characters(df: _pd.DataFrame) -> _pd.DataFrame:
-    return df.map(_clean_cell_value)
+    return df.apply(lambda column: column.map(_clean_cell_value))
+
+
+def _unescape_excel_value(value):
+    if isinstance(value, str):
+        return _unescape(value)
+    return value
+
+
+def _materialize_excel_index(
+    df: _pd.DataFrame,
+    index_label=None
+) -> _pd.DataFrame:
+    if index_label is None:
+        if df.index.nlevels == 1:
+            labels = [
+                df.index.name if df.index.name is not None else 'index'
+            ]
+        else:
+            labels = [
+                name if name is not None else f'level_{position}'
+                for position, name in enumerate(df.index.names)
+            ]
+    elif isinstance(index_label, (list, tuple)):
+        labels = list(index_label)
+    else:
+        labels = [index_label]
+
+    if len(labels) != df.index.nlevels:
+        raise ValueError(
+            "Length of 'index_label' must match the number of index levels."
+        )
+
+    used_labels = {str(column).casefold() for column in df.columns}
+    unique_labels = []
+    for label in labels:
+        base_label = str(label)
+        unique_label = base_label
+        suffix = 2
+        while unique_label.casefold() in used_labels:
+            unique_label = f'{base_label}_{suffix}'
+            suffix += 1
+        unique_labels.append(unique_label)
+        used_labels.add(unique_label.casefold())
+
+    return df.reset_index(names=unique_labels)
 
 
 def read(
@@ -101,6 +145,7 @@ def read(
     if name.split('.')[-1] in ['xlsx', 'xlsm', 'xls']:
         if 'dtype' not in kwargs.keys(): kwargs['dtype'] = 'object'
         df = _pd.read_excel(file_object, **kwargs).fillna('')
+        df = df.apply(lambda column: column.map(_unescape_excel_value))
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         df = _pd.read_csv(file_object, **kwargs).fillna('')
     elif name.split('.')[-1] in ['json'] or '.'.join(name.split('.')[-2:]) in ['json.gz']:
@@ -243,24 +288,29 @@ def write(df: _pd.DataFrame, name: str, columns: _Union[str, list] = None, file_
     # Write appropriate file
     if name.split('.')[-1] in ['xlsx', 'xls']:
         # Write an Excel file
-        # Default to not including index if user hasn't explicitly requested it
         if 'index' not in kwargs.keys(): kwargs['index'] = False
+        sheet_name = kwargs.pop('sheet_name', 'Sheet1')
+        df = _remove_illegal_characters(df)
+
         if formatting:
-            if 'sheet_name' in kwargs.keys():
-                sheet_name = kwargs['sheet_name']
-            else:
-                sheet_name = 'Sheet1'
-            _file_format(df, workbook=name, worksheet=sheet_name, **formatting)
-            
+            if kwargs.get('index', False):
+                df = _materialize_excel_index(
+                    df,
+                    index_label=kwargs.get('index_label')
+                )
+            _file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **formatting
+            )
         else:
-          with _pd.ExcelWriter(file_object, engine='openpyxl') as writer:
-            _remove_illegal_characters(df).to_excel(writer, **kwargs)
-            
-            worksheet = writer.sheets[kwargs.get('sheet_name', 'Sheet1')]
-            
-            for row in worksheet.iter_rows():
-                for cell in row:
-                  cell.alignment = _Alignment(vertical='top')
+            _default_file_format(
+                df,
+                workbook=file_object,
+                worksheet=sheet_name,
+                **kwargs
+            )
 
     elif name.split('.')[-1] in ['csv', 'txt'] or '.'.join(name.split('.')[-2:]) in ['csv.gz', 'txt.gz']:
         # Write a CSV file

@@ -4,6 +4,7 @@ Functions to compare data from within columns
 
 import logging as _logging
 import pandas as _pd
+from typing import Union as _Union
 from .. import compare as _compare
 
 
@@ -108,7 +109,7 @@ def lists(
 def text(
     df: _pd.DataFrame,
     input: list,
-    output: str,
+    output: _Union[str, list],
     method: str = "difference",
     # Overlap parameters
     char: str = " ",
@@ -120,11 +121,13 @@ def text(
     empty_a: str = None,
     empty_b: str = None,
     all_empty: str = None,
-    case_sensitive: bool = True,
+    case_sensitive: bool = False,
+    # similarity parameters
+    metric: str = "token_sort",
 ) -> _pd.DataFrame:
     """
     type: object
-    description: Compare two strings and return the intersection or difference, or use overlap to find the matching characters between the two strings.
+    description: Compare two strings and return the intersection or difference, use overlap to find the matching characters between the two strings, or use similarity to get a numeric similarity score.
     required:
       - input
       - output
@@ -134,15 +137,18 @@ def text(
         type: array
         description: the columns to compare. First column is the base column
       output:
-        type: string
-        description: The column to output the results to
+        type:
+          - string
+          - array
+        description: The column to output the results to. Must be a list of two column names [mask_column, ratio_column] when method is overlap and include_ratio is true; otherwise a single column name.
       method:
         type: string
-        description: The type of comparison to perform (difference, intersection, overlap)
+        description: The type of comparison to perform (difference, intersection, overlap, similarity)
         enum:
           - difference
           - intersection
           - overlap
+          - similarity
     allOf:
       - if:
           properties:
@@ -155,7 +161,7 @@ def text(
               description: "(Optional) The character to split the strings on. Default is a space"
             case_sensitive:
               type: boolean
-              description: "(Optional) Whether the comparison is case sensitive. Default is True"
+              description: "(Optional) Whether the comparison is case sensitive. Default is False"
       - if:
           properties:
             method:
@@ -167,7 +173,7 @@ def text(
               description: "(Optional) The character to split the strings on. Default is a space"
             case_sensitive:
               type: boolean
-              description: "(Optional) Whether the comparison is case sensitive. Default is True"
+              description: "(Optional) Whether the comparison is case sensitive. Default is False"
       - if:
           properties:
             method:
@@ -179,7 +185,7 @@ def text(
               description: "(Optional) Character to use for non-matching characters"
             include_ratio:
               type: boolean
-              description: "(Optional) Include the ratio of matching characters"
+              description: "(Optional) Include the ratio of matching characters. This is the legacy difflib.SequenceMatcher score, not the similarity score from method: similarity. When true, output must be a list of two column names: [mask_column, ratio_column]"
             decimal_places:
               type: integer
               description: "(Optional) Number of decimal places to round the ratio to"
@@ -197,14 +203,36 @@ def text(
               description: "(Optional) Value to use for both inputs"
             case_sensitive:
               type: boolean
-              description: "(Optional) Whether the comparison is case sensitive. Default is True"
+              description: "(Optional) Whether the comparison is case sensitive. Default is False"
+      - if:
+          properties:
+            method:
+              const: similarity
+        then:
+          properties:
+            metric:
+              type: string
+              description: "(Optional) The similarity metric to use. Default is token_sort"
+              oneOf:
+                - const: token_sort
+                  description: "Ignores token order but keeps duplicate tokens, penalizing missing or extra content. Best general-purpose choice for comparing full descriptions where word order may differ."
+                - const: damerau_levenshtein
+                  description: "Sequential character-edit similarity that recognizes adjacent transpositions (e.g. smtih vs smith) as a single edit. Best for short, order-sensitive strings like part numbers or codes."
+                - const: token_set
+                  description: "Ignores token order and duplicate tokens. A shorter token set fully contained in a longer one can score 1.0. Best when one description is expected to be a subset of the other."
+            decimal_places:
+              type: integer
+              description: "(Optional) Number of decimal places to round the score to. Default is 3"
 
     """
     _logging.debug(f": Comparing text strings :: input :: {input}")
-    if method not in ["difference", "intersection", "overlap"]:
+    if method not in ["difference", "intersection", "overlap", "similarity"]:
         raise ValueError(
-            "Method must be one of 'overlap', 'difference' or 'intersection'"
+            "Method must be one of 'difference', 'intersection', 'overlap' or 'similarity'"
         )
+
+    if isinstance(decimal_places, str):
+        decimal_places = int(decimal_places)
 
     if method == "difference" or method == "intersection":
         # ensure that input is at least a list of two columns
@@ -219,14 +247,17 @@ def text(
         )
 
     if method == "overlap":
-        if isinstance(decimal_places, str):
-            int(decimal_places)
-
         # ensure that input is a list of two columns
         if not isinstance(input, list) or len(input) != 2:
             raise ValueError("Input must be a list of two columns")
 
-        df[output] = _compare.overlap(
+        if include_ratio and (not isinstance(output, list) or len(output) != 2):
+            raise ValueError(
+                "output must be a list of two columns when include_ratio is true "
+                "(e.g. [mask_column, ratio_column])"
+            )
+
+        results = _compare.overlap(
             input=df[input].astype(str).values.tolist(),
             non_match_char=non_match_char,
             include_ratio=include_ratio,
@@ -236,6 +267,28 @@ def text(
             empty_b=empty_b,
             all_empty=all_empty,
             case_sensitive=case_sensitive,
+        )
+
+        if include_ratio:
+            df[output[0]] = [row[0] for row in results]
+            df[output[1]] = [row[1] for row in results]
+        else:
+            df[output] = results
+
+    if method == "similarity":
+        # ensure that input is a list of exactly two columns
+        if not isinstance(input, list) or len(input) != 2:
+            raise ValueError("Input must be a list of two columns")
+
+        if metric not in ["token_sort", "damerau_levenshtein", "token_set"]:
+            raise ValueError(
+                "metric must be one of 'token_sort', 'damerau_levenshtein', 'token_set'"
+            )
+
+        df[output] = _compare.similarity(
+            input=df[input].values.tolist(),
+            metric=metric,
+            decimal_places=decimal_places,
         )
 
     return df
