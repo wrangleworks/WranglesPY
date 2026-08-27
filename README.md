@@ -57,9 +57,9 @@ The python package can be installed using [pip](https://pip.pypa.io/en/stable/ge
 pip install wrangles
 ```
 
-This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel/CSV/JSON file I/O, HTTP connectors, SQLite, MongoDB, AWS S3, Salesforce, SFTP/SSH, notifications, and the OpenAI/Gemini/SerpAPI integrations.
+This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel/CSV/JSON file I/O, HTTP connectors, SQLite, DuckDB, MongoDB, AWS S3, Salesforce, SFTP/SSH, notifications, and the OpenAI/Gemini/SerpAPI integrations.
 
-### Full install (adds SQL databases and Parquet files)
+### Full install (adds SQL Server, Access, PostgreSQL, MySQL, and Parquet files)
 
 A handful of connectors depend on heavier, more platform-specific packages (SQL database drivers) and aren't included by default:
 
@@ -67,15 +67,14 @@ A handful of connectors depend on heavier, more platform-specific packages (SQL 
 |---|---|
 | Microsoft SQL Server | `pymssql`, `sqlalchemy` |
 | Microsoft Access | `pyodbc` |
-| DuckDB | `duckdb` |
 | PostgreSQL | `psycopg2-binary`, `sqlalchemy` |
 | MySQL | `sqlalchemy` (`pymysql` itself is already in the core install) |
 | Parquet files | `pyarrow` |
 
-Install just the ones you need (e.g. `pip install duckdb` for DuckDB only), or install all of them at once:
+Install just the ones you need (e.g. `pip install pyodbc` for Access only), or install all of them at once:
 
 ```shell
-pip install sqlalchemy duckdb pyodbc pymssql psycopg2-binary pyarrow
+pip install sqlalchemy pyodbc pymssql psycopg2-binary pyarrow
 ```
 
 If you're working from a clone of this repository (e.g. for local development), `pip install -r requirements-full.txt` does the same thing, plus everything from the core install.

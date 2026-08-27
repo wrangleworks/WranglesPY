@@ -30,6 +30,9 @@ xlsxwriter
 # Cloud & storage
 boto3
 
+# Embedded database
+duckdb>=1.0.0
+
 # NoSQL
 pymongo
 
