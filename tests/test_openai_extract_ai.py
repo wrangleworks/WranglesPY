@@ -235,6 +235,74 @@ def test_extract_ai_web_search_failure_still_returns_empty_sources(monkeypatch):
     assert result["output"].startswith("Invalid structured response")
 
 
+def test_extract_ai_malformed_response_json_returns_structured_failure(monkeypatch):
+    class MalformedResponse(_Response):
+        def json(self):
+            raise json.JSONDecodeError("Malformed response body", "", 0)
+
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: MalformedResponse(None),
+    )
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output="Manufacturer name",
+        web_search=True,
+        retries=0,
+        threads=1,
+    )
+
+    assert result["output"].startswith("Invalid structured response")
+    assert result["web_search_sources"] == []
+
+
+def test_extract_ai_malformed_retry_does_not_reuse_prior_response_sources(monkeypatch):
+    class MalformedResponse(_Response):
+        def json(self):
+            raise json.JSONDecodeError("Malformed response body", "", 0)
+
+    responses = [
+        _Response({
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "type": "search",
+                        "sources": [{"url": "https://example.com/stale-source"}],
+                    },
+                },
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "not json"}],
+                },
+            ]
+        }),
+        MalformedResponse(None),
+    ]
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: responses.pop(0),
+    )
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", lambda delay: None)
+
+    result = extract.ai(
+        "Acme part",
+        "key",
+        output="Manufacturer name",
+        web_search=True,
+        retries=1,
+        threads=1,
+    )
+
+    assert result["output"].startswith("Invalid structured response")
+    assert result["web_search_sources"] == []
+    assert responses == []
+
+
 def test_extract_ai_web_search_validates_protocol_and_reserved_output():
     with pytest.raises(ValueError, match="only with protocol='responses'"):
         extract.ai(

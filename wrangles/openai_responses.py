@@ -770,6 +770,7 @@ def call_structured(
                 return failure(str(e))
 
         if response is not None and response.ok:
+            response_json = None
             try:
                 response_json = response.json()
                 output_text = extract_response_text(response_json)
