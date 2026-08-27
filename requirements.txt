@@ -8,6 +8,9 @@ numexpr
 polars==1.33.0
 pyarrow
 
+# Fuzzy text similarity
+rapidfuzz>=3.0,<4.0
+
 # Recipe engine & templating
 jinja2
 lorem
