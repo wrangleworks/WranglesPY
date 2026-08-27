@@ -57,29 +57,30 @@ The python package can be installed using [pip](https://pip.pypa.io/en/stable/ge
 pip install wrangles
 ```
 
-This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel and CSV file I/O, HTTP connectors, and SQLite.
+This installs the core package, which covers the vast majority of use cases: all data wrangles, recipe execution, Excel/CSV/JSON file I/O, HTTP connectors, SQLite, MongoDB, AWS S3, Salesforce, SFTP/SSH, notifications, and the OpenAI/Gemini/SerpAPI integrations.
 
-### Optional dependencies
+### Full install (adds SQL databases and Parquet files)
 
-Connectors for databases, cloud storage, and external services require additional packages. Install only the ones you need:
+A handful of connectors depend on heavier, more platform-specific packages (SQL database drivers) and aren't included by default:
 
-| Capability | Install |
+| Capability | Package(s) |
 |---|---|
-| Microsoft SQL Server | `pip install pymssql sqlalchemy` |
-| Microsoft Access | `pip install pyodbc` |
-| DuckDB | `pip install duckdb` |
-| PostgreSQL | `pip install psycopg2-binary sqlalchemy` |
-| MySQL | `pip install pymysql sqlalchemy` |
-| MongoDB | `pip install pymongo` |
-| AWS S3 | `pip install boto3` |
-| Salesforce | `pip install simple-salesforce` |
-| SFTP / SSH | `pip install fabric` |
-| Notifications | `pip install apprise` |
-| OpenAI SDK | `pip install openai` |
-| Google Gemini | `pip install google-generativeai` |
-| SerpAPI (web search) | `pip install serpapi` |
+| Microsoft SQL Server | `pymssql`, `sqlalchemy` |
+| Microsoft Access | `pyodbc` |
+| DuckDB | `duckdb` |
+| PostgreSQL | `psycopg2-binary`, `sqlalchemy` |
+| MySQL | `sqlalchemy` (`pymysql` itself is already in the core install) |
+| Parquet files | `pyarrow` |
 
-> If a connector is used without its required package installed, Wrangles will raise a clear `ImportError` with the exact `pip install` command needed.
+Install just the ones you need (e.g. `pip install duckdb` for DuckDB only), or install all of them at once:
+
+```shell
+pip install sqlalchemy duckdb pyodbc pymssql psycopg2-binary pyarrow
+```
+
+If you're working from a clone of this repository (e.g. for local development), `pip install -r requirements-full.txt` does the same thing, plus everything from the core install.
+
+> If a connector is used without its required package installed, Wrangles will raise a clear `ImportError` with the exact `pip install` command needed, so there's no harm in starting with the core install and adding packages only as you need them.
 
 Once installed, import the package into your code.
 ```python
