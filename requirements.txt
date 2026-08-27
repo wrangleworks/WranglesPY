@@ -6,7 +6,6 @@ pandas>=2.0,<3.0
 numpy
 numexpr
 polars==1.33.0
-pyarrow
 
 # Fuzzy text similarity
 rapidfuzz>=3.0,<4.0
@@ -30,6 +29,9 @@ xlsxwriter
 
 # Cloud & storage
 boto3
+
+# Embedded database
+duckdb>=1.0.0
 
 # NoSQL
 pymongo
