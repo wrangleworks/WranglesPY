@@ -65,6 +65,8 @@ The parser accepts JSON and a restricted, JSON-compatible form of YAML. It
 rejects duplicate object keys, YAML tags, anchors, aliases, non-string object
 keys, non-finite numbers, and excessively deep values. Words such as `yes` and
 `on`, ISO-formatted dates, and identifiers such as `001` remain strings.
+In an Enum cell, an unquoted `null` token means JSON `null` and therefore
+requires a nullable field. Use `["null"]` when the literal word is intended.
 
 ### Object and array defaults
 
@@ -114,6 +116,14 @@ Use the paired columns when the source wording matters:
 
 `Example - Output` is required whenever `Example - Input` is populated. The
 expected output is validated against the attribute schema before any model call.
+Multiline input text remains text even when it contains lines such as
+`Description: Cordless drill`; use braces only when the real input is a
+structured object.
+
+Object examples must include every non-null named property. For the Voltage
+schema above, `{value: 120}` is incomplete because `uom` is non-null by default.
+Supply `{value: 120, uom: VAC}`, or define `uom` with `nullable: true` in a
+complete property schema if omission is genuinely valid.
 
 ### Calling a saved model from a recipe
 
@@ -230,8 +240,9 @@ record_examples:
 ```
 
 Record-example outputs may omit unrelated nullable top-level fields; the
-compiler fills them with `null`. Unknown fields and values that do not match the
-schema fail before the model is called.
+compiler fills them with `null`. Required non-null nested properties must still
+be present. Unknown fields and values that do not match the schema fail before
+the model is called.
 
 ## Review checklist
 
@@ -242,5 +253,6 @@ Before saving or running the definition, verify:
 - normalization units and conflict rules are explicit;
 - arrays define the intended item type;
 - objects use named properties unless dynamic keys are intentional;
-- examples demonstrate decisions rather than repeating the description; and
+- examples demonstrate decisions rather than repeating the description;
+- object examples contain every required non-null nested property; and
 - uncertain or absent information is represented by `null`, not invented data.

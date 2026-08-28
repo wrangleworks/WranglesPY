@@ -349,7 +349,6 @@ class _Compiler:
         if not (
             stripped.startswith(("{", "["))
             or stripped.startswith("- ")
-            or ("\n" in stripped and _re.match(r"^(?:-|[^:\n]+:)", stripped))
         ):
             return value
         try:
@@ -616,8 +615,20 @@ class _Compiler:
             return isinstance(value, list)
         return False
 
+    @staticmethod
+    def _allows_null(schema: dict) -> bool:
+        schema_type = schema.get("type")
+        if schema_type == "null":
+            return True
+        if isinstance(schema_type, list) and "null" in schema_type:
+            return True
+        return any(
+            isinstance(option, dict) and _Compiler._allows_null(option)
+            for option in schema.get("anyOf", [])
+        )
+
     def materialize_example(self, value: _Any, schema: dict, path: str) -> _Any:
-        """Validate an expected example and fill omitted fixed properties with null."""
+        """Validate an expected example and null-fill nullable omissions."""
         if isinstance(schema.get("anyOf"), list):
             errors = []
             for option in schema["anyOf"]:
@@ -672,9 +683,17 @@ class _Compiler:
                 )
             materialized = {}
             for key, child_schema in properties.items():
-                child_value = value.get(key, None)
+                if key not in value:
+                    if not self._allows_null(child_schema):
+                        self.error(
+                            f"{path}.{key}",
+                            "must be provided because this property "
+                            "does not allow null.",
+                        )
+                    materialized[key] = None
+                    continue
                 materialized[key] = self.materialize_example(
-                    child_value,
+                    value[key],
                     child_schema,
                     f"{path}.{key}",
                 )
@@ -909,6 +928,8 @@ class _Compiler:
                 node["type"] = schema_types
         elif isinstance(node.get("type"), list) and "null" in node["type"]:
             self.error(path, "nullable false conflicts with a type containing null.")
+        elif isinstance(node.get("enum"), list) and None in node["enum"]:
+            self.error(path, "nullable false conflicts with an enum containing null.")
 
         declared_types = (
             node.get("type")

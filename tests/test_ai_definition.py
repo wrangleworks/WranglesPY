@@ -361,6 +361,44 @@ def test_saved_model_nullable_column_and_enum_string_null_are_normalized(caplog)
     assert "converted the string 'null' to JSON null" in caplog.text
 
 
+def test_saved_model_non_nullable_enum_rejects_json_null_but_allows_literal_word():
+    invalid = _saved_model(
+        ["Status", "", "string", "", "", "Active | null", "", "", "FALSE"],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Nullable",
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="nullable false conflicts with an enum containing null",
+    ):
+        ai_definition.compile_definition(
+            None,
+            model="gpt-5.4-mini",
+            saved_model_content=invalid,
+        )
+
+    literal = _saved_model(
+        ["Status", "", "string", "", "", '["null"]', "", "", "FALSE"],
+        columns=invalid["Columns"],
+    )
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=literal,
+    )
+    assert compiled.output["Status"]["enum"] == ["null"]
+
+
 def test_saved_model_examples_accept_human_entered_pseudo_json():
     saved = _saved_model(
         [
@@ -522,6 +560,48 @@ def test_saved_model_human_values_are_shape_aware_and_json_compatible():
     ]
 
 
+def test_multiline_example_input_stays_text_while_object_output_is_parsed():
+    example_input = (
+        "Description: Cordless drill, 20V, brushless motor\n"
+        "Category: Power Tools"
+    )
+    saved = _saved_model(
+        [
+            "Voltage",
+            "",
+            "object",
+            "",
+            "",
+            "",
+            "",
+            "value: number | uom: string",
+            example_input,
+            "value: 20\nuom: VDC",
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Example - Input",
+            "Example - Output",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    assert compiled.field_examples[0].input == example_input
+    assert compiled.field_examples[0].output == {"value": 20, "uom": "VDC"}
+
+
 def test_saved_model_human_values_reject_duplicate_keys_and_anchors():
     duplicate = _saved_model(
         ["Attribute", "", "object", "", "", "", "", "{value: number, value: string}"],
@@ -656,6 +736,41 @@ def test_recipe_field_pairs_and_record_examples_compile_to_stable_guidance():
     assert "Voltage without a cord indicates a battery." in guidance
     assert "Use both fields from this complete record example." in guidance
     assert '"Power_Source": null' in guidance
+
+
+def test_nested_examples_require_non_nullable_properties_and_fill_nullable_ones():
+    with pytest.raises(
+        ValueError,
+        match="uom.*must be provided because this property does not allow null",
+    ):
+        ai_definition.compile_definition(
+            {
+                "Voltage": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "number"},
+                        "uom": {"type": "string"},
+                    },
+                    "examples": [{"input": "120V", "output": {"value": 120}}],
+                }
+            },
+            model="gpt-5.4-mini",
+        )
+
+    compiled = ai_definition.compile_definition(
+        {
+            "Voltage": {
+                "type": "object",
+                "properties": {
+                    "value": {"type": "number"},
+                    "uom": {"type": "string", "nullable": True},
+                },
+                "examples": [{"input": "120V", "output": {"value": 120}}],
+            }
+        },
+        model="gpt-5.4-mini",
+    )
+    assert compiled.field_examples[0].output == {"value": 120, "uom": None}
 
 
 def test_saved_model_can_supply_record_examples():

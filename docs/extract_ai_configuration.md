@@ -53,10 +53,12 @@ nested properties are non-null by default. Python
 represents that value as `None`; presentation layers such as WranglesXL may
 convert it to an empty cell or empty string at their serialization boundary.
 
-Enums automatically include JSON `null`. For saved models, either `null` or the
-string `"null"` in an Enum cell is normalized to JSON `null` when the field is
-nullable. A future or existing saved-model `Nullable` column is supported:
-blank or `true` uses the nullable default, while `false` explicitly opts out.
+Nullable enums automatically include JSON `null`. In an Excel Enum cell, an
+unquoted `null` token means JSON `null`; combining it with `Nullable: FALSE` is
+rejected. Use an explicit JSON string list such as `["null"]` only when the
+literal word is an intended enum value. A future or existing saved-model
+`Nullable` column is supported: blank or `true` uses the nullable default,
+while `false` explicitly opts out.
 
 Saved-model Examples cells accept strict JSON or restricted, human-friendly
 YAML-like values. Pipe-delimited lists are preferred; comma-delimited values
@@ -88,6 +90,15 @@ When `Example - Input` is populated, `Example - Output` is required. The
 expected output may be human-friendly JSON/YAML-like syntax. Use explicit list
 syntax for an array-valued paired output, such as `[Ceramic Tile, Slate]`.
 An explicit `null` is valid because output fields are nullable by default.
+Plain, multiline Example Input text remains text even when its lines use a
+`Label: value` format. Use an explicitly bracketed object such as
+`{Title: drill, Voltage: 20V}` only when the runtime input is itself structured.
+
+An object-valued expected output must include every named nested property that
+does not allow null. Omitted nullable properties are filled with JSON `null`.
+For example, `{value: 120}` is incomplete for the default
+`value: number | uom: string` schema; either supply `uom` or define that child
+with `nullable: true` in a complete property schema.
 
 Field-specific examples teach only the named field. Paired field examples may
 include optional `name` and `notes` metadata. Definitions may also provide
@@ -120,11 +131,11 @@ wrangles:
 
 The first `Power Source` item is a paired field example; `Corded` remains
 output-only value guidance. Top-level `record_examples` demonstrate the complete
-record. Their output may be sparse: the compiler inserts `null` for omitted
-output fields so every example demonstrates the complete required response
-shape. Unknown fields and values that do not match the output schema fail during
-compilation. Optional `name` and `notes` metadata are included in model guidance
-at both levels.
+record. Their output may omit nullable top-level fields: the compiler inserts
+`null` so every example demonstrates the complete required response shape.
+Required non-null nested properties must still be supplied. Unknown fields and
+values that do not match the output schema fail during compilation. Optional
+`name` and `notes` metadata are included in model guidance at both levels.
 
 Saved-model content may likewise include a top-level `Examples` array of
 record pairs. A dedicated WranglesXL interface for those examples can be
