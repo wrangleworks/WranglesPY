@@ -1,5 +1,8 @@
 # `extract.ai` configuration
 
+For a task-oriented introduction to defining attributes in Excel or directly
+in recipe YAML, see [`extract_ai_user_guide.md`](extract_ai_user_guide.md).
+
 The packaged defaults and base prompt live in
 `wrangles/ai_defaults.yml`. Set `WRANGLES_AI_CONFIG` to the path of a
 versioned replacement YAML file to override the complete configuration.
@@ -44,26 +47,31 @@ alias but is no longer advertised in the recipe schema. Do not provide both.
 ## Nullable output fields
 
 Defined output keys remain required so strict Structured Outputs always return
-the complete response shape. Their values are nullable by default, allowing the
-model to return JSON `null` when the input does not support a value. Python
+the complete response shape. Top-level values are nullable by default, allowing
+the model to return JSON `null` when the input does not support a value. Named
+nested properties are non-null by default. Python
 represents that value as `None`; presentation layers such as WranglesXL may
 convert it to an empty cell or empty string at their serialization boundary.
 
-Enums automatically include JSON `null`. For saved models, either `null` or the
-string `"null"` in an Enum cell is normalized to JSON `null` when the field is
-nullable. A future or existing saved-model `Nullable` column is supported:
-blank or `true` uses the nullable default, while `false` explicitly opts out.
+Nullable enums automatically include JSON `null`. In an Excel Enum cell, an
+unquoted `null` token means JSON `null`; combining it with `Nullable: FALSE` is
+rejected. Use an explicit JSON string list such as `["null"]` only when the
+literal word is an intended enum value. A future or existing saved-model
+`Nullable` column is supported: blank or `true` uses the nullable default,
+while `false` explicitly opts out.
 
-Saved-model Examples cells accept strict JSON or human-friendly YAML-like
-values. For example, both of these are compiled into structured examples:
+Saved-model Examples cells accept strict JSON or restricted, human-friendly
+YAML-like values. Pipe-delimited lists are preferred; comma-delimited values
+remain compatible. For example, these are compiled into structured examples:
 
 ```text
 {value: 12, uom: VDC},{value: 110, uom: VAC}
-Ceramic Tile, Slate
+Ceramic Tile | Slate
 ```
 
-The compiler uses PyYAML's safe loader and treats comma-separated Examples
-cells as sequences; users do not need to quote every object key and value.
+The compiler uses JSON-compatible scalar rules and rejects YAML tags, anchors,
+aliases, duplicate keys, and non-JSON values. Users do not need to quote every
+object key and value.
 
 ## Examples
 
@@ -82,6 +90,15 @@ When `Example - Input` is populated, `Example - Output` is required. The
 expected output may be human-friendly JSON/YAML-like syntax. Use explicit list
 syntax for an array-valued paired output, such as `[Ceramic Tile, Slate]`.
 An explicit `null` is valid because output fields are nullable by default.
+Plain, multiline Example Input text remains text even when its lines use a
+`Label: value` format. Use an explicitly bracketed object such as
+`{Title: drill, Voltage: 20V}` only when the runtime input is itself structured.
+
+An object-valued expected output must include every named nested property that
+does not allow null. Omitted nullable properties are filled with JSON `null`.
+For example, `{value: 120}` is incomplete for the default
+`value: number | uom: string` schema; either supply `uom` or define that child
+with `nullable: true` in a complete property schema.
 
 Field-specific examples teach only the named field. Paired field examples may
 include optional `name` and `notes` metadata. Definitions may also provide
@@ -114,11 +131,11 @@ wrangles:
 
 The first `Power Source` item is a paired field example; `Corded` remains
 output-only value guidance. Top-level `record_examples` demonstrate the complete
-record. Their output may be sparse: the compiler inserts `null` for omitted
-output fields so every example demonstrates the complete required response
-shape. Unknown fields and values that do not match the output schema fail during
-compilation. Optional `name` and `notes` metadata are included in model guidance
-at both levels.
+record. Their output may omit nullable top-level fields: the compiler inserts
+`null` so every example demonstrates the complete required response shape.
+Required non-null nested properties must still be supplied. Unknown fields and
+values that do not match the output schema fail during compilation. Optional
+`name` and `notes` metadata are included in model guidance at both levels.
 
 Saved-model content may likewise include a top-level `Examples` array of
 record pairs. A dedicated WranglesXL interface for those examples can be

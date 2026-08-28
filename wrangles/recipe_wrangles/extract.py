@@ -386,7 +386,8 @@ def ai(
                   scalar or list of typical output values. A paired example may
                   instead use input and output, with optional name and notes.
                   Paired examples apply only to this output field; use
-                  record_examples for complete output records.
+                  record_examples for complete output records. Object outputs
+                  must include every required non-null nested property.
                 properties:
                   name:
                     type: string
@@ -395,7 +396,10 @@ def ai(
                     type: string
                     description: Optional explanatory guidance included with this paired field example.
                   input:
-                    description: Source value or record for this paired field example.
+                    description: >-
+                      Source value or record for this paired field example.
+                      Plain multiline strings remain text; use an explicit
+                      object when the runtime input is structured.
                   output:
                     description: Expected value for this output field only.
                 items:
@@ -412,7 +416,11 @@ def ai(
                           type: string
                           description: Optional explanatory guidance included with this paired field example.
                         input:
-                          description: Source value or record for this paired field example.
+                          description: >-
+                            Source value or record for this paired field
+                            example. Plain multiline strings remain text; use
+                            an explicit object when the runtime input is
+                            structured.
                         output:
                           description: Expected value for this output field only.
                     - description: Backward-compatible output-only example value.
@@ -424,7 +432,16 @@ def ai(
                 description: >-
                   Child fields when type is object. Use an object to define a
                   schema for each child. A list or comma-separated string is a
-                  shortcut that creates fixed child names.
+                  shortcut that creates fixed child names. Named child values
+                  are non-null by default.
+              required:
+                type:
+                  - array
+                  - string
+                description: >-
+                  Named object properties that must be returned. If omitted,
+                  every named property is required. Strings may use pipe or
+                  comma delimiters.
               additionalProperties:
                 type:
                   - boolean
@@ -433,7 +450,8 @@ def ai(
                   Controls keys beyond properties when type is object. Set false
                   for fixed keys, true for arbitrary values, or provide one
                   schema applied to every dynamic value. Dynamic dictionaries
-                  use non-strict provider mode plus local validation.
+                  use non-strict provider mode plus local validation. Defaults
+                  to false when named properties exist.
               items:
                 type: object
                 description: >-
@@ -442,7 +460,9 @@ def ai(
                 type: boolean
                 description: >-
                   Whether the field may return null. Defaults to true while
-                  the field key remains required. Set false to opt out.
+                  a top-level field key remains required. Named nested
+                  properties default to false. Set this explicitly to override
+                  the applicable default.
       record_examples:
         title: Record examples
         type:
@@ -452,9 +472,10 @@ def ai(
           Whole-record examples. Each example has a separate input value or
           record and the complete expected output record. Optional name and
           notes provide model-visible context. Use {name: ..., notes: ...,
-          input: ..., output: ...}. Omitted output fields are completed with
-          null. This differs from examples nested under one output field, which
-          teach only that field.
+          input: ..., output: ...}. Omitted nullable output fields are completed
+          with null. Required non-null nested properties must be supplied. This
+          differs from examples nested under one output field, which teach only
+          that field.
         required:
           - input
           - output

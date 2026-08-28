@@ -121,7 +121,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-docs/
+docs/*
+!docs/extract_ai_user_guide.md
 .DS_Store
 
 # Spyder project settings
