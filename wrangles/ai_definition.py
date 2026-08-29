@@ -801,6 +801,14 @@ class _Compiler:
 
         node = {}
         for key, item in _copy.deepcopy(value).items():
+            # YAML-like entries such as `{nullable}` are blank Excel values.
+            # Omit only keywords whose documented behavior has a safe default.
+            if (
+                key in {"additionalProperties", "nullable", "required"}
+                and isinstance(item, str)
+                and not item.strip()
+            ):
+                continue
             parser = {
                 "additionalProperties": self._parse_additional_properties_value,
                 "anyOf": self._parse_list_value,
