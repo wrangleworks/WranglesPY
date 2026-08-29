@@ -518,6 +518,72 @@ def test_saved_model_schema_shorthand_compiles_closed_required_nested_objects():
     }
 
 
+def test_blank_nested_schema_keywords_use_object_defaults():
+    saved = _saved_model(
+        [
+            "Voltage",
+            "Voltage and unit",
+            "object",
+            "",
+            "",
+            "",
+            "",
+            (
+                '{"value":{"type":"number","nullable"},'
+                '"uom":{"type":"string","nullable"}}'
+            ),
+        ],
+        [
+            "Cutting Depth",
+            "Cutting depth by material",
+            "array",
+            "",
+            "",
+            "",
+            "",
+            "",
+            (
+                '{"type":"object","properties":{'
+                '"value":{"type":"number","nullable"},'
+                '"material":{"type":"string","nullable"}},'
+                '"required","additionalProperties","nullable"}'
+            ),
+        ],
+        columns=[
+            "Find",
+            "Description",
+            "Type",
+            "Default",
+            "Examples",
+            "Enum",
+            "Notes",
+            "Properties",
+            "Items",
+        ],
+    )
+
+    compiled = ai_definition.compile_definition(
+        None,
+        model="gpt-5.4-mini",
+        saved_model_content=saved,
+    )
+
+    voltage = compiled.output["Voltage"]
+    assert voltage["type"] == ["object", "null"]
+    assert voltage["properties"] == {
+        "value": {"type": "number"},
+        "uom": {"type": "string"},
+    }
+
+    cutting_depth_items = compiled.output["Cutting_Depth"]["items"]
+    assert cutting_depth_items["required"] == ["value", "material"]
+    assert cutting_depth_items["additionalProperties"] is False
+    assert cutting_depth_items["properties"] == {
+        "value": {"type": "number"},
+        "material": {"type": "string"},
+    }
+
+
 def test_saved_model_human_values_are_shape_aware_and_json_compatible():
     saved = _saved_model(
         ["Power Source", "", "string", "", "Corded|Battery", "Corded|Battery", "", ""],
