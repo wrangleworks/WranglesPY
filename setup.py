@@ -33,10 +33,10 @@ setup(
         'Operating System :: OS Independent'
     ],
     python_requires = '>=3.11',
-    version = '1.19.0',
+    version = '1.20.0',
     url = 'https://github.com/wrangleworks/WranglesPy',
     author = 'WrangleWorks',
-    author_email = 'chris@wrangleworks.com',
+    author_email = 'eric@wrangleworks.com',
     keywords = ['data','wrangling'],
     install_requires = requirements,
     entry_points ={
