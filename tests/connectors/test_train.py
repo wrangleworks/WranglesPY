@@ -1087,24 +1087,24 @@ class TestTrainLookup:
         df = wrangles.recipe.run(recipe, dataframe=df)  
         assert df.iloc[0]['Key'] == 'Rachel' and df.iloc[0]['Value'] == 'Updated Rachel'
                                                             
-    def test_upsert_new_model_recipe(self):  
-        """  
-        Test upsert creates new model when model_id doesn't exist  
-        """  
-        df = pd.DataFrame({  
-            'Key': ['Rachel', 'NewCharacter'],  
-            'Value': ['Updated Rachel', 'New Movie']  
-        })  
+    def test_upsert_new_model_recipe(self):
+        """
+        Test upsert creates new model when model_id doesn't exist
+        """
+        df = pd.DataFrame({
+            'Key': ['Rachel', 'NewCharacter'],
+            'Value': ['Updated Rachel', 'New Movie']
+        })
         model_name = f"model {{ {uuid.uuid4().hex[:8]} }}"
-        
-        recipe = f"""  
-        write:  
-        - train.lookup:  
-            name: {model_name} 
-            action: UPSERT  
-            variant: key  
-        """  
-        
+
+        recipe = f"""
+        write:
+        - train.lookup:
+            name: {model_name}
+            action: UPSERT
+            variant: key
+        """
+
         model_id = None
         try:
             result = wrangles.recipe.run(recipe, dataframe=df)

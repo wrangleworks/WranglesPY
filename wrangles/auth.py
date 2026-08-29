@@ -84,3 +84,33 @@ def get_access_token():
         _access_token_expiry = _datetime.now() + _timedelta(0, response.json()['expires_in'] - 30)
 
     return _access_token
+
+
+def extract_applied_permission_group(source: dict):
+    """
+    Extract the effective permission group from a metadata or token payload.
+    """
+    if not isinstance(source, dict):
+        return None
+
+    return source.get("applied_permission_group")
+
+
+def get_applied_permission_group():
+    """
+    Return the authenticated user's effective permission group from the current access token.
+
+    If no user is authenticated or the token does not contain the claim,
+    return None so recipes can still run without backend credentials.
+    """
+    try:
+        token = get_access_token()
+    except Exception:
+        return None
+
+    try:
+        claims = _jwt.decode(token, options={"verify_signature": False})
+    except Exception:
+        return None
+
+    return extract_applied_permission_group(claims)

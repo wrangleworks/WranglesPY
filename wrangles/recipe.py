@@ -20,6 +20,7 @@ import requests as _requests
 from . import recipe_wrangles as _recipe_wrangles
 from . import connectors as _connectors
 from . import data as _data
+from . import auth as _auth
 from .config import (
     reserved_word_replacements as _reserved_word_replacements,
     where_overwrite_output as _where_overwrite_output,
@@ -76,6 +77,11 @@ def _load_recipe(
     if variables is None:
         variables = {}
 
+    user_variable_keys = set(variables.keys())
+
+    if "applied_permission_group" not in variables:
+        variables["applied_permission_group"] = _auth.get_applied_permission_group()
+
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
         recipe = str(recipe)
@@ -121,6 +127,11 @@ def _load_recipe(
         # If model_id format is correct but no mode_id exists
         if metadata.get('message', None) == 'error':
             raise ValueError('Incorrect model_id.\nmodel_id may be wrong or does not exists')
+
+        metadata_applied_permission_group = _auth.extract_applied_permission_group(metadata)
+        if metadata_applied_permission_group is not None:
+            if "applied_permission_group" not in user_variable_keys:
+                variables["applied_permission_group"] = metadata_applied_permission_group
 
         # Using model_id in wrong function
         purpose = metadata['purpose']
@@ -1219,6 +1230,7 @@ def run(
     """
     if variables is None:
         variables = {}
+    variables = variables.copy()
 
     parent_context = _RECIPE_RUN_CONTEXT.get()
     run_context = {
