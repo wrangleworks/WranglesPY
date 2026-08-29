@@ -326,11 +326,22 @@ jobs:
             --domain-owner ${{ vars.CODEARTIFACT_DOMAIN_OWNER }} \
             --repository ${{ vars.CODEARTIFACT_REPOSITORY }}
 
-      # --skip-existing keeps re-runs safe after a partial release: CodeArtifact
-      # answers 409 for an asset that is already stored, which twine treats as
-      # "already published" rather than a failure.
+      # Twine 6.2.0+ allows --skip-existing only for PyPI and TestPyPI. For
+      # CodeArtifact re-runs after a successful upload, skip twine when this
+      # version is already Published.
       - name: Publish to CodeArtifact
-        run: twine upload --skip-existing --repository codeartifact dist/*
+        run: |
+          STATUS=$(aws codeartifact describe-package-version \
+            --domain ${{ vars.CODEARTIFACT_DOMAIN }} \
+            --domain-owner ${{ vars.CODEARTIFACT_DOMAIN_OWNER }} \
+            --repository ${{ vars.CODEARTIFACT_REPOSITORY }} \
+            --format pypi --package wrangles --package-version "$VERSION" \
+            --query 'packageVersion.status' --output text 2>/dev/null) || STATUS=""
+          if [[ "$STATUS" == "Published" ]]; then
+            echo "wrangles ${VERSION} is already Published in ${{ vars.CODEARTIFACT_REPOSITORY }}; skipping upload."
+            exit 0
+          fi
+          twine upload --repository codeartifact dist/*
 
       # CodeArtifact persists package versions asynchronously, so a successful
       # upload is not proof the version is available to consumers yet.
