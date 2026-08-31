@@ -7551,7 +7551,7 @@ class TestMatrix:
                   wrangles:
                     - extract.ai:
                         input: Description
-                        api_key: ${OPENAI_API_KEY}
+                        api_key: ${OPENAI_API_KEY_TESTS}
                         seed: 1
                         retries: 2
                         output:
