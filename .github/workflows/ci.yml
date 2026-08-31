@@ -110,6 +110,33 @@ jobs:
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
+  pytest-local-config:
+    # Guards pytest-local.ini (the credential-free local/offline test config)
+    # against silently drifting out of sync with the real test suite - stale
+    # --ignore/--deselect entries, or new test files nobody added to testpaths.
+    needs: [config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest==9.0.2 lorem pytest-mock
+          pip install -r requirements-full.txt
+          pip install .
+
+      - name: Check pytest-local.ini is in sync
+        run: python scripts/check_pytest_local_config.py
+
   test-pip-install:
     needs: [config]
     runs-on: ${{ matrix.os }}
