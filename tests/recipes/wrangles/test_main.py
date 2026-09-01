@@ -4103,6 +4103,39 @@ wrangles:
         )
         assert df['header1'][0] == 'VALUE1' and df['header2'][0] == 'value2'
 
+    def test_recipe_wrangle_write_dataframe_shapes_output(self):
+        """
+        A recipe used as a wrangle should still honor an inner
+        write: - dataframe: columns: [...] step to shape which columns are
+        returned, even though real (side-effecting) write steps are stripped
+        to avoid duplicate/partial writes when nested inside batch.
+        """
+        df = wrangles.recipe.run(
+            """
+            read:
+              - test:
+                  rows: 1
+                  values:
+                    Col1: Val1
+                    Col2: Val2
+
+            wrangles:
+              - recipe:
+                  wrangles:
+                    - create.column:
+                        output: Col3
+                        value: Val3
+
+                  write:
+                    - dataframe:
+                        columns:
+                          - Col2
+                          - Col3
+            """
+        )
+        assert df.columns.tolist() == ['Col2', 'Col3']
+        assert df.values.tolist() == [['Val2', 'Val3']]
+
     def test_recipe_where(self):
         """
         Test using a recipe as a wrangle

@@ -1498,7 +1498,23 @@ def recipe(
         variables=variables,
         functions=functions
     )
-    recipe_object.pop('write', None)
+
+    # Strip any real, side-effecting write steps (file, memory, s3, etc.) so a
+    # recipe run as a wrangle never performs external I/O - critical when
+    # nested inside batch, where this wrangle can run once per chunk and would
+    # otherwise write duplicate/partial output. The dataframe write type is
+    # kept - it has no side effects, it only shapes what recipe.run() returns.
+    write_section = recipe_object.get('write')
+    if write_section is not None:
+        write_list = write_section if isinstance(write_section, list) else [write_section]
+        dataframe_writes = [
+            export for export in write_list
+            if export == 'dataframe' or (isinstance(export, dict) and 'dataframe' in export)
+        ]
+        if dataframe_writes:
+            recipe_object['write'] = dataframe_writes
+        else:
+            recipe_object.pop('write', None)
 
     # If output columns are specified, only apply to those
     if output:
