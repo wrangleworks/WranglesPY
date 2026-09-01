@@ -1122,8 +1122,13 @@ def _write_data(
                     # Validate with a placeholder for df
                     _validate_function_args(func, {"df": None, **args}, export_type)
 
-                    # Execute the function
-                    func(df_temp, **args)
+                    # Execute the function. If it returns a dataframe
+                    # (e.g. the recipe connector reflecting a nested
+                    # write: - dataframe: step), use that as the
+                    # dataframe returned by this recipe.
+                    result = func(df_temp, **args)
+                    if result is not None:
+                        df_return = result
             except Exception as e:
                 # Wrap with enhanced error information
                 _wrap_and_raise('WRITE', export_type, None, e)
