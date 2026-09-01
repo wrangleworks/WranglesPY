@@ -331,6 +331,50 @@ class TestWrite:
         df = wrangles.recipe.run(recipe)
         assert df.columns.tolist() == ['Find', 'Replace']
 
+    def test_write_file_optional_wildcard_col_matches(self):
+        """
+        Regression: an optional column combined with a wildcard (e.g.
+        Col*?) must still expand the wildcard, rather than the ? being
+        absorbed into the pattern and matching nothing.
+
+        The write step's column filtering is a side effect on the output
+        file, not on the dataframe returned by recipe.run(), so the
+        written file itself is read back to verify.
+        """
+        recipe = """
+        read:
+          file:
+            name: tests/samples/data.xlsx
+        write:
+            file:
+              name: tests/temp/write_data_optional_wildcard.xlsx
+              columns:
+                - Fi*?
+        """
+        wrangles.recipe.run(recipe)
+        written = _pd.read_excel('tests/temp/write_data_optional_wildcard.xlsx')
+        assert written.columns.tolist() == ['Find']
+
+    def test_write_file_optional_wildcard_col_no_matches(self):
+        """
+        Regression: an optional wildcard that matches nothing must not
+        raise, the same as a plain optional column that isn't present.
+        """
+        recipe = """
+        read:
+          file:
+            name: tests/samples/data.xlsx
+        write:
+            file:
+              name: tests/temp/write_data_optional_wildcard_no_match.xlsx
+              columns:
+                - Find
+                - NoSuchColumn*?
+        """
+        wrangles.recipe.run(recipe)
+        written = _pd.read_excel('tests/temp/write_data_optional_wildcard_no_match.xlsx')
+        assert written.columns.tolist() == ['Find']
+
     def test_write_csv(self):
         """
         Test exporting a .csv
