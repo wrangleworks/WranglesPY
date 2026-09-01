@@ -392,7 +392,8 @@ jobs:
   # ── Trigger PROD deployment in Lambda-Recipes ─────────────────────────────
   # Runs after publish-pypi (or when skipped) because Lambda-Recipes verify-setup
   # requires the version to exist on PyPI before the deploy pipeline starts.
-  # CROSS_REPO_PAT: GitHub PAT with Actions read/write on Lambda-Recipes.
+  # CROSS_REPO_PAT_V2: GitHub PAT with Actions read/write on Lambda-Recipes
+  # (and Contents read/write on wrangleworks.github.io for Deploy Dev schema publish).
   trigger-deploy-prod:
     name: Trigger PROD Deploy
     runs-on: ubuntu-latest
@@ -435,7 +436,7 @@ jobs:
           owner: wrangleworks
           repo: Lambda-Recipes
           workflow_file_name: deploy-prod.yml
-          github_token: ${{ secrets.CROSS_REPO_PAT }}
+          github_token: ${{ secrets.CROSS_REPO_PAT_V2 }}
           ref: main
           wait_interval: 15
           client_payload: ${{ steps.dispatch.outputs.payload }}

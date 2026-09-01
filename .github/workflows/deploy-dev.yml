@@ -228,7 +228,8 @@ jobs:
         run: twine upload --repository codeartifact dist/*
 
   # ── 5. Trigger DEV deployment in Lambda-Recipes ───────────────────────────
-  # CROSS_REPO_PAT: a GitHub PAT with Actions read/write on Lambda-Recipes,
+  # CROSS_REPO_PAT_V2: a GitHub PAT with Actions read/write on Lambda-Recipes
+  # (and Contents read/write on wrangleworks.github.io for schema publish),
   # stored as a repository or org secret. Required to dispatch workflows across repositories.
   trigger-deploy-dev:
     name: Trigger DEV Deploy
@@ -271,7 +272,7 @@ jobs:
           owner: wrangleworks
           repo: Lambda-Recipes
           workflow_file_name: deploy-dev.yml
-          github_token: ${{ secrets.CROSS_REPO_PAT }}
+          github_token: ${{ secrets.CROSS_REPO_PAT_V2 }}
           ref: main
           wait_interval: 15
           client_payload: ${{ steps.dispatch.outputs.payload }}
