@@ -62,6 +62,26 @@ def test_model_endpoints_raise_authorization_error_for_403(monkeypatch, call_mod
     )
 
 
+@pytest.mark.parametrize(
+    "call_model_endpoint",
+    [
+        lambda: data.model(MODEL_ID),
+        lambda: data.model_update(MODEL_ID, {"name": "Updated model"}),
+        lambda: data.model_content(MODEL_ID),
+    ],
+)
+def test_model_endpoints_raise_not_found_error_for_404(monkeypatch, call_model_endpoint):
+    _mock_model_response(monkeypatch, FakeResponse(404))
+
+    with pytest.raises(data.ModelNotFoundError) as info:
+        call_model_endpoint()
+
+    assert isinstance(info.value, RuntimeError)
+    assert str(info.value) == (
+        f"Model {MODEL_ID} was not found. Check the model id is correct."
+    )
+
+
 def test_model_success_returns_metadata(monkeypatch):
     metadata = {"id": MODEL_ID, "name": "Model"}
     _mock_model_response(monkeypatch, FakeResponse(200, metadata))

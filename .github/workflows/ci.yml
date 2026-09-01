@@ -98,6 +98,15 @@ jobs:
           pip install -r requirements-full.txt
           pip install .
 
+      # Fails fast with a clear per-model report if a test fixture model is
+      # missing or inaccessible, instead of burning the whole matrix on a
+      # cascade of individual test failures deep into the run.
+      - name: Check model registry access
+        run: python scripts/check_model_registry_access.py
+        env:
+          WRANGLES_USER: ${{ secrets.WRANGLES_USER }}
+          WRANGLES_PASSWORD: ${{ secrets.WRANGLES_PASSWORD }}
+
       - name: Run Tests
         run: pytest
         env:
