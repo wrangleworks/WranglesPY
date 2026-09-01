@@ -55,6 +55,12 @@ MODEL_REGISTRY = {
     "fc7d46e3-057f-47bd": "tests/connectors/test_http.py (+2 more files)",
     "fce592c9-26f5-4fd7": "tests/recipes/test_recipes.py (+1 more files)",
     "fe730444-1bda-4fcd": "tests/recipes/wrangles/test_main.py (+1 more files)",
-    "fe885889-67f2-4f3a": "tests/recipes/test_recipes.py",
+    # NOTE: fe885889-67f2-4f3a (tests/recipes/test_recipes.py) intentionally
+    # omitted - not a model_id at all. It's the first three groups of the
+    # longer version_id fe885889-67f2-4f3a-b33a-1a37ff5c243c, used as
+    # "c37af8a6-43d8-4127:fe885889-67f2-4f3a-b33a-1a37ff5c243c" in
+    # test_recipe_by_version_id. The extraction regex (8-4-4 hex) matched
+    # inside it by accident - confirmed by the checker correctly reporting
+    # it as inaccessible on its first live CI run.
 }
 
