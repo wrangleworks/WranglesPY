@@ -14,6 +14,10 @@ class AuthorizationError(RuntimeError):
     pass
 
 
+class ModelNotFoundError(RuntimeError):
+    pass
+
+
 def _raise_model_response_error(response, id: str, action: str) -> None:
     if response.status_code == 401:
         raise AuthenticationError(
@@ -23,6 +27,10 @@ def _raise_model_response_error(response, id: str, action: str) -> None:
     if response.status_code == 403:
         raise AuthorizationError(
             f"Access denied to model {id}. Check the user's model permissions."
+        )
+    if response.status_code == 404:
+        raise ModelNotFoundError(
+            f"Model {id} was not found. Check the model id is correct."
         )
     raise RuntimeError(f'Something went wrong trying to {action} model {id}')
 
