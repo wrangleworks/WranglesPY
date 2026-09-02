@@ -109,7 +109,7 @@ def write(
     columns: list = None,
     functions: _Union[_types.FunctionType, list] = [],
     **kwargs
-) -> None:
+) -> _pd.DataFrame:
     """
     Run a recipe, from a recipe! Recipe-ception. This will trigger a new recipe with the contents of the current recipe.
 
@@ -121,6 +121,9 @@ def write(
     :param variables: (Optional) A dictionary of custom variables to override placeholders in the recipe. Variables can be indicated as ${MY_VARIABLE}. Variables can also be overwritten by Environment Variables.
     :param columns: (Optional) A list of the columns to pass to the recipe. If omitted, all columns will be included.
     :param functions: Pass in a custom function or list of custom functions that can be called in the recipe.
+    :return: The nested recipe's resulting dataframe, so it can be used to \
+        shape the return value of the outer recipe (e.g. via the nested \
+        recipe's own write: - dataframe: step).
     """
     if variables is None:
         variables = {}
@@ -130,7 +133,7 @@ def write(
         columns = _wildcard_expansion(df.columns, columns)
         df = df[columns]
 
-    _recipe.run(name, dataframe=df, variables=variables, functions=functions)
+    return _recipe.run(name, dataframe=df, variables=variables, functions=functions)
 
 
 _schema['write'] = """
