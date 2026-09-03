@@ -1773,7 +1773,8 @@ def regex(
   output_pattern: str = None,
   first_element: bool = False,
   output_format: str = None,
-  char: str = ", "
+  char: str = ", ",
+  capture_groups: bool = False
   ) -> _pd.DataFrame:
     r"""
     type: object
@@ -1817,7 +1818,21 @@ def regex(
       char:
         type: string
         description: Character to use when output_format is concatenate
+      capture_groups:
+        type: boolean
+        description: |
+          Return each capture group of a match as a separate result, rather than
+          the entire match. Use this to parse a single column into its parts.
+          Cannot be combined with output_pattern.
+
+          **Example**: For a regex pattern `r'([A-Z]+)(\d+)'` with input `'LRB812'`
+          and `output = ['Model', 'Bore']`, Model would be `'LRB'` and Bore `'812'`.
     """
+    if capture_groups and output_pattern:
+        raise ValueError(
+            'Extract must use either capture_groups or output_pattern, not both.'
+        )
+
     # If output is not specified, overwrite input columns in place
     if output is None:
         output = input
@@ -1840,6 +1855,22 @@ def regex(
 
     def _matches(value):
         value = str(value) if value is not None else ""
+        if capture_groups:
+            # Return the capture groups of each match rather than the whole
+            # match. A pattern without any capture groups falls back to the
+            # whole match so the results are never empty. Groups that did not
+            # participate in the match return an empty string.
+            matches = []
+            for match in _re.finditer(find_pattern, value):
+                if match.groups():
+                    matches += [
+                        "" if group is None else group
+                        for group in match.groups()
+                    ]
+                else:
+                    matches.append(match.group(0))
+            return matches
+
         matches = [match.group(0) for match in _re.finditer(find_pattern, value)]
         if output_pattern:
             matches = [find_pattern.sub(output_pattern, match) for match in matches]

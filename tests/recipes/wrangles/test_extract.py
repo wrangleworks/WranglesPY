@@ -2652,6 +2652,278 @@ class TestExtractRegex:
         assert df.iloc[2]['first_formatted'] == 'Number: 78'
         assert df.iloc[3]['first_formatted'] == ''
 
+    def test_extract_regex_capture_groups_to_columns(self):
+        """
+        Test extract.regex parsing a single column into
+        one output column per capture group
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216', 'LRBZ606832', 'LRT10011030']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            find: ([A-Z]+)(\d+)(\d{2})
+            capture_groups: true
+            output:
+              - Model
+              - BoreOD
+              - Width
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['Model'] == 'LRB' and
+            df.iloc[0]['BoreOD'] == '812' and
+            df.iloc[0]['Width'] == '16' and
+            df.iloc[2]['Model'] == 'LRT' and
+            df.iloc[2]['BoreOD'] == '100110' and
+            df.iloc[2]['Width'] == '30'
+        )
+
+    def test_extract_regex_capture_groups_default(self):
+        """
+        Test extract.regex returns the whole match when
+        capture_groups is not specified
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216', 'LRBZ606832']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)(\d{2})
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['LRB81216']
+
+    def test_extract_regex_capture_groups_list(self):
+        """
+        Test extract.regex returning capture groups as a list
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216', 'LRBZ606832']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)(\d{2})
+            capture_groups: true
+            output_format: list
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['col_out'] == ['LRB', '812', '16'] and
+            df.iloc[1]['col_out'] == ['LRBZ', '6068', '32']
+        )
+
+    def test_extract_regex_capture_groups_concatenate(self):
+        """
+        Test extract.regex concatenating capture groups
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)(\d{2})
+            capture_groups: true
+            output_format: concatenate
+            char: ' | '
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == 'LRB | 812 | 16'
+
+    def test_extract_regex_capture_groups_multiple_matches(self):
+        """
+        Test extract.regex with capture groups across multiple matches
+        """
+        data = pd.DataFrame({
+            'col': ['55v 24a']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            find: (\d+)([va])
+            capture_groups: true
+            output:
+              - First Value
+              - First Unit
+              - Second Value
+              - Second Unit
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['First Value'] == '55' and
+            df.iloc[0]['First Unit'] == 'v' and
+            df.iloc[0]['Second Value'] == '24' and
+            df.iloc[0]['Second Unit'] == 'a'
+        )
+
+    def test_extract_regex_capture_groups_without_groups(self):
+        """
+        Test extract.regex with capture_groups and a pattern
+        that does not define any capture groups
+        """
+        data = pd.DataFrame({
+            'col': ['Random Pikachu Random']
+        })
+        recipe = """
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: Pikachu
+            capture_groups: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == ['Pikachu']
+
+    def test_extract_regex_capture_groups_optional_group(self):
+        """
+        Test extract.regex with capture_groups where a group
+        does not participate in the match
+        """
+        data = pd.DataFrame({
+            'col': ['55v', '55']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: (\d+)(v)?
+            capture_groups: true
+            output_format: list
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['col_out'] == ['55', 'v'] and
+            df.iloc[1]['col_out'] == ['55', '']
+        )
+
+    def test_extract_regex_capture_groups_no_match(self):
+        """
+        Test extract.regex with capture_groups and a pattern
+        that does not match
+        """
+        data = pd.DataFrame({
+            'col': ['Random']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)
+            capture_groups: true
+            output_format: list
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == []
+
+    def test_extract_regex_capture_groups_first_element(self):
+        """
+        Test extract.regex with capture_groups and first_element
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216', 'Random']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)
+            capture_groups: true
+            first_element: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert df.iloc[0]['col_out'] == 'LRB' and df.iloc[1]['col_out'] == ''
+
+    def test_extract_regex_capture_groups_multiple_inputs(self):
+        """
+        Test extract.regex with capture_groups against
+        an equal number of inputs and outputs
+        """
+        data = pd.DataFrame({
+            'col1': ['LRB812'],
+            'col2': ['LRT100']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input:
+              - col1
+              - col2
+            output:
+              - out1
+              - out2
+            find: ([A-Z]+)(\d+)
+            capture_groups: true
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['out1'] == ['LRB', '812'] and
+            df.iloc[0]['out2'] == ['LRT', '100']
+        )
+
+    def test_extract_regex_capture_groups_mixed_types(self):
+        """
+        Test extract.regex with capture_groups against
+        non-string data types
+        """
+        data = pd.DataFrame({
+            'col': [123, 'value456', 78.9, None]
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([a-z]*)(\d+)
+            capture_groups: true
+            output_format: list
+        """
+        df = wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            df.iloc[0]['col_out'] == ['', '123'] and
+            df.iloc[1]['col_out'] == ['value', '456'] and
+            df.iloc[3]['col_out'] == []
+        )
+
+    def test_extract_regex_capture_groups_with_output_pattern(self):
+        """
+        Test extract.regex raises an error if capture_groups
+        and output_pattern are both provided
+        """
+        data = pd.DataFrame({
+            'col': ['LRB81216']
+        })
+        recipe = r"""
+        wrangles:
+        - extract.regex:
+            input: col
+            output: col_out
+            find: ([A-Z]+)(\d+)
+            capture_groups: true
+            output_pattern: \1
+        """
+        with pytest.raises(ValueError) as info:
+            wrangles.recipe.run(recipe, dataframe=data)
+        assert (
+            info.typename == 'ValueError' and
+            'either capture_groups or output_pattern' in info.value.args[0]
+        )
+
 
 class TestExtractProperties:
     """
