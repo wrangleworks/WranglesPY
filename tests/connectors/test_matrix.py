@@ -641,7 +641,6 @@ class TestWrite:
         raises an error, the error still propagates. Previously this
         was silently swallowed and the matrix write appeared to
         succeed even though one permutation failed.
-        https://github.com/wrangleworks/WranglesPY/issues/770
         """
         def fail_for_c(df, key):
             if key == "c":
