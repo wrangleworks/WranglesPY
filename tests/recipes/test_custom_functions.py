@@ -1185,6 +1185,32 @@ def test_positional_fallback_without_input():
         df['result'][1] == 'row2-default-default'
     )
 
+def test_positional_fallback_too_many_columns_error():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    If there are more unmatched columns than the function has remaining
+    unfilled parameters, it's ambiguous which columns to use, so a clear
+    error should be raised rather than silently guessing or falling back
+    to a confusing "missing argument" TypeError.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    with pytest.raises(
+        ValueError,
+        match=r"accepts at most 3 unfilled parameter\(s\) \(x, y, z\) but 4 column\(s\) were provided: a, b, c, d"
+    ):
+        wrangles.recipe.run(
+            """
+            wrangles:
+              - custom.func:
+                  output: result
+            """,
+            functions=[func],
+            dataframe=pd.DataFrame({"a": [1], "b": [2], "c": [3], "d": [4]})
+        )
+
 def test_row_function_where():
     """
     Test a custom function that applies to an
