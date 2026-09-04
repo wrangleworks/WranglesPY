@@ -170,13 +170,19 @@ jobs:
           pip install jsonschema
 
       - name: Generate and Test Schema
-        run: cd schema && python generate_recipe_schema.py
+        run: |
+          cd schema
+          python generate_recipe_schema.py
+          python generate_wrangle_manifest.py --source-revision "${GITHUB_SHA}"
 
-      - name: Save Schema as Artifact
+      - name: Save Schema and Runtime Manifest as Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: schema
-          path: schema/schema.json
+          path: |
+            schema/schema.json
+            schema/wrangle_runtime_manifest.json
+            schema/wrangles-runtime-manifest.schema.json
 
   build:
     runs-on: ubuntu-latest
@@ -443,4 +449,3 @@ jobs:
           propagate_failure: true
           trigger_workflow: true
           wait_workflow: true
-

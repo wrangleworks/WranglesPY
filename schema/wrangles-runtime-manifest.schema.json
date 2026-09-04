@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.wrangles.com/registry/schema/wrangles-runtime-manifest.schema.json",
+  "title": "WranglesPY recipe-wrangle runtime manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "format",
+    "format_version",
+    "source",
+    "entry_count",
+    "wrangles"
+  ],
+  "properties": {
+    "$schema": {"type": "string", "format": "uri"},
+    "format": {"const": "wrangles-runtime-manifest"},
+    "format_version": {"const": "0.1"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision"],
+      "properties": {
+        "repository": {"type": "string", "format": "uri"},
+        "revision": {"type": "string", "minLength": 1}
+      }
+    },
+    "entry_count": {"type": "integer", "minimum": 0},
+    "wrangles": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/wrangle"}
+    }
+  },
+  "$defs": {
+    "wrangle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_key",
+        "python_symbol",
+        "signature",
+        "parameters",
+        "internal_parameters",
+        "variadic",
+        "capabilities",
+        "where_mode",
+        "docstring_schema_status",
+        "docstring_schema",
+        "plain_docstring"
+      ],
+      "properties": {
+        "runtime_key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+        },
+        "python_symbol": {"type": "string", "minLength": 1},
+        "signature": {"type": "string", "minLength": 1},
+        "parameters": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/parameter"}
+        },
+        "internal_parameters": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "variadic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positional", "keyword"],
+          "properties": {
+            "positional": {"type": ["string", "null"]},
+            "keyword": {"type": ["string", "null"]}
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["if", "where", "where_params"],
+          "properties": {
+            "if": {"type": "boolean"},
+            "where": {"type": "boolean"},
+            "where_params": {"type": "boolean"}
+          }
+        },
+        "where_mode": {
+          "enum": ["filter", "overwrite_output", "unsupported"]
+        },
+        "docstring_schema_status": {"enum": ["available", "missing"]},
+        "docstring_schema": {"type": ["object", "null"]},
+        "plain_docstring": {"type": ["string", "null"]}
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "required"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "kind": {
+          "enum": ["positional_only", "positional_or_keyword", "keyword_only"]
+        },
+        "required": {"type": "boolean"},
+        "annotation": {"type": "string", "minLength": 1},
+        "default": {}
+      }
+    }
+  }
+}
