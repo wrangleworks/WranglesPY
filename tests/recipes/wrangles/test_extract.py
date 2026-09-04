@@ -4414,7 +4414,7 @@ class TestExtractAI:
             })
         )
         assert all(
-            "OpenAI API error" in value and "status=400" in value
+            "OpenAI API error" in value and "status=404" in value
             for value in df['length']
         )
 
