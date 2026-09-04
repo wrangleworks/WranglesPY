@@ -773,6 +773,38 @@ def _execute_wrangles(
                             df_temp = df_temp.rename(columns=colDict)
                             cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
 
+                            # If none of the available column(s) - whether reduced by an
+                            # explicit `input`, or the full dataframe when input isn't
+                            # given - match a parameter name by exact name equality, fall
+                            # back to binding them positionally to the function's
+                            # remaining unfilled parameters, in the function's declared
+                            # order. Without this, the column value(s) are silently
+                            # dropped and the function is called without them entirely.
+                            if not cols_renamed:
+                                remaining_args = [
+                                    arg for arg in fn_argspec.args
+                                    if arg not in params_temp
+                                ]
+                                input_cols = df_temp.columns.tolist()
+                                if input_cols and len(input_cols) <= len(remaining_args):
+                                    positional_map = dict(zip(remaining_args, input_cols))
+                                    df_temp = df_temp.rename(
+                                        columns={col: arg for arg, col in positional_map.items()}
+                                    )
+                                    cols_renamed = list(positional_map.keys())
+                                elif input_cols and remaining_args and len(input_cols) > len(remaining_args):
+                                    # Only ambiguous - and worth a clear error - when the
+                                    # function still needs values and there are too many
+                                    # candidate columns to know which ones to use. If the
+                                    # function needs nothing further (remaining_args is
+                                    # empty), extra columns are simply irrelevant to it.
+                                    raise ValueError(
+                                        f"{wrangle} accepts at most {len(remaining_args)} "
+                                        f"unfilled parameter(s) ({', '.join(remaining_args)}) "
+                                        f"but {len(input_cols)} column(s) were provided: "
+                                        f"{', '.join(input_cols)}"
+                                    )
+
                             # Ensure we don't remove all columns
                             # if user hasn't specified any
                             if cols_renamed:
