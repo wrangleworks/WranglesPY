@@ -82,6 +82,28 @@ class TestRun:
 
         assert sorted(test_vals) == ["a","b","c"]
 
+    def test_error_propagates(self):
+        """
+        Test that an error raised within a matrix run action is
+        correctly raised, rather than being silently swallowed.
+        """
+        def fail():
+            raise ValueError("intentional failure")
+
+        with pytest.raises(ValueError, match="intentional failure"):
+            wrangles.recipe.run(
+                """
+                run:
+                  on_start:
+                    - matrix:
+                        variables:
+                          var: [a,b,c]
+                        run:
+                          - custom.fail: {}
+                """,
+                functions=fail
+            )
+
 
 class TestRead:
     def test_list(self):
@@ -589,3 +611,53 @@ class TestWrite:
         # but that's acceptable since numpy array equality is complex)
         actual_ids = [key for key in memory.dataframes.keys() if key.startswith("test_non_hashable_arrays_")]
         assert len(actual_ids) >= 3  # May be 3 or 4 depending on how pandas handles numpy array deduplication
+
+    def test_error_propagates(self):
+        """
+        Test that an error raised within a matrix write action is
+        correctly raised, rather than being silently swallowed.
+        https://github.com/wrangleworks/WranglesPY/issues/770
+        """
+        def fail(df):
+            raise ValueError("intentional failure")
+
+        with pytest.raises(ValueError, match="intentional failure"):
+            wrangles.recipe.run(
+                """
+                write:
+                - matrix:
+                    variables:
+                        key: [a,b,c]
+                    write:
+                        - custom.fail: {}
+                """,
+                dataframe=pd.DataFrame({"col1": ["a","b","c"]}),
+                functions=fail
+            )
+
+    def test_error_propagates_partial_failure(self):
+        """
+        Test that if only one of several matrix write permutations
+        raises an error, the error still propagates. Previously this
+        was silently swallowed and the matrix write appeared to
+        succeed even though one permutation failed.
+        https://github.com/wrangleworks/WranglesPY/issues/770
+        """
+        def fail_for_c(df, key):
+            if key == "c":
+                raise ValueError("intentional failure")
+
+        with pytest.raises(ValueError, match="intentional failure"):
+            wrangles.recipe.run(
+                """
+                write:
+                - matrix:
+                    variables:
+                        key: [a,b,c]
+                    write:
+                        - custom.fail_for_c:
+                            key: ${key}
+                """,
+                dataframe=pd.DataFrame({"col1": ["a","b","c"]}),
+                functions=fail_for_c
+            )
