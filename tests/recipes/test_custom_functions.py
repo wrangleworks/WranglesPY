@@ -1107,6 +1107,59 @@ def test_column_spaces_in_kwargs():
     df = wrangles.recipe.run(recipe, functions=space_function)
     assert df['New Description'][0] == 'this is a description'
 
+def test_input_mapped_to_positional_param_with_defaults():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    When `input` maps a column whose name does not match any of the
+    custom function's parameter names, the value should still be bound
+    positionally to the function's first unfilled parameter, allowing
+    any trailing parameters with defaults to fall back correctly instead
+    of the input value being silently dropped.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input: my_col
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+    )
+    assert (
+        df['result'][0] == 'row1-default-default' and
+        df['result'][1] == 'row2-default-default'
+    )
+
+def test_input_list_mapped_to_multiple_positional_params():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    A list of input columns with names that don't match any parameter
+    should be bound positionally, in order, to the function's remaining
+    unfilled parameters.
+    """
+    def func(x, y, z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              input:
+                - col_a
+                - col_b
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"col_a": ["row1"], "col_b": ["row2"]})
+    )
+    assert df['result'][0] == 'row1-row2-default'
+
 def test_row_function_where():
     """
     Test a custom function that applies to an
