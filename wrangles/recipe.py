@@ -792,6 +792,18 @@ def _execute_wrangles(
                                         columns={col: arg for arg, col in positional_map.items()}
                                     )
                                     cols_renamed = list(positional_map.keys())
+                                elif input_cols and remaining_args and len(input_cols) > len(remaining_args):
+                                    # Only ambiguous - and worth a clear error - when the
+                                    # function still needs values and there are too many
+                                    # candidate columns to know which ones to use. If the
+                                    # function needs nothing further (remaining_args is
+                                    # empty), extra columns are simply irrelevant to it.
+                                    raise ValueError(
+                                        f"{wrangle} accepts at most {len(remaining_args)} "
+                                        f"unfilled parameter(s) ({', '.join(remaining_args)}) "
+                                        f"but {len(input_cols)} column(s) were provided: "
+                                        f"{', '.join(input_cols)}"
+                                    )
 
                             # Ensure we don't remove all columns
                             # if user hasn't specified any
