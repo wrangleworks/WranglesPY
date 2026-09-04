@@ -1160,6 +1160,31 @@ def test_input_list_mapped_to_multiple_positional_params():
     )
     assert df['result'][0] == 'row1-row2-default'
 
+def test_positional_fallback_without_input():
+    """
+    Regression test for https://github.com/wrangleworks/WranglesPY/issues/747
+
+    The positional fallback should also apply without an explicit `input`
+    key, as long as the dataframe's column(s) don't match any parameter
+    name and the column count fits the function's remaining parameters.
+    """
+    def func(x, y="default", z="default"):
+        return f"{x}-{y}-{z}"
+
+    df = wrangles.recipe.run(
+        """
+        wrangles:
+          - custom.func:
+              output: result
+        """,
+        functions=[func],
+        dataframe=pd.DataFrame({"my_col": ["row1", "row2"]})
+    )
+    assert (
+        df['result'][0] == 'row1-default-default' and
+        df['result'][1] == 'row2-default-default'
+    )
+
 def test_row_function_where():
     """
     Test a custom function that applies to an
