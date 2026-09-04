@@ -933,3 +933,21 @@ def test_compare_overlap_exact_match_custom():
     """
     result = wrangles.compare.overlap([['test', 'test']], exact_match='MATCH')
     assert result == ['MATCH']
+
+
+def test_search_ai_mode():
+    query = "SKF 6205-2RS deep groove ball bearing specifications"
+
+    result = wrangles.search.ai_mode(
+        query,
+        include_raw_response=True,
+    )
+
+    assert result["status"] == "Success", result["error"]
+    assert result["search_metadata"]["query"] == query
+    assert isinstance(result["raw_response"], dict)
+    assert isinstance(result["search_results"], list)
+    assert (
+        result["extracted_content"]["answer_markdown"]
+        or result["extracted_content"]["text_blocks"]
+    )
