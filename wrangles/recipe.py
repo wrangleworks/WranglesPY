@@ -773,13 +773,14 @@ def _execute_wrangles(
                             df_temp = df_temp.rename(columns=colDict)
                             cols_renamed = [col for col in cols_renamed if col in fn_argspec.args]
 
-                            # If the user explicitly mapped column(s) via input, but none
-                            # of them match a parameter name by exact name equality, fall
+                            # If none of the available column(s) - whether reduced by an
+                            # explicit `input`, or the full dataframe when input isn't
+                            # given - match a parameter name by exact name equality, fall
                             # back to binding them positionally to the function's
                             # remaining unfilled parameters, in the function's declared
-                            # order. Without this, input's value is silently dropped and
-                            # the function is called with that parameter missing entirely.
-                            if not cols_renamed and 'input' in params:
+                            # order. Without this, the column value(s) are silently
+                            # dropped and the function is called without them entirely.
+                            if not cols_renamed:
                                 remaining_args = [
                                     arg for arg in fn_argspec.args
                                     if arg not in params_temp
