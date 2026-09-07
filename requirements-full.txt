@@ -14,3 +14,6 @@ psycopg2-binary>=2.9.10
 
 # Parquet file support (file connector)
 pyarrow
+
+# AI agent framework (extract.dimensions), Python 3.12+ only
+nooa==0.0.10; python_version >= "3.12"

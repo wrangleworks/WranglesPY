@@ -5,6 +5,9 @@ import re as _re
 import logging as _logging
 from typing import Union as _Union
 import time as _time
+import asyncio as _asyncio
+import concurrent.futures as _futures
+import contextvars as _contextvars
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -14,6 +17,7 @@ from . import openai_responses as _openai_responses
 from . import ai_config as _ai_config
 from . import ai_definition as _ai_definition
 from . import ai_cache as _ai_cache
+from . import nooa_client as _nooa_client
 
 _LOG = _logging.getLogger(__name__)
 
@@ -965,5 +969,73 @@ def brackets(
             results.append(re)
         else:
             results.append(', '.join(re))
-        
+
     return results
+
+
+def dimensions(
+    input: _Union[str, dict, list],
+    model: str,
+    api_key: str = None,
+    api_base: str = None,
+    threads: int = 4,
+    **kwargs
+) -> _Union[dict, list]:
+    """
+    Extract structured dimensional measurements (length, width, height,
+    diameter, depth, explicitly-stated volume, and labeled misc dimensions)
+    from product text using an AI agent (via the optional NOOA framework,
+    nooa==0.0.10).
+
+    >>> wrangles.extract.dimensions(
+    >>>   "SS sink bowl 18 x 14 x 8 in deep; drain opening DIA 3.5 in",
+    >>>   model="gpt-5-mini",
+    >>>   api_key="...",
+    >>> )
+
+    :param input: A single string/record, or a list of strings/records, to \
+        extract dimensional measurements from. A dict or list record is \
+        converted to text before being supplied to the model.
+    :param model: LiteLLM-style model identifier passed to NOOA (e.g. "gpt-5-mini").
+    :param api_key: (Optional) Provider API key. Passed directly to the NOOA \
+        LLM client; never placed in the prompt or returned in the output.
+    :param api_base: (Optional) Custom endpoint/base URL for the model provider.
+    :param threads: (Optional) Number of rows processed concurrently. Output \
+        row order always matches input row order regardless of completion \
+        order. Default 4.
+    :return: A dict with a 'measurements' list (scalar input), or a list of \
+        such dicts in the same order as the input (list input). Each \
+        measurement has kind, label, value, minimum, maximum, unit, \
+        qualifier and source.
+    """
+    if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
+        raise ValueError('threads must be a positive integer.')
+
+    input_was_scalar = not isinstance(input, list)
+    rows = [input] if input_was_scalar else input
+
+    # Empty list short-circuits before resolving the LLM client, so this
+    # works even if the optional nooa dependency isn't installed.
+    if not input_was_scalar and not rows:
+        return []
+
+    texts = [_openai_responses.format_input_data(row) for row in rows]
+
+    llm = _nooa_client.get_llm_client(model, api_key=api_key, api_base=api_base, **kwargs)
+    agent_cls = _nooa_client.build_agent_class(llm)
+
+    def _run_row(text):
+        result = _asyncio.run(_nooa_client.extract_async(text, agent_cls))
+        return result.model_dump(mode='json')
+
+    with _futures.ThreadPoolExecutor(max_workers=min(threads, len(texts))) as executor:
+        # A row's future is submitted in original order; collecting results
+        # by that same list order (not completion order) preserves row
+        # order regardless of which thread finishes first.
+        futures = [
+            executor.submit(_contextvars.copy_context().run, _run_row, text)
+            for text in texts
+        ]
+        results = [future.result() for future in futures]
+
+    return results[0] if input_was_scalar else results
