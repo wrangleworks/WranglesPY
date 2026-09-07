@@ -79,9 +79,6 @@ def _load_recipe(
 
     user_variable_keys = set(variables.keys())
 
-    if "applied_permission_group" not in variables:
-        variables["applied_permission_group"] = _auth.get_applied_permission_group()
-
     # Accept path-like objects (e.g. pathlib.Path) by converting to str
     if isinstance(recipe, _os.PathLike):
         recipe = str(recipe)
@@ -130,8 +127,68 @@ def _load_recipe(
 
         metadata_applied_permission_group = _auth.extract_applied_permission_group(metadata)
         if metadata_applied_permission_group is not None:
-            if "applied_permission_group" not in user_variable_keys:
-                variables["applied_permission_group"] = metadata_applied_permission_group
+
+            # Authoritative for a model_id-addressed recipe: this is the
+            # caller's real, freshly-verified role on this specific model,
+            # resolved server-side from their access token - not something
+            # a caller should be able to bypass by simply passing a
+            # different value. This intentionally overrides an explicit
+            # variables={"applied_permission_group": ...} too, unlike the
+            # generic JWT-derived fallback above, which has no independent
+            # source to check a caller-supplied value against.
+            if (
+                "applied_permission_group" in user_variable_keys
+                and variables["applied_permission_group"] != metadata_applied_permission_group
+            ):
+                _logging.warning(
+                    "applied_permission_group="
+                    f"'{variables['applied_permission_group']}' was passed in but does not "
+                    f"match this model's actual permission group '{metadata_applied_permission_group}' "
+                    "- using the actual value."
+                )
+            variables["applied_permission_group"] = metadata_applied_permission_group
+
+        # The model's real, freshly-verified claim (role + applied group) is
+        # authoritative for a model_id-addressed recipe, and is the source
+        # for applied_permission_level (there's no generic, model-less
+        # notion of a user's "role" the way there is for a permission
+        # group, so unlike applied_permission_group there is no JWT-derived
+        # fallback for this variable). Best-effort: a failure here should
+        # not block the recipe from loading.
+        try:
+            claim = _data.model_claim(model_id)
+        except Exception as e:
+            _logging.warning(f": Could not resolve model claim for {model_id}: {e}")
+            claim = None
+
+        if claim:
+            claim_applied_permission_group = _auth.extract_applied_permission_group_from_claim(claim)
+            if claim_applied_permission_group is not None:
+                if (
+                    "applied_permission_group" in user_variable_keys
+                    and variables["applied_permission_group"] != claim_applied_permission_group
+                ):
+                    _logging.warning(
+                        "applied_permission_group="
+                        f"'{variables['applied_permission_group']}' was passed in but does not "
+                        f"match this model's actual permission group '{claim_applied_permission_group}' "
+                        "- using the actual value."
+                    )
+                variables["applied_permission_group"] = claim_applied_permission_group
+
+            claim_applied_permission_level = _auth.extract_applied_permission_level(claim)
+            if claim_applied_permission_level is not None:
+                if (
+                    "applied_permission_level" in user_variable_keys
+                    and variables.get("applied_permission_level") != claim_applied_permission_level
+                ):
+                    _logging.warning(
+                        "applied_permission_level="
+                        f"'{variables['applied_permission_level']}' was passed in but does not "
+                        f"match this model's actual permission level '{claim_applied_permission_level}' "
+                        "- using the actual value."
+                    )
+                variables["applied_permission_level"] = claim_applied_permission_level
 
         # Using model_id in wrong function
         purpose = metadata['purpose']

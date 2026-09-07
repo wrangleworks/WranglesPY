@@ -149,6 +149,7 @@ def test_recipe_by_production_semantic_version(mocker):
             "production_version_id": "production-version-id"
         }
     )
+    mocker.patch("wrangles.data.model_claim", return_value={})
     model_content = mocker.patch(
         "wrangles.data.model_content",
         return_value={"recipe": "{}"}
@@ -173,6 +174,7 @@ def test_recipe_by_production_semantic_version_falls_back_to_latest(
         "wrangles.data.model",
         return_value={"purpose": "recipe"}
     )
+    mocker.patch("wrangles.data.model_claim", return_value={})
     model_content = mocker.patch(
         "wrangles.data.model_content",
         return_value={"recipe": "{}"}

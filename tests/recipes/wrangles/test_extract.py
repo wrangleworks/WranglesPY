@@ -4413,8 +4413,11 @@ class TestExtractAI:
                 "data": ["wrench 25mm", "6m cable"],
             })
         )
+        # OpenAI may report an unknown model as any 4xx client error
+        # (e.g. 400 invalid_request_error or 404 model_not_found)
+        # depending on the API version, so don't pin to one exact code.
         assert all(
-            "OpenAI API error" in value and "status=400" in value
+            "OpenAI API error" in value and "status=4" in value
             for value in df['length']
         )
 

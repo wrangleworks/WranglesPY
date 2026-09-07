@@ -367,17 +367,12 @@ def test_variables_variable_overwrite():
     assert isinstance(df['vars'][0], dict)
 
 
-def test_applied_permission_group_variable(monkeypatch):
+def test_applied_permission_group_variable_explicit(monkeypatch):
     """
-    Test that the authenticated user's effective permission group is available as a recipe variable.
+    Test that an explicitly-passed applied_permission_group is available as
+    a recipe variable for a non-model_id recipe (there is no server-side
+    default to fall back to in that case).
     """
-    token = wrangles.auth._jwt.encode(
-        {"applied_permission_group": "enterprise"},
-        "test-secret",
-        algorithm="HS256"
-    )
-    monkeypatch.setattr(wrangles.auth, "get_access_token", lambda: token)
-
     df = wrangles.recipe.run(
         """
         read:
@@ -385,7 +380,8 @@ def test_applied_permission_group_variable(monkeypatch):
             rows: 1
             values:
                 group: ${applied_permission_group}
-        """
+        """,
+        variables={"applied_permission_group": "enterprise"}
     )
 
     assert df['group'][0] == 'enterprise'
@@ -395,8 +391,6 @@ def test_applied_permission_group_variable_if(monkeypatch):
     """
     Test that applied_permission_group can be used in Python-style if conditions.
     """
-    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "enterprise")
-
     df = wrangles.recipe.run(
         """
         read:
@@ -409,37 +403,17 @@ def test_applied_permission_group_variable_if(monkeypatch):
             output: allowed
             value: true
             if: applied_permission_group == 'enterprise'
-        """
+        """,
+        variables={"applied_permission_group": "enterprise"}
     )
 
     assert df['allowed'][0] == True
-
-
-def test_applied_permission_group_variable_user_override(monkeypatch):
-    """
-    Test that explicit variables still override the authenticated permission group.
-    """
-    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "enterprise")
-
-    df = wrangles.recipe.run(
-        """
-        read:
-        - test:
-            rows: 1
-            values:
-                group: ${applied_permission_group}
-        """,
-        variables={"applied_permission_group": "manual"}
-    )
-
-    assert df['group'][0] == 'manual'
 
 
 def test_applied_permission_group_variable_from_recipe_metadata(monkeypatch):
     """
     Test that recipe metadata permission group is preferred for remote recipes.
     """
-    monkeypatch.setattr(wrangles.auth, "get_applied_permission_group", lambda: "token-group")
     monkeypatch.setattr(
         wrangles.recipe._data,
         "model",
@@ -449,6 +423,9 @@ def test_applied_permission_group_variable_from_recipe_metadata(monkeypatch):
             "applied_permission_group": "metadata-group",
         }
     )
+    # No model claim available - the metadata-derived value above should be
+    # left untouched rather than overridden.
+    monkeypatch.setattr(wrangles.recipe._data, "model_claim", lambda model_id: {})
     monkeypatch.setattr(
         wrangles.recipe._data,
         "model_content",
@@ -466,3 +443,169 @@ def test_applied_permission_group_variable_from_recipe_metadata(monkeypatch):
     df = wrangles.recipe.run("12345678-1234-1234")
 
     assert df["group"][0] == "metadata-group"
+
+
+def test_applied_permission_group_variable_metadata_overrides_explicit(monkeypatch, caplog):
+    """
+    A model_id-addressed recipe's real permission group (resolved
+    server-side from the model's metadata) must override an explicit
+    variables={"applied_permission_group": ...} too - otherwise a caller
+    could simply claim a higher role than the model's database actually
+    grants them.
+    """
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model",
+        lambda model_id: {
+            "purpose": "recipe",
+            "production_version_id": "v1",
+            "applied_permission_group": "editor",
+        }
+    )
+    # No model claim available - only the metadata-derived override (from
+    # data.model above) is exercised by this test.
+    monkeypatch.setattr(wrangles.recipe._data, "model_claim", lambda model_id: {})
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": """
+            read:
+            - test:
+                rows: 1
+                values:
+                    group: ${applied_permission_group}
+            """
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        df = wrangles.recipe.run(
+            "12345678-1234-1234",
+            variables={"applied_permission_group": "admin"}
+        )
+
+    assert df["group"][0] == "editor"
+    assert "does not match this model's actual permission group" in caplog.text
+
+
+def test_applied_permission_level_variable_from_model_claim(monkeypatch):
+    """
+    Test that applied_permission_level is filled from the model claim's role
+    when running a model_id directly, e.g. from Python.
+    """
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model",
+        lambda model_id: {"purpose": "recipe", "production_version_id": "v1"}
+    )
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_claim",
+        lambda model_id: {
+            "model_id": model_id,
+            "role": "viewer",
+            "applied_group": "Dev (WrangleWorks)",
+        }
+    )
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": """
+            read:
+            - test:
+                rows: 1
+                values:
+                    level: ${applied_permission_level}
+                    group: ${applied_permission_group}
+            """
+        }
+    )
+
+    df = wrangles.recipe.run("12345678-1234-1234")
+
+    assert df["level"][0] == "viewer"
+    assert df["group"][0] == "Dev (WrangleWorks)"
+
+
+def test_applied_permission_level_variable_claim_overrides_explicit(monkeypatch, caplog):
+    """
+    Like applied_permission_group, an explicit
+    variables={"applied_permission_level": ...} must not let a caller claim
+    a higher role than the model claim actually grants - run(model,
+    variables={"applied_permission_level": "admin"}) when the real claim
+    says "viewer" must use "viewer".
+    """
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model",
+        lambda model_id: {"purpose": "recipe", "production_version_id": "v1"}
+    )
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_claim",
+        lambda model_id: {
+            "model_id": model_id,
+            "role": "viewer",
+            "applied_group": "Dev (WrangleWorks)",
+        }
+    )
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": """
+            read:
+            - test:
+                rows: 1
+                values:
+                    level: ${applied_permission_level}
+            """
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        df = wrangles.recipe.run(
+            "12345678-1234-1234",
+            variables={"applied_permission_level": "admin"}
+        )
+
+    assert df["level"][0] == "viewer"
+    assert "does not match this model's actual permission level" in caplog.text
+
+
+def test_model_claim_failure_does_not_block_recipe_load(monkeypatch, caplog):
+    """
+    A failure resolving the model claim (e.g. network issue) must not block
+    the recipe from loading - applied_permission_level is simply left unset.
+    """
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model",
+        lambda model_id: {"purpose": "recipe", "production_version_id": "v1"}
+    )
+
+    def _raise(model_id):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(wrangles.recipe._data, "model_claim", _raise)
+    monkeypatch.setattr(
+        wrangles.recipe._data,
+        "model_content",
+        lambda model_id, version_id=None: {
+            "recipe": """
+            read:
+            - test:
+                rows: 1
+                values:
+                    result: kept
+            """
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        df = wrangles.recipe.run("12345678-1234-1234")
+
+    assert df["result"][0] == "kept"
+    assert "Could not resolve model claim" in caplog.text
