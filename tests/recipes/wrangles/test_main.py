@@ -4049,7 +4049,8 @@ wrangles:
         """
 
         with patch('wrangles.recipe._data.model', side_effect=fake_model), \
-             patch('wrangles.recipe._data.model_content', side_effect=fake_model_content):
+             patch('wrangles.recipe._data.model_content', side_effect=fake_model_content), \
+             patch('wrangles.recipe._data.model_claim', return_value={}):
             with pytest.raises(Exception) as info:
                 wrangles.recipe.run(outer_recipe)
 

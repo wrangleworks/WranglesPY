@@ -27,6 +27,7 @@ def _mock_model_response(monkeypatch, response):
         lambda: data.model(MODEL_ID),
         lambda: data.model_update(MODEL_ID, {"name": "Updated model"}),
         lambda: data.model_content(MODEL_ID),
+        lambda: data.model_claim(MODEL_ID),
     ],
 )
 def test_model_endpoints_raise_authentication_error_for_401(monkeypatch, call_model_endpoint):
@@ -48,6 +49,7 @@ def test_model_endpoints_raise_authentication_error_for_401(monkeypatch, call_mo
         lambda: data.model(MODEL_ID),
         lambda: data.model_update(MODEL_ID, {"name": "Updated model"}),
         lambda: data.model_content(MODEL_ID),
+        lambda: data.model_claim(MODEL_ID),
     ],
 )
 def test_model_endpoints_raise_authorization_error_for_403(monkeypatch, call_model_endpoint):
@@ -80,3 +82,17 @@ def test_model_content_success_returns_content(monkeypatch):
     _mock_model_response(monkeypatch, FakeResponse(200, content))
 
     assert data.model_content(MODEL_ID) == content
+
+
+def test_model_claim_success_returns_claim(monkeypatch):
+    claim = {
+        "model_id": MODEL_ID,
+        "role": "admin",
+        "organization_id": "team-id",
+        "applied_group": "Dev (WrangleWorks)",
+        "applied_group_type": "group",
+        "applied_group_id": "team-id",
+    }
+    _mock_model_response(monkeypatch, FakeResponse(200, claim))
+
+    assert data.model_claim(MODEL_ID) == claim

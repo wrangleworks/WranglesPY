@@ -93,6 +93,29 @@ def model_update(id: str, metadata: dict) -> None:
         _raise_model_response_error(response, id, 'update')
 
 
+def model_claim(id: str) -> dict:
+    """
+    Get the current user's highest effective claim on a model - their role
+    and the group/org/user that claim is applied through.
+
+    :param id: Model ID
+    :returns: Dict with model_id, role, organization_id, applied_group, \
+        applied_group_type, applied_group_id
+    """
+    response = _utils.request_retries(
+                request_type='GET',
+                url=f'{_config.api_host}/model/claim',
+                **{
+                    'params': {'model_id': id},
+                    'headers': {'Authorization': f'Bearer {_auth.get_access_token()}'}
+                }
+            )
+    if response.ok:
+        return response.json()
+    else:
+        _raise_model_response_error(response, id, 'access')
+
+
 def model_content(id: str, version_id: str = None) -> list:
     """
     Get the training data for a model
