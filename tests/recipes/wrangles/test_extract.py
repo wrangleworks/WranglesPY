@@ -4391,32 +4391,31 @@ class TestExtractAI:
         assert "Ignoring 'reasoning' parameter" in caplog.text
         assert "Ignoring 'verbosity' parameter" in caplog.text
 
-    def test_ai_invalid_model_per_row_error(self):
+    def test_ai_invalid_model_fails_recipe(self):
         """
-        Test that a non-existent model returns a descriptive
-        error string per row rather than raising and failing
-        the whole recipe
+        Test that a non-existent model fails the recipe after
+        validating the shared model configuration on the first row.
         """
-        df = wrangles.recipe.run(
-            """
-            wrangles:
-            - extract.ai:
-                model: gpt-totally-fake-model
-                api_key: ${OPENAI_API_KEY}
-                retries: 0
-                output:
-                  length:
-                    type: string
-                    description: Any length measurement found in the text
-            """,
-            dataframe=pd.DataFrame({
-                "data": ["wrench 25mm", "6m cable"],
-            })
-        )
-        assert all(
-            "OpenAI API error" in value and "status=400" in value
-            for value in df['length']
-        )
+        with pytest.raises(
+            ValueError,
+            match="OpenAI model 'gpt-totally-fake-model' does not exist or is not accessible",
+        ):
+            wrangles.recipe.run(
+                """
+                wrangles:
+                - extract.ai:
+                    model: gpt-totally-fake-model
+                    api_key: ${OPENAI_API_KEY}
+                    retries: 0
+                    output:
+                      length:
+                        type: string
+                        description: Any length measurement found in the text
+                """,
+                dataframe=pd.DataFrame({
+                    "data": ["wrench 25mm", "6m cable"],
+                })
+            )
 
     def test_ai_legacy_chat_completions_endpoint(self):
         """
