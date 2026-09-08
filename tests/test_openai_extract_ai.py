@@ -1,11 +1,13 @@
 import json
 import logging
 
+import pandas as pd
 import pytest
 import requests
 import wrangles.extract as extract
 from wrangles import ai_config
 from wrangles import ai_cache
+from wrangles import recipe
 
 
 @pytest.fixture(autouse=True)
@@ -82,6 +84,86 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert 'examples are ["25mm"]' in payload["instructions"]
     assert schema["required"] == ["length"]
     assert schema["additionalProperties"] is False
+
+
+@pytest.mark.parametrize("store", [None, False, True])
+def test_extract_ai_recipe_preserves_response_storage_override(monkeypatch, store):
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{"type": "output_text", "text": '{"length":"25mm"}'}],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    settings = {
+        "input": "Description",
+        "api_key": "key",
+        "output": {"length": {"type": "string"}},
+    }
+    if store is not None:
+        settings["store"] = store
+
+    result = recipe.run(
+        {"wrangles": [{"extract.ai": settings}]},
+        dataframe=pd.DataFrame({"Description": ["wrench 25mm"]}),
+        variables={"applied_permission_group": None},
+    )
+
+    assert result["length"].tolist() == ["25mm"]
+    assert len(calls) == 1
+    assert calls[0]["url"] == "https://api.openai.com/v1/responses"
+    assert calls[0]["json"]["store"] is (True if store is None else store)
+
+
+@pytest.mark.parametrize("configured_store", [True, False, None])
+def test_extract_ai_storage_configuration_and_override_have_separate_caches(
+    monkeypatch, tmp_path, configured_store
+):
+    config = ai_config.load()
+    if configured_store is None:
+        config["extract_ai"].pop("store")
+    else:
+        config["extract_ai"]["store"] = configured_store
+    override = tmp_path / "ai.yml"
+    override.write_text(json.dumps(config), encoding="utf-8")
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    ai_config.clear_cache()
+
+    calls = []
+    body = {
+        "output": [{
+            "type": "message",
+            "content": [{"type": "output_text", "text": '{"length":"25mm"}'}],
+        }]
+    }
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: calls.append(kwargs) or _Response(body),
+    )
+    arguments = {
+        "input": "wrench 25mm",
+        "api_key": "key",
+        "output": {"length": {"type": "string"}},
+        "threads": 1,
+    }
+    expected_default = configured_store is not False
+    try:
+        for _ in range(2):
+            assert extract.ai(**arguments) == {"length": "25mm"}
+            assert extract.ai(store=not expected_default, **arguments) == {"length": "25mm"}
+    finally:
+        ai_config.clear_cache()
+
+    assert [call["json"]["store"] for call in calls] == [
+        expected_default,
+        not expected_default,
+    ]
 
 
 def test_extract_ai_web_search_returns_metadata_sources_and_caches_them(monkeypatch):

@@ -64,6 +64,42 @@ def _cacheable_ai_result(result) -> bool:
     return True
 
 
+def _validate_ai_metadata(metadata: dict) -> dict:
+    """Copy and validate OpenAI's diagnostic labels without logging their values."""
+    if metadata is None:
+        return None
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata must be an object with string keys and values.")
+    if len(metadata) > 16:
+        raise ValueError("metadata must contain at most 16 key-value pairs.")
+    if any(not isinstance(key, str) or len(key) > 64 for key in metadata):
+        raise ValueError("metadata keys must be strings of at most 64 characters.")
+    if any(not isinstance(value, str) or len(value) > 512 for value in metadata.values()):
+        raise ValueError("metadata values must be strings of at most 512 characters.")
+    return metadata.copy()
+
+
+def _ai_request_metadata(metadata: dict) -> dict:
+    """Attach only selected recipe context and the configured Wrangles username."""
+    labels = _validate_ai_metadata(metadata)
+    # An explicit empty object opts out of automatic attribution.
+    if labels == {}:
+        return labels
+
+    # Import lazily: recipe imports the extraction wrappers during initialization.
+    from .recipe import _RECIPE_RUN_CONTEXT
+    context = _RECIPE_RUN_CONTEXT.get() or {}
+    defaults = {
+        "recipe_name": context.get("recipe_name"),
+        "wrangles_user": context.get("wrangles_user") or _config.api_user,
+    }
+    result = labels or {}
+    for key, value in defaults.items():
+        if key not in result and len(result) < 16 and isinstance(value, str) and value.strip():
+            result[key] = value[:512]
+    return result or labels
+
+
 def _enable_responses_web_search(payload: dict) -> None:
     """Add native web search without replacing expert Responses settings."""
     tools = payload.setdefault("tools", [])
@@ -145,6 +181,7 @@ def ai(
     cache_ttl: float = None,
     web_search: bool = False,
     instructions: _Union[str, list] = None,
+    metadata: dict = None,
     **kwargs
 ) -> _Union[dict, list]:
     """
@@ -184,6 +221,11 @@ def ai(
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
     :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
     :param store: (Optional) Whether OpenAI may store Responses. Defaults to True.
+    :param metadata: (Optional) OpenAI log labels, such as recipe_name and wrangles_user.
+        Up to 16 string pairs, with keys up to 64 and values up to 512 characters.
+        Available recipe name and Wrangles user are added automatically. Explicit
+        labels override those defaults; an empty dict disables automatic labels.
+        Labels are separate from model instructions and do not enable tracing.
     :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
@@ -246,6 +288,7 @@ def ai(
     if reasoning is not None and not isinstance(reasoning, dict):
         raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
     _validate_ai_runtime_settings(threads, timeout, retries)
+    metadata = _ai_request_metadata(metadata)
 
     if instructions not in (None, "") and messages not in (None, ""):
         raise ValueError("Use instructions or messages, not both.")
@@ -379,6 +422,9 @@ def ai(
             model,
             payload,
         )
+        # Labels affect result-cache attribution, but not the reusable model prompt.
+        if metadata is not None:
+            payload["metadata"] = metadata
         static_request = {
             "url": url,
             "payload": payload,
@@ -478,6 +524,8 @@ def ai(
         "tool_choice": {"type": "function", "function": {"name": "parse_output"}},
         **kwargs
     }
+    if metadata is not None:
+        settings["metadata"] = metadata
 
     _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
     static_request = {

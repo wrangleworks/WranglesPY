@@ -56,11 +56,30 @@ The packaged defaults are defined in
 | `threads` / `default_concurrency` | 32 | Worker concurrency for one `extract.ai` call when `threads` is omitted |
 | `timeout` / `request_timeout_seconds` | 12 seconds | Network timeout for each HTTP attempt |
 | `retries` | 1 | One additional attempt per row after a retryable failure |
+| `store` | `true` | Retain Responses API inputs and outputs at OpenAI for inspection |
 | Local result-cache TTL | 3,600 seconds | Lifetime within one warm Python/Lambda process |
 
-Recipes and direct Python calls can override the first three settings for one
+Recipes and direct Python calls can override the first four settings for one
 call. A deployment can replace the complete packaged AI configuration by
 setting `WRANGLES_AI_CONFIG`.
+
+Use `store: false` to opt out of Responses storage for a call. This setting is
+separate from local caching and Agents SDK tracing; see
+[response storage and OpenAI logs](../extract_ai_configuration.md#response-storage-and-openai-logs)
+for log visibility, cache behavior, and configuration overrides.
+
+OpenAI requests automatically include available `recipe_name` and
+`wrangles_user` metadata. After both the WranglesXL companion update and
+WranglesPY update are deployed, XL recipes use the displayed recipe name and
+existing user email without recipe edits. Saved recipes and local recipe
+files also supply their names. Inline Python recipes can receive a
+`recipe_name` run variable.
+
+Explicit `metadata` overrides those labels or adds custom labels;
+`metadata: {}` disables automatic labels. These diagnostic labels are
+separate from the model prompt and workflow tracing. See
+[recipe and user labels](../extract_ai_configuration.md#recipe-and-user-labels-in-openai-logs)
+for sources, limits, overrides, and older XL clients.
 
 ## Threads and row concurrency
 
@@ -177,8 +196,9 @@ acceptance test.
 
 The WranglesPY result cache stores successful row results in the current warm
 process. Its request identity includes the provider, protocol, credential
-hash, endpoint, model, instructions, examples, schema, model options, and
-exact row input.
+hash, endpoint, model, instructions, examples, schema, model options,
+response storage, effective metadata, and exact row input. Changing recipe
+or user labels therefore causes a cache miss.
 
 With the cache enabled:
 
@@ -199,6 +219,7 @@ OpenAI prompt caching is separate from the WranglesPY result cache.
 WranglesPY keeps the instructions, examples, and structured-output definition
 stable and places row data at the dynamic end of the request. It also sends a
 stable `prompt_cache_key` based on the complete static request prefix.
+Diagnostic metadata does not change that key or the model prompt.
 
 An OpenAI prompt-cache hit can reduce the work associated with repeated input
 tokens. It does not skip the OpenAI request and does not reuse a previous

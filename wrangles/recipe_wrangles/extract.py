@@ -552,6 +552,21 @@ def ai(
       store:
         type: boolean
         description: Whether OpenAI may store Responses API results. Defaults to true.
+      metadata:
+        type: object
+        description: >-
+          Labels attached to OpenAI requests, such as recipe_name and wrangles_user.
+          Available recipe name and Wrangles user are added automatically. Explicit
+          labels override those defaults; an empty object disables automatic labels.
+          These appear with stored logs and are separate from model instructions.
+          Up to 16 string pairs; keys may contain up to 64 characters and values
+          up to 512 characters. Does not enable workflow tracing.
+        maxProperties: 16
+        propertyNames:
+          maxLength: 64
+        additionalProperties:
+          type: string
+          maxLength: 512
       cache:
         type: boolean
         description: >-
