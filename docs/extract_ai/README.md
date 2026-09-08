@@ -77,6 +77,10 @@ request identity. The worker count is:
 min(threads, number of unique effective requests)
 ```
 
+The first unique row completes before the remaining rows are submitted. This
+validates the shared model setting: a `model_not_found` response fails the
+wrangle immediately instead of returning and logging the same error per row.
+
 Examples with the default `threads: 32`:
 
 | XL rows reaching `extract.ai` | Unique effective requests | Maximum active row tasks |

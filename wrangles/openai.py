@@ -122,6 +122,7 @@ def chatGPT(
                 endpoint="chat_completions",
                 model=settings_local.get("model"),
             ) if response is not None else {}
+            _openai_responses._raise_for_fatal_error(context)
             if retries == 0 or not _openai_responses._should_retry(context):
                 if response is not None:
                     _openai_responses._log_api_error(context, final=True)

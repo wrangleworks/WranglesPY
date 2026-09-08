@@ -183,7 +183,7 @@ def ai(
         for models that support low verbosity.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
     :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
-    :param store: (Optional) Whether OpenAI may store Responses. Defaults to False.
+    :param store: (Optional) Whether OpenAI may store Responses. Defaults to True.
     :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
     :param web_search: (Optional) Enable native Responses web search. Each result then includes a
@@ -406,6 +406,7 @@ def ai(
             cacheable=_cacheable_ai_result,
             max_workers=threads,
             policy=cache_policy,
+            preflight_first=True,
         )
 
         if _needs_remap:
@@ -505,6 +506,7 @@ def ai(
         cacheable=_cacheable_ai_result,
         max_workers=threads,
         policy=cache_policy,
+        preflight_first=True,
     )
 
     if _needs_remap:

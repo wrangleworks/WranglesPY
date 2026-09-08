@@ -195,6 +195,13 @@ def _should_retry(context: dict) -> bool:
     return status_code == 429 or status_code in (408, 409, 500, 502, 503, 504)
 
 
+def _raise_for_fatal_error(context: dict) -> None:
+    if str(context.get("code", "")).lower() == "model_not_found":
+        raise ValueError(
+            f"OpenAI model {context.get('model')!r} does not exist or is not accessible."
+        )
+
+
 def _error_message(context: dict) -> str:
     parts = ["OpenAI API error"]
     if context.get("status_code"):
@@ -783,6 +790,7 @@ def call_structured(
                 model=request_payload.get("model"),
                 attempt=attempt + 1,
             )
+            _raise_for_fatal_error(context)
             error_message = context.get("message", "")
 
             if error_message:

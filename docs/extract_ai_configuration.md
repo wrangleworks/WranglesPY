@@ -16,7 +16,7 @@ versioned replacement YAML file to override the complete configuration.
 - Network timeout per HTTP attempt: 12 seconds
 - Retries: 1 additional attempt per row after a retryable failure
 - Reasoning effort: `none`
-- Response storage: disabled
+- Response storage: enabled
 
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.

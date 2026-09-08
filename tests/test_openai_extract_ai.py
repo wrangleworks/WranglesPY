@@ -72,7 +72,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert "reasoning" not in payload
     assert payload["text"]["verbosity"] == "low"
     assert payload["text"]["format"]["strict"] is True
-    assert payload["store"] is False
+    assert payload["store"] is True
     assert "tools" not in payload
     assert "include" not in payload
     assert calls[0]["timeout"] == 12
@@ -786,7 +786,7 @@ def test_ai_defaults_are_packaged_and_public():
     assert "total_deadline_seconds" not in policy
     assert policy["retries"] == 1
     assert policy["reasoning"] == {"effort": "none"}
-    assert policy["store"] is False
+    assert policy["store"] is True
     assert policy["cache"] == {
         "enabled": True,
         "ttl_seconds": 3600,
@@ -1089,6 +1089,45 @@ def test_extract_ai_does_not_retry_permanent_http_error(monkeypatch, status_code
     assert "message=Request rejected" in result["length"]
     assert len(calls) == 1
     assert sleeps == []
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("cache", [True, False])
+def test_extract_ai_invalid_model_fails_before_submitting_remaining_rows(
+    monkeypatch, protocol, cache
+):
+    calls = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        return _requests_response(
+            {
+                "error": {
+                    "message": "The model does not exist or you do not have access to it.",
+                    "code": "model_not_found",
+                }
+            },
+            status_code=404,
+        )
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+
+    with pytest.raises(
+        ValueError,
+        match="OpenAI model 'missing-model' does not exist or is not accessible",
+    ):
+        extract.ai(
+            ["first", "second", "third"],
+            "key",
+            output={"length": {"type": "string"}},
+            model="missing-model",
+            protocol=protocol,
+            threads=3,
+            retries=2,
+            cache=cache,
+        )
+
+    assert len(calls) == 1
 
 
 def test_extract_ai_retries_real_falsey_requests_response(monkeypatch):

@@ -551,7 +551,7 @@ def ai(
           - chat_completions
       store:
         type: boolean
-        description: Whether OpenAI may store Responses API results. Defaults to false.
+        description: Whether OpenAI may store Responses API results. Defaults to true.
       cache:
         type: boolean
         description: >-
