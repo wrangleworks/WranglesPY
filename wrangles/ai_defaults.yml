@@ -12,7 +12,7 @@ extract_ai:
   request_timeout_seconds: 12
   retries: 1
   strict: true
-  store: false
+  store: true # enables logging at openai
   reasoning:
     effort: none
   text:
