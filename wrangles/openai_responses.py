@@ -226,25 +226,14 @@ def _log_api_error(context: dict, final: bool = False) -> None:
     )
 
 
-def _remaining_seconds(deadline_at: float = None) -> float:
-    if deadline_at is None:
-        return None
-    return deadline_at - _time.monotonic()
-
-
 def _sleep_for_retry(
     context: dict,
     backoff_time: float,
-    deadline_at: float = None,
 ) -> float:
     if context.get("retry_after") is not None:
         delay = min(context["retry_after"], 60)
     else:
         delay = min(backoff_time + _random.uniform(0, min(backoff_time, 1)), 60)
-
-    remaining = _remaining_seconds(deadline_at)
-    if remaining is not None and delay >= remaining:
-        return None
 
     _time.sleep(delay)
     return delay
@@ -719,7 +708,6 @@ def call_structured(
     timeout: int,
     retries: int,
     required_fields: list,
-    deadline_at: float = None,
 ) -> dict:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     request_payload = _copy.deepcopy(payload)
@@ -744,14 +732,6 @@ def call_structured(
     response = None
     backoff_time = 1
     for attempt in range(retries + 1):
-        remaining = _remaining_seconds(deadline_at)
-        if remaining is not None and remaining <= 0:
-            return failure("Deadline Exceeded")
-
-        request_timeout = timeout
-        if remaining is not None:
-            request_timeout = min(timeout, max(remaining, 0.001))
-
         response = None
         try:
             started = _time.time()
@@ -759,7 +739,7 @@ def call_structured(
                 url=url,
                 headers=headers,
                 json=request_payload,
-                timeout=request_timeout,
+                timeout=timeout,
             )
             elapsed_seconds = _time.time() - started
         except _requests.exceptions.Timeout:
@@ -796,7 +776,7 @@ def call_structured(
                         f"Invalid structured response: {e}",
                         response_json=response_json,
                     )
-        else:
+        elif response is not None:
             context = _response_context(
                 response,
                 endpoint="responses",
@@ -816,11 +796,9 @@ def call_structured(
             _log_api_error(context, final=False)
 
         if response is not None and not response.ok:
-            delay = _sleep_for_retry(context, backoff_time, deadline_at)
+            _sleep_for_retry(context, backoff_time)
         else:
-            delay = _sleep_for_retry({}, backoff_time, deadline_at)
-        if delay is None:
-            return failure("Deadline Exceeded")
+            _sleep_for_retry({}, backoff_time)
         backoff_time *= 2
 
     return failure("Failed")

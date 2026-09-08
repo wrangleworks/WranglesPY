@@ -8,9 +8,8 @@ extract_ai:
   endpoints:
     responses: https://api.openai.com/v1/responses
     chat_completions: https://api.openai.com/v1/chat/completions
-  max_concurrency: 32
+  default_concurrency: 32
   request_timeout_seconds: 12
-  total_deadline_seconds: 15
   retries: 1
   strict: true
   store: false

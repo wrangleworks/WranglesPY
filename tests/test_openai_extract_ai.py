@@ -75,7 +75,7 @@ def test_extract_ai_uses_responses_structured_outputs(monkeypatch, caplog):
     assert payload["store"] is False
     assert "tools" not in payload
     assert "include" not in payload
-    assert calls[0]["timeout"] <= 12
+    assert calls[0]["timeout"] == 12
     assert "seed" not in payload
     assert "Ignored legacy OpenAI parameter 'seed'" in caplog.text
     assert "examples" not in schema["properties"]["length"]
@@ -548,8 +548,8 @@ def test_extract_ai_scalar_output_returns_scalar_with_responses(monkeypatch):
 def test_extract_ai_keeps_chat_completions_override(monkeypatch):
     calls = []
 
-    def chatgpt(data, api_key, settings, url, timeout, retries, deadline_at):
-        calls.append((data, api_key, settings, url, timeout, retries, deadline_at))
+    def chatgpt(data, api_key, settings, url, timeout, retries):
+        calls.append((data, api_key, settings, url, timeout, retries))
         return {"length": "25mm"}
 
     monkeypatch.setattr(extract._openai, "chatGPT", chatgpt)
@@ -781,9 +781,9 @@ def test_ai_defaults_are_packaged_and_public():
     assert ai_config.config_path().is_file()
     assert policy["provider"] == "openai"
     assert policy["protocol"] == "responses"
-    assert policy["max_concurrency"] == 32
+    assert policy["default_concurrency"] == 32
     assert policy["request_timeout_seconds"] == 12
-    assert policy["total_deadline_seconds"] == 15
+    assert "total_deadline_seconds" not in policy
     assert policy["retries"] == 1
     assert policy["reasoning"] == {"effort": "none"}
     assert policy["store"] is False
@@ -816,6 +816,65 @@ def test_ai_config_can_be_overridden(monkeypatch, tmp_path):
         assert ai_config.extract_ai()["model"] == "custom-model"
     finally:
         ai_config.clear_cache()
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize(
+    "configured_concurrency, threads, expected_workers",
+    [
+        pytest.param(4, None, 4, id="configured_default"),
+        pytest.param(4, 2, 2, id="override_below_default"),
+        pytest.param(4, 8, 8, id="override_above_default"),
+        pytest.param(None, None, 32, id="missing_config_default"),
+    ],
+)
+def test_extract_ai_resolves_default_concurrency_and_thread_override(
+    monkeypatch, tmp_path, protocol, configured_concurrency, threads, expected_workers
+):
+    override = tmp_path / "ai.yml"
+    policy = {
+        "provider": "openai",
+        "model": "custom-model",
+        "endpoints": {
+            "responses": "https://api.openai.com/v1/responses",
+            "chat_completions": "https://api.openai.com/v1/chat/completions",
+        },
+        "prompt": {"instructions": "Extract the requested fields from the input."},
+    }
+    if configured_concurrency is not None:
+        policy["default_concurrency"] = configured_concurrency
+    override.write_text(json.dumps({"version": 1, "extract_ai": policy}), encoding="utf-8")
+
+    workers = []
+    original_executor = ai_cache._futures.ThreadPoolExecutor
+
+    def executor(**kwargs):
+        workers.append(kwargs["max_workers"])
+        return original_executor(**kwargs)
+
+    monkeypatch.setenv("WRANGLES_AI_CONFIG", str(override))
+    monkeypatch.setattr(ai_cache._futures, "ThreadPoolExecutor", executor)
+    monkeypatch.setattr(
+        extract._openai_responses._requests,
+        "post",
+        lambda **kwargs: _successful_extraction_response(protocol),
+    )
+    ai_config.clear_cache()
+    try:
+        thread_override = {} if threads is None else {"threads": threads}
+        result = extract.ai(
+            "wrench 25mm",
+            "key",
+            output={"length": {"type": "string"}},
+            protocol=protocol,
+            cache=False,
+            **thread_override,
+        )
+    finally:
+        ai_config.clear_cache()
+
+    assert result == {"length": "25mm"}
+    assert workers == [expected_workers]
 
 
 def test_extract_ai_maps_or_rejects_legacy_responses_parameters(caplog):
@@ -861,7 +920,6 @@ def test_extract_ai_rejects_unsupported_provider_and_protocol_conflicts():
         ("threads", 0, "threads"),
         ("retries", -1, "retries"),
         ("timeout", 0, "timeout"),
-        ("deadline", 0, "deadline"),
     ],
 )
 def test_extract_ai_validates_runtime_limits(setting, value, message):
@@ -881,6 +939,156 @@ def _requests_response(body, status_code=200, headers=None):
     response._content = json.dumps(body).encode("utf-8")
     response.encoding = "utf-8"
     return response
+
+
+def _successful_extraction_response(protocol="responses", length="25mm"):
+    output_text = json.dumps({"length": length})
+    if protocol == "responses":
+        body = {
+            "output": [{
+                "type": "message",
+                "content": [{"type": "output_text", "text": output_text}],
+            }]
+        }
+    else:
+        body = {
+            "choices": [{
+                "message": {
+                    "tool_calls": [{"function": {"arguments": output_text}}]
+                }
+            }]
+        }
+    return _requests_response(body)
+
+
+@pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
+def test_extract_ai_retries_transport_error_then_succeeds(monkeypatch, error_type):
+    calls = []
+    sleeps = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise error_type("Temporary transport failure")
+        return _requests_response({
+            "output": [{
+                "type": "message",
+                "content": [{"type": "output_text", "text": '{"length":"25mm"}'}],
+            }]
+        })
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", sleeps.append)
+    monkeypatch.setattr(extract._openai_responses._random, "uniform", lambda *args: 0)
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string"}},
+        threads=1,
+        retries=1,
+    )
+
+    assert result == {"length": "25mm"}
+    assert len(calls) == 2
+    assert sleeps == [1]
+
+
+@pytest.mark.parametrize("retries", [0, 1, 2])
+@pytest.mark.parametrize("error_type, expected_error", [
+    (requests.exceptions.Timeout, "Timed Out"),
+    (requests.exceptions.ConnectionError, "Connection failed on attempt {attempt}"),
+])
+def test_extract_ai_transport_error_exhausts_retries(monkeypatch, error_type, expected_error, retries):
+    calls = []
+    sleeps = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        raise error_type(f"Connection failed on attempt {len(calls)}")
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", sleeps.append)
+    monkeypatch.setattr(extract._openai_responses._random, "uniform", lambda *args: 0)
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string"}},
+        threads=1,
+        retries=retries,
+    )
+
+    assert result == {"length": expected_error.format(attempt=retries + 1)}
+    assert len(calls) == retries + 1
+    assert sleeps == [1, 2][:retries]
+
+
+@pytest.mark.parametrize("error_type", [requests.exceptions.Timeout, requests.exceptions.ConnectionError])
+def test_extract_ai_transport_retries_keep_full_timeout(monkeypatch, error_type):
+    calls = []
+    sleeps = []
+    now = [0.0]
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        if len(calls) <= 2:
+            now[0] += kwargs["timeout"]
+            raise error_type("Temporary transport failure")
+        return _successful_extraction_response()
+
+    def sleep(delay):
+        sleeps.append(delay)
+        now[0] += delay
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", sleep)
+    monkeypatch.setattr(extract._openai_responses._random, "uniform", lambda *args: 0)
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string"}},
+        threads=1,
+        timeout=12,
+        retries=2,
+        cache=False,
+    )
+
+    assert result == {"length": "25mm"}
+    assert [call["timeout"] for call in calls] == [12, 12, 12]
+    assert sleeps == [1, 2]
+    assert now[0] == 27
+
+
+@pytest.mark.parametrize("status_code", [400, 401, 403])
+def test_extract_ai_does_not_retry_permanent_http_error(monkeypatch, status_code):
+    calls = []
+    sleeps = []
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        return _requests_response(
+            {"error": {"message": "Request rejected"}},
+            status_code=status_code,
+        )
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", sleeps.append)
+
+    result = extract.ai(
+        "wrench 25mm",
+        "key",
+        output={"length": {"type": "string"}},
+        threads=1,
+        retries=2,
+    )
+
+    assert f"status={status_code}" in result["length"]
+    assert "message=Request rejected" in result["length"]
+    assert len(calls) == 1
+    assert sleeps == []
 
 
 def test_extract_ai_retries_real_falsey_requests_response(monkeypatch):
@@ -923,32 +1131,76 @@ def test_extract_ai_retries_real_falsey_requests_response(monkeypatch):
     assert responses == []
 
 
-def test_extract_ai_does_not_retry_past_total_deadline(monkeypatch):
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+def test_extract_ai_retries_after_long_rate_limit_wait(monkeypatch, protocol):
     calls = []
-    rate_limit = _requests_response(
-        {"error": {"message": "Rate limit reached", "type": "requests"}},
-        status_code=429,
-        headers={"retry-after": "3"},
-    )
+    sleeps = []
+    now = [0.0]
 
     def post(**kwargs):
         calls.append(kwargs)
-        return rate_limit
+        if len(calls) == 1:
+            return _requests_response(
+                {"error": {"message": "Rate limit reached", "type": "requests"}},
+                status_code=429,
+                headers={"retry-after": "20"},
+            )
+        return _successful_extraction_response(protocol)
+
+    def sleep(delay):
+        sleeps.append(delay)
+        now[0] += delay
 
     monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(extract._openai_responses._time, "sleep", sleep)
 
     result = extract.ai(
         "wrench 25mm",
         "key",
         output={"length": {"type": "string"}},
+        protocol=protocol,
         threads=1,
-        retries=2,
-        deadline=1,
+        timeout=12,
+        retries=1,
     )
 
-    assert result == {"length": "Deadline Exceeded"}
-    assert len(calls) == 1
-    assert calls[0]["timeout"] <= 1
+    assert result == {"length": "25mm"}
+    assert [call["timeout"] for call in calls] == [12, 12]
+    assert sleeps == [20]
+    assert now[0] == 20
+
+
+@pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
+@pytest.mark.parametrize("cache", [True, False])
+def test_extract_ai_processes_queued_rows_after_long_batch_runtime(monkeypatch, protocol, cache):
+    calls = []
+    started_at = []
+    now = [0.0]
+
+    def post(**kwargs):
+        calls.append(kwargs)
+        started_at.append(now[0])
+        now[0] += 6
+        return _successful_extraction_response(protocol, length=str(len(calls)))
+
+    monkeypatch.setattr(extract._openai_responses._requests, "post", post)
+    monkeypatch.setattr(extract._openai_responses._time, "monotonic", lambda: now[0])
+
+    result = extract.ai(
+        ["first", "second", "third", "fourth"],
+        "key",
+        output={"length": {"type": "string"}},
+        protocol=protocol,
+        threads=1,
+        timeout=12,
+        cache=cache,
+    )
+
+    assert result == [{"length": str(row)} for row in range(1, 5)]
+    assert [call["timeout"] for call in calls] == [12, 12, 12, 12]
+    assert started_at == [0, 6, 12, 18]
+    assert now[0] == 24
 
 
 def test_legacy_chat_transport_retries_real_falsey_response(monkeypatch):

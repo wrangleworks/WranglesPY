@@ -12,15 +12,25 @@ versioned replacement YAML file to override the complete configuration.
 - Provider: `openai`
 - Protocol: `responses`
 - Model: `gpt-5.4-mini`
-- Concurrency: 32
-- Per-request timeout: 12 seconds
-- Total call deadline: 15 seconds
-- Retries: 1, bounded by the total deadline
+- Default worker concurrency (`default_concurrency`): 32 per `extract.ai` call
+- Network timeout per HTTP attempt: 12 seconds
+- Retries: 1 additional attempt per row after a retryable failure
 - Reasoning effort: `none`
 - Response storage: disabled
 
 Recipes and Python calls can override these settings individually. Saved XL
 models and recipe outputs are compiled through the same definition compiler.
+
+When `threads` is omitted, the call uses `extract_ai.default_concurrency`.
+An explicit `threads` value can raise or lower concurrency for that call.
+Custom `WRANGLES_AI_CONFIG` files should use `extract_ai.default_concurrency`.
+
+Each retry receives the full configured timeout. Queued rows and retry delays
+do not consume that timeout, so a complete batch can take much longer than one
+request. Long-running Python and GitHub jobs can process rows in successive
+waves; WranglesXL batches must still fit within XL's approximately 20-second
+request window. See [`extract_ai/README.md`](extract_ai/README.md) for timing
+and batch-size guidance.
 
 ## Instructions
 

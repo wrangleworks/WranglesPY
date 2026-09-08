@@ -4,7 +4,6 @@ Functions to extract information from unstructured text.
 import re as _re
 import logging as _logging
 from typing import Union as _Union
-import time as _time
 from . import config as _config
 from . import data as _data
 from . import batching as _batching
@@ -38,7 +37,6 @@ def _validate_ai_runtime_settings(
     threads: int,
     timeout: float,
     retries: int,
-    deadline: float,
 ) -> None:
     if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
         raise ValueError("threads must be a positive integer.")
@@ -46,16 +44,13 @@ def _validate_ai_runtime_settings(
         raise ValueError("retries must be a non-negative integer.")
     if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
         raise ValueError("timeout must be a positive number of seconds.")
-    if not isinstance(deadline, (int, float)) or isinstance(deadline, bool) or deadline <= 0:
-        raise ValueError("deadline must be a positive number of seconds.")
 
 
 def _cacheable_ai_result(result) -> bool:
-    """Do not retain transport, validation, or deadline failures."""
+    """Do not retain transport or validation failures."""
     if not isinstance(result, dict) or not result:
         return False
     error_prefixes = (
-        "deadline exceeded",
         "failed",
         "invalid structured response",
         "openai api error",
@@ -145,7 +140,6 @@ def ai(
     verbosity: str = None,
     provider: str = None,
     protocol: str = None,
-    deadline: float = None,
     store: bool = None,
     cache: bool = None,
     cache_ttl: float = None,
@@ -189,7 +183,6 @@ def ai(
         for models that support low verbosity.
     :param provider: (Optional) AI provider. Currently only "openai" is supported.
     :param protocol: (Optional) API protocol: "responses" or legacy "chat_completions".
-    :param deadline: (Optional) Total seconds allowed for this extract.ai call, including retries.
     :param store: (Optional) Whether OpenAI may store Responses. Defaults to False.
     :param cache: (Optional) Use the bounded warm-instance result cache. Defaults to True.
     :param cache_ttl: (Optional) Override the result-cache TTL in seconds for this call.
@@ -233,11 +226,10 @@ def ai(
     model = model or policy.get("model")
     if not isinstance(model, str) or not model.strip():
         raise ValueError("model must be a non-empty string.")
-    threads = threads if threads is not None else policy.get("max_concurrency", 20)
+    threads = threads if threads is not None else policy.get("default_concurrency", 32)
     timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
     retries = retries if retries is not None else policy.get("retries", 0)
     strict = strict if strict is not None else policy.get("strict", True)
-    deadline = deadline if deadline is not None else policy.get("total_deadline_seconds", 15)
     store = store if store is not None else policy.get("store", False)
     cache_policy = _ai_cache.resolve_policy(
         policy.get("cache", {}),
@@ -253,7 +245,7 @@ def ai(
         raise ValueError("verbosity must be 'low', 'medium', or 'high'.")
     if reasoning is not None and not isinstance(reasoning, dict):
         raise ValueError("reasoning must be an object such as {'effort': 'none'}.")
-    _validate_ai_runtime_settings(threads, timeout, retries, deadline)
+    _validate_ai_runtime_settings(threads, timeout, retries)
 
     if instructions not in (None, "") and messages not in (None, ""):
         raise ValueError("Use instructions or messages, not both.")
@@ -387,7 +379,6 @@ def ai(
             model,
             payload,
         )
-        deadline_at = _time.monotonic() + deadline
         static_request = {
             "url": url,
             "payload": payload,
@@ -411,12 +402,10 @@ def ai(
                 timeout,
                 retries,
                 list(output.keys()),
-                deadline_at,
             ),
             cacheable=_cacheable_ai_result,
             max_workers=threads,
             policy=cache_policy,
-            deadline_at=deadline_at,
         )
 
         if _needs_remap:
@@ -490,7 +479,6 @@ def ai(
     }
 
     _logging.info(f": Extracting data using AI model :: model_id :: {model_id}, thread_count :: {threads}")
-    deadline_at = _time.monotonic() + deadline
     static_request = {
         "url": url,
         "settings": settings,
@@ -513,12 +501,10 @@ def ai(
             url,
             timeout,
             retries,
-            deadline_at,
         ),
         cacheable=_cacheable_ai_result,
         max_workers=threads,
         policy=cache_policy,
-        deadline_at=deadline_at,
     )
 
     if _needs_remap:

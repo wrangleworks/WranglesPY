@@ -522,14 +522,14 @@ def ai(
         type: number
         exclusiveMinimum: 0
         description: >-
-          Maximum seconds for one HTTP attempt. The configured default is 12;
-          deadline can end the overall call sooner.
+          Network timeout in seconds for each HTTP attempt. The configured
+          default is 12. Each retry uses the same timeout.
       retries:
         type: integer
         minimum: 0
         description: >-
-          Number of additional attempts after a retryable failure. The configured
-          default is 1. Backoff and request timeouts remain bounded by deadline.
+          Number of additional attempts per row after a retryable failure. The
+          configured default is 1. Retry delays are separate from timeout.
       url:
         type: string
         description: |-
@@ -549,12 +549,6 @@ def ai(
         enum:
           - responses
           - chat_completions
-      deadline:
-        type: number
-        exclusiveMinimum: 0
-        description: >-
-          Total seconds allowed for the entire wrangle call, including queued
-          work, retries, and backoff. The configured default is 15.
       store:
         type: boolean
         description: Whether OpenAI may store Responses API results. Defaults to false.
