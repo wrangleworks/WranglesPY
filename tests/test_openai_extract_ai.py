@@ -846,6 +846,7 @@ def test_extract_ai_resolves_default_concurrency_and_thread_override(
     override.write_text(json.dumps({"version": 1, "extract_ai": policy}), encoding="utf-8")
 
     workers = []
+    calls = []
     original_executor = ai_cache._futures.ThreadPoolExecutor
 
     def executor(**kwargs):
@@ -857,7 +858,7 @@ def test_extract_ai_resolves_default_concurrency_and_thread_override(
     monkeypatch.setattr(
         extract._openai_responses._requests,
         "post",
-        lambda **kwargs: _successful_extraction_response(protocol),
+        lambda **kwargs: calls.append(kwargs) or _successful_extraction_response(protocol),
     )
     ai_config.clear_cache()
     try:
@@ -874,6 +875,8 @@ def test_extract_ai_resolves_default_concurrency_and_thread_override(
         ai_config.clear_cache()
 
     assert result == {"length": "25mm"}
+    if protocol == "responses":
+        assert calls[0]["json"]["store"] is True
     assert workers == [expected_workers]
 
 

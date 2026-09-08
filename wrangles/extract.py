@@ -230,7 +230,7 @@ def ai(
     timeout = timeout if timeout is not None else policy.get("request_timeout_seconds", 12)
     retries = retries if retries is not None else policy.get("retries", 0)
     strict = strict if strict is not None else policy.get("strict", True)
-    store = store if store is not None else policy.get("store", False)
+    store = store if store is not None else policy.get("store", True)
     cache_policy = _ai_cache.resolve_policy(
         policy.get("cache", {}),
         enabled=cache,
